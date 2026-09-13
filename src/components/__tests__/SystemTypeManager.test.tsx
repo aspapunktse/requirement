@@ -34,13 +34,13 @@ describe("SystemTypeManager", () => {
 
   it("lists existing System Types", async () => {
     render(<SystemTypeManager />);
-    expect(await screen.findByText("On-Premises Datacenter")).toBeInTheDocument();
+    expect(await screen.findByDisplayValue("On-Premises Datacenter")).toBeInTheDocument();
   });
 
   it("submits a new System Type via the create form", async () => {
     const user = userEvent.setup();
     render(<SystemTypeManager />);
-    await screen.findByText("On-Premises Datacenter");
+    await screen.findByDisplayValue("On-Premises Datacenter");
 
     await user.type(screen.getByLabelText("Name"), "Cloud IaaS/PaaS");
     await user.click(screen.getByRole("button", { name: "Create" }));
@@ -57,7 +57,7 @@ describe("SystemTypeManager", () => {
   it("saves an edited description", async () => {
     const user = userEvent.setup();
     render(<SystemTypeManager />);
-    await screen.findByText("On-Premises Datacenter");
+    await screen.findByDisplayValue("On-Premises Datacenter");
 
     const textarea = screen.getByLabelText("Description for On-Premises Datacenter");
     await user.clear(textarea);
@@ -69,7 +69,32 @@ describe("SystemTypeManager", () => {
         ([, init]) => init?.method === "PATCH",
       );
       expect(patchCall).toBeTruthy();
-      expect(JSON.parse(patchCall![1].body)).toEqual({ description: "Updated description" });
+      expect(JSON.parse(patchCall![1].body)).toEqual({
+        name: "On-Premises Datacenter",
+        description: "Updated description",
+      });
+    });
+  });
+
+  it("saves an edited name", async () => {
+    const user = userEvent.setup();
+    render(<SystemTypeManager />);
+    await screen.findByDisplayValue("On-Premises Datacenter");
+
+    const nameInput = screen.getByLabelText("Name for On-Premises Datacenter");
+    await user.clear(nameInput);
+    await user.type(nameInput, "Renamed Type");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => {
+      const patchCall = (fetch as ReturnType<typeof vi.fn>).mock.calls.find(
+        ([, init]) => init?.method === "PATCH",
+      );
+      expect(patchCall).toBeTruthy();
+      expect(JSON.parse(patchCall![1].body)).toEqual({
+        name: "Renamed Type",
+        description: "Our own DC",
+      });
     });
   });
 });

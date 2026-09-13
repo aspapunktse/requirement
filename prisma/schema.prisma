@@ -88,6 +88,18 @@ model SystemType {
   createdAt   DateTime @default(now())
 }
 
+// An admin-curated, centrally-provided dependency (e.g. Active Directory,
+// a central IAM/SSO platform, a central KMS) a System can declare it
+// consumes. Standalone catalog concept — not a reference to any actual
+// onboarded System, even if the same real-world thing is also tracked
+// as a System elsewhere.
+model Capability {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+}
+
 enum RequirementApplicability {
   ORGANIZATIONAL
   PER_SYSTEM
