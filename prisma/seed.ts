@@ -3,15 +3,23 @@ import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 
 async function main() {
-  const owner = await prisma.user.upsert({
-    where: { email: "owner@example.com" },
-    update: {},
-    create: {
-      email: "owner@example.com",
-      name: "Default System Owner",
-      role: "SYSTEM_OWNER",
-    },
-  });
+  const users = [
+    { email: "admin@example.com", name: "Default Admin", role: "ADMIN" as const },
+    { email: "owner@example.com", name: "Default System Owner", role: "SYSTEM_OWNER" as const },
+    { email: "risk-owner@example.com", name: "Default Risk Owner", role: "RISK_OWNER" as const },
+    { email: "reviewer@example.com", name: "Default Reviewer", role: "REVIEWER" as const },
+    { email: "viewer@example.com", name: "Default Viewer", role: "VIEWER" as const },
+  ];
+
+  for (const user of users) {
+    await prisma.user.upsert({
+      where: { email: user.email },
+      update: {},
+      create: user,
+    });
+  }
+
+  const owner = await prisma.user.findUniqueOrThrow({ where: { email: "owner@example.com" } });
 
   const requirements = [
     {

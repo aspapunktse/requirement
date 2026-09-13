@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { RoleSwitcher } from "@/components/RoleSwitcher";
+import { isDevAuthStubEnabled } from "@/lib/acting-user";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -23,7 +25,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        {isDevAuthStubEnabled() && (
+          <header className="flex justify-end border-b border-zinc-200 px-6 py-3 text-sm dark:border-zinc-800">
+            <RoleSwitcher />
+          </header>
+        )}
+        {children}
+      </body>
     </html>
   );
 }
