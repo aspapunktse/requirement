@@ -8,8 +8,8 @@ Internal webapp for tracking requirement fulfillment and risk assessment when on
 
 What exists:
 - Next.js/Prisma/Postgres scaffold, CI/CD, Docker — all verified working (see Stack/CI-CD below)
-- The domain model is settled — see [`CONTEXT.md`](CONTEXT.md) for the glossary (`System`, `Requirement`, `Requirement Assessment`, `Risk`, `Approval`, the Onboarding Lifecycle) and [`docs/adr/`](docs/adr/) for architectural decisions
-- The feature backlog is broken into 7 GitHub issues, in dependency order, each a vertical slice (schema + API + UI + tests): see [open issues](https://github.com/aspapunktse/requirement/issues), labeled `ready-for-agent`. Issue #1 (dev-only auth stub) has no blockers and is the place to start.
+- The domain model is settled — see [`CONTEXT.md`](CONTEXT.md) for the glossary (`System`, `System Type`, `Capability`, `Requirement`, `Requirement Assessment`, `Risk`, `Approval`, the Onboarding Lifecycle) and [`docs/adr/`](docs/adr/) for architectural decisions
+- The feature backlog is broken into 16 GitHub issues, in dependency order, each a vertical slice (schema + API + UI + tests): see [open issues](https://github.com/aspapunktse/requirement/issues), labeled `ready-for-agent`. Issue #1 (dev-only auth stub) has no blockers and is the place to start. [Issue #8](https://github.com/aspapunktse/requirement/issues/8) is the spec behind issues #9–#16 (ISO 27001 Annex A Requirement Catalog, System Types, and Capabilities) — not itself a ticket to implement.
 
 What's *not* decided yet (deliberately deferred, not overlooked):
 - Real authentication (SSO/OIDC) — issue #1 stubs a role switcher instead
