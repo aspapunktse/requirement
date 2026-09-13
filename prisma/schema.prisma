@@ -1,0 +1,139 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum OnboardingStatus {
+  DRAFT
+  IN_REVIEW
+  APPROVED
+  REJECTED
+  ONBOARDED
+}
+
+enum RequirementStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  FULFILLED
+  NOT_APPLICABLE
+  WAIVED
+}
+
+enum RiskSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum RiskStatus {
+  OPEN
+  MITIGATED
+  ACCEPTED
+  TRANSFERRED
+  CLOSED
+}
+
+enum UserRole {
+  ADMIN
+  RISK_OWNER
+  SYSTEM_OWNER
+  REVIEWER
+  VIEWER
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  name          String
+  role          UserRole @default(VIEWER)
+  createdAt     DateTime @default(now())
+
+  ownedSystems      System[]              @relation("SystemOwner")
+  assessments       RequirementAssessment[] @relation("AssessedBy")
+  riskActions       Risk[]                @relation("RiskOwner")
+  approvals         Approval[]
+}
+
+// A system or cloud solution being onboarded into the enterprise.
+model System {
+  id              String            @id @default(cuid())
+  name            String
+  vendor          String?
+  description     String?
+  status          OnboardingStatus  @default(DRAFT)
+  dataClassification String?        // e.g. Public, Internal, Confidential, Restricted
+  ownerId         String
+  owner           User              @relation("SystemOwner", fields: [ownerId], references: [id])
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  assessments     RequirementAssessment[]
+  risks           Risk[]
+  approvals       Approval[]
+}
+
+// A reusable requirement definition (security, legal, compliance, operational, etc.)
+model Requirement {
+  id            String   @id @default(cuid())
+  code          String   @unique // e.g. SEC-001
+  title         String
+  description   String
+  category      String   // e.g. Security, Privacy, Legal, Operational
+  framework     String?  // e.g. ISO27001, NIST-CSF, internal policy ref
+  mandatory     Boolean  @default(true)
+  createdAt     DateTime @default(now())
+
+  assessments   RequirementAssessment[]
+}
+
+// Fulfillment status of a Requirement for a specific System.
+model RequirementAssessment {
+  id             String             @id @default(cuid())
+  systemId       String
+  system         System             @relation(fields: [systemId], references: [id], onDelete: Cascade)
+  requirementId  String
+  requirement    Requirement        @relation(fields: [requirementId], references: [id])
+  status         RequirementStatus  @default(NOT_STARTED)
+  evidence       String?            // link or note to supporting evidence
+  notes          String?
+  assessedById   String?
+  assessedBy     User?              @relation("AssessedBy", fields: [assessedById], references: [id])
+  assessedAt     DateTime?
+  updatedAt      DateTime           @updatedAt
+
+  @@unique([systemId, requirementId])
+}
+
+// A risk identified during onboarding of a System.
+model Risk {
+  id            String       @id @default(cuid())
+  systemId      String
+  system        System       @relation(fields: [systemId], references: [id], onDelete: Cascade)
+  title         String
+  description   String
+  severity      RiskSeverity
+  likelihood    RiskSeverity
+  status        RiskStatus   @default(OPEN)
+  mitigationPlan String?
+  ownerId       String?
+  owner         User?        @relation("RiskOwner", fields: [ownerId], references: [id])
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+}
+
+// Formal sign-off record on a System's onboarding.
+model Approval {
+  id          String   @id @default(cuid())
+  systemId    String
+  system      System   @relation(fields: [systemId], references: [id], onDelete: Cascade)
+  approverId  String
+  approver    User     @relation(fields: [approverId], references: [id])
+  decision    OnboardingStatus
+  comment     String?
+  decidedAt   DateTime @default(now())
+}
