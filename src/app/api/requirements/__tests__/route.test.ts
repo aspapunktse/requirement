@@ -1,7 +1,12 @@
+import { NextRequest } from "next/server";
 import type { Prisma } from "@prisma/client";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
+import { ACTING_USER_COOKIE } from "@/lib/acting-user";
 import { GET } from "../route";
+
+const URL = "http://localhost/api/requirements";
+const VIEWER_EMAIL = "test-requirements-list-viewer@example.com";
 
 function testRequirement(
   overrides: Partial<Prisma.RequirementCreateInput> & { code: string },
@@ -20,11 +25,25 @@ function testRequirement(
   };
 }
 
+function requestAs(userId: string | null) {
+  const headers = new Headers();
+  if (userId) headers.set("cookie", `${ACTING_USER_COOKIE}=${userId}`);
+  return new NextRequest(URL, { headers });
+}
+
 describe("GET /api/requirements", () => {
   const orgCode = "TEST-ORG-001";
   const perSystemCode = "TEST-SYS-001";
+  let viewerId: string;
 
   beforeAll(async () => {
+    const viewer = await prisma.user.upsert({
+      where: { email: VIEWER_EMAIL },
+      update: {},
+      create: { email: VIEWER_EMAIL, name: "Requirements List Viewer", role: "VIEWER" },
+    });
+    viewerId = viewer.id;
+
     const org = testRequirement({
       code: orgCode,
       applicability: "ORGANIZATIONAL",
@@ -47,10 +66,16 @@ describe("GET /api/requirements", () => {
 
   afterAll(async () => {
     await prisma.requirement.deleteMany({ where: { code: { in: [orgCode, perSystemCode] } } });
+    await prisma.user.deleteMany({ where: { email: VIEWER_EMAIL } });
+  });
+
+  it("rejects an unauthenticated request", async () => {
+    const response = await GET(requestAs(null));
+    expect(response.status).toBe(401);
   });
 
   it("returns an ORGANIZATIONAL requirement with no question/intent/examples", async () => {
-    const response = await GET();
+    const response = await GET(requestAs(viewerId));
     const body = await response.json();
 
     const org = body.requirements.find((r: { code: string }) => r.code === orgCode);
@@ -60,11 +85,13 @@ describe("GET /api/requirements", () => {
       question: null,
       intent: null,
       examples: [],
+      systemTypes: [],
+      capabilities: [],
     });
   });
 
   it("returns a PER_SYSTEM/BOTH requirement with its question, intent, and examples", async () => {
-    const response = await GET();
+    const response = await GET(requestAs(viewerId));
     const body = await response.json();
 
     const perSystem = body.requirements.find((r: { code: string }) => r.code === perSystemCode);

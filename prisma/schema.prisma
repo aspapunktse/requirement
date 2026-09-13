@@ -82,10 +82,14 @@ model System {
 // Requirements apply to it. See ADR 0002 for why this is single-select
 // per System rather than a combination of types.
 model SystemType {
-  id          String   @id @default(cuid())
-  name        String   @unique
-  description String?
-  createdAt   DateTime @default(now())
+  id           String        @id @default(cuid())
+  name         String        @unique
+  description  String?
+  createdAt    DateTime      @default(now())
+
+  // Requirements scoped to this System Type. A Requirement with no rows
+  // here at all applies to every System Type (see Requirement.systemTypes).
+  requirements Requirement[]
 }
 
 // An admin-curated, centrally-provided dependency (e.g. Active Directory,
@@ -94,10 +98,13 @@ model SystemType {
 // onboarded System, even if the same real-world thing is also tracked
 // as a System elsewhere.
 model Capability {
-  id          String   @id @default(cuid())
-  name        String   @unique
-  description String?
-  createdAt   DateTime @default(now())
+  id           String        @id @default(cuid())
+  name         String        @unique
+  description  String?
+  createdAt    DateTime      @default(now())
+
+  // Requirements this Capability auto-fulfills when a System declares it.
+  requirements Requirement[]
 }
 
 enum RequirementApplicability {
@@ -122,6 +129,14 @@ model Requirement {
   createdAt     DateTime                 @default(now())
 
   assessments   RequirementAssessment[]
+
+  // System Types this Requirement is scoped to. Empty means "applies to
+  // every System Type" (how the Annex A seed ships). Must stay empty for
+  // ORGANIZATIONAL requirements, which are never assessed per System.
+  systemTypes   SystemType[]
+  // Capabilities that, if a System declares one, auto-fulfill this
+  // Requirement. May be empty, one, or several (any one suffices).
+  capabilities  Capability[]
 }
 
 // Fulfillment status of a Requirement for a specific System.
