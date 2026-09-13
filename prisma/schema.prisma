@@ -77,6 +77,17 @@ model System {
   approvals       Approval[]
 }
 
+// An admin-curated classification a System is assigned (e.g. On-Premises
+// Datacenter, Cloud IaaS/PaaS, SaaS, Hybrid) that determines which
+// Requirements apply to it. See ADR 0002 for why this is single-select
+// per System rather than a combination of types.
+model SystemType {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+}
+
 enum RequirementApplicability {
   ORGANIZATIONAL
   PER_SYSTEM
