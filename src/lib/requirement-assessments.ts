@@ -1,6 +1,38 @@
+import type { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 const APPLICABLE_APPLICABILITIES = ["PER_SYSTEM", "BOTH"] as const;
+
+/** Only these roles may set a Requirement Assessment to Waived or Not Applicable. */
+export const ROLES_ALLOWED_TO_WAIVE: UserRole[] = ["ADMIN", "RISK_OWNER"];
+
+export type WaiveGateResult = { ok: true } | { ok: false; status: 403 | 400; error: string };
+
+/**
+ * The shared gate on setting a Requirement Assessment to Waived or Not
+ * Applicable, used both for direct manual status edits and for answering
+ * "N/A" to a Requirement's Self-Assessment Question: restricted to
+ * ADMIN/RISK_OWNER, and requiring a non-empty justification note when the
+ * Requirement is mandatory — server-enforced so a SYSTEM_OWNER can't waive
+ * or N/A their own System's mandatory Requirement through either path.
+ */
+export function checkWaiveGate(
+  user: { role: UserRole },
+  requirement: { mandatory: boolean },
+  notes: string | null | undefined,
+): WaiveGateResult {
+  if (!ROLES_ALLOWED_TO_WAIVE.includes(user.role)) {
+    return { ok: false, status: 403, error: `Requires role: ${ROLES_ALLOWED_TO_WAIVE.join(", ")}` };
+  }
+  if (requirement.mandatory && !notes?.trim()) {
+    return {
+      ok: false,
+      status: 400,
+      error: "A justification note is required to waive or mark a mandatory Requirement Not Applicable",
+    };
+  }
+  return { ok: true };
+}
 
 /**
  * Requirements that apply to a System of the given SystemType: scoped

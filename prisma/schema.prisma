@@ -23,6 +23,15 @@ enum RequirementStatus {
   WAIVED
 }
 
+// The System Owner's answer to a Requirement's Self-Assessment Question —
+// recorded alongside RequirementStatus, not a replacement for it. Yes/No/NA
+// map to Fulfilled/left-open-plus-Risk/Not Applicable respectively.
+enum SelfAssessmentAnswer {
+  YES
+  NO
+  NA
+}
+
 enum RiskSeverity {
   LOW
   MEDIUM
@@ -152,10 +161,18 @@ model RequirementAssessment {
   status         RequirementStatus  @default(NOT_STARTED)
   evidence       String?            // link or note to supporting evidence
   notes          String?
+  // The System Owner's Yes/No/N/A answer to the Requirement's Self-
+  // Assessment Question, if it's been answered. Distinct from `status`:
+  // both are shown, and manual status edits don't touch this field.
+  selfAssessmentAnswer SelfAssessmentAnswer?
   assessedById   String?
   assessedBy     User?              @relation("AssessedBy", fields: [assessedById], references: [id])
   assessedAt     DateTime?
   updatedAt      DateTime           @updatedAt
+
+  // Risks auto-opened by answering "No" to this Requirement's Self-
+  // Assessment Question.
+  originatedRisks Risk[]
 
   @@unique([systemId, requirementId])
 }
@@ -175,6 +192,11 @@ model Risk {
   owner         User?        @relation("RiskOwner", fields: [ownerId], references: [id])
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
+
+  // Set when this Risk was auto-opened by a "No" answer to a Requirement's
+  // Self-Assessment Question, rather than logged ad-hoc. Null for ad-hoc Risks.
+  requirementAssessmentId String?
+  requirementAssessment   RequirementAssessment? @relation(fields: [requirementAssessmentId], references: [id])
 }
 
 // Formal sign-off record on a System's onboarding.

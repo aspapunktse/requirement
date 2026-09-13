@@ -3,11 +3,9 @@ import { z } from "zod";
 import { RequirementStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { authenticate } from "@/lib/api-authz";
-import { ForbiddenError, requireRole } from "@/lib/authz";
 import { getVisibleSystem } from "@/lib/system-visibility";
-import { getApplicableRequirement } from "@/lib/requirement-assessments";
+import { checkWaiveGate, getApplicableRequirement } from "@/lib/requirement-assessments";
 
-const ROLES_ALLOWED_TO_WAIVE = ["ADMIN", "RISK_OWNER"] as const;
 const STATUSES_REQUIRING_WAIVE_ROLE: RequirementStatus[] = ["WAIVED", "NOT_APPLICABLE"];
 
 const updateAssessmentSchema = z.object({
@@ -41,20 +39,9 @@ export async function PATCH(
   }
 
   if (STATUSES_REQUIRING_WAIVE_ROLE.includes(status)) {
-    try {
-      requireRole(auth.user, [...ROLES_ALLOWED_TO_WAIVE]);
-    } catch (error) {
-      if (error instanceof ForbiddenError) {
-        return NextResponse.json({ error: error.message }, { status: 403 });
-      }
-      throw error;
-    }
-
-    if (requirement.mandatory && !notes?.trim()) {
-      return NextResponse.json(
-        { error: "A justification note is required to waive or mark a mandatory Requirement Not Applicable" },
-        { status: 400 },
-      );
+    const gate = checkWaiveGate(auth.user, requirement, notes);
+    if (!gate.ok) {
+      return NextResponse.json({ error: gate.error }, { status: gate.status });
     }
   }
 
