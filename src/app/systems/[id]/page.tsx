@@ -1,7 +1,9 @@
 import { getActingUser } from "@/lib/acting-user";
 import { getVisibleSystem } from "@/lib/system-visibility";
+import { canLogRisk, ROLES_ALLOWED_TO_MANAGE_RISK_STATUS } from "@/lib/risks";
 import { RequirementAssessmentList } from "@/components/RequirementAssessmentList";
 import { SubmitForReviewButton } from "@/components/SubmitForReviewButton";
+import { RiskList } from "@/components/RiskList";
 
 export default async function SystemDetailPage({ params }: PageProps<"/systems/[id]">) {
   const { id } = await params;
@@ -49,6 +51,13 @@ export default async function SystemDetailPage({ params }: PageProps<"/systems/[
 
       <h2 className="mb-3 mt-8 text-lg font-semibold">Requirements</h2>
       <RequirementAssessmentList systemId={system.id} userRole={user.role} />
+
+      <h2 className="mb-3 mt-8 text-lg font-semibold">Risks</h2>
+      <RiskList
+        systemId={system.id}
+        canLog={canLogRisk(user, system)}
+        canManageStatus={ROLES_ALLOWED_TO_MANAGE_RISK_STATUS.includes(user.role)}
+      />
     </div>
   );
 }
