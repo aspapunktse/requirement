@@ -53,3 +53,35 @@ export function getApplicableRequirement(system: { systemTypeId: string }, requi
     },
   });
 }
+
+/**
+ * The mandatory Requirements applicable to `system` that haven't been
+ * addressed yet — no RequirementAssessment row at all, or one still sitting
+ * at NOT_STARTED. This is the gate for submitting a System for review: it
+ * only cares that each has been touched, not that it's Fulfilled.
+ */
+export async function getUnaddressedMandatoryRequirements(system: {
+  id: string;
+  systemTypeId: string;
+}) {
+  const mandatoryRequirements = await prisma.requirement.findMany({
+    where: {
+      mandatory: true,
+      applicability: { in: [...APPLICABLE_APPLICABILITIES] },
+      OR: [{ systemTypes: { none: {} } }, { systemTypes: { some: { id: system.systemTypeId } } }],
+    },
+  });
+  if (mandatoryRequirements.length === 0) return [];
+
+  const addressedAssessments = await prisma.requirementAssessment.findMany({
+    where: {
+      systemId: system.id,
+      requirementId: { in: mandatoryRequirements.map((r) => r.id) },
+      NOT: { status: "NOT_STARTED" },
+    },
+    select: { requirementId: true },
+  });
+  const addressedIds = new Set(addressedAssessments.map((a) => a.requirementId));
+
+  return mandatoryRequirements.filter((requirement) => !addressedIds.has(requirement.id));
+}

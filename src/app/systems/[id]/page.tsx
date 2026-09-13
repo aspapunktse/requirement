@@ -1,6 +1,7 @@
 import { getActingUser } from "@/lib/acting-user";
 import { getVisibleSystem } from "@/lib/system-visibility";
 import { RequirementAssessmentList } from "@/components/RequirementAssessmentList";
+import { SubmitForReviewButton } from "@/components/SubmitForReviewButton";
 
 export default async function SystemDetailPage({ params }: PageProps<"/systems/[id]">) {
   const { id } = await params;
@@ -43,6 +44,8 @@ export default async function SystemDetailPage({ params }: PageProps<"/systems/[
           </div>
         )}
       </dl>
+
+      {system.status === "DRAFT" && <SubmitForReviewButton systemId={system.id} />}
 
       <h2 className="mb-3 mt-8 text-lg font-semibold">Requirements</h2>
       <RequirementAssessmentList systemId={system.id} userRole={user.role} />
