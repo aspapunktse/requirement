@@ -77,16 +77,26 @@ model System {
   approvals       Approval[]
 }
 
+enum RequirementApplicability {
+  ORGANIZATIONAL
+  PER_SYSTEM
+  BOTH
+}
+
 // A reusable requirement definition (security, legal, compliance, operational, etc.)
 model Requirement {
-  id            String   @id @default(cuid())
-  code          String   @unique // e.g. SEC-001
+  id            String                   @id @default(cuid())
+  code          String                   @unique // e.g. SEC-001
   title         String
   description   String
-  category      String   // e.g. Security, Privacy, Legal, Operational
-  framework     String?  // e.g. ISO27001, NIST-CSF, internal policy ref
-  mandatory     Boolean  @default(true)
-  createdAt     DateTime @default(now())
+  category      String                   // e.g. Security, Privacy, Legal, Operational
+  framework     String?                  // e.g. ISO27001, NIST-CSF, internal policy ref
+  mandatory     Boolean                  @default(true)
+  applicability RequirementApplicability
+  question      String?                  // self-assessment question; null for ORGANIZATIONAL-only requirements
+  intent        String?                  // why the question matters, shown alongside it
+  examples      String[]                 // example ways to satisfy the requirement
+  createdAt     DateTime                 @default(now())
 
   assessments   RequirementAssessment[]
 }

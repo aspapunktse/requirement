@@ -1,6 +1,16 @@
-import { PrismaClient } from "@prisma/client";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import path from "node:path";
+import { PrismaClient, type Requirement } from "@prisma/client";
 
 const prisma = new PrismaClient();
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+type SeedRequirement = Omit<Requirement, "id" | "createdAt">;
+
+// Placeholder requirements from before the ISO 27001 Annex A catalog was seeded.
+const OBSOLETE_PLACEHOLDER_CODES = ["SEC-001", "SEC-002", "PRIV-001", "OPS-001"];
 
 async function main() {
   const users = [
@@ -21,46 +31,22 @@ async function main() {
 
   const owner = await prisma.user.findUniqueOrThrow({ where: { email: "owner@example.com" } });
 
-  const requirements = [
-    {
-      code: "SEC-001",
-      title: "Data encrypted in transit and at rest",
-      description: "The vendor must support TLS 1.2+ in transit and encryption at rest for all customer data.",
-      category: "Security",
-      framework: "ISO27001 A.8.24",
-    },
-    {
-      code: "SEC-002",
-      title: "SSO / SAML integration available",
-      description: "The system must support enterprise SSO via SAML or OIDC.",
-      category: "Security",
-      framework: "Internal Policy",
-    },
-    {
-      code: "PRIV-001",
-      title: "Data Processing Agreement in place",
-      description: "A signed DPA covering data handling and sub-processors must be on file.",
-      category: "Privacy",
-      framework: "GDPR Art. 28",
-    },
-    {
-      code: "OPS-001",
-      title: "Vendor SLA meets uptime requirements",
-      description: "Vendor-committed uptime SLA must be 99.9% or higher.",
-      category: "Operational",
-      framework: "Internal Policy",
-    },
-  ];
+  await prisma.requirement.deleteMany({ where: { code: { in: OBSOLETE_PLACEHOLDER_CODES } } });
+
+  const requirementsPath = path.join(__dirname, "seed-data", "iso27001-annex-a.json");
+  const requirements: SeedRequirement[] = JSON.parse(readFileSync(requirementsPath, "utf-8"));
 
   for (const req of requirements) {
     await prisma.requirement.upsert({
       where: { code: req.code },
-      update: {},
+      update: req,
       create: req,
     });
   }
 
-  console.log("Seed complete. Default owner:", owner.email);
+  console.log(
+    `Seed complete. Default owner: ${owner.email}. Requirement catalog: ${requirements.length} controls.`,
+  );
 }
 
 main()

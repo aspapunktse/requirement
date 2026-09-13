@@ -1,0 +1,1443 @@
+[
+  {
+    "code": "A.5.1",
+    "title": "Policies for information security",
+    "description": "Define, approve, publish, and review IS policies",
+    "category": "A.5 Organizational",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "ORGANIZATIONAL",
+    "question": null,
+    "intent": null,
+    "examples": []
+  },
+  {
+    "code": "A.5.2",
+    "title": "Information security roles and responsibilities",
+    "description": "Assign and communicate IS roles across the organisation",
+    "category": "A.5 Organizational",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "ORGANIZATIONAL",
+    "question": null,
+    "intent": null,
+    "examples": []
+  },
+  {
+    "code": "A.5.3",
+    "title": "Segregation of duties",
+    "description": "Separate conflicting duties to reduce fraud and error risk",
+    "category": "A.5 Organizational",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "BOTH",
+    "question": "Is there any single person in your team who can make a change, approve it, and deploy it all by themselves — with no one else checking?",
+    "intent": "This is a check-and-balance control. The goal is to prevent any one person from being able to cause harm — intentionally or accidentally — without another set of eyes. Think of it like requiring two keys to open a safe.",
+    "examples": [
+      "Requiring a different person to approve a pull request than the one who wrote the code",
+      "Separating who can raise a payment from who can approve it in your finance workflow",
+      "Using a 4-eyes approval step in your deployment pipeline",
+      "Making sure the person who can create accounts isn't the same one who reviews the access log"
+    ]
+  },
+  {
+    "code": "A.5.4",
+    "title": "Management responsibilities",
+    "description": "Require managers to actively enforce IS policies",
+    "category": "A.5 Organizational",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "ORGANIZATIONAL",
+    "question": null,
+    "intent": null,
+    "examples": []
+  },
+  {
+    "code": "A.5.5",
+    "title": "Contact with authorities",
+    "description": "Maintain contacts with law enforcement and relevant regulators",
+    "category": "A.5 Organizational",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "ORGANIZATIONAL",
+    "question": null,
+    "intent": null,
+    "examples": []
+  },
+  {
+    "code": "A.5.6",
+    "title": "Contact with special interest groups",
+    "description": "Maintain contacts with security forums and professional bodies",
+    "category": "A.5 Organizational",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "ORGANIZATIONAL",
+    "question": null,
+    "intent": null,
+    "examples": []
+  },
+  {
+    "code": "A.5.7",
+    "title": "Threat intelligence",
+    "description": "Collect, analyse, and act on information about current IS threats",
+    "category": "A.5 Organizational",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "ORGANIZATIONAL",
+    "question": null,
+    "intent": null,
+    "examples": []
+  },
+  {
+    "code": "A.5.8",
+    "title": "Information security in project management",
+    "description": "Address IS requirements in all project management activities",
+    "category": "A.5 Organizational",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "ORGANIZATIONAL",
+    "question": null,
+    "intent": null,
+    "examples": []
+  },
+  {
+    "code": "A.5.9",
+    "title": "Inventory of information and other assets",
+    "description": "Identify all information assets and assign clear ownership",
+    "category": "A.5 Organizational",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "BOTH",
+    "question": "Could you quickly list every component of your service — servers, databases, APIs, third-party tools — and say who's responsible for each one?",
+    "intent": "You can't protect what you don't know you have. This is about keeping an accurate picture of everything that makes up your service — infrastructure, data stores, integrations, and the people accountable for them.",
+    "examples": [
+      "A CMDB or spreadsheet listing all VMs, containers, databases, and SaaS tools your service uses",
+      "Tags applied to all cloud resources with owner and service name",
+      "A network or architecture diagram that's kept up to date",
+      "A list of all third-party integrations and what data they handle"
+    ]
+  },
+  {
+    "code": "A.5.10",
+    "title": "Acceptable use of information and other assets",
+    "description": "Define rules for acceptable use of all information assets",
+    "category": "A.5 Organizational",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "ORGANIZATIONAL",
+    "question": null,
+    "intent": null,
+    "examples": []
+  },
+  {
+    "code": "A.5.11",
+    "title": "Return of assets",
+    "description": "Ensure assets are returned when employment ends or roles change",
+    "category": "A.5 Organizational",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "ORGANIZATIONAL",
+    "question": null,
+    "intent": null,
+    "examples": []
+  },
+  {
+    "code": "A.5.12",
+    "title": "Classification of information",
+    "description": "Classify information based on legal requirements, value, and sensitivity",
+    "category": "A.5 Organizational",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "ORGANIZATIONAL",
+    "question": null,
+    "intent": null,
+    "examples": []
+  },
+  {
+    "code": "A.5.13",
+    "title": "Labelling of information",
+    "description": "Apply labels to information according to the classification scheme",
+    "category": "A.5 Organizational",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "BOTH",
+    "question": "Does your system tag or mark the data it handles so people know how sensitive it is — for example in document headers, file names, or database fields?",
+    "intent": "Labels help people handle data correctly. Without them, a confidential document might get forwarded to the wrong distribution list simply because nobody knew it was sensitive. Labelling is the link between the classification policy and how data actually gets treated day to day.",
+    "examples": [
+      "Document templates with classification headers and footers (e.g. \"INTERNAL USE ONLY\")",
+      "Metadata fields populated when creating records in your CMS or data platform",
+      "Automated sensitivity labels in Microsoft 365 Purview or Google Workspace",
+      "Database columns flagged as containing PII in your schema documentation"
+    ]
+  },
+  {
+    "code": "A.5.14",
+    "title": "Information transfer",
+    "description": "Define rules and controls for transferring information between parties",
+    "category": "A.5 Organizational",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "BOTH",
+    "question": "When data leaves your service — through an API, a file export, or an email — is it encrypted and heading only to places it's supposed to go?",
+    "intent": "Data in transit is vulnerable. Every time data moves — between systems, to a third party, or into a partner's hands — there's a risk it's intercepted or ends up somewhere unintended. This control is about making transfer channels secure and intentional.",
+    "examples": [
+      "Enforcing TLS on all API endpoints (no plain HTTP)",
+      "Using SFTP or secure file transfer instead of FTP for batch transfers",
+      "Requiring that data shared with partners goes through an approved integration, not a personal email attachment",
+      "API gateway policies that reject requests from unlisted consumer systems"
+    ]
+  },
+  {
+    "code": "A.5.15",
+    "title": "Access control",
+    "description": "Define and implement access control rules based on business and security needs",
+    "category": "A.5 Organizational",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "BOTH",
+    "question": "Does each person — and each connected system — only have access to the parts of your service they actually need for their job?",
+    "intent": "Limiting who can see or do what in your system reduces the blast radius when credentials are stolen or someone acts in bad faith. The fewer things an account can do, the less damage it can cause.",
+    "examples": [
+      "RBAC with clearly defined roles (viewer, editor, admin) and no catch-all \"super user\" role",
+      "Separate service accounts for each integration with only the permissions that integration needs",
+      "Access controlled by team membership in your identity provider",
+      "Regular review where managers confirm who in their team still needs what access"
+    ]
+  },
+  {
+    "code": "A.5.16",
+    "title": "Identity management",
+    "description": "Manage the full lifecycle of all identities (create, update, disable, delete)",
+    "category": "A.5 Organizational",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "BOTH",
+    "question": "Do you have a clear process for giving someone access when they join, updating it when they change roles, and removing it promptly when they leave?",
+    "intent": "Orphaned accounts — especially admin ones belonging to people who have left — are one of the most common and avoidable security risks. This is about keeping your user directory accurate and current.",
+    "examples": [
+      "Automated provisioning and deprovisioning tied to your HR system",
+      "SSO so there's one place to disable all access when someone leaves",
+      "Quarterly access reviews where managers confirm their team's access is still correct",
+      "Service accounts tied to a team or system, not an individual"
+    ]
+  },
+  {
+    "code": "A.5.17",
+    "title": "Authentication information",
+    "description": "Control how authentication credentials are allocated, managed, and used",
+    "category": "A.5 Organizational",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "BOTH",
+    "question": "Are all accounts in your system protected with strong authentication — and do you have a clear process for what happens when a credential is shared, reset, or compromised?",
+    "intent": "Weak or shared passwords remain one of the most common ways services get breached. This control is about making sure credentials are strong, private, and handled securely — not emailed around, written on whiteboards, or reused across services.",
+    "examples": [
+      "MFA enforced for all users, especially admins",
+      "No shared service accounts — every person has a named account",
+      "Service accounts using managed identities or certificates rather than static passwords",
+      "An automated alert when there are multiple failed login attempts on the same account",
+      "A clear process for rotating credentials when someone with access leaves the team"
+    ]
+  },
+  {
+    "code": "A.5.18",
+    "title": "Access rights",
+    "description": "Provision, review, modify, and remove access rights throughout their lifecycle",
+    "category": "A.5 Organizational",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "BOTH",
+    "question": "When someone moves to a different team or leaves the organisation, how quickly do their access rights get updated — and is there someone who checks that this actually happened?",
+    "intent": "Access that's never removed accumulates over time. People end up with permissions from three previous roles and nobody notices. This control is about making the lifecycle of access rights explicit — not just granting access but also taking it back.",
+    "examples": [
+      "A Joiner/Mover/Leaver workflow integrated with HR triggers",
+      "Automated revocation when an HR termination record is created",
+      "Access recertification campaign every 6 months where managers approve or revoke",
+      "Timestamped records of when access was granted and removed"
+    ]
+  },
+  {
+    "code": "A.5.19",
+    "title": "Information security in supplier relationships",
+    "description": "Define IS requirements for all supplier and third-party relationships",
+    "category": "A.5 Organizational",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "ORGANIZATIONAL",
+    "question": null,
+    "intent": null,
+    "examples": []
+  },
+  {
+    "code": "A.5.20",
+    "title": "Addressing IS within supplier agreements",
+    "description": "Include IS requirements in all supplier contracts",
+    "category": "A.5 Organizational",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "ORGANIZATIONAL",
+    "question": null,
+    "intent": null,
+    "examples": []
+  },
+  {
+    "code": "A.5.21",
+    "title": "Managing IS in the ICT supply chain",
+    "description": "Monitor and manage IS risks in the ICT supply chain",
+    "category": "A.5 Organizational",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "BOTH",
+    "question": "Do you know which third-party tools, open-source libraries, or cloud services your system depends on — and have you checked whether they're actually trustworthy?",
+    "intent": "Your service is only as secure as its weakest dependency. When a component you rely on is compromised — like the Log4Shell vulnerability — you need to know you're affected and be able to act fast. Most teams have far more dependencies than they realise.",
+    "examples": [
+      "A Software Bill of Materials (SBOM) listing all third-party components",
+      "Automated dependency scanning via tools like Dependabot, Snyk, or OWASP Dependency-Check",
+      "A documented list of third-party SaaS tools your service relies on, with DPAs in place",
+      "A process for monitoring security advisories for your key dependencies"
+    ]
+  },
+  {
+    "code": "A.5.22",
+    "title": "Monitoring and review of supplier services",
+    "description": "Regularly review and audit supplier service delivery and security posture",
+    "category": "A.5 Organizational",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "ORGANIZATIONAL",
+    "question": null,
+    "intent": null,
+    "examples": []
+  },
+  {
+    "code": "A.5.23",
+    "title": "Information security for use of cloud services",
+    "description": "Manage IS for cloud service acquisition, use, configuration, and exit",
+    "category": "A.5 Organizational",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "BOTH",
+    "question": "For each cloud service your system uses, do you know what data goes into it, who can access it, how it's configured — and what happens if you need to leave that provider?",
+    "intent": "Cloud services are often added quickly without thinking through the security implications. Once data is in a cloud service you didn't properly evaluate, it's hard to get it back under control. This is about being intentional: knowing what you're using, how it's configured, and that you could exit safely if needed.",
+    "examples": [
+      "A cloud asset inventory with security baseline checked for each service",
+      "MFA and strong IAM enforced on all cloud management consoles",
+      "Cloud Security Posture Management (CSPM) tool like Defender for Cloud or AWS Security Hub",
+      "Documented exit strategy per critical cloud provider",
+      "Data residency and processing location confirmed in provider agreements"
+    ]
+  },
+  {
+    "code": "A.5.24",
+    "title": "IS incident management planning and preparation",
+    "description": "Plan and prepare for IS incident management processes and procedures",
+    "category": "A.5 Organizational",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "ORGANIZATIONAL",
+    "question": null,
+    "intent": null,
+    "examples": []
+  },
+  {
+    "code": "A.5.25",
+    "title": "Assessment and decision on IS events",
+    "description": "Assess IS events and classify them as incidents when appropriate",
+    "category": "A.5 Organizational",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "ORGANIZATIONAL",
+    "question": null,
+    "intent": null,
+    "examples": []
+  },
+  {
+    "code": "A.5.26",
+    "title": "Response to information security incidents",
+    "description": "Respond to IS incidents following documented procedures",
+    "category": "A.5 Organizational",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "ORGANIZATIONAL",
+    "question": null,
+    "intent": null,
+    "examples": []
+  },
+  {
+    "code": "A.5.27",
+    "title": "Learning from information security incidents",
+    "description": "Use knowledge from incidents to strengthen controls and prevent recurrence",
+    "category": "A.5 Organizational",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "ORGANIZATIONAL",
+    "question": null,
+    "intent": null,
+    "examples": []
+  },
+  {
+    "code": "A.5.28",
+    "title": "Collection of evidence",
+    "description": "Procedures for identifying, collecting, and preserving evidence",
+    "category": "A.5 Organizational",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "ORGANIZATIONAL",
+    "question": null,
+    "intent": null,
+    "examples": []
+  },
+  {
+    "code": "A.5.29",
+    "title": "Information security during disruption",
+    "description": "Plan for maintaining IS controls during and after significant disruptions",
+    "category": "A.5 Organizational",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "BOTH",
+    "question": "If something went wrong and your service had to run in emergency or degraded mode, would your security controls still be in place — or would some of them get bypassed?",
+    "intent": "Under pressure, teams sometimes skip security steps to restore service quickly. This control is a reminder that security shouldn't be the first thing switched off in a crisis. Your minimum security posture needs to hold even when things are hard.",
+    "examples": [
+      "Documented emergency access procedures that still require MFA and logging",
+      "Break-glass admin accounts with a mandatory post-use review",
+      "Security monitoring and alerting that stays active during failover or maintenance windows",
+      "A defined \"minimum security baseline\" that must be in place even in degraded operation"
+    ]
+  },
+  {
+    "code": "A.5.30",
+    "title": "ICT readiness for business continuity",
+    "description": "Plan, implement, and test ICT continuity to meet business continuity objectives",
+    "category": "A.5 Organizational",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "BOTH",
+    "question": "If your service went down tomorrow, do you know how long it would take to get it back up — and have you actually tested that?",
+    "intent": "Having a backup or recovery plan is only useful if it actually works when you need it. This is about being honest: do you know your recovery time target, is there a tested runbook, and did the last test actually succeed?",
+    "examples": [
+      "Documented RTO (time to restore) and RPO (data loss tolerance) for your service",
+      "A tested disaster recovery runbook with step-by-step instructions",
+      "Annual DR test with documented results and any gaps tracked to resolution",
+      "Runbook stored somewhere accessible even if your primary systems are all down"
+    ]
+  },
+  {
+    "code": "A.5.31",
+    "title": "Legal, statutory and regulatory requirements",
+    "description": "Identify and document all relevant legal and regulatory IS requirements",
+    "category": "A.5 Organizational",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "ORGANIZATIONAL",
+    "question": null,
+    "intent": null,
+    "examples": []
+  },
+  {
+    "code": "A.5.32",
+    "title": "Intellectual property rights",
+    "description": "Protect intellectual property and comply with all IP-related legal requirements",
+    "category": "A.5 Organizational",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "ORGANIZATIONAL",
+    "question": null,
+    "intent": null,
+    "examples": []
+  },
+  {
+    "code": "A.5.33",
+    "title": "Protection of records",
+    "description": "Protect records from loss, destruction, falsification, and unauthorised access",
+    "category": "A.5 Organizational",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "BOTH",
+    "question": "Are the records your service creates protected from accidental deletion or tampering — and do you know how long you're required to keep them?",
+    "intent": "Records are often needed for legal, regulatory, or audit purposes long after the fact. If they've been deleted prematurely, corrupted, or can't be proven to be authentic, it can cause serious legal and compliance problems.",
+    "examples": [
+      "Write-once or immutable storage for audit logs",
+      "Retention policies configured in your database or document management system",
+      "Access controls preventing deletion of records during their retention period",
+      "Regular backup of critical records with restore verification"
+    ]
+  },
+  {
+    "code": "A.5.34",
+    "title": "Privacy and protection of PII",
+    "description": "Protect privacy and personally identifiable information per applicable legislation",
+    "category": "A.5 Organizational",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "BOTH",
+    "question": "Does your service handle personal data? If so, do you know exactly what data you're holding, why, how long you're keeping it, and who can see it?",
+    "intent": "Personal data carries legal obligations. This is about being intentional with PII — only collect what you genuinely need, keep it only as long as necessary, protect it properly, and be ready to respond if someone asks you to delete it.",
+    "examples": [
+      "A data inventory showing what PII your service processes and on what legal basis",
+      "Privacy notice for users explaining how their data is used",
+      "Automated deletion of personal data after the retention period expires",
+      "A documented process for responding to Subject Access Requests within 30 days",
+      "DPIA completed if your service does high-risk PII processing"
+    ]
+  },
+  {
+    "code": "A.5.35",
+    "title": "Independent review of information security",
+    "description": "Review IS implementation and controls independently at planned intervals",
+    "category": "A.5 Organizational",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "ORGANIZATIONAL",
+    "question": null,
+    "intent": null,
+    "examples": []
+  },
+  {
+    "code": "A.5.36",
+    "title": "Compliance with policies, rules and standards",
+    "description": "Ensure compliance with IS policies, rules, and standards across the organisation",
+    "category": "A.5 Organizational",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "BOTH",
+    "question": "Is there anything in your service that you know isn't following the company's security policies — and if so, is there a documented plan to fix it?",
+    "intent": "Having policies is only useful if people follow them. This control is about honest self-assessment — are you actually in line with what's expected, and if not, is there a transparent gap with a plan and owner? Undocumented exceptions are a risk in themselves.",
+    "examples": [
+      "Regular self-assessment against your organisation's security baseline",
+      "Exceptions formally documented with a risk acceptance, owner, and remediation target date",
+      "Automated policy-as-code checks in your cloud environment",
+      "Security findings tracked in a backlog with clear owners and due dates"
+    ]
+  },
+  {
+    "code": "A.5.37",
+    "title": "Documented operating procedures",
+    "description": "Document and maintain operating procedures for all IS-relevant activities",
+    "category": "A.5 Organizational",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "BOTH",
+    "question": "If you were hit by a bus tomorrow, could someone else on your team run your service securely — using documented procedures rather than tribal knowledge?",
+    "intent": "Knowledge locked in one person's head is a risk. If that person is unavailable, critical tasks get done inconsistently or not at all. Documented procedures ensure that security-relevant tasks happen correctly regardless of who does them.",
+    "examples": [
+      "Runbooks for patching, deployments, key rotation, and incident response",
+      "Onboarding documentation for new team members covering how to access and operate the service securely",
+      "Procedures stored in a shared, accessible location — not on one person's local drive",
+      "Regular review (at least annually) to keep procedures current"
+    ]
+  },
+  {
+    "code": "A.6.1",
+    "title": "Screening",
+    "description": "Perform background verification checks on all candidates prior to employment",
+    "category": "A.6 People",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "ORGANIZATIONAL",
+    "question": null,
+    "intent": null,
+    "examples": []
+  },
+  {
+    "code": "A.6.2",
+    "title": "Terms and conditions of employment",
+    "description": "Include IS responsibilities in all employment terms and conditions",
+    "category": "A.6 People",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "ORGANIZATIONAL",
+    "question": null,
+    "intent": null,
+    "examples": []
+  },
+  {
+    "code": "A.6.3",
+    "title": "IS awareness, education and training",
+    "description": "Provide IS awareness and training for all personnel",
+    "category": "A.6 People",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "ORGANIZATIONAL",
+    "question": null,
+    "intent": null,
+    "examples": []
+  },
+  {
+    "code": "A.6.4",
+    "title": "Disciplinary process",
+    "description": "Maintain a formal disciplinary process for IS policy violations",
+    "category": "A.6 People",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "ORGANIZATIONAL",
+    "question": null,
+    "intent": null,
+    "examples": []
+  },
+  {
+    "code": "A.6.5",
+    "title": "Responsibilities after termination",
+    "description": "Define and enforce IS responsibilities that continue after employment ends",
+    "category": "A.6 People",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "ORGANIZATIONAL",
+    "question": null,
+    "intent": null,
+    "examples": []
+  },
+  {
+    "code": "A.6.6",
+    "title": "Confidentiality or non-disclosure agreements",
+    "description": "Require NDAs from all personnel and relevant contractors",
+    "category": "A.6 People",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "ORGANIZATIONAL",
+    "question": null,
+    "intent": null,
+    "examples": []
+  },
+  {
+    "code": "A.6.7",
+    "title": "Remote working",
+    "description": "Define IS policies and technical controls for remote working arrangements",
+    "category": "A.6 People",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "BOTH",
+    "question": "Do you know whether your team members are accessing your service's admin tools or sensitive data from personal devices or unsecured home networks — and what controls are in place if they are?",
+    "intent": "Remote work expands the attack surface significantly. When people work from home, the protections that exist in the office — controlled network, managed devices, clear desk — often disappear. This is about making sure remote access to your service doesn't create unnecessary risk.",
+    "examples": [
+      "VPN or zero-trust network access required for any production admin activity",
+      "MDM enforced on devices used to access production systems",
+      "Guidance against using personal devices for production access",
+      "Screen lock policy and auto-lock configured on all work devices",
+      "No access to production admin consoles from public Wi-Fi without VPN"
+    ]
+  },
+  {
+    "code": "A.6.8",
+    "title": "Information security event reporting",
+    "description": "Require all personnel to report IS events through official channels",
+    "category": "A.6 People",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "ORGANIZATIONAL",
+    "question": null,
+    "intent": null,
+    "examples": []
+  },
+  {
+    "code": "A.7.1",
+    "title": "Physical security perimeters",
+    "description": "Define and use security perimeters to protect areas containing sensitive assets",
+    "category": "A.7 Physical",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "ORGANIZATIONAL",
+    "question": null,
+    "intent": null,
+    "examples": []
+  },
+  {
+    "code": "A.7.2",
+    "title": "Physical entry controls",
+    "description": "Control physical access to secure areas with appropriate authentication",
+    "category": "A.7 Physical",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "ORGANIZATIONAL",
+    "question": null,
+    "intent": null,
+    "examples": []
+  },
+  {
+    "code": "A.7.3",
+    "title": "Securing offices, rooms and facilities",
+    "description": "Design and apply physical security measures for all offices and facilities",
+    "category": "A.7 Physical",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "ORGANIZATIONAL",
+    "question": null,
+    "intent": null,
+    "examples": []
+  },
+  {
+    "code": "A.7.4",
+    "title": "Physical security monitoring",
+    "description": "Continuously monitor premises for unauthorised physical access",
+    "category": "A.7 Physical",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "ORGANIZATIONAL",
+    "question": null,
+    "intent": null,
+    "examples": []
+  },
+  {
+    "code": "A.7.5",
+    "title": "Protecting against physical and environmental threats",
+    "description": "Protect against fire, flood, earthquake, and other environmental threats",
+    "category": "A.7 Physical",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "ORGANIZATIONAL",
+    "question": null,
+    "intent": null,
+    "examples": []
+  },
+  {
+    "code": "A.7.6",
+    "title": "Working in secure areas",
+    "description": "Define and enforce procedures for working in high-security areas",
+    "category": "A.7 Physical",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "ORGANIZATIONAL",
+    "question": null,
+    "intent": null,
+    "examples": []
+  },
+  {
+    "code": "A.7.7",
+    "title": "Clear desk and clear screen",
+    "description": "Require clear desk and clear screen to be observed at all times",
+    "category": "A.7 Physical",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "ORGANIZATIONAL",
+    "question": null,
+    "intent": null,
+    "examples": []
+  },
+  {
+    "code": "A.7.8",
+    "title": "Equipment siting and protection",
+    "description": "Protect equipment from environmental hazards and reduce opportunities for unauthorised access",
+    "category": "A.7 Physical",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "PER_SYSTEM",
+    "question": "Are the physical servers, network gear, or other hardware used by your service positioned safely — away from hazards like excessive heat, moisture, or areas where they could be seen or accessed by visitors?",
+    "intent": "Where you put equipment matters. Kit near windows can be seen and targeted. Equipment near water pipes or air conditioning units can be physically damaged. This is about the physical positioning of individual devices, not just the building they're in.",
+    "examples": [
+      "Servers and network equipment mounted in locked racks in secure rooms",
+      "Network equipment positioned away from public areas and visitor routes",
+      "Equipment not visible through windows or from reception",
+      "Environmental sensors (temperature, humidity, water) in server rooms"
+    ]
+  },
+  {
+    "code": "A.7.9",
+    "title": "Security of assets off-premises",
+    "description": "Protect assets and information when used outside organisational premises",
+    "category": "A.7 Physical",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "PER_SYSTEM",
+    "question": "Are there laptops, drives, or other devices used by your service that leave the office — and are they protected against the risk of being lost or stolen?",
+    "intent": "The moment a device leaves the building, you lose physical control of it. Encryption and remote wipe are your safety net. Without them, a lost laptop can mean a serious data breach.",
+    "examples": [
+      "Full disk encryption on all laptops (BitLocker, FileVault)",
+      "Remote wipe capability enabled and tested",
+      "VPN required before any production system access from outside the office",
+      "Hardware security tokens (YubiKey) for high-privilege remote access",
+      "Clear guidelines on what data should and shouldn't be stored on portable devices"
+    ]
+  },
+  {
+    "code": "A.7.10",
+    "title": "Storage media",
+    "description": "Manage storage media through its full lifecycle: acquisition, use, transport, and disposal",
+    "category": "A.7 Physical",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "BOTH",
+    "question": "Are there any USB drives, backup tapes, or physical hard drives used by your service — and do you know where they are, who has them, and how they get disposed of eventually?",
+    "intent": "Physical media is easy to lose or steal, and it often bypasses all your digital security controls. A lost unencrypted backup tape can be as damaging as a network breach — and it's often easier for an attacker to just pick one up.",
+    "examples": [
+      "Only encrypted USB drives approved for use",
+      "Inventory of all removable media with assigned owner",
+      "Secure courier used for any off-site tape or media transport",
+      "Certificate of destruction obtained from media disposal vendor",
+      "Formal process before any media leaves the building"
+    ]
+  },
+  {
+    "code": "A.7.11",
+    "title": "Supporting utilities",
+    "description": "Protect equipment from power failures and other utility disruptions",
+    "category": "A.7 Physical",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "ORGANIZATIONAL",
+    "question": null,
+    "intent": null,
+    "examples": []
+  },
+  {
+    "code": "A.7.12",
+    "title": "Cabling security",
+    "description": "Protect power and communications cables from interception or physical damage",
+    "category": "A.7 Physical",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "BOTH",
+    "question": "Is the network cabling in areas used by your service protected from accidental damage — and could someone plug an unauthorised device into an open port without being noticed?",
+    "intent": "Physical network access is often overlooked. An unlabelled cable or an open, active network port can be an easy entry point for someone who gains physical access to your building.",
+    "examples": [
+      "Cables clearly labelled and documented in a cable register",
+      "Network ports disabled in patch panels when not in use",
+      "Cable ducts locked or secured in shared or public areas",
+      "Regular physical audit of network ports and connections in server rooms"
+    ]
+  },
+  {
+    "code": "A.7.13",
+    "title": "Equipment maintenance",
+    "description": "Maintain equipment to ensure continued availability and integrity",
+    "category": "A.7 Physical",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "PER_SYSTEM",
+    "question": "Is the hardware that runs your service being maintained and serviced regularly — and does it get done by authorised people who log what they did?",
+    "intent": "Unmaintained hardware fails unexpectedly. It also creates a security risk if unauthorised people service it and could install hardware implants or extract data from drives.",
+    "examples": [
+      "Maintenance schedule for all servers and network equipment",
+      "Only vendor-authorised engineers allowed to service production hardware",
+      "Maintenance activity logged with who did what and when",
+      "Data cleared or equipment escorted when hardware goes off-site for repair"
+    ]
+  },
+  {
+    "code": "A.7.14",
+    "title": "Secure disposal or re-use of equipment",
+    "description": "Securely sanitise or destroy equipment before disposal or re-use",
+    "category": "A.7 Physical",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "PER_SYSTEM",
+    "question": "When hardware used by your service reaches end of life, is the data on it properly wiped or physically destroyed before it leaves your control?",
+    "intent": "Simply deleting files or reinstalling an OS isn't enough — data can often be recovered from drives that haven't been properly sanitised. This is about ensuring data doesn't leave with the hardware.",
+    "examples": [
+      "Certified data wiping to DoD or NIST standards before disposal or re-use",
+      "Physical shredding for drives containing highly sensitive data",
+      "Certificate of destruction obtained from disposal vendor and kept on file",
+      "Cloud provider data destruction confirmation when decommissioning cloud instances",
+      "Process documented and followed for every piece of decommissioned hardware"
+    ]
+  },
+  {
+    "code": "A.8.1",
+    "title": "User endpoint devices",
+    "description": "Protect user endpoint devices with policies and technical management controls",
+    "category": "A.8 Technological",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "BOTH",
+    "question": "Do you know which laptops, phones, or other devices are used to access or manage your service — and are they all encrypted, patched, and managed by your organisation?",
+    "intent": "Endpoints are the most common entry point for attackers. A stolen unencrypted laptop or an unpatched personal phone used for work email can compromise your entire service. This is about keeping control of the devices that touch your system.",
+    "examples": [
+      "All devices enrolled in MDM/UEM (Intune, Jamf, etc.)",
+      "Full disk encryption enforced on all managed devices",
+      "Remote wipe capability tested annually",
+      "Only managed, organisation-approved devices allowed to connect to production systems",
+      "Separate work profile on mobile devices"
+    ]
+  },
+  {
+    "code": "A.8.2",
+    "title": "Privileged access rights",
+    "description": "Restrict, manage, and monitor privileged access accounts",
+    "category": "A.8 Technological",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "PER_SYSTEM",
+    "question": "Who has admin or elevated access to your service — and is that genuinely the smallest number of people who need it to do their job?",
+    "intent": "Admin accounts are the keys to the kingdom. Every unnecessary admin account is a risk — if one gets compromised, the attacker immediately has admin-level access. Less is more here: the fewer admins, the smaller the attack surface.",
+    "examples": [
+      "Named individual admin accounts (no shared \"admin\" credentials)",
+      "Just-in-time access for elevated privileges — access granted on request, revoked after use",
+      "PAM solution (CyberArk, BeyondTrust, AWS IAM Identity Center) for privileged session management",
+      "Admin actions logged and reviewed in SIEM",
+      "Regular review (quarterly) of who has admin access — remove anyone who doesn't need it"
+    ]
+  },
+  {
+    "code": "A.8.3",
+    "title": "Information access restriction",
+    "description": "Restrict access to information and functions based on the access control policy",
+    "category": "A.8 Technological",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "PER_SYSTEM",
+    "question": "Can everyone who can log in to your service see all the data in it — or is access limited to what each person or role actually needs?",
+    "intent": "Not everyone needs to see everything. Fine-grained access controls reduce the damage if an account is compromised or if someone acts in bad faith — they can only access the data they were permitted to see.",
+    "examples": [
+      "RBAC with clearly defined roles and no \"see everything\" default",
+      "Row-level security in databases (users only see records relevant to them)",
+      "Field-level masking for sensitive data (e.g. salary fields visible only to HR)",
+      "Multi-tenant isolation to prevent customers seeing each other's data",
+      "Access control verified as part of every major feature release"
+    ]
+  },
+  {
+    "code": "A.8.4",
+    "title": "Access to source code",
+    "description": "Restrict and control access to source code, dev tools, and software libraries",
+    "category": "A.8 Technological",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "PER_SYSTEM",
+    "question": "Is access to your service's source code limited to people who actively work on it — and do you know exactly who that is right now?",
+    "intent": "Source code reveals how your application works and often exposes security weaknesses. Unrestricted access also means someone could insert malicious code or copy proprietary logic without you knowing.",
+    "examples": [
+      "Repository access reviewed quarterly and revoked when developers leave the project",
+      "Branch protection rules requiring peer review before merging to main",
+      "Secrets scanning in your git pipeline to prevent credentials being committed",
+      "Code signing for production releases",
+      "No access for contractors beyond the duration of their engagement"
+    ]
+  },
+  {
+    "code": "A.8.5",
+    "title": "Secure authentication",
+    "description": "Implement secure authentication technologies and procedures for all access",
+    "category": "A.8 Technological",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "PER_SYSTEM",
+    "question": "Can anyone access your service with just a username and password — or do all users also need to verify with a second factor like an authenticator app?",
+    "intent": "Passwords alone are no longer sufficient. Phishing, credential stuffing, and brute force attacks succeed constantly against password-only systems. MFA is one of the most effective controls available and relatively easy to implement.",
+    "examples": [
+      "MFA enforced for all users, non-negotiable for admins",
+      "SSO using your corporate identity provider so access is centrally controlled",
+      "Account lockout after a configurable number of failed login attempts",
+      "Session timeout configured (users auto-logged out after inactivity)",
+      "No weak or default passwords — minimum complexity enforced at the system level"
+    ]
+  },
+  {
+    "code": "A.8.6",
+    "title": "Capacity management",
+    "description": "Monitor and manage resource capacity to ensure required system performance and availability",
+    "category": "A.8 Technological",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "PER_SYSTEM",
+    "question": "Do you monitor whether your service has enough compute, storage, and network capacity to keep running — and do you get an alert before it runs out?",
+    "intent": "A system that runs out of disk space, gets overloaded, or hits a network bandwidth cap stops being available. Capacity management is as much about reliability and availability as it is about security.",
+    "examples": [
+      "Cloud autoscaling configured to handle demand spikes",
+      "Alerts set at 80% thresholds for disk, memory, and CPU",
+      "Capacity reviewed as part of planning for major feature launches",
+      "Load testing performed before significant releases",
+      "Regular check on database size growth and estimated time to fill"
+    ]
+  },
+  {
+    "code": "A.8.7",
+    "title": "Protection against malware",
+    "description": "Implement malware detection, prevention, and recovery controls",
+    "category": "A.8 Technological",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "PER_SYSTEM",
+    "question": "Are the servers and endpoints used by your service protected against malware — and is that protection actively monitored and kept up to date?",
+    "intent": "Even if you think your servers \"don't need antivirus,\" modern threats like ransomware, cryptominers, and fileless malware target server workloads regularly. This is about having a detective control at the endpoint level.",
+    "examples": [
+      "EDR/AV deployed on all endpoints and servers with auto-update enabled",
+      "Regular scheduled scans configured on all systems",
+      "Malware detection alerts forwarded to the SOC",
+      "Cloud workload protection enabled (e.g. AWS GuardDuty, Defender for Cloud, Crowdstrike Falcon)",
+      "Regular review of quarantined items and false positives"
+    ]
+  },
+  {
+    "code": "A.8.8",
+    "title": "Management of technical vulnerabilities",
+    "description": "Identify, evaluate, and remediate technical vulnerabilities in systems and software",
+    "category": "A.8 Technological",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "BOTH",
+    "question": "Do you scan your service for known security vulnerabilities — and do you have a clear, realistic process for how quickly critical ones get fixed?",
+    "intent": "New vulnerabilities in software are discovered every day. Without a process to find and fix them, your service gradually becomes easier to attack. This isn't about being perfect — it's about having a systematic way to stay ahead.",
+    "examples": [
+      "Automated vulnerability scanning (Qualys, Tenable, AWS Inspector, or similar)",
+      "SLA for patching: critical vulns within 7 days, high within 30 days",
+      "Patch management calendar with assigned owners",
+      "Tracked remediation backlog in your ticketing system with regular review",
+      "Emergency patching process for actively exploited zero-days"
+    ]
+  },
+  {
+    "code": "A.8.9",
+    "title": "Configuration management",
+    "description": "Define, document, implement, and monitor configurations of hardware, software, and services",
+    "category": "A.8 Technological",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "PER_SYSTEM",
+    "question": "Is your service configured to a known-good security baseline — and do you get alerted if something changes unexpectedly from that baseline?",
+    "intent": "Misconfiguration is one of the leading causes of cloud and system breaches. A configuration baseline gives you a known-good state and a way to detect when someone (or something) has drifted from it.",
+    "examples": [
+      "CIS benchmark compliance checked for all production servers and cloud services",
+      "Infrastructure-as-Code (Terraform, CloudFormation) for reproducible, auditable configuration",
+      "Config drift detection via AWS Config, Azure Policy, or similar tools",
+      "Hardened base images used for all new deployments",
+      "No manually configured production servers — changes go through IaC and code review"
+    ]
+  },
+  {
+    "code": "A.8.10",
+    "title": "Information deletion",
+    "description": "Delete information when it is no longer required, in line with retention requirements",
+    "category": "A.8 Technological",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "PER_SYSTEM",
+    "question": "When data in your service is no longer needed — because a retention period expired or a user asked for their data to be deleted — is it actually and completely deleted, not just hidden or deactivated?",
+    "intent": "Data that should be deleted but isn't creates legal risk (especially under GDPR) and increases the potential impact of a breach. Soft deletes and archive flags aren't the same as deletion — this is about verifiable, complete removal.",
+    "examples": [
+      "Automated data purge jobs that run after the defined retention period",
+      "Hard deletes in the database (not just a \"deleted=true\" flag) after retention expires",
+      "GDPR right-to-erasure workflow with documented completion",
+      "Deletion confirmed in audit logs with timestamp and record count",
+      "Backup data also purged after retention period ends, not kept indefinitely"
+    ]
+  },
+  {
+    "code": "A.8.11",
+    "title": "Data masking",
+    "description": "Mask data in line with access control policies, business rules, and legal requirements",
+    "category": "A.8 Technological",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "PER_SYSTEM",
+    "question": "If someone on your team needs to work with data from your production system for testing or support, are they working with real customer data — or is it masked or anonymised first?",
+    "intent": "Sharing production data unnecessarily — especially PII — increases your exposure and creates legal risk. Masking lets people do their job with realistic-looking data without exposing real customer information.",
+    "examples": [
+      "Dynamic data masking in SQL databases (e.g. only showing last 4 digits of a card number to support staff)",
+      "Anonymised or synthetic data sets generated for all non-production environments",
+      "Tokenisation for payment card data, replacing real values with tokens",
+      "Support dashboards that mask PII by default, with elevated access required to see full data"
+    ]
+  },
+  {
+    "code": "A.8.12",
+    "title": "Data leakage prevention",
+    "description": "Apply DLP controls to systems, networks, and devices to prevent sensitive data exfiltration",
+    "category": "A.8 Technological",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "BOTH",
+    "question": "Is there anything actively stopping sensitive data from leaving your service through unexpected channels — like someone bulk-downloading a database and uploading it to a personal cloud storage account?",
+    "intent": "Data exfiltration doesn't always look like a hack. Sometimes it's a well-intentioned employee doing the wrong thing, or an insider threat. DLP controls are a safety net that catches anomalous data movement before it becomes an incident.",
+    "examples": [
+      "Blocking uploads to personal cloud drives (Dropbox, Google Drive) from corporate devices",
+      "Restrictions on bulk data exports from your application (rate limits, approval workflows)",
+      "Email DLP rules that flag large attachments containing PII",
+      "CASB solution for monitoring data flows to SaaS applications",
+      "Alerts on unusually large data transfers from production databases"
+    ]
+  },
+  {
+    "code": "A.8.13",
+    "title": "Information backup",
+    "description": "Maintain, test, and protect backup copies of information and systems",
+    "category": "A.8 Technological",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "PER_SYSTEM",
+    "question": "Do you have backups of your service's data — and have you actually tried restoring from them recently to confirm they work?",
+    "intent": "A backup you've never tested is just hope. Backups only matter when something goes wrong, and that's the worst time to discover the restore process is broken. This is about treating backups as a capability you need to actively verify, not a checkbox.",
+    "examples": [
+      "Daily automated backups with retention policy defined and enforced",
+      "Backup stored in a geographically separate location or cloud region",
+      "Restore test performed at least quarterly, with results documented",
+      "Backup access restricted (not everyone who can read production can read backups)",
+      "Backup data encrypted at rest and in transit"
+    ]
+  },
+  {
+    "code": "A.8.14",
+    "title": "Redundancy of information processing facilities",
+    "description": "Implement redundancy to meet system availability requirements",
+    "category": "A.8 Technological",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "PER_SYSTEM",
+    "question": "If a single server, database node, or key component in your service failed right now, would the service stay up — or would everything go down?",
+    "intent": "Single points of failure are a risk to availability. Redundancy means the service keeps running even when individual components fail, which is especially important for services your business depends on.",
+    "examples": [
+      "Active-active or active-passive database clusters",
+      "Load balancer with health checks removing unhealthy instances automatically",
+      "Multi-availability-zone deployment in your cloud environment",
+      "Auto-recovery configured on compute instances",
+      "Health checks integrated into Kubernetes or your container orchestration platform"
+    ]
+  },
+  {
+    "code": "A.8.15",
+    "title": "Logging",
+    "description": "Produce, store, protect, and analyse event logs from systems and applications",
+    "category": "A.8 Technological",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "PER_SYSTEM",
+    "question": "Does your service log who did what and when — and are those logs stored somewhere that even your own admins couldn't tamper with?",
+    "intent": "Logs are your evidence trail. Without them, you can't investigate incidents, detect breaches, or prove compliance. Critically, logs must be protected from the people who administer the systems — otherwise they could be altered to cover tracks.",
+    "examples": [
+      "Centralised log management or SIEM (Splunk, Microsoft Sentinel, Elastic)",
+      "Logs forwarded off the system immediately — not just stored locally where admins can delete them",
+      "Log retention of at least 12 months (at least 3 months hot, rest cold)",
+      "Logs include: user ID, action taken, timestamp, source IP, and outcome (success/failure)",
+      "Log access restricted to the security team, separate from system admin access"
+    ]
+  },
+  {
+    "code": "A.8.16",
+    "title": "Monitoring activities",
+    "description": "Monitor networks, systems, and applications for anomalous behaviour and potential threats",
+    "category": "A.8 Technological",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "BOTH",
+    "question": "If someone were doing something suspicious in your service right now — brute-forcing logins, downloading unusually large amounts of data, accessing accounts at strange hours — would you know about it?",
+    "intent": "Detecting threats in real time (or close to it) gives you a chance to respond before serious damage is done. Logging tells you what happened; monitoring tells you something is happening now.",
+    "examples": [
+      "Logs forwarded to SIEM with correlation rules and alerts",
+      "Alert on failed login threshold being exceeded (e.g. 10 failures in 5 minutes)",
+      "Anomaly detection for unusual data access volumes or off-hours activity",
+      "Security dashboards visible to both the security team and the service owner team",
+      "Incident response playbook triggered when an alert fires"
+    ]
+  },
+  {
+    "code": "A.8.17",
+    "title": "Clock synchronisation",
+    "description": "Synchronise all system clocks to a single agreed time reference",
+    "category": "A.8 Technological",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "PER_SYSTEM",
+    "question": "Are all the components of your service synchronised to the same time source — so that when something goes wrong and you look at logs from different systems, the timestamps actually line up?",
+    "intent": "Accurate timestamps are essential for incident investigation and log correlation. If your servers are out of sync by even a few minutes, correlating events across systems becomes extremely difficult — and in a fast-moving incident, those minutes matter.",
+    "examples": [
+      "NTP client configured on all servers and containers, pointing to a reliable source",
+      "Clock drift monitored and alerted on",
+      "Container and pod time correctly inherited from host",
+      "Cloud instances using hypervisor-provided time synchronisation",
+      "NTP configuration verified as part of system hardening checklist"
+    ]
+  },
+  {
+    "code": "A.8.18",
+    "title": "Use of privileged utility programs",
+    "description": "Restrict and closely control the use of utility programs with administrative capabilities",
+    "category": "A.8 Technological",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "PER_SYSTEM",
+    "question": "Are tools like database admin consoles, OS-level shells, or network diagnostic tools restricted on your production systems — so that only the right people can use them, and every use is logged?",
+    "intent": "Admin tools can bypass your normal application security controls. Someone with access to a database admin tool can query or modify data in ways your application would never allow. These tools need tighter controls than regular application access.",
+    "examples": [
+      "Database admin consoles accessible only from a management bastion host, not directly from desktops",
+      "Admin tools requiring MFA and separate elevated credentials — not your everyday login",
+      "Every use of privileged tools logged to a tamper-proof audit trail",
+      "Admin tools not installed by default on production servers — installed on demand only",
+      "Session recording for high-risk admin tool use"
+    ]
+  },
+  {
+    "code": "A.8.19",
+    "title": "Installation of software on operational systems",
+    "description": "Control and restrict software installation on all operational and production systems",
+    "category": "A.8 Technological",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "BOTH",
+    "question": "Could someone install unauthorised software on the servers or VMs running your service — and would you know about it if they did?",
+    "intent": "Unauthorised software might be malicious or simply create unexpected vulnerabilities. In production environments, the software running should be exactly what you expect — no more, no less.",
+    "examples": [
+      "Application whitelisting on production servers (only approved software can execute)",
+      "Package manager policies restricting to approved package repositories only",
+      "Infrastructure-as-Code and immutable infrastructure (no manual installs on running servers)",
+      "Alerts on unexpected new software or processes detected on production systems",
+      "Change management required before any new software is installed in production"
+    ]
+  },
+  {
+    "code": "A.8.20",
+    "title": "Network security",
+    "description": "Secure, manage, and control networks and network devices to protect systems",
+    "category": "A.8 Technological",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "BOTH",
+    "question": "Does your service talk only to the systems and services it's supposed to — and is unnecessary network traffic actively blocked?",
+    "intent": "Every open port and unrestricted network path is a potential attack route. The principle here is the same as access control: your service should communicate only with what it needs to, and nothing more.",
+    "examples": [
+      "Firewall rules defined per service, explicitly allowing required traffic and denying everything else",
+      "Security groups and NSGs in cloud environments scoped to minimum required access",
+      "No production services exposed directly to the internet without a WAF or reverse proxy in front",
+      "Egress filtering in place (production systems can't call arbitrary external addresses)",
+      "Network topology diagram kept current and reviewed on change"
+    ]
+  },
+  {
+    "code": "A.8.21",
+    "title": "Security of network services",
+    "description": "Define and enforce security requirements for all network services",
+    "category": "A.8 Technological",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "PER_SYSTEM",
+    "question": "For each service your system connects to over the network — APIs, databases, message queues — are those connections secured, authenticated, and using current encryption standards?",
+    "intent": "Service-to-service connections are an increasingly common attack vector, especially in microservices architectures. A compromised internal service that trusts unauthenticated connections from other internal services can quickly become a stepping stone to everything else.",
+    "examples": [
+      "Mutual TLS (mTLS) between internal microservices",
+      "API keys and service accounts with minimal permissions and regular rotation",
+      "No internal services trusting connections without authentication (\"trust nothing inside the network\")",
+      "TLS 1.2 minimum enforced on all connections; TLS 1.3 preferred",
+      "Service mesh (Istio, Linkerd) for zero-trust networking between services"
+    ]
+  },
+  {
+    "code": "A.8.22",
+    "title": "Segregation of networks",
+    "description": "Segregate networks to separate groups of services, users, and information systems",
+    "category": "A.8 Technological",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "BOTH",
+    "question": "Is your production environment clearly separated from your development and test environments at the network level — so that a problem in one can't easily spread to another?",
+    "intent": "Network segregation contains the blast radius of a breach or misconfiguration. If your dev environment is compromised, it shouldn't have a clear network path to your production database. Flat networks mean a single foothold can reach everything.",
+    "examples": [
+      "Separate VPCs or VNets per environment (dev/test/prod) with no direct routing between them",
+      "Dedicated management network for admin access, isolated from production workload network",
+      "DMZ for any public-facing components, separated from internal services",
+      "Micro-segmentation within production to limit lateral movement",
+      "Firewall rules between segments that are regularly reviewed"
+    ]
+  },
+  {
+    "code": "A.8.23",
+    "title": "Web filtering",
+    "description": "Manage and restrict access to external websites to reduce exposure to web-based threats",
+    "category": "A.8 Technological",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "BOTH",
+    "question": "Is outbound internet access from your service's systems restricted — so that if malware were present on one of those systems, it couldn't easily connect back to an attacker's infrastructure?",
+    "intent": "Web filtering isn't just a productivity control — it stops malware from communicating with command-and-control servers and prevents systems from being redirected to malicious sites. Production servers especially should have tightly controlled outbound internet access.",
+    "examples": [
+      "DNS filtering (Cisco Umbrella, Cloudflare Gateway) blocking known malicious domains",
+      "Proxy or egress filtering for outbound web traffic from production systems",
+      "Allowlist of known-good external domains for automated system calls (rather than \"allow all\")",
+      "Category-based blocking on endpoints (malware, phishing, file-sharing sites)",
+      "Alerts when production servers make unexpected outbound connections"
+    ]
+  },
+  {
+    "code": "A.8.24",
+    "title": "Use of cryptography",
+    "description": "Define and implement rules for the use of cryptography including key management",
+    "category": "A.8 Technological",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "BOTH",
+    "question": "Is sensitive data in your service encrypted when it's stored and when it moves between systems — and do you know who holds the encryption keys and how they're managed?",
+    "intent": "Encryption is only as good as your key management. If the data is encrypted but the key is sitting next to it in plaintext, or hardcoded in source code, or never rotated, the encryption provides false comfort.",
+    "examples": [
+      "TLS 1.2+ enforced on all APIs and data transfer points",
+      "AES-256 encryption for all data at rest in databases and storage",
+      "Secrets and keys stored in a vault (HashiCorp Vault, AWS Secrets Manager, Azure Key Vault) — not hardcoded",
+      "Key rotation schedule defined and automated where possible",
+      "No use of deprecated algorithms (MD5, SHA-1, DES, RC4) anywhere in the stack"
+    ]
+  },
+  {
+    "code": "A.8.25",
+    "title": "Secure development life cycle",
+    "description": "Establish and enforce rules for developing secure software and systems",
+    "category": "A.8 Technological",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "BOTH",
+    "question": "Are security checks built into your development and release process — or does security only get looked at after something goes wrong?",
+    "intent": "It's far cheaper to fix a security issue during design or development than after it's in production and potentially being exploited. This is about making security a normal part of how your team builds software, not an afterthought.",
+    "examples": [
+      "Security requirements defined as part of user stories or acceptance criteria",
+      "Threat modelling workshop as part of design for new features or major changes",
+      "SAST tool (SonarQube, Semgrep, Checkmarx) integrated into your CI/CD pipeline",
+      "Security sign-off as part of your release checklist alongside testing and code review",
+      "Developer security training (OWASP Top 10, secure coding practices)"
+    ]
+  },
+  {
+    "code": "A.8.26",
+    "title": "Application security requirements",
+    "description": "Identify and approve information security requirements for all application development",
+    "category": "A.8 Technological",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "PER_SYSTEM",
+    "question": "Before building or changing a feature in your service, do you think through the security implications — what could go wrong and how to prevent it from the start?",
+    "intent": "Security requirements need to be defined before development starts, not bolted on after. Catching a design flaw in a backlog conversation costs hours. Catching it after deployment and breach costs much more.",
+    "examples": [
+      "Security user stories or acceptance criteria added to your backlog for all significant features",
+      "Threat modelling session for new features that handle sensitive data",
+      "OWASP Top 10 checklist consulted for any web-facing feature",
+      "Security review as part of design sign-off before implementation begins",
+      "Requirements covering authentication, authorisation, data validation, and error handling"
+    ]
+  },
+  {
+    "code": "A.8.27",
+    "title": "Secure system architecture and engineering principles",
+    "description": "Define and apply security engineering principles to design and build secure systems",
+    "category": "A.8 Technological",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "PER_SYSTEM",
+    "question": "Has your service's architecture been reviewed from a security angle — looking at where it could be attacked and how the design itself reduces those risks?",
+    "intent": "Good security architecture decisions — where to put a WAF, how to segment the network, which trust boundaries exist — are much harder to retrofit than to build in from the start. Security should influence architecture, not just implementation.",
+    "examples": [
+      "Threat model documented for the service (data flows, trust boundaries, attack surfaces)",
+      "Security architecture review with the security team before major design decisions are finalised",
+      "Least-privilege design for all inter-service communication",
+      "Defence-in-depth principle applied — no single control relied on as the only protection",
+      "Security architecture reviewed whenever there is a significant change to the system"
+    ]
+  },
+  {
+    "code": "A.8.28",
+    "title": "Secure coding",
+    "description": "Apply secure coding principles throughout software development to prevent common vulnerabilities",
+    "category": "A.8 Technological",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "PER_SYSTEM",
+    "question": "Are the developers working on your service following secure coding practices — and is there anything automatically checking the code for common vulnerabilities before it gets deployed?",
+    "intent": "Many security vulnerabilities — SQL injection, cross-site scripting, insecure deserialisation — come from well-known, preventable coding mistakes. Automated tools catch these reliably before they reach production; relying only on manual review misses too much.",
+    "examples": [
+      "SAST tool integrated into CI/CD pipeline and blocking merges on high/critical findings",
+      "Mandatory peer code review for all changes to production code",
+      "Developer training on OWASP Top 10 and common coding vulnerabilities",
+      "Dependency scanning to catch known CVEs in libraries (Dependabot, Snyk, OWASP Dependency-Check)",
+      "Secrets scanning in git hooks or CI pipeline to prevent credentials being committed"
+    ]
+  },
+  {
+    "code": "A.8.29",
+    "title": "Security testing in development and acceptance",
+    "description": "Define and perform security testing across development and acceptance stages",
+    "category": "A.8 Technological",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "PER_SYSTEM",
+    "question": "When did your service last have an independent security test — and were the findings actually fixed and verified?",
+    "intent": "You can't fully rely on the development team to find their own security issues. Independent testing finds things internal teams miss — especially logic flaws, complex injection attacks, and issues that span multiple components.",
+    "examples": [
+      "Annual penetration test by a qualified third party (CREST or equivalent certified tester)",
+      "DAST tool (OWASP ZAP, Burp Suite) run against the staging environment before each major release",
+      "Critical and high findings from tests must be resolved before release sign-off",
+      "All test findings tracked to closure with owner and due date",
+      "Bug bounty programme if the service is public-facing"
+    ]
+  },
+  {
+    "code": "A.8.30",
+    "title": "Outsourced development",
+    "description": "Supervise and monitor outsourced software development to maintain security standards",
+    "category": "A.8 Technological",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "BOTH",
+    "question": "If third-party developers or a software vendor contribute code to your service, do you review what they deliver before it goes into production — rather than just trusting that it's secure?",
+    "intent": "You remain responsible for the security of your service even if someone else wrote the code. External developers may not follow your standards, may not have been security-trained, or may have conflicting interests. You need to verify, not just trust.",
+    "examples": [
+      "Code review process (including security-focused review) for all vendor-submitted code",
+      "Security requirements explicitly included in development contracts",
+      "SAST scans run on received code before acceptance",
+      "Penetration test or security assessment before accepting a major external release",
+      "Defined handover checklist including evidence of secure development practices"
+    ]
+  },
+  {
+    "code": "A.8.31",
+    "title": "Separation of development, test and production environments",
+    "description": "Separate development, test, and production environments to reduce security risk",
+    "category": "A.8 Technological",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "PER_SYSTEM",
+    "question": "Is your production environment clearly separated from your development and test environments — so a test deployment or a developer mistake can't accidentally affect real users or real data?",
+    "intent": "Mixed environments are where accidents happen: a developer points a script at production thinking it's test, or test data overwrites production records. Separation makes these accidents much less likely and limits their blast radius.",
+    "examples": [
+      "Separate cloud accounts or subscriptions per environment (dev / test / prod)",
+      "No production credentials or access stored in dev or test environments",
+      "Production data never used in test environments without masking or anonymisation",
+      "Separate CI/CD pipelines per environment with explicit promotion steps",
+      "Network isolation preventing dev/test systems from reaching production systems"
+    ]
+  },
+  {
+    "code": "A.8.32",
+    "title": "Change management",
+    "description": "Manage changes to IS, information systems, and processes using a formal process",
+    "category": "A.8 Technological",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "BOTH",
+    "question": "When a change is made to your service — a config update, a new deployment, a firewall rule change — is there a record of what changed, who approved it, and how to roll it back if something goes wrong?",
+    "intent": "Most incidents are caused or worsened by changes. A change management process provides visibility, accountability, and a safety net. Without it, when something breaks you often can't tell what changed or who to ask.",
+    "examples": [
+      "Change tickets required for all production changes, including configuration updates",
+      "Peer review or CAB approval for significant or high-risk changes",
+      "Deployment pipeline with automated rollback capability or a tested manual rollback procedure",
+      "Post-deployment verification step to confirm the change had the intended effect",
+      "Emergency change process defined for urgent fixes, with post-implementation review"
+    ]
+  },
+  {
+    "code": "A.8.33",
+    "title": "Test information",
+    "description": "Select, protect, and manage test data to prevent misuse or exposure",
+    "category": "A.8 Technological",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "PER_SYSTEM",
+    "question": "If your service uses realistic data in its test environments, is that data anonymised — or could your less-secure test environment be exposing real customer information?",
+    "intent": "Test environments are typically less secure than production — more people have access, security controls are looser, and they're often easier to breach. Yet they frequently contain copies of real data. This is a data breach waiting to happen.",
+    "examples": [
+      "Automated data masking pipeline that generates anonymised test data from production",
+      "Synthetic data generation using tools like Faker, Mimesis, or a custom generator",
+      "Access controls on test environments comparable to production if real data must be used (though this is the last resort)",
+      "GDPR impact assessment for any use of real data in test",
+      "Test data refreshed on a schedule and deleted when no longer needed"
+    ]
+  },
+  {
+    "code": "A.8.34",
+    "title": "Protection of information systems during audit testing",
+    "description": "Plan and control audit testing activities to minimise disruption to operational systems",
+    "category": "A.8 Technological",
+    "framework": "ISO27001:2022 Annex A",
+    "mandatory": true,
+    "applicability": "PER_SYSTEM",
+    "question": "When an internal or external audit team needs access to your service, is that access time-limited, read-only where possible, logged — and does it not affect live users?",
+    "intent": "Audit access needs to be meaningful enough to be useful, but not so broad that the audit itself creates risk or disruption. Poorly planned audit access can cause outages, expose sensitive data, or create additional attack surface.",
+    "examples": [
+      "Dedicated read-only audit accounts scoped to relevant logs and configuration only",
+      "Agreed maintenance window for any active testing (e.g. pen tests against production)",
+      "On-call engineer notified and available during audit access windows",
+      "Audit activity logged separately and retained after the audit",
+      "Audit accounts created for the engagement and removed immediately after"
+    ]
+  }
+]
