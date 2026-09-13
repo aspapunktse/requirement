@@ -2,6 +2,22 @@
 
 Internal webapp for tracking requirement fulfillment and risk assessment when onboarding a new system or cloud solution into the enterprise.
 
+## Project status
+
+**As of this writing: infrastructure and domain model are done; no application features are implemented yet.**
+
+What exists:
+- Next.js/Prisma/Postgres scaffold, CI/CD, Docker — all verified working (see Stack/CI-CD below)
+- The domain model is settled — see [`CONTEXT.md`](CONTEXT.md) for the glossary (`System`, `Requirement`, `Requirement Assessment`, `Risk`, `Approval`, the Onboarding Lifecycle) and [`docs/adr/`](docs/adr/) for architectural decisions
+- The feature backlog is broken into 7 GitHub issues, in dependency order, each a vertical slice (schema + API + UI + tests): see [open issues](https://github.com/aspapunktse/requirement/issues), labeled `ready-for-agent`. Issue #1 (dev-only auth stub) has no blockers and is the place to start.
+
+What's *not* decided yet (deliberately deferred, not overlooked):
+- Real authentication (SSO/OIDC) — issue #1 stubs a role switcher instead
+- Multi-tenancy — currently single-tenant; the intent is to add tenant/org scoping later. This was deliberately *not* written up as an ADR, since single-tenancy is a stepping stone, not a permanent commitment — expect an `Organization`/tenant scope to eventually land on `System`, `User`, and the `Requirement` catalog
+- Notifications on status changes — out of scope until the core workflow is built and proven
+
+**Picking this up in a fresh session?** Read, in order: this section, [`CONTEXT.md`](CONTEXT.md), [`docs/adr/`](docs/adr/), then the [open GitHub issues](https://github.com/aspapunktse/requirement/issues) starting from the lowest unblocked number. [`docs/agents/`](docs/agents/) documents how the repo is configured for Matt Pocock's engineering skills (issue tracker conventions, domain-doc consumer rules) if you're using those.
+
 ## Stack
 
 - **Next.js 16 (App Router) + TypeScript** — frontend & API routes
@@ -12,13 +28,7 @@ Internal webapp for tracking requirement fulfillment and risk assessment when on
 
 ## Domain model
 
-- **System** — a system or cloud solution being onboarded, with an owner and an onboarding status (draft → in review → approved/rejected → onboarded).
-- **Requirement** — a reusable requirement definition (security, privacy, legal, operational), tagged to a framework (e.g. ISO 27001) where relevant.
-- **RequirementAssessment** — fulfillment status of one Requirement for one System, with evidence and notes.
-- **Risk** — a risk identified during onboarding of a System, with severity, likelihood, status, and mitigation plan.
-- **Approval** — a formal sign-off record on a System's onboarding decision.
-
-See [`prisma/schema.prisma`](prisma/schema.prisma) for the full schema.
+Vocabulary and workflow rules live in [`CONTEXT.md`](CONTEXT.md), not here — that's the source of truth so it doesn't drift out of sync with a second copy. Architectural decisions (e.g. why `Approved` and `Onboarded` are separate states) are in [`docs/adr/`](docs/adr/). The Prisma schema implementing all of this is [`prisma/schema.prisma`](prisma/schema.prisma).
 
 ## Getting started
 
@@ -63,3 +73,5 @@ docker compose up --build
 ```
 
 Runs the production image against a local Postgres instance.
+
+> **Known caveat**: `docker compose` was unavailable on the machine this was originally scaffolded on (Docker Desktop install without the compose plugin registered), so this file is written to spec but wasn't exercised end-to-end there. Verified separately: a plain `docker build .` succeeds, and a plain `docker run` Postgres container works with `prisma migrate dev` + `prisma db seed` against it. If `docker compose up` fails for you, that's the most likely first thing to check, not a schema/app problem.
