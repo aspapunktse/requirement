@@ -69,6 +69,8 @@ model System {
   dataClassification String?        // e.g. Public, Internal, Confidential, Restricted
   ownerId         String
   owner           User              @relation("SystemOwner", fields: [ownerId], references: [id])
+  systemTypeId    String
+  systemType      SystemType        @relation(fields: [systemTypeId], references: [id])
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
 
@@ -90,6 +92,7 @@ model SystemType {
   // Requirements scoped to this System Type. A Requirement with no rows
   // here at all applies to every System Type (see Requirement.systemTypes).
   requirements Requirement[]
+  systems      System[]
 }
 
 // An admin-curated, centrally-provided dependency (e.g. Active Directory,

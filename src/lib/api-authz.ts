@@ -2,9 +2,9 @@ import type { NextRequest, NextResponse } from "next/server";
 import { NextResponse as Res } from "next/server";
 import type { UserRole } from "@prisma/client";
 import { ACTING_USER_COOKIE, resolveActingUser } from "@/lib/acting-user";
-import { ForbiddenError, requireAuthenticated, requireRole, type ActingUser } from "@/lib/authz";
+import { ActingUser, ForbiddenError, requireAuthenticated, requireRole } from "@/lib/authz";
 
-type AuthResult = { user: ActingUser } | { response: NextResponse };
+type AuthResult = { user: NonNullable<ActingUser> } | { response: NextResponse };
 
 function actingUserFromRequest(request: NextRequest) {
   return resolveActingUser(request.cookies.get(ACTING_USER_COOKIE)?.value);
