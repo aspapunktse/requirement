@@ -4,7 +4,7 @@ Internal webapp for tracking requirement fulfillment and risk assessment when on
 
 ## Project status
 
-**As of this writing: the full original backlog (16 issues) is implemented, tested, and merged — the core onboarding workflow and the ISO 27001 Annex A Requirement Catalog feature set both work end-to-end.** [ADR 0003](docs/adr/0003-multiselect-deployment-facets-plus-overlays.md)'s design is fully shipped: Deployment Facets (#47), Regulatory Overlay (#48), CIA Impact Level (#49), unified cross-axis recompute (#50), locking every axis until Onboarded (#51), and the admin Requirement-authoring UI (#52) are all done; only the CONTEXT.md glossary update (#53) remains open.
+**As of this writing: the full original 16-issue backlog and the entire follow-on [ADR 0003](docs/adr/0003-multiselect-deployment-facets-plus-overlays.md) design (issues #47–#53) are implemented, tested, and merged.** The core onboarding workflow, the ISO 27001 Annex A Requirement Catalog, and multi-axis classification (Deployment Facet, Regulatory Overlay, Impact Level) all work end-to-end. There is no open issue in either sequence right now — see the extension-points backlog below for lower-priority, pick-up-anytime items, or `HANDOFF.md` for how to find more.
 
 What exists and works:
 - Next.js/Prisma/Postgres scaffold, CI/CD, Docker (see Stack/CI-CD below)
@@ -21,9 +21,8 @@ What's *not* decided yet (deliberately deferred, not overlooked):
 - Multi-tenancy — currently single-tenant; the intent is to add tenant/org scoping later. This was deliberately *not* written up as an ADR, since single-tenancy is a stepping stone, not a permanent commitment — expect an `Organization`/tenant scope to eventually land on `System`, `User`, and the `Requirement` catalog
 - Notifications on status changes — out of scope until now; the core workflow is proven, so this is a reasonable next thing to propose
 - Retiring a `Requirement` from the catalog — Deployment Facet, Capability, and Regulatory Overlay can be retired, Requirement deliberately wasn't (see [issue #13](https://github.com/aspapunktse/requirement/issues/13)'s closing comment)
-- The CONTEXT.md glossary update describing Regulatory Overlay/Impact Level — the last piece of [ADR 0003](docs/adr/0003-multiselect-deployment-facets-plus-overlays.md), tracked as issue #53
 
-**Picking this up in a fresh session?** Read, in order: [`HANDOFF.md`](HANDOFF.md) (what's in flight and what to do next), this section, [`CONTEXT.md`](CONTEXT.md), [`docs/adr/`](docs/adr/). There's one issue left right now — #53, the last piece of ADR 0003 (#47–#52 already shipped); see `HANDOFF.md` for details. [`docs/agents/`](docs/agents/) documents how the repo is configured for Matt Pocock's engineering skills (issue tracker conventions, domain-doc consumer rules) if you're using those.
+**Picking this up in a fresh session?** Read, in order: [`HANDOFF.md`](HANDOFF.md) (what's in flight and what to do next), this section, [`CONTEXT.md`](CONTEXT.md), [`docs/adr/`](docs/adr/). Both the original backlog and ADR 0003 are fully shipped — there's no active feature queue right now; `HANDOFF.md` points at the extension-points backlog and other lower-priority items instead. [`docs/agents/`](docs/agents/) documents how the repo is configured for Matt Pocock's engineering skills (issue tracker conventions, domain-doc consumer rules) if you're using those.
 
 ## Stack
 
