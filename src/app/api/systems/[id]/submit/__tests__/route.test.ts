@@ -3,6 +3,8 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
 import { ACTING_USER_COOKIE } from "@/lib/acting-user";
 import { getUnaddressedMandatoryRequirements } from "@/lib/requirement-assessments";
+import { PATCH as patchAssessment } from "../../assessments/[requirementId]/route";
+import { POST as declareCapability } from "../../capabilities/route";
 import { POST } from "../route";
 
 /**
@@ -26,6 +28,7 @@ async function fulfillAllMandatoryRequirements(systemId: string, systemTypeId: s
 
 const OWNER_EMAIL = "test-system-submit-owner@example.com";
 const VIEWER_EMAIL = "test-system-submit-viewer@example.com";
+const RISK_OWNER_EMAIL = "test-system-submit-risk-owner@example.com";
 
 function urlFor(id: string) {
   return `http://localhost/api/systems/${id}/submit`;
@@ -37,6 +40,16 @@ function requestAs(id: string, userId: string | null) {
   return new NextRequest(urlFor(id), { method: "POST", headers });
 }
 
+function requestWith(url: string, method: string, userId: string, body?: unknown) {
+  const headers = new Headers({ "Content-Type": "application/json" });
+  headers.set("cookie", `${ACTING_USER_COOKIE}=${userId}`);
+  return new NextRequest(url, {
+    method,
+    headers,
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+}
+
 function ctxFor(id: string) {
   return { params: Promise.resolve({ id }) };
 }
@@ -44,11 +57,13 @@ function ctxFor(id: string) {
 describe("POST /api/systems/[id]/submit", () => {
   let ownerId: string;
   let viewerId: string;
+  let riskOwnerId: string;
   let systemTypeId: string;
   let systemId: string;
   let mandatoryRequirementId: string;
   let optionalRequirementId: string;
   let organizationalRequirementId: string;
+  let capabilityId: string;
 
   beforeAll(async () => {
     const owner = await prisma.user.upsert({
@@ -61,8 +76,14 @@ describe("POST /api/systems/[id]/submit", () => {
       update: {},
       create: { email: VIEWER_EMAIL, name: "System Submit Viewer", role: "VIEWER" },
     });
+    const riskOwner = await prisma.user.upsert({
+      where: { email: RISK_OWNER_EMAIL },
+      update: {},
+      create: { email: RISK_OWNER_EMAIL, name: "System Submit Risk Owner", role: "RISK_OWNER" },
+    });
     ownerId = owner.id;
     viewerId = viewer.id;
+    riskOwnerId = riskOwner.id;
 
     const systemType = await prisma.systemType.create({
       data: { name: `Test Submit Type ${Date.now()}` },
@@ -104,6 +125,11 @@ describe("POST /api/systems/[id]/submit", () => {
     optionalRequirementId = optional.id;
     organizationalRequirementId = organizational.id;
 
+    const capability = await prisma.capability.create({
+      data: { name: `Submit Test Capability ${suffix}`, requirements: { connect: [{ id: mandatory.id }] } },
+    });
+    capabilityId = capability.id;
+
     const system = await prisma.system.create({
       data: { name: "Submit Test System", systemTypeId, ownerId, status: "DRAFT" },
     });
@@ -113,16 +139,20 @@ describe("POST /api/systems/[id]/submit", () => {
   afterAll(async () => {
     await prisma.requirementAssessment.deleteMany({ where: { systemId } });
     await prisma.system.deleteMany({ where: { id: systemId } });
+    await prisma.capability.deleteMany({ where: { id: capabilityId } });
     await prisma.requirement.deleteMany({
       where: { id: { in: [mandatoryRequirementId, optionalRequirementId, organizationalRequirementId] } },
     });
     await prisma.systemType.deleteMany({ where: { id: systemTypeId } });
-    await prisma.user.deleteMany({ where: { email: { in: [OWNER_EMAIL, VIEWER_EMAIL] } } });
+    await prisma.user.deleteMany({ where: { email: { in: [OWNER_EMAIL, VIEWER_EMAIL, RISK_OWNER_EMAIL] } } });
   });
 
   afterEach(async () => {
     await prisma.requirementAssessment.deleteMany({ where: { systemId } });
-    await prisma.system.update({ where: { id: systemId }, data: { status: "DRAFT" } }).catch(() => {});
+    await prisma.system.update({
+      where: { id: systemId },
+      data: { status: "DRAFT", capabilities: { disconnect: { id: capabilityId } } },
+    }).catch(() => {});
   });
 
   it("rejects an unauthenticated request", async () => {
@@ -178,5 +208,46 @@ describe("POST /api/systems/[id]/submit", () => {
 
     const response = await POST(requestAs(systemId, ownerId), ctxFor(systemId));
     expect(response.status).toBe(400);
+  });
+
+  it("counts a Waived mandatory Requirement (with justification) as addressed", async () => {
+    const waiveResponse = await patchAssessment(
+      requestWith(
+        `http://localhost/api/systems/${systemId}/assessments/${mandatoryRequirementId}`,
+        "PATCH",
+        riskOwnerId,
+        { status: "WAIVED", notes: "Accepted risk, documented in the Risk register" },
+      ),
+      { params: Promise.resolve({ id: systemId, requirementId: mandatoryRequirementId }) },
+    );
+    expect(waiveResponse.status).toBe(200);
+
+    await fulfillAllMandatoryRequirements(systemId, systemTypeId);
+
+    const response = await POST(requestAs(systemId, ownerId), ctxFor(systemId));
+    expect(response.status).toBe(200);
+  });
+
+  it("counts a mandatory Requirement auto-fulfilled via a declared Capability as addressed", async () => {
+    const declareResponse = await declareCapability(
+      requestWith(`http://localhost/api/systems/${systemId}/capabilities`, "POST", ownerId, {
+        capabilityId,
+      }),
+      { params: Promise.resolve({ id: systemId }) },
+    );
+    expect(declareResponse.status).toBe(201);
+
+    const autoFulfilled = await prisma.requirementAssessment.findUnique({
+      where: { systemId_requirementId: { systemId, requirementId: mandatoryRequirementId } },
+    });
+    expect(autoFulfilled).toMatchObject({ status: "FULFILLED", fulfilledByCapabilityId: capabilityId });
+
+    await fulfillAllMandatoryRequirements(systemId, systemTypeId);
+
+    const response = await POST(requestAs(systemId, ownerId), ctxFor(systemId));
+    expect(response.status).toBe(200);
+    // Submission moves the System to IN_REVIEW, so undeclaring through the
+    // route is no longer possible (Capabilities lock like everything else
+    // once a System leaves Draft) — afterEach disconnects it directly.
   });
 });
