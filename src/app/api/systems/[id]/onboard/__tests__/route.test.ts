@@ -2,11 +2,13 @@ import { NextRequest } from "next/server";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
 import { ACTING_USER_COOKIE } from "@/lib/acting-user";
+import { POST as recordApproval } from "@/app/api/systems/[id]/approvals/route";
 import { POST } from "../route";
 
 const OWNER_EMAIL = "test-onboard-owner@example.com";
 const OTHER_OWNER_EMAIL = "test-onboard-other-owner@example.com";
 const ADMIN_EMAIL = "test-onboard-admin@example.com";
+const REVIEWER_EMAIL = "test-onboard-reviewer-flow@example.com";
 
 function urlFor(id: string) {
   return `http://localhost/api/systems/${id}/onboard`;
@@ -18,6 +20,16 @@ function requestAs(id: string, userId: string | null) {
   return new NextRequest(urlFor(id), { method: "POST", headers });
 }
 
+function requestWith(url: string, method: string, userId: string, body?: unknown) {
+  const headers = new Headers({ "Content-Type": "application/json" });
+  headers.set("cookie", `${ACTING_USER_COOKIE}=${userId}`);
+  return new NextRequest(url, {
+    method,
+    headers,
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+}
+
 function ctxFor(id: string) {
   return { params: Promise.resolve({ id }) };
 }
@@ -26,6 +38,7 @@ describe("POST /api/systems/[id]/onboard", () => {
   let ownerId: string;
   let otherOwnerId: string;
   let adminId: string;
+  let reviewerId: string;
   let systemTypeId: string;
   let approvedSystemId: string;
   let draftSystemId: string;
@@ -46,9 +59,15 @@ describe("POST /api/systems/[id]/onboard", () => {
       update: {},
       create: { email: ADMIN_EMAIL, name: "Onboard Admin", role: "ADMIN" },
     });
+    const reviewer = await prisma.user.upsert({
+      where: { email: REVIEWER_EMAIL },
+      update: {},
+      create: { email: REVIEWER_EMAIL, name: "Onboard Reviewer Flow", role: "REVIEWER" },
+    });
     ownerId = owner.id;
     otherOwnerId = otherOwner.id;
     adminId = admin.id;
+    reviewerId = reviewer.id;
 
     const systemType = await prisma.systemType.create({
       data: { name: `Test Onboard Type ${Date.now()}` },
@@ -59,7 +78,9 @@ describe("POST /api/systems/[id]/onboard", () => {
   afterAll(async () => {
     await prisma.system.deleteMany({ where: { id: { in: [approvedSystemId, draftSystemId] } } });
     await prisma.systemType.deleteMany({ where: { id: systemTypeId } });
-    await prisma.user.deleteMany({ where: { email: { in: [OWNER_EMAIL, OTHER_OWNER_EMAIL, ADMIN_EMAIL] } } });
+    await prisma.user.deleteMany({
+      where: { email: { in: [OWNER_EMAIL, OTHER_OWNER_EMAIL, ADMIN_EMAIL, REVIEWER_EMAIL] } },
+    });
   });
 
   beforeEach(async () => {
@@ -130,5 +151,48 @@ describe("POST /api/systems/[id]/onboard", () => {
     await POST(requestAs(approvedSystemId, ownerId), ctxFor(approvedSystemId));
     const response = await POST(requestAs(approvedSystemId, ownerId), ctxFor(approvedSystemId));
     expect(response.status).toBe(400);
+  });
+
+  it("rejects a System that's In Review but not yet decided", async () => {
+    const inReview = await prisma.system.create({
+      data: { name: "In Review, Not Yet Decided", systemTypeId, ownerId, status: "IN_REVIEW" },
+    });
+
+    const response = await POST(requestAs(inReview.id, ownerId), ctxFor(inReview.id));
+    expect(response.status).toBe(400);
+
+    await prisma.system.delete({ where: { id: inReview.id } });
+  });
+
+  it("only succeeds once a real Approval decision has been recorded through the Approvals endpoint", async () => {
+    const inReview = await prisma.system.create({
+      data: { name: "Genuinely Approved via the real flow", systemTypeId, ownerId, status: "IN_REVIEW" },
+    });
+
+    // Before any decision: onboarding is rejected, same as any other
+    // non-Approved status.
+    const tooEarly = await POST(requestAs(inReview.id, ownerId), ctxFor(inReview.id));
+    expect(tooEarly.status).toBe(400);
+
+    const approvalResponse = await recordApproval(
+      requestWith(`http://localhost/api/systems/${inReview.id}/approvals`, "POST", reviewerId, {
+        decision: "APPROVED",
+        comment: "Cleared to proceed",
+      }),
+      { params: Promise.resolve({ id: inReview.id }) },
+    );
+    expect(approvalResponse.status).toBe(201);
+
+    const approvalCount = await prisma.approval.count({ where: { systemId: inReview.id, decision: "APPROVED" } });
+    expect(approvalCount).toBe(1);
+
+    const response = await POST(requestAs(inReview.id, ownerId), ctxFor(inReview.id));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.system.status).toBe("ONBOARDED");
+
+    await prisma.approval.deleteMany({ where: { systemId: inReview.id } });
+    await prisma.system.delete({ where: { id: inReview.id } });
   });
 });
