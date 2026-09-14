@@ -172,6 +172,17 @@ describe("PATCH /api/systems/[id]/assessments/[requirementId]", () => {
     expect(response.status).toBe(403);
   });
 
+  it("forbids a SYSTEM_OWNER from waiving their own mandatory Requirement, even with a justification note", async () => {
+    const response = await PATCH(
+      requestAs(systemId, mandatoryRequirementId, ownerId, {
+        status: "WAIVED",
+        notes: "I promise this is fine",
+      }),
+      ctxFor(systemId, mandatoryRequirementId),
+    );
+    expect(response.status).toBe(403);
+  });
+
   it("forbids a SYSTEM_OWNER from marking their own mandatory Requirement Not Applicable", async () => {
     const response = await PATCH(
       requestAs(systemId, mandatoryRequirementId, ownerId, {

@@ -186,6 +186,17 @@ describe("PATCH /api/systems/[id]/assessments/[requirementId]/answer", () => {
     expect(response.status).toBe(403);
   });
 
+  it("forbids a SYSTEM_OWNER from answering N/A on their own mandatory Requirement, even with a justification note", async () => {
+    const response = await PATCH(
+      requestAs(systemId, mandatoryRequirementId, ownerId, {
+        answer: "NA",
+        notes: "I promise this is fine",
+      }),
+      ctxFor(systemId, mandatoryRequirementId),
+    );
+    expect(response.status).toBe(403);
+  });
+
   it("rejects a RISK_OWNER answering N/A on a mandatory Requirement without a justification note", async () => {
     const response = await PATCH(
       requestAs(systemId, mandatoryRequirementId, riskOwnerId, { answer: "NA" }),
