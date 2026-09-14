@@ -1,9 +1,11 @@
 import { getActingUser } from "@/lib/acting-user";
 import { getVisibleSystem } from "@/lib/system-visibility";
 import { canLogRisk, ROLES_ALLOWED_TO_MANAGE_RISK_STATUS } from "@/lib/risks";
+import { ROLES_ALLOWED_TO_APPROVE } from "@/lib/approvals";
 import { RequirementAssessmentList } from "@/components/RequirementAssessmentList";
 import { SubmitForReviewButton } from "@/components/SubmitForReviewButton";
 import { RiskList } from "@/components/RiskList";
+import { ApprovalPanel } from "@/components/ApprovalPanel";
 
 export default async function SystemDetailPage({ params }: PageProps<"/systems/[id]">) {
   const { id } = await params;
@@ -57,6 +59,12 @@ export default async function SystemDetailPage({ params }: PageProps<"/systems/[
         systemId={system.id}
         canLog={canLogRisk(user, system)}
         canManageStatus={ROLES_ALLOWED_TO_MANAGE_RISK_STATUS.includes(user.role)}
+      />
+
+      <h2 className="mb-3 mt-8 text-lg font-semibold">Approval</h2>
+      <ApprovalPanel
+        systemId={system.id}
+        canDecide={system.status === "IN_REVIEW" && ROLES_ALLOWED_TO_APPROVE.includes(user.role)}
       />
     </div>
   );
