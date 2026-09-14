@@ -2,9 +2,28 @@ import { NextRequest } from "next/server";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
 import { ACTING_USER_COOKIE } from "@/lib/acting-user";
+import { getUnaddressedMandatoryRequirements } from "@/lib/requirement-assessments";
 import { PATCH as patchAssessment } from "@/app/api/systems/[id]/assessments/[requirementId]/route";
 import { POST as logRisk } from "@/app/api/systems/[id]/risks/route";
+import { POST as submitForReview } from "@/app/api/systems/[id]/submit/route";
 import { GET, POST } from "../route";
+
+/**
+ * The seeded ISO 27001 catalog ships several mandatory Requirements with no
+ * System Type scoping, so they apply to every Type. Satisfy all of them so
+ * resubmission is only gated by what a test means to gate it by.
+ */
+async function fulfillAllMandatoryRequirements(systemId: string, systemTypeId: string) {
+  const unaddressed = await getUnaddressedMandatoryRequirements({ id: systemId, systemTypeId });
+  await prisma.requirementAssessment.createMany({
+    data: unaddressed.map((requirement) => ({
+      systemId,
+      requirementId: requirement.id,
+      status: "FULFILLED" as const,
+    })),
+    skipDuplicates: true,
+  });
+}
 
 const OWNER_EMAIL = "test-approvals-owner@example.com";
 const REVIEWER_EMAIL = "test-approvals-reviewer@example.com";
@@ -178,6 +197,54 @@ describe("/api/systems/[id]/approvals", () => {
     expect(response.status).toBe(201);
     const system = await prisma.system.findUnique({ where: { id: inReviewSystemId } });
     expect(system?.status).toBe("DRAFT");
+  });
+
+  it("a Rejected System stays editable and can be resubmitted for review again", async () => {
+    const rejectResponse = await POST(
+      requestAs(inReviewSystemId, reviewerId, {
+        method: "POST",
+        body: { decision: "REJECTED", comment: "Needs another pass" },
+      }),
+      ctxFor(inReviewSystemId),
+    );
+    const rejectBody = await rejectResponse.json();
+    createdApprovalIds.push(rejectBody.approval.id);
+    expect(rejectResponse.status).toBe(201);
+
+    let system = await prisma.system.findUnique({ where: { id: inReviewSystemId } });
+    expect(system?.status).toBe("DRAFT");
+
+    // Still editable: the owner can address the previously-open mandatory
+    // gap, same as any other Draft System.
+    const editResponse = await patchAssessment(
+      new NextRequest(
+        `http://localhost/api/systems/${inReviewSystemId}/assessments/${mandatoryRequirementId}`,
+        {
+          method: "PATCH",
+          headers: new Headers({
+            "Content-Type": "application/json",
+            cookie: `${ACTING_USER_COOKIE}=${ownerId}`,
+          }),
+          body: JSON.stringify({ status: "FULFILLED" }),
+        },
+      ),
+      { params: Promise.resolve({ id: inReviewSystemId, requirementId: mandatoryRequirementId }) },
+    );
+    expect(editResponse.status).toBe(200);
+
+    await fulfillAllMandatoryRequirements(inReviewSystemId, systemTypeId);
+
+    const resubmitResponse = await submitForReview(
+      new NextRequest(`http://localhost/api/systems/${inReviewSystemId}/submit`, {
+        method: "POST",
+        headers: new Headers({ cookie: `${ACTING_USER_COOKIE}=${ownerId}` }),
+      }),
+      { params: Promise.resolve({ id: inReviewSystemId }) },
+    );
+    expect(resubmitResponse.status).toBe(200);
+
+    system = await prisma.system.findUnique({ where: { id: inReviewSystemId } });
+    expect(system?.status).toBe("IN_REVIEW");
   });
 
   it("GET returns the full Approval history oldest to newest, surviving resubmission", async () => {
