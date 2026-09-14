@@ -205,6 +205,31 @@ describe("PATCH /api/systems/[id]/assessments/[requirementId]", () => {
     expect(body.assessment).toMatchObject({ status: "WAIVED", notes: "Accepted risk per exec sign-off" });
   });
 
+  it("rejects a RISK_OWNER marking a mandatory Requirement Not Applicable without a justification note", async () => {
+    const response = await PATCH(
+      requestAs(systemId, mandatoryRequirementId, riskOwnerId, { status: "NOT_APPLICABLE" }),
+      ctxFor(systemId, mandatoryRequirementId),
+    );
+    expect(response.status).toBe(400);
+  });
+
+  it("lets a RISK_OWNER mark a mandatory Requirement Not Applicable with a justification note", async () => {
+    const response = await PATCH(
+      requestAs(systemId, mandatoryRequirementId, riskOwnerId, {
+        status: "NOT_APPLICABLE",
+        notes: "Legacy system, this control doesn't apply",
+      }),
+      ctxFor(systemId, mandatoryRequirementId),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.assessment).toMatchObject({
+      status: "NOT_APPLICABLE",
+      notes: "Legacy system, this control doesn't apply",
+    });
+  });
+
   it("lets a RISK_OWNER mark a non-mandatory Requirement Not Applicable without a note", async () => {
     const response = await PATCH(
       requestAs(systemId, optionalRequirementId, riskOwnerId, { status: "NOT_APPLICABLE" }),
