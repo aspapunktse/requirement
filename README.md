@@ -4,7 +4,7 @@ Internal webapp for tracking requirement fulfillment and risk assessment when on
 
 ## Project status
 
-**As of this writing: the full original backlog (16 issues) is implemented, tested, and merged — the core onboarding workflow and the ISO 27001 Annex A Requirement Catalog feature set both work end-to-end.** A follow-on design ([ADR 0003](docs/adr/0003-multiselect-deployment-facets-plus-overlays.md)) is in progress: Deployment Facets (#47), Regulatory Overlay (#48), CIA Impact Level (#49), unified cross-axis recompute (#50), and locking every axis until Onboarded (#51) are all shipped; the admin authoring UI (#52) and the CONTEXT.md glossary update (#53) remain open.
+**As of this writing: the full original backlog (16 issues) is implemented, tested, and merged — the core onboarding workflow and the ISO 27001 Annex A Requirement Catalog feature set both work end-to-end.** [ADR 0003](docs/adr/0003-multiselect-deployment-facets-plus-overlays.md)'s design is fully shipped: Deployment Facets (#47), Regulatory Overlay (#48), CIA Impact Level (#49), unified cross-axis recompute (#50), locking every axis until Onboarded (#51), and the admin Requirement-authoring UI (#52) are all done; only the CONTEXT.md glossary update (#53) remains open.
 
 What exists and works:
 - Next.js/Prisma/Postgres scaffold, CI/CD, Docker (see Stack/CI-CD below)
@@ -14,15 +14,16 @@ What exists and works:
 - Changing any of a Draft System's three classification axes — declared Deployment Facets, declared Regulatory Overlays, or Impact Level thresholds — recomputes its applicable Requirement set (a single diff against the combined old vs. new classification) without discarding work already done: newly-applicable mandatory Requirements get `NOT_STARTED` Assessments, no-longer-applicable untouched ones are removed, and no-longer-applicable *touched* ones are left in place as stale for the owner to resolve
 - All three classification axes (Deployment Facets, Regulatory Overlays, Impact Levels) are locked the same way Capability already was: changeable only while a System is Draft, not just once Onboarded — one consistent rule across all four mechanisms rather than each picking its own lifecycle cutoff
 - Admin CRUD (including retire) for the Deployment Facet, Capability, and Regulatory Overlay catalogs
+- Full Requirement authoring: create a new Requirement Catalog entry (code, title, description, category, mandatory flag, applicability, Self-Assessment Question/intent/examples) and edit any of it later, from the admin UI — not just the facet/overlay/capability mappings. `Requirement.framework` is a list, not a single string, so one Requirement row can be tagged as satisfying more than one framework at once (e.g. both an ISO 27001 control and a CSA CCM control) rather than needing a duplicate row per framework — the "author once, tag many" model ADR 0003 called for. The admin list view surfaces every Requirement's full tag set (framework(s), Deployment Facets, Regulatory Overlays, Impact Level thresholds) at a glance, to spot near-duplicates before creating a new row instead of tagging an existing one
 
 What's *not* decided yet (deliberately deferred, not overlooked):
 - Real authentication (SSO/OIDC) — still the dev-only role switcher
 - Multi-tenancy — currently single-tenant; the intent is to add tenant/org scoping later. This was deliberately *not* written up as an ADR, since single-tenancy is a stepping stone, not a permanent commitment — expect an `Organization`/tenant scope to eventually land on `System`, `User`, and the `Requirement` catalog
 - Notifications on status changes — out of scope until now; the core workflow is proven, so this is a reasonable next thing to propose
 - Retiring a `Requirement` from the catalog — Deployment Facet, Capability, and Regulatory Overlay can be retired, Requirement deliberately wasn't (see [issue #13](https://github.com/aspapunktse/requirement/issues/13)'s closing comment)
-- An admin UI to author a Requirement's full tag set (facets/overlays/impact thresholds/framework) in one place, and the CONTEXT.md glossary update describing Regulatory Overlay/Impact Level — the rest of [ADR 0003](docs/adr/0003-multiselect-deployment-facets-plus-overlays.md)'s design, tracked as issues #52–#53
+- The CONTEXT.md glossary update describing Regulatory Overlay/Impact Level — the last piece of [ADR 0003](docs/adr/0003-multiselect-deployment-facets-plus-overlays.md), tracked as issue #53
 
-**Picking this up in a fresh session?** Read, in order: [`HANDOFF.md`](HANDOFF.md) (what's in flight and what to do next), this section, [`CONTEXT.md`](CONTEXT.md), [`docs/adr/`](docs/adr/). There's an open queue right now — issues #52–#53 implement the rest of ADR 0003 (#47–#51 already shipped); see `HANDOFF.md` for the recommended order and dependencies. [`docs/agents/`](docs/agents/) documents how the repo is configured for Matt Pocock's engineering skills (issue tracker conventions, domain-doc consumer rules) if you're using those.
+**Picking this up in a fresh session?** Read, in order: [`HANDOFF.md`](HANDOFF.md) (what's in flight and what to do next), this section, [`CONTEXT.md`](CONTEXT.md), [`docs/adr/`](docs/adr/). There's one issue left right now — #53, the last piece of ADR 0003 (#47–#52 already shipped); see `HANDOFF.md` for details. [`docs/agents/`](docs/agents/) documents how the repo is configured for Matt Pocock's engineering skills (issue tracker conventions, domain-doc consumer rules) if you're using those.
 
 ## Stack
 

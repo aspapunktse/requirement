@@ -180,7 +180,12 @@ model Requirement {
   title         String
   description   String
   category      String                   // e.g. Security, Privacy, Legal, Operational
-  framework     String?                  // e.g. ISO27001, NIST-CSF, internal policy ref
+  // Every framework/standard this Requirement satisfies (e.g. ["ISO27001:2022 Annex A", "CSA CCM 4.0"]).
+  // A list, not a single string: ADR 0003's "author once, tag many" model means
+  // one Requirement row can be conceptually "the same control" across more
+  // than one framework at once (see #52). Empty means no framework tagged
+  // yet, not "applies to all frameworks."
+  framework     String[]                 @default([])
   mandatory     Boolean                  @default(true)
   applicability RequirementApplicability
   question      String?                  // self-assessment question; null for ORGANIZATIONAL-only requirements

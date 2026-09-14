@@ -18,22 +18,16 @@ Read this first in a fresh session, then [`README.md`](README.md)'s Project stat
   - Regulatory Overlay declare/undeclare (`src/lib/system-overlays.ts`) already went through the same `diffApplicabilityOps` helper as of #48, and already accounted for the System's current Impact Levels in its diff (since `SystemClassification` gained the impact fields in #49) — no changes needed there for #50.
   - Locking (#51): confirmed Draft-only (matching Capability's existing rule) as the one consistent cutoff across all four self-declared mechanisms, rather than loosening Facets/Overlays/Impact Levels to "any time before Onboarded" — Draft-only is a strict subset of "not yet Onboarded" so it trivially satisfies the original #30 invariant. Documented as a deliberate choice in `canChangeSystemClassification`'s doc comment. Added explicit Onboarded-status test cases alongside the existing IN_REVIEW ones for Facets/Overlays/Impact Levels.
   - Closed #29 and #30 referencing this work (see their closing comments) rather than writing new System-Type-specific tests for either.
+- **#52 (admin UI: author Requirements tagged across everything) is shipped.**
+  - Resolved the design question the issue itself flagged: `Requirement.framework` changed from a single nullable `String?` to a non-nullable `String[]` (`@default([])`) — ADR 0003's own text ("a single Requirement can carry ISO 27001, CIS 8, *and* CSA CCM 4.0 tags") describes exactly the multi-framework-on-one-row case a single string can't represent, so this was necessary to actually deliver the "author once, tag many" promise, not just cosmetic. Hand-written migration (`prisma/migrations/20260914205037_framework_as_list/`) converts existing single values to one-element arrays, nulls to `[]` — no data loss. `prisma/seed.ts` now converts the seed JSON's plain-string `framework` field to a one-element array at load time (JSON authoring format unchanged).
+  - New `POST /api/requirements` (admin-only) creates a bare Requirement (core fields only — no facet/overlay/capability/Impact-Level tagging yet, same two-step flow as the rest of the admin catalog: create, then `PATCH` to tag).
+  - `PATCH /api/requirements/[id]` extended beyond mapping-only fields to also edit every core field (title, description, category, framework, mandatory, question, intent, examples) — previously only relations/thresholds were editable there.
+  - `RequirementMappingManager.tsx` rewritten: a table at the top lists every Requirement with a one-line tag summary (framework(s), facets, overlays, Impact Level thresholds) for spotting near-duplicates; a "+ New Requirement" form creates one inline; the existing select-to-edit panel gained a Framework(s) text input (comma-separated, parsed to the array) and the three Impact Level threshold pickers (`minConfidentialityImpactLevel` etc., previously only settable via raw PATCH since #49). Manually verified in the browser (table renders, ORGANIZATIONAL vs PER_SYSTEM panels differ correctly, create form works) in addition to the automated tests.
+  - Admin page at `/admin/requirements` retitled "Requirement Catalog" (was "Requirement Mappings") and widened (`max-w-2xl` → `max-w-4xl`) to fit the new table.
 
 ## What's open right now
 
-### ADR 0003 sequence (the main thread — work these in order)
-
-| # | What | Depends on |
-|---|---|---|
-| ~~#47~~ | ~~Deployment Facet schema~~ | — (**done**) |
-| ~~#48~~ | ~~Regulatory Overlay catalog + self-declaration~~ | — (**done**) |
-| ~~#49~~ | ~~CIA Impact Level scale + fields~~ | — (**done**) |
-| ~~#50~~ | ~~Unified recompute across facets/overlays/impact levels~~ | — (**done**) |
-| ~~#51~~ | ~~Lock all axes once Onboarded~~ | — (**done**) |
-| #52 | Admin UI: author Requirements tagged across everything | #47, #48, #49 |
-| #53 | CONTEXT.md glossary update + close #29/#30 | all of the above |
-
-**#52 is next**, then **#53 last** — #52 (admin UI) only needs the schema from #47–#49, which is done. #53 is deliberately last — it updates `CONTEXT.md`'s glossary to describe Regulatory Overlay/Impact Level, and that should only happen once the whole ADR 0003 design (including #52's admin authoring UI) is actually real, not aspirational (see `docs/agents/domain.md`: the glossary reflects resolved-and-shipped decisions). Note #53's own description says "close #29/#30" — that already happened as part of #50/#51 landing (see above), so #53 itself is just the glossary update at this point.
+Only **#53** (CONTEXT.md glossary update) is left in the ADR 0003 sequence — #47–#52 are all shipped. #53 updates `CONTEXT.md`'s glossary to describe Regulatory Overlay/Impact Level (and the "author once, tag many" Requirement model from #52), which should only happen once the whole design is actually real, not aspirational (see `docs/agents/domain.md`: the glossary reflects resolved-and-shipped decisions) — that's now true. Its own description also says "close #29/#30", but those already closed as part of #50/#51 landing, so #53 itself is just the glossary update.
 
 `CONTEXT.md`'s **Requirement** entry already has a `_Pending_` note pointing at this — a fresh session can find it there too.
 

@@ -22,8 +22,16 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/requirem
   return NextResponse.json({ requirement });
 }
 
-const updateMappingsSchema = z
+const updateRequirementSchema = z
   .object({
+    title: z.string().min(1).optional(),
+    description: z.string().min(1).optional(),
+    category: z.string().min(1).optional(),
+    framework: z.array(z.string().min(1)).optional(),
+    mandatory: z.boolean().optional(),
+    question: z.string().nullable().optional(),
+    intent: z.string().nullable().optional(),
+    examples: z.array(z.string()).optional(),
     deploymentFacetIds: z.array(z.string()).optional(),
     regulatoryOverlayIds: z.array(z.string()).optional(),
     capabilityIds: z.array(z.string()).optional(),
@@ -31,26 +39,16 @@ const updateMappingsSchema = z
     minIntegrityImpactLevel: impactLevelSchema.optional(),
     minAvailabilityImpactLevel: impactLevelSchema.optional(),
   })
-  .refine(
-    (data) =>
-      data.deploymentFacetIds !== undefined ||
-      data.regulatoryOverlayIds !== undefined ||
-      data.capabilityIds !== undefined ||
-      data.minConfidentialityImpactLevel !== undefined ||
-      data.minIntegrityImpactLevel !== undefined ||
-      data.minAvailabilityImpactLevel !== undefined,
-    {
-      message:
-        "Provide at least one of deploymentFacetIds, regulatoryOverlayIds, capabilityIds, or an Impact Level threshold",
-    },
-  );
+  .refine((data) => Object.values(data).some((value) => value !== undefined), {
+    message: "Provide at least one field to update",
+  });
 
 export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/requirements/[id]">) {
   const auth = await authorize(request, ROLES_ALLOWED_TO_MANAGE_CATALOG);
   if ("response" in auth) return auth.response;
 
   const { id } = await ctx.params;
-  const parsed = updateMappingsSchema.safeParse(await request.json());
+  const parsed = updateRequirementSchema.safeParse(await request.json());
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid update" }, { status: 400 });
   }
@@ -61,6 +59,14 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/requir
   }
 
   const {
+    title,
+    description,
+    category,
+    framework,
+    mandatory,
+    question,
+    intent,
+    examples,
     deploymentFacetIds,
     regulatoryOverlayIds,
     capabilityIds,
@@ -89,6 +95,14 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/requir
     const updated = await prisma.requirement.update({
       where: { id },
       data: {
+        ...(title !== undefined && { title }),
+        ...(description !== undefined && { description }),
+        ...(category !== undefined && { category }),
+        ...(framework !== undefined && { framework }),
+        ...(mandatory !== undefined && { mandatory }),
+        ...(question !== undefined && { question }),
+        ...(intent !== undefined && { intent }),
+        ...(examples !== undefined && { examples }),
         ...(deploymentFacetIds !== undefined && {
           deploymentFacets: { set: deploymentFacetIds.map((facetId) => ({ id: facetId })) },
         }),

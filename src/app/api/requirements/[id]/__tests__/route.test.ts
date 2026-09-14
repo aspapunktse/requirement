@@ -203,6 +203,26 @@ describe("/api/requirements/[id]", () => {
     expect(response.status).toBe(404);
   });
 
+  it("PATCH lets an admin edit core fields, including a multi-value framework list", async () => {
+    const response = await PATCH(
+      requestAs(perSystemRequirementId, adminId, {
+        method: "PATCH",
+        body: JSON.stringify({
+          title: "Updated title",
+          framework: ["ISO27001:2022 Annex A", "CSA CCM 4.0"],
+        }),
+      }),
+      ctxFor(perSystemRequirementId),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.requirement).toMatchObject({
+      title: "Updated title",
+      framework: ["ISO27001:2022 Annex A", "CSA CCM 4.0"],
+    });
+  });
+
   it("PATCH rejects an unknown Deployment Facet id", async () => {
     const response = await PATCH(
       requestAs(perSystemRequirementId, adminId, {

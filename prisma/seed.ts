@@ -7,7 +7,10 @@ const prisma = new PrismaClient();
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-type SeedRequirement = Omit<Requirement, "id" | "createdAt">;
+// The seed JSON authors one framework label per row as a plain string, for
+// authoring convenience — converted to the schema's `framework: String[]`
+// (see #52) when loaded below.
+type SeedRequirementJson = Omit<Requirement, "id" | "createdAt" | "framework"> & { framework: string | null };
 
 // Placeholder requirements from before the ISO 27001 Annex A catalog was seeded.
 const OBSOLETE_PLACEHOLDER_CODES = ["SEC-001", "SEC-002", "PRIV-001", "OPS-001"];
@@ -34,13 +37,14 @@ async function main() {
   await prisma.requirement.deleteMany({ where: { code: { in: OBSOLETE_PLACEHOLDER_CODES } } });
 
   const requirementsPath = path.join(__dirname, "seed-data", "iso27001-annex-a.json");
-  const requirements: SeedRequirement[] = JSON.parse(readFileSync(requirementsPath, "utf-8"));
+  const requirements: SeedRequirementJson[] = JSON.parse(readFileSync(requirementsPath, "utf-8"));
 
-  for (const req of requirements) {
+  for (const { framework, ...req } of requirements) {
+    const data = { ...req, framework: framework ? [framework] : [] };
     await prisma.requirement.upsert({
       where: { code: req.code },
-      update: req,
-      create: req,
+      update: data,
+      create: data,
     });
   }
 
