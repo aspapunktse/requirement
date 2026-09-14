@@ -12,7 +12,7 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/requirem
   const { id } = await ctx.params;
   const requirement = await prisma.requirement.findUnique({
     where: { id },
-    include: { systemTypes: true, capabilities: true },
+    include: { deploymentFacets: true, capabilities: true },
   });
   if (!requirement) {
     return NextResponse.json({ error: "Requirement not found" }, { status: 404 });
@@ -22,11 +22,11 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/requirem
 
 const updateMappingsSchema = z
   .object({
-    systemTypeIds: z.array(z.string()).optional(),
+    deploymentFacetIds: z.array(z.string()).optional(),
     capabilityIds: z.array(z.string()).optional(),
   })
-  .refine((data) => data.systemTypeIds !== undefined || data.capabilityIds !== undefined, {
-    message: "Provide at least one of systemTypeIds or capabilityIds",
+  .refine((data) => data.deploymentFacetIds !== undefined || data.capabilityIds !== undefined, {
+    message: "Provide at least one of deploymentFacetIds or capabilityIds",
   });
 
 export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/requirements/[id]">) {
@@ -44,14 +44,14 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/requir
     return NextResponse.json({ error: "Requirement not found" }, { status: 404 });
   }
 
-  const { systemTypeIds, capabilityIds } = parsed.data;
+  const { deploymentFacetIds, capabilityIds } = parsed.data;
   if (
     requirement.applicability === "ORGANIZATIONAL" &&
-    systemTypeIds !== undefined &&
-    systemTypeIds.length > 0
+    deploymentFacetIds !== undefined &&
+    deploymentFacetIds.length > 0
   ) {
     return NextResponse.json(
-      { error: "ORGANIZATIONAL requirements cannot be scoped to System Types" },
+      { error: "ORGANIZATIONAL requirements cannot be scoped to Deployment Facets" },
       { status: 400 },
     );
   }
@@ -60,20 +60,20 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/requir
     const updated = await prisma.requirement.update({
       where: { id },
       data: {
-        ...(systemTypeIds !== undefined && {
-          systemTypes: { set: systemTypeIds.map((systemTypeId) => ({ id: systemTypeId })) },
+        ...(deploymentFacetIds !== undefined && {
+          deploymentFacets: { set: deploymentFacetIds.map((facetId) => ({ id: facetId })) },
         }),
         ...(capabilityIds !== undefined && {
           capabilities: { set: capabilityIds.map((capabilityId) => ({ id: capabilityId })) },
         }),
       },
-      include: { systemTypes: true, capabilities: true },
+      include: { deploymentFacets: true, capabilities: true },
     });
     return NextResponse.json({ requirement: updated });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
       return NextResponse.json(
-        { error: "One or more System Type or Capability ids do not exist" },
+        { error: "One or more Deployment Facet or Capability ids do not exist" },
         { status: 400 },
       );
     }

@@ -49,13 +49,13 @@ describe("PATCH /api/systems/[id]/risks/[riskId]", () => {
     ownerId = owner.id;
     riskOwnerId = riskOwner.id;
 
-    const systemType = await prisma.systemType.create({
+    const systemType = await prisma.deploymentFacet.create({
       data: { name: `Test Risk Patch Type ${Date.now()}` },
     });
     systemTypeId = systemType.id;
 
     const system = await prisma.system.create({
-      data: { name: "Risk Patch System", systemTypeId, ownerId, status: "DRAFT" },
+      data: { name: "Risk Patch System", deploymentFacets: { connect: [{ id: systemTypeId }] }, ownerId, status: "DRAFT" },
     });
     systemId = system.id;
 
@@ -100,7 +100,7 @@ describe("PATCH /api/systems/[id]/risks/[riskId]", () => {
     await prisma.requirementAssessment.deleteMany({ where: { systemId } });
     await prisma.system.deleteMany({ where: { id: systemId } });
     await prisma.requirement.deleteMany({ where: { id: requirementId } });
-    await prisma.systemType.deleteMany({ where: { id: systemTypeId } });
+    await prisma.deploymentFacet.deleteMany({ where: { id: systemTypeId } });
     await prisma.user.deleteMany({ where: { email: { in: [OWNER_EMAIL, RISK_OWNER_EMAIL] } } });
   });
 
@@ -152,9 +152,9 @@ describe("PATCH /api/systems/[id]/risks/[riskId]", () => {
   });
 
   it("returns 404 for a Risk that doesn't belong to this System", async () => {
-    const otherSystemType = await prisma.systemType.create({ data: { name: `Other ${Date.now()}` } });
+    const otherSystemType = await prisma.deploymentFacet.create({ data: { name: `Other ${Date.now()}` } });
     const otherSystem = await prisma.system.create({
-      data: { name: "Other System", systemTypeId: otherSystemType.id, ownerId, status: "DRAFT" },
+      data: { name: "Other System", deploymentFacets: { connect: [{ id: otherSystemType.id }] }, ownerId, status: "DRAFT" },
     });
 
     const response = await PATCH(
@@ -164,7 +164,7 @@ describe("PATCH /api/systems/[id]/risks/[riskId]", () => {
     expect(response.status).toBe(404);
 
     await prisma.system.delete({ where: { id: otherSystem.id } });
-    await prisma.systemType.delete({ where: { id: otherSystemType.id } });
+    await prisma.deploymentFacet.delete({ where: { id: otherSystemType.id } });
   });
 
   it("an auto-created Risk shows its originating Requirement Assessment", async () => {

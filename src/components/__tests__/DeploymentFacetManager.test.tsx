@@ -1,29 +1,29 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { SystemTypeManager } from "../SystemTypeManager";
+import { DeploymentFacetManager } from "../DeploymentFacetManager";
 
-const systemTypes = [{ id: "st1", name: "On-Premises Datacenter", description: "Our own DC" }];
+const deploymentFacets = [{ id: "st1", name: "On-Premises Datacenter", description: "Our own DC" }];
 
 function mockFetch() {
   return vi.fn((input: string | URL | Request, init?: RequestInit) => {
     const url = typeof input === "string" ? input : input.toString();
     const method = init?.method ?? "GET";
 
-    if (url.endsWith("/api/system-types") && method === "GET") {
-      return Promise.resolve(new Response(JSON.stringify({ systemTypes }), { status: 200 }));
+    if (url.endsWith("/api/deployment-facets") && method === "GET") {
+      return Promise.resolve(new Response(JSON.stringify({ deploymentFacets }), { status: 200 }));
     }
-    if (url.endsWith("/api/system-types") && method === "POST") {
-      return Promise.resolve(new Response(JSON.stringify({ systemType: {} }), { status: 201 }));
+    if (url.endsWith("/api/deployment-facets") && method === "POST") {
+      return Promise.resolve(new Response(JSON.stringify({ deploymentFacet: {} }), { status: 201 }));
     }
-    if (url.includes("/api/system-types/") && method === "PATCH") {
-      return Promise.resolve(new Response(JSON.stringify({ systemType: {} }), { status: 200 }));
+    if (url.includes("/api/deployment-facets/") && method === "PATCH") {
+      return Promise.resolve(new Response(JSON.stringify({ deploymentFacet: {} }), { status: 200 }));
     }
     throw new Error(`Unexpected fetch: ${method} ${url}`);
   });
 }
 
-describe("SystemTypeManager", () => {
+describe("DeploymentFacetManager", () => {
   beforeEach(() => {
     vi.stubGlobal("fetch", mockFetch());
   });
@@ -32,14 +32,14 @@ describe("SystemTypeManager", () => {
     vi.unstubAllGlobals();
   });
 
-  it("lists existing System Types", async () => {
-    render(<SystemTypeManager />);
+  it("lists existing Deployment Facets", async () => {
+    render(<DeploymentFacetManager />);
     expect(await screen.findByDisplayValue("On-Premises Datacenter")).toBeInTheDocument();
   });
 
-  it("submits a new System Type via the create form", async () => {
+  it("submits a new Deployment Facet via the create form", async () => {
     const user = userEvent.setup();
-    render(<SystemTypeManager />);
+    render(<DeploymentFacetManager />);
     await screen.findByDisplayValue("On-Premises Datacenter");
 
     await user.type(screen.getByLabelText("Name"), "Cloud IaaS/PaaS");
@@ -56,7 +56,7 @@ describe("SystemTypeManager", () => {
 
   it("saves an edited description", async () => {
     const user = userEvent.setup();
-    render(<SystemTypeManager />);
+    render(<DeploymentFacetManager />);
     await screen.findByDisplayValue("On-Premises Datacenter");
 
     const textarea = screen.getByLabelText("Description for On-Premises Datacenter");
@@ -78,12 +78,12 @@ describe("SystemTypeManager", () => {
 
   it("saves an edited name", async () => {
     const user = userEvent.setup();
-    render(<SystemTypeManager />);
+    render(<DeploymentFacetManager />);
     await screen.findByDisplayValue("On-Premises Datacenter");
 
     const nameInput = screen.getByLabelText("Name for On-Premises Datacenter");
     await user.clear(nameInput);
-    await user.type(nameInput, "Renamed Type");
+    await user.type(nameInput, "Renamed Facet");
     await user.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() => {
@@ -92,7 +92,7 @@ describe("SystemTypeManager", () => {
       );
       expect(patchCall).toBeTruthy();
       expect(JSON.parse(patchCall![1].body)).toEqual({
-        name: "Renamed Type",
+        name: "Renamed Facet",
         description: "Our own DC",
       });
     });

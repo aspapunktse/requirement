@@ -136,14 +136,14 @@ describe("DELETE /api/capabilities/[id]", () => {
     adminId = admin.id;
     ownerId = owner.id;
 
-    const systemType = await prisma.systemType.create({
+    const systemType = await prisma.deploymentFacet.create({
       data: { name: `Test Capability Delete Type ${Date.now()}` },
     });
     systemTypeId = systemType.id;
   });
 
   afterAll(async () => {
-    await prisma.systemType.deleteMany({ where: { id: systemTypeId } });
+    await prisma.deploymentFacet.deleteMany({ where: { id: systemTypeId } });
     await prisma.user.deleteMany({ where: { email: { in: [ADMIN_EMAIL, OWNER_EMAIL] } } });
   });
 
@@ -180,7 +180,7 @@ describe("DELETE /api/capabilities/[id]", () => {
     const system = await prisma.system.create({
       data: {
         name: "Declares The Capability",
-        systemTypeId,
+        deploymentFacets: { connect: [{ id: systemTypeId }] },
         ownerId,
         status: "DRAFT",
         capabilities: { connect: { id: capabilityId } },

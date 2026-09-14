@@ -11,7 +11,7 @@ export default async function RequirementsMappingPage() {
   if (user.role !== "ADMIN") {
     return (
       <p className="p-6 text-zinc-600 dark:text-zinc-400">
-        Only Admins can map Requirements to System Types and Capabilities.
+        Only Admins can map Requirements to Deployment Facets and Capabilities.
       </p>
     );
   }

@@ -30,7 +30,7 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems
   const updated = await prisma.system.update({
     where: { id: system.id },
     data: { status: "IN_REVIEW" },
-    include: { systemType: true, owner: true },
+    include: { deploymentFacets: true, owner: true },
   });
 
   return NextResponse.json({ system: updated });

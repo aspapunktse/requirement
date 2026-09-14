@@ -65,18 +65,18 @@ describe("/api/systems/[id]/risks", () => {
     riskOwnerId = riskOwner.id;
     viewerId = viewer.id;
 
-    const systemType = await prisma.systemType.create({
+    const systemType = await prisma.deploymentFacet.create({
       data: { name: `Test Risks Type ${Date.now()}` },
     });
     systemTypeId = systemType.id;
 
     const system = await prisma.system.create({
-      data: { name: "Risks Test System", systemTypeId, ownerId, status: "DRAFT" },
+      data: { name: "Risks Test System", deploymentFacets: { connect: [{ id: systemTypeId }] }, ownerId, status: "DRAFT" },
     });
     systemId = system.id;
 
     const onboardedSystem = await prisma.system.create({
-      data: { name: "Risks Onboarded System", systemTypeId, ownerId, status: "ONBOARDED" },
+      data: { name: "Risks Onboarded System", deploymentFacets: { connect: [{ id: systemTypeId }] }, ownerId, status: "ONBOARDED" },
     });
     onboardedSystemId = onboardedSystem.id;
   });
@@ -84,7 +84,7 @@ describe("/api/systems/[id]/risks", () => {
   afterAll(async () => {
     await prisma.risk.deleteMany({ where: { systemId: { in: [systemId, onboardedSystemId] } } });
     await prisma.system.deleteMany({ where: { id: { in: [systemId, onboardedSystemId] } } });
-    await prisma.systemType.deleteMany({ where: { id: systemTypeId } });
+    await prisma.deploymentFacet.deleteMany({ where: { id: systemTypeId } });
     await prisma.user.deleteMany({
       where: { email: { in: [OWNER_EMAIL, OTHER_OWNER_EMAIL, RISK_OWNER_EMAIL, VIEWER_EMAIL] } },
     });

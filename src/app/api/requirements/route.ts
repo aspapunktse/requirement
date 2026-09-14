@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
 
   const requirements = await prisma.requirement.findMany({
     orderBy: { code: "asc" },
-    include: { systemTypes: true, capabilities: true },
+    include: { deploymentFacets: true, capabilities: true },
   });
   return NextResponse.json({ requirements });
 }

@@ -42,7 +42,7 @@ describe("DELETE /api/systems/[id]/capabilities/[capabilityId]", () => {
     ownerId = owner.id;
     otherOwnerId = otherOwner.id;
 
-    const systemType = await prisma.systemType.create({
+    const systemType = await prisma.deploymentFacet.create({
       data: { name: `Test Sys Caps Delete Type ${Date.now()}` },
     });
     systemTypeId = systemType.id;
@@ -56,7 +56,7 @@ describe("DELETE /api/systems/[id]/capabilities/[capabilityId]", () => {
   afterAll(async () => {
     await prisma.system.deleteMany({ where: { id: systemId } });
     await prisma.capability.deleteMany({ where: { id: capabilityId } });
-    await prisma.systemType.deleteMany({ where: { id: systemTypeId } });
+    await prisma.deploymentFacet.deleteMany({ where: { id: systemTypeId } });
     await prisma.user.deleteMany({ where: { email: { in: [OWNER_EMAIL, OTHER_OWNER_EMAIL] } } });
   });
 
@@ -64,7 +64,7 @@ describe("DELETE /api/systems/[id]/capabilities/[capabilityId]", () => {
     const system = await prisma.system.create({
       data: {
         name: "Delete Test System",
-        systemTypeId,
+        deploymentFacets: { connect: [{ id: systemTypeId }] },
         ownerId,
         status: "DRAFT",
         capabilities: { connect: { id: capabilityId } },
@@ -86,7 +86,7 @@ describe("DELETE /api/systems/[id]/capabilities/[capabilityId]", () => {
     const onboarded = await prisma.system.create({
       data: {
         name: "Onboarded System",
-        systemTypeId,
+        deploymentFacets: { connect: [{ id: systemTypeId }] },
         ownerId,
         status: "ONBOARDED",
         capabilities: { connect: { id: capabilityId } },

@@ -44,10 +44,10 @@ describe("/api/requirements/[id]", () => {
     adminId = admin.id;
     viewerId = viewer.id;
 
-    const systemTypeA = await prisma.systemType.create({
+    const systemTypeA = await prisma.deploymentFacet.create({
       data: { name: `Test Type A ${Date.now()}` },
     });
-    const systemTypeB = await prisma.systemType.create({
+    const systemTypeB = await prisma.deploymentFacet.create({
       data: { name: `Test Type B ${Date.now()}` },
     });
     systemTypeAId = systemTypeA.id;
@@ -61,7 +61,7 @@ describe("/api/requirements/[id]", () => {
 
   afterAll(async () => {
     await prisma.user.deleteMany({ where: { email: { in: [ADMIN_EMAIL, VIEWER_EMAIL] } } });
-    await prisma.systemType.deleteMany({ where: { id: { in: [systemTypeAId, systemTypeBId] } } });
+    await prisma.deploymentFacet.deleteMany({ where: { id: { in: [systemTypeAId, systemTypeBId] } } });
     await prisma.capability.deleteMany({ where: { id: capabilityId } });
   });
 
@@ -110,31 +110,31 @@ describe("/api/requirements/[id]", () => {
     const response = await PATCH(
       requestAs(perSystemRequirementId, viewerId, {
         method: "PATCH",
-        body: JSON.stringify({ systemTypeIds: [systemTypeAId] }),
+        body: JSON.stringify({ deploymentFacetIds: [systemTypeAId] }),
       }),
       ctxFor(perSystemRequirementId),
     );
     expect(response.status).toBe(403);
   });
 
-  it("PATCH lets an admin scope a requirement to System Types", async () => {
+  it("PATCH lets an admin scope a requirement to Deployment Facets", async () => {
     const response = await PATCH(
       requestAs(perSystemRequirementId, adminId, {
         method: "PATCH",
-        body: JSON.stringify({ systemTypeIds: [systemTypeAId, systemTypeBId] }),
+        body: JSON.stringify({ deploymentFacetIds: [systemTypeAId, systemTypeBId] }),
       }),
       ctxFor(perSystemRequirementId),
     );
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body.requirement.systemTypes.map((t: { id: string }) => t.id).sort()).toEqual(
+    expect(body.requirement.deploymentFacets.map((t: { id: string }) => t.id).sort()).toEqual(
       [systemTypeAId, systemTypeBId].sort(),
     );
 
     const getResponse = await GET(requestAs(perSystemRequirementId, viewerId), ctxFor(perSystemRequirementId));
     const getBody = await getResponse.json();
-    expect(getBody.requirement.systemTypes).toHaveLength(2);
+    expect(getBody.requirement.deploymentFacets).toHaveLength(2);
   });
 
   it("PATCH lets an admin map Capabilities to a requirement", async () => {
@@ -151,11 +151,11 @@ describe("/api/requirements/[id]", () => {
     expect(body.requirement.capabilities).toMatchObject([{ id: capabilityId }]);
   });
 
-  it("PATCH clears a mapping when given an empty array (applies to all System Types)", async () => {
+  it("PATCH clears a mapping when given an empty array (applies regardless of facet)", async () => {
     await PATCH(
       requestAs(perSystemRequirementId, adminId, {
         method: "PATCH",
-        body: JSON.stringify({ systemTypeIds: [systemTypeAId] }),
+        body: JSON.stringify({ deploymentFacetIds: [systemTypeAId] }),
       }),
       ctxFor(perSystemRequirementId),
     );
@@ -163,21 +163,21 @@ describe("/api/requirements/[id]", () => {
     const response = await PATCH(
       requestAs(perSystemRequirementId, adminId, {
         method: "PATCH",
-        body: JSON.stringify({ systemTypeIds: [] }),
+        body: JSON.stringify({ deploymentFacetIds: [] }),
       }),
       ctxFor(perSystemRequirementId),
     );
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body.requirement.systemTypes).toEqual([]);
+    expect(body.requirement.deploymentFacets).toEqual([]);
   });
 
-  it("PATCH rejects scoping an ORGANIZATIONAL requirement to System Types", async () => {
+  it("PATCH rejects scoping an ORGANIZATIONAL requirement to Deployment Facets", async () => {
     const response = await PATCH(
       requestAs(organizationalRequirementId, adminId, {
         method: "PATCH",
-        body: JSON.stringify({ systemTypeIds: [systemTypeAId] }),
+        body: JSON.stringify({ deploymentFacetIds: [systemTypeAId] }),
       }),
       ctxFor(organizationalRequirementId),
     );
@@ -203,11 +203,11 @@ describe("/api/requirements/[id]", () => {
     expect(response.status).toBe(404);
   });
 
-  it("PATCH rejects an unknown System Type id", async () => {
+  it("PATCH rejects an unknown Deployment Facet id", async () => {
     const response = await PATCH(
       requestAs(perSystemRequirementId, adminId, {
         method: "PATCH",
-        body: JSON.stringify({ systemTypeIds: ["does-not-exist"] }),
+        body: JSON.stringify({ deploymentFacetIds: ["does-not-exist"] }),
       }),
       ctxFor(perSystemRequirementId),
     );

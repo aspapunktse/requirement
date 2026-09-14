@@ -60,13 +60,13 @@ describe("PATCH /api/systems/[id]/assessments/[requirementId]/answer", () => {
     riskOwnerId = riskOwner.id;
     viewerId = viewer.id;
 
-    const systemType = await prisma.systemType.create({
+    const systemType = await prisma.deploymentFacet.create({
       data: { name: `Test Answer Type ${Date.now()}` },
     });
     systemTypeId = systemType.id;
 
     const system = await prisma.system.create({
-      data: { name: "Answer Test System", systemTypeId, ownerId, status: "DRAFT" },
+      data: { name: "Answer Test System", deploymentFacets: { connect: [{ id: systemTypeId }] }, ownerId, status: "DRAFT" },
     });
     systemId = system.id;
 
@@ -104,7 +104,7 @@ describe("PATCH /api/systems/[id]/assessments/[requirementId]/answer", () => {
     await prisma.requirement.deleteMany({
       where: { id: { in: [mandatoryRequirementId, optionalRequirementId] } },
     });
-    await prisma.systemType.deleteMany({ where: { id: systemTypeId } });
+    await prisma.deploymentFacet.deleteMany({ where: { id: systemTypeId } });
     await prisma.user.deleteMany({
       where: { email: { in: [OWNER_EMAIL, RISK_OWNER_EMAIL, VIEWER_EMAIL] } },
     });
@@ -220,7 +220,7 @@ describe("PATCH /api/systems/[id]/assessments/[requirementId]/answer", () => {
   });
 
   it("returns 404 for a Requirement not applicable to this System", async () => {
-    const otherType = await prisma.systemType.create({
+    const otherType = await prisma.deploymentFacet.create({
       data: { name: `Test Answer Other Type ${Date.now()}` },
     });
     const scoped = await prisma.requirement.create({
@@ -230,7 +230,7 @@ describe("PATCH /api/systems/[id]/assessments/[requirementId]/answer", () => {
         description: "Scoped elsewhere",
         category: "Security",
         applicability: "PER_SYSTEM",
-        systemTypes: { connect: [{ id: otherType.id }] },
+        deploymentFacets: { connect: [{ id: otherType.id }] },
       },
     });
 
@@ -241,6 +241,6 @@ describe("PATCH /api/systems/[id]/assessments/[requirementId]/answer", () => {
     expect(response.status).toBe(404);
 
     await prisma.requirement.delete({ where: { id: scoped.id } });
-    await prisma.systemType.delete({ where: { id: otherType.id } });
+    await prisma.deploymentFacet.delete({ where: { id: otherType.id } });
   });
 });

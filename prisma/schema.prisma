@@ -78,8 +78,9 @@ model System {
   dataClassification String?        // e.g. Public, Internal, Confidential, Restricted
   ownerId         String
   owner           User              @relation("SystemOwner", fields: [ownerId], references: [id])
-  systemTypeId    String
-  systemType      SystemType        @relation(fields: [systemTypeId], references: [id])
+  // One or more deployment facets this System spans (e.g. On-Prem, Cloud) —
+  // a Hybrid System is simply one that declares more than one. See ADR 0003.
+  deploymentFacets DeploymentFacet[]
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
   // When the System was actually marked Onboarded — distinct from Approval
@@ -95,18 +96,19 @@ model System {
   capabilities    Capability[]
 }
 
-// An admin-curated classification a System is assigned (e.g. On-Premises
-// Datacenter, Cloud IaaS/PaaS, SaaS, Hybrid) that determines which
-// Requirements apply to it. See ADR 0002 for why this is single-select
-// per System rather than a combination of types.
-model SystemType {
+// An admin-curated deployment classification (e.g. On-Premises Datacenter,
+// Cloud IaaS/PaaS, SaaS) that determines which Requirements apply to a
+// System. A System declares one or more facets — Hybrid is simply a System
+// with more than one declared, not its own catalog entry. See ADR 0003
+// (which supersedes ADR 0002's single-select-only design).
+model DeploymentFacet {
   id           String        @id @default(cuid())
   name         String        @unique
   description  String?
   createdAt    DateTime      @default(now())
 
-  // Requirements scoped to this System Type. A Requirement with no rows
-  // here at all applies to every System Type (see Requirement.systemTypes).
+  // Requirements scoped to this facet. A Requirement with no rows here at
+  // all applies regardless of facet (see Requirement.deploymentFacets).
   requirements Requirement[]
   systems      System[]
 }
@@ -153,10 +155,10 @@ model Requirement {
 
   assessments   RequirementAssessment[]
 
-  // System Types this Requirement is scoped to. Empty means "applies to
-  // every System Type" (how the Annex A seed ships). Must stay empty for
+  // Deployment Facets this Requirement is scoped to. Empty means "applies
+  // regardless of facet" (how the Annex A seed ships). Must stay empty for
   // ORGANIZATIONAL requirements, which are never assessed per System.
-  systemTypes   SystemType[]
+  deploymentFacets DeploymentFacet[]
   // Capabilities that, if a System declares one, auto-fulfill this
   // Requirement. May be empty, one, or several (any one suffices).
   capabilities  Capability[]

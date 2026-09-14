@@ -4,21 +4,22 @@ Internal webapp for tracking requirement fulfillment and risk assessment when on
 
 ## Project status
 
-**As of this writing: the full original backlog (16 issues) is implemented, tested, and merged — the core onboarding workflow and the ISO 27001 Annex A Requirement Catalog feature set both work end-to-end. No GitHub issues are currently open.**
+**As of this writing: the full original backlog (16 issues) is implemented, tested, and merged — the core onboarding workflow and the ISO 27001 Annex A Requirement Catalog feature set both work end-to-end.** A follow-on design ([ADR 0003](docs/adr/0003-multiselect-deployment-facets-plus-overlays.md)) is in progress: Deployment Facets (this README's own "Deployment Facet-based scoping" line above) is shipped as of #47; Regulatory Overlays and CIA Impact Level remain open (#48–#53).
 
 What exists and works:
 - Next.js/Prisma/Postgres scaffold, CI/CD, Docker (see Stack/CI-CD below)
 - Dev-only auth stub with a role switcher and server-enforced authorization for all 5 roles (`ADMIN`, `RISK_OWNER`, `SYSTEM_OWNER`, `REVIEWER`, `VIEWER`)
 - The full onboarding lifecycle: create a System → assess it against the Requirement Catalog → log Risks → submit for review → a Reviewer's Approve/Reject decision (Rejected returns to Draft, not a dead end) → mark Onboarded
-- The Requirement Catalog: the 93-control ISO 27001:2022 Annex A seed, System Type-based scoping, the per-Requirement Self-Assessment Question (Yes auto-fulfills, No auto-opens a linked Risk, N/A is Admin/Risk-Owner-gated), and Capability declaration that auto-fulfills mapped Requirements and reverts them on removal (unless a human has since touched the Assessment)
-- Changing a Draft System's Type recomputes its applicable Requirement set without discarding work already done
-- Admin CRUD (including retire) for the System Type and Capability catalogs
+- The Requirement Catalog: the 93-control ISO 27001:2022 Annex A seed, Deployment Facet-based scoping (a System declares one or more facets — e.g. On-Prem, Cloud — and Hybrid is simply declaring more than one, not its own catalog entry; see [ADR 0003](docs/adr/0003-multiselect-deployment-facets-plus-overlays.md)), the per-Requirement Self-Assessment Question (Yes auto-fulfills, No auto-opens a linked Risk, N/A is Admin/Risk-Owner-gated), and Capability declaration that auto-fulfills mapped Requirements and reverts them on removal (unless a human has since touched the Assessment)
+- Changing a Draft System's declared Deployment Facets recomputes its applicable Requirement set (the union of what each declared facet requires) without discarding work already done
+- Admin CRUD (including retire) for the Deployment Facet and Capability catalogs
 
 What's *not* decided yet (deliberately deferred, not overlooked):
 - Real authentication (SSO/OIDC) — still the dev-only role switcher
 - Multi-tenancy — currently single-tenant; the intent is to add tenant/org scoping later. This was deliberately *not* written up as an ADR, since single-tenancy is a stepping stone, not a permanent commitment — expect an `Organization`/tenant scope to eventually land on `System`, `User`, and the `Requirement` catalog
 - Notifications on status changes — out of scope until now; the core workflow is proven, so this is a reasonable next thing to propose
-- Retiring a `Requirement` from the catalog — System Type and Capability can be retired, Requirement deliberately wasn't (see [issue #13](https://github.com/aspapunktse/requirement/issues/13)'s closing comment)
+- Retiring a `Requirement` from the catalog — Deployment Facet and Capability can be retired, Requirement deliberately wasn't (see [issue #13](https://github.com/aspapunktse/requirement/issues/13)'s closing comment)
+- Regulatory Overlays and CIA Impact Level (GDPR/export-control flags, Confidentiality/Integrity/Availability-driven Requirements) — the rest of [ADR 0003](docs/adr/0003-multiselect-deployment-facets-plus-overlays.md)'s design, tracked as issues #48–#53
 
 **Picking this up in a fresh session?** Read, in order: this section, [`CONTEXT.md`](CONTEXT.md), [`docs/adr/`](docs/adr/). There's no open-issues queue to work through right now — new work starts from a feature proposal, not a pre-written ticket. [`docs/agents/`](docs/agents/) documents how the repo is configured for Matt Pocock's engineering skills (issue tracker conventions, domain-doc consumer rules) if you're using those.
 

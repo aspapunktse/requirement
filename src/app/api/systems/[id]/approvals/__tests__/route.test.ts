@@ -13,8 +13,8 @@ import { GET, POST } from "../route";
  * System Type scoping, so they apply to every Type. Satisfy all of them so
  * resubmission is only gated by what a test means to gate it by.
  */
-async function fulfillAllMandatoryRequirements(systemId: string, systemTypeId: string) {
-  const unaddressed = await getUnaddressedMandatoryRequirements({ id: systemId, systemTypeId });
+async function fulfillAllMandatoryRequirements(systemId: string, deploymentFacetIds: string[]) {
+  const unaddressed = await getUnaddressedMandatoryRequirements({ id: systemId, deploymentFacets: deploymentFacetIds.map((id) => ({ id })) });
   await prisma.requirementAssessment.createMany({
     data: unaddressed.map((requirement) => ({
       systemId,
@@ -77,18 +77,18 @@ describe("/api/systems/[id]/approvals", () => {
     reviewerId = reviewer.id;
     viewerId = viewer.id;
 
-    const systemType = await prisma.systemType.create({
+    const systemType = await prisma.deploymentFacet.create({
       data: { name: `Test Approvals Type ${Date.now()}` },
     });
     systemTypeId = systemType.id;
 
     const inReviewSystem = await prisma.system.create({
-      data: { name: "In Review System", systemTypeId, ownerId, status: "IN_REVIEW" },
+      data: { name: "In Review System", deploymentFacets: { connect: [{ id: systemTypeId }] }, ownerId, status: "IN_REVIEW" },
     });
     inReviewSystemId = inReviewSystem.id;
 
     const draftSystem = await prisma.system.create({
-      data: { name: "Draft System", systemTypeId, ownerId, status: "DRAFT" },
+      data: { name: "Draft System", deploymentFacets: { connect: [{ id: systemTypeId }] }, ownerId, status: "DRAFT" },
     });
     draftSystemId = draftSystem.id;
 
@@ -113,7 +113,7 @@ describe("/api/systems/[id]/approvals", () => {
     await prisma.approval.deleteMany({ where: { systemId: { in: [inReviewSystemId, draftSystemId] } } });
     await prisma.system.deleteMany({ where: { id: { in: [inReviewSystemId, draftSystemId] } } });
     await prisma.requirement.deleteMany({ where: { id: mandatoryRequirementId } });
-    await prisma.systemType.deleteMany({ where: { id: systemTypeId } });
+    await prisma.deploymentFacet.deleteMany({ where: { id: systemTypeId } });
     await prisma.user.deleteMany({ where: { email: { in: [OWNER_EMAIL, REVIEWER_EMAIL, VIEWER_EMAIL] } } });
   });
 
@@ -232,7 +232,7 @@ describe("/api/systems/[id]/approvals", () => {
     );
     expect(editResponse.status).toBe(200);
 
-    await fulfillAllMandatoryRequirements(inReviewSystemId, systemTypeId);
+    await fulfillAllMandatoryRequirements(inReviewSystemId, [systemTypeId]);
 
     const resubmitResponse = await submitForReview(
       new NextRequest(`http://localhost/api/systems/${inReviewSystemId}/submit`, {

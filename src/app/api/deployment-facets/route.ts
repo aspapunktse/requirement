@@ -9,11 +9,11 @@ export async function GET(request: NextRequest) {
   const auth = await authenticate(request);
   if ("response" in auth) return auth.response;
 
-  const systemTypes = await prisma.systemType.findMany({ orderBy: { name: "asc" } });
-  return NextResponse.json({ systemTypes });
+  const deploymentFacets = await prisma.deploymentFacet.findMany({ orderBy: { name: "asc" } });
+  return NextResponse.json({ deploymentFacets });
 }
 
-const createSystemTypeSchema = z.object({
+const createDeploymentFacetSchema = z.object({
   name: z.string().min(1),
   description: z.string().optional(),
 });
@@ -22,18 +22,18 @@ export async function POST(request: NextRequest) {
   const auth = await authorize(request, ROLES_ALLOWED_TO_MANAGE_CATALOG);
   if ("response" in auth) return auth.response;
 
-  const parsed = createSystemTypeSchema.safeParse(await request.json());
+  const parsed = createDeploymentFacetSchema.safeParse(await request.json());
   if (!parsed.success) {
     return NextResponse.json({ error: "name is required" }, { status: 400 });
   }
 
   try {
-    const systemType = await prisma.systemType.create({ data: parsed.data });
-    return NextResponse.json({ systemType }, { status: 201 });
+    const deploymentFacet = await prisma.deploymentFacet.create({ data: parsed.data });
+    return NextResponse.json({ deploymentFacet }, { status: 201 });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       return NextResponse.json(
-        { error: "A System Type with that name already exists" },
+        { error: "A Deployment Facet with that name already exists" },
         { status: 409 },
       );
     }

@@ -48,8 +48,8 @@ describe("Invariant: an ORGANIZATIONAL Requirement never gets a RequirementAsses
     adminId = admin.id;
 
     const suffix = Date.now();
-    const typeA = await prisma.systemType.create({ data: { name: `Org Invariant Type A ${suffix}` } });
-    const typeB = await prisma.systemType.create({ data: { name: `Org Invariant Type B ${suffix}` } });
+    const typeA = await prisma.deploymentFacet.create({ data: { name: `Org Invariant Type A ${suffix}` } });
+    const typeB = await prisma.deploymentFacet.create({ data: { name: `Org Invariant Type B ${suffix}` } });
     typeAId = typeA.id;
     typeBId = typeB.id;
 
@@ -76,7 +76,7 @@ describe("Invariant: an ORGANIZATIONAL Requirement never gets a RequirementAsses
   afterAll(async () => {
     await prisma.requirement.deleteMany({ where: { id: orgRequirementId } });
     await prisma.capability.deleteMany({ where: { id: capabilityId } });
-    await prisma.systemType.deleteMany({ where: { id: { in: [typeAId, typeBId] } } });
+    await prisma.deploymentFacet.deleteMany({ where: { id: { in: [typeAId, typeBId] } } });
     await prisma.user.deleteMany({ where: { email: ADMIN_EMAIL } });
   });
 
@@ -87,17 +87,17 @@ describe("Invariant: an ORGANIZATIONAL Requirement never gets a RequirementAsses
 
   it("stays unassessed across System creation, Type change, Capability declare/undeclare, and direct edit attempts", async () => {
     const system = await prisma.system.create({
-      data: { name: "Org Invariant System", systemTypeId: typeAId, ownerId: adminId, status: "DRAFT" },
+      data: { name: "Org Invariant System", deploymentFacets: { connect: [{ id: typeAId }] }, ownerId: adminId, status: "DRAFT" },
     });
     systemId = system.id;
 
     // 1. System creation never creates a row for it.
     await assertNoAssessment(systemId, orgRequirementId);
 
-    // 2. Changing System Type (which recomputes the applicable set) never
-    // creates one either.
+    // 2. Changing Deployment Facets (which recomputes the applicable set)
+    // never creates one either.
     const typeChangeResponse = await changeSystemType(
-      requestWith(`http://localhost/api/systems/${systemId}`, "PATCH", adminId, { systemTypeId: typeBId }),
+      requestWith(`http://localhost/api/systems/${systemId}`, "PATCH", adminId, { deploymentFacetIds: [typeBId] }),
       { params: Promise.resolve({ id: systemId }) },
     );
     expect(typeChangeResponse.status).toBe(200);

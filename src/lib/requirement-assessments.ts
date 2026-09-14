@@ -35,16 +35,19 @@ export function checkWaiveGate(
 }
 
 /**
- * Requirements that apply to a System of the given SystemType: scoped
- * PER_SYSTEM or BOTH, and either unscoped by System Type (applies to every
- * Type) or explicitly scoped to include this one. ORGANIZATIONAL-scoped
- * Requirements are never assessed per System, so they're excluded here.
+ * Requirements that apply to a System declaring the given Deployment
+ * Facets: scoped PER_SYSTEM or BOTH, and either unscoped by facet (applies
+ * regardless) or explicitly scoped to include at least one of the System's
+ * declared facets (union across declared facets — a Hybrid System declaring
+ * both On-Prem and Cloud gets everything either facet requires).
+ * ORGANIZATIONAL-scoped Requirements are never assessed per System, so
+ * they're excluded here.
  */
-export function getApplicableRequirements(systemTypeId: string) {
+export function getApplicableRequirements(facetIds: string[]) {
   return prisma.requirement.findMany({
     where: {
       applicability: { in: [...APPLICABLE_APPLICABILITIES] },
-      OR: [{ systemTypes: { none: {} } }, { systemTypes: { some: { id: systemTypeId } } }],
+      OR: [{ deploymentFacets: { none: {} } }, { deploymentFacets: { some: { id: { in: facetIds } } } }],
     },
     orderBy: { code: "asc" },
   });
@@ -55,9 +58,9 @@ export function getApplicableRequirements(systemTypeId: string) {
  * RequirementAssessment — a not-yet-touched Requirement is paired with a
  * default NOT_STARTED placeholder rather than a missing row.
  */
-export async function getSystemAssessments(system: { id: string; systemTypeId: string }) {
+export async function getSystemAssessments(system: { id: string; deploymentFacets: { id: string }[] }) {
   const [requirements, assessments] = await Promise.all([
-    getApplicableRequirements(system.systemTypeId),
+    getApplicableRequirements(system.deploymentFacets.map((f) => f.id)),
     prisma.requirementAssessment.findMany({
       where: { systemId: system.id },
       include: { assessedBy: true },
@@ -74,14 +77,19 @@ export async function getSystemAssessments(system: { id: string; systemTypeId: s
 
 /**
  * The Requirement `requirementId`, if it's applicable to `system` — null if
- * it doesn't exist or isn't scoped to this System's Type/applicability.
+ * it doesn't exist or isn't scoped to one of this System's declared
+ * Deployment Facets/applicability.
  */
-export function getApplicableRequirement(system: { systemTypeId: string }, requirementId: string) {
+export function getApplicableRequirement(
+  system: { deploymentFacets: { id: string }[] },
+  requirementId: string,
+) {
+  const facetIds = system.deploymentFacets.map((f) => f.id);
   return prisma.requirement.findFirst({
     where: {
       id: requirementId,
       applicability: { in: [...APPLICABLE_APPLICABILITIES] },
-      OR: [{ systemTypes: { none: {} } }, { systemTypes: { some: { id: system.systemTypeId } } }],
+      OR: [{ deploymentFacets: { none: {} } }, { deploymentFacets: { some: { id: { in: facetIds } } } }],
     },
   });
 }
@@ -90,12 +98,12 @@ export function getApplicableRequirement(system: { systemTypeId: string }, requi
  * The Requirement behind `requirementId` for the purpose of editing a
  * RequirementAssessment: either the normal applicable-Requirement lookup, or
  * — if that Requirement is no longer applicable to the System's current
- * Type — the Requirement behind an *existing* Assessment row, so a stale
- * Assessment left behind by a System Type change stays resolvable rather
+ * declared facets — the Requirement behind an *existing* Assessment row, so
+ * a stale Assessment left behind by a facet change stays resolvable rather
  * than becoming permanently stuck (see #15).
  */
 export async function getRequirementForAssessmentEdit(
-  system: { id: string; systemTypeId: string },
+  system: { id: string; deploymentFacets: { id: string }[] },
   requirementId: string,
 ) {
   const applicable = await getApplicableRequirement(system, requirementId);
@@ -110,12 +118,12 @@ export async function getRequirementForAssessmentEdit(
 
 /**
  * RequirementAssessments still recorded for `system` whose Requirement is no
- * longer applicable to its current SystemType/applicability scope — left in
- * place by a System Type change (rather than deleted) because a human had
+ * longer applicable to its current declared-facets/applicability scope —
+ * left in place by a facet change (rather than deleted) because a human had
  * already worked on them. Surfaced so the System Owner can resolve them.
  */
-export async function getStaleAssessments(system: { id: string; systemTypeId: string }) {
-  const applicable = await getApplicableRequirements(system.systemTypeId);
+export async function getStaleAssessments(system: { id: string; deploymentFacets: { id: string }[] }) {
+  const applicable = await getApplicableRequirements(system.deploymentFacets.map((f) => f.id));
   const applicableIds = applicable.map((r) => r.id);
 
   return prisma.requirementAssessment.findMany({
@@ -132,13 +140,14 @@ export async function getStaleAssessments(system: { id: string; systemTypeId: st
  */
 export async function getUnaddressedMandatoryRequirements(system: {
   id: string;
-  systemTypeId: string;
+  deploymentFacets: { id: string }[];
 }) {
+  const facetIds = system.deploymentFacets.map((f) => f.id);
   const mandatoryRequirements = await prisma.requirement.findMany({
     where: {
       mandatory: true,
       applicability: { in: [...APPLICABLE_APPLICABILITIES] },
-      OR: [{ systemTypes: { none: {} } }, { systemTypes: { some: { id: system.systemTypeId } } }],
+      OR: [{ deploymentFacets: { none: {} } }, { deploymentFacets: { some: { id: { in: facetIds } } } }],
     },
   });
   if (mandatoryRequirements.length === 0) return [];

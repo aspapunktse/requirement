@@ -14,8 +14,8 @@ import { POST } from "../route";
  * custom Requirement, so submission is only gated by what this test means
  * to gate it by.
  */
-async function fulfillAllMandatoryRequirements(systemId: string, systemTypeId: string) {
-  const unaddressed = await getUnaddressedMandatoryRequirements({ id: systemId, systemTypeId });
+async function fulfillAllMandatoryRequirements(systemId: string, deploymentFacetIds: string[]) {
+  const unaddressed = await getUnaddressedMandatoryRequirements({ id: systemId, deploymentFacets: deploymentFacetIds.map((id) => ({ id })) });
   await prisma.requirementAssessment.createMany({
     data: unaddressed.map((requirement) => ({
       systemId,
@@ -85,7 +85,7 @@ describe("POST /api/systems/[id]/submit", () => {
     viewerId = viewer.id;
     riskOwnerId = riskOwner.id;
 
-    const systemType = await prisma.systemType.create({
+    const systemType = await prisma.deploymentFacet.create({
       data: { name: `Test Submit Type ${Date.now()}` },
     });
     systemTypeId = systemType.id;
@@ -131,7 +131,7 @@ describe("POST /api/systems/[id]/submit", () => {
     capabilityId = capability.id;
 
     const system = await prisma.system.create({
-      data: { name: "Submit Test System", systemTypeId, ownerId, status: "DRAFT" },
+      data: { name: "Submit Test System", deploymentFacets: { connect: [{ id: systemTypeId }] }, ownerId, status: "DRAFT" },
     });
     systemId = system.id;
   });
@@ -143,7 +143,7 @@ describe("POST /api/systems/[id]/submit", () => {
     await prisma.requirement.deleteMany({
       where: { id: { in: [mandatoryRequirementId, optionalRequirementId, organizationalRequirementId] } },
     });
-    await prisma.systemType.deleteMany({ where: { id: systemTypeId } });
+    await prisma.deploymentFacet.deleteMany({ where: { id: systemTypeId } });
     await prisma.user.deleteMany({ where: { email: { in: [OWNER_EMAIL, VIEWER_EMAIL, RISK_OWNER_EMAIL] } } });
   });
 
@@ -174,7 +174,7 @@ describe("POST /api/systems/[id]/submit", () => {
   });
 
   it("does not require the optional Requirement to be addressed", async () => {
-    await fulfillAllMandatoryRequirements(systemId, systemTypeId);
+    await fulfillAllMandatoryRequirements(systemId, [systemTypeId]);
 
     const response = await POST(requestAs(systemId, ownerId), ctxFor(systemId));
     expect(response.status).toBe(200);
@@ -193,7 +193,7 @@ describe("POST /api/systems/[id]/submit", () => {
   });
 
   it("succeeds and moves the System to IN_REVIEW once every mandatory Requirement is addressed", async () => {
-    await fulfillAllMandatoryRequirements(systemId, systemTypeId);
+    await fulfillAllMandatoryRequirements(systemId, [systemTypeId]);
 
     const response = await POST(requestAs(systemId, ownerId), ctxFor(systemId));
     const body = await response.json();
@@ -203,7 +203,7 @@ describe("POST /api/systems/[id]/submit", () => {
   });
 
   it("rejects submitting a System that isn't Draft", async () => {
-    await fulfillAllMandatoryRequirements(systemId, systemTypeId);
+    await fulfillAllMandatoryRequirements(systemId, [systemTypeId]);
     await prisma.system.update({ where: { id: systemId }, data: { status: "IN_REVIEW" } });
 
     const response = await POST(requestAs(systemId, ownerId), ctxFor(systemId));
@@ -222,7 +222,7 @@ describe("POST /api/systems/[id]/submit", () => {
     );
     expect(waiveResponse.status).toBe(200);
 
-    await fulfillAllMandatoryRequirements(systemId, systemTypeId);
+    await fulfillAllMandatoryRequirements(systemId, [systemTypeId]);
 
     const response = await POST(requestAs(systemId, ownerId), ctxFor(systemId));
     expect(response.status).toBe(200);
@@ -242,7 +242,7 @@ describe("POST /api/systems/[id]/submit", () => {
     });
     expect(autoFulfilled).toMatchObject({ status: "FULFILLED", fulfilledByCapabilityId: capabilityId });
 
-    await fulfillAllMandatoryRequirements(systemId, systemTypeId);
+    await fulfillAllMandatoryRequirements(systemId, [systemTypeId]);
 
     const response = await POST(requestAs(systemId, ownerId), ctxFor(systemId));
     expect(response.status).toBe(200);

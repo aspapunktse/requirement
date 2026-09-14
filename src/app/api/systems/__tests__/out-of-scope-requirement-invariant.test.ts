@@ -47,9 +47,9 @@ describe("Invariant: an out-of-scope Requirement never gets a RequirementAssessm
     adminId = admin.id;
 
     const suffix = Date.now();
-    const scopedType = await prisma.systemType.create({ data: { name: `Scope Invariant Scoped ${suffix}` } });
-    const outOfScopeA = await prisma.systemType.create({ data: { name: `Scope Invariant Out A ${suffix}` } });
-    const outOfScopeB = await prisma.systemType.create({ data: { name: `Scope Invariant Out B ${suffix}` } });
+    const scopedType = await prisma.deploymentFacet.create({ data: { name: `Scope Invariant Scoped ${suffix}` } });
+    const outOfScopeA = await prisma.deploymentFacet.create({ data: { name: `Scope Invariant Out A ${suffix}` } });
+    const outOfScopeB = await prisma.deploymentFacet.create({ data: { name: `Scope Invariant Out B ${suffix}` } });
     scopedTypeId = scopedType.id;
     outOfScopeTypeAId = outOfScopeA.id;
     outOfScopeTypeBId = outOfScopeB.id;
@@ -63,7 +63,7 @@ describe("Invariant: an out-of-scope Requirement never gets a RequirementAssessm
         category: "Security",
         applicability: "PER_SYSTEM",
         mandatory: true,
-        systemTypes: { connect: [{ id: scopedTypeId }] },
+        deploymentFacets: { connect: [{ id: scopedTypeId }] },
       },
     });
     scopedRequirementId = scopedRequirement.id;
@@ -71,7 +71,7 @@ describe("Invariant: an out-of-scope Requirement never gets a RequirementAssessm
 
   afterAll(async () => {
     await prisma.requirement.deleteMany({ where: { id: scopedRequirementId } });
-    await prisma.systemType.deleteMany({
+    await prisma.deploymentFacet.deleteMany({
       where: { id: { in: [scopedTypeId, outOfScopeTypeAId, outOfScopeTypeBId] } },
     });
     await prisma.user.deleteMany({ where: { email: ADMIN_EMAIL } });
@@ -84,7 +84,7 @@ describe("Invariant: an out-of-scope Requirement never gets a RequirementAssessm
 
   it("stays unassessed for a System outside its scope, across creation, Type change, and direct edit attempts", async () => {
     const system = await prisma.system.create({
-      data: { name: "Scope Invariant System", systemTypeId: outOfScopeTypeAId, ownerId: adminId, status: "DRAFT" },
+      data: { name: "Scope Invariant System", deploymentFacets: { connect: [{ id: outOfScopeTypeAId }] }, ownerId: adminId, status: "DRAFT" },
     });
     systemId = system.id;
 
@@ -94,7 +94,7 @@ describe("Invariant: an out-of-scope Requirement never gets a RequirementAssessm
     // 2. Changing to a *different* out-of-scope Type still doesn't.
     const typeChangeResponse = await changeSystemType(
       requestWith(`http://localhost/api/systems/${systemId}`, "PATCH", adminId, {
-        systemTypeId: outOfScopeTypeBId,
+        deploymentFacetIds: [outOfScopeTypeBId],
       }),
       { params: Promise.resolve({ id: systemId }) },
     );
@@ -132,7 +132,7 @@ describe("Invariant: an out-of-scope Requirement never gets a RequirementAssessm
     // was genuinely about scope and not some unrelated bug.
     const intoScopeResponse = await changeSystemType(
       requestWith(`http://localhost/api/systems/${systemId}`, "PATCH", adminId, {
-        systemTypeId: scopedTypeId,
+        deploymentFacetIds: [scopedTypeId],
       }),
       { params: Promise.resolve({ id: systemId }) },
     );

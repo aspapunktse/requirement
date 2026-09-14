@@ -4,11 +4,11 @@ import { prisma } from "@/lib/prisma";
 import { ACTING_USER_COOKIE } from "@/lib/acting-user";
 import { DELETE, PATCH } from "../route";
 
-const ADMIN_EMAIL = "test-system-type-edit-admin@example.com";
-const VIEWER_EMAIL = "test-system-type-edit-viewer@example.com";
+const ADMIN_EMAIL = "test-deployment-facet-edit-admin@example.com";
+const VIEWER_EMAIL = "test-deployment-facet-edit-viewer@example.com";
 
 function urlFor(id: string) {
-  return `http://localhost/api/system-types/${id}`;
+  return `http://localhost/api/deployment-facets/${id}`;
 }
 
 function requestAs(id: string, userId: string | null, init?: { method?: string; body?: string }) {
@@ -21,21 +21,21 @@ function ctxFor(id: string) {
   return { params: Promise.resolve({ id }) };
 }
 
-describe("PATCH /api/system-types/[id]", () => {
+describe("PATCH /api/deployment-facets/[id]", () => {
   let adminId: string;
   let viewerId: string;
-  let systemTypeId: string;
+  let deploymentFacetId: string;
 
   beforeAll(async () => {
     const admin = await prisma.user.upsert({
       where: { email: ADMIN_EMAIL },
       update: {},
-      create: { email: ADMIN_EMAIL, name: "System Type Edit Admin", role: "ADMIN" },
+      create: { email: ADMIN_EMAIL, name: "Deployment Facet Edit Admin", role: "ADMIN" },
     });
     const viewer = await prisma.user.upsert({
       where: { email: VIEWER_EMAIL },
       update: {},
-      create: { email: VIEWER_EMAIL, name: "System Type Edit Viewer", role: "VIEWER" },
+      create: { email: VIEWER_EMAIL, name: "Deployment Facet Edit Viewer", role: "VIEWER" },
     });
     adminId = admin.id;
     viewerId = viewer.id;
@@ -46,42 +46,42 @@ describe("PATCH /api/system-types/[id]", () => {
   });
 
   beforeEach(async () => {
-    const systemType = await prisma.systemType.create({
+    const deploymentFacet = await prisma.deploymentFacet.create({
       data: { name: `Test Edit Target ${Date.now()}`, description: "Before edit" },
     });
-    systemTypeId = systemType.id;
+    deploymentFacetId = deploymentFacet.id;
   });
 
   afterEach(async () => {
-    await prisma.systemType.deleteMany({ where: { id: systemTypeId } });
+    await prisma.deploymentFacet.deleteMany({ where: { id: deploymentFacetId } });
   });
 
   it("rejects a non-admin", async () => {
     const response = await PATCH(
-      requestAs(systemTypeId, viewerId, {
+      requestAs(deploymentFacetId, viewerId, {
         method: "PATCH",
         body: JSON.stringify({ description: "After edit" }),
       }),
-      ctxFor(systemTypeId),
+      ctxFor(deploymentFacetId),
     );
     expect(response.status).toBe(403);
   });
 
   it("lets an admin edit the description", async () => {
     const response = await PATCH(
-      requestAs(systemTypeId, adminId, {
+      requestAs(deploymentFacetId, adminId, {
         method: "PATCH",
         body: JSON.stringify({ description: "After edit" }),
       }),
-      ctxFor(systemTypeId),
+      ctxFor(deploymentFacetId),
     );
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body.systemType).toMatchObject({ id: systemTypeId, description: "After edit" });
+    expect(body.deploymentFacet).toMatchObject({ id: deploymentFacetId, description: "After edit" });
   });
 
-  it("returns 404 for a System Type that doesn't exist", async () => {
+  it("returns 404 for a Deployment Facet that doesn't exist", async () => {
     const response = await PATCH(
       requestAs("does-not-exist", adminId, {
         method: "PATCH",
@@ -94,43 +94,43 @@ describe("PATCH /api/system-types/[id]", () => {
 
   it("rejects an empty update body", async () => {
     const response = await PATCH(
-      requestAs(systemTypeId, adminId, { method: "PATCH", body: JSON.stringify({}) }),
-      ctxFor(systemTypeId),
+      requestAs(deploymentFacetId, adminId, { method: "PATCH", body: JSON.stringify({}) }),
+      ctxFor(deploymentFacetId),
     );
     expect(response.status).toBe(400);
   });
 
   it("lets an admin clear the description by setting it to null", async () => {
     const response = await PATCH(
-      requestAs(systemTypeId, adminId, {
+      requestAs(deploymentFacetId, adminId, {
         method: "PATCH",
         body: JSON.stringify({ description: null }),
       }),
-      ctxFor(systemTypeId),
+      ctxFor(deploymentFacetId),
     );
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body.systemType).toMatchObject({ id: systemTypeId, description: null });
+    expect(body.deploymentFacet).toMatchObject({ id: deploymentFacetId, description: null });
   });
 });
 
-describe("DELETE /api/system-types/[id]", () => {
-  const OWNER_EMAIL = "test-system-type-delete-owner@example.com";
+describe("DELETE /api/deployment-facets/[id]", () => {
+  const OWNER_EMAIL = "test-deployment-facet-delete-owner@example.com";
   let adminId: string;
   let ownerId: string;
-  let systemTypeId: string;
+  let deploymentFacetId: string;
 
   beforeAll(async () => {
     const admin = await prisma.user.upsert({
       where: { email: ADMIN_EMAIL },
       update: {},
-      create: { email: ADMIN_EMAIL, name: "System Type Delete Admin", role: "ADMIN" },
+      create: { email: ADMIN_EMAIL, name: "Deployment Facet Delete Admin", role: "ADMIN" },
     });
     const owner = await prisma.user.upsert({
       where: { email: OWNER_EMAIL },
       update: {},
-      create: { email: OWNER_EMAIL, name: "System Type Delete Owner", role: "SYSTEM_OWNER" },
+      create: { email: OWNER_EMAIL, name: "Deployment Facet Delete Owner", role: "SYSTEM_OWNER" },
     });
     adminId = admin.id;
     ownerId = owner.id;
@@ -141,40 +141,57 @@ describe("DELETE /api/system-types/[id]", () => {
   });
 
   beforeEach(async () => {
-    const systemType = await prisma.systemType.create({
+    const deploymentFacet = await prisma.deploymentFacet.create({
       data: { name: `Test Delete Target ${Date.now()}` },
     });
-    systemTypeId = systemType.id;
+    deploymentFacetId = deploymentFacet.id;
   });
 
   afterEach(async () => {
-    await prisma.systemType.deleteMany({ where: { id: systemTypeId } });
+    await prisma.deploymentFacet.deleteMany({ where: { id: deploymentFacetId } });
   });
 
   it("rejects a non-admin", async () => {
-    const response = await DELETE(requestAs(systemTypeId, ownerId, { method: "DELETE" }), ctxFor(systemTypeId));
+    const response = await DELETE(
+      requestAs(deploymentFacetId, ownerId, { method: "DELETE" }),
+      ctxFor(deploymentFacetId),
+    );
     expect(response.status).toBe(403);
   });
 
-  it("lets an admin retire an unused System Type", async () => {
-    const response = await DELETE(requestAs(systemTypeId, adminId, { method: "DELETE" }), ctxFor(systemTypeId));
+  it("lets an admin retire an unused Deployment Facet", async () => {
+    const response = await DELETE(
+      requestAs(deploymentFacetId, adminId, { method: "DELETE" }),
+      ctxFor(deploymentFacetId),
+    );
     expect(response.status).toBe(204);
 
-    const found = await prisma.systemType.findUnique({ where: { id: systemTypeId } });
+    const found = await prisma.deploymentFacet.findUnique({ where: { id: deploymentFacetId } });
     expect(found).toBeNull();
   });
 
-  it("returns 404 for a System Type that doesn't exist", async () => {
-    const response = await DELETE(requestAs("does-not-exist", adminId, { method: "DELETE" }), ctxFor("does-not-exist"));
+  it("returns 404 for a Deployment Facet that doesn't exist", async () => {
+    const response = await DELETE(
+      requestAs("does-not-exist", adminId, { method: "DELETE" }),
+      ctxFor("does-not-exist"),
+    );
     expect(response.status).toBe(404);
   });
 
-  it("blocks retiring a System Type still assigned to a System", async () => {
+  it("blocks retiring a Deployment Facet still assigned to a System", async () => {
     const system = await prisma.system.create({
-      data: { name: "Uses The Type", systemTypeId, ownerId, status: "DRAFT" },
+      data: {
+        name: "Uses The Facet",
+        deploymentFacets: { connect: [{ id: deploymentFacetId }] },
+        ownerId,
+        status: "DRAFT",
+      },
     });
 
-    const response = await DELETE(requestAs(systemTypeId, adminId, { method: "DELETE" }), ctxFor(systemTypeId));
+    const response = await DELETE(
+      requestAs(deploymentFacetId, adminId, { method: "DELETE" }),
+      ctxFor(deploymentFacetId),
+    );
     expect(response.status).toBe(409);
 
     await prisma.system.delete({ where: { id: system.id } });

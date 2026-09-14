@@ -2,11 +2,11 @@ import { prisma } from "@/lib/prisma";
 import { getApplicableRequirements } from "@/lib/requirement-assessments";
 
 async function getApplicableRequirementsForCapability(
-  system: { systemTypeId: string },
+  system: { deploymentFacets: { id: string }[] },
   capabilityId: string,
 ) {
   const [applicable, mapped] = await Promise.all([
-    getApplicableRequirements(system.systemTypeId),
+    getApplicableRequirements(system.deploymentFacets.map((f) => f.id)),
     prisma.requirement.findMany({ where: { capabilities: { some: { id: capabilityId } } } }),
   ]);
   const applicableIds = new Set(applicable.map((r) => r.id));
@@ -21,7 +21,7 @@ async function getApplicableRequirementsForCapability(
  * second mechanism.
  */
 export async function applyCapabilityDeclared(
-  system: { id: string; systemTypeId: string },
+  system: { id: string; deploymentFacets: { id: string }[] },
   capability: { id: string; name: string },
 ) {
   const requirements = await getApplicableRequirementsForCapability(system, capability.id);

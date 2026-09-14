@@ -17,7 +17,7 @@ const createSystemSchema = z.object({
   vendor: z.string().optional(),
   description: z.string().optional(),
   dataClassification: z.string().optional(),
-  systemTypeId: z.string().min(1),
+  deploymentFacetIds: z.array(z.string().min(1)).min(1),
 });
 
 export async function POST(request: NextRequest) {
@@ -27,21 +27,27 @@ export async function POST(request: NextRequest) {
   const parsed = createSystemSchema.safeParse(await request.json());
   if (!parsed.success) {
     return NextResponse.json(
-      { error: "name and systemTypeId are required" },
+      { error: "name and at least one deploymentFacetId are required" },
       { status: 400 },
     );
   }
 
-  const systemType = await prisma.systemType.findUnique({
-    where: { id: parsed.data.systemTypeId },
+  const { deploymentFacetIds, ...rest } = parsed.data;
+
+  const matchingFacets = await prisma.deploymentFacet.count({
+    where: { id: { in: deploymentFacetIds } },
   });
-  if (!systemType) {
-    return NextResponse.json({ error: "System Type not found" }, { status: 400 });
+  if (matchingFacets !== deploymentFacetIds.length) {
+    return NextResponse.json({ error: "One or more Deployment Facet ids do not exist" }, { status: 400 });
   }
 
   const system = await prisma.system.create({
-    data: { ...parsed.data, ownerId: auth.user.id },
-    include: { systemType: true, owner: true },
+    data: {
+      ...rest,
+      ownerId: auth.user.id,
+      deploymentFacets: { connect: deploymentFacetIds.map((id) => ({ id })) },
+    },
+    include: { deploymentFacets: true, owner: true },
   });
   return NextResponse.json({ system }, { status: 201 });
 }

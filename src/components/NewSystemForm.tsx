@@ -4,27 +4,27 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 
-type SystemType = { id: string; name: string };
+type DeploymentFacet = { id: string; name: string };
 
 export function NewSystemForm() {
   const router = useRouter();
-  const [systemTypes, setSystemTypes] = useState<SystemType[]>([]);
+  const [deploymentFacets, setDeploymentFacets] = useState<DeploymentFacet[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [vendor, setVendor] = useState("");
   const [description, setDescription] = useState("");
   const [dataClassification, setDataClassification] = useState("");
-  const [systemTypeId, setSystemTypeId] = useState("");
+  const [deploymentFacetIds, setDeploymentFacetIds] = useState<string[]>([]);
 
   useEffect(() => {
     let cancelled = false;
 
-    fetch("/api/system-types")
+    fetch("/api/deployment-facets")
       .then((response) => response.json())
       .then((body) => {
         if (cancelled) return;
-        setSystemTypes(body.systemTypes ?? []);
+        setDeploymentFacets(body.deploymentFacets ?? []);
         setLoading(false);
       });
 
@@ -32,6 +32,12 @@ export function NewSystemForm() {
       cancelled = true;
     };
   }, []);
+
+  function toggleFacet(facetId: string, checked: boolean) {
+    setDeploymentFacetIds((prev) =>
+      checked ? [...prev, facetId] : prev.filter((id) => id !== facetId),
+    );
+  }
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -45,7 +51,7 @@ export function NewSystemForm() {
         vendor: vendor || undefined,
         description: description || undefined,
         dataClassification: dataClassification || undefined,
-        systemTypeId,
+        deploymentFacetIds,
       }),
     });
 
@@ -60,7 +66,7 @@ export function NewSystemForm() {
   }
 
   if (loading) {
-    return <p>Loading System Types…</p>;
+    return <p>Loading Deployment Facets…</p>;
   }
 
   return (
@@ -77,22 +83,21 @@ export function NewSystemForm() {
         />
       </label>
 
-      <label className="flex flex-col gap-1 text-sm">
-        System Type
-        <select
-          className="rounded border border-zinc-200 p-2 dark:border-zinc-800 dark:bg-transparent"
-          value={systemTypeId}
-          onChange={(event) => setSystemTypeId(event.target.value)}
-          required
-        >
-          <option value="">Select a System Type…</option>
-          {systemTypes.map((systemType) => (
-            <option key={systemType.id} value={systemType.id}>
-              {systemType.name}
-            </option>
-          ))}
-        </select>
-      </label>
+      <fieldset className="flex flex-col gap-1 text-sm">
+        <legend>
+          Deployment Facets — select one or more (more than one means Hybrid)
+        </legend>
+        {deploymentFacets.map((facet) => (
+          <label key={facet.id} className="flex items-center gap-2 font-normal">
+            <input
+              type="checkbox"
+              checked={deploymentFacetIds.includes(facet.id)}
+              onChange={(event) => toggleFacet(facet.id, event.target.checked)}
+            />
+            {facet.name}
+          </label>
+        ))}
+      </fieldset>
 
       <label className="flex flex-col gap-1 text-sm">
         Vendor (optional)
@@ -121,7 +126,7 @@ export function NewSystemForm() {
         />
       </label>
 
-      <Button type="submit" variant="primary">
+      <Button type="submit" variant="primary" disabled={deploymentFacetIds.length === 0}>
         Create
       </Button>
     </form>

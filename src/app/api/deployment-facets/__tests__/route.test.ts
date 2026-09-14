@@ -4,11 +4,11 @@ import { prisma } from "@/lib/prisma";
 import { ACTING_USER_COOKIE } from "@/lib/acting-user";
 import { GET, POST } from "../route";
 
-const URL = "http://localhost/api/system-types";
-const ADMIN_EMAIL = "test-system-types-admin@example.com";
-const VIEWER_EMAIL = "test-system-types-viewer@example.com";
+const URL = "http://localhost/api/deployment-facets";
+const ADMIN_EMAIL = "test-deployment-facets-admin@example.com";
+const VIEWER_EMAIL = "test-deployment-facets-viewer@example.com";
 
-describe("/api/system-types", () => {
+describe("/api/deployment-facets", () => {
   let adminId: string;
   let viewerId: string;
   const createdNames: string[] = [];
@@ -17,12 +17,12 @@ describe("/api/system-types", () => {
     const admin = await prisma.user.upsert({
       where: { email: ADMIN_EMAIL },
       update: {},
-      create: { email: ADMIN_EMAIL, name: "System Types Admin", role: "ADMIN" },
+      create: { email: ADMIN_EMAIL, name: "Deployment Facets Admin", role: "ADMIN" },
     });
     const viewer = await prisma.user.upsert({
       where: { email: VIEWER_EMAIL },
       update: {},
-      create: { email: VIEWER_EMAIL, name: "System Types Viewer", role: "VIEWER" },
+      create: { email: VIEWER_EMAIL, name: "Deployment Facets Viewer", role: "VIEWER" },
     });
     adminId = admin.id;
     viewerId = viewer.id;
@@ -33,7 +33,7 @@ describe("/api/system-types", () => {
   });
 
   afterEach(async () => {
-    await prisma.systemType.deleteMany({ where: { name: { in: createdNames } } });
+    await prisma.deploymentFacet.deleteMany({ where: { name: { in: createdNames } } });
     createdNames.length = 0;
   });
 
@@ -52,7 +52,7 @@ describe("/api/system-types", () => {
     const response = await GET(requestAs(viewerId));
     const body = await response.json();
     expect(response.status).toBe(200);
-    expect(Array.isArray(body.systemTypes)).toBe(true);
+    expect(Array.isArray(body.deploymentFacets)).toBe(true);
   });
 
   it("POST rejects a non-admin", async () => {
@@ -69,7 +69,7 @@ describe("/api/system-types", () => {
     expect(response.status).toBe(401);
   });
 
-  it("POST allows an admin to create a System Type", async () => {
+  it("POST allows an admin to create a Deployment Facet", async () => {
     const name = "Test On-Premises Datacenter";
     createdNames.push(name);
 
@@ -82,15 +82,15 @@ describe("/api/system-types", () => {
     const body = await response.json();
 
     expect(response.status).toBe(201);
-    expect(body.systemType).toMatchObject({ name, description: "Hosted in our own datacenter" });
+    expect(body.deploymentFacet).toMatchObject({ name, description: "Hosted in our own datacenter" });
 
     const listResponse = await GET(requestAs(adminId));
     const listBody = await listResponse.json();
-    expect(listBody.systemTypes.some((t: { name: string }) => t.name === name)).toBe(true);
+    expect(listBody.deploymentFacets.some((t: { name: string }) => t.name === name)).toBe(true);
   });
 
   it("POST rejects a duplicate name", async () => {
-    const name = "Test Duplicate Type";
+    const name = "Test Duplicate Facet";
     createdNames.push(name);
 
     await POST(requestAs(adminId, { method: "POST", body: JSON.stringify({ name }) }));

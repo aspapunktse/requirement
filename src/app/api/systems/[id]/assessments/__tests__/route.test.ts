@@ -43,17 +43,17 @@ describe("GET /api/systems/[id]/assessments", () => {
     ownerId = owner.id;
     viewerId = viewer.id;
 
-    const matchingType = await prisma.systemType.create({
+    const matchingType = await prisma.deploymentFacet.create({
       data: { name: `Test Assessments Matching Type ${Date.now()}` },
     });
-    const otherType = await prisma.systemType.create({
+    const otherType = await prisma.deploymentFacet.create({
       data: { name: `Test Assessments Other Type ${Date.now()}` },
     });
     matchingTypeId = matchingType.id;
     otherTypeId = otherType.id;
 
     const system = await prisma.system.create({
-      data: { name: "Assessments Test System", systemTypeId: matchingTypeId, ownerId, status: "DRAFT" },
+      data: { name: "Assessments Test System", deploymentFacets: { connect: [{ id: matchingTypeId }] }, ownerId, status: "DRAFT" },
     });
     systemId = system.id;
 
@@ -83,7 +83,7 @@ describe("GET /api/systems/[id]/assessments", () => {
         description: "Scoped to the matching Type",
         category: "Security",
         applicability: "BOTH",
-        systemTypes: { connect: [{ id: matchingTypeId }] },
+        deploymentFacets: { connect: [{ id: matchingTypeId }] },
       },
     });
     const otherScoped = await prisma.requirement.create({
@@ -93,7 +93,7 @@ describe("GET /api/systems/[id]/assessments", () => {
         description: "Scoped to a different Type",
         category: "Security",
         applicability: "PER_SYSTEM",
-        systemTypes: { connect: [{ id: otherTypeId }] },
+        deploymentFacets: { connect: [{ id: otherTypeId }] },
       },
     });
     requirementIds.push(organizational.id, unscopedPerSystem.id, matchingScoped.id, otherScoped.id);
@@ -103,7 +103,7 @@ describe("GET /api/systems/[id]/assessments", () => {
     await prisma.requirementAssessment.deleteMany({ where: { systemId } });
     await prisma.system.deleteMany({ where: { id: systemId } });
     await prisma.requirement.deleteMany({ where: { id: { in: requirementIds } } });
-    await prisma.systemType.deleteMany({ where: { id: { in: [matchingTypeId, otherTypeId] } } });
+    await prisma.deploymentFacet.deleteMany({ where: { id: { in: [matchingTypeId, otherTypeId] } } });
     await prisma.user.deleteMany({ where: { email: { in: [OWNER_EMAIL, VIEWER_EMAIL] } } });
   });
 

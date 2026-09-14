@@ -55,7 +55,7 @@ describe("Capability declare/undeclare auto-fulfillment", () => {
     });
     ownerId = owner.id;
 
-    const systemType = await prisma.systemType.create({
+    const systemType = await prisma.deploymentFacet.create({
       data: { name: `Test Cap Fulfillment Type ${Date.now()}` },
     });
     systemTypeId = systemType.id;
@@ -95,13 +95,13 @@ describe("Capability declare/undeclare auto-fulfillment", () => {
     await prisma.system.deleteMany({ where: { id: systemId } });
     await prisma.requirement.deleteMany({ where: { id: { in: [mappedRequirementId, unmappedRequirementId] } } });
     await prisma.capability.deleteMany({ where: { id: { in: [capabilityAId, capabilityBId] } } });
-    await prisma.systemType.deleteMany({ where: { id: systemTypeId } });
+    await prisma.deploymentFacet.deleteMany({ where: { id: systemTypeId } });
     await prisma.user.deleteMany({ where: { email: OWNER_EMAIL } });
   });
 
   beforeEach(async () => {
     const system = await prisma.system.create({
-      data: { name: "Cap Fulfillment System", systemTypeId, ownerId, status: "DRAFT" },
+      data: { name: "Cap Fulfillment System", deploymentFacets: { connect: [{ id: systemTypeId }] }, ownerId, status: "DRAFT" },
     });
     systemId = system.id;
   });

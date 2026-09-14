@@ -60,7 +60,7 @@ describe("/api/systems", () => {
       fullVisibilityUserIds[role] = user.id;
     }
 
-    const systemType = await prisma.systemType.create({
+    const systemType = await prisma.deploymentFacet.create({
       data: { name: `Test Systems Route Type ${Date.now()}` },
     });
     systemTypeId = systemType.id;
@@ -68,7 +68,7 @@ describe("/api/systems", () => {
 
   afterAll(async () => {
     await prisma.system.deleteMany({ where: { id: { in: createdSystemIds } } });
-    await prisma.systemType.deleteMany({ where: { id: systemTypeId } });
+    await prisma.deploymentFacet.deleteMany({ where: { id: systemTypeId } });
     await prisma.user.deleteMany({
       where: {
         email: {
@@ -93,18 +93,28 @@ describe("/api/systems", () => {
     expect(response.status).toBe(401);
   });
 
-  it("POST rejects a request without a systemTypeId", async () => {
+  it("POST rejects a request without any deploymentFacetIds", async () => {
     const response = await POST(
-      requestAs(ownerId, { method: "POST", body: JSON.stringify({ name: "No Type System" }) }),
+      requestAs(ownerId, { method: "POST", body: JSON.stringify({ name: "No Facet System" }) }),
     );
     expect(response.status).toBe(400);
   });
 
-  it("POST rejects an unknown systemTypeId", async () => {
+  it("POST rejects an empty deploymentFacetIds array", async () => {
     const response = await POST(
       requestAs(ownerId, {
         method: "POST",
-        body: JSON.stringify({ name: "Bad Type System", systemTypeId: "does-not-exist" }),
+        body: JSON.stringify({ name: "No Facet System", deploymentFacetIds: [] }),
+      }),
+    );
+    expect(response.status).toBe(400);
+  });
+
+  it("POST rejects an unknown deploymentFacetId", async () => {
+    const response = await POST(
+      requestAs(ownerId, {
+        method: "POST",
+        body: JSON.stringify({ name: "Bad Facet System", deploymentFacetIds: ["does-not-exist"] }),
       }),
     );
     expect(response.status).toBe(400);
@@ -114,7 +124,7 @@ describe("/api/systems", () => {
     const response = await POST(
       requestAs(ownerId, {
         method: "POST",
-        body: JSON.stringify({ name: "Test System A", systemTypeId }),
+        body: JSON.stringify({ name: "Test System A", deploymentFacetIds: [systemTypeId] }),
       }),
     );
     const body = await response.json();
@@ -125,19 +135,41 @@ describe("/api/systems", () => {
       name: "Test System A",
       status: "DRAFT",
       ownerId,
-      systemType: { id: systemTypeId },
     });
+    expect(body.system.deploymentFacets.map((f: { id: string }) => f.id)).toEqual([systemTypeId]);
+  });
+
+  it("POST creates a Hybrid System when multiple Deployment Facets are declared", async () => {
+    const other = await prisma.deploymentFacet.create({
+      data: { name: `Test Systems Route Other Type ${Date.now()}` },
+    });
+
+    const response = await POST(
+      requestAs(ownerId, {
+        method: "POST",
+        body: JSON.stringify({ name: "Hybrid System", deploymentFacetIds: [systemTypeId, other.id] }),
+      }),
+    );
+    const body = await response.json();
+    createdSystemIds.push(body.system.id);
+
+    expect(response.status).toBe(201);
+    expect(body.system.deploymentFacets.map((f: { id: string }) => f.id).sort()).toEqual(
+      [systemTypeId, other.id].sort(),
+    );
+
+    await prisma.deploymentFacet.delete({ where: { id: other.id } });
   });
 
   it("a SYSTEM_OWNER sees their own Systems in any status but not another owner's Draft System", async () => {
     const own = await prisma.system.create({
-      data: { name: "Owner's Draft", systemTypeId, ownerId, status: "DRAFT" },
+      data: { name: "Owner's Draft", deploymentFacets: { connect: [{ id: systemTypeId }] }, ownerId, status: "DRAFT" },
     });
     const othersDraft = await prisma.system.create({
-      data: { name: "Other's Draft", systemTypeId, ownerId: otherOwnerId, status: "DRAFT" },
+      data: { name: "Other's Draft", deploymentFacets: { connect: [{ id: systemTypeId }] }, ownerId: otherOwnerId, status: "DRAFT" },
     });
     const othersOnboarded = await prisma.system.create({
-      data: { name: "Other's Onboarded", systemTypeId, ownerId: otherOwnerId, status: "ONBOARDED" },
+      data: { name: "Other's Onboarded", deploymentFacets: { connect: [{ id: systemTypeId }] }, ownerId: otherOwnerId, status: "ONBOARDED" },
     });
     createdSystemIds.push(own.id, othersDraft.id, othersOnboarded.id);
 
@@ -156,7 +188,7 @@ describe("/api/systems", () => {
       const othersDraft = await prisma.system.create({
         data: {
           name: `${role} Visible Draft`,
-          systemTypeId,
+          deploymentFacets: { connect: [{ id: systemTypeId }] },
           ownerId: otherOwnerId,
           status: "DRAFT",
         },
@@ -173,10 +205,10 @@ describe("/api/systems", () => {
 
   it("a VIEWER only sees ONBOARDED Systems", async () => {
     const draft = await prisma.system.create({
-      data: { name: "Viewer Hidden Draft", systemTypeId, ownerId, status: "DRAFT" },
+      data: { name: "Viewer Hidden Draft", deploymentFacets: { connect: [{ id: systemTypeId }] }, ownerId, status: "DRAFT" },
     });
     const onboarded = await prisma.system.create({
-      data: { name: "Viewer Visible Onboarded", systemTypeId, ownerId, status: "ONBOARDED" },
+      data: { name: "Viewer Visible Onboarded", deploymentFacets: { connect: [{ id: systemTypeId }] }, ownerId, status: "ONBOARDED" },
     });
     createdSystemIds.push(draft.id, onboarded.id);
 

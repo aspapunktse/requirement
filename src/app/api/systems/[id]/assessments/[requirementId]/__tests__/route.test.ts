@@ -62,16 +62,16 @@ describe("PATCH /api/systems/[id]/assessments/[requirementId]", () => {
     riskOwnerId = riskOwner.id;
     viewerId = viewer.id;
 
-    const systemType = await prisma.systemType.create({
+    const systemType = await prisma.deploymentFacet.create({
       data: { name: `Test Assessment Patch Type ${Date.now()}` },
     });
-    const otherType = await prisma.systemType.create({
+    const otherType = await prisma.deploymentFacet.create({
       data: { name: `Test Assessment Patch Other Type ${Date.now()}` },
     });
     systemTypeId = systemType.id;
 
     const system = await prisma.system.create({
-      data: { name: "Assessment Patch System", systemTypeId, ownerId, status: "DRAFT" },
+      data: { name: "Assessment Patch System", deploymentFacets: { connect: [{ id: systemTypeId }] }, ownerId, status: "DRAFT" },
     });
     systemId = system.id;
 
@@ -103,7 +103,7 @@ describe("PATCH /api/systems/[id]/assessments/[requirementId]", () => {
         description: "Scoped to a different Type",
         category: "Security",
         applicability: "PER_SYSTEM",
-        systemTypes: { connect: [{ id: otherType.id }] },
+        deploymentFacets: { connect: [{ id: otherType.id }] },
       },
     });
     mandatoryRequirementId = mandatory.id;
@@ -118,7 +118,7 @@ describe("PATCH /api/systems/[id]/assessments/[requirementId]", () => {
     await prisma.requirement.deleteMany({
       where: { id: { in: [mandatoryRequirementId, optionalRequirementId, outOfScopeRequirementId] } },
     });
-    await prisma.systemType.deleteMany({ where: { id: { in: [systemTypeId, otherTypeId] } } });
+    await prisma.deploymentFacet.deleteMany({ where: { id: { in: [systemTypeId, otherTypeId] } } });
     await prisma.user.deleteMany({ where: { email: { in: [OWNER_EMAIL, RISK_OWNER_EMAIL, VIEWER_EMAIL] } } });
   });
 

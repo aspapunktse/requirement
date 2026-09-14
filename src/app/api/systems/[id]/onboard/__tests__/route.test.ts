@@ -69,7 +69,7 @@ describe("POST /api/systems/[id]/onboard", () => {
     adminId = admin.id;
     reviewerId = reviewer.id;
 
-    const systemType = await prisma.systemType.create({
+    const systemType = await prisma.deploymentFacet.create({
       data: { name: `Test Onboard Type ${Date.now()}` },
     });
     systemTypeId = systemType.id;
@@ -77,7 +77,7 @@ describe("POST /api/systems/[id]/onboard", () => {
 
   afterAll(async () => {
     await prisma.system.deleteMany({ where: { id: { in: [approvedSystemId, draftSystemId] } } });
-    await prisma.systemType.deleteMany({ where: { id: systemTypeId } });
+    await prisma.deploymentFacet.deleteMany({ where: { id: systemTypeId } });
     await prisma.user.deleteMany({
       where: { email: { in: [OWNER_EMAIL, OTHER_OWNER_EMAIL, ADMIN_EMAIL, REVIEWER_EMAIL] } },
     });
@@ -85,11 +85,11 @@ describe("POST /api/systems/[id]/onboard", () => {
 
   beforeEach(async () => {
     const approved = await prisma.system.create({
-      data: { name: "Approved System", systemTypeId, ownerId, status: "APPROVED" },
+      data: { name: "Approved System", deploymentFacets: { connect: [{ id: systemTypeId }] }, ownerId, status: "APPROVED" },
     });
     approvedSystemId = approved.id;
     const draft = await prisma.system.create({
-      data: { name: "Draft System", systemTypeId, ownerId, status: "DRAFT" },
+      data: { name: "Draft System", deploymentFacets: { connect: [{ id: systemTypeId }] }, ownerId, status: "DRAFT" },
     });
     draftSystemId = draft.id;
   });
@@ -116,7 +116,7 @@ describe("POST /api/systems/[id]/onboard", () => {
 
   it("rejects a SYSTEM_OWNER who doesn't own this System (but can see it)", async () => {
     const onboarded = await prisma.system.create({
-      data: { name: "Already Onboarded", systemTypeId, ownerId, status: "ONBOARDED" },
+      data: { name: "Already Onboarded", deploymentFacets: { connect: [{ id: systemTypeId }] }, ownerId, status: "ONBOARDED" },
     });
 
     const response = await POST(requestAs(onboarded.id, otherOwnerId), ctxFor(onboarded.id));
@@ -155,7 +155,7 @@ describe("POST /api/systems/[id]/onboard", () => {
 
   it("rejects a System that's In Review but not yet decided", async () => {
     const inReview = await prisma.system.create({
-      data: { name: "In Review, Not Yet Decided", systemTypeId, ownerId, status: "IN_REVIEW" },
+      data: { name: "In Review, Not Yet Decided", deploymentFacets: { connect: [{ id: systemTypeId }] }, ownerId, status: "IN_REVIEW" },
     });
 
     const response = await POST(requestAs(inReview.id, ownerId), ctxFor(inReview.id));
@@ -166,7 +166,7 @@ describe("POST /api/systems/[id]/onboard", () => {
 
   it("only succeeds once a real Approval decision has been recorded through the Approvals endpoint", async () => {
     const inReview = await prisma.system.create({
-      data: { name: "Genuinely Approved via the real flow", systemTypeId, ownerId, status: "IN_REVIEW" },
+      data: { name: "Genuinely Approved via the real flow", deploymentFacets: { connect: [{ id: systemTypeId }] }, ownerId, status: "IN_REVIEW" },
     });
 
     // Before any decision: onboarding is rejected, same as any other

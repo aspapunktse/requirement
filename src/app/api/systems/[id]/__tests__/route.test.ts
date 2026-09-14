@@ -49,14 +49,14 @@ describe("GET /api/systems/[id]", () => {
     otherOwnerId = otherOwner.id;
     viewerId = viewer.id;
 
-    const systemType = await prisma.systemType.create({
+    const systemType = await prisma.deploymentFacet.create({
       data: { name: `Test System Detail Type ${Date.now()}` },
     });
     systemTypeId = systemType.id;
   });
 
   afterAll(async () => {
-    await prisma.systemType.deleteMany({ where: { id: systemTypeId } });
+    await prisma.deploymentFacet.deleteMany({ where: { id: systemTypeId } });
     await prisma.user.deleteMany({
       where: { email: { in: [OWNER_EMAIL, OTHER_OWNER_EMAIL, VIEWER_EMAIL] } },
     });
@@ -79,7 +79,7 @@ describe("GET /api/systems/[id]", () => {
 
   it("lets the owner view their own Draft System", async () => {
     const system = await prisma.system.create({
-      data: { name: "Owner's System", systemTypeId, ownerId, status: "DRAFT" },
+      data: { name: "Owner's System", deploymentFacets: { connect: [{ id: systemTypeId }] }, ownerId, status: "DRAFT" },
     });
     createdSystemIds.push(system.id);
 
@@ -87,12 +87,13 @@ describe("GET /api/systems/[id]", () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body.system).toMatchObject({ id: system.id, systemType: { id: systemTypeId } });
+    expect(body.system.id).toBe(system.id);
+    expect(body.system.deploymentFacets.map((f: { id: string }) => f.id)).toEqual([systemTypeId]);
   });
 
   it("returns 404 for a Draft System the acting user cannot see", async () => {
     const system = await prisma.system.create({
-      data: { name: "Other Owner's Draft", systemTypeId, ownerId: otherOwnerId, status: "DRAFT" },
+      data: { name: "Other Owner's Draft", deploymentFacets: { connect: [{ id: systemTypeId }] }, ownerId: otherOwnerId, status: "DRAFT" },
     });
     createdSystemIds.push(system.id);
 
@@ -102,7 +103,7 @@ describe("GET /api/systems/[id]", () => {
 
   it("lets any authenticated user view an ONBOARDED System", async () => {
     const system = await prisma.system.create({
-      data: { name: "Onboarded System", systemTypeId, ownerId: otherOwnerId, status: "ONBOARDED" },
+      data: { name: "Onboarded System", deploymentFacets: { connect: [{ id: systemTypeId }] }, ownerId: otherOwnerId, status: "ONBOARDED" },
     });
     createdSystemIds.push(system.id);
 

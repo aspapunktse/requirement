@@ -9,15 +9,15 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push }),
 }));
 
-const systemTypes = [{ id: "st1", name: "On-Premises Datacenter" }];
+const deploymentFacets = [{ id: "st1", name: "On-Premises Datacenter" }];
 
 function mockFetch() {
   return vi.fn((input: string | URL | Request, init?: RequestInit) => {
     const url = typeof input === "string" ? input : input.toString();
     const method = init?.method ?? "GET";
 
-    if (url.endsWith("/api/system-types") && method === "GET") {
-      return Promise.resolve(new Response(JSON.stringify({ systemTypes }), { status: 200 }));
+    if (url.endsWith("/api/deployment-facets") && method === "GET") {
+      return Promise.resolve(new Response(JSON.stringify({ deploymentFacets }), { status: 200 }));
     }
     if (url.endsWith("/api/systems") && method === "POST") {
       return Promise.resolve(
@@ -43,7 +43,7 @@ describe("NewSystemForm", () => {
     render(<NewSystemForm />);
 
     await user.type(await screen.findByLabelText("Name"), "My New System");
-    await user.selectOptions(screen.getByLabelText("System Type"), "st1");
+    await user.click(screen.getByLabelText("On-Premises Datacenter"));
     await user.click(screen.getByRole("button", { name: "Create" }));
 
     await waitFor(() => {
@@ -54,7 +54,7 @@ describe("NewSystemForm", () => {
       expect(postCall).toBeTruthy();
       expect(JSON.parse(postCall![1].body)).toMatchObject({
         name: "My New System",
-        systemTypeId: "st1",
+        deploymentFacetIds: ["st1"],
       });
     });
 
@@ -67,12 +67,12 @@ describe("NewSystemForm", () => {
       vi.fn((input: string | URL | Request, init?: RequestInit) => {
         const url = typeof input === "string" ? input : input.toString();
         const method = init?.method ?? "GET";
-        if (url.endsWith("/api/system-types") && method === "GET") {
-          return Promise.resolve(new Response(JSON.stringify({ systemTypes }), { status: 200 }));
+        if (url.endsWith("/api/deployment-facets") && method === "GET") {
+          return Promise.resolve(new Response(JSON.stringify({ deploymentFacets }), { status: 200 }));
         }
         if (url.endsWith("/api/systems") && method === "POST") {
           return Promise.resolve(
-            new Response(JSON.stringify({ error: "System Type not found" }), { status: 400 }),
+            new Response(JSON.stringify({ error: "Deployment Facet not found" }), { status: 400 }),
           );
         }
         throw new Error(`Unexpected fetch: ${method} ${url}`);
@@ -83,10 +83,10 @@ describe("NewSystemForm", () => {
     render(<NewSystemForm />);
 
     await user.type(await screen.findByLabelText("Name"), "Doomed System");
-    await user.selectOptions(screen.getByLabelText("System Type"), "st1");
+    await user.click(screen.getByLabelText("On-Premises Datacenter"));
     await user.click(screen.getByRole("button", { name: "Create" }));
 
-    expect(await screen.findByText("System Type not found")).toBeInTheDocument();
+    expect(await screen.findByText("Deployment Facet not found")).toBeInTheDocument();
     expect(push).not.toHaveBeenCalled();
   });
 });

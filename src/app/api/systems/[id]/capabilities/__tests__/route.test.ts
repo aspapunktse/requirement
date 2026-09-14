@@ -55,7 +55,7 @@ describe("/api/systems/[id]/capabilities", () => {
     otherOwnerId = otherOwner.id;
     adminId = admin.id;
 
-    const systemType = await prisma.systemType.create({
+    const systemType = await prisma.deploymentFacet.create({
       data: { name: `Test Sys Caps Type ${Date.now()}` },
     });
     systemTypeId = systemType.id;
@@ -69,17 +69,17 @@ describe("/api/systems/[id]/capabilities", () => {
   afterAll(async () => {
     await prisma.system.deleteMany({ where: { id: { in: [draftSystemId, inReviewSystemId] } } });
     await prisma.capability.deleteMany({ where: { id: capabilityId } });
-    await prisma.systemType.deleteMany({ where: { id: systemTypeId } });
+    await prisma.deploymentFacet.deleteMany({ where: { id: systemTypeId } });
     await prisma.user.deleteMany({ where: { email: { in: [OWNER_EMAIL, OTHER_OWNER_EMAIL, ADMIN_EMAIL] } } });
   });
 
   beforeEach(async () => {
     const draft = await prisma.system.create({
-      data: { name: "Draft System", systemTypeId, ownerId, status: "DRAFT" },
+      data: { name: "Draft System", deploymentFacets: { connect: [{ id: systemTypeId }] }, ownerId, status: "DRAFT" },
     });
     draftSystemId = draft.id;
     const inReview = await prisma.system.create({
-      data: { name: "In Review System", systemTypeId, ownerId, status: "IN_REVIEW" },
+      data: { name: "In Review System", deploymentFacets: { connect: [{ id: systemTypeId }] }, ownerId, status: "IN_REVIEW" },
     });
     inReviewSystemId = inReview.id;
   });
@@ -95,7 +95,7 @@ describe("/api/systems/[id]/capabilities", () => {
 
   it("POST forbids a SYSTEM_OWNER who doesn't own this System (but can see it)", async () => {
     const onboarded = await prisma.system.create({
-      data: { name: "Onboarded System", systemTypeId, ownerId, status: "ONBOARDED" },
+      data: { name: "Onboarded System", deploymentFacets: { connect: [{ id: systemTypeId }] }, ownerId, status: "ONBOARDED" },
     });
 
     const response = await POST(

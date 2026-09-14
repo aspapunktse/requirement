@@ -85,7 +85,7 @@ describe("GET /api/requirements", () => {
       question: null,
       intent: null,
       examples: [],
-      systemTypes: [],
+      deploymentFacets: [],
       capabilities: [],
     });
   });

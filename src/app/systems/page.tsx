@@ -36,7 +36,10 @@ export default async function SystemsPage() {
               </Link>
               <div className="mt-1 flex items-center gap-2 text-sm text-zinc-500">
                 <StatusChip tone={onboardingStatusTone(system.status)}>{system.status}</StatusChip>
-                <span>{system.systemType.name} · owned by {system.owner.name}</span>
+                <span>
+                  {system.deploymentFacets.map((facet) => facet.name).join(" + ")} · owned by{" "}
+                  {system.owner.name}
+                </span>
               </div>
             </li>
           ))}

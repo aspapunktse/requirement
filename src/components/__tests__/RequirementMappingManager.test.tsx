@@ -9,7 +9,7 @@ const requirements = [
     code: "A.5.3",
     title: "Segregation of duties",
     applicability: "BOTH",
-    systemTypes: [],
+    deploymentFacets: [],
     capabilities: [],
   },
   {
@@ -17,11 +17,11 @@ const requirements = [
     code: "A.5.1",
     title: "Policies for information security",
     applicability: "ORGANIZATIONAL",
-    systemTypes: [],
+    deploymentFacets: [],
     capabilities: [],
   },
 ];
-const systemTypes = [{ id: "st1", name: "On-Premises Datacenter" }];
+const deploymentFacets = [{ id: "st1", name: "On-Premises Datacenter" }];
 const capabilities = [{ id: "c1", name: "Active Directory" }];
 
 function mockFetch() {
@@ -32,8 +32,8 @@ function mockFetch() {
     if (url.endsWith("/api/requirements") && method === "GET") {
       return Promise.resolve(new Response(JSON.stringify({ requirements }), { status: 200 }));
     }
-    if (url.endsWith("/api/system-types") && method === "GET") {
-      return Promise.resolve(new Response(JSON.stringify({ systemTypes }), { status: 200 }));
+    if (url.endsWith("/api/deployment-facets") && method === "GET") {
+      return Promise.resolve(new Response(JSON.stringify({ deploymentFacets }), { status: 200 }));
     }
     if (url.endsWith("/api/capabilities") && method === "GET") {
       return Promise.resolve(new Response(JSON.stringify({ capabilities }), { status: 200 }));
@@ -54,7 +54,7 @@ describe("RequirementMappingManager", () => {
     vi.unstubAllGlobals();
   });
 
-  it("lets an admin scope a Requirement to a System Type and save", async () => {
+  it("lets an admin scope a Requirement to a Deployment Facet and save", async () => {
     const user = userEvent.setup();
     render(<RequirementMappingManager />);
 
@@ -70,12 +70,12 @@ describe("RequirementMappingManager", () => {
       expect(patchCall).toBeTruthy();
       expect(JSON.parse(patchCall![1].body)).toEqual({
         capabilityIds: [],
-        systemTypeIds: ["st1"],
+        deploymentFacetIds: ["st1"],
       });
     });
   });
 
-  it("hides System Type selection for an ORGANIZATIONAL requirement", async () => {
+  it("hides Deployment Facet selection for an ORGANIZATIONAL requirement", async () => {
     const user = userEvent.setup();
     render(<RequirementMappingManager />);
 

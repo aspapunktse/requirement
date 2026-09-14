@@ -15,7 +15,7 @@ export function visibleSystemsWhere(user: { id: string; role: UserRole }): Prism
   return { OR: [{ ownerId: user.id }, { status: "ONBOARDED" }] };
 }
 
-const SYSTEM_SUMMARY_INCLUDE = { systemType: true, owner: true } satisfies Prisma.SystemInclude;
+const SYSTEM_SUMMARY_INCLUDE = { deploymentFacets: true, owner: true } satisfies Prisma.SystemInclude;
 
 /** Every System the given user is allowed to see, newest first. */
 export function getVisibleSystems(user: { id: string; role: UserRole }) {

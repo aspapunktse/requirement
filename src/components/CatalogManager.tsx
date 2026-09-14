@@ -7,11 +7,11 @@ type CatalogItem = { id: string; name: string; description: string | null };
 type Draft = { name: string; description: string };
 
 type CatalogManagerProps = {
-  /** Base API path for this catalog, e.g. "/api/system-types". */
+  /** Base API path for this catalog, e.g. "/api/deployment-facets". */
   resourcePath: string;
-  /** Key the list endpoint nests its array under, e.g. "systemTypes". */
+  /** Key the list endpoint nests its array under, e.g. "deploymentFacets". */
   resourceKey: string;
-  /** Singular, human-readable name of one entry, e.g. "System Type". */
+  /** Singular, human-readable name of one entry, e.g. "Deployment Facet". */
   itemLabel: string;
   /** Plural form, e.g. "Capabilities". Defaults to `${itemLabel}s`. */
   itemLabelPlural?: string;
