@@ -212,4 +212,19 @@ describe("PATCH /api/systems/[id]/assessments/[requirementId]", () => {
     );
     expect(response.status).toBe(200);
   });
+
+  it("lets a stale (no-longer-applicable) Requirement's existing Assessment still be edited/resolved", async () => {
+    await prisma.requirementAssessment.create({
+      data: { systemId, requirementId: outOfScopeRequirementId, status: "IN_PROGRESS" },
+    });
+
+    const response = await PATCH(
+      requestAs(systemId, outOfScopeRequirementId, ownerId, { status: "FULFILLED" }),
+      ctxFor(systemId, outOfScopeRequirementId),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.assessment.status).toBe("FULFILLED");
+  });
 });

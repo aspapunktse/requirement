@@ -143,4 +143,20 @@ describe("GET /api/systems/[id]/assessments", () => {
 
     expect(row.assessment).toBeNull();
   });
+
+  it("surfaces a recorded Assessment for a no-longer-applicable Requirement as stale, not in the main list", async () => {
+    const staleRequirementId = requirementIds[3]; // other-type scoped, not applicable to this System
+    await prisma.requirementAssessment.create({
+      data: { systemId, requirementId: staleRequirementId, status: "FULFILLED" },
+    });
+
+    const response = await GET(requestAs(systemId, ownerId), ctxFor(systemId));
+    const body = await response.json();
+
+    const mainIds = body.assessments.map((a: { requirement: { id: string } }) => a.requirement.id);
+    expect(mainIds).not.toContain(staleRequirementId);
+
+    const staleIds = body.staleAssessments.map((a: { requirement: { id: string } }) => a.requirement.id);
+    expect(staleIds).toContain(staleRequirementId);
+  });
 });

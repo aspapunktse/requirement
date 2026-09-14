@@ -4,12 +4,14 @@ import { canLogRisk, ROLES_ALLOWED_TO_MANAGE_RISK_STATUS } from "@/lib/risks";
 import { ROLES_ALLOWED_TO_APPROVE } from "@/lib/approvals";
 import { canMarkOnboarded } from "@/lib/onboarding";
 import { canManageCapabilities } from "@/lib/system-capabilities";
+import { canChangeSystemType } from "@/lib/system-type-change";
 import { RequirementAssessmentList } from "@/components/RequirementAssessmentList";
 import { SubmitForReviewButton } from "@/components/SubmitForReviewButton";
 import { RiskList } from "@/components/RiskList";
 import { ApprovalPanel } from "@/components/ApprovalPanel";
 import { MarkOnboardedButton } from "@/components/MarkOnboardedButton";
 import { SystemCapabilities } from "@/components/SystemCapabilities";
+import { SystemTypeChanger } from "@/components/SystemTypeChanger";
 
 export default async function SystemDetailPage({ params }: PageProps<"/systems/[id]">) {
   const { id } = await params;
@@ -58,6 +60,10 @@ export default async function SystemDetailPage({ params }: PageProps<"/systems/[
           </div>
         )}
       </dl>
+
+      {canChangeSystemType(user, system) && (
+        <SystemTypeChanger systemId={system.id} currentSystemTypeId={system.systemTypeId} />
+      )}
 
       {system.status === "DRAFT" && <SubmitForReviewButton systemId={system.id} />}
       {system.status === "APPROVED" && canMarkOnboarded(user, system) && (

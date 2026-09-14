@@ -153,11 +153,13 @@ function RequirementRow({
   systemId,
   userRole,
   onSaved,
+  stale = false,
 }: {
   row: AssessmentRow;
   systemId: string;
   userRole: UserRole;
   onSaved: (assessment: NonNullable<Assessment>) => void;
+  stale?: boolean;
 }) {
   const { requirement, assessment } = row;
   const canWaive = ROLES_ALLOWED_TO_WAIVE.includes(userRole);
@@ -206,6 +208,12 @@ function RequirementRow({
 
   return (
     <li className="rounded border border-zinc-200 p-3 dark:border-zinc-800">
+      {stale && (
+        <p className="mb-2 rounded bg-amber-100 p-2 text-xs text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+          No longer applicable to this System&apos;s current Type — left in place because it was
+          already worked on. Resolve it manually below, or leave it as a record.
+        </p>
+      )}
       <div className="mb-2 flex items-start justify-between gap-2">
         <div>
           <div className="font-medium">
@@ -267,16 +275,20 @@ function RequirementRow({
         </button>
       </div>
 
-      <SelfAssessmentQuestion
-        requirement={requirement}
-        assessment={assessment}
-        systemId={systemId}
-        userRole={userRole}
-        onAnswered={onSaved}
-      />
+      {!stale && (
+        <SelfAssessmentQuestion
+          requirement={requirement}
+          assessment={assessment}
+          systemId={systemId}
+          userRole={userRole}
+          onAnswered={onSaved}
+        />
+      )}
     </li>
   );
 }
+
+type StaleAssessmentApi = NonNullable<Assessment> & { requirement: Requirement };
 
 export function RequirementAssessmentList({
   systemId,
@@ -286,6 +298,7 @@ export function RequirementAssessmentList({
   userRole: UserRole;
 }) {
   const [rows, setRows] = useState<AssessmentRow[] | null>(null);
+  const [staleRows, setStaleRows] = useState<AssessmentRow[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -295,6 +308,12 @@ export function RequirementAssessmentList({
       .then((body) => {
         if (cancelled) return;
         setRows(body.assessments ?? []);
+        setStaleRows(
+          (body.staleAssessments ?? []).map((assessment: StaleAssessmentApi) => ({
+            requirement: assessment.requirement,
+            assessment,
+          })),
+        );
       });
 
     return () => {
@@ -306,27 +325,51 @@ export function RequirementAssessmentList({
     return <p>Loading Requirements…</p>;
   }
 
-  if (rows.length === 0) {
-    return <p className="text-sm text-zinc-500">No Requirements apply to this System.</p>;
-  }
-
   return (
-    <ul className="flex flex-col gap-3">
-      {rows.map((row) => (
-        <RequirementRow
-          key={row.requirement.id}
-          row={row}
-          systemId={systemId}
-          userRole={userRole}
-          onSaved={(assessment) =>
-            setRows((prev) =>
-              (prev ?? []).map((r) =>
-                r.requirement.id === row.requirement.id ? { ...r, assessment } : r,
-              ),
-            )
-          }
-        />
-      ))}
-    </ul>
+    <div className="flex flex-col gap-6">
+      {rows.length === 0 ? (
+        <p className="text-sm text-zinc-500">No Requirements apply to this System.</p>
+      ) : (
+        <ul className="flex flex-col gap-3">
+          {rows.map((row) => (
+            <RequirementRow
+              key={row.requirement.id}
+              row={row}
+              systemId={systemId}
+              userRole={userRole}
+              onSaved={(assessment) =>
+                setRows((prev) =>
+                  (prev ?? []).map((r) =>
+                    r.requirement.id === row.requirement.id ? { ...r, assessment } : r,
+                  ),
+                )
+              }
+            />
+          ))}
+        </ul>
+      )}
+
+      {staleRows.length > 0 && (
+        <div>
+          <h3 className="mb-3 text-sm font-semibold">No Longer Applicable</h3>
+          <ul className="flex flex-col gap-3">
+            {staleRows.map((row) => (
+              <RequirementRow
+                key={row.requirement.id}
+                row={row}
+                systemId={systemId}
+                userRole={userRole}
+                stale
+                onSaved={(assessment) =>
+                  setStaleRows((prev) =>
+                    prev.map((r) => (r.requirement.id === row.requirement.id ? { ...r, assessment } : r)),
+                  )
+                }
+              />
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
   );
 }

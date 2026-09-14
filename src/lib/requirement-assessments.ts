@@ -87,6 +87,44 @@ export function getApplicableRequirement(system: { systemTypeId: string }, requi
 }
 
 /**
+ * The Requirement behind `requirementId` for the purpose of editing a
+ * RequirementAssessment: either the normal applicable-Requirement lookup, or
+ * — if that Requirement is no longer applicable to the System's current
+ * Type — the Requirement behind an *existing* Assessment row, so a stale
+ * Assessment left behind by a System Type change stays resolvable rather
+ * than becoming permanently stuck (see #15).
+ */
+export async function getRequirementForAssessmentEdit(
+  system: { id: string; systemTypeId: string },
+  requirementId: string,
+) {
+  const applicable = await getApplicableRequirement(system, requirementId);
+  if (applicable) return applicable;
+
+  const existing = await prisma.requirementAssessment.findUnique({
+    where: { systemId_requirementId: { systemId: system.id, requirementId } },
+    include: { requirement: true },
+  });
+  return existing?.requirement ?? null;
+}
+
+/**
+ * RequirementAssessments still recorded for `system` whose Requirement is no
+ * longer applicable to its current SystemType/applicability scope — left in
+ * place by a System Type change (rather than deleted) because a human had
+ * already worked on them. Surfaced so the System Owner can resolve them.
+ */
+export async function getStaleAssessments(system: { id: string; systemTypeId: string }) {
+  const applicable = await getApplicableRequirements(system.systemTypeId);
+  const applicableIds = applicable.map((r) => r.id);
+
+  return prisma.requirementAssessment.findMany({
+    where: { systemId: system.id, requirementId: { notIn: applicableIds } },
+    include: { requirement: true, assessedBy: true },
+  });
+}
+
+/**
  * The mandatory Requirements applicable to `system` that haven't been
  * addressed yet — no RequirementAssessment row at all, or one still sitting
  * at NOT_STARTED. This is the gate for submitting a System for review: it

@@ -4,7 +4,7 @@ import { RequirementStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { authenticate } from "@/lib/api-authz";
 import { getVisibleSystem } from "@/lib/system-visibility";
-import { checkWaiveGate, getApplicableRequirement } from "@/lib/requirement-assessments";
+import { checkWaiveGate, getRequirementForAssessmentEdit } from "@/lib/requirement-assessments";
 
 const STATUSES_REQUIRING_WAIVE_ROLE: RequirementStatus[] = ["WAIVED", "NOT_APPLICABLE"];
 
@@ -33,7 +33,7 @@ export async function PATCH(
   }
   const { status, evidence, notes } = parsed.data;
 
-  const requirement = await getApplicableRequirement(system, requirementId);
+  const requirement = await getRequirementForAssessmentEdit(system, requirementId);
   if (!requirement) {
     return NextResponse.json({ error: "Requirement not found" }, { status: 404 });
   }
