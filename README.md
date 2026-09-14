@@ -4,19 +4,23 @@ Internal webapp for tracking requirement fulfillment and risk assessment when on
 
 ## Project status
 
-**As of this writing: infrastructure and domain model are done; no application features are implemented yet.**
+**As of this writing: the full original backlog (16 issues) is implemented, tested, and merged — the core onboarding workflow and the ISO 27001 Annex A Requirement Catalog feature set both work end-to-end. No GitHub issues are currently open.**
 
-What exists:
-- Next.js/Prisma/Postgres scaffold, CI/CD, Docker — all verified working (see Stack/CI-CD below)
-- The domain model is settled — see [`CONTEXT.md`](CONTEXT.md) for the glossary (`System`, `System Type`, `Capability`, `Requirement`, `Requirement Assessment`, `Risk`, `Approval`, the Onboarding Lifecycle) and [`docs/adr/`](docs/adr/) for architectural decisions
-- The feature backlog is broken into 16 GitHub issues, in dependency order, each a vertical slice (schema + API + UI + tests): see [open issues](https://github.com/aspapunktse/requirement/issues), labeled `ready-for-agent`. Issue #1 (dev-only auth stub) has no blockers and is the place to start. [Issue #8](https://github.com/aspapunktse/requirement/issues/8) is the spec behind issues #9–#16 (ISO 27001 Annex A Requirement Catalog, System Types, and Capabilities) — not itself a ticket to implement.
+What exists and works:
+- Next.js/Prisma/Postgres scaffold, CI/CD, Docker (see Stack/CI-CD below)
+- Dev-only auth stub with a role switcher and server-enforced authorization for all 5 roles (`ADMIN`, `RISK_OWNER`, `SYSTEM_OWNER`, `REVIEWER`, `VIEWER`)
+- The full onboarding lifecycle: create a System → assess it against the Requirement Catalog → log Risks → submit for review → a Reviewer's Approve/Reject decision (Rejected returns to Draft, not a dead end) → mark Onboarded
+- The Requirement Catalog: the 93-control ISO 27001:2022 Annex A seed, System Type-based scoping, the per-Requirement Self-Assessment Question (Yes auto-fulfills, No auto-opens a linked Risk, N/A is Admin/Risk-Owner-gated), and Capability declaration that auto-fulfills mapped Requirements and reverts them on removal (unless a human has since touched the Assessment)
+- Changing a Draft System's Type recomputes its applicable Requirement set without discarding work already done
+- Admin CRUD (including retire) for the System Type and Capability catalogs
 
 What's *not* decided yet (deliberately deferred, not overlooked):
-- Real authentication (SSO/OIDC) — issue #1 stubs a role switcher instead
+- Real authentication (SSO/OIDC) — still the dev-only role switcher
 - Multi-tenancy — currently single-tenant; the intent is to add tenant/org scoping later. This was deliberately *not* written up as an ADR, since single-tenancy is a stepping stone, not a permanent commitment — expect an `Organization`/tenant scope to eventually land on `System`, `User`, and the `Requirement` catalog
-- Notifications on status changes — out of scope until the core workflow is built and proven
+- Notifications on status changes — out of scope until now; the core workflow is proven, so this is a reasonable next thing to propose
+- Retiring a `Requirement` from the catalog — System Type and Capability can be retired, Requirement deliberately wasn't (see [issue #13](https://github.com/aspapunktse/requirement/issues/13)'s closing comment)
 
-**Picking this up in a fresh session?** Read, in order: this section, [`CONTEXT.md`](CONTEXT.md), [`docs/adr/`](docs/adr/), then the [open GitHub issues](https://github.com/aspapunktse/requirement/issues) starting from the lowest unblocked number. [`docs/agents/`](docs/agents/) documents how the repo is configured for Matt Pocock's engineering skills (issue tracker conventions, domain-doc consumer rules) if you're using those.
+**Picking this up in a fresh session?** Read, in order: this section, [`CONTEXT.md`](CONTEXT.md), [`docs/adr/`](docs/adr/). There's no open-issues queue to work through right now — new work starts from a feature proposal, not a pre-written ticket. [`docs/agents/`](docs/agents/) documents how the repo is configured for Matt Pocock's engineering skills (issue tracker conventions, domain-doc consumer rules) if you're using those.
 
 ## Stack
 
