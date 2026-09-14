@@ -146,6 +146,15 @@ describe("PATCH /api/systems/[id] (Deployment Facet change)", () => {
     expect(response.status).toBe(400);
   });
 
+  it("rejects changing Facets on an Onboarded System (see #51: every classification axis stays locked from IN_REVIEW onward, not just once Onboarded)", async () => {
+    await prisma.system.update({ where: { id: systemId }, data: { status: "ONBOARDED" } });
+    const response = await PATCH(
+      requestAs(systemId, ownerId, { deploymentFacetIds: [typeBId] }),
+      ctxFor(systemId),
+    );
+    expect(response.status).toBe(400);
+  });
+
   it("rejects an empty deploymentFacetIds array", async () => {
     const response = await PATCH(requestAs(systemId, ownerId, { deploymentFacetIds: [] }), ctxFor(systemId));
     expect(response.status).toBe(400);

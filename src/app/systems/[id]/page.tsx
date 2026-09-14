@@ -4,7 +4,7 @@ import { canLogRisk, ROLES_ALLOWED_TO_MANAGE_RISK_STATUS } from "@/lib/risks";
 import { ROLES_ALLOWED_TO_APPROVE } from "@/lib/approvals";
 import { canMarkOnboarded } from "@/lib/onboarding";
 import { canManageCapabilities } from "@/lib/system-capabilities";
-import { canChangeDeploymentFacets } from "@/lib/deployment-facet-change";
+import { canChangeSystemClassification } from "@/lib/system-classification-change";
 import { canManageRegulatoryOverlays } from "@/lib/system-overlays";
 import { RequirementAssessmentList } from "@/components/RequirementAssessmentList";
 import { SubmitForReviewButton } from "@/components/SubmitForReviewButton";
@@ -76,14 +76,14 @@ export default async function SystemDetailPage({ params }: PageProps<"/systems/[
         )}
       </dl>
 
-      {canChangeDeploymentFacets(user, system) && (
+      {canChangeSystemClassification(user, system) && (
         <DeploymentFacetsChanger
           systemId={system.id}
           currentDeploymentFacetIds={system.deploymentFacets.map((facet) => facet.id)}
         />
       )}
 
-      {canChangeDeploymentFacets(user, system) && (
+      {canChangeSystemClassification(user, system) && (
         <ImpactLevelsChanger
           systemId={system.id}
           current={{

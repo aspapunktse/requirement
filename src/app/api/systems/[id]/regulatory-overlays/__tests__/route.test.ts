@@ -140,6 +140,16 @@ describe("/api/systems/[id]/regulatory-overlays", () => {
     expect(response.status).toBe(403);
   });
 
+  it("POST forbids declaring on an Onboarded System (#51)", async () => {
+    await prisma.system.update({ where: { id: inReviewSystemId }, data: { status: "ONBOARDED" } });
+    const response = await POST(
+      requestAs(inReviewSystemId, ownerId, { method: "POST", body: { regulatoryOverlayId: overlayId } }),
+      ctxFor(inReviewSystemId),
+    );
+    expect(response.status).toBe(403);
+    await prisma.system.update({ where: { id: inReviewSystemId }, data: { status: "IN_REVIEW" } });
+  });
+
   it("POST rejects an unknown regulatoryOverlayId", async () => {
     const response = await POST(
       requestAs(draftSystemId, ownerId, { method: "POST", body: { regulatoryOverlayId: "does-not-exist" } }),

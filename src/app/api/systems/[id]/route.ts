@@ -4,7 +4,7 @@ import { ImpactLevel } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { authenticate } from "@/lib/api-authz";
 import { getVisibleSystem } from "@/lib/system-visibility";
-import { canChangeDeploymentFacets, changeDeploymentFacets } from "@/lib/deployment-facet-change";
+import { canChangeSystemClassification, changeSystemClassification } from "@/lib/system-classification-change";
 
 const impactLevelSchema = z.nativeEnum(ImpactLevel).nullable();
 
@@ -37,11 +37,13 @@ const updateSystemSchema = z
   );
 
 /**
- * Changes a Draft System's declared Deployment Facets and/or self-declared
- * Impact Levels (see #15, #47, #49). Impact Level changes here only set the
- * fields — they don't yet recompute the applicable Requirement set the way
- * a Deployment Facet change does; that generalization across every
- * classification axis is #50.
+ * Changes a Draft System's classification — its declared Deployment Facets
+ * and/or self-declared Impact Levels, any combination in one request — and
+ * recomputes its applicable Requirement Assessment set to match (see #15,
+ * #47, #49, #50). Regulatory Overlay declare/undeclare has its own endpoint
+ * (`/api/systems/[id]/regulatory-overlays`) since it's a single-item
+ * connect/disconnect rather than a "set" like these two axes, but goes
+ * through the same recompute logic underneath.
  */
 export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/systems/[id]">) {
   const auth = await authenticate(request);
@@ -53,7 +55,7 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/system
     return NextResponse.json({ error: "System not found" }, { status: 404 });
   }
 
-  if (!canChangeDeploymentFacets(auth.user, system)) {
+  if (!canChangeSystemClassification(auth.user, system)) {
     return NextResponse.json(
       { error: "Only the System Owner or an Admin can change this System's classification" },
       { status: 403 },
@@ -78,30 +80,19 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/system
   const { deploymentFacetIds, confidentialityImpactLevel, integrityImpactLevel, availabilityImpactLevel } =
     parsed.data;
 
-  let added = 0;
-  let removed = 0;
   if (deploymentFacetIds !== undefined) {
     const matchingFacets = await prisma.deploymentFacet.count({ where: { id: { in: deploymentFacetIds } } });
     if (matchingFacets !== deploymentFacetIds.length) {
       return NextResponse.json({ error: "One or more Deployment Facet ids do not exist" }, { status: 400 });
     }
-    ({ added, removed } = await changeDeploymentFacets(system, deploymentFacetIds));
   }
 
-  if (
-    confidentialityImpactLevel !== undefined ||
-    integrityImpactLevel !== undefined ||
-    availabilityImpactLevel !== undefined
-  ) {
-    await prisma.system.update({
-      where: { id: system.id },
-      data: {
-        ...(confidentialityImpactLevel !== undefined && { confidentialityImpactLevel }),
-        ...(integrityImpactLevel !== undefined && { integrityImpactLevel }),
-        ...(availabilityImpactLevel !== undefined && { availabilityImpactLevel }),
-      },
-    });
-  }
+  const { added, removed } = await changeSystemClassification(system, {
+    deploymentFacetIds,
+    confidentialityImpactLevel,
+    integrityImpactLevel,
+    availabilityImpactLevel,
+  });
 
   const updated = await prisma.system.findUnique({
     where: { id: system.id },
