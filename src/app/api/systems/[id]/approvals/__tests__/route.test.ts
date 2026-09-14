@@ -2,6 +2,8 @@ import { NextRequest } from "next/server";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
 import { ACTING_USER_COOKIE } from "@/lib/acting-user";
+import { PATCH as patchAssessment } from "@/app/api/systems/[id]/assessments/[requirementId]/route";
+import { POST as logRisk } from "@/app/api/systems/[id]/risks/route";
 import { GET, POST } from "../route";
 
 const OWNER_EMAIL = "test-approvals-owner@example.com";
@@ -33,6 +35,7 @@ describe("/api/systems/[id]/approvals", () => {
   let systemTypeId: string;
   let inReviewSystemId: string;
   let draftSystemId: string;
+  let mandatoryRequirementId: string;
   const createdApprovalIds: string[] = [];
 
   beforeAll(async () => {
@@ -69,16 +72,35 @@ describe("/api/systems/[id]/approvals", () => {
       data: { name: "Draft System", systemTypeId, ownerId, status: "DRAFT" },
     });
     draftSystemId = draftSystem.id;
+
+    const mandatoryRequirement = await prisma.requirement.create({
+      data: {
+        code: `APPROVAL-DISCRETION-${Date.now()}`,
+        title: "Open Gap Requirement",
+        description: "Deliberately left unaddressed to prove Approval isn't gated by it",
+        category: "Security",
+        applicability: "PER_SYSTEM",
+        mandatory: true,
+      },
+    });
+    mandatoryRequirementId = mandatoryRequirement.id;
   });
 
   afterAll(async () => {
+    await prisma.risk.deleteMany({ where: { systemId: { in: [inReviewSystemId, draftSystemId] } } });
+    await prisma.requirementAssessment.deleteMany({
+      where: { systemId: { in: [inReviewSystemId, draftSystemId] } },
+    });
     await prisma.approval.deleteMany({ where: { systemId: { in: [inReviewSystemId, draftSystemId] } } });
     await prisma.system.deleteMany({ where: { id: { in: [inReviewSystemId, draftSystemId] } } });
+    await prisma.requirement.deleteMany({ where: { id: mandatoryRequirementId } });
     await prisma.systemType.deleteMany({ where: { id: systemTypeId } });
     await prisma.user.deleteMany({ where: { email: { in: [OWNER_EMAIL, REVIEWER_EMAIL, VIEWER_EMAIL] } } });
   });
 
   afterEach(async () => {
+    await prisma.risk.deleteMany({ where: { systemId: inReviewSystemId } });
+    await prisma.requirementAssessment.deleteMany({ where: { systemId: inReviewSystemId } });
     await prisma.approval.deleteMany({ where: { id: { in: createdApprovalIds } } });
     createdApprovalIds.length = 0;
     await prisma.system.update({ where: { id: inReviewSystemId }, data: { status: "IN_REVIEW" } });
@@ -172,5 +194,75 @@ describe("/api/systems/[id]/approvals", () => {
     const ids = body.approvals.map((a: { id: string }) => a.id);
 
     expect(ids.indexOf(first.id)).toBeLessThan(ids.indexOf(second.id));
+  });
+
+  it("lets a REVIEWER approve a System despite an open mandatory Requirement gap and an unresolved Risk", async () => {
+    // Mandatory Requirement left untouched (NOT_STARTED) and an ad-hoc Risk
+    // logged and left OPEN — deliberately unmitigated, real gaps.
+    const riskResponse = await logRisk(
+      requestAs(inReviewSystemId, ownerId, {
+        method: "POST",
+        body: {
+          title: "Unresolved ad-hoc Risk",
+          description: "Deliberately left open to prove Approval is discretionary",
+          severity: "HIGH",
+          likelihood: "MEDIUM",
+        },
+      }),
+      ctxFor(inReviewSystemId),
+    );
+    expect(riskResponse.status).toBe(201);
+
+    const response = await POST(
+      requestAs(inReviewSystemId, reviewerId, {
+        method: "POST",
+        body: { decision: "APPROVED", comment: "Accepting the gap and the risk at my discretion" },
+      }),
+      ctxFor(inReviewSystemId),
+    );
+    const body = await response.json();
+    createdApprovalIds.push(body.approval.id);
+
+    expect(response.status).toBe(201);
+    const system = await prisma.system.findUnique({ where: { id: inReviewSystemId } });
+    expect(system?.status).toBe("APPROVED");
+  });
+
+  it("never sets Approval status or creates an Approval record as a side effect of unrelated System actions", async () => {
+    const assessmentPatchResponse = await patchAssessment(
+      new NextRequest(
+        `http://localhost/api/systems/${inReviewSystemId}/assessments/${mandatoryRequirementId}`,
+        {
+          method: "PATCH",
+          headers: new Headers({
+            "Content-Type": "application/json",
+            cookie: `${ACTING_USER_COOKIE}=${ownerId}`,
+          }),
+          body: JSON.stringify({ status: "IN_PROGRESS" }),
+        },
+      ),
+      { params: Promise.resolve({ id: inReviewSystemId, requirementId: mandatoryRequirementId }) },
+    );
+    expect(assessmentPatchResponse.status).toBe(200);
+
+    const riskResponse = await logRisk(
+      requestAs(inReviewSystemId, ownerId, {
+        method: "POST",
+        body: {
+          title: "Side-effect probe Risk",
+          description: "Logging this should never touch Approval",
+          severity: "LOW",
+          likelihood: "LOW",
+        },
+      }),
+      ctxFor(inReviewSystemId),
+    );
+    expect(riskResponse.status).toBe(201);
+
+    const system = await prisma.system.findUnique({ where: { id: inReviewSystemId } });
+    expect(system?.status).toBe("IN_REVIEW");
+
+    const approvalCount = await prisma.approval.count({ where: { systemId: inReviewSystemId } });
+    expect(approvalCount).toBe(0);
   });
 });
