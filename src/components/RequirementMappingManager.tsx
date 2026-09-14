@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/Button";
 
 type Catalog = { id: string; name: string };
 type RequirementSummary = {
@@ -167,13 +168,9 @@ export function RequirementMappingManager() {
             ))}
           </fieldset>
 
-          <button
-            type="button"
-            className="self-start rounded border border-zinc-300 px-3 py-1 text-sm dark:border-zinc-700"
-            onClick={handleSave}
-          >
+          <Button variant="secondary" onClick={handleSave}>
             Save
-          </button>
+          </Button>
         </div>
       )}
     </div>

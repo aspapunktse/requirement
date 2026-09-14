@@ -18,7 +18,7 @@ export default async function CapabilitiesPage() {
 
   return (
     <div className="mx-auto max-w-2xl p-6">
-      <h1 className="mb-4 text-xl font-semibold">Capabilities</h1>
+      <h1 className="mb-4 text-2xl">Capabilities</h1>
       <CapabilityManager />
     </div>
   );

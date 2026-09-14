@@ -1,0 +1,175 @@
+/* =========================================================================
+   Design tokens ported from aspapunktse/isms (design-system/colors_and_type.css)
+   so this app shares that project's look and feel. Update by re-syncing
+   from the source repo, not by hand-tuning values here.
+   ========================================================================= */
+
+/* Source Serif 4 and JetBrains Mono load via a <link> in layout.tsx, not a
+   CSS @import here — a nested @import inside an imported stylesheet doesn't
+   reliably stay first-in-file once the build tool inlines it. */
+
+/* --- Web fonts -----------------------------------------------------------
+   Brand sans: Aktiv Grotesk, shipped locally (public/fonts/aktiv-grotesk).
+   Source Serif 4 and JetBrains Mono come from Google Fonts, matching the
+   source design system's substitutes for its canonical serif/mono faces.
+   ------------------------------------------------------------------------- */
+@font-face {
+  font-family: "Aktiv Grotesk";
+  src: url("/fonts/aktiv-grotesk/AktivGrotesk_W_Lt.woff2") format("woff2");
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Aktiv Grotesk";
+  src: url("/fonts/aktiv-grotesk/AktivGrotesk_W_LtIt.woff2") format("woff2");
+  font-weight: 300;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Aktiv Grotesk";
+  src: url("/fonts/aktiv-grotesk/AktivGrotesk_W_Rg.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Aktiv Grotesk";
+  src: url("/fonts/aktiv-grotesk/AktivGrotesk_W_It.woff2") format("woff2");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Aktiv Grotesk";
+  src: url("/fonts/aktiv-grotesk/AktivGrotesk_W_Md.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Aktiv Grotesk";
+  src: url("/fonts/aktiv-grotesk/AktivGrotesk_W_MdIt.woff2") format("woff2");
+  font-weight: 500;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Aktiv Grotesk";
+  src: url("/fonts/aktiv-grotesk/AktivGrotesk_W_Bd.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Aktiv Grotesk";
+  src: url("/fonts/aktiv-grotesk/AktivGrotesk_W_BdIt.woff2") format("woff2");
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+
+:root {
+  /* Neutral / paper system — warm gray, never pure white */
+  --ems-paper-0: #f3f3f2;
+  --ems-paper-1: #f3f3f2;
+  --ems-paper-2: #e3e3e1;
+  --ems-paper-3: #e0dcd6;
+  --ems-paper-4: #cbc6bb;
+
+  --ems-ink-0: #1a1714;
+  --ems-ink-1: #373532;
+  --ems-ink-2: #4a453e;
+  --ems-ink-3: #6e685f;
+  --ems-ink-4: #9a9387;
+
+  --ems-shell-dark: #373532;
+  --ems-shell-darker: #2a2622;
+
+  /* Brand / accent */
+  --ems-brand-blue: #004c97;
+  --ems-brand-blue-hover: #003b75;
+  --ems-brand-blue-tint: #e2eaf3;
+
+  --ems-amber: #fab900;
+  --ems-amber-hover: #d8a000;
+  --ems-amber-tint: #fdf1c8;
+
+  /* Semantic / status */
+  --ems-success: #3d8b5c;
+  --ems-success-tint: #e3efe7;
+  --ems-warn: #c99c00;
+  --ems-warn-tint: #f7efc9;
+  --ems-danger: #c44a2c;
+  --ems-danger-tint: #f4dad0;
+  --ems-info: #1f4e8c;
+  --ems-neutral: #6e685f;
+
+  /* Type families */
+  --ems-font-serif: "Source Serif 4", "Source Serif Pro", Georgia, "Times New Roman", serif;
+  --ems-font-sans: "Aktiv Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --ems-font-mono: "JetBrains Mono", "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+
+  /* Type scale */
+  --ems-text-2xs: 11px;
+  --ems-text-xs: 12px;
+  --ems-text-sm: 13px;
+  --ems-text-base: 14px;
+  --ems-text-md: 16px;
+  --ems-text-lg: 18px;
+  --ems-text-xl: 22px;
+  --ems-text-2xl: 28px;
+  --ems-text-3xl: 36px;
+
+  --ems-tracking-wider: 0.14em;
+  --ems-tracking-widest: 0.22em;
+
+  /* Radii — square-ish, documentary, not playful */
+  --ems-radius-1: 2px;
+  --ems-radius-2: 4px;
+}
+
+/* Dark mode: EMS's own doc has no canonical dark palette, so this inverts
+   the warm-paper/ink relationship while keeping every hue and the same
+   contrast intent, the same way the rest of this app themes. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ems-paper-0: #211f1c;
+    --ems-paper-1: #211f1c;
+    --ems-paper-2: #2b2925;
+    --ems-paper-3: #34322c;
+    --ems-paper-4: #4a4740;
+
+    --ems-ink-0: #f3f1ec;
+    --ems-ink-1: #e7e3da;
+    --ems-ink-2: #cbc6ba;
+    --ems-ink-3: #a39d8f;
+    --ems-ink-4: #736d61;
+
+    --ems-amber: #f0b429;
+    --ems-amber-hover: #f7c94f;
+    --ems-amber-tint: #4a3b13;
+
+    --ems-brand-blue: #6fa4d8;
+    --ems-brand-blue-hover: #8fb9e2;
+    --ems-brand-blue-tint: #1c2c3d;
+
+    --ems-success: #6bbf87;
+    --ems-success-tint: #1c3024;
+    --ems-warn: #d8ab5c;
+    --ems-warn-tint: #362b12;
+    --ems-danger: #e2836a;
+    --ems-danger-tint: #3a2018;
+  }
+}
+
+/* Signature EMS look: monospaced, uppercase, letter-spaced status/id labels. */
+.ems-mono-label {
+  font-family: var(--ems-font-mono);
+  font-size: var(--ems-text-2xs);
+  line-height: 1.4;
+  letter-spacing: var(--ems-tracking-wider);
+  text-transform: uppercase;
+  font-weight: 500;
+}

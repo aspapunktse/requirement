@@ -18,7 +18,7 @@ export default async function SystemTypesPage() {
 
   return (
     <div className="mx-auto max-w-2xl p-6">
-      <h1 className="mb-4 text-xl font-semibold">System Types</h1>
+      <h1 className="mb-4 text-2xl">System Types</h1>
       <SystemTypeManager />
     </div>
   );

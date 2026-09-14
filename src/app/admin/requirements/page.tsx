@@ -18,7 +18,7 @@ export default async function RequirementsMappingPage() {
 
   return (
     <div className="mx-auto max-w-2xl p-6">
-      <h1 className="mb-4 text-xl font-semibold">Requirement Mappings</h1>
+      <h1 className="mb-4 text-2xl">Requirement Mappings</h1>
       <RequirementMappingManager />
     </div>
   );

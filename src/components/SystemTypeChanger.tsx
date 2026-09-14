@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/Button";
 
 type SystemType = { id: string; name: string };
 
@@ -85,13 +86,9 @@ export function SystemTypeChanger({
           </select>
         </label>
 
-        <button
-          type="submit"
-          className="rounded border border-zinc-300 px-3 py-1 text-sm dark:border-zinc-700"
-          disabled={saving || selectedId === currentSystemTypeId}
-        >
+        <Button type="submit" variant="secondary" disabled={saving || selectedId === currentSystemTypeId}>
           Change Type
-        </button>
+        </Button>
       </div>
     </form>
   );

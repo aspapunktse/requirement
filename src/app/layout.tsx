@@ -1,18 +1,7 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import { RoleSwitcher } from "@/components/RoleSwitcher";
 import { isDevAuthStubEnabled } from "@/lib/acting-user";
 import "./globals.css";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   title: "Create Next App",
@@ -21,13 +10,18 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
+    <html lang="en" className="h-full antialiased">
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600;8..60,700&family=JetBrains+Mono:wght@400;500;600&display=swap"
+        />
+      </head>
       <body className="min-h-full flex flex-col">
         {isDevAuthStubEnabled() && (
-          <header className="flex justify-end border-b border-zinc-200 px-6 py-3 text-sm dark:border-zinc-800">
+          <header className="flex justify-end border-b border-zinc-200 bg-ems-paper-2 px-6 py-3 text-sm dark:border-zinc-800">
             <RoleSwitcher />
           </header>
         )}

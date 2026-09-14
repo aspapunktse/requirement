@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "@/components/ui/Button";
 
 type RiskSeverity = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
 
@@ -101,13 +102,9 @@ export function LogRiskForm({
         </select>
       </label>
 
-      <button
-        type="submit"
-        className="self-start rounded border border-zinc-300 px-3 py-1 text-sm dark:border-zinc-700"
-        disabled={saving}
-      >
+      <Button type="submit" variant="primary" disabled={saving}>
         Log Risk
-      </button>
+      </Button>
     </form>
   );
 }

@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/Button";
+import { StatusChip } from "@/components/ui/StatusChip";
+import { requirementStatusTone } from "@/lib/status-tones";
 
 type RequirementStatus = "NOT_STARTED" | "IN_PROGRESS" | "FULFILLED" | "NOT_APPLICABLE" | "WAIVED";
 type UserRole = "ADMIN" | "RISK_OWNER" | "SYSTEM_OWNER" | "REVIEWER" | "VIEWER";
@@ -117,31 +120,16 @@ function SelfAssessmentQuestion({
       )}
 
       <div className="flex gap-2">
-        <button
-          type="button"
-          className="rounded border border-zinc-300 px-3 py-1 text-xs dark:border-zinc-700"
-          onClick={() => handleAnswer("YES")}
-          disabled={answering}
-        >
+        <Button className="px-3 py-0.5 text-xs" onClick={() => handleAnswer("YES")} disabled={answering}>
           Yes
-        </button>
-        <button
-          type="button"
-          className="rounded border border-zinc-300 px-3 py-1 text-xs dark:border-zinc-700"
-          onClick={() => handleAnswer("NO")}
-          disabled={answering}
-        >
+        </Button>
+        <Button className="px-3 py-0.5 text-xs" onClick={() => handleAnswer("NO")} disabled={answering}>
           No
-        </button>
+        </Button>
         {canAnswerNa && (
-          <button
-            type="button"
-            className="rounded border border-zinc-300 px-3 py-1 text-xs dark:border-zinc-700"
-            onClick={() => handleAnswer("NA")}
-            disabled={answering}
-          >
+          <Button className="px-3 py-0.5 text-xs" onClick={() => handleAnswer("NA")} disabled={answering}>
             N/A
-          </button>
+          </Button>
         )}
       </div>
     </div>
@@ -209,16 +197,19 @@ function RequirementRow({
   return (
     <li className="rounded border border-zinc-200 p-3 dark:border-zinc-800">
       {stale && (
-        <p className="mb-2 rounded bg-amber-100 p-2 text-xs text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+        <p className="mb-2 rounded bg-ems-warn-tint p-2 text-xs text-ems-warn">
           No longer applicable to this System&apos;s current Type — left in place because it was
           already worked on. Resolve it manually below, or leave it as a record.
         </p>
       )}
       <div className="mb-2 flex items-start justify-between gap-2">
         <div>
-          <div className="font-medium">
-            {requirement.code} — {requirement.title}
-            {requirement.mandatory && <span className="ml-2 text-xs text-zinc-500">Mandatory</span>}
+          <div className="mb-1 flex flex-wrap items-center gap-2 font-medium">
+            <span>{requirement.code} — {requirement.title}</span>
+            <StatusChip tone={requirementStatusTone(assessment?.status ?? "NOT_STARTED")}>
+              {STATUS_LABELS[assessment?.status ?? "NOT_STARTED"]}
+            </StatusChip>
+            {requirement.mandatory && <span className="text-xs text-zinc-500">Mandatory</span>}
           </div>
           <p className="text-sm text-zinc-500">{requirement.description}</p>
         </div>
@@ -265,14 +256,9 @@ function RequirementRow({
           />
         </label>
 
-        <button
-          type="button"
-          className="self-start rounded border border-zinc-300 px-3 py-1 text-sm dark:border-zinc-700"
-          onClick={handleSave}
-          disabled={saving}
-        >
+        <Button variant="secondary" onClick={handleSave} disabled={saving}>
           Save
-        </button>
+        </Button>
       </div>
 
       {!stale && (
@@ -351,7 +337,7 @@ export function RequirementAssessmentList({
 
       {staleRows.length > 0 && (
         <div>
-          <h3 className="mb-3 text-sm font-semibold">No Longer Applicable</h3>
+          <h3 className="mb-3 text-lg">No Longer Applicable</h3>
           <ul className="flex flex-col gap-3">
             {staleRows.map((row) => (
               <RequirementRow

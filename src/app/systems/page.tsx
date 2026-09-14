@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { getActingUser } from "@/lib/acting-user";
 import { getVisibleSystems } from "@/lib/system-visibility";
+import { StatusChip } from "@/components/ui/StatusChip";
+import { onboardingStatusTone } from "@/lib/status-tones";
 
 export default async function SystemsPage() {
   const user = await getActingUser();
@@ -14,10 +16,10 @@ export default async function SystemsPage() {
   return (
     <div className="mx-auto max-w-2xl p-6">
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Systems</h1>
+        <h1 className="text-2xl">Systems</h1>
         <Link
           href="/systems/new"
-          className="rounded border border-zinc-300 px-3 py-1 text-sm dark:border-zinc-700"
+          className="self-start rounded-[var(--ems-radius-2)] border border-ems-amber-hover bg-ems-amber px-3 py-1 text-sm font-medium text-ems-ink-0 hover:bg-ems-amber-hover"
         >
           New System
         </Link>
@@ -32,8 +34,9 @@ export default async function SystemsPage() {
               <Link href={`/systems/${system.id}`} className="font-medium hover:underline">
                 {system.name}
               </Link>
-              <div className="text-sm text-zinc-500">
-                {system.status} · {system.systemType.name} · owned by {system.owner.name}
+              <div className="mt-1 flex items-center gap-2 text-sm text-zinc-500">
+                <StatusChip tone={onboardingStatusTone(system.status)}>{system.status}</StatusChip>
+                <span>{system.systemType.name} · owned by {system.owner.name}</span>
               </div>
             </li>
           ))}

@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/Button";
+import { StatusChip } from "@/components/ui/StatusChip";
+import { onboardingStatusTone } from "@/lib/status-tones";
 
 type Decision = "APPROVED" | "REJECTED";
 
@@ -56,22 +59,12 @@ function DecisionForm({ systemId }: { systemId: string }) {
       </label>
 
       <div className="flex gap-2">
-        <button
-          type="button"
-          className="rounded border border-zinc-300 px-3 py-1 text-sm dark:border-zinc-700"
-          onClick={() => handleDecide("APPROVED")}
-          disabled={submitting}
-        >
+        <Button variant="primary" onClick={() => handleDecide("APPROVED")} disabled={submitting}>
           Approve
-        </button>
-        <button
-          type="button"
-          className="rounded border border-zinc-300 px-3 py-1 text-sm dark:border-zinc-700"
-          onClick={() => handleDecide("REJECTED")}
-          disabled={submitting}
-        >
+        </Button>
+        <Button onClick={() => handleDecide("REJECTED")} disabled={submitting}>
           Reject
-        </button>
+        </Button>
       </div>
     </div>
   );
@@ -113,8 +106,9 @@ export function ApprovalPanel({
         <ul className="flex flex-col gap-3">
           {approvals.map((approval) => (
             <li key={approval.id} className="rounded border border-zinc-200 p-3 dark:border-zinc-800">
-              <div className="font-medium">
-                {approval.decision} by {approval.approver.name}
+              <div className="flex items-center gap-2 font-medium">
+                <StatusChip tone={onboardingStatusTone(approval.decision)}>{approval.decision}</StatusChip>
+                <span>by {approval.approver.name}</span>
               </div>
               <p className="text-xs text-zinc-500">{new Date(approval.decidedAt).toLocaleString()}</p>
               {approval.comment && <p className="mt-1 text-sm">{approval.comment}</p>}

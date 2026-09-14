@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/Button";
 
 type Capability = { id: string; name: string; description: string | null };
 
@@ -103,13 +104,9 @@ export function SystemCapabilities({
             >
               <span>{capability.name}</span>
               {canManage && (
-                <button
-                  type="button"
-                  className="rounded border border-zinc-300 px-2 py-1 text-xs dark:border-zinc-700"
-                  onClick={() => handleRemove(capability.id)}
-                >
+                <Button className="px-2 py-0.5 text-xs" onClick={() => handleRemove(capability.id)}>
                   Remove
-                </button>
+                </Button>
               )}
             </li>
           ))}
@@ -131,12 +128,9 @@ export function SystemCapabilities({
               </option>
             ))}
           </select>
-          <button
-            type="submit"
-            className="rounded border border-zinc-300 px-3 py-1 text-sm dark:border-zinc-700"
-          >
+          <Button type="submit" variant="primary">
             Declare
-          </button>
+          </Button>
         </form>
       )}
     </div>

@@ -12,6 +12,8 @@ import { ApprovalPanel } from "@/components/ApprovalPanel";
 import { MarkOnboardedButton } from "@/components/MarkOnboardedButton";
 import { SystemCapabilities } from "@/components/SystemCapabilities";
 import { SystemTypeChanger } from "@/components/SystemTypeChanger";
+import { StatusChip } from "@/components/ui/StatusChip";
+import { onboardingStatusTone } from "@/lib/status-tones";
 
 export default async function SystemDetailPage({ params }: PageProps<"/systems/[id]">) {
   const { id } = await params;
@@ -29,9 +31,10 @@ export default async function SystemDetailPage({ params }: PageProps<"/systems/[
 
   return (
     <div className="mx-auto max-w-2xl p-6">
-      <h1 className="mb-1 text-xl font-semibold">{system.name}</h1>
-      <p className="mb-4 text-sm text-zinc-500">
-        {system.status} · {system.systemType.name} · owned by {system.owner.name}
+      <h1 className="mb-1 text-2xl">{system.name}</h1>
+      <p className="mb-4 flex items-center gap-2 text-sm text-zinc-500">
+        <StatusChip tone={onboardingStatusTone(system.status)}>{system.status}</StatusChip>
+        <span>{system.systemType.name} · owned by {system.owner.name}</span>
       </p>
 
       <dl className="flex flex-col gap-2 text-sm">
@@ -70,20 +73,20 @@ export default async function SystemDetailPage({ params }: PageProps<"/systems/[
         <MarkOnboardedButton systemId={system.id} />
       )}
 
-      <h2 className="mb-3 mt-8 text-lg font-semibold">Capabilities</h2>
+      <h2 className="mb-3 mt-8 text-xl">Capabilities</h2>
       <SystemCapabilities systemId={system.id} canManage={canManageCapabilities(user, system)} />
 
-      <h2 className="mb-3 mt-8 text-lg font-semibold">Requirements</h2>
+      <h2 className="mb-3 mt-8 text-xl">Requirements</h2>
       <RequirementAssessmentList systemId={system.id} userRole={user.role} />
 
-      <h2 className="mb-3 mt-8 text-lg font-semibold">Risks</h2>
+      <h2 className="mb-3 mt-8 text-xl">Risks</h2>
       <RiskList
         systemId={system.id}
         canLog={canLogRisk(user, system)}
         canManageStatus={ROLES_ALLOWED_TO_MANAGE_RISK_STATUS.includes(user.role)}
       />
 
-      <h2 className="mb-3 mt-8 text-lg font-semibold">Approval</h2>
+      <h2 className="mb-3 mt-8 text-xl">Approval</h2>
       <ApprovalPanel
         systemId={system.id}
         canDecide={system.status === "IN_REVIEW" && ROLES_ALLOWED_TO_APPROVE.includes(user.role)}

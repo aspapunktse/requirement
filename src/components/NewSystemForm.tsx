@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/Button";
 
 type SystemType = { id: string; name: string };
 
@@ -120,12 +121,9 @@ export function NewSystemForm() {
         />
       </label>
 
-      <button
-        type="submit"
-        className="self-start rounded border border-zinc-300 px-3 py-1 text-sm dark:border-zinc-700"
-      >
+      <Button type="submit" variant="primary">
         Create
-      </button>
+      </Button>
     </form>
   );
 }

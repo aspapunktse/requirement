@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./design-tokens.css";
 
 :root {
   --background: #ffffff;
@@ -8,19 +9,68 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--ems-font-sans);
+  --font-serif: var(--ems-font-serif);
+  --font-mono: var(--ems-font-mono);
+
+  /* Brand + semantic colors from the ported design system, available as
+     e.g. bg-ems-amber, text-ems-success, border-ems-danger. */
+  --color-ems-paper-0: var(--ems-paper-0);
+  --color-ems-paper-1: var(--ems-paper-1);
+  --color-ems-paper-2: var(--ems-paper-2);
+  --color-ems-paper-3: var(--ems-paper-3);
+  --color-ems-paper-4: var(--ems-paper-4);
+  --color-ems-ink-0: var(--ems-ink-0);
+  --color-ems-ink-1: var(--ems-ink-1);
+  --color-ems-ink-2: var(--ems-ink-2);
+  --color-ems-ink-3: var(--ems-ink-3);
+  --color-ems-ink-4: var(--ems-ink-4);
+  --color-ems-amber: var(--ems-amber);
+  --color-ems-amber-hover: var(--ems-amber-hover);
+  --color-ems-amber-tint: var(--ems-amber-tint);
+  --color-ems-blue: var(--ems-brand-blue);
+  --color-ems-blue-hover: var(--ems-brand-blue-hover);
+  --color-ems-blue-tint: var(--ems-brand-blue-tint);
+  --color-ems-success: var(--ems-success);
+  --color-ems-success-tint: var(--ems-success-tint);
+  --color-ems-warn: var(--ems-warn);
+  --color-ems-warn-tint: var(--ems-warn-tint);
+  --color-ems-danger: var(--ems-danger);
+  --color-ems-danger-tint: var(--ems-danger-tint);
+
+  /* Remap the zinc scale this app already uses throughout, so every
+     existing border-zinc and text-zinc utility picks up the ported
+     palette for free instead of needing a per-callsite rewrite. Light
+     shades (50/200/300/500/600) come from the light paper/ink ramp;
+     shades only ever used behind `dark:` (400/700/800) come from the
+     dark-mode ramp defined in design-tokens.css. */
+  --color-zinc-50: #e7e3da;
+  --color-zinc-200: #e0dcd6;
+  --color-zinc-300: #cbc6bb;
+  --color-zinc-400: #a39d8f;
+  --color-zinc-500: #6e685f;
+  --color-zinc-600: #6e685f;
+  --color-zinc-700: #4a4740;
+  --color-zinc-800: #34322c;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #211f1c;
+    --foreground: #e7e3da;
   }
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--ems-paper-1);
+  color: var(--ems-ink-2);
+  font-family: var(--ems-font-sans);
+  font-size: var(--ems-text-base);
+}
+
+h1, h2, h3 {
+  font-family: var(--ems-font-serif);
+  color: var(--ems-ink-1);
+  font-weight: 400;
+  letter-spacing: -0.01em;
 }

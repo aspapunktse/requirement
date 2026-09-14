@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { LogRiskForm } from "@/components/LogRiskForm";
+import { Button } from "@/components/ui/Button";
+import { StatusChip } from "@/components/ui/StatusChip";
+import { riskStatusTone } from "@/lib/status-tones";
 
 type RiskStatus = "OPEN" | "MITIGATED" | "ACCEPTED" | "TRANSFERRED" | "CLOSED";
 type RiskSeverity = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
@@ -68,10 +71,13 @@ function RiskRow({
 
   return (
     <li className="rounded border border-zinc-200 p-3 dark:border-zinc-800">
-      <div className="font-medium">{risk.title}</div>
+      <div className="mb-1 flex items-center gap-2 font-medium">
+        <span>{risk.title}</span>
+        <StatusChip tone={riskStatusTone(risk.status)}>{risk.status}</StatusChip>
+      </div>
       <p className="text-sm text-zinc-500">{risk.description}</p>
       <p className="text-xs text-zinc-500">
-        Severity: {risk.severity} · Likelihood: {risk.likelihood} · Status: {risk.status}
+        Severity: {risk.severity} · Likelihood: {risk.likelihood}
       </p>
       {risk.requirementAssessment && (
         <p className="text-xs text-zinc-500">
@@ -113,14 +119,9 @@ function RiskRow({
             />
           </label>
 
-          <button
-            type="button"
-            className="self-start rounded border border-zinc-300 px-3 py-1 text-sm dark:border-zinc-700"
-            onClick={handleSave}
-            disabled={saving}
-          >
+          <Button variant="secondary" onClick={handleSave} disabled={saving}>
             Save
-          </button>
+          </Button>
         </div>
       )}
     </li>

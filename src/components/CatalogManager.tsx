@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/Button";
 
 type CatalogItem = { id: string; name: string; description: string | null };
 type Draft = { name: string; description: string };
@@ -145,20 +146,10 @@ export function CatalogManager({
                 onChange={(event) => updateDraft(item, { description: event.target.value })}
               />
               <div className="mt-2 flex gap-2">
-                <button
-                  type="button"
-                  className="rounded border border-zinc-300 px-3 py-1 text-sm dark:border-zinc-700"
-                  onClick={() => handleSave(item)}
-                >
+                <Button variant="secondary" onClick={() => handleSave(item)}>
                   Save
-                </button>
-                <button
-                  type="button"
-                  className="rounded border border-zinc-300 px-3 py-1 text-sm dark:border-zinc-700"
-                  onClick={() => handleDelete(item)}
-                >
-                  Retire
-                </button>
+                </Button>
+                <Button onClick={() => handleDelete(item)}>Retire</Button>
               </div>
             </li>
           );
@@ -169,7 +160,7 @@ export function CatalogManager({
         onSubmit={handleCreate}
         className="flex flex-col gap-2 border-t border-zinc-200 pt-4 dark:border-zinc-800"
       >
-        <h2 className="text-sm font-semibold">Add a {itemLabel}</h2>
+        <h2 className="text-base">Add a {itemLabel}</h2>
         <input
           aria-label="Name"
           placeholder="Name"
@@ -185,12 +176,9 @@ export function CatalogManager({
           value={newDescription}
           onChange={(event) => setNewDescription(event.target.value)}
         />
-        <button
-          type="submit"
-          className="self-start rounded border border-zinc-300 px-3 py-1 text-sm dark:border-zinc-700"
-        >
+        <Button type="submit" variant="primary">
           Create
-        </button>
+        </Button>
       </form>
     </div>
   );
