@@ -105,6 +105,20 @@ export function CatalogManager({
     await refresh();
   }
 
+  async function handleDelete(item: CatalogItem) {
+    setError(null);
+
+    const response = await fetch(`${resourcePath}/${item.id}`, { method: "DELETE" });
+
+    if (!response.ok) {
+      const body = await response.json();
+      setError(body.error ?? `Failed to retire ${itemLabel}`);
+      return;
+    }
+
+    await refresh();
+  }
+
   if (loading) {
     return <p>Loading {itemLabelPlural}…</p>;
   }
@@ -130,13 +144,22 @@ export function CatalogManager({
                 value={draft.description}
                 onChange={(event) => updateDraft(item, { description: event.target.value })}
               />
-              <button
-                type="button"
-                className="mt-2 rounded border border-zinc-300 px-3 py-1 text-sm dark:border-zinc-700"
-                onClick={() => handleSave(item)}
-              >
-                Save
-              </button>
+              <div className="mt-2 flex gap-2">
+                <button
+                  type="button"
+                  className="rounded border border-zinc-300 px-3 py-1 text-sm dark:border-zinc-700"
+                  onClick={() => handleSave(item)}
+                >
+                  Save
+                </button>
+                <button
+                  type="button"
+                  className="rounded border border-zinc-300 px-3 py-1 text-sm dark:border-zinc-700"
+                  onClick={() => handleDelete(item)}
+                >
+                  Retire
+                </button>
+              </div>
             </li>
           );
         })}

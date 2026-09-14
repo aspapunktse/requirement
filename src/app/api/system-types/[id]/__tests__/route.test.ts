@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
 import { ACTING_USER_COOKIE } from "@/lib/acting-user";
-import { PATCH } from "../route";
+import { DELETE, PATCH } from "../route";
 
 const ADMIN_EMAIL = "test-system-type-edit-admin@example.com";
 const VIEWER_EMAIL = "test-system-type-edit-viewer@example.com";
@@ -112,5 +112,71 @@ describe("PATCH /api/system-types/[id]", () => {
 
     expect(response.status).toBe(200);
     expect(body.systemType).toMatchObject({ id: systemTypeId, description: null });
+  });
+});
+
+describe("DELETE /api/system-types/[id]", () => {
+  const OWNER_EMAIL = "test-system-type-delete-owner@example.com";
+  let adminId: string;
+  let ownerId: string;
+  let systemTypeId: string;
+
+  beforeAll(async () => {
+    const admin = await prisma.user.upsert({
+      where: { email: ADMIN_EMAIL },
+      update: {},
+      create: { email: ADMIN_EMAIL, name: "System Type Delete Admin", role: "ADMIN" },
+    });
+    const owner = await prisma.user.upsert({
+      where: { email: OWNER_EMAIL },
+      update: {},
+      create: { email: OWNER_EMAIL, name: "System Type Delete Owner", role: "SYSTEM_OWNER" },
+    });
+    adminId = admin.id;
+    ownerId = owner.id;
+  });
+
+  afterAll(async () => {
+    await prisma.user.deleteMany({ where: { email: { in: [ADMIN_EMAIL, OWNER_EMAIL] } } });
+  });
+
+  beforeEach(async () => {
+    const systemType = await prisma.systemType.create({
+      data: { name: `Test Delete Target ${Date.now()}` },
+    });
+    systemTypeId = systemType.id;
+  });
+
+  afterEach(async () => {
+    await prisma.systemType.deleteMany({ where: { id: systemTypeId } });
+  });
+
+  it("rejects a non-admin", async () => {
+    const response = await DELETE(requestAs(systemTypeId, ownerId, { method: "DELETE" }), ctxFor(systemTypeId));
+    expect(response.status).toBe(403);
+  });
+
+  it("lets an admin retire an unused System Type", async () => {
+    const response = await DELETE(requestAs(systemTypeId, adminId, { method: "DELETE" }), ctxFor(systemTypeId));
+    expect(response.status).toBe(204);
+
+    const found = await prisma.systemType.findUnique({ where: { id: systemTypeId } });
+    expect(found).toBeNull();
+  });
+
+  it("returns 404 for a System Type that doesn't exist", async () => {
+    const response = await DELETE(requestAs("does-not-exist", adminId, { method: "DELETE" }), ctxFor("does-not-exist"));
+    expect(response.status).toBe(404);
+  });
+
+  it("blocks retiring a System Type still assigned to a System", async () => {
+    const system = await prisma.system.create({
+      data: { name: "Uses The Type", systemTypeId, ownerId, status: "DRAFT" },
+    });
+
+    const response = await DELETE(requestAs(systemTypeId, adminId, { method: "DELETE" }), ctxFor(systemTypeId));
+    expect(response.status).toBe(409);
+
+    await prisma.system.delete({ where: { id: system.id } });
   });
 });

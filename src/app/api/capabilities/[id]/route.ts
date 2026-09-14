@@ -41,3 +41,34 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/capabi
     throw error;
   }
 }
+
+export async function DELETE(request: NextRequest, ctx: RouteContext<"/api/capabilities/[id]">) {
+  const auth = await authorize(request, ["ADMIN"]);
+  if ("response" in auth) return auth.response;
+
+  const { id } = await ctx.params;
+
+  const [systemsUsingIt, requirementsUsingIt] = await Promise.all([
+    prisma.system.count({ where: { capabilities: { some: { id } } } }),
+    prisma.requirement.count({ where: { capabilities: { some: { id } } } }),
+  ]);
+  if (systemsUsingIt > 0 || requirementsUsingIt > 0) {
+    return NextResponse.json(
+      {
+        error:
+          "This Capability is declared by one or more Systems, or mapped to one or more Requirements, and can't be retired",
+      },
+      { status: 409 },
+    );
+  }
+
+  try {
+    await prisma.capability.delete({ where: { id } });
+    return new NextResponse(null, { status: 204 });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
+      return NextResponse.json({ error: "Capability not found" }, { status: 404 });
+    }
+    throw error;
+  }
+}

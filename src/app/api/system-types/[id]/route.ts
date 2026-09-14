@@ -41,3 +41,28 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/system
     throw error;
   }
 }
+
+export async function DELETE(request: NextRequest, ctx: RouteContext<"/api/system-types/[id]">) {
+  const auth = await authorize(request, ["ADMIN"]);
+  if ("response" in auth) return auth.response;
+
+  const { id } = await ctx.params;
+
+  const systemsUsingIt = await prisma.system.count({ where: { systemTypeId: id } });
+  if (systemsUsingIt > 0) {
+    return NextResponse.json(
+      { error: "This System Type is assigned to one or more Systems and can't be retired" },
+      { status: 409 },
+    );
+  }
+
+  try {
+    await prisma.systemType.delete({ where: { id } });
+    return new NextResponse(null, { status: 204 });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
+      return NextResponse.json({ error: "System Type not found" }, { status: 404 });
+    }
+    throw error;
+  }
+}

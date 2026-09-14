@@ -3,11 +3,13 @@ import { getVisibleSystem } from "@/lib/system-visibility";
 import { canLogRisk, ROLES_ALLOWED_TO_MANAGE_RISK_STATUS } from "@/lib/risks";
 import { ROLES_ALLOWED_TO_APPROVE } from "@/lib/approvals";
 import { canMarkOnboarded } from "@/lib/onboarding";
+import { canManageCapabilities } from "@/lib/system-capabilities";
 import { RequirementAssessmentList } from "@/components/RequirementAssessmentList";
 import { SubmitForReviewButton } from "@/components/SubmitForReviewButton";
 import { RiskList } from "@/components/RiskList";
 import { ApprovalPanel } from "@/components/ApprovalPanel";
 import { MarkOnboardedButton } from "@/components/MarkOnboardedButton";
+import { SystemCapabilities } from "@/components/SystemCapabilities";
 
 export default async function SystemDetailPage({ params }: PageProps<"/systems/[id]">) {
   const { id } = await params;
@@ -61,6 +63,9 @@ export default async function SystemDetailPage({ params }: PageProps<"/systems/[
       {system.status === "APPROVED" && canMarkOnboarded(user, system) && (
         <MarkOnboardedButton systemId={system.id} />
       )}
+
+      <h2 className="mb-3 mt-8 text-lg font-semibold">Capabilities</h2>
+      <SystemCapabilities systemId={system.id} canManage={canManageCapabilities(user, system)} />
 
       <h2 className="mb-3 mt-8 text-lg font-semibold">Requirements</h2>
       <RequirementAssessmentList systemId={system.id} userRole={user.role} />

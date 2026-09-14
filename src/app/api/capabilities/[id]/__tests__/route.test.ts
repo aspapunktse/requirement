@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
 import { ACTING_USER_COOKIE } from "@/lib/acting-user";
-import { PATCH } from "../route";
+import { DELETE, PATCH } from "../route";
 
 const ADMIN_EMAIL = "test-capability-edit-admin@example.com";
 const VIEWER_EMAIL = "test-capability-edit-viewer@example.com";
@@ -112,5 +112,102 @@ describe("PATCH /api/capabilities/[id]", () => {
 
     expect(response.status).toBe(200);
     expect(body.capability).toMatchObject({ id: capabilityId, description: null });
+  });
+});
+
+describe("DELETE /api/capabilities/[id]", () => {
+  const OWNER_EMAIL = "test-capability-delete-owner@example.com";
+  let adminId: string;
+  let ownerId: string;
+  let capabilityId: string;
+  let systemTypeId: string;
+
+  beforeAll(async () => {
+    const admin = await prisma.user.upsert({
+      where: { email: ADMIN_EMAIL },
+      update: {},
+      create: { email: ADMIN_EMAIL, name: "Capability Delete Admin", role: "ADMIN" },
+    });
+    const owner = await prisma.user.upsert({
+      where: { email: OWNER_EMAIL },
+      update: {},
+      create: { email: OWNER_EMAIL, name: "Capability Delete Owner", role: "SYSTEM_OWNER" },
+    });
+    adminId = admin.id;
+    ownerId = owner.id;
+
+    const systemType = await prisma.systemType.create({
+      data: { name: `Test Capability Delete Type ${Date.now()}` },
+    });
+    systemTypeId = systemType.id;
+  });
+
+  afterAll(async () => {
+    await prisma.systemType.deleteMany({ where: { id: systemTypeId } });
+    await prisma.user.deleteMany({ where: { email: { in: [ADMIN_EMAIL, OWNER_EMAIL] } } });
+  });
+
+  beforeEach(async () => {
+    const capability = await prisma.capability.create({
+      data: { name: `Test Delete Target ${Date.now()}` },
+    });
+    capabilityId = capability.id;
+  });
+
+  afterEach(async () => {
+    await prisma.capability.deleteMany({ where: { id: capabilityId } });
+  });
+
+  it("rejects a non-admin", async () => {
+    const response = await DELETE(requestAs(capabilityId, ownerId, { method: "DELETE" }), ctxFor(capabilityId));
+    expect(response.status).toBe(403);
+  });
+
+  it("lets an admin retire an unused Capability", async () => {
+    const response = await DELETE(requestAs(capabilityId, adminId, { method: "DELETE" }), ctxFor(capabilityId));
+    expect(response.status).toBe(204);
+
+    const found = await prisma.capability.findUnique({ where: { id: capabilityId } });
+    expect(found).toBeNull();
+  });
+
+  it("returns 404 for a Capability that doesn't exist", async () => {
+    const response = await DELETE(requestAs("does-not-exist", adminId, { method: "DELETE" }), ctxFor("does-not-exist"));
+    expect(response.status).toBe(404);
+  });
+
+  it("blocks retiring a Capability declared by a System", async () => {
+    const system = await prisma.system.create({
+      data: {
+        name: "Declares The Capability",
+        systemTypeId,
+        ownerId,
+        status: "DRAFT",
+        capabilities: { connect: { id: capabilityId } },
+      },
+    });
+
+    const response = await DELETE(requestAs(capabilityId, adminId, { method: "DELETE" }), ctxFor(capabilityId));
+    expect(response.status).toBe(409);
+
+    await prisma.system.delete({ where: { id: system.id } });
+  });
+
+  it("blocks retiring a Capability mapped to a Requirement", async () => {
+    const requirement = await prisma.requirement.create({
+      data: {
+        code: `CAP-DELETE-${Date.now()}`,
+        title: "Uses The Capability",
+        description: "desc",
+        category: "Security",
+        applicability: "PER_SYSTEM",
+        capabilities: { connect: { id: capabilityId } },
+      },
+    });
+
+    const response = await DELETE(requestAs(capabilityId, adminId, { method: "DELETE" }), ctxFor(capabilityId));
+    expect(response.status).toBe(409);
+
+    await prisma.requirement.delete({ where: { id: requirement.id } });
   });
 });

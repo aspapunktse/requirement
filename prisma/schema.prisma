@@ -90,6 +90,9 @@ model System {
   assessments     RequirementAssessment[]
   risks           Risk[]
   approvals       Approval[]
+  // Centrally-managed dependencies this System declares it consumes. Purely
+  // declarative in this ticket — auto-fulfilling mapped Requirements is #16.
+  capabilities    Capability[]
 }
 
 // An admin-curated classification a System is assigned (e.g. On-Premises
@@ -121,6 +124,8 @@ model Capability {
 
   // Requirements this Capability auto-fulfills when a System declares it.
   requirements Requirement[]
+  // Systems that have declared this Capability as consumed.
+  systems      System[]
 }
 
 enum RequirementApplicability {
