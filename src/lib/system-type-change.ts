@@ -2,12 +2,16 @@ import type { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getApplicableRequirements } from "@/lib/requirement-assessments";
 
-/** Who may change a System's Type: ADMIN, or the owning SYSTEM_OWNER — and only while Draft. */
+/**
+ * Who may change a System's Type: ADMIN, or the owning SYSTEM_OWNER.
+ * Callers still need to check the System is Draft separately (kept out of
+ * here, like `canMarkOnboarded`'s Approved check, so a caller can report
+ * "wrong role" vs "wrong status" as distinct errors).
+ */
 export function canChangeSystemType(
   user: { id: string; role: UserRole },
-  system: { ownerId: string; status: string },
+  system: { ownerId: string },
 ) {
-  if (system.status !== "DRAFT") return false;
   if (user.role === "ADMIN") return true;
   return user.role === "SYSTEM_OWNER" && system.ownerId === user.id;
 }

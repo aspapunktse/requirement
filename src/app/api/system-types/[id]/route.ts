@@ -3,6 +3,7 @@ import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { authorize } from "@/lib/api-authz";
+import { ROLES_ALLOWED_TO_MANAGE_CATALOG } from "@/lib/catalog";
 
 const updateSystemTypeSchema = z
   .object({
@@ -14,7 +15,7 @@ const updateSystemTypeSchema = z
   });
 
 export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/system-types/[id]">) {
-  const auth = await authorize(request, ["ADMIN"]);
+  const auth = await authorize(request, ROLES_ALLOWED_TO_MANAGE_CATALOG);
   if ("response" in auth) return auth.response;
 
   const { id } = await ctx.params;
@@ -43,7 +44,7 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/system
 }
 
 export async function DELETE(request: NextRequest, ctx: RouteContext<"/api/system-types/[id]">) {
-  const auth = await authorize(request, ["ADMIN"]);
+  const auth = await authorize(request, ROLES_ALLOWED_TO_MANAGE_CATALOG);
   if ("response" in auth) return auth.response;
 
   const { id } = await ctx.params;
