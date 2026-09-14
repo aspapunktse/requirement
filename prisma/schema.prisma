@@ -82,6 +82,10 @@ model System {
   systemType      SystemType        @relation(fields: [systemTypeId], references: [id])
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
+  // When the System was actually marked Onboarded — distinct from Approval
+  // (a judgment call) and from updatedAt (touched by unrelated edits). See
+  // ADR 0001.
+  onboardedAt     DateTime?
 
   assessments     RequirementAssessment[]
   risks           Risk[]

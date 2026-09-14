@@ -2,10 +2,12 @@ import { getActingUser } from "@/lib/acting-user";
 import { getVisibleSystem } from "@/lib/system-visibility";
 import { canLogRisk, ROLES_ALLOWED_TO_MANAGE_RISK_STATUS } from "@/lib/risks";
 import { ROLES_ALLOWED_TO_APPROVE } from "@/lib/approvals";
+import { canMarkOnboarded } from "@/lib/onboarding";
 import { RequirementAssessmentList } from "@/components/RequirementAssessmentList";
 import { SubmitForReviewButton } from "@/components/SubmitForReviewButton";
 import { RiskList } from "@/components/RiskList";
 import { ApprovalPanel } from "@/components/ApprovalPanel";
+import { MarkOnboardedButton } from "@/components/MarkOnboardedButton";
 
 export default async function SystemDetailPage({ params }: PageProps<"/systems/[id]">) {
   const { id } = await params;
@@ -47,9 +49,18 @@ export default async function SystemDetailPage({ params }: PageProps<"/systems/[
             <dd>{system.dataClassification}</dd>
           </div>
         )}
+        {system.onboardedAt && (
+          <div>
+            <dt className="font-medium">Onboarded</dt>
+            <dd>{new Date(system.onboardedAt).toLocaleString()}</dd>
+          </div>
+        )}
       </dl>
 
       {system.status === "DRAFT" && <SubmitForReviewButton systemId={system.id} />}
+      {system.status === "APPROVED" && canMarkOnboarded(user, system) && (
+        <MarkOnboardedButton systemId={system.id} />
+      )}
 
       <h2 className="mb-3 mt-8 text-lg font-semibold">Requirements</h2>
       <RequirementAssessmentList systemId={system.id} userRole={user.role} />
