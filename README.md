@@ -21,7 +21,7 @@ What's *not* decided yet (deliberately deferred, not overlooked):
 - Retiring a `Requirement` from the catalog — Deployment Facet and Capability can be retired, Requirement deliberately wasn't (see [issue #13](https://github.com/aspapunktse/requirement/issues/13)'s closing comment)
 - Regulatory Overlays and CIA Impact Level (GDPR/export-control flags, Confidentiality/Integrity/Availability-driven Requirements) — the rest of [ADR 0003](docs/adr/0003-multiselect-deployment-facets-plus-overlays.md)'s design, tracked as issues #48–#53
 
-**Picking this up in a fresh session?** Read, in order: this section, [`CONTEXT.md`](CONTEXT.md), [`docs/adr/`](docs/adr/). There's no open-issues queue to work through right now — new work starts from a feature proposal, not a pre-written ticket. [`docs/agents/`](docs/agents/) documents how the repo is configured for Matt Pocock's engineering skills (issue tracker conventions, domain-doc consumer rules) if you're using those.
+**Picking this up in a fresh session?** Read, in order: [`HANDOFF.md`](HANDOFF.md) (what's in flight and what to do next), this section, [`CONTEXT.md`](CONTEXT.md), [`docs/adr/`](docs/adr/). There's an open queue right now — issues #48–#53 implement the rest of ADR 0003 (#47 already shipped); see `HANDOFF.md` for the recommended order and dependencies. [`docs/agents/`](docs/agents/) documents how the repo is configured for Matt Pocock's engineering skills (issue tracker conventions, domain-doc consumer rules) if you're using those.
 
 ## Stack
 
