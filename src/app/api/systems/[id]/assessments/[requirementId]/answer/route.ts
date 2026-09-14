@@ -77,6 +77,8 @@ export async function PATCH(
       selfAssessmentAnswer: answer,
       assessedById: auth.user.id,
       assessedAt: new Date(),
+      // A manual answer marks this Assessment human-owned (see #16).
+      fulfilledByCapabilityId: null,
     },
     include: { assessedBy: true },
   });

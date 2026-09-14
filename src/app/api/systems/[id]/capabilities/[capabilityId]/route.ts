@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { authenticate } from "@/lib/api-authz";
 import { getVisibleSystem } from "@/lib/system-visibility";
 import { canManageCapabilities, getSystemCapabilities } from "@/lib/system-capabilities";
+import { applyCapabilityRemoved } from "@/lib/capability-fulfillment";
 
 export async function DELETE(
   request: NextRequest,
@@ -28,6 +29,7 @@ export async function DELETE(
     where: { id: system.id },
     data: { capabilities: { disconnect: { id: capabilityId } } },
   });
+  await applyCapabilityRemoved(system, capabilityId);
 
   const capabilities = await getSystemCapabilities(system.id);
   return NextResponse.json({ capabilities });

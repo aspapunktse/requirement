@@ -126,6 +126,8 @@ model Capability {
   requirements Requirement[]
   // Systems that have declared this Capability as consumed.
   systems      System[]
+  // RequirementAssessments currently auto-fulfilled by this Capability.
+  autoFulfilledAssessments RequirementAssessment[]
 }
 
 enum RequirementApplicability {
@@ -178,6 +180,13 @@ model RequirementAssessment {
   assessedBy     User?              @relation("AssessedBy", fields: [assessedById], references: [id])
   assessedAt     DateTime?
   updatedAt      DateTime           @updatedAt
+  // Set when this Assessment was auto-fulfilled by a declared Capability
+  // (see #16) rather than by a human. Non-null means "eligible for
+  // automatic reversion if that Capability is un-declared" — any manual
+  // edit to this Assessment clears it, which is what makes the row immune
+  // to future automatic reversion and marks it as human-owned going forward.
+  fulfilledByCapabilityId String?
+  fulfilledByCapability   Capability? @relation(fields: [fulfilledByCapabilityId], references: [id])
 
   // Risks auto-opened by answering "No" to this Requirement's Self-
   // Assessment Question.

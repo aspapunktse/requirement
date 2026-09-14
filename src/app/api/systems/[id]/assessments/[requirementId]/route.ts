@@ -62,6 +62,10 @@ export async function PATCH(
       notes,
       assessedById: auth.user.id,
       assessedAt: new Date(),
+      // Any manual edit marks this Assessment human-owned, immune to
+      // future automatic reversion if it was previously auto-fulfilled
+      // by a Capability (see #16).
+      fulfilledByCapabilityId: null,
     },
     include: { assessedBy: true },
   });

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { authenticate } from "@/lib/api-authz";
 import { getVisibleSystem } from "@/lib/system-visibility";
 import { canManageCapabilities, getSystemCapabilities } from "@/lib/system-capabilities";
+import { applyCapabilityDeclared } from "@/lib/capability-fulfillment";
 
 export async function GET(request: NextRequest, ctx: RouteContext<"/api/systems/[id]/capabilities">) {
   const auth = await authenticate(request);
@@ -52,6 +53,7 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems
     where: { id: system.id },
     data: { capabilities: { connect: { id: capability.id } } },
   });
+  await applyCapabilityDeclared(system, capability);
 
   const capabilities = await getSystemCapabilities(system.id);
   return NextResponse.json({ capabilities }, { status: 201 });
