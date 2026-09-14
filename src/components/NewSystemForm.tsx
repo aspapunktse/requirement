@@ -3,8 +3,15 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
+import { IMPACT_LEVELS, type ImpactLevel } from "@/components/ImpactLevelsChanger";
 
 type DeploymentFacet = { id: string; name: string };
+
+const IMPACT_AXES: { key: "confidentialityImpactLevel" | "integrityImpactLevel" | "availabilityImpactLevel"; label: string }[] = [
+  { key: "confidentialityImpactLevel", label: "Confidentiality" },
+  { key: "integrityImpactLevel", label: "Integrity" },
+  { key: "availabilityImpactLevel", label: "Availability" },
+];
 
 export function NewSystemForm() {
   const router = useRouter();
@@ -14,7 +21,11 @@ export function NewSystemForm() {
   const [name, setName] = useState("");
   const [vendor, setVendor] = useState("");
   const [description, setDescription] = useState("");
-  const [dataClassification, setDataClassification] = useState("");
+  const [impactLevels, setImpactLevels] = useState<Record<string, ImpactLevel | null>>({
+    confidentialityImpactLevel: null,
+    integrityImpactLevel: null,
+    availabilityImpactLevel: null,
+  });
   const [deploymentFacetIds, setDeploymentFacetIds] = useState<string[]>([]);
 
   useEffect(() => {
@@ -50,7 +61,9 @@ export function NewSystemForm() {
         name,
         vendor: vendor || undefined,
         description: description || undefined,
-        dataClassification: dataClassification || undefined,
+        confidentialityImpactLevel: impactLevels.confidentialityImpactLevel ?? undefined,
+        integrityImpactLevel: impactLevels.integrityImpactLevel ?? undefined,
+        availabilityImpactLevel: impactLevels.availabilityImpactLevel ?? undefined,
         deploymentFacetIds,
       }),
     });
@@ -117,14 +130,32 @@ export function NewSystemForm() {
         />
       </label>
 
-      <label className="flex flex-col gap-1 text-sm">
-        Data Classification (optional)
-        <input
-          className="rounded border border-zinc-200 p-2 dark:border-zinc-800 dark:bg-transparent"
-          value={dataClassification}
-          onChange={(event) => setDataClassification(event.target.value)}
-        />
-      </label>
+      <fieldset className="flex flex-col gap-2 text-sm">
+        <legend>Impact Level (optional, set independently per axis)</legend>
+        {IMPACT_AXES.map(({ key, label }) => (
+          <label key={key} className="flex items-center gap-2 font-normal">
+            {label}
+            <select
+              aria-label={label}
+              className="rounded border border-zinc-200 p-1 text-sm dark:border-zinc-800 dark:bg-transparent"
+              value={impactLevels[key] ?? ""}
+              onChange={(event) =>
+                setImpactLevels((prev) => ({
+                  ...prev,
+                  [key]: event.target.value === "" ? null : (event.target.value as ImpactLevel),
+                }))
+              }
+            >
+              <option value="">Not classified</option>
+              {IMPACT_LEVELS.map((level) => (
+                <option key={level} value={level}>
+                  {level}
+                </option>
+              ))}
+            </select>
+          </label>
+        ))}
+      </fieldset>
 
       <Button type="submit" variant="primary" disabled={deploymentFacetIds.length === 0}>
         Create

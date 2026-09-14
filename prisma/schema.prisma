@@ -39,6 +39,17 @@ enum RiskSeverity {
   CRITICAL
 }
 
+// One shared ordinal scale reused across Confidentiality, Integrity, and
+// Availability — simpler to build/administer than three independent scales,
+// and this app has no existing BIA/FIPS-199-style framework to match
+// instead. See ADR 0003.
+enum ImpactLevel {
+  LOW
+  MODERATE
+  HIGH
+  CRITICAL
+}
+
 enum RiskStatus {
   OPEN
   MITIGATED
@@ -75,12 +86,20 @@ model System {
   vendor          String?
   description     String?
   status          OnboardingStatus  @default(DRAFT)
-  dataClassification String?        // e.g. Public, Internal, Confidential, Restricted
+  // Self-declared Impact Level on each CIA axis, independently — null means
+  // "not yet classified" on that axis, distinct from LOW. Replaces the old
+  // unenforced free-text dataClassification field. See ADR 0003.
+  confidentialityImpactLevel ImpactLevel?
+  integrityImpactLevel       ImpactLevel?
+  availabilityImpactLevel    ImpactLevel?
   ownerId         String
   owner           User              @relation("SystemOwner", fields: [ownerId], references: [id])
   // One or more deployment facets this System spans (e.g. On-Prem, Cloud) —
   // a Hybrid System is simply one that declares more than one. See ADR 0003.
   deploymentFacets DeploymentFacet[]
+  // Regulatory Overlays this System Owner self-declares apply (e.g. GDPR,
+  // EAR/ITAR) — same self-declaration model as Capability. See ADR 0003.
+  regulatoryOverlays RegulatoryOverlay[]
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
   // When the System was actually marked Onboarded — distinct from Approval
@@ -132,6 +151,22 @@ model Capability {
   autoFulfilledAssessments RequirementAssessment[]
 }
 
+// An admin-curated regulatory flag (e.g. GDPR, EAR/ITAR) a System Owner
+// self-declares applies to their System at onboarding — same self-
+// declaration model as Capability, not derived from any other structured
+// field. See ADR 0003.
+model RegulatoryOverlay {
+  id           String        @id @default(cuid())
+  name         String        @unique
+  description  String?
+  createdAt    DateTime      @default(now())
+
+  // Requirements scoped to this overlay. A Requirement with no rows here at
+  // all applies regardless of overlay (see Requirement.regulatoryOverlays).
+  requirements Requirement[]
+  systems      System[]
+}
+
 enum RequirementApplicability {
   ORGANIZATIONAL
   PER_SYSTEM
@@ -159,6 +194,19 @@ model Requirement {
   // regardless of facet" (how the Annex A seed ships). Must stay empty for
   // ORGANIZATIONAL requirements, which are never assessed per System.
   deploymentFacets DeploymentFacet[]
+  // Regulatory Overlays this Requirement is scoped to. Empty means "applies
+  // regardless of overlay." AND'd together with deploymentFacets scoping —
+  // both independently optional, and both must pass. Must stay empty for
+  // ORGANIZATIONAL requirements, which are never assessed per System.
+  regulatoryOverlays RegulatoryOverlay[]
+  // Minimum required Impact Level on each CIA axis, independently — null
+  // means no threshold on that axis. A Requirement can combine thresholds
+  // on one, two, or all three axes; each is a "System's level on this axis
+  // must be >= this" comparison, not a membership check like facet/overlay
+  // scoping. See ADR 0003.
+  minConfidentialityImpactLevel ImpactLevel?
+  minIntegrityImpactLevel       ImpactLevel?
+  minAvailabilityImpactLevel    ImpactLevel?
   // Capabilities that, if a System declares one, auto-fulfill this
   // Requirement. May be empty, one, or several (any one suffices).
   capabilities  Capability[]

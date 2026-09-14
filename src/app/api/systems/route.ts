@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { ImpactLevel } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { authenticate } from "@/lib/api-authz";
 import { getVisibleSystems } from "@/lib/system-visibility";
+
+const impactLevelSchema = z.nativeEnum(ImpactLevel).optional();
 
 export async function GET(request: NextRequest) {
   const auth = await authenticate(request);
@@ -16,7 +19,9 @@ const createSystemSchema = z.object({
   name: z.string().min(1),
   vendor: z.string().optional(),
   description: z.string().optional(),
-  dataClassification: z.string().optional(),
+  confidentialityImpactLevel: impactLevelSchema,
+  integrityImpactLevel: impactLevelSchema,
+  availabilityImpactLevel: impactLevelSchema,
   deploymentFacetIds: z.array(z.string().min(1)).min(1),
 });
 
@@ -47,7 +52,7 @@ export async function POST(request: NextRequest) {
       ownerId: auth.user.id,
       deploymentFacets: { connect: deploymentFacetIds.map((id) => ({ id })) },
     },
-    include: { deploymentFacets: true, owner: true },
+    include: { deploymentFacets: true, regulatoryOverlays: true, owner: true },
   });
   return NextResponse.json({ system }, { status: 201 });
 }

@@ -14,7 +14,14 @@ import { GET, POST } from "../route";
  * resubmission is only gated by what a test means to gate it by.
  */
 async function fulfillAllMandatoryRequirements(systemId: string, deploymentFacetIds: string[]) {
-  const unaddressed = await getUnaddressedMandatoryRequirements({ id: systemId, deploymentFacets: deploymentFacetIds.map((id) => ({ id })) });
+  const unaddressed = await getUnaddressedMandatoryRequirements({
+    id: systemId,
+    deploymentFacets: deploymentFacetIds.map((id) => ({ id })),
+    regulatoryOverlays: [],
+    confidentialityImpactLevel: null,
+    integrityImpactLevel: null,
+    availabilityImpactLevel: null,
+  });
   await prisma.requirementAssessment.createMany({
     data: unaddressed.map((requirement) => ({
       systemId,

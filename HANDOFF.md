@@ -8,6 +8,11 @@ Read this first in a fresh session, then [`README.md`](README.md)'s Project stat
 - The app's visual design was ported from `github.com/aspapunktse/isms` (design tokens, Aktiv Grotesk/Source Serif 4/JetBrains Mono, amber/blue brand colors) — done.
 - A "grilling" design session (triggered by asking whether invariant #17 was the right model for hybrid on-prem+cloud Systems) produced **[ADR 0003](docs/adr/0003-multiselect-deployment-facets-plus-overlays.md)**, which supersedes ADR 0002: System Type's single-select model is being replaced by multi-select **Deployment Facet** plus a separate **Overlay** layer (boolean Regulatory Overlays + ordinal CIA Impact Level). This is the main body of work in flight.
 - **#47 (Deployment Facet, the foundational piece of ADR 0003) is shipped** — see its closing comment and commit `aaa62ee` for exactly what changed. Everything else in the ADR 0003 sequence builds on it.
+- **#48 (Regulatory Overlay) and #49 (CIA Impact Level) are shipped** — implemented together in one pass since they turned out to share the same applicability-query refactor (`getApplicableRequirements` now takes a single `SystemClassification` object instead of positional facet-id args). See their closing comments for exactly what changed.
+  - Regulatory Overlay follows the Capability self-declaration pattern exactly: admin catalog CRUD at `/api/regulatory-overlays`, System-side declare/undeclare at `/api/systems/[id]/regulatory-overlays[/[overlayId]]`, `src/lib/system-overlays.ts`. Declaring/undeclaring **does** recompute Assessment rows (same create/delete-untouched-rows logic as Deployment Facet change), via a new shared `diffApplicabilityOps` helper in `src/lib/requirement-assessments.ts` extracted for exactly this reuse.
+  - CIA Impact Level added `System.{confidentiality,integrity,availability}ImpactLevel` and `Requirement.min{Confidentiality,Integrity,Availability}ImpactLevel` (a shared `LOW|MODERATE|HIGH|CRITICAL` enum). Threshold comparison can't be expressed as a portable Prisma enum filter (Prisma's enum filters don't support `gte`), so it's applied in application code after the facet/overlay-filtered fetch — see `meetsAllImpactThresholds` in `requirement-assessments.ts`. **Changing a System's Impact Level via `PATCH /api/systems/[id]` only sets the fields — it deliberately does NOT yet trigger the Assessment recompute** (unlike Facet/Overlay changes); wiring that in is explicitly #50's job ("Call it from every mutation point... each Impact Level axis change"), so this is a known, intentional gap until #50 lands, not an oversight.
+  - Also extended the admin `RequirementMappingManager.tsx` with Regulatory Overlay checkboxes (mirroring the Deployment Facet ones) and the `PATCH /api/requirements/[id]` schema with `regulatoryOverlayIds` + the three `min*ImpactLevel` fields, so #50–#52 have something to build on. Per-axis Impact Level *pickers* in the admin UI (vs. the raw PATCH support) are explicitly #52's job, not built here.
+  - `System.dataClassification` (free-text, unenforced) is gone, replaced by the three Impact Level fields — there was no non-null data in the dev DB to migrate/flag for review.
 
 ## What's open right now
 
@@ -16,14 +21,14 @@ Read this first in a fresh session, then [`README.md`](README.md)'s Project stat
 | # | What | Depends on |
 |---|---|---|
 | ~~#47~~ | ~~Deployment Facet schema~~ | — (**done**) |
-| #48 | Regulatory Overlay catalog + self-declaration | #47 |
-| #49 | CIA Impact Level scale + fields | #47 |
+| ~~#48~~ | ~~Regulatory Overlay catalog + self-declaration~~ | — (**done**) |
+| ~~#49~~ | ~~CIA Impact Level scale + fields~~ | — (**done**) |
 | #50 | Unified recompute across facets/overlays/impact levels | #47, #48, #49 |
 | #51 | Lock all axes once Onboarded | #47, #48, #49 |
 | #52 | Admin UI: author Requirements tagged across everything | #47, #48, #49 |
 | #53 | CONTEXT.md glossary update + close #29/#30 | all of the above |
 
-**#48 and #49 are the next things to pick up** — both are unblocked (only depend on #47), and can be done in either order or in parallel by separate sessions. #50/#51/#52 need both of them done first. #53 is deliberately last — it updates `CONTEXT.md`'s glossary to describe Regulatory Overlay/Impact Level, and that should only happen once they're actually real, not aspirational (see `docs/agents/domain.md`: the glossary reflects resolved-and-shipped decisions).
+**#50 is next** — #47/#48/#49 are all done, so #50/#51/#52 are now all unblocked and could in principle be split across sessions, but #50 and #51 both touch every classification mutation point (facet/overlay/impact-level change), so doing them together (or #50 immediately followed by #51) avoids touching the same call sites twice. #52 (admin UI) only needs the schema from #47–#49, which is done, so it could also be picked up independently/in parallel if a separate session wants it. #53 is deliberately last — it updates `CONTEXT.md`'s glossary to describe Regulatory Overlay/Impact Level, and that should only happen once they're actually real, not aspirational (see `docs/agents/domain.md`: the glossary reflects resolved-and-shipped decisions). Since #48/#49 are now shipped, #53 could technically start, but holding it until #50/#51 land too means the glossary only needs writing once, covering the complete recompute/locking behavior rather than a half-described interim state.
 
 `CONTEXT.md`'s **Requirement** entry already has a `_Pending_` note pointing at this — a fresh session can find it there too.
 

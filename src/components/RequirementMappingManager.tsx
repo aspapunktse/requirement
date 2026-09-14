@@ -10,31 +10,37 @@ type RequirementSummary = {
   title: string;
   applicability: "ORGANIZATIONAL" | "PER_SYSTEM" | "BOTH";
   deploymentFacets: Catalog[];
+  regulatoryOverlays: Catalog[];
   capabilities: Catalog[];
 };
 
 export function RequirementMappingManager() {
   const [requirements, setRequirements] = useState<RequirementSummary[]>([]);
   const [deploymentFacets, setDeploymentFacets] = useState<Catalog[]>([]);
+  const [regulatoryOverlays, setRegulatoryOverlays] = useState<Catalog[]>([]);
   const [capabilities, setCapabilities] = useState<Catalog[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState("");
   const [selectedDeploymentFacetIds, setSelectedDeploymentFacetIds] = useState<Set<string>>(new Set());
+  const [selectedRegulatoryOverlayIds, setSelectedRegulatoryOverlayIds] = useState<Set<string>>(new Set());
   const [selectedCapabilityIds, setSelectedCapabilityIds] = useState<Set<string>>(new Set());
 
   async function loadAll() {
-    const [requirementsRes, deploymentFacetsRes, capabilitiesRes] = await Promise.all([
+    const [requirementsRes, deploymentFacetsRes, regulatoryOverlaysRes, capabilitiesRes] = await Promise.all([
       fetch("/api/requirements"),
       fetch("/api/deployment-facets"),
+      fetch("/api/regulatory-overlays"),
       fetch("/api/capabilities"),
     ]);
     const requirementsBody = await requirementsRes.json();
     const deploymentFacetsBody = await deploymentFacetsRes.json();
+    const regulatoryOverlaysBody = await regulatoryOverlaysRes.json();
     const capabilitiesBody = await capabilitiesRes.json();
     return {
       requirements: (requirementsBody.requirements ?? []) as RequirementSummary[],
       deploymentFacets: (deploymentFacetsBody.deploymentFacets ?? []) as Catalog[],
+      regulatoryOverlays: (regulatoryOverlaysBody.regulatoryOverlays ?? []) as Catalog[],
       capabilities: (capabilitiesBody.capabilities ?? []) as Catalog[],
     };
   }
@@ -46,6 +52,7 @@ export function RequirementMappingManager() {
       if (cancelled) return;
       setRequirements(data.requirements);
       setDeploymentFacets(data.deploymentFacets);
+      setRegulatoryOverlays(data.regulatoryOverlays);
       setCapabilities(data.capabilities);
       setLoading(false);
     });
@@ -61,6 +68,7 @@ export function RequirementMappingManager() {
     setSelectedId(id);
     const requirement = requirements.find((r) => r.id === id);
     setSelectedDeploymentFacetIds(new Set(requirement?.deploymentFacets.map((t) => t.id) ?? []));
+    setSelectedRegulatoryOverlayIds(new Set(requirement?.regulatoryOverlays.map((o) => o.id) ?? []));
     setSelectedCapabilityIds(new Set(requirement?.capabilities.map((c) => c.id) ?? []));
     setError(null);
   }
@@ -79,11 +87,16 @@ export function RequirementMappingManager() {
     if (!selected) return;
     setError(null);
 
-    const body: { deploymentFacetIds?: string[]; capabilityIds?: string[] } = {
+    const body: {
+      deploymentFacetIds?: string[];
+      regulatoryOverlayIds?: string[];
+      capabilityIds?: string[];
+    } = {
       capabilityIds: Array.from(selectedCapabilityIds),
     };
     if (selected.applicability !== "ORGANIZATIONAL") {
       body.deploymentFacetIds = Array.from(selectedDeploymentFacetIds);
+      body.regulatoryOverlayIds = Array.from(selectedRegulatoryOverlayIds);
     }
 
     const response = await fetch(`/api/requirements/${selected.id}`, {
@@ -132,26 +145,46 @@ export function RequirementMappingManager() {
           {selected.applicability === "ORGANIZATIONAL" ? (
             <p className="text-sm text-zinc-500">
               Organizational requirements are never assessed per System, so they can&apos;t be
-              scoped to Deployment Facets.
+              scoped to Deployment Facets or Regulatory Overlays.
             </p>
           ) : (
-            <fieldset className="flex flex-col gap-2">
-              <legend className="text-sm font-semibold">
-                Applicable Deployment Facets (none selected = all)
-              </legend>
-              {deploymentFacets.map((facet) => (
-                <label key={facet.id} className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={selectedDeploymentFacetIds.has(facet.id)}
-                    onChange={() =>
-                      setSelectedDeploymentFacetIds((prev) => toggle(prev, facet.id))
-                    }
-                  />
-                  {facet.name}
-                </label>
-              ))}
-            </fieldset>
+            <>
+              <fieldset className="flex flex-col gap-2">
+                <legend className="text-sm font-semibold">
+                  Applicable Deployment Facets (none selected = all)
+                </legend>
+                {deploymentFacets.map((facet) => (
+                  <label key={facet.id} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={selectedDeploymentFacetIds.has(facet.id)}
+                      onChange={() =>
+                        setSelectedDeploymentFacetIds((prev) => toggle(prev, facet.id))
+                      }
+                    />
+                    {facet.name}
+                  </label>
+                ))}
+              </fieldset>
+
+              <fieldset className="flex flex-col gap-2">
+                <legend className="text-sm font-semibold">
+                  Applicable Regulatory Overlays (none selected = all)
+                </legend>
+                {regulatoryOverlays.map((overlay) => (
+                  <label key={overlay.id} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={selectedRegulatoryOverlayIds.has(overlay.id)}
+                      onChange={() =>
+                        setSelectedRegulatoryOverlayIds((prev) => toggle(prev, overlay.id))
+                      }
+                    />
+                    {overlay.name}
+                  </label>
+                ))}
+              </fieldset>
+            </>
           )}
 
           <fieldset className="flex flex-col gap-2">

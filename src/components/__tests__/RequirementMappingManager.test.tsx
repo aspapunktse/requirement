@@ -10,6 +10,7 @@ const requirements = [
     title: "Segregation of duties",
     applicability: "BOTH",
     deploymentFacets: [],
+    regulatoryOverlays: [],
     capabilities: [],
   },
   {
@@ -18,10 +19,12 @@ const requirements = [
     title: "Policies for information security",
     applicability: "ORGANIZATIONAL",
     deploymentFacets: [],
+    regulatoryOverlays: [],
     capabilities: [],
   },
 ];
 const deploymentFacets = [{ id: "st1", name: "On-Premises Datacenter" }];
+const regulatoryOverlays = [{ id: "o1", name: "GDPR" }];
 const capabilities = [{ id: "c1", name: "Active Directory" }];
 
 function mockFetch() {
@@ -34,6 +37,9 @@ function mockFetch() {
     }
     if (url.endsWith("/api/deployment-facets") && method === "GET") {
       return Promise.resolve(new Response(JSON.stringify({ deploymentFacets }), { status: 200 }));
+    }
+    if (url.endsWith("/api/regulatory-overlays") && method === "GET") {
+      return Promise.resolve(new Response(JSON.stringify({ regulatoryOverlays }), { status: 200 }));
     }
     if (url.endsWith("/api/capabilities") && method === "GET") {
       return Promise.resolve(new Response(JSON.stringify({ capabilities }), { status: 200 }));
@@ -71,17 +77,41 @@ describe("RequirementMappingManager", () => {
       expect(JSON.parse(patchCall![1].body)).toEqual({
         capabilityIds: [],
         deploymentFacetIds: ["st1"],
+        regulatoryOverlayIds: [],
       });
     });
   });
 
-  it("hides Deployment Facet selection for an ORGANIZATIONAL requirement", async () => {
+  it("lets an admin scope a Requirement to a Regulatory Overlay and save", async () => {
+    const user = userEvent.setup();
+    render(<RequirementMappingManager />);
+
+    await user.selectOptions(await screen.findByLabelText("Requirement"), "r1");
+    await user.click(screen.getByLabelText("GDPR"));
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => {
+      const patchCall = (fetch as ReturnType<typeof vi.fn>).mock.calls.find(
+        ([url, init]) =>
+          typeof url === "string" && url.endsWith("/api/requirements/r1") && init?.method === "PATCH",
+      );
+      expect(patchCall).toBeTruthy();
+      expect(JSON.parse(patchCall![1].body)).toEqual({
+        capabilityIds: [],
+        deploymentFacetIds: [],
+        regulatoryOverlayIds: ["o1"],
+      });
+    });
+  });
+
+  it("hides Deployment Facet and Regulatory Overlay selection for an ORGANIZATIONAL requirement", async () => {
     const user = userEvent.setup();
     render(<RequirementMappingManager />);
 
     await user.selectOptions(await screen.findByLabelText("Requirement"), "r2");
 
     expect(screen.queryByLabelText("On-Premises Datacenter")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("GDPR")).not.toBeInTheDocument();
     expect(screen.getByText(/never assessed per System/)).toBeInTheDocument();
   });
 });

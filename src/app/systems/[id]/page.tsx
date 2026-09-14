@@ -5,13 +5,16 @@ import { ROLES_ALLOWED_TO_APPROVE } from "@/lib/approvals";
 import { canMarkOnboarded } from "@/lib/onboarding";
 import { canManageCapabilities } from "@/lib/system-capabilities";
 import { canChangeDeploymentFacets } from "@/lib/deployment-facet-change";
+import { canManageRegulatoryOverlays } from "@/lib/system-overlays";
 import { RequirementAssessmentList } from "@/components/RequirementAssessmentList";
 import { SubmitForReviewButton } from "@/components/SubmitForReviewButton";
 import { RiskList } from "@/components/RiskList";
 import { ApprovalPanel } from "@/components/ApprovalPanel";
 import { MarkOnboardedButton } from "@/components/MarkOnboardedButton";
 import { SystemCapabilities } from "@/components/SystemCapabilities";
+import { SystemRegulatoryOverlays } from "@/components/SystemRegulatoryOverlays";
 import { DeploymentFacetsChanger } from "@/components/DeploymentFacetsChanger";
+import { ImpactLevelsChanger } from "@/components/ImpactLevelsChanger";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { onboardingStatusTone } from "@/lib/status-tones";
 
@@ -53,10 +56,16 @@ export default async function SystemDetailPage({ params }: PageProps<"/systems/[
             <dd>{system.description}</dd>
           </div>
         )}
-        {system.dataClassification && (
+        {(system.confidentialityImpactLevel ||
+          system.integrityImpactLevel ||
+          system.availabilityImpactLevel) && (
           <div>
-            <dt className="font-medium">Data Classification</dt>
-            <dd>{system.dataClassification}</dd>
+            <dt className="font-medium">Impact Level</dt>
+            <dd>
+              Confidentiality: {system.confidentialityImpactLevel ?? "Not classified"} · Integrity:{" "}
+              {system.integrityImpactLevel ?? "Not classified"} · Availability:{" "}
+              {system.availabilityImpactLevel ?? "Not classified"}
+            </dd>
           </div>
         )}
         {system.onboardedAt && (
@@ -74,6 +83,17 @@ export default async function SystemDetailPage({ params }: PageProps<"/systems/[
         />
       )}
 
+      {canChangeDeploymentFacets(user, system) && (
+        <ImpactLevelsChanger
+          systemId={system.id}
+          current={{
+            confidentialityImpactLevel: system.confidentialityImpactLevel,
+            integrityImpactLevel: system.integrityImpactLevel,
+            availabilityImpactLevel: system.availabilityImpactLevel,
+          }}
+        />
+      )}
+
       {system.status === "DRAFT" && <SubmitForReviewButton systemId={system.id} />}
       {system.status === "APPROVED" && canMarkOnboarded(user, system) && (
         <MarkOnboardedButton systemId={system.id} />
@@ -81,6 +101,12 @@ export default async function SystemDetailPage({ params }: PageProps<"/systems/[
 
       <h2 className="mb-3 mt-8 text-xl">Capabilities</h2>
       <SystemCapabilities systemId={system.id} canManage={canManageCapabilities(user, system)} />
+
+      <h2 className="mb-3 mt-8 text-xl">Regulatory Overlays</h2>
+      <SystemRegulatoryOverlays
+        systemId={system.id}
+        canManage={canManageRegulatoryOverlays(user, system)}
+      />
 
       <h2 className="mb-3 mt-8 text-xl">Requirements</h2>
       <RequirementAssessmentList systemId={system.id} userRole={user.role} />

@@ -1,6 +1,10 @@
 import type { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { getApplicableRequirements } from "@/lib/requirement-assessments";
+import {
+  getApplicableRequirements,
+  diffApplicabilityOps,
+  type SystemClassification,
+} from "@/lib/requirement-assessments";
 
 /**
  * Who may change a System's declared Deployment Facets: ADMIN, or the
@@ -29,39 +33,24 @@ export function canChangeDeploymentFacets(
  * what each facet requires — see ADR 0003.
  */
 export async function changeDeploymentFacets(
-  system: { id: string; deploymentFacets: { id: string }[] },
+  system: SystemClassification & { id: string },
   newFacetIds: string[],
 ) {
-  const oldFacetIds = system.deploymentFacets.map((f) => f.id);
   const [oldApplicable, newApplicable] = await Promise.all([
-    getApplicableRequirements(oldFacetIds),
-    getApplicableRequirements(newFacetIds),
+    getApplicableRequirements(system),
+    getApplicableRequirements({ ...system, deploymentFacets: newFacetIds.map((id) => ({ id })) }),
   ]);
 
-  const newIds = new Set(newApplicable.map((r) => r.id));
-  const oldIds = new Set(oldApplicable.map((r) => r.id));
-
-  const newlyApplicable = newApplicable.filter((r) => !oldIds.has(r.id));
-  const noLongerApplicableIds = oldApplicable.filter((r) => !newIds.has(r.id)).map((r) => r.id);
+  const { added, deleteOp, createOp } = diffApplicabilityOps(system.id, oldApplicable, newApplicable);
 
   const [, removed] = await prisma.$transaction([
     prisma.system.update({
       where: { id: system.id },
       data: { deploymentFacets: { set: newFacetIds.map((id) => ({ id })) } },
     }),
-    prisma.requirementAssessment.deleteMany({
-      where: {
-        systemId: system.id,
-        requirementId: { in: noLongerApplicableIds },
-        status: "NOT_STARTED",
-        assessedById: null,
-      },
-    }),
-    prisma.requirementAssessment.createMany({
-      data: newlyApplicable.map((r) => ({ systemId: system.id, requirementId: r.id })),
-      skipDuplicates: true,
-    }),
+    deleteOp,
+    createOp,
   ]);
 
-  return { added: newlyApplicable.length, removed: removed.count };
+  return { added, removed: removed.count };
 }

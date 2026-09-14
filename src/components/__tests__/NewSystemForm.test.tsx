@@ -61,6 +61,27 @@ describe("NewSystemForm", () => {
     await waitFor(() => expect(push).toHaveBeenCalledWith("/systems/sys1"));
   });
 
+  it("includes a selected Impact Level axis in the create request", async () => {
+    const user = userEvent.setup();
+    render(<NewSystemForm />);
+
+    await user.type(await screen.findByLabelText("Name"), "Impact Level System");
+    await user.click(screen.getByLabelText("On-Premises Datacenter"));
+    await user.selectOptions(screen.getByLabelText("Confidentiality"), "HIGH");
+    await user.click(screen.getByRole("button", { name: "Create" }));
+
+    await waitFor(() => {
+      const postCall = (fetch as ReturnType<typeof vi.fn>).mock.calls.find(
+        ([url, init]) =>
+          typeof url === "string" && url.endsWith("/api/systems") && init?.method === "POST",
+      );
+      expect(postCall).toBeTruthy();
+      expect(JSON.parse(postCall![1].body)).toMatchObject({
+        confidentialityImpactLevel: "HIGH",
+      });
+    });
+  });
+
   it("shows a server error without navigating", async () => {
     vi.stubGlobal(
       "fetch",
