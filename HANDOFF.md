@@ -16,21 +16,9 @@ Read this first in a fresh session, then [`README.md`](README.md)'s Project stat
 
 ## What's open right now
 
-Nothing in the ADR 0003 sequence or the original backlog — both are fully shipped. What's left is lower-priority and not time-sensitive:
+**Only #46** — "Version Requirement content after initial seed; notify affected Systems on update." Fully scoped (versioning + targeted per-Requirement notification + a cosmetic-vs-substantive checkbox on update, all worked out with the user directly in issue comments). Not part of the ADR 0003 chain, was never part of the extension-points catalog either — could be picked up independently whenever. Depends conceptually on #42 for the notification delivery mechanism — #42 is now closed as evaluated (see its comment): no notification infrastructure exists yet, and whoever builds #46 should build the minimal shared event-emission point #42 asked for as part of it, since #46 is its first real consumer.
 
-### Separate, parallel-track item
-
-- **#46** — "Version Requirement content after initial seed; notify affected Systems on update." Fully scoped (versioning + targeted per-Requirement notification + a cosmetic-vs-substantive checkbox on update, all worked out with the user directly in issue comments). Not part of the ADR 0003 chain — could be picked up independently whenever. Depends conceptually on #42 (no notification mechanism exists yet) per its own body.
-
-### Extension-points backlog (lower priority, pick up anytime)
-
-10 tickets remain from the original extension-points catalog: **#33, #35, #37, #38, #40, #41, #42, #43, #44, #45**. Each is a "not a scoped task — evaluate this question" ticket. The established pattern from the ones already closed (#32, #34, #36, #39):
-1. Read the ticket, actually investigate the codebase for the concrete question it asks.
-2. Most of the time the answer is "no action needed now" — post a comment explaining what was checked and why, then close.
-3. Occasionally (like #36) the investigation turns up a real, concrete gap — fix it, and close referencing the fix.
-4. Occasionally (like #32) it turns up a *different* concrete problem than the ticket assumed — comment explaining the correction, spin out a new precisely-scoped ticket for the real issue (see #46), close the original.
-
-No particular order matters here; pick whichever seems most relevant to whatever else is being worked on.
+Nothing else is open. The extension-points catalog (**#33, #35, #37, #38, #40, #41, #42, #43, #44, #45**, originally #31) is fully evaluated and closed — see each issue's closing comment for what was checked and why. Highlights: #33 turned out to already be resolved by ADR 0003 (not just evaluated); #40/#43 confirmed the auth/authz seam (`resolveActingUser` in `src/lib/acting-user.ts`) is already clean for a future real-auth or external-API integration; the rest (#35, #37, #38, #41, #44, #45) closed as "no action needed now," each for a documented, code-grepped reason rather than a guess. If a new extension-point-shaped question ever comes up, the pattern that produced these closures (read the ticket, actually check the current code for the concrete question it asks, prefer "no action + documented reasoning" over speculative building, spin out a real ticket like #46 if investigation turns up a genuine gap) is worth reusing.
 
 ## Conventions and gotchas learned this session
 

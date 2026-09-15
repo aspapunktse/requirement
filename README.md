@@ -4,7 +4,7 @@ Internal webapp for tracking requirement fulfillment and risk assessment when on
 
 ## Project status
 
-**As of this writing: the full original 16-issue backlog and the entire follow-on [ADR 0003](docs/adr/0003-multiselect-deployment-facets-plus-overlays.md) design (issues #47–#53) are implemented, tested, and merged.** The core onboarding workflow, the ISO 27001 Annex A Requirement Catalog, and multi-axis classification (Deployment Facet, Regulatory Overlay, Impact Level) all work end-to-end. There is no open issue in either sequence right now — see the extension-points backlog below for lower-priority, pick-up-anytime items, or `HANDOFF.md` for how to find more.
+**As of this writing: the full original 16-issue backlog and the entire follow-on [ADR 0003](docs/adr/0003-multiselect-deployment-facets-plus-overlays.md) design (issues #47–#53) are implemented, tested, and merged.** The core onboarding workflow, the ISO 27001 Annex A Requirement Catalog, and multi-axis classification (Deployment Facet, Regulatory Overlay, Impact Level) all work end-to-end. The extension-points catalog (10 "evaluate this question" tickets) has also been fully worked through and closed. Only one issue is open right now — see `HANDOFF.md`.
 
 What exists and works:
 - Next.js/Prisma/Postgres scaffold, CI/CD, Docker (see Stack/CI-CD below)
@@ -22,7 +22,7 @@ What's *not* decided yet (deliberately deferred, not overlooked):
 - Notifications on status changes — out of scope until now; the core workflow is proven, so this is a reasonable next thing to propose
 - Retiring a `Requirement` from the catalog — Deployment Facet, Capability, and Regulatory Overlay can be retired, Requirement deliberately wasn't (see [issue #13](https://github.com/aspapunktse/requirement/issues/13)'s closing comment)
 
-**Picking this up in a fresh session?** Read, in order: [`HANDOFF.md`](HANDOFF.md) (what's in flight and what to do next), this section, [`CONTEXT.md`](CONTEXT.md), [`docs/adr/`](docs/adr/). Both the original backlog and ADR 0003 are fully shipped — there's no active feature queue right now; `HANDOFF.md` points at the extension-points backlog and other lower-priority items instead. [`docs/agents/`](docs/agents/) documents how the repo is configured for Matt Pocock's engineering skills (issue tracker conventions, domain-doc consumer rules) if you're using those.
+**Picking this up in a fresh session?** Read, in order: [`HANDOFF.md`](HANDOFF.md) (what's in flight and what to do next), this section, [`CONTEXT.md`](CONTEXT.md), [`docs/adr/`](docs/adr/). The original backlog, ADR 0003, and the extension-points catalog are all fully shipped/closed — the only open issue is #46 (Requirement content versioning + targeted notifications), fully scoped and ready to pick up whenever. [`docs/agents/`](docs/agents/) documents how the repo is configured for Matt Pocock's engineering skills (issue tracker conventions, domain-doc consumer rules) if you're using those.
 
 ## Stack
 
