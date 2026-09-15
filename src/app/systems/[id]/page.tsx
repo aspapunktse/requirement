@@ -138,7 +138,12 @@ export default async function SystemDetailPage({ params }: PageProps<"/systems/[
       />
 
       <h2 className="mb-3 mt-8 text-xl">Requirements</h2>
-      <RequirementAssessmentList systemId={system.id} userRole={user.role} />
+      <RequirementAssessmentList
+        systemId={system.id}
+        userRole={user.role}
+        currentUserId={user.id}
+        systemOwnerId={system.ownerId}
+      />
 
       <h2 className="mb-3 mt-8 text-xl">Risks</h2>
       <RiskList

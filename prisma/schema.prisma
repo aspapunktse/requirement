@@ -88,6 +88,8 @@ model User {
   // Business Units, Frameworks, or both, not necessarily paired. See #55.
   businessUnitScopes BusinessUnit[]
   frameworkScopes    Framework[]             @relation("FrameworkRiskOwner")
+  resolvedQueries    RequirementQuery[]      @relation("QueryResolvedBy")
+  queryMessages      QueryMessage[]
 }
 
 // A system or cloud solution being onboarded into the enterprise.
@@ -314,8 +316,52 @@ model RequirementAssessment {
   // Risks auto-opened by answering "No" to this Requirement's Self-
   // Assessment Question.
   originatedRisks Risk[]
+  // Requirement Queries raised against this Assessment specifically (see
+  // #56) — a lightweight, non-blocking question/reply thread, distinct from
+  // both the Self-Assessment Question above and Approval.comment.
+  queries RequirementQuery[]
 
   @@unique([systemId, requirementId])
+}
+
+// A lightweight, non-blocking question/reply thread scoped to one specific
+// RequirementAssessment (see #56) — lets a REVIEWER/RISK_OWNER/ADMIN push
+// back on one Requirement without a whole-System Rejection. Purely
+// informational: it never touches the Assessment's status, gates Approval,
+// or affects the mandatory-Requirement submission check. `resolved` is an
+// explicit judgment call by a REVIEWER/RISK_OWNER/ADMIN (not the System
+// Owner, and not necessarily the original asker) — see `lastMessageAuthorId`
+// below for the "whose turn is it" logic the various open-Query counters use.
+model RequirementQuery {
+  id                      String    @id @default(cuid())
+  requirementAssessmentId String
+  requirementAssessment   RequirementAssessment @relation(fields: [requirementAssessmentId], references: [id], onDelete: Cascade)
+  resolved                Boolean   @default(false)
+  resolvedById            String?
+  resolvedBy              User?     @relation("QueryResolvedBy", fields: [resolvedById], references: [id])
+  resolvedAt              DateTime?
+  createdAt               DateTime  @default(now())
+  // Denormalized copy of the most recent QueryMessage's authorId, kept in
+  // sync on every new message. Lets "is it the System Owner's turn, or the
+  // reviewer side's?" be answered with a plain field comparison instead of a
+  // subquery against QueryMessage every time a counter is computed.
+  lastMessageAuthorId String
+
+  messages QueryMessage[]
+}
+
+// One turn within a RequirementQuery thread — either the question that
+// opened it or a later reply. No separate subject/title on the thread
+// itself; it's identified by the Requirement it's attached to plus this
+// message's own text.
+model QueryMessage {
+  id                 String           @id @default(cuid())
+  requirementQueryId String
+  requirementQuery   RequirementQuery @relation(fields: [requirementQueryId], references: [id], onDelete: Cascade)
+  authorId           String
+  author             User             @relation(fields: [authorId], references: [id])
+  body               String
+  createdAt          DateTime         @default(now())
 }
 
 // A risk identified during onboarding of a System.

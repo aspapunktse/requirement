@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { OnboardingStatus } from "@prisma/client";
 import { getActingUser } from "@/lib/acting-user";
 import { getVisibleSystems } from "@/lib/system-visibility";
+import { getActionableQueryCountsBySystem } from "@/lib/requirement-queries";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { onboardingStatusTone } from "@/lib/status-tones";
 
@@ -31,6 +32,11 @@ export default async function SystemsPage({
     systems = systems.filter((system) => system.ownerId === user.id);
   }
 
+  const queryCounts = await getActionableQueryCountsBySystem(
+    user,
+    systems.map((s) => s.id),
+  );
+
   return (
     <div className="mx-auto max-w-2xl p-6">
       <div className="mb-4 flex items-center justify-between">
@@ -58,6 +64,9 @@ export default async function SystemsPage({
                   {system.deploymentFacets.map((facet) => facet.name).join(" + ")} · owned by{" "}
                   {system.owner.name}
                 </span>
+                {(queryCounts.get(system.id) ?? 0) > 0 && (
+                  <StatusChip tone="warn">{queryCounts.get(system.id)} open question(s)</StatusChip>
+                )}
               </div>
             </li>
           ))}

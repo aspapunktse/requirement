@@ -1,8 +1,10 @@
+import type { UserRole } from "@prisma/client";
 import { getActingUser } from "@/lib/acting-user";
 import { prisma } from "@/lib/prisma";
 import { DashboardCard } from "@/components/ui/DashboardCard";
 import { getSystemsNeedingAttention, getSystemsAwaitingApproval, getAllOpenRisks } from "@/lib/dashboard";
 import { scopedSystemsWhere, getAssignedScope } from "@/lib/business-risk-owner";
+import { getActionableQueryCount } from "@/lib/requirement-queries";
 
 /**
  * Role-differentiated landing page: a short set of shortcuts into whatever
@@ -29,10 +31,16 @@ export default async function Home() {
   );
 }
 
-async function roleCards(user: { id: string; role: string }) {
+async function roleCards(user: { id: string; role: UserRole }) {
   switch (user.role) {
     case "SYSTEM_OWNER": {
-      const attention = await getSystemsNeedingAttention(user.id);
+      const ownedSystemIds = (
+        await prisma.system.findMany({ where: { ownerId: user.id }, select: { id: true } })
+      ).map((s) => s.id);
+      const [attention, openQuestions] = await Promise.all([
+        getSystemsNeedingAttention(user.id),
+        getActionableQueryCount(user, ownedSystemIds),
+      ]);
       return (
         <>
           <DashboardCard
@@ -45,6 +53,12 @@ async function roleCards(user: { id: string; role: string }) {
             description="Your Draft Systems that were rejected and returned, or carry a stale Requirement Assessment."
             count={attention.length}
             href="/systems?owner=me&status=DRAFT"
+          />
+          <DashboardCard
+            title="Questions awaiting your reply"
+            description="Requirement Queries a Reviewer or Risk Owner raised on one of your Systems."
+            count={openQuestions}
+            href="/systems?owner=me"
           />
         </>
       );
@@ -88,26 +102,50 @@ async function roleCards(user: { id: string; role: string }) {
     }
 
     case "REVIEWER": {
-      const awaiting = await getSystemsAwaitingApproval();
+      const allSystemIds = (await prisma.system.findMany({ select: { id: true } })).map((s) => s.id);
+      const [awaiting, openQuestions] = await Promise.all([
+        getSystemsAwaitingApproval(),
+        getActionableQueryCount(user, allSystemIds),
+      ]);
       return (
-        <DashboardCard
-          title="Awaiting your review"
-          description="Systems submitted and waiting on an Approval decision."
-          count={awaiting.length}
-          href="/systems?status=IN_REVIEW"
-        />
+        <>
+          <DashboardCard
+            title="Awaiting your review"
+            description="Systems submitted and waiting on an Approval decision."
+            count={awaiting.length}
+            href="/systems?status=IN_REVIEW"
+          />
+          <DashboardCard
+            title="Open Questions"
+            description="Requirement Queries where the System Owner has replied and it's your turn to look."
+            count={openQuestions}
+            href="/systems"
+          />
+        </>
       );
     }
 
     case "RISK_OWNER": {
-      const openRisks = await getAllOpenRisks();
+      const allSystemIds = (await prisma.system.findMany({ select: { id: true } })).map((s) => s.id);
+      const [openRisks, openQuestions] = await Promise.all([
+        getAllOpenRisks(),
+        getActionableQueryCount(user, allSystemIds),
+      ]);
       return (
-        <DashboardCard
-          title="Open Risks"
-          description="Risks across every System that still need a status update."
-          count={openRisks.length}
-          href="/systems"
-        />
+        <>
+          <DashboardCard
+            title="Open Risks"
+            description="Risks across every System that still need a status update."
+            count={openRisks.length}
+            href="/systems"
+          />
+          <DashboardCard
+            title="Open Questions"
+            description="Requirement Queries where the System Owner has replied and it's your turn to look."
+            count={openQuestions}
+            href="/systems"
+          />
+        </>
       );
     }
 

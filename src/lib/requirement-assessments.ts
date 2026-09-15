@@ -1,5 +1,6 @@
 import type { ImpactLevel, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { QUERY_INCLUDE } from "@/lib/requirement-queries";
 
 const APPLICABLE_APPLICABILITIES = ["PER_SYSTEM", "BOTH"] as const;
 
@@ -168,7 +169,7 @@ export async function getSystemAssessments(system: SystemClassification & { id: 
     getApplicableRequirements(system),
     prisma.requirementAssessment.findMany({
       where: { systemId: system.id },
-      include: { assessedBy: true },
+      include: { assessedBy: true, queries: { include: QUERY_INCLUDE, orderBy: { createdAt: "asc" } } },
     }),
   ]);
 
@@ -233,7 +234,11 @@ export async function getStaleAssessments(system: SystemClassification & { id: s
 
   return prisma.requirementAssessment.findMany({
     where: { systemId: system.id, requirementId: { notIn: applicableIds } },
-    include: { requirement: true, assessedBy: true },
+    include: {
+      requirement: true,
+      assessedBy: true,
+      queries: { include: QUERY_INCLUDE, orderBy: { createdAt: "asc" } },
+    },
   });
 }
 

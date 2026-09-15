@@ -28,7 +28,27 @@ type Assessment = {
   selfAssessmentAnswer: SelfAssessmentAnswer | null;
 } | null;
 
-type AssessmentRow = { requirement: Requirement; assessment: Assessment };
+type QueryMessage = {
+  id: string;
+  body: string;
+  createdAt: string;
+  author: { id: string; name: string; role: UserRole };
+};
+
+type RequirementQuery = {
+  id: string;
+  resolved: boolean;
+  lastMessageAuthorId: string;
+  createdAt: string;
+  messages: QueryMessage[];
+};
+
+type AssessmentRow = { requirement: Requirement; assessment: Assessment; queries: RequirementQuery[] };
+
+// Mirrors src/lib/requirement-queries.ts's ROLES_ALLOWED_TO_MANAGE_QUERIES —
+// duplicated here (not imported) because that module pulls in the Prisma
+// client, which can't be bundled into a "use client" component.
+const ROLES_ALLOWED_TO_MANAGE_QUERIES: UserRole[] = ["REVIEWER", "RISK_OWNER", "ADMIN"];
 
 const STATUSES_REQUIRING_WAIVE_ROLE: RequirementStatus[] = ["NOT_APPLICABLE", "WAIVED"];
 const ROLES_ALLOWED_TO_WAIVE: UserRole[] = ["ADMIN", "RISK_OWNER"];
@@ -136,17 +156,229 @@ function SelfAssessmentQuestion({
   );
 }
 
+function QueryThreadItem({
+  query,
+  systemId,
+  requirementId,
+  canReply,
+  canResolve,
+  onUpdated,
+}: {
+  query: RequirementQuery;
+  systemId: string;
+  requirementId: string;
+  canReply: boolean;
+  canResolve: boolean;
+  onUpdated: (query: RequirementQuery) => void;
+}) {
+  const [reply, setReply] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function post(path: string, body?: unknown) {
+    setError(null);
+    setBusy(true);
+    try {
+      const response = await fetch(
+        `/api/systems/${systemId}/assessments/${requirementId}/queries/${query.id}${path}`,
+        {
+          method: "POST",
+          headers: body ? { "Content-Type": "application/json" } : undefined,
+          body: body ? JSON.stringify(body) : undefined,
+        },
+      );
+      if (!response.ok) {
+        const responseBody = await response.json();
+        setError(responseBody.error ?? "Failed to update this question");
+        return;
+      }
+      const responseBody = await response.json();
+      onUpdated(responseBody.query);
+      setReply("");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <li className="rounded border border-zinc-200 p-2 text-sm dark:border-zinc-800">
+      <div className="mb-1 flex items-center justify-between gap-2">
+        <StatusChip tone={query.resolved ? "success" : "warn"}>
+          {query.resolved ? "Resolved" : "Open"}
+        </StatusChip>
+        {canResolve && !query.resolved && (
+          <Button
+            variant="secondary"
+            className="px-2 py-0.5 text-xs"
+            onClick={() => post("/resolve")}
+            disabled={busy}
+          >
+            Mark Resolved
+          </Button>
+        )}
+      </div>
+
+      <ul className="flex flex-col gap-2">
+        {query.messages.map((message) => (
+          <li key={message.id}>
+            <div className="text-xs text-zinc-500">
+              <span className="font-medium text-zinc-700 dark:text-zinc-300">{message.author.name}</span>{" "}
+              ({message.author.role}) · {new Date(message.createdAt).toLocaleString()}
+            </div>
+            <p>{message.body}</p>
+          </li>
+        ))}
+      </ul>
+
+      {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+
+      {canReply && (
+        <div className="mt-2 flex flex-col gap-1">
+          <textarea
+            aria-label="Reply"
+            className="rounded border border-zinc-200 p-2 text-sm dark:border-zinc-800 dark:bg-transparent"
+            value={reply}
+            onChange={(event) => setReply(event.target.value)}
+          />
+          <Button
+            className="self-start px-2 py-0.5 text-xs"
+            onClick={() => reply.trim() && post("/messages", { body: reply })}
+            disabled={busy}
+          >
+            Reply
+          </Button>
+        </div>
+      )}
+    </li>
+  );
+}
+
+function RequirementQueries({
+  queries,
+  systemId,
+  requirementId,
+  userRole,
+  isSystemOwner,
+  onChange,
+}: {
+  queries: RequirementQuery[];
+  systemId: string;
+  requirementId: string;
+  userRole: UserRole;
+  isSystemOwner: boolean;
+  onChange: (queries: RequirementQuery[]) => void;
+}) {
+  const canRaise = ROLES_ALLOWED_TO_MANAGE_QUERIES.includes(userRole);
+  const canReply = isSystemOwner || canRaise;
+  const openCount = queries.filter((q) => !q.resolved).length;
+  const [showForm, setShowForm] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleRaise() {
+    if (!draft.trim()) return;
+    setError(null);
+    setBusy(true);
+    try {
+      const response = await fetch(`/api/systems/${systemId}/assessments/${requirementId}/queries`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ body: draft }),
+      });
+      if (!response.ok) {
+        const body = await response.json();
+        setError(body.error ?? "Failed to raise a question");
+        return;
+      }
+      const body = await response.json();
+      onChange([...queries, body.query]);
+      setDraft("");
+      setShowForm(false);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!canRaise && queries.length === 0) return null;
+
+  return (
+    <div className="mt-3 flex flex-col gap-2 border-t border-zinc-200 pt-3 dark:border-zinc-800">
+      <div className="flex items-center justify-between gap-2">
+        <h4 className="text-sm font-medium">
+          Questions{openCount > 0 && ` (${openCount} open)`}
+        </h4>
+        {canRaise && (
+          <Button
+            variant="secondary"
+            className="px-2 py-0.5 text-xs"
+            onClick={() => setShowForm((s) => !s)}
+          >
+            Ask a question
+          </Button>
+        )}
+      </div>
+
+      {queries.length > 0 && (
+        <ul className="flex flex-col gap-2">
+          {queries.map((query) => (
+            <QueryThreadItem
+              key={query.id}
+              query={query}
+              systemId={systemId}
+              requirementId={requirementId}
+              canReply={canReply}
+              canResolve={canRaise}
+              onUpdated={(updated) =>
+                onChange(queries.map((q) => (q.id === updated.id ? updated : q)))
+              }
+            />
+          ))}
+        </ul>
+      )}
+
+      {showForm && (
+        <div className="flex flex-col gap-2">
+          <textarea
+            aria-label="New question"
+            className="rounded border border-zinc-200 p-2 text-sm dark:border-zinc-800 dark:bg-transparent"
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+          />
+          {error && <p className="text-xs text-red-600">{error}</p>}
+          <div className="flex gap-2">
+            <Button className="px-2 py-0.5 text-xs" onClick={handleRaise} disabled={busy}>
+              Send
+            </Button>
+            <Button
+              variant="outline"
+              className="px-2 py-0.5 text-xs"
+              onClick={() => setShowForm(false)}
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function RequirementRow({
   row,
   systemId,
   userRole,
+  isSystemOwner,
   onSaved,
+  onQueriesChanged,
   stale = false,
 }: {
   row: AssessmentRow;
   systemId: string;
   userRole: UserRole;
+  isSystemOwner: boolean;
   onSaved: (assessment: NonNullable<Assessment>) => void;
+  onQueriesChanged: (queries: RequirementQuery[]) => void;
   stale?: boolean;
 }) {
   const { requirement, assessment } = row;
@@ -270,19 +502,33 @@ function RequirementRow({
           onAnswered={onSaved}
         />
       )}
+
+      <RequirementQueries
+        queries={row.queries}
+        systemId={systemId}
+        requirementId={requirement.id}
+        userRole={userRole}
+        isSystemOwner={isSystemOwner}
+        onChange={onQueriesChanged}
+      />
     </li>
   );
 }
 
-type StaleAssessmentApi = NonNullable<Assessment> & { requirement: Requirement };
+type StaleAssessmentApi = NonNullable<Assessment> & { requirement: Requirement; queries: RequirementQuery[] };
 
 export function RequirementAssessmentList({
   systemId,
   userRole,
+  currentUserId,
+  systemOwnerId,
 }: {
   systemId: string;
   userRole: UserRole;
+  currentUserId: string;
+  systemOwnerId: string;
 }) {
+  const isSystemOwner = currentUserId === systemOwnerId;
   const [rows, setRows] = useState<AssessmentRow[] | null>(null);
   const [staleRows, setStaleRows] = useState<AssessmentRow[]>([]);
 
@@ -293,11 +539,17 @@ export function RequirementAssessmentList({
       .then((response) => response.json())
       .then((body) => {
         if (cancelled) return;
-        setRows(body.assessments ?? []);
+        setRows(
+          (body.assessments ?? []).map((row: { requirement: Requirement; assessment: Assessment }) => ({
+            ...row,
+            queries: (row.assessment as (Assessment & { queries?: RequirementQuery[] }))?.queries ?? [],
+          })),
+        );
         setStaleRows(
           (body.staleAssessments ?? []).map((assessment: StaleAssessmentApi) => ({
             requirement: assessment.requirement,
             assessment,
+            queries: assessment.queries ?? [],
           })),
         );
       });
@@ -323,11 +575,17 @@ export function RequirementAssessmentList({
               row={row}
               systemId={systemId}
               userRole={userRole}
+              isSystemOwner={isSystemOwner}
               onSaved={(assessment) =>
                 setRows((prev) =>
                   (prev ?? []).map((r) =>
                     r.requirement.id === row.requirement.id ? { ...r, assessment } : r,
                   ),
+                )
+              }
+              onQueriesChanged={(queries) =>
+                setRows((prev) =>
+                  (prev ?? []).map((r) => (r.requirement.id === row.requirement.id ? { ...r, queries } : r)),
                 )
               }
             />
@@ -345,10 +603,16 @@ export function RequirementAssessmentList({
                 row={row}
                 systemId={systemId}
                 userRole={userRole}
+                isSystemOwner={isSystemOwner}
                 stale
                 onSaved={(assessment) =>
                   setStaleRows((prev) =>
                     prev.map((r) => (r.requirement.id === row.requirement.id ? { ...r, assessment } : r)),
+                  )
+                }
+                onQueriesChanged={(queries) =>
+                  setStaleRows((prev) =>
+                    prev.map((r) => (r.requirement.id === row.requirement.id ? { ...r, queries } : r)),
                   )
                 }
               />
