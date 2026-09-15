@@ -1,17 +1,35 @@
 import Link from "next/link";
+import type { OnboardingStatus } from "@prisma/client";
 import { getActingUser } from "@/lib/acting-user";
 import { getVisibleSystems } from "@/lib/system-visibility";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { onboardingStatusTone } from "@/lib/status-tones";
 
-export default async function SystemsPage() {
+/**
+ * Optional filters a caller (currently: landing-page shortcuts) can deep-link
+ * with — `status` narrows to one OnboardingStatus, `owner=me` narrows to
+ * Systems owned by the acting user. Both apply on top of the normal
+ * visibility rules, never widening what a role can already see.
+ */
+export default async function SystemsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ status?: string; owner?: string }>;
+}) {
   const user = await getActingUser();
 
   if (!user) {
     return <p className="p-6 text-zinc-600 dark:text-zinc-400">Pick a user to act as first.</p>;
   }
 
-  const systems = await getVisibleSystems(user);
+  const { status, owner } = await searchParams;
+  let systems = await getVisibleSystems(user);
+  if (status) {
+    systems = systems.filter((system) => system.status === (status as OnboardingStatus));
+  }
+  if (owner === "me") {
+    systems = systems.filter((system) => system.ownerId === user.id);
+  }
 
   return (
     <div className="mx-auto max-w-2xl p-6">
