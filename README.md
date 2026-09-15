@@ -4,7 +4,7 @@ Internal webapp for tracking requirement fulfillment and risk assessment when on
 
 ## Project status
 
-**As of this writing: the full original 16-issue backlog, the follow-on [ADR 0003](docs/adr/0003-multiselect-deployment-facets-plus-overlays.md) design (issues #47–#53), and the Business Risk Owner role (#55) are implemented, tested, and merged.** The core onboarding workflow, the ISO 27001 Annex A Requirement Catalog, multi-axis classification (Deployment Facet, Regulatory Overlay, Impact Level), and scoped cross-System Risk/compliance reporting all work end-to-end. The extension-points catalog (10 "evaluate this question" tickets) has also been fully worked through and closed. Only one issue is open right now — see `HANDOFF.md`.
+**As of this writing: the full original 16-issue backlog, the follow-on [ADR 0003](docs/adr/0003-multiselect-deployment-facets-plus-overlays.md) design (issues #47–#53), and the Business Risk Owner role (#55) are implemented, tested, and merged.** The core onboarding workflow, the ISO 27001 Annex A Requirement Catalog, multi-axis classification (Deployment Facet, Regulatory Overlay, Impact Level), and scoped cross-System Risk/compliance reporting all work end-to-end. The extension-points catalog (10 "evaluate this question" tickets) has also been fully worked through and closed. Two issues are open right now — see `HANDOFF.md`.
 
 What exists and works:
 - Next.js/Prisma/Postgres scaffold, CI/CD, Docker (see Stack/CI-CD below)
@@ -23,7 +23,7 @@ What's *not* decided yet (deliberately deferred, not overlooked):
 - Notifications on status changes — out of scope until now; the core workflow is proven, so this is a reasonable next thing to propose
 - Retiring a `Requirement` from the catalog — Deployment Facet, Capability, Regulatory Overlay, Business Unit, and Framework can be retired, Requirement deliberately wasn't (see [issue #13](https://github.com/aspapunktse/requirement/issues/13)'s closing comment)
 
-**Picking this up in a fresh session?** Read, in order: [`HANDOFF.md`](HANDOFF.md) (what's in flight and what to do next), this section, [`CONTEXT.md`](CONTEXT.md), [`docs/adr/`](docs/adr/). The original backlog, ADR 0003, the extension-points catalog, and #55 (Business Risk Owner) are all fully shipped/closed — the only open issue is #46 (Requirement content versioning + targeted notifications), fully scoped and ready to pick up whenever. [`docs/agents/`](docs/agents/) documents how the repo is configured for Matt Pocock's engineering skills (issue tracker conventions, domain-doc consumer rules) if you're using those.
+**Picking this up in a fresh session?** Read, in order: [`HANDOFF.md`](HANDOFF.md) (what's in flight and what to do next), this section, [`CONTEXT.md`](CONTEXT.md), [`docs/adr/`](docs/adr/). The original backlog, ADR 0003, the extension-points catalog, and #55 (Business Risk Owner) are all fully shipped/closed — two issues are open: #46 (Requirement content versioning + targeted notifications) and #54 (a real, role-differentiated landing page, replacing the current `src/app/page.tsx` placeholder), both fully scoped and ready to pick up whenever. [`docs/agents/`](docs/agents/) documents how the repo is configured for Matt Pocock's engineering skills (issue tracker conventions, domain-doc consumer rules) if you're using those.
 
 ## Stack
 
