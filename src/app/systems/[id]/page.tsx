@@ -6,6 +6,8 @@ import { canMarkOnboarded } from "@/lib/onboarding";
 import { canManageCapabilities } from "@/lib/system-capabilities";
 import { canChangeSystemClassification } from "@/lib/system-classification-change";
 import { canManageRegulatoryOverlays } from "@/lib/system-overlays";
+import { canManageBusinessUnits } from "@/lib/business-units";
+import { canManageFrameworkScopes } from "@/lib/framework-scope";
 import { RequirementAssessmentList } from "@/components/RequirementAssessmentList";
 import { SubmitForReviewButton } from "@/components/SubmitForReviewButton";
 import { RiskList } from "@/components/RiskList";
@@ -13,6 +15,7 @@ import { ApprovalPanel } from "@/components/ApprovalPanel";
 import { MarkOnboardedButton } from "@/components/MarkOnboardedButton";
 import { SystemCapabilities } from "@/components/SystemCapabilities";
 import { SystemRegulatoryOverlays } from "@/components/SystemRegulatoryOverlays";
+import { SystemCatalogRelation } from "@/components/SystemCatalogRelation";
 import { DeploymentFacetsChanger } from "@/components/DeploymentFacetsChanger";
 import { ImpactLevelsChanger } from "@/components/ImpactLevelsChanger";
 import { StatusChip } from "@/components/ui/StatusChip";
@@ -106,6 +109,32 @@ export default async function SystemDetailPage({ params }: PageProps<"/systems/[
       <SystemRegulatoryOverlays
         systemId={system.id}
         canManage={canManageRegulatoryOverlays(user, system)}
+      />
+
+      <h2 className="mb-3 mt-8 text-xl">Business Units</h2>
+      <SystemCatalogRelation
+        systemId={system.id}
+        canManage={canManageBusinessUnits(user, system)}
+        resourcePath={`/api/systems/${system.id}/business-units`}
+        resourceKey="businessUnits"
+        catalogPath="/api/business-units"
+        catalogKey="businessUnits"
+        idField="businessUnitId"
+        itemLabel="Business Unit"
+        emptyLabel="No Business Units consuming this System yet."
+      />
+
+      <h2 className="mb-3 mt-8 text-xl">Framework Scope</h2>
+      <SystemCatalogRelation
+        systemId={system.id}
+        canManage={canManageFrameworkScopes(user, system)}
+        resourcePath={`/api/systems/${system.id}/framework-scopes`}
+        resourceKey="frameworkScopes"
+        catalogPath="/api/frameworks"
+        catalogKey="frameworks"
+        idField="frameworkId"
+        itemLabel="Framework"
+        emptyLabel="This System isn't in scope for any Framework's audit boundary yet."
       />
 
       <h2 className="mb-3 mt-8 text-xl">Requirements</h2>

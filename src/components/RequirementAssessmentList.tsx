@@ -6,7 +6,7 @@ import { StatusChip } from "@/components/ui/StatusChip";
 import { requirementStatusTone } from "@/lib/status-tones";
 
 type RequirementStatus = "NOT_STARTED" | "IN_PROGRESS" | "FULFILLED" | "NOT_APPLICABLE" | "WAIVED";
-type UserRole = "ADMIN" | "RISK_OWNER" | "SYSTEM_OWNER" | "REVIEWER" | "VIEWER";
+type UserRole = "ADMIN" | "RISK_OWNER" | "SYSTEM_OWNER" | "REVIEWER" | "VIEWER" | "BUSINESS_RISK_OWNER";
 
 type SelfAssessmentAnswer = "YES" | "NO" | "NA";
 

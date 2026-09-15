@@ -6,7 +6,6 @@ import { RequirementMappingManager } from "../RequirementMappingManager";
 const baseRequirement = {
   description: "desc",
   category: "Security",
-  framework: [] as string[],
   mandatory: true,
   question: null,
   intent: null,
@@ -14,6 +13,7 @@ const baseRequirement = {
   deploymentFacets: [] as { id: string; name: string }[],
   regulatoryOverlays: [] as { id: string; name: string }[],
   capabilities: [] as { id: string; name: string }[],
+  frameworks: [] as { id: string; name: string }[],
   minConfidentialityImpactLevel: null,
   minIntegrityImpactLevel: null,
   minAvailabilityImpactLevel: null,
@@ -38,6 +38,10 @@ let requirements = [
 const deploymentFacets = [{ id: "st1", name: "On-Premises Datacenter" }];
 const regulatoryOverlays = [{ id: "o1", name: "GDPR" }];
 const capabilities = [{ id: "c1", name: "Active Directory" }];
+const frameworks = [
+  { id: "f1", name: "ISO27001:2022 Annex A" },
+  { id: "f2", name: "CSA CCM 4.0" },
+];
 
 function mockFetch() {
   return vi.fn((input: string | URL | Request, init?: RequestInit) => {
@@ -55,6 +59,9 @@ function mockFetch() {
     }
     if (url.endsWith("/api/capabilities") && method === "GET") {
       return Promise.resolve(new Response(JSON.stringify({ capabilities }), { status: 200 }));
+    }
+    if (url.endsWith("/api/frameworks") && method === "GET") {
+      return Promise.resolve(new Response(JSON.stringify({ frameworks }), { status: 200 }));
     }
     if (url.includes("/api/requirements/") && method === "PATCH") {
       return Promise.resolve(new Response(JSON.stringify({ requirement: {} }), { status: 200 }));
@@ -109,7 +116,7 @@ describe("RequirementMappingManager", () => {
       expect(patchCall).toBeTruthy();
       expect(JSON.parse(patchCall![1].body)).toEqual({
         capabilityIds: [],
-        framework: [],
+        frameworkIds: [],
         deploymentFacetIds: ["st1"],
         regulatoryOverlayIds: [],
         minConfidentialityImpactLevel: null,
@@ -138,12 +145,13 @@ describe("RequirementMappingManager", () => {
     });
   });
 
-  it("lets an admin edit a Requirement's framework tags", async () => {
+  it("lets an admin tag a Requirement with Frameworks", async () => {
     const user = userEvent.setup();
     render(<RequirementMappingManager />);
 
     await user.selectOptions(await screen.findByLabelText("Requirement"), "r1");
-    await user.type(screen.getByLabelText("Framework(s)"), "ISO27001:2022 Annex A, CSA CCM 4.0");
+    await user.click(screen.getByLabelText("ISO27001:2022 Annex A"));
+    await user.click(screen.getByLabelText("CSA CCM 4.0"));
     await user.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() => {
@@ -153,7 +161,7 @@ describe("RequirementMappingManager", () => {
       );
       expect(patchCall).toBeTruthy();
       const body = JSON.parse(patchCall![1].body);
-      expect(body.framework).toEqual(["ISO27001:2022 Annex A", "CSA CCM 4.0"]);
+      expect(body.frameworkIds).toEqual(["f1", "f2"]);
     });
   });
 
@@ -195,5 +203,9 @@ describe("RequirementMappingManager", () => {
         applicability: "ORGANIZATIONAL",
       });
     });
-  });
+    // Bumped from the 5s default: this test's initial render now waits on
+    // five parallel mocked fetches (added /api/frameworks alongside the
+    // existing four catalogs — see #55), which occasionally pushes total
+    // time close to/over 5s under load, unrelated to test correctness.
+  }, 10000);
 });

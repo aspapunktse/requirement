@@ -29,6 +29,8 @@ describe("/api/requirements/[id]", () => {
   let systemTypeAId: string;
   let systemTypeBId: string;
   let capabilityId: string;
+  let frameworkAId: string;
+  let frameworkBId: string;
 
   beforeAll(async () => {
     const admin = await prisma.user.upsert({
@@ -57,12 +59,18 @@ describe("/api/requirements/[id]", () => {
       data: { name: `Test Capability ${Date.now()}` },
     });
     capabilityId = capability.id;
+
+    const frameworkA = await prisma.framework.create({ data: { name: `Test Framework A ${Date.now()}` } });
+    const frameworkB = await prisma.framework.create({ data: { name: `Test Framework B ${Date.now()}` } });
+    frameworkAId = frameworkA.id;
+    frameworkBId = frameworkB.id;
   });
 
   afterAll(async () => {
     await prisma.user.deleteMany({ where: { email: { in: [ADMIN_EMAIL, VIEWER_EMAIL] } } });
     await prisma.deploymentFacet.deleteMany({ where: { id: { in: [systemTypeAId, systemTypeBId] } } });
     await prisma.capability.deleteMany({ where: { id: capabilityId } });
+    await prisma.framework.deleteMany({ where: { id: { in: [frameworkAId, frameworkBId] } } });
   });
 
   beforeEach(async () => {
@@ -203,13 +211,13 @@ describe("/api/requirements/[id]", () => {
     expect(response.status).toBe(404);
   });
 
-  it("PATCH lets an admin edit core fields, including a multi-value framework list", async () => {
+  it("PATCH lets an admin edit core fields, including tagging more than one Framework", async () => {
     const response = await PATCH(
       requestAs(perSystemRequirementId, adminId, {
         method: "PATCH",
         body: JSON.stringify({
           title: "Updated title",
-          framework: ["ISO27001:2022 Annex A", "CSA CCM 4.0"],
+          frameworkIds: [frameworkAId, frameworkBId],
         }),
       }),
       ctxFor(perSystemRequirementId),
@@ -217,10 +225,10 @@ describe("/api/requirements/[id]", () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body.requirement).toMatchObject({
-      title: "Updated title",
-      framework: ["ISO27001:2022 Annex A", "CSA CCM 4.0"],
-    });
+    expect(body.requirement.title).toBe("Updated title");
+    expect(body.requirement.frameworks.map((f: { id: string }) => f.id).sort()).toEqual(
+      [frameworkAId, frameworkBId].sort(),
+    );
   });
 
   it("PATCH rejects an unknown Deployment Facet id", async () => {

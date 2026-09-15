@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
 
   const requirements = await prisma.requirement.findMany({
     orderBy: { code: "asc" },
-    include: { deploymentFacets: true, regulatoryOverlays: true, capabilities: true },
+    include: { deploymentFacets: true, regulatoryOverlays: true, capabilities: true, frameworks: true },
   });
   return NextResponse.json({ requirements });
 }
@@ -22,7 +22,7 @@ const createRequirementSchema = z
     title: z.string().min(1),
     description: z.string().min(1),
     category: z.string().min(1),
-    framework: z.array(z.string().min(1)).optional(),
+    frameworkIds: z.array(z.string().min(1)).optional(),
     mandatory: z.boolean().optional(),
     applicability: z.enum(["ORGANIZATIONAL", "PER_SYSTEM", "BOTH"]),
     question: z.string().nullable().optional(),
@@ -49,17 +49,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid Requirement" }, { status: 400 });
   }
 
-  const { framework, mandatory, examples, ...rest } = parsed.data;
+  const { frameworkIds, mandatory, examples, ...rest } = parsed.data;
 
   try {
     const requirement = await prisma.requirement.create({
       data: {
         ...rest,
-        framework: framework ?? [],
+        frameworks: frameworkIds ? { connect: frameworkIds.map((id) => ({ id })) } : undefined,
         mandatory: mandatory ?? true,
         examples: examples ?? [],
       },
-      include: { deploymentFacets: true, regulatoryOverlays: true, capabilities: true },
+      include: { deploymentFacets: true, regulatoryOverlays: true, capabilities: true, frameworks: true },
     });
     return NextResponse.json({ requirement }, { status: 201 });
   } catch (error) {

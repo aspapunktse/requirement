@@ -13,7 +13,6 @@ type RequirementSummary = {
   title: string;
   description: string;
   category: string;
-  framework: string[];
   mandatory: boolean;
   applicability: Applicability;
   question: string | null;
@@ -22,6 +21,7 @@ type RequirementSummary = {
   deploymentFacets: Catalog[];
   regulatoryOverlays: Catalog[];
   capabilities: Catalog[];
+  frameworks: Catalog[];
   minConfidentialityImpactLevel: ImpactLevel | null;
   minIntegrityImpactLevel: ImpactLevel | null;
   minAvailabilityImpactLevel: ImpactLevel | null;
@@ -35,16 +35,9 @@ const IMPACT_AXES: { key: "minConfidentialityImpactLevel" | "minIntegrityImpactL
   { key: "minAvailabilityImpactLevel", label: "Min. Availability" },
 ];
 
-function parseFrameworkInput(value: string): string[] {
-  return value
-    .split(",")
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0);
-}
-
 function summarizeTags(requirement: RequirementSummary): string {
   const parts: string[] = [];
-  if (requirement.framework.length > 0) parts.push(requirement.framework.join(", "));
+  if (requirement.frameworks.length > 0) parts.push(requirement.frameworks.map((f) => f.name).join(", "));
   if (requirement.deploymentFacets.length > 0) {
     parts.push(`Facets: ${requirement.deploymentFacets.map((f) => f.name).join(", ")}`);
   }
@@ -63,7 +56,6 @@ const NEW_REQUIREMENT_DRAFT = {
   title: "",
   description: "",
   category: "",
-  framework: "",
   mandatory: true,
   applicability: "PER_SYSTEM" as Applicability,
   question: "",
@@ -76,13 +68,14 @@ export function RequirementMappingManager() {
   const [deploymentFacets, setDeploymentFacets] = useState<Catalog[]>([]);
   const [regulatoryOverlays, setRegulatoryOverlays] = useState<Catalog[]>([]);
   const [capabilities, setCapabilities] = useState<Catalog[]>([]);
+  const [frameworks, setFrameworks] = useState<Catalog[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState("");
   const [selectedDeploymentFacetIds, setSelectedDeploymentFacetIds] = useState<Set<string>>(new Set());
   const [selectedRegulatoryOverlayIds, setSelectedRegulatoryOverlayIds] = useState<Set<string>>(new Set());
   const [selectedCapabilityIds, setSelectedCapabilityIds] = useState<Set<string>>(new Set());
-  const [frameworkInput, setFrameworkInput] = useState("");
+  const [selectedFrameworkIds, setSelectedFrameworkIds] = useState<Set<string>>(new Set());
   const [impactLevels, setImpactLevels] = useState<{
     minConfidentialityImpactLevel: ImpactLevel | null;
     minIntegrityImpactLevel: ImpactLevel | null;
@@ -93,21 +86,25 @@ export function RequirementMappingManager() {
   const [draft, setDraft] = useState(NEW_REQUIREMENT_DRAFT);
 
   async function loadAll() {
-    const [requirementsRes, deploymentFacetsRes, regulatoryOverlaysRes, capabilitiesRes] = await Promise.all([
-      fetch("/api/requirements"),
-      fetch("/api/deployment-facets"),
-      fetch("/api/regulatory-overlays"),
-      fetch("/api/capabilities"),
-    ]);
+    const [requirementsRes, deploymentFacetsRes, regulatoryOverlaysRes, capabilitiesRes, frameworksRes] =
+      await Promise.all([
+        fetch("/api/requirements"),
+        fetch("/api/deployment-facets"),
+        fetch("/api/regulatory-overlays"),
+        fetch("/api/capabilities"),
+        fetch("/api/frameworks"),
+      ]);
     const requirementsBody = await requirementsRes.json();
     const deploymentFacetsBody = await deploymentFacetsRes.json();
     const regulatoryOverlaysBody = await regulatoryOverlaysRes.json();
     const capabilitiesBody = await capabilitiesRes.json();
+    const frameworksBody = await frameworksRes.json();
     return {
       requirements: (requirementsBody.requirements ?? []) as RequirementSummary[],
       deploymentFacets: (deploymentFacetsBody.deploymentFacets ?? []) as Catalog[],
       regulatoryOverlays: (regulatoryOverlaysBody.regulatoryOverlays ?? []) as Catalog[],
       capabilities: (capabilitiesBody.capabilities ?? []) as Catalog[],
+      frameworks: (frameworksBody.frameworks ?? []) as Catalog[],
     };
   }
 
@@ -120,6 +117,7 @@ export function RequirementMappingManager() {
       setDeploymentFacets(data.deploymentFacets);
       setRegulatoryOverlays(data.regulatoryOverlays);
       setCapabilities(data.capabilities);
+      setFrameworks(data.frameworks);
       setLoading(false);
     });
 
@@ -137,7 +135,7 @@ export function RequirementMappingManager() {
     setSelectedDeploymentFacetIds(new Set(requirement?.deploymentFacets.map((t) => t.id) ?? []));
     setSelectedRegulatoryOverlayIds(new Set(requirement?.regulatoryOverlays.map((o) => o.id) ?? []));
     setSelectedCapabilityIds(new Set(requirement?.capabilities.map((c) => c.id) ?? []));
-    setFrameworkInput(requirement?.framework.join(", ") ?? "");
+    setSelectedFrameworkIds(new Set(requirement?.frameworks.map((f) => f.id) ?? []));
     setImpactLevels({
       minConfidentialityImpactLevel: requirement?.minConfidentialityImpactLevel ?? null,
       minIntegrityImpactLevel: requirement?.minIntegrityImpactLevel ?? null,
@@ -164,13 +162,13 @@ export function RequirementMappingManager() {
       deploymentFacetIds?: string[];
       regulatoryOverlayIds?: string[];
       capabilityIds?: string[];
-      framework?: string[];
+      frameworkIds?: string[];
       minConfidentialityImpactLevel?: ImpactLevel | null;
       minIntegrityImpactLevel?: ImpactLevel | null;
       minAvailabilityImpactLevel?: ImpactLevel | null;
     } = {
       capabilityIds: Array.from(selectedCapabilityIds),
-      framework: parseFrameworkInput(frameworkInput),
+      frameworkIds: Array.from(selectedFrameworkIds),
     };
     if (selected.applicability !== "ORGANIZATIONAL") {
       body.deploymentFacetIds = Array.from(selectedDeploymentFacetIds);
@@ -215,7 +213,6 @@ export function RequirementMappingManager() {
         title: draft.title,
         description: draft.description,
         category: draft.category,
-        framework: parseFrameworkInput(draft.framework),
         mandatory: draft.mandatory,
         applicability: draft.applicability,
         question: draft.applicability === "ORGANIZATIONAL" ? undefined : draft.question || undefined,
@@ -333,13 +330,6 @@ export function RequirementMappingManager() {
             onChange={(event) => setDraft((prev) => ({ ...prev, category: event.target.value }))}
             required
           />
-          <input
-            aria-label="Framework(s)"
-            placeholder="Framework(s), comma-separated — e.g. ISO27001:2022 Annex A, CSA CCM 4.0"
-            className="rounded border border-zinc-200 p-2 text-sm dark:border-zinc-800 dark:bg-transparent"
-            value={draft.framework}
-            onChange={(event) => setDraft((prev) => ({ ...prev, framework: event.target.value }))}
-          />
           <label className="flex items-center gap-2 text-sm">
             <input
               type="checkbox"
@@ -401,16 +391,19 @@ export function RequirementMappingManager() {
             {selected.code} — {selected.title}
           </h3>
 
-          <label className="flex flex-col gap-1 text-sm">
-            Framework(s)
-            <input
-              aria-label="Framework(s)"
-              className="rounded border border-zinc-200 p-2 dark:border-zinc-800 dark:bg-transparent"
-              placeholder="Comma-separated — e.g. ISO27001:2022 Annex A, CSA CCM 4.0"
-              value={frameworkInput}
-              onChange={(event) => setFrameworkInput(event.target.value)}
-            />
-          </label>
+          <fieldset className="flex flex-col gap-2">
+            <legend className="text-sm font-semibold">Frameworks/standards satisfied</legend>
+            {frameworks.map((framework) => (
+              <label key={framework.id} className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={selectedFrameworkIds.has(framework.id)}
+                  onChange={() => setSelectedFrameworkIds((prev) => toggle(prev, framework.id))}
+                />
+                {framework.name}
+              </label>
+            ))}
+          </fieldset>
 
           {selected.applicability === "ORGANIZATIONAL" ? (
             <p className="text-sm text-zinc-500">

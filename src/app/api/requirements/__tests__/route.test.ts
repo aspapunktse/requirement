@@ -15,7 +15,6 @@ function testRequirement(
     title: "Test requirement",
     description: "A requirement created for this test.",
     category: "Test",
-    framework: ["ISO27001:2022 Annex A"],
     mandatory: true,
     applicability: "BOTH",
     question: null,
@@ -154,9 +153,22 @@ describe("POST /api/requirements", () => {
     expect(response.status).toBe(403);
   });
 
-  it("creates a Requirement with a multi-value framework list", async () => {
+  it("creates a Requirement tagged with more than one Framework", async () => {
     const code = "TEST-CREATE-002";
     createdCodes.push(code);
+
+    const [iso, csa] = await Promise.all([
+      prisma.framework.upsert({
+        where: { name: "Test ISO27001:2022 Annex A" },
+        update: {},
+        create: { name: "Test ISO27001:2022 Annex A" },
+      }),
+      prisma.framework.upsert({
+        where: { name: "Test CSA CCM 4.0" },
+        update: {},
+        create: { name: "Test CSA CCM 4.0" },
+      }),
+    ]);
 
     const response = await POST(
       requestPost(adminId, {
@@ -164,19 +176,20 @@ describe("POST /api/requirements", () => {
         title: "Encryption at rest",
         description: "desc",
         category: "Security",
-        framework: ["ISO27001:2022 Annex A", "CSA CCM 4.0"],
+        frameworkIds: [iso.id, csa.id],
         applicability: "ORGANIZATIONAL",
       }),
     );
     const body = await response.json();
 
     expect(response.status).toBe(201);
-    expect(body.requirement).toMatchObject({
-      code,
-      framework: ["ISO27001:2022 Annex A", "CSA CCM 4.0"],
-      mandatory: true,
-      examples: [],
-    });
+    expect(body.requirement).toMatchObject({ code, mandatory: true, examples: [] });
+    expect(body.requirement.frameworks.map((f: { name: string }) => f.name).sort()).toEqual([
+      "Test CSA CCM 4.0",
+      "Test ISO27001:2022 Annex A",
+    ]);
+
+    await prisma.framework.deleteMany({ where: { id: { in: [iso.id, csa.id] } } });
   });
 
   it("rejects a PER_SYSTEM/BOTH Requirement with no Self-Assessment Question", async () => {

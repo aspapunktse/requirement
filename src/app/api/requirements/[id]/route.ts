@@ -14,7 +14,7 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/requirem
   const { id } = await ctx.params;
   const requirement = await prisma.requirement.findUnique({
     where: { id },
-    include: { deploymentFacets: true, regulatoryOverlays: true, capabilities: true },
+    include: { deploymentFacets: true, regulatoryOverlays: true, capabilities: true, frameworks: true },
   });
   if (!requirement) {
     return NextResponse.json({ error: "Requirement not found" }, { status: 404 });
@@ -27,7 +27,7 @@ const updateRequirementSchema = z
     title: z.string().min(1).optional(),
     description: z.string().min(1).optional(),
     category: z.string().min(1).optional(),
-    framework: z.array(z.string().min(1)).optional(),
+    frameworkIds: z.array(z.string().min(1)).optional(),
     mandatory: z.boolean().optional(),
     question: z.string().nullable().optional(),
     intent: z.string().nullable().optional(),
@@ -62,7 +62,7 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/requir
     title,
     description,
     category,
-    framework,
+    frameworkIds,
     mandatory,
     question,
     intent,
@@ -98,7 +98,9 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/requir
         ...(title !== undefined && { title }),
         ...(description !== undefined && { description }),
         ...(category !== undefined && { category }),
-        ...(framework !== undefined && { framework }),
+        ...(frameworkIds !== undefined && {
+          frameworks: { set: frameworkIds.map((frameworkId) => ({ id: frameworkId })) },
+        }),
         ...(mandatory !== undefined && { mandatory }),
         ...(question !== undefined && { question }),
         ...(intent !== undefined && { intent }),
@@ -116,13 +118,13 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/requir
         ...(minIntegrityImpactLevel !== undefined && { minIntegrityImpactLevel }),
         ...(minAvailabilityImpactLevel !== undefined && { minAvailabilityImpactLevel }),
       },
-      include: { deploymentFacets: true, regulatoryOverlays: true, capabilities: true },
+      include: { deploymentFacets: true, regulatoryOverlays: true, capabilities: true, frameworks: true },
     });
     return NextResponse.json({ requirement: updated });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
       return NextResponse.json(
-        { error: "One or more Deployment Facet, Regulatory Overlay, or Capability ids do not exist" },
+        { error: "One or more Deployment Facet, Regulatory Overlay, Capability, or Framework ids do not exist" },
         { status: 400 },
       );
     }
