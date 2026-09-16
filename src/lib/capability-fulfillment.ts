@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getApplicableRequirements, type SystemClassification } from "@/lib/requirement-assessments";
+import { logChangeEvent, SYSTEM_ACTOR } from "@/lib/change-events";
 
 async function getApplicableRequirementsForCapability(system: SystemClassification, capabilityId: string) {
   const [applicable, mapped] = await Promise.all([
@@ -71,6 +72,16 @@ export async function applyCapabilityDeclared(
         ]
       : []),
   ]);
+
+  const affectedCount = toCreateRequirementIds.length + toUpdateAssessmentIds.length;
+  if (affectedCount > 0) {
+    await logChangeEvent(
+      system.id,
+      "ASSESSMENT_STATUS_CHANGED",
+      `${affectedCount} Requirement Assessment(s) auto-fulfilled via Capability "${capability.name}"`,
+      SYSTEM_ACTOR,
+    );
+  }
 }
 
 /**
@@ -86,6 +97,11 @@ export async function applyCapabilityRemoved(system: { id: string }, capabilityI
     include: { requirement: { include: { capabilities: true } } },
   });
   if (affected.length === 0) return;
+
+  const removedCapability = await prisma.capability.findUnique({
+    where: { id: capabilityId },
+    select: { name: true },
+  });
 
   const stillDeclared = await prisma.capability.findMany({
     where: { systems: { some: { id: system.id } } },
@@ -123,4 +139,11 @@ export async function applyCapabilityRemoved(system: { id: string }, capabilityI
       }),
     ),
   ]);
+
+  await logChangeEvent(
+    system.id,
+    "ASSESSMENT_STATUS_CHANGED",
+    `${revertIds.length} Requirement Assessment(s) reverted, ${repoint.length} re-attributed, after Capability "${removedCapability?.name ?? capabilityId}" removed`,
+    SYSTEM_ACTOR,
+  );
 }

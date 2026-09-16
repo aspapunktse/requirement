@@ -1,5 +1,6 @@
 import type { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { logChangeEvent } from "@/lib/change-events";
 
 /**
  * Who can raise a Requirement Query, or resolve one — the same set for both.
@@ -39,7 +40,7 @@ export async function raiseQuery(
     update: {},
   });
 
-  return prisma.requirementQuery.create({
+  const query = await prisma.requirementQuery.create({
     data: {
       requirementAssessmentId: assessment.id,
       lastMessageAuthorId: raisedById,
@@ -47,6 +48,8 @@ export async function raiseQuery(
     },
     include: QUERY_INCLUDE,
   });
+  await logChangeEvent(system.id, "QUERY_OPENED", `Query raised: "${body.slice(0, 80)}"`, raisedById);
+  return query;
 }
 
 /**
@@ -55,21 +58,49 @@ export async function raiseQuery(
  */
 export async function addQueryMessage(queryId: string, authorId: string, body: string) {
   return prisma.$transaction(async (tx) => {
+    const existing = await tx.requirementQuery.findUniqueOrThrow({
+      where: { id: queryId },
+      select: { requirementAssessment: { select: { systemId: true } } },
+    });
     await tx.queryMessage.create({ data: { requirementQueryId: queryId, authorId, body } });
-    return tx.requirementQuery.update({
+    const query = await tx.requirementQuery.update({
       where: { id: queryId },
       data: { lastMessageAuthorId: authorId, resolved: false, resolvedById: null, resolvedAt: null },
       include: QUERY_INCLUDE,
     });
+    await tx.changeEvent.create({
+      data: {
+        systemId: existing.requirementAssessment.systemId,
+        action: "QUERY_REPLIED",
+        detail: `Reply: "${body.slice(0, 80)}"`,
+        actorId: authorId,
+      },
+    });
+    return query;
   });
 }
 
 /** Marks a Requirement Query resolved. */
-export function resolveQuery(queryId: string, resolvedById: string) {
-  return prisma.requirementQuery.update({
-    where: { id: queryId },
-    data: { resolved: true, resolvedById, resolvedAt: new Date() },
-    include: QUERY_INCLUDE,
+export async function resolveQuery(queryId: string, resolvedById: string) {
+  return prisma.$transaction(async (tx) => {
+    const existing = await tx.requirementQuery.findUniqueOrThrow({
+      where: { id: queryId },
+      select: { requirementAssessment: { select: { systemId: true } } },
+    });
+    const query = await tx.requirementQuery.update({
+      where: { id: queryId },
+      data: { resolved: true, resolvedById, resolvedAt: new Date() },
+      include: QUERY_INCLUDE,
+    });
+    await tx.changeEvent.create({
+      data: {
+        systemId: existing.requirementAssessment.systemId,
+        action: "QUERY_RESOLVED",
+        detail: "Query resolved",
+        actorId: resolvedById,
+      },
+    });
+    return query;
   });
 }
 

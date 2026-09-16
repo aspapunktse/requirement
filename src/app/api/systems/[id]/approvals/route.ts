@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { authenticate, authorize } from "@/lib/api-authz";
 import { getVisibleSystem } from "@/lib/system-visibility";
 import { ROLES_ALLOWED_TO_APPROVE, getApprovalHistory } from "@/lib/approvals";
+import { logChangeEvent } from "@/lib/change-events";
 
 export async function GET(request: NextRequest, ctx: RouteContext<"/api/systems/[id]/approvals">) {
   const auth = await authenticate(request);
@@ -56,6 +57,12 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems
       where: { id: system.id },
       data: { status: decision === "APPROVED" ? "APPROVED" : "DRAFT" },
     }),
+    logChangeEvent(
+      system.id,
+      "APPROVAL_DECIDED",
+      `${decision === "APPROVED" ? "Approved" : "Rejected"}: ${comment}`,
+      auth.user.id,
+    ),
   ]);
 
   return NextResponse.json({ approval }, { status: 201 });

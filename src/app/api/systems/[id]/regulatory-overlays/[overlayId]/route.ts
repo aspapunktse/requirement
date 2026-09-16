@@ -27,7 +27,7 @@ export async function DELETE(
     );
   }
 
-  await applyOverlayRemoved(system, overlayId);
+  await applyOverlayRemoved(system, overlayId, auth.user.id);
 
   const regulatoryOverlays = await getSystemRegulatoryOverlays(system.id);
   return NextResponse.json({ regulatoryOverlays });

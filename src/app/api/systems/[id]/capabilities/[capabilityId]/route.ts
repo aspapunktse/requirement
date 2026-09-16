@@ -4,6 +4,7 @@ import { authenticate } from "@/lib/api-authz";
 import { getVisibleSystem } from "@/lib/system-visibility";
 import { canManageCapabilities, getSystemCapabilities } from "@/lib/system-capabilities";
 import { applyCapabilityRemoved } from "@/lib/capability-fulfillment";
+import { logChangeEvent } from "@/lib/change-events";
 
 export async function DELETE(
   request: NextRequest,
@@ -25,10 +26,18 @@ export async function DELETE(
     );
   }
 
+  const capability = await prisma.capability.findUnique({ where: { id: capabilityId } });
+
   await prisma.system.update({
     where: { id: system.id },
     data: { capabilities: { disconnect: { id: capabilityId } } },
   });
+  await logChangeEvent(
+    system.id,
+    "CLASSIFICATION_CHANGED",
+    `Capability "${capability?.name ?? capabilityId}" removed`,
+    auth.user.id,
+  );
   await applyCapabilityRemoved(system, capabilityId);
 
   const capabilities = await getSystemCapabilities(system.id);

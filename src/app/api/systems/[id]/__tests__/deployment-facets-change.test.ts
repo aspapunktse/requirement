@@ -189,6 +189,12 @@ describe("PATCH /api/systems/[id] (Deployment Facet change)", () => {
       where: { systemId_requirementId: { systemId, requirementId: onlyAId } },
     });
     expect(onlyAAssessment).toBeNull();
+
+    const event = await prisma.changeEvent.findFirst({
+      where: { systemId, action: "CLASSIFICATION_CHANGED" },
+      orderBy: { createdAt: "desc" },
+    });
+    expect(event?.actorId).toBe(ownerId);
   });
 
   it("leaves a manually-touched no-longer-applicable Assessment in place instead of deleting it", async () => {

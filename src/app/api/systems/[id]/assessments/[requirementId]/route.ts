@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { authenticate } from "@/lib/api-authz";
 import { getVisibleSystem } from "@/lib/system-visibility";
 import { checkWaiveGate, getRequirementForAssessmentEdit } from "@/lib/requirement-assessments";
+import { logChangeEvent } from "@/lib/change-events";
 
 const STATUSES_REQUIRING_WAIVE_ROLE: RequirementStatus[] = ["WAIVED", "NOT_APPLICABLE"];
 
@@ -45,6 +46,10 @@ export async function PATCH(
     }
   }
 
+  const existing = await prisma.requirementAssessment.findUnique({
+    where: { systemId_requirementId: { systemId: system.id, requirementId } },
+  });
+
   const assessment = await prisma.requirementAssessment.upsert({
     where: { systemId_requirementId: { systemId: system.id, requirementId } },
     create: {
@@ -69,6 +74,15 @@ export async function PATCH(
     },
     include: { assessedBy: true },
   });
+
+  if ((existing?.status ?? "NOT_STARTED") !== status) {
+    await logChangeEvent(
+      system.id,
+      "ASSESSMENT_STATUS_CHANGED",
+      `${requirement.code} status changed from ${existing?.status ?? "NOT_STARTED"} to ${status}`,
+      auth.user.id,
+    );
+  }
 
   return NextResponse.json({ assessment });
 }

@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { authorize } from "@/lib/api-authz";
 import { getVisibleSystem } from "@/lib/system-visibility";
 import { ROLES_ALLOWED_TO_MANAGE_RISK_STATUS, RISK_INCLUDE } from "@/lib/risks";
+import { logChangeEvent } from "@/lib/change-events";
 
 const updateRiskSchema = z.object({
   status: z.enum(RiskStatus),
@@ -47,5 +48,13 @@ export async function PATCH(
     data: { status, mitigationPlan },
     include: RISK_INCLUDE,
   });
+  if (existing.status !== status) {
+    await logChangeEvent(
+      system.id,
+      "RISK_STATUS_CHANGED",
+      `Risk "${existing.title}" status changed from ${existing.status} to ${status}`,
+      auth.user.id,
+    );
+  }
   return NextResponse.json({ risk });
 }

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { authenticate } from "@/lib/api-authz";
 import { getVisibleSystem } from "@/lib/system-visibility";
 import { getUnaddressedMandatoryRequirements } from "@/lib/requirement-assessments";
+import { logChangeEvent } from "@/lib/change-events";
 
 export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems/[id]/submit">) {
   const auth = await authenticate(request);
@@ -32,6 +33,7 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems
     data: { status: "IN_REVIEW" },
     include: { deploymentFacets: true, owner: true },
   });
+  await logChangeEvent(system.id, "SYSTEM_SUBMITTED", "Submitted for review", auth.user.id);
 
   return NextResponse.json({ system: updated });
 }

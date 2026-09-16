@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { authenticate } from "@/lib/api-authz";
 import { getVisibleSystem } from "@/lib/system-visibility";
 import { canManageFrameworkScopes, getSystemFrameworkScopes } from "@/lib/framework-scope";
+import { logChangeEvent } from "@/lib/change-events";
 
 export async function DELETE(
   request: NextRequest,
@@ -24,10 +25,18 @@ export async function DELETE(
     );
   }
 
+  const framework = await prisma.framework.findUnique({ where: { id: frameworkId } });
+
   await prisma.system.update({
     where: { id: system.id },
     data: { frameworkScopes: { disconnect: { id: frameworkId } } },
   });
+  await logChangeEvent(
+    system.id,
+    "CLASSIFICATION_CHANGED",
+    `Framework Scope "${framework?.name ?? frameworkId}" removed`,
+    auth.user.id,
+  );
 
   const frameworkScopes = await getSystemFrameworkScopes(system.id);
   return NextResponse.json({ frameworkScopes });

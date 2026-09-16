@@ -5,6 +5,7 @@ import {
   diffApplicabilityOps,
   type SystemClassification,
 } from "@/lib/requirement-assessments";
+import { logChangeEvent } from "@/lib/change-events";
 
 /**
  * Who may change a System's classification — its declared Deployment
@@ -66,6 +67,7 @@ export type ClassificationChanges = {
 export async function changeSystemClassification(
   system: SystemClassification & { id: string },
   changes: ClassificationChanges,
+  actorId: string,
 ) {
   const newClassification: SystemClassification = {
     deploymentFacets:
@@ -113,6 +115,13 @@ export async function changeSystemClassification(
     deleteOp,
     createOp,
   ]);
+
+  await logChangeEvent(
+    system.id,
+    "CLASSIFICATION_CHANGED",
+    `Classification changed (+${added}/-${removed.count} Requirement Assessment(s))`,
+    actorId,
+  );
 
   return { added, removed: removed.count };
 }

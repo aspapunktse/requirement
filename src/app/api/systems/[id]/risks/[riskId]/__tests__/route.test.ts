@@ -130,6 +130,12 @@ describe("PATCH /api/systems/[id]/risks/[riskId]", () => {
 
     expect(response.status).toBe(200);
     expect(body.risk.status).toBe("ACCEPTED");
+
+    const event = await prisma.changeEvent.findFirst({
+      where: { systemId, action: "RISK_STATUS_CHANGED", actorId: riskOwnerId },
+      orderBy: { createdAt: "desc" },
+    });
+    expect(event?.detail).toContain("ACCEPTED");
   });
 
   it("rejects setting Mitigated without a mitigation plan", async () => {

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { authenticate } from "@/lib/api-authz";
 import { getVisibleSystem } from "@/lib/system-visibility";
 import { canManageFrameworkScopes, getSystemFrameworkScopes } from "@/lib/framework-scope";
+import { logChangeEvent } from "@/lib/change-events";
 
 export async function GET(request: NextRequest, ctx: RouteContext<"/api/systems/[id]/framework-scopes">) {
   const auth = await authenticate(request);
@@ -52,6 +53,12 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems
     where: { id: system.id },
     data: { frameworkScopes: { connect: { id: framework.id } } },
   });
+  await logChangeEvent(
+    system.id,
+    "CLASSIFICATION_CHANGED",
+    `Framework Scope "${framework.name}" added`,
+    auth.user.id,
+  );
 
   const frameworkScopes = await getSystemFrameworkScopes(system.id);
   return NextResponse.json({ frameworkScopes }, { status: 201 });

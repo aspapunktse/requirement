@@ -54,7 +54,7 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems
     return NextResponse.json({ error: "Regulatory Overlay not found" }, { status: 400 });
   }
 
-  await applyOverlayDeclared(system, overlay.id);
+  await applyOverlayDeclared(system, overlay.id, auth.user.id);
 
   const regulatoryOverlays = await getSystemRegulatoryOverlays(system.id);
   return NextResponse.json({ regulatoryOverlays }, { status: 201 });

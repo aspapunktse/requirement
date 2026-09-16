@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { authorize } from "@/lib/api-authz";
 import { getVisibleSystem } from "@/lib/system-visibility";
 import { canMarkOnboarded } from "@/lib/onboarding";
+import { logChangeEvent } from "@/lib/change-events";
 
 const ROLES_ALLOWED_TO_ONBOARD = ["ADMIN", "SYSTEM_OWNER"] as const;
 
@@ -35,6 +36,7 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems
     data: { status: "ONBOARDED", onboardedAt: new Date() },
     include: { deploymentFacets: true, owner: true },
   });
+  await logChangeEvent(system.id, "SYSTEM_ONBOARDED", "Marked Onboarded", auth.user.id);
 
   return NextResponse.json({ system: updated });
 }

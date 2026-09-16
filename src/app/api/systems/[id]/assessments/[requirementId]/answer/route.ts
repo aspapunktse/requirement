@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { authenticate } from "@/lib/api-authz";
 import { getVisibleSystem } from "@/lib/system-visibility";
 import { checkWaiveGate, getApplicableRequirement } from "@/lib/requirement-assessments";
+import { logChangeEvent, SYSTEM_ACTOR } from "@/lib/change-events";
 
 const answerSchema = z.object({
   answer: z.enum(SelfAssessmentAnswer),
@@ -60,6 +61,10 @@ export async function PATCH(
 
   const status = statusForAnswer(answer);
 
+  const existing = await prisma.requirementAssessment.findUnique({
+    where: { systemId_requirementId: { systemId: system.id, requirementId } },
+  });
+
   const assessment = await prisma.requirementAssessment.upsert({
     where: { systemId_requirementId: { systemId: system.id, requirementId } },
     create: {
@@ -83,6 +88,15 @@ export async function PATCH(
     include: { assessedBy: true },
   });
 
+  if ((existing?.status ?? "NOT_STARTED") !== status) {
+    await logChangeEvent(
+      system.id,
+      "ASSESSMENT_STATUS_CHANGED",
+      `${requirement.code} status changed from ${existing?.status ?? "NOT_STARTED"} to ${status} (Self-Assessment answer: ${answer})`,
+      auth.user.id,
+    );
+  }
+
   if (answer === "NO") {
     const existingRisk = await prisma.risk.findFirst({
       where: { requirementAssessmentId: assessment.id },
@@ -98,6 +112,12 @@ export async function PATCH(
           requirementAssessmentId: assessment.id,
         },
       });
+      await logChangeEvent(
+        system.id,
+        "RISK_STATUS_CHANGED",
+        `Risk "${requirement.code}: ${requirement.title}" auto-opened (status: OPEN) from a "No" Self-Assessment answer`,
+        SYSTEM_ACTOR,
+      );
     }
   }
 

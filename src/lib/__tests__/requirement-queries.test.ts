@@ -150,6 +150,19 @@ describe("raiseQuery / addQueryMessage / resolveQuery (integration)", () => {
     expect(reopened.resolvedById).toBeNull();
     expect(reopened.lastMessageAuthorId).toBe(ownerId);
     expect(reopened.messages).toHaveLength(2);
+
+    const repliedEvent = await prisma.changeEvent.findFirst({
+      where: { systemId: system.id, action: "QUERY_REPLIED" },
+      orderBy: { createdAt: "desc" },
+    });
+    expect(repliedEvent?.actorId).toBe(ownerId);
+
+    await resolveQuery(query.id, reviewerId);
+    const resolvedEvent = await prisma.changeEvent.findFirst({
+      where: { systemId: system.id, action: "QUERY_RESOLVED" },
+      orderBy: { createdAt: "desc" },
+    });
+    expect(resolvedEvent?.actorId).toBe(reviewerId);
   });
 
   it("getActionableQueryCountsBySystem: owner's turn after a raise, reviewer's turn after a reply", async () => {
@@ -159,6 +172,12 @@ describe("raiseQuery / addQueryMessage / resolveQuery (integration)", () => {
     systemIds.push(system.id);
 
     const query = await raiseQuery(system, requirementId, reviewerId, "Question one");
+
+    const raisedEvent = await prisma.changeEvent.findFirst({
+      where: { systemId: system.id, action: "QUERY_OPENED" },
+      orderBy: { createdAt: "desc" },
+    });
+    expect(raisedEvent?.actorId).toBe(reviewerId);
 
     const ownerCountsAfterRaise = await getActionableQueryCountsBySystem(
       { id: ownerId, role: "SYSTEM_OWNER" },

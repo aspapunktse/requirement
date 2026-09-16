@@ -207,6 +207,12 @@ describe("POST /api/systems/[id]/submit", () => {
 
     expect(response.status).toBe(200);
     expect(body.system.status).toBe("IN_REVIEW");
+
+    const event = await prisma.changeEvent.findFirst({
+      where: { systemId, action: "SYSTEM_SUBMITTED" },
+      orderBy: { createdAt: "desc" },
+    });
+    expect(event?.actorId).toBe(ownerId);
   });
 
   it("rejects submitting a System that isn't Draft", async () => {
@@ -248,6 +254,12 @@ describe("POST /api/systems/[id]/submit", () => {
       where: { systemId_requirementId: { systemId, requirementId: mandatoryRequirementId } },
     });
     expect(autoFulfilled).toMatchObject({ status: "FULFILLED", fulfilledByCapabilityId: capabilityId });
+
+    const autoFulfillEvent = await prisma.changeEvent.findFirst({
+      where: { systemId, action: "ASSESSMENT_STATUS_CHANGED", actorId: "system" },
+      orderBy: { createdAt: "desc" },
+    });
+    expect(autoFulfillEvent?.detail).toContain("auto-fulfilled");
 
     await fulfillAllMandatoryRequirements(systemId, [systemTypeId]);
 

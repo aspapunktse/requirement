@@ -5,6 +5,7 @@ import {
   diffApplicabilityOps,
   type SystemClassification,
 } from "@/lib/requirement-assessments";
+import { logChangeEvent } from "@/lib/change-events";
 
 /**
  * Who may declare or undeclare a Regulatory Overlay on a System: ADMIN, or
@@ -35,7 +36,7 @@ type OverlaySystem = SystemClassification & { id: string };
  * (any Requirement scoped to this overlay). Syncs Assessment rows the same
  * way a Deployment Facet change does — see diffApplicabilityOps.
  */
-export async function applyOverlayDeclared(system: OverlaySystem, overlayId: string) {
+export async function applyOverlayDeclared(system: OverlaySystem, overlayId: string, actorId: string) {
   const newOverlayIds = [...system.regulatoryOverlays.map((o) => o.id), overlayId];
 
   const [oldApplicable, newApplicable] = await Promise.all([
@@ -53,6 +54,13 @@ export async function applyOverlayDeclared(system: OverlaySystem, overlayId: str
     createOp,
   ]);
 
+  await logChangeEvent(
+    system.id,
+    "CLASSIFICATION_CHANGED",
+    `Regulatory Overlay declared (+${added}/-${removed.count} Requirement Assessment(s))`,
+    actorId,
+  );
+
   return { added, removed: removed.count };
 }
 
@@ -62,7 +70,7 @@ export async function applyOverlayDeclared(system: OverlaySystem, overlayId: str
  * applicable is removed; one a human has already worked on is left in
  * place and surfaced via getStaleAssessments.
  */
-export async function applyOverlayRemoved(system: OverlaySystem, overlayId: string) {
+export async function applyOverlayRemoved(system: OverlaySystem, overlayId: string, actorId: string) {
   const newOverlayIds = system.regulatoryOverlays.map((o) => o.id).filter((id) => id !== overlayId);
 
   const [oldApplicable, newApplicable] = await Promise.all([
@@ -79,6 +87,13 @@ export async function applyOverlayRemoved(system: OverlaySystem, overlayId: stri
     deleteOp,
     createOp,
   ]);
+
+  await logChangeEvent(
+    system.id,
+    "CLASSIFICATION_CHANGED",
+    `Regulatory Overlay removed (+${added}/-${removed.count} Requirement Assessment(s))`,
+    actorId,
+  );
 
   return { added, removed: removed.count };
 }

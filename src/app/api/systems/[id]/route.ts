@@ -87,12 +87,16 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/system
     }
   }
 
-  const { added, removed } = await changeSystemClassification(system, {
-    deploymentFacetIds,
-    confidentialityImpactLevel,
-    integrityImpactLevel,
-    availabilityImpactLevel,
-  });
+  const { added, removed } = await changeSystemClassification(
+    system,
+    {
+      deploymentFacetIds,
+      confidentialityImpactLevel,
+      integrityImpactLevel,
+      availabilityImpactLevel,
+    },
+    auth.user.id,
+  );
 
   const updated = await prisma.system.findUnique({
     where: { id: system.id },
