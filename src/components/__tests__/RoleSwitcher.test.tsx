@@ -4,9 +4,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { RoleSwitcher } from "../RoleSwitcher";
 
 const refresh = vi.fn();
+const push = vi.fn();
 
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ refresh }),
+  useRouter: () => ({ refresh, push }),
 }));
 
 const users = [
@@ -17,6 +18,7 @@ const users = [
 describe("RoleSwitcher", () => {
   beforeEach(() => {
     refresh.mockClear();
+    push.mockClear();
     vi.stubGlobal(
       "fetch",
       vi.fn((input: string | URL | Request) => {
@@ -43,7 +45,7 @@ describe("RoleSwitcher", () => {
     expect(screen.getByRole("option", { name: "Vic Viewer (VIEWER)" })).toBeInTheDocument();
   });
 
-  it("posts the selected user and refreshes on change", async () => {
+  it("posts the selected user and redirects to /home on change", async () => {
     const user = userEvent.setup();
     render(<RoleSwitcher />);
 
@@ -57,6 +59,7 @@ describe("RoleSwitcher", () => {
       expect(postCall).toBeTruthy();
       expect(JSON.parse(postCall![1].body)).toEqual({ userId: "u2" });
     });
+    expect(push).toHaveBeenCalledWith("/home");
     expect(refresh).toHaveBeenCalled();
   });
 });

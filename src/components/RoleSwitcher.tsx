@@ -43,6 +43,9 @@ export function RoleSwitcher() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ userId }),
     });
+    // Not every role can see every page, so stay put risks a 404 for the
+    // role just switched to — /home is valid for all of them. See #59.
+    router.push("/home");
     router.refresh();
   }
 
