@@ -43,6 +43,10 @@ export function RoleSwitcher() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ userId }),
     });
+    // Not every role can see every subpage — always land on /home, which is
+    // valid for any role, rather than refreshing in place and risking a 404
+    // for the role just switched to. See issue #59.
+    router.push("/home");
     router.refresh();
   }
 
