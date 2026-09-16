@@ -38,3 +38,23 @@ export function riskStatusTone(status: string): ChipTone {
       return "neutral";
   }
 }
+
+/** Tone for a Risk's severity — distinct from `riskStatusTone` since every
+ * row on the landing page's task table is already OPEN, so status alone
+ * wouldn't differentiate them. */
+export function riskSeverityTone(severity: string): ChipTone {
+  switch (severity) {
+    case "CRITICAL":
+    case "HIGH":
+      return "danger";
+    case "MEDIUM":
+      return "warn";
+    default:
+      return "neutral";
+  }
+}
+
+/** Tone for a `getSystemsNeedingAttention` reason. */
+export function attentionReasonTone(reason: "stale" | "rejected"): ChipTone {
+  return reason === "rejected" ? "danger" : "warn";
+}

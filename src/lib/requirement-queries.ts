@@ -142,3 +142,51 @@ export async function getActionableQueryCount(user: { id: string; role: UserRole
   const counts = await getActionableQueryCountsBySystem(user, systemIds);
   return [...counts.values()].reduce((sum, n) => sum + n, 0);
 }
+
+export type ActionableQuery = {
+  id: string;
+  systemId: string;
+  systemName: string;
+  requirementTitle: string;
+  updatedAt: Date;
+};
+
+/**
+ * The actual open Requirement Query rows actionable by `user` across
+ * `systemIds` — same filtering as `getActionableQueryCountsBySystem`, but
+ * returning enough per-row detail (System, Requirement, most recent message
+ * time) for the landing page's unified task table, not just a count.
+ */
+export async function getActionableQueries(
+  user: { id: string; role: UserRole },
+  systemIds: string[],
+): Promise<ActionableQuery[]> {
+  if (systemIds.length === 0) return [];
+
+  const openQueries = await prisma.requirementQuery.findMany({
+    where: { resolved: false, requirementAssessment: { systemId: { in: systemIds } } },
+    include: {
+      requirementAssessment: {
+        include: {
+          system: { select: { id: true, name: true, ownerId: true } },
+          requirement: { select: { title: true } },
+        },
+      },
+      messages: { orderBy: { createdAt: "desc" }, take: 1, select: { createdAt: true } },
+    },
+  });
+
+  const rows: ActionableQuery[] = [];
+  for (const query of openQueries) {
+    const { system, requirement } = query.requirementAssessment;
+    if (!isQueryActionableBy(query, system, user)) continue;
+    rows.push({
+      id: query.id,
+      systemId: system.id,
+      systemName: system.name,
+      requirementTitle: requirement.title,
+      updatedAt: query.messages[0]?.createdAt ?? query.createdAt,
+    });
+  }
+  return rows;
+}

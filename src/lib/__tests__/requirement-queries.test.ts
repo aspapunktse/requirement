@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import {
   addQueryMessage,
   canReplyToQuery,
+  getActionableQueries,
   getActionableQueryCountsBySystem,
   isAwaitingOwner,
   isQueryActionableBy,
@@ -184,5 +185,24 @@ describe("raiseQuery / addQueryMessage / resolveQuery (integration)", () => {
       [system.id],
     );
     expect(reviewerCountsAfterReply.get(system.id)).toBe(1);
+  });
+
+  it("getActionableQueries: returns the System/Requirement/timing detail behind the count", async () => {
+    const system = await prisma.system.create({
+      data: { name: `Query Detail ${Date.now()}`, ownerId, status: "DRAFT" },
+    });
+    systemIds.push(system.id);
+
+    const query = await raiseQuery(system, requirementId, reviewerId, "Detail question");
+
+    const ownerQueries = await getActionableQueries({ id: ownerId, role: "SYSTEM_OWNER" }, [system.id]);
+    const row = ownerQueries.find((q) => q.id === query.id);
+    expect(row).toBeDefined();
+    expect(row?.systemId).toBe(system.id);
+    expect(row?.systemName).toBe(system.name);
+    expect(row?.requirementTitle).toBe("Query Target");
+
+    const reviewerQueries = await getActionableQueries({ id: reviewerId, role: "REVIEWER" }, [system.id]);
+    expect(reviewerQueries.find((q) => q.id === query.id)).toBeUndefined();
   });
 });
