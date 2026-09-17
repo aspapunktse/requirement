@@ -10,10 +10,14 @@ export type PublicUser = { id: string; name: string; email: string; role: UserRo
 /**
  * The dev-only "acting as" mechanism (this route, the switcher, and the
  * seeded-user list) is disabled outside development so it can never become
- * the de facto production auth once real SSO/OIDC ships.
+ * the de facto production auth once real SSO/OIDC ships. `ALLOW_DEV_AUTH_STUB`
+ * is a narrow, explicit escape hatch for a demo/staging deployment that
+ * still builds with NODE_ENV=production (e.g. Vercel) but has no real auth
+ * yet either — set it only on environments where that's a deliberate
+ * choice, never on a real customer-facing production.
  */
 export function isDevAuthStubEnabled() {
-  return process.env.NODE_ENV !== "production";
+  return process.env.NODE_ENV !== "production" || process.env.ALLOW_DEV_AUTH_STUB === "true";
 }
 
 export function resolveActingUser(userId: string | undefined) {
