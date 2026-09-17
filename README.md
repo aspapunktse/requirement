@@ -65,6 +65,21 @@ App runs at http://localhost:3000, health check at `/api/health`.
 | `npm test` | Run Vitest suite |
 | `npm run prisma:migrate` | Create/apply a local migration |
 | `npm run prisma:studio` | Browse the database |
+| `npm run vercel:env:pull` | Pull a linked Vercel project's production env vars into `.env.production.local` |
+| `npm run prisma:seed:prod` | Run the seed script against `.env.production.local` (see below) |
+
+## Seeding a Vercel deployment
+
+The seed script (`prisma/seed.ts`) is meant to run **once, from your machine, against the production database** — not as part of Vercel's build step, since a build can re-run and you don't want the seed firing repeatedly against prod.
+
+```bash
+npm i -g vercel        # if you don't have the CLI yet
+vercel link            # link this checkout to the Vercel project, once
+npm run vercel:env:pull  # writes .env.production.local (gitignored)
+npm run prisma:seed:prod
+```
+
+Make sure `prisma migrate deploy` has already been run against that same database first (Vercel's build can do this automatically via a `prisma migrate deploy` build step, or run it manually with the same `.env.production.local`). Check `prisma/seed.ts` before re-running it against a real environment — it upserts most rows, but confirm it won't create duplicate demo data if run twice.
 
 ## CI/CD
 
