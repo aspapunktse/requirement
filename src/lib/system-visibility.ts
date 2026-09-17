@@ -1,18 +1,29 @@
 import type { Prisma, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { getAssignedScope, scopedSystemsWhere } from "@/lib/business-risk-owner";
 
 const FULL_VISIBILITY_ROLES: UserRole[] = ["ADMIN", "RISK_OWNER", "REVIEWER"];
 
 /**
  * The Prisma `where` clause for Systems a given user is allowed to see:
- * ADMIN/RISK_OWNER/REVIEWER see every System in every status; everyone
- * else sees Systems they own (any status) plus every ONBOARDED System.
+ * ADMIN/RISK_OWNER/REVIEWER see every System in every status; a
+ * BUSINESS_RISK_OWNER additionally sees every System within their assigned
+ * Business Unit(s)/Framework(s), any status — they already see these
+ * Systems' Risks/compliance data via the Business Risk Owner dashboard, so
+ * drilling into a System's own page from there (e.g. the System Portfolio,
+ * see #62) shouldn't 404; everyone else sees Systems they own (any status)
+ * plus every ONBOARDED System.
  */
-export function visibleSystemsWhere(user: { id: string; role: UserRole }): Prisma.SystemWhereInput {
+export async function visibleSystemsWhere(user: { id: string; role: UserRole }): Promise<Prisma.SystemWhereInput> {
   if (FULL_VISIBILITY_ROLES.includes(user.role)) {
     return {};
   }
-  return { OR: [{ ownerId: user.id }, { status: "ONBOARDED" }] };
+  const ownedOrOnboarded: Prisma.SystemWhereInput[] = [{ ownerId: user.id }, { status: "ONBOARDED" }];
+  if (user.role === "BUSINESS_RISK_OWNER") {
+    const scope = await getAssignedScope(user.id);
+    ownedOrOnboarded.push(scopedSystemsWhere(scope));
+  }
+  return { OR: ownedOrOnboarded };
 }
 
 const SYSTEM_SUMMARY_INCLUDE = {
@@ -22,18 +33,20 @@ const SYSTEM_SUMMARY_INCLUDE = {
 } satisfies Prisma.SystemInclude;
 
 /** Every System the given user is allowed to see, newest first. */
-export function getVisibleSystems(user: { id: string; role: UserRole }) {
+export async function getVisibleSystems(user: { id: string; role: UserRole }) {
+  const where = await visibleSystemsWhere(user);
   return prisma.system.findMany({
-    where: visibleSystemsWhere(user),
+    where,
     include: SYSTEM_SUMMARY_INCLUDE,
     orderBy: { createdAt: "desc" },
   });
 }
 
 /** One System by id, or null if it doesn't exist or the user can't see it. */
-export function getVisibleSystem(user: { id: string; role: UserRole }, id: string) {
+export async function getVisibleSystem(user: { id: string; role: UserRole }, id: string) {
+  const where = await visibleSystemsWhere(user);
   return prisma.system.findFirst({
-    where: { id, ...visibleSystemsWhere(user) },
+    where: { id, ...where },
     include: SYSTEM_SUMMARY_INCLUDE,
   });
 }

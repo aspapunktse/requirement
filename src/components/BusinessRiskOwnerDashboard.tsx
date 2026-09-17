@@ -1,10 +1,23 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { StatusChip } from "@/components/ui/StatusChip";
-import { riskStatusTone } from "@/lib/status-tones";
+import { onboardingStatusTone, riskStatusTone } from "@/lib/status-tones";
 
 type CatalogItem = { id: string; name: string };
+
+type PortfolioSystem = {
+  id: string;
+  name: string;
+  vendor: string | null;
+  status: string;
+  compliancePercentage: number | null;
+  openRiskCount: number;
+};
+
+/** Display order for grouping the System Portfolio by onboarding status. */
+const PORTFOLIO_STATUS_ORDER = ["DRAFT", "IN_REVIEW", "APPROVED", "REJECTED", "ONBOARDED"];
 
 type Risk = {
   id: string;
@@ -41,10 +54,11 @@ function buildQuery(businessUnitId: string, frameworkId: string) {
 }
 
 /**
- * The Business Risk Owner's two views: a Risk queue and a compliance-%
- * breakdown, both scoped to the acting user's assigned Business Unit(s)/
- * Framework(s) server-side, and both filterable together by an explicit
- * Business Unit and/or Framework picked from the assigned portfolio (the
+ * The Business Risk Owner's three views: a compliance-% breakdown, a System
+ * Portfolio grouped by onboarding status (see #62), and a Risk queue — all
+ * scoped to the acting user's assigned Business Unit(s)/Framework(s)
+ * server-side, and all filterable together by an explicit Business Unit
+ * and/or Framework picked from the assigned portfolio (the
  * `businessUnits`/`frameworks` props — passed down from the server
  * component, since this app has no general "who am I" client endpoint
  * outside the dev-only acting-user stub). See #55.
@@ -60,6 +74,7 @@ export function BusinessRiskOwnerDashboard({
   const [frameworkId, setFrameworkId] = useState("");
   const [risks, setRisks] = useState<Risk[] | null>(null);
   const [compliance, setCompliance] = useState<Compliance | null>(null);
+  const [portfolio, setPortfolio] = useState<PortfolioSystem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const query = useMemo(() => buildQuery(businessUnitId, frameworkId), [businessUnitId, frameworkId]);
@@ -71,25 +86,43 @@ export function BusinessRiskOwnerDashboard({
     Promise.all([
       fetch(`/api/business-risk-owner/risks${query}`),
       fetch(`/api/business-risk-owner/compliance${query}`),
-    ]).then(async ([risksRes, complianceRes]) => {
+      fetch(`/api/business-risk-owner/portfolio${query}`),
+    ]).then(async ([risksRes, complianceRes, portfolioRes]) => {
       if (cancelled) return;
-      if (!risksRes.ok || !complianceRes.ok) {
-        const body = await (risksRes.ok ? complianceRes : risksRes).json();
+      if (!risksRes.ok || !complianceRes.ok || !portfolioRes.ok) {
+        const failed = [risksRes, complianceRes, portfolioRes].find((res) => !res.ok);
+        const body = await failed!.json();
         setError(body.error ?? "Failed to load Business Risk Owner data");
         setRisks([]);
         setCompliance(null);
+        setPortfolio([]);
         return;
       }
       const risksBody = await risksRes.json();
       const complianceBody = await complianceRes.json();
+      const portfolioBody = await portfolioRes.json();
       setRisks(risksBody.risks ?? []);
       setCompliance(complianceBody.compliance ?? null);
+      setPortfolio(portfolioBody.portfolio ?? []);
     });
 
     return () => {
       cancelled = true;
     };
   }, [query]);
+
+  const portfolioByStatus = useMemo(() => {
+    if (!portfolio) return null;
+    const groups = new Map<string, PortfolioSystem[]>();
+    for (const system of portfolio) {
+      const group = groups.get(system.status) ?? [];
+      group.push(system);
+      groups.set(system.status, group);
+    }
+    return PORTFOLIO_STATUS_ORDER.map((status) => ({ status, systems: groups.get(status) ?? [] })).filter(
+      (group) => group.systems.length > 0,
+    );
+  }, [portfolio]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -157,6 +190,42 @@ export function BusinessRiskOwnerDashboard({
               ))}
             </ul>
           </>
+        )}
+      </section>
+
+      <section>
+        <h2 className="mb-2 text-lg">System Portfolio</h2>
+        {portfolioByStatus === null ? (
+          <p className="text-sm text-zinc-500">Loading…</p>
+        ) : portfolioByStatus.length === 0 ? (
+          <p className="text-sm text-zinc-500">No Systems are currently associated with this Business Unit.</p>
+        ) : (
+          <div className="flex flex-col gap-4">
+            {portfolioByStatus.map((group) => (
+              <div key={group.status}>
+                <h3 className="mb-2 text-sm text-zinc-500">
+                  {group.status} ({group.systems.length})
+                </h3>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
+                  {group.systems.map((system) => (
+                    <Link
+                      key={system.id}
+                      href={`/systems/${system.id}`}
+                      className="flex flex-col gap-1 rounded border border-zinc-200 p-2 text-sm hover:border-zinc-400 dark:border-zinc-800 dark:hover:border-zinc-600"
+                    >
+                      <StatusChip tone={onboardingStatusTone(system.status)}>{system.status}</StatusChip>
+                      <span className="font-medium">{system.name}</span>
+                      {system.vendor && <span className="text-xs text-zinc-500">{system.vendor}</span>}
+                      <span className="text-xs text-zinc-500">
+                        {system.compliancePercentage === null ? "—" : `${system.compliancePercentage}%`} compliant ·{" "}
+                        {system.openRiskCount} open Risk{system.openRiskCount === 1 ? "" : "s"}
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
         )}
       </section>
 
