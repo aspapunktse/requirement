@@ -84,7 +84,7 @@ Make sure `prisma migrate deploy` has already been run against that same databas
 ## CI/CD
 
 - **`.github/workflows/ci.yml`** runs on every pull request and push to `main`: lint, typecheck, unit tests against a real Postgres service container, production build, and a Docker build check. All must pass before a PR can merge.
-- **`.github/workflows/cd.yml`** runs after CI succeeds on `main`: builds and pushes the production image to GitHub Container Registry (`ghcr.io/<owner>/<repo>`), then a `deploy` job (gated by the `production` GitHub Environment) deploys that commit to Vercel with the Vercel CLI (`vercel pull` / `build --prod` / `deploy --prebuilt --prod`). Vercel's own Git auto-deploy is disabled for `main` in `vercel.json` so production only ships from a green commit; other branches still get Vercel preview deployments. Requires a `VERCEL_TOKEN` secret (the org/project IDs are in the workflow file).
+- **`.github/workflows/cd.yml`** runs after CI succeeds on `main`: builds and pushes the production image to GitHub Container Registry (`ghcr.io/<owner>/<repo>`), then a `deploy` job (gated by the `production` GitHub Environment) deploys that commit to Vercel with the Vercel CLI (`vercel deploy --prod`; Vercel builds remotely, so its project env vars like `DATABASE_URL` stay in Vercel). Vercel's own Git auto-deploy is disabled for `main` in `vercel.json` so production only ships from a green commit; other branches still get Vercel preview deployments. Requires a `VERCEL_TOKEN` secret (the org/project IDs are in the workflow file).
 
 ### Recommended repo settings
 

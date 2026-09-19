@@ -62,11 +62,8 @@ jobs:
             exit 1
           fi
 
-      - name: Pull Vercel project settings
-        run: npx --yes vercel@59.23.2 pull --yes --environment=production --token="$VERCEL_TOKEN"
-
-      - name: Build
-        run: npx --yes vercel@59.23.2 build --prod --token="$VERCEL_TOKEN"
-
+      # No local `vercel build`: the project's build command runs `prisma migrate deploy`,
+      # which needs DATABASE_URL, and `vercel pull` doesn't return Sensitive env vars.
+      # Letting Vercel build remotely keeps those values out of GitHub.
       - name: Deploy to production
-        run: npx --yes vercel@59.23.2 deploy --prebuilt --prod --token="$VERCEL_TOKEN"
+        run: npx --yes vercel@59.23.2 deploy --prod --yes --token="$VERCEL_TOKEN"
