@@ -84,13 +84,13 @@ Make sure `prisma migrate deploy` has already been run against that same databas
 ## CI/CD
 
 - **`.github/workflows/ci.yml`** runs on every pull request and push to `main`: lint, typecheck, unit tests against a real Postgres service container, production build, and a Docker build check. All must pass before a PR can merge.
-- **`.github/workflows/cd.yml`** runs after CI succeeds on `main`: builds and pushes the production image to GitHub Container Registry (`ghcr.io/<owner>/<repo>`), then runs a `deploy` job gated by the `production` GitHub Environment (use this to require manual approval and to add the real deploy step once a hosting target — Azure/AWS/Vercel/etc. — is chosen).
+- **`.github/workflows/cd.yml`** runs after CI succeeds on `main`: builds and pushes the production image to GitHub Container Registry (`ghcr.io/<owner>/<repo>`), then a `deploy` job (gated by the `production` GitHub Environment) deploys that commit to Vercel with the Vercel CLI (`vercel pull` / `build --prod` / `deploy --prebuilt --prod`). Vercel's own Git auto-deploy is disabled for `main` in `vercel.json` so production only ships from a green commit; other branches still get Vercel preview deployments. Requires a `VERCEL_TOKEN` secret (the org/project IDs are in the workflow file).
 
 ### Recommended repo settings
 
 - Protect `main`: require the CI workflow to pass and require PR review before merge.
 - Add a `production` GitHub Environment with required reviewers if deploys should be gated by human approval.
-- Set repo secrets/variables for the eventual deploy step (cloud credentials) — do not commit them.
+- Set the `VERCEL_TOKEN` secret (on the `production` environment or repo-wide) for the deploy step — do not commit it.
 
 ## Docker
 

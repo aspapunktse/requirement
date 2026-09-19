@@ -36,13 +36,37 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+  # Vercel's own Git auto-deploy is disabled for main in vercel.json, so
+  # production only ever deploys from here, after CI has passed.
   deploy:
     needs: publish
     runs-on: ubuntu-latest
     environment: production
+    env:
+      VERCEL_ORG_ID: team_rYyzeCcAGDrF5PVgonmbhDOO
+      VERCEL_PROJECT_ID: prj_whCroO48Sq1pZZa0yLpdDUI8she3
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
     steps:
-      - name: Deploy
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Require VERCEL_TOKEN
         run: |
-          echo "TODO: wire up the actual deploy step once a hosting target is chosen"
-          echo "e.g. az webapp deploy / aws ecs update-service / kubectl set image / etc."
-          echo "Image published: ghcr.io/${{ github.repository }}:${{ github.sha }}"
+          if [ -z "$VERCEL_TOKEN" ]; then
+            echo "::error::VERCEL_TOKEN secret is not set (add it to the 'production' environment or repo secrets)"
+            exit 1
+          fi
+
+      - name: Pull Vercel project settings
+        run: npx --yes vercel@59.23.2 pull --yes --environment=production --token="$VERCEL_TOKEN"
+
+      - name: Build
+        run: npx --yes vercel@59.23.2 build --prod --token="$VERCEL_TOKEN"
+
+      - name: Deploy to production
+        run: npx --yes vercel@59.23.2 deploy --prebuilt --prod --token="$VERCEL_TOKEN"
