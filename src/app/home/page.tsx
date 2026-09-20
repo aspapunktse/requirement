@@ -30,23 +30,33 @@ export default async function HomePage() {
   return (
     <div className="mx-auto max-w-4xl p-6">
       <PageHead
+        breadcrumb={["ISMS · System onboarding", "Home"]}
         pageId={`HOME . ${user.role.replace(/_/g, " ")}`}
         title={`Welcome, ${user.name}.`}
         lede={view.lede}
-        stats={view.stats}
+        stats={[{ label: "Role", value: user.role.replace(/_/g, " ") }, ...view.stats]}
       />
 
       {view.tasks && (
         <section className="mb-8">
-          <h2 className="ems-mono-label mb-3 text-ems-ink-3">My tasks</h2>
+          <SectionHead title="My tasks" note={`${view.tasks.length} open`} />
           <TaskTable rows={view.tasks} />
         </section>
       )}
 
       <section>
-        <h2 className="ems-mono-label mb-3 text-ems-ink-3">Where to start</h2>
+        <SectionHead title="Where to start" note={`${view.tiles.length} shortcuts · click to open`} />
         <TileNav tiles={view.tiles} />
       </section>
+    </div>
+  );
+}
+
+function SectionHead({ title, note }: { title: string; note: string }) {
+  return (
+    <div className="mb-3 flex items-baseline justify-between gap-4 border-b border-zinc-300 pb-2 dark:border-zinc-700">
+      <h2 className="font-sans! text-lg font-semibold text-ems-ink-1">{title}</h2>
+      <p className="ems-mono-label text-right text-ems-ink-4">{`// ${note}`}</p>
     </div>
   );
 }
