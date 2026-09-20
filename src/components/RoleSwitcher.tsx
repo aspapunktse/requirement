@@ -47,6 +47,9 @@ export function RoleSwitcher() {
   const rootRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
+  // Set when the highlight moved because of the pointer, so the effect below
+  // doesn't scroll the list out from under the mouse. See #68.
+  const pointerMovedRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -80,6 +83,16 @@ export function RoleSwitcher() {
     document.addEventListener("pointerdown", onPointerDown);
     return () => document.removeEventListener("pointerdown", onPointerDown);
   }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    if (pointerMovedRef.current) {
+      pointerMovedRef.current = false;
+      return;
+    }
+    const option = listRef.current?.children[activeIndex];
+    option?.scrollIntoView?.({ block: "nearest" });
+  }, [open, activeIndex]);
 
   const current = users.find((user) => user.id === actingUserId) ?? null;
 
@@ -187,7 +200,11 @@ export function RoleSwitcher() {
                 role="option"
                 aria-selected={selected}
                 onClick={() => choose(user.id)}
-                onPointerMove={() => setActiveIndex(index)}
+                onPointerMove={() => {
+                  if (index === activeIndex) return;
+                  pointerMovedRef.current = true;
+                  setActiveIndex(index);
+                }}
                 className={`flex cursor-pointer flex-col gap-0.5 border-b border-zinc-300 px-3 py-2 last:border-b-0 dark:border-zinc-700 ${
                   selected ? "bg-ems-amber text-ems-ink-0" : index === activeIndex ? "bg-ems-amber-tint" : ""
                 } ${index === activeIndex ? "outline-2 -outline-offset-2 outline-ems-ink-1" : ""}`}

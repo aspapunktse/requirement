@@ -87,6 +87,55 @@ describe("RoleSwitcher", () => {
     expect(push).toHaveBeenCalledWith("/home");
   });
 
+  describe("scrolling the active option into view (#68)", () => {
+    const scrollIntoView = vi.fn();
+    const scrolledIds = () => scrollIntoView.mock.contexts.map((el) => (el as HTMLElement).id);
+
+    beforeEach(() => {
+      scrollIntoView.mockClear();
+      Element.prototype.scrollIntoView = scrollIntoView;
+    });
+
+    afterEach(() => {
+      // @ts-expect-error jsdom has no scrollIntoView; remove the stub.
+      delete Element.prototype.scrollIntoView;
+    });
+
+    it("scrolls the selected user into view when opened", async () => {
+      const user = userEvent.setup();
+      render(<RoleSwitcher />);
+
+      await user.click(await screen.findByRole("button", { name: /Acting as/ }));
+
+      expect(scrolledIds()).toEqual(["acting-user-u1"]);
+      expect(scrollIntoView).toHaveBeenCalledWith({ block: "nearest" });
+    });
+
+    it("keeps the highlighted option in view as arrow, End and Home keys move it", async () => {
+      const user = userEvent.setup();
+      render(<RoleSwitcher />);
+
+      await user.click(await screen.findByRole("button", { name: /Acting as/ }));
+      await user.keyboard("{ArrowDown}{End}{Home}");
+
+      expect(scrolledIds()).toEqual(["acting-user-u1", "acting-user-u2", "acting-user-u3", "acting-user-u1"]);
+    });
+
+    it("does not scroll when the highlight moves with the mouse", async () => {
+      const user = userEvent.setup();
+      render(<RoleSwitcher />);
+
+      await user.click(await screen.findByRole("button", { name: /Acting as/ }));
+      scrollIntoView.mockClear();
+      await user.hover(screen.getByRole("option", { name: /Rita Risk/ }));
+
+      expect(scrollIntoView).not.toHaveBeenCalled();
+
+      await user.keyboard("{ArrowUp}");
+      expect(scrolledIds()).toEqual(["acting-user-u2"]);
+    });
+  });
+
   it("closes on Escape without switching and returns focus to the button", async () => {
     const user = userEvent.setup();
     render(<RoleSwitcher />);
