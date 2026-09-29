@@ -1,7 +1,8 @@
 import Link from "next/link";
 import type { OnboardingStatus } from "@prisma/client";
 import { getActingUser } from "@/lib/acting-user";
-import { canWriteSystems, getVisibleSystems } from "@/lib/system-visibility";
+import { getVisibleSystems } from "@/lib/system-visibility";
+import { canCreateSystem } from "@/lib/system-permissions";
 import { getActionableQueryCountsBySystem } from "@/lib/assessment-queries";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { onboardingStatusTone } from "@/lib/status-tones";
@@ -41,7 +42,7 @@ export default async function SystemsPage({
     <div className="mx-auto max-w-2xl p-6">
       <div className="mb-4 flex items-center justify-between">
         <h1 className="text-2xl">Systems</h1>
-        {canWriteSystems(user) && (
+        {canCreateSystem(user) && (
           <Link
             href="/systems/new"
             className="self-start rounded-[var(--ems-radius-2)] border border-ems-amber-hover bg-ems-amber px-3 py-1 text-sm font-medium text-ems-ink-0 hover:bg-ems-amber-hover"

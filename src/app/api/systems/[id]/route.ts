@@ -57,7 +57,7 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/system
 
   if (!canChangeSystemClassification(auth.user, system)) {
     return NextResponse.json(
-      { error: "Only the System Owner or an Admin can change this System's classification" },
+      { error: "Only the System's owner or an Admin can change this System's classification" },
       { status: 403 },
     );
   }

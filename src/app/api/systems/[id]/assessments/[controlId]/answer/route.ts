@@ -45,7 +45,7 @@ export async function PATCH(
   // Seeing a System is not enough to answer its Self-Assessment Questions (#78).
   if (assessmentEditAccess(auth.user, system) === "none") {
     return NextResponse.json(
-      { error: "Only the System Owner or an Admin can answer this System's Self-Assessment Questions" },
+      { error: "Only the System's owner or an Admin can answer this System's Self-Assessment Questions" },
       { status: 403 },
     );
   }
@@ -59,7 +59,7 @@ export async function PATCH(
   // A Risk Owner who doesn't own the System may only answer N/A.
   if (!canAnswerSelfAssessment(auth.user, system, answer)) {
     return NextResponse.json(
-      { error: "Only the System Owner or an Admin can answer this System's Self-Assessment Questions" },
+      { error: "Only the System's owner or an Admin can answer this System's Self-Assessment Questions" },
       { status: 403 },
     );
   }

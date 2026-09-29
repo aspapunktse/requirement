@@ -21,7 +21,7 @@ export async function DELETE(
 
   if (!canManageCapabilities(auth.user, system)) {
     return NextResponse.json(
-      { error: "Only the System Owner or an Admin can remove Capabilities on a Draft System" },
+      { error: "Only the System's owner or an Admin can remove Capabilities on a Draft System" },
       { status: 403 },
     );
   }

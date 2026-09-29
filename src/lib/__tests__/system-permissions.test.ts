@@ -3,10 +3,18 @@ import type { ControlAssessmentStatus, SelfAssessmentAnswer, UserRole } from "@p
 import {
   assessmentEditAccess,
   canAnswerSelfAssessment,
+  canCreateSystem,
   canEditAssessment,
   canSubmit,
   isSystemOwnerOrAdmin,
 } from "../system-permissions";
+import { canManageBusinessUnits } from "../business-units";
+import { canManageFrameworkScopes } from "../framework-scope";
+import { canMarkOnboarded } from "../onboarding";
+import { canLogRisk } from "../risks";
+import { canManageCapabilities } from "../system-capabilities";
+import { canChangeSystemClassification } from "../system-classification-change";
+import { canManageRegulatoryOverlays } from "../system-overlays";
 
 const system = { ownerId: "owner" };
 const ALL_ROLES: UserRole[] = [
@@ -90,6 +98,88 @@ describe("canAnswerSelfAssessment", () => {
   it.each(NON_OWNER_NO_ACCESS_ROLES)("refuses a non-owner %s every answer", (role) => {
     for (const answer of ALL_ANSWERS) {
       expect(canAnswerSelfAssessment({ id: "x", role }, system, answer)).toBe(false);
+    }
+  });
+});
+
+describe("canCreateSystem (#91)", () => {
+  it.each(["SYSTEM_OWNER", "RISK_OWNER", "ADMIN"] as const)("allows a %s", (role) => {
+    expect(canCreateSystem({ role })).toBe(true);
+  });
+
+  it.each(["REVIEWER", "VIEWER", "BUSINESS_RISK_OWNER", "COMPLIANCE_MANAGER"] as const)("refuses a %s", (role) => {
+    expect(canCreateSystem({ role })).toBe(false);
+  });
+
+  it("names its roles explicitly, so a role added in future is refused until listed", () => {
+    expect(ALL_ROLES.filter((role) => canCreateSystem({ role })).sort()).toEqual(["ADMIN", "RISK_OWNER", "SYSTEM_OWNER"]);
+  });
+});
+
+/**
+ * Every per-feature owner rule delegates to `isSystemOwnerOrAdmin` (#91): the
+ * System's owner (`ownerId`, whatever the role) or an ADMIN, never a
+ * COMPLIANCE_MANAGER, never a non-owner. Lifecycle checks (Draft-only) stay
+ * with the individual helper.
+ */
+describe("owner actions share one owner rule (#91)", () => {
+  const draft = { ownerId: "owner", status: "DRAFT" };
+  const onboarded = { ownerId: "owner", status: "ONBOARDED" };
+  type Helper = (user: { id: string; role: UserRole }, system: { ownerId: string; status: string }) => boolean;
+  const ownerActions: [string, Helper][] = [
+    ["change classification", canChangeSystemClassification],
+    ["manage Regulatory Overlays", canManageRegulatoryOverlays],
+    ["manage Capabilities", canManageCapabilities],
+    ["manage Business Units", canManageBusinessUnits],
+    ["manage Framework Scope", canManageFrameworkScopes],
+    ["log a Risk", canLogRisk],
+    ["mark Onboarded", canMarkOnboarded],
+  ];
+
+  describe.each(ownerActions)("%s", (_name, can) => {
+    it.each(ALL_ROLES.filter((role) => role !== "COMPLIANCE_MANAGER"))(
+      "allows the owner whatever their role (%s)",
+      (role) => {
+        expect(can({ id: "owner", role }, draft)).toBe(true);
+      },
+    );
+
+    it("allows an ADMIN on any System", () => {
+      expect(can({ id: "a", role: "ADMIN" }, draft)).toBe(true);
+    });
+
+    it("never allows a COMPLIANCE_MANAGER, even as the recorded owner", () => {
+      expect(can({ id: "owner", role: "COMPLIANCE_MANAGER" }, draft)).toBe(false);
+      expect(can({ id: "cm", role: "COMPLIANCE_MANAGER" }, draft)).toBe(false);
+    });
+  });
+
+  it.each(["SYSTEM_OWNER", "REVIEWER", "VIEWER", "BUSINESS_RISK_OWNER"] as const)(
+    "gives a non-owner %s no owner action: a role name alone grants nothing",
+    (role) => {
+      for (const [name, can] of ownerActions) {
+        expect(can({ id: "someone-else", role }, draft), name).toBe(false);
+      }
+    },
+  );
+
+  it("lets a RISK_OWNER log a Risk on any System (a role grant), but nothing else on a System they don't own", () => {
+    const riskOwner = { id: "ro", role: "RISK_OWNER" as const };
+    for (const [name, can] of ownerActions) {
+      expect(can(riskOwner, draft), name).toBe(name === "log a Risk");
+    }
+  });
+
+  it("keeps Regulatory Overlays and Capabilities locked once a System leaves Draft, for owner and ADMIN alike", () => {
+    for (const can of [canManageRegulatoryOverlays, canManageCapabilities]) {
+      expect(can({ id: "owner", role: "RISK_OWNER" }, onboarded)).toBe(false);
+      expect(can({ id: "a", role: "ADMIN" }, onboarded)).toBe(false);
+    }
+  });
+
+  it("keeps Business Units and Framework Scope open in every status", () => {
+    for (const can of [canManageBusinessUnits, canManageFrameworkScopes]) {
+      expect(can({ id: "owner", role: "REVIEWER" }, onboarded)).toBe(true);
     }
   });
 });

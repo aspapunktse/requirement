@@ -35,7 +35,7 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems
 
   if (!canManageCapabilities(auth.user, system)) {
     return NextResponse.json(
-      { error: "Only the System Owner or an Admin can declare Capabilities on a Draft System" },
+      { error: "Only the System's owner or an Admin can declare Capabilities on a Draft System" },
       { status: 403 },
     );
   }

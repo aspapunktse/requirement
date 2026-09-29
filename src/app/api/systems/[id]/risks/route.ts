@@ -39,7 +39,7 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems
 
   if (!canLogRisk(auth.user, system)) {
     return NextResponse.json(
-      { error: "Only the System Owner, a Risk Owner, or an Admin can log a Risk" },
+      { error: "Only the System's owner, a Risk Owner, or an Admin can log a Risk" },
       { status: 403 },
     );
   }

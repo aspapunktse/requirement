@@ -103,7 +103,7 @@ describe("POST /api/systems/[id]/onboard", () => {
     expect(response.status).toBe(401);
   });
 
-  it("rejects a role other than SYSTEM_OWNER/ADMIN (e.g. REVIEWER)", async () => {
+  it("rejects a REVIEWER who doesn't own this System (approving is not onboarding)", async () => {
     const reviewer = await prisma.user.upsert({
       where: { email: "test-onboard-reviewer@example.com" },
       update: {},
@@ -123,6 +123,25 @@ describe("POST /api/systems/[id]/onboard", () => {
     expect(response.status).toBe(403);
 
     await prisma.system.delete({ where: { id: onboarded.id } });
+  });
+
+  it("lets an owning REVIEWER, RISK_OWNER or VIEWER mark their own Approved System Onboarded (#91: ownerId alone)", async () => {
+    for (const role of ["REVIEWER", "RISK_OWNER", "VIEWER"] as const) {
+      const user = await prisma.user.create({
+        data: { email: `test-onboard-owning-${role}-${Date.now()}@example.com`, name: `Onboard Owning ${role}`, role },
+      });
+      const system = await prisma.system.create({
+        data: { name: `Owned by ${role}`, deploymentFacets: { connect: [{ id: systemTypeId }] }, ownerId: user.id, status: "APPROVED" },
+      });
+
+      const response = await POST(requestAs(system.id, user.id), ctxFor(system.id));
+      expect(response.status, role).toBe(200);
+      expect((await prisma.system.findUniqueOrThrow({ where: { id: system.id } })).status).toBe("ONBOARDED");
+
+      await prisma.changeEvent.deleteMany({ where: { systemId: system.id } });
+      await prisma.system.delete({ where: { id: system.id } });
+      await prisma.user.delete({ where: { id: user.id } });
+    }
   });
 
   it("rejects a System that isn't Approved", async () => {
