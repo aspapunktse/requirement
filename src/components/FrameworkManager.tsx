@@ -4,6 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { StatusChip } from "@/components/ui/StatusChip";
+import { CoverageCounts } from "@/components/CoverageCounts";
+import type { CoverageSummary } from "@/lib/coverage-state";
 import { frameworkLabel } from "@/lib/framework-label";
 
 export type FrameworkRow = {
@@ -17,6 +19,8 @@ export type FrameworkRow = {
   isBase: boolean;
   status: "DRAFT" | "PUBLISHED";
   _count?: { requirements: number };
+  // Covered / gap / accepted counts (F-FW.6); GET /api/frameworks and the server page both supply it.
+  coverage?: CoverageSummary;
 };
 type Draft = {
   name: string;
@@ -191,14 +195,28 @@ export function FrameworkManager({ initialFrameworks }: { initialFrameworks: Fra
                 <span className="text-xs text-zinc-500">
                   {`${item._count?.requirements ?? 0} Requirements`}
                 </span>
-                <Link
-                  href={`/admin/frameworks/${item.id}`}
-                  className="ml-auto text-ems-blue hover:underline"
-                  aria-label={`Requirements and Control Mappings for ${label}`}
-                >
-                  Requirements &amp; mappings &rarr;
-                </Link>
+                <span className="ml-auto flex gap-3">
+                  <Link
+                    href={`/frameworks/${item.id}/coverage`}
+                    className="text-ems-blue hover:underline"
+                    aria-label={`Coverage of ${label}`}
+                  >
+                    Coverage &rarr;
+                  </Link>
+                  <Link
+                    href={`/admin/frameworks/${item.id}`}
+                    className="text-ems-blue hover:underline"
+                    aria-label={`Requirements and Control Mappings for ${label}`}
+                  >
+                    Requirements &amp; mappings &rarr;
+                  </Link>
+                </span>
               </div>
+              {item.coverage && (
+                <div className="mb-2">
+                  <CoverageCounts summary={item.coverage} />
+                </div>
+              )}
               <div className="flex gap-2">
                 <input
                   aria-label={`Name for ${label}`}

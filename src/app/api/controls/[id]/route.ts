@@ -4,7 +4,7 @@ import { ImpactLevel, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { authenticate, authorize } from "@/lib/api-authz";
 import { ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE } from "@/lib/catalog";
-import { controlIncludeFor } from "@/lib/frameworks";
+import { controlIncludeFor, redactDraftOrigin } from "@/lib/frameworks";
 
 const impactLevelSchema = z.nativeEnum(ImpactLevel).nullable();
 
@@ -20,7 +20,7 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/controls
   if (!control) {
     return NextResponse.json({ error: "Control not found" }, { status: 404 });
   }
-  return NextResponse.json({ control });
+  return NextResponse.json({ control: redactDraftOrigin(auth.user, control) });
 }
 
 const updateControlSchema = z

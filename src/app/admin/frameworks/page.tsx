@@ -1,6 +1,7 @@
 import { getActingUser } from "@/lib/acting-user";
 import { prisma } from "@/lib/prisma";
 import { FrameworkManager } from "@/components/FrameworkManager";
+import { loadCoverageSummaries } from "@/lib/framework-coverage";
 import { ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE } from "@/lib/catalog";
 
 export default async function FrameworksPage() {
@@ -19,6 +20,8 @@ export default async function FrameworksPage() {
     include: { _count: { select: { requirements: true } } },
   });
 
+  const summaries = await loadCoverageSummaries(frameworks.map((framework) => framework.id));
+
   return (
     <div className="mx-auto max-w-3xl p-6">
       <h1 className="mb-4 text-2xl">Frameworks</h1>
@@ -34,6 +37,7 @@ export default async function FrameworksPage() {
           isBase: framework.isBase,
           status: framework.status,
           _count: framework._count,
+          coverage: summaries[framework.id],
         }))}
       />
     </div>

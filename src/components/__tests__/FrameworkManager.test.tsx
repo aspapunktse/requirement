@@ -14,6 +14,7 @@ const iso: FrameworkRow = {
   isBase: true,
   status: "PUBLISHED",
   _count: { requirements: 93 },
+  coverage: { total: 93, covered: 93, gaps: 0, accepted: 0 },
 };
 const nis2: FrameworkRow = {
   id: "f-nis2",
@@ -26,6 +27,7 @@ const nis2: FrameworkRow = {
   isBase: false,
   status: "DRAFT",
   _count: { requirements: 2 },
+  coverage: { total: 2, covered: 1, gaps: 1, accepted: 0 },
 };
 
 let frameworks: FrameworkRow[];
@@ -63,6 +65,16 @@ describe("FrameworkManager", () => {
       "/admin/frameworks/f-nis2",
     );
     expect(screen.getAllByRole("button", { name: "Publish" })).toHaveLength(1);
+  });
+
+  it("shows covered / gap / accepted counts per Framework and links to its Coverage view", () => {
+    render(<FrameworkManager initialFrameworks={frameworks} />);
+
+    expect(screen.getByText("93/93 covered")).toBeInTheDocument();
+    expect(screen.getByText("0 gaps")).toBeInTheDocument();
+    expect(screen.getByText("1/2 covered")).toBeInTheDocument();
+    expect(screen.getByText("1 gap")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Coverage of NIS2:1" })).toHaveAttribute("href", "/frameworks/f-nis2/coverage");
   });
 
   it("publishes a Draft only after the confirm is accepted", async () => {

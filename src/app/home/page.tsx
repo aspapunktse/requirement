@@ -26,6 +26,11 @@ export default async function HomePage() {
   }
 
   const view = await roleView(user);
+  // Every role can read the Framework Coverage view (#74), so it's a shortcut for all of them.
+  const tiles: NavTile[] = [
+    ...view.tiles,
+    { title: "Framework coverage", description: "Which Requirements the Control Library covers, and the gaps.", href: "/frameworks" },
+  ];
 
   return (
     <div className="mx-auto max-w-4xl p-6">
@@ -45,8 +50,8 @@ export default async function HomePage() {
       )}
 
       <section>
-        <SectionHead title="Where to start" note={`${view.tiles.length} shortcuts · click to open`} />
-        <TileNav tiles={view.tiles} />
+        <SectionHead title="Where to start" note={`${tiles.length} shortcuts · click to open`} />
+        <TileNav tiles={tiles} />
       </section>
     </div>
   );

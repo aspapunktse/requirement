@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { authorize } from "@/lib/api-authz";
 import { ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE } from "@/lib/catalog";
 import { logMappingChange } from "@/lib/frameworks";
+import { clearGapAcceptance } from "@/lib/framework-coverage";
 
 const createMappingSchema = z.object({
   controlId: z.string().min(1),
@@ -70,6 +71,8 @@ export async function POST(
         auth.user.id,
         tx,
       );
+      // A Full mapping makes the Requirement covered, so a gap acceptance no longer applies (#74).
+      if (created.coverage === "FULL") await clearGapAcceptance(tx, requirementId);
       return created;
     });
     return NextResponse.json({ mapping }, { status: 201 });
