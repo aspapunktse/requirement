@@ -4,7 +4,15 @@ Read this first in a fresh session, then [`README.md`](README.md)'s Project stat
 
 ## Next up: GRC requirement database (PRD 0001)
 
-A design session (grill-with-docs) on 2026-09-29 produced [PRD 0001](docs/prd/0001-grc-requirement-database.md), the steering document for turning this app into a GRC tool, plus [ADRs 0005–0008](docs/adr/) and a rewritten [`CONTEXT.md`](CONTEXT.md). **`CONTEXT.md` now describes the target model, not the current code.** The code still says `Requirement` where the glossary says **Control**, `RequirementAssessment`/`RequirementQuery` where it says **Control Assessment**/**Assessment Query**, and still has `Capability`/`RegulatoryOverlay`, which the glossary marks retired. Each entry's historical note maps new terms to old. Nothing is implemented yet. The next step is to cut milestone 1 (model split) of the PRD into issues. #46 needs re-scoping against the PRD before anyone picks it up.
+A design session (grill-with-docs) on 2026-09-29 produced [PRD 0001](docs/prd/0001-grc-requirement-database.md), the steering document for turning this app into a GRC tool, plus [ADRs 0005–0008](docs/adr/) and a rewritten [`CONTEXT.md`](CONTEXT.md). **`CONTEXT.md` now describes the target model, not the current code.** The code still says `Requirement` where the glossary says **Control**, `RequirementAssessment`/`RequirementQuery` where it says **Control Assessment**/**Assessment Query**, and still has `Capability`/`RegulatoryOverlay`, which the glossary marks retired. Each entry's historical note maps new terms to old. Nothing is implemented yet. Milestone 1 (model split) is cut into issues under the GitHub milestone "PRD 0001 · M1 Model split", with native blocked-by dependencies. Start with #70:
+- #70 rename `Requirement` → `Control` (unblocks everything else)
+- #71 Compliance Manager role (after #70)
+- #72 Framework Requirements + Control Mappings, ISO Annex A migration (after #70)
+- #73 Framework authoring and Draft/Published (after #71, #72)
+- #74 Framework Coverage view, gap acceptance, Supplementary Controls from gaps (after #73)
+- #75 ISO clauses 4–10 content (after #72)
+
+#46 needs re-scoping against the PRD before anyone picks it up.
 
 ## Where things stand
 
