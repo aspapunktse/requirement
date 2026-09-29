@@ -150,7 +150,7 @@ describe("PATCH /api/systems/[id]/assessments/[controlId]", () => {
     expect(response.status).toBe(404);
   });
 
-  it("lets any user with access set Fulfilled / In Progress / Not Started", async () => {
+  it("lets the System's owner set Fulfilled / In Progress / Not Started", async () => {
     const response = await PATCH(
       requestAs(systemId, optionalControlId, ownerId, {
         status: "FULFILLED",

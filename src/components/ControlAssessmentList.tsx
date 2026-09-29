@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { controlAssessmentStatusTone } from "@/lib/status-tones";
+import type { AssessmentEditAccess } from "@/lib/system-permissions";
 
 type ControlAssessmentStatus = "NOT_STARTED" | "IN_PROGRESS" | "FULFILLED" | "NOT_APPLICABLE" | "WAIVED";
 type UserRole =
@@ -79,12 +80,15 @@ function SelfAssessmentQuestion({
   assessment,
   systemId,
   userRole,
+  editAccess,
   onAnswered,
 }: {
   control: Control;
   assessment: Assessment;
   systemId: string;
   userRole: UserRole;
+  /** "waive-only" (a Risk Owner who doesn't own the System) offers only N/A (#78). */
+  editAccess: AssessmentEditAccess;
   onAnswered: (assessment: NonNullable<Assessment>) => void;
 }) {
   const canAnswerNa = ROLES_ALLOWED_TO_WAIVE.includes(userRole);
@@ -147,12 +151,16 @@ function SelfAssessmentQuestion({
       )}
 
       <div className="flex gap-2">
-        <Button className="px-3 py-0.5 text-xs" onClick={() => handleAnswer("YES")} disabled={answering}>
-          Yes
-        </Button>
-        <Button className="px-3 py-0.5 text-xs" onClick={() => handleAnswer("NO")} disabled={answering}>
-          No
-        </Button>
+        {editAccess === "full" && (
+          <>
+            <Button className="px-3 py-0.5 text-xs" onClick={() => handleAnswer("YES")} disabled={answering}>
+              Yes
+            </Button>
+            <Button className="px-3 py-0.5 text-xs" onClick={() => handleAnswer("NO")} disabled={answering}>
+              No
+            </Button>
+          </>
+        )}
         {canAnswerNa && (
           <Button className="px-3 py-0.5 text-xs" onClick={() => handleAnswer("NA")} disabled={answering}>
             N/A
@@ -379,6 +387,7 @@ function ControlRow({
   userRole,
   isSystemOwner,
   readOnly,
+  editAccess,
   onSaved,
   onQueriesChanged,
   stale = false,
@@ -388,6 +397,7 @@ function ControlRow({
   userRole: UserRole;
   isSystemOwner: boolean;
   readOnly: boolean;
+  editAccess: AssessmentEditAccess;
   onSaved: (assessment: NonNullable<Assessment>) => void;
   onQueriesChanged: (queries: AssessmentQuery[]) => void;
   stale?: boolean;
@@ -406,9 +416,16 @@ function ControlRow({
     setNotes(assessment?.notes ?? "");
   }, [assessment]);
 
-  const availableStatuses = (Object.keys(STATUS_LABELS) as ControlAssessmentStatus[]).filter(
-    (candidate) => canWaive || !STATUSES_REQUIRING_WAIVE_ROLE.includes(candidate),
+  const waiveOnly = editAccess === "waive-only";
+  const currentStatus = assessment?.status ?? "NOT_STARTED";
+  // A waive-only editor (a Risk Owner who doesn't own the System) may only pick
+  // Waived / Not Applicable; the current status stays visible but unselectable.
+  const availableStatuses = (Object.keys(STATUS_LABELS) as ControlAssessmentStatus[]).filter((candidate) =>
+    waiveOnly
+      ? STATUSES_REQUIRING_WAIVE_ROLE.includes(candidate) || candidate === currentStatus
+      : canWaive || !STATUSES_REQUIRING_WAIVE_ROLE.includes(candidate),
   );
+  const canSave = !waiveOnly || STATUSES_REQUIRING_WAIVE_ROLE.includes(status);
 
   async function handleSave() {
     setError(null);
@@ -419,7 +436,8 @@ function ControlRow({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           status,
-          evidence: evidence || null,
+          // A waive-only editor can't touch evidence: leave it as it is.
+          evidence: waiveOnly ? undefined : evidence || null,
           notes: notes || null,
         }),
       });
@@ -458,7 +476,7 @@ function ControlRow({
         </div>
       </div>
 
-      {readOnly ? (
+      {editAccess === "none" ? (
         (assessment?.evidence || assessment?.notes) && (
           <dl className="flex flex-col gap-1 text-sm">
             {assessment?.evidence && (
@@ -488,22 +506,28 @@ function ControlRow({
               onChange={(event) => setStatus(event.target.value as ControlAssessmentStatus)}
             >
               {availableStatuses.map((candidate) => (
-                <option key={candidate} value={candidate}>
+                <option
+                  key={candidate}
+                  value={candidate}
+                  disabled={waiveOnly && !STATUSES_REQUIRING_WAIVE_ROLE.includes(candidate)}
+                >
                   {STATUS_LABELS[candidate]}
                 </option>
               ))}
             </select>
           </label>
 
-          <label className="flex flex-col gap-1 text-sm">
-            Evidence (optional)
-            <input
-              aria-label={`Evidence for ${control.code}`}
-              className="rounded border border-zinc-200 p-2 dark:border-zinc-800 dark:bg-transparent"
-              value={evidence}
-              onChange={(event) => setEvidence(event.target.value)}
-            />
-          </label>
+          {!waiveOnly && (
+            <label className="flex flex-col gap-1 text-sm">
+              Evidence (optional)
+              <input
+                aria-label={`Evidence for ${control.code}`}
+                className="rounded border border-zinc-200 p-2 dark:border-zinc-800 dark:bg-transparent"
+                value={evidence}
+                onChange={(event) => setEvidence(event.target.value)}
+              />
+            </label>
+          )}
 
           <label className="flex flex-col gap-1 text-sm">
             {STATUSES_REQUIRING_WAIVE_ROLE.includes(status) && control.mandatory
@@ -517,18 +541,19 @@ function ControlRow({
             />
           </label>
 
-          <Button variant="secondary" onClick={handleSave} disabled={saving}>
+          <Button variant="secondary" onClick={handleSave} disabled={saving || !canSave}>
             Save
           </Button>
         </div>
       )}
 
-      {!stale && !readOnly && (
+      {!stale && editAccess !== "none" && (
         <SelfAssessmentQuestion
           control={control}
           assessment={assessment}
           systemId={systemId}
           userRole={userRole}
+          editAccess={editAccess}
           onAnswered={onSaved}
         />
       )}
@@ -554,6 +579,7 @@ export function ControlAssessmentList({
   currentUserId,
   systemOwnerId,
   readOnly = false,
+  assessmentEditAccess = "full",
 }: {
   systemId: string;
   userRole: UserRole;
@@ -562,7 +588,12 @@ export function ControlAssessmentList({
   /** Show Assessments and Assessment Queries without any way to change
    * them — for a role that may read Systems but not write them (#71). */
   readOnly?: boolean;
+  /** How far the user's right to edit Assessments / answer Self-Assessment
+   * Questions reaches (#78): "waive-only" offers just Waived / Not Applicable
+   * / N/A, "none" hides every edit control but keeps Assessment Queries. */
+  assessmentEditAccess?: AssessmentEditAccess;
 }) {
+  const editAccess: AssessmentEditAccess = readOnly ? "none" : assessmentEditAccess;
   const isSystemOwner = currentUserId === systemOwnerId;
   const [rows, setRows] = useState<AssessmentRow[] | null>(null);
   const [staleRows, setStaleRows] = useState<AssessmentRow[]>([]);
@@ -612,6 +643,7 @@ export function ControlAssessmentList({
               userRole={userRole}
               isSystemOwner={isSystemOwner}
               readOnly={readOnly}
+              editAccess={editAccess}
               onSaved={(assessment) =>
                 setRows((prev) =>
                   (prev ?? []).map((r) =>
@@ -641,6 +673,7 @@ export function ControlAssessmentList({
                 userRole={userRole}
                 isSystemOwner={isSystemOwner}
                 readOnly={readOnly}
+                editAccess={editAccess}
                 stale
                 onSaved={(assessment) =>
                   setStaleRows((prev) =>

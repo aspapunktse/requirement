@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ControlAssessmentList } from "../ControlAssessmentList";
 
@@ -54,7 +54,7 @@ describe("ControlAssessmentList", () => {
   });
 
   it("offers the edit form, Self-Assessment answers and query actions by default", async () => {
-    render(<ControlAssessmentList systemId="s1" userRole="REVIEWER" currentUserId="rev" systemOwnerId="owner" />);
+    render(<ControlAssessmentList systemId="s1" userRole="ADMIN" currentUserId="admin" systemOwnerId="owner" />);
 
     expect(await screen.findByLabelText("Status for A.5.1")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Save" })).toBeInTheDocument();
@@ -81,5 +81,52 @@ describe("ControlAssessmentList", () => {
     expect(screen.queryByLabelText("Status for A.5.1")).not.toBeInTheDocument();
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+  });
+
+  it("with no Assessment edit access hides the edit form and answers but keeps query actions (#78)", async () => {
+    render(
+      <ControlAssessmentList
+        systemId="s1"
+        userRole="REVIEWER"
+        currentUserId="rev"
+        systemOwnerId="owner"
+        assessmentEditAccess="none"
+      />,
+    );
+
+    expect(await screen.findByText("A.5.1 — Policies for information security")).toBeInTheDocument();
+    expect(screen.getByText("Policy doc v2")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Status for A.5.1")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Yes" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "No" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "N/A" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Ask a question" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reply" })).toBeInTheDocument();
+  });
+
+  it("with waive-only access offers just Waived / Not Applicable / N/A, and Save only once one is picked (#78)", async () => {
+    render(
+      <ControlAssessmentList
+        systemId="s1"
+        userRole="RISK_OWNER"
+        currentUserId="ro"
+        systemOwnerId="owner"
+        assessmentEditAccess="waive-only"
+      />,
+    );
+
+    const select = await screen.findByLabelText("Status for A.5.1");
+    const options = Array.from(select.querySelectorAll("option"));
+    expect(options.filter((o) => !o.disabled).map((o) => o.textContent)).toEqual(["Not Applicable", "Waived"]);
+    expect(screen.queryByLabelText("Evidence for A.5.1")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Yes" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "No" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "N/A" })).toBeInTheDocument();
+
+    // The current status (In Progress) is shown but can't be saved as-is.
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+    fireEvent.change(select, { target: { value: "WAIVED" } });
+    expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
   });
 });
