@@ -139,6 +139,23 @@ async function roleView(user: { id: string; name: string; role: UserRole }): Pro
       };
     }
 
+    case "COMPLIANCE_MANAGER": {
+      const [controls, frameworks] = await Promise.all([prisma.control.count(), prisma.framework.count()]);
+
+      return {
+        lede: "Curate the requirement database: the Control Library and the Frameworks it maps to.",
+        stats: [
+          { label: "Controls", value: controls },
+          { label: "Frameworks", value: frameworks },
+        ],
+        tiles: [
+          { title: "Control Library", description: "Author Controls and scope what each applies to.", href: "/admin/controls" },
+          { title: "Frameworks", description: "Manage the Framework catalog.", href: "/admin/frameworks" },
+          { title: "Browse Systems", description: "Every System across every status, read-only.", href: "/systems" },
+        ],
+      };
+    }
+
     case "REVIEWER": {
       const allSystemIds = (await prisma.system.findMany({ select: { id: true } })).map((s) => s.id);
       const [awaiting, openQueries] = await Promise.all([

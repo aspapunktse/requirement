@@ -3,7 +3,7 @@ import { z } from "zod";
 import { ControlAssessmentStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { authenticate } from "@/lib/api-authz";
-import { getVisibleSystem } from "@/lib/system-visibility";
+import { canWriteSystems, getVisibleSystem } from "@/lib/system-visibility";
 import { checkWaiveGate, getControlForAssessmentEdit } from "@/lib/control-assessments";
 import { logChangeEvent } from "@/lib/change-events";
 
@@ -21,6 +21,9 @@ export async function PATCH(
 ) {
   const auth = await authenticate(request);
   if ("response" in auth) return auth.response;
+  if (!canWriteSystems(auth.user)) {
+    return NextResponse.json({ error: "Your role can read Systems but not change them" }, { status: 403 });
+  }
 
   const { id, controlId } = await ctx.params;
   const system = await getVisibleSystem(auth.user, id);

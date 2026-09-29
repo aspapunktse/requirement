@@ -70,6 +70,12 @@ enum UserRole {
   // read/reporting-only — does not manage Risk status. A separate role from
   // RISK_OWNER, not a replacement for it. See #55.
   BUSINESS_RISK_OWNER
+  // Curates the requirement database: the Control Library and the Framework
+  // catalog (Admin stays a superuser over both). Reads every System, but
+  // never changes a System, its Assessments, Risks, or Assessment Queries.
+  // Separate from ADMIN, who keeps users, roles, and the remaining catalogs.
+  // See #71 and PRD 0001 §5.
+  COMPLIANCE_MANAGER
 }
 
 model User {

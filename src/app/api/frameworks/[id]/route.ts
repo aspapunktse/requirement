@@ -3,7 +3,7 @@ import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { authorize } from "@/lib/api-authz";
-import { ROLES_ALLOWED_TO_MANAGE_CATALOG } from "@/lib/catalog";
+import { ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE } from "@/lib/catalog";
 
 const updateFrameworkSchema = z
   .object({
@@ -17,7 +17,7 @@ const updateFrameworkSchema = z
   );
 
 export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/frameworks/[id]">) {
-  const auth = await authorize(request, ROLES_ALLOWED_TO_MANAGE_CATALOG);
+  const auth = await authorize(request, ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE);
   if ("response" in auth) return auth.response;
 
   const { id } = await ctx.params;
@@ -43,7 +43,7 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/framew
 }
 
 export async function DELETE(request: NextRequest, ctx: RouteContext<"/api/frameworks/[id]">) {
-  const auth = await authorize(request, ROLES_ALLOWED_TO_MANAGE_CATALOG);
+  const auth = await authorize(request, ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE);
   if ("response" in auth) return auth.response;
 
   const { id } = await ctx.params;

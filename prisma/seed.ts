@@ -27,6 +27,11 @@ async function main() {
       name: "Default Business Risk Owner",
       role: "BUSINESS_RISK_OWNER" as const,
     },
+    {
+      email: "compliance-manager@example.com",
+      name: "Default Compliance Manager",
+      role: "COMPLIANCE_MANAGER" as const,
+    },
   ];
 
   for (const user of users) {
