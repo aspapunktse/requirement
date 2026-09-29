@@ -1,26 +1,64 @@
-import { Prisma } from "@prisma/client";
+import { Prisma, type UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE } from "@/lib/catalog";
+import { logChangeEvent } from "@/lib/change-events";
+import { frameworkLabel } from "@/lib/framework-label";
 
-/** Prisma `include` for a Control plus everything the admin UI and API show about it. */
-export const controlInclude = {
-  deploymentFacets: true,
-  regulatoryOverlays: true,
-  capabilities: true,
-  mappings: {
-    select: {
-      id: true,
-      coverage: true,
-      requirement: {
-        select: {
-          id: true,
-          code: true,
-          title: true,
-          framework: { select: { id: true, name: true, version: true } },
+/** Only Compliance Managers and Admins can see (or touch) Draft Frameworks. */
+export function canSeeDraftFrameworks(user: { role: UserRole }): boolean {
+  return ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE.includes(user.role);
+}
+
+/**
+ * Prisma `where` for the Frameworks a user may see: everything for the
+ * curator roles, Published only for everyone else (a Draft Framework is
+ * invisible outside the requirement-database roles, see #73).
+ */
+export function visibleFrameworksWhere(user: { role: UserRole }): Prisma.FrameworkWhereInput {
+  return canSeeDraftFrameworks(user) ? {} : { status: "PUBLISHED" };
+}
+
+/**
+ * Prisma `include` for a Control plus everything the admin UI and API show
+ * about it. Its Control Mappings feed both the "Satisfies" line and the
+ * reverse view (every Requirement mapped to the Control); mappings into Draft
+ * Frameworks are left out for users who can't see Drafts.
+ */
+export function controlIncludeFor(user: { role: UserRole }) {
+  return {
+    deploymentFacets: true,
+    regulatoryOverlays: true,
+    capabilities: true,
+    mappings: {
+      where: canSeeDraftFrameworks(user) ? {} : { requirement: { framework: { status: "PUBLISHED" as const } } },
+      select: {
+        id: true,
+        coverage: true,
+        requirement: {
+          select: {
+            id: true,
+            code: true,
+            title: true,
+            framework: { select: { id: true, name: true, version: true, status: true } },
+          },
         },
       },
     },
+  } satisfies Prisma.ControlInclude;
+}
+
+/** Prisma `include` for a Requirement with its Control Mappings (each with its Control). */
+export const requirementInclude = {
+  mappings: {
+    orderBy: { control: { code: "asc" } },
+    select: {
+      id: true,
+      coverage: true,
+      rationale: true,
+      control: { select: { id: true, code: true, title: true } },
+    },
   },
-} satisfies Prisma.ControlInclude;
+} satisfies Prisma.RequirementInclude;
 
 export type BaseFrameworkViolation = "BASE_EXISTS" | "LAST_BASE";
 
@@ -52,3 +90,46 @@ export const BASE_FRAMEWORK_ERRORS: Record<BaseFrameworkViolation, string> = {
   BASE_EXISTS: "There is already a base Framework; exactly one Framework can be the base",
   LAST_BASE: "The base Framework can't be unset or retired; exactly one Framework must be the base",
 };
+
+/**
+ * The single hook point for "a Framework was just published". Publishing
+ * (POST /api/frameworks/[id]/publish) records the FRAMEWORK_PUBLISHED Change
+ * Event and then calls this.
+ *
+ * Deliberately a no-op for now (PRD 0001 F-FW.5): once Framework Scope drives
+ * applicability (M2, ADR 0007) this is where every System that already has
+ * the Framework in scope gets its applicable Controls recomputed. Until then
+ * Framework Scope is reporting-only, so there is nothing to recompute.
+ */
+export async function onFrameworkPublished(frameworkId: string): Promise<void> {
+  void frameworkId;
+}
+
+export type MappingChange = "added" | "changed" | "removed";
+
+/**
+ * Records a System-less CONTROL_MAPPING_CHANGED Change Event naming the
+ * Requirement (Framework label + code), the Control code, and old -> new
+ * Coverage ("none" where there was no mapping before / is none after).
+ * `note` appends why, e.g. when deleting a Requirement takes its mappings with it.
+ */
+export function logMappingChange(
+  args: {
+    change: MappingChange;
+    framework: { name: string; version: string };
+    requirementCode: string;
+    controlCode: string;
+    from: "FULL" | "PARTIAL" | null;
+    to: "FULL" | "PARTIAL" | null;
+    note?: string;
+  },
+  actorId: string,
+  client?: Parameters<typeof logChangeEvent>[4],
+) {
+  const { change, framework, requirementCode, controlCode, from, to, note } = args;
+  const detail =
+    `Control Mapping ${change}: Requirement ${frameworkLabel(framework)} ${requirementCode} ` +
+    `↔ Control ${controlCode} (${from ?? "none"} → ${to ?? "none"})` +
+    (note ? `; ${note}` : "");
+  return logChangeEvent(null, "CONTROL_MAPPING_CHANGED", detail, actorId, client);
+}

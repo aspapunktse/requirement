@@ -5,7 +5,14 @@ import { frameworkLabel } from "@/lib/framework-label";
 import { Button } from "@/components/ui/Button";
 
 // `version` is only set on Frameworks, where it disambiguates two versions of one standard.
-type CatalogItem = { id: string; name: string; version?: string; description: string | null };
+type CatalogItem = {
+  id: string;
+  name: string;
+  version?: string;
+  description: string | null;
+  // Only Frameworks have a status; a Draft one can't be declared (the API rejects it too).
+  status?: "DRAFT" | "PUBLISHED";
+};
 
 type SystemCatalogRelationProps = {
   systemId: string;
@@ -115,7 +122,7 @@ export function SystemCatalogRelation({
   }
 
   const declaredIds = new Set(declared.map((item) => item.id));
-  const available = catalog.filter((item) => !declaredIds.has(item.id));
+  const available = catalog.filter((item) => !declaredIds.has(item.id) && item.status !== "DRAFT");
 
   return (
     <div className="flex flex-col gap-3">

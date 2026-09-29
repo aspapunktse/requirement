@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ControlLibraryManager } from "../ControlLibraryManager";
@@ -16,7 +16,12 @@ const baseControl = {
   mappings: [] as {
     id: string;
     coverage: "FULL" | "PARTIAL";
-    requirement: { id: string; code: string; framework: { id: string; name: string; version: string } };
+    requirement: {
+      id: string;
+      code: string;
+      title: string;
+      framework: { id: string; name: string; version: string; status?: "DRAFT" | "PUBLISHED" };
+    };
   }[],
   minConfidentialityImpactLevel: null,
   minIntegrityImpactLevel: null,
@@ -147,8 +152,16 @@ describe("ControlLibraryManager", () => {
     controls[0] = {
       ...controls[0],
       mappings: [
-        { id: "m2", coverage: "PARTIAL", requirement: { id: "q2", code: "Art. 21(2)(h)", framework: nis2 } },
-        { id: "m1", coverage: "FULL", requirement: { id: "q1", code: "A.5.3", framework: iso } },
+        {
+          id: "m2",
+          coverage: "PARTIAL",
+          requirement: { id: "q2", code: "Art. 21(2)(h)", title: "Basic cyber hygiene", framework: nis2 },
+        },
+        {
+          id: "m1",
+          coverage: "FULL",
+          requirement: { id: "q1", code: "A.5.3", title: "Segregation of duties", framework: iso },
+        },
       ],
     };
     const user = userEvent.setup();
@@ -161,6 +174,42 @@ describe("ControlLibraryManager", () => {
     ).toBeInTheDocument();
     expect(screen.queryByText(/Frameworks\/standards satisfied/)).not.toBeInTheDocument();
     expect(screen.queryByLabelText("ISO/IEC 27001")).not.toBeInTheDocument();
+  });
+
+  it("shows the reverse view: every Requirement mapped to the Control, across Frameworks", async () => {
+    controls[0] = {
+      ...controls[0],
+      mappings: [
+        {
+          id: "m2",
+          coverage: "PARTIAL",
+          requirement: {
+            id: "q2",
+            code: "Art. 21(2)(h)",
+            title: "Basic cyber hygiene",
+            framework: { ...nis2, status: "DRAFT" },
+          },
+        },
+        {
+          id: "m1",
+          coverage: "FULL",
+          requirement: { id: "q1", code: "A.5.3", title: "Segregation of duties", framework: iso },
+        },
+      ],
+    };
+    const user = userEvent.setup();
+    render(<ControlLibraryManager />);
+
+    await user.selectOptions(await screen.findByLabelText("Control"), "r1");
+
+    const list = screen.getByRole("list", { name: "Requirements mapped to A.5.3" });
+    const items = within(list).getAllByRole("listitem");
+    expect(items).toHaveLength(2);
+    expect(items[0]).toHaveTextContent("ISO/IEC 27001:2022 A.5.3 — Segregation of duties · Full coverage");
+    expect(items[1]).toHaveTextContent(
+      "NIS2:2022 Art. 21(2)(h) — Basic cyber hygiene · Partial coverage · Draft Framework",
+    );
+    expect(within(items[0]).getByRole("link")).toHaveAttribute("href", "/admin/frameworks/f1");
   });
 
   it("says so when a Control satisfies no Requirement yet", async () => {

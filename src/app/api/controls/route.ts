@@ -4,7 +4,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { authenticate, authorize } from "@/lib/api-authz";
 import { ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE } from "@/lib/catalog";
-import { controlInclude } from "@/lib/frameworks";
+import { controlIncludeFor } from "@/lib/frameworks";
 
 export async function GET(request: NextRequest) {
   const auth = await authenticate(request);
@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
 
   const controls = await prisma.control.findMany({
     orderBy: { code: "asc" },
-    include: controlInclude,
+    include: controlIncludeFor(auth.user),
   });
   return NextResponse.json({ controls });
 }
@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
         mandatory: mandatory ?? true,
         examples: examples ?? [],
       },
-      include: controlInclude,
+      include: controlIncludeFor(auth.user),
     });
     return NextResponse.json({ control }, { status: 201 });
   } catch (error) {
