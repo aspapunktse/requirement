@@ -9,10 +9,10 @@ const FULL_VISIBILITY_ROLES: UserRole[] = ["ADMIN", "RISK_OWNER", "REVIEWER", "C
  * change a System, its lifecycle status or classification, its Control
  * Assessments, Risks, or Assessment Queries. The COMPLIANCE_MANAGER needs
  * to see every System to curate applicability and (later) coverage, not to
- * work on them (#71). Several System mutation routes only check that the
- * System is visible to the acting user, so full visibility alone would
- * otherwise have let these roles write — those routes check
- * `canWriteSystems` explicitly.
+ * work on them (#71). This is the coarse "may this role write Systems at
+ * all" check, used for creating a System and as a belt-and-braces guard on
+ * replying to a Query; the per-action rules for editing Assessments and
+ * submitting live in `src/lib/system-permissions.ts` (#78).
  */
 const READ_ONLY_SYSTEM_ROLES: UserRole[] = ["COMPLIANCE_MANAGER"];
 

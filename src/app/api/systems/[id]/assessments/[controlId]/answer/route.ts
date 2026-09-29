@@ -3,7 +3,8 @@ import { z } from "zod";
 import { SelfAssessmentAnswer } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { authenticate } from "@/lib/api-authz";
-import { canWriteSystems, getVisibleSystem } from "@/lib/system-visibility";
+import { getVisibleSystem } from "@/lib/system-visibility";
+import { assessmentEditAccess, canAnswerSelfAssessment } from "@/lib/system-permissions";
 import { checkWaiveGate, getApplicableControl } from "@/lib/control-assessments";
 import { logChangeEvent, SYSTEM_ACTOR } from "@/lib/change-events";
 
@@ -34,9 +35,6 @@ export async function PATCH(
 ) {
   const auth = await authenticate(request);
   if ("response" in auth) return auth.response;
-  if (!canWriteSystems(auth.user)) {
-    return NextResponse.json({ error: "Your role can read Systems but not change them" }, { status: 403 });
-  }
 
   const { id, controlId } = await ctx.params;
   const system = await getVisibleSystem(auth.user, id);
@@ -44,11 +42,27 @@ export async function PATCH(
     return NextResponse.json({ error: "System not found" }, { status: 404 });
   }
 
+  // Seeing a System is not enough to answer its Self-Assessment Questions (#78).
+  if (assessmentEditAccess(auth.user, system) === "none") {
+    return NextResponse.json(
+      { error: "Only the System Owner or an Admin can answer this System's Self-Assessment Questions" },
+      { status: 403 },
+    );
+  }
+
   const parsed = answerSchema.safeParse(await request.json());
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid answer" }, { status: 400 });
   }
   const { answer, notes } = parsed.data;
+
+  // A Risk Owner who doesn't own the System may only answer N/A.
+  if (!canAnswerSelfAssessment(auth.user, system, answer)) {
+    return NextResponse.json(
+      { error: "Only the System Owner or an Admin can answer this System's Self-Assessment Questions" },
+      { status: 403 },
+    );
+  }
 
   const control = await getApplicableControl(system, controlId);
   if (!control) {

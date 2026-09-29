@@ -8,6 +8,7 @@ import { canChangeSystemClassification } from "@/lib/system-classification-chang
 import { canManageRegulatoryOverlays } from "@/lib/system-overlays";
 import { canManageBusinessUnits } from "@/lib/business-units";
 import { canManageFrameworkScopes } from "@/lib/framework-scope";
+import { assessmentEditAccess, canSubmit } from "@/lib/system-permissions";
 import { ControlAssessmentList } from "@/components/ControlAssessmentList";
 import { SubmitForReviewButton } from "@/components/SubmitForReviewButton";
 import { RiskList } from "@/components/RiskList";
@@ -97,7 +98,7 @@ export default async function SystemDetailPage({ params }: PageProps<"/systems/[
         />
       )}
 
-      {system.status === "DRAFT" && canWriteSystems(user) && <SubmitForReviewButton systemId={system.id} />}
+      {system.status === "DRAFT" && canSubmit(user, system) && <SubmitForReviewButton systemId={system.id} />}
       {system.status === "APPROVED" && canMarkOnboarded(user, system) && (
         <MarkOnboardedButton systemId={system.id} />
       )}
@@ -144,6 +145,7 @@ export default async function SystemDetailPage({ params }: PageProps<"/systems/[
         currentUserId={user.id}
         systemOwnerId={system.ownerId}
         readOnly={!canWriteSystems(user)}
+        assessmentEditAccess={assessmentEditAccess(user, system)}
       />
 
       <h2 className="mb-3 mt-8 text-xl">Risks</h2>

@@ -3,11 +3,10 @@ import { z } from "zod";
 import { ControlAssessmentStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { authenticate } from "@/lib/api-authz";
-import { canWriteSystems, getVisibleSystem } from "@/lib/system-visibility";
+import { getVisibleSystem } from "@/lib/system-visibility";
+import { assessmentEditAccess, canEditAssessment, WAIVE_GATED_STATUSES } from "@/lib/system-permissions";
 import { checkWaiveGate, getControlForAssessmentEdit } from "@/lib/control-assessments";
 import { logChangeEvent } from "@/lib/change-events";
-
-const STATUSES_REQUIRING_WAIVE_ROLE: ControlAssessmentStatus[] = ["WAIVED", "NOT_APPLICABLE"];
 
 const updateAssessmentSchema = z.object({
   status: z.enum(ControlAssessmentStatus),
@@ -21,14 +20,19 @@ export async function PATCH(
 ) {
   const auth = await authenticate(request);
   if ("response" in auth) return auth.response;
-  if (!canWriteSystems(auth.user)) {
-    return NextResponse.json({ error: "Your role can read Systems but not change them" }, { status: 403 });
-  }
 
   const { id, controlId } = await ctx.params;
   const system = await getVisibleSystem(auth.user, id);
   if (!system) {
     return NextResponse.json({ error: "System not found" }, { status: 404 });
+  }
+
+  // Seeing a System is not enough to edit its Assessments (#78).
+  if (assessmentEditAccess(auth.user, system) === "none") {
+    return NextResponse.json(
+      { error: "Only the System Owner or an Admin can edit this System's Control Assessments" },
+      { status: 403 },
+    );
   }
 
   const parsed = updateAssessmentSchema.safeParse(await request.json());
@@ -37,12 +41,20 @@ export async function PATCH(
   }
   const { status, evidence, notes } = parsed.data;
 
+  // A Risk Owner who doesn't own the System may only waive / mark Not Applicable.
+  if (!canEditAssessment(auth.user, system, status)) {
+    return NextResponse.json(
+      { error: "Only the System Owner or an Admin can edit this System's Control Assessments" },
+      { status: 403 },
+    );
+  }
+
   const control = await getControlForAssessmentEdit(system, controlId);
   if (!control) {
     return NextResponse.json({ error: "Control not found" }, { status: 404 });
   }
 
-  if (STATUSES_REQUIRING_WAIVE_ROLE.includes(status)) {
+  if (WAIVE_GATED_STATUSES.includes(status)) {
     const gate = checkWaiveGate(auth.user, control, notes);
     if (!gate.ok) {
       return NextResponse.json({ error: gate.error }, { status: gate.status });
