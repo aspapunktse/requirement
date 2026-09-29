@@ -1,70 +1,138 @@
-# Requirement & Risk Onboarding
+# Requirement & Risk (GRC)
 
-Tracks requirement fulfillment and risk assessment when onboarding a new system or cloud solution into the enterprise, through to a formal onboarding decision.
+Governance, risk, and compliance for the systems and cloud solutions an enterprise runs: a requirement database of Frameworks mapped onto one Control Library, with each System assessed against the Controls that apply to it — first at onboarding, then continuously for as long as it lives.
 
 ## Language
 
+### Systems and classification
+
 **System**:
-A system or cloud solution being onboarded into the enterprise. Progresses through a single onboarding lifecycle per System record (no re-onboarding of the same System as a new entity). Declares its classification along three independent axes — one or more Deployment Facets, zero or more Regulatory Overlays, and an Impact Level on each of Confidentiality/Integrity/Availability — and may declare any number of Capabilities it consumes. All three classification axes and Capability declaration are changeable only while the System is Draft, not at any later point in the lifecycle (see [ADR 0003](docs/adr/0003-multiselect-deployment-facets-plus-overlays.md)) — one consistent rule across all four self-declared mechanisms rather than each picking its own cutoff.
+A system or cloud solution the enterprise runs or is onboarding. Progresses through a single onboarding lifecycle per System record (no re-onboarding of the same System as a new entity), and stays assessable after it's Onboarded (see **Continuous Compliance**). Declares its classification — one or more Deployment Facets, an Impact Level on each of Confidentiality/Integrity/Availability, and its Framework Scope — and any number of Providers it depends on. All of these can change at any lifecycle stage; each change recomputes the System's applicable Controls (see [ADR 0006](docs/adr/0006-continuous-compliance-replaces-draft-lock.md), which supersedes the Draft-only lock from [ADR 0003](docs/adr/0003-multiselect-deployment-facets-plus-overlays.md)).
 _Avoid_: Vendor, application, service (use System even when the thing being onboarded is a SaaS vendor or cloud service)
 
 **Deployment Facet**:
-An admin-curated classification a System declares one or more of (e.g. On-Premises Datacenter, Cloud IaaS/PaaS, SaaS) that determines which Requirements from the Catalog apply to it. A System spanning multiple deployment models simply declares more than one Facet — Hybrid is not its own catalog entry, it's the natural result of declaring both (see [ADR 0003](docs/adr/0003-multiselect-deployment-facets-plus-overlays.md), which supersedes the single-select-only [ADR 0002](docs/adr/0002-single-system-type-not-multiselect.md)). Changeable only while the System is Draft; changing the declared set recomputes the System's applicable Requirement set as the union of what each declared Facet requires.
+An admin-curated classification a System declares one or more of (e.g. On-Premises Datacenter, Cloud IaaS/PaaS, SaaS). A Control can be scoped to a subset of Facets; it then applies only to Systems declaring at least one of them. A System spanning multiple deployment models simply declares more than one Facet — Hybrid is not its own catalog entry (see [ADR 0003](docs/adr/0003-multiselect-deployment-facets-plus-overlays.md)).
 _Historical note_: this concept was called "System Type" (exactly one per System) before ADR 0003.
 
-**Regulatory Overlay**:
-An admin-curated, boolean flag a System Owner self-declares applies to their System (e.g. GDPR, EAR/ITAR) — the same self-declaration model as Capability, not derived from any other structured field. A System may declare any number of Overlays, including none. Requirements can be scoped to a subset of Regulatory Overlays the same way they're scoped to Deployment Facets (empty means "applies regardless"), and this scoping composes with Facet scoping — both are independently optional, and a Requirement scoped on both axes needs to pass both, not either. Changeable only while the System is Draft. See [ADR 0003](docs/adr/0003-multiselect-deployment-facets-plus-overlays.md).
-
 **Impact Level**:
-An ordinal classification — Low, Moderate, High, or Critical, one shared scale — a System Owner self-declares independently on each of three axes: Confidentiality, Integrity, and Availability. A Requirement may set a minimum Impact Level threshold on any of the three axes (or none); it applies to a System only once that System's declared level on that axis meets or exceeds the threshold. A System that hasn't yet declared a level on an axis ("not classified") never meets a threshold on that axis. Changeable only while the System is Draft. Replaces the earlier unenforced free-text "Data Classification" field. See [ADR 0003](docs/adr/0003-multiselect-deployment-facets-plus-overlays.md).
+An ordinal classification — Low, Moderate, High, or Critical, one shared scale — a System Owner self-declares independently on each of three axes: Confidentiality, Integrity, and Availability. A Control may set a minimum Impact Level threshold on any of the three axes (or none); it applies to a System only once that System's declared level on that axis meets or exceeds the threshold. A System that hasn't yet declared a level on an axis ("not classified") never meets a threshold on that axis. See [ADR 0003](docs/adr/0003-multiselect-deployment-facets-plus-overlays.md).
 
-**Capability**:
-An admin-curated catalog entry representing a centrally-provided dependency a System can declare it consumes (e.g. Active Directory, a central IAM/SSO platform, a central KMS) that, when declared, automatically fulfills the specific Requirements it's mapped to on the System's behalf. Standalone catalog concept — not a reference to any actual onboarded System, even if the same real-world thing also happens to be tracked as a System elsewhere. When a Requirement is mapped to more than one Capability, declaring any one of them is sufficient to fulfill it. Declarable/changeable only while the System is Draft, same as the three classification axes.
-_Avoid_: Service (see System's _Avoid_ list — "service" already means something else in this glossary)
+**Framework Scope**:
+The set of Frameworks a System is subject to. The base Framework (ISO 27001) is always in scope for every System; every other Framework is declared. Drives applicability: a System's applicable Controls are those mapped to Requirements of Frameworks in its scope, further filtered by each Control's Deployment Facet and Impact Level scoping (see [ADR 0007](docs/adr/0007-framework-scope-drives-applicability.md)).
+_Historical note_: was a reporting-only "audit boundary" relation before ADR 0007.
+
+**Regulatory Overlay** _(retired)_:
+Was a boolean flag a System declared (e.g. GDPR, EAR/ITAR) to pull in extra Requirements. Replaced by Framework Scope: GDPR, EAR/ITAR and the like are now Frameworks in their own right (see [ADR 0007](docs/adr/0007-framework-scope-drives-applicability.md)). Don't use "overlay" for anything new.
 
 **Business Unit**:
-An admin-curated catalog entry representing an organizational consumer (e.g. Finance, HR) that a System declares is using it. Purely a reporting/grouping dimension — unlike Deployment Facet, Regulatory Overlay, Impact Level, and Capability, declaring a Business Unit has no effect on a System's applicable Requirement set. A System may declare any number of Business Units, and — unlike those four self-declared mechanisms — this mapping isn't locked to Draft: a Business Unit can start (or stop) consuming an already-Onboarded System, since usage can change after a System goes live even though its classification doesn't. Declared/changed by the System Owner or an Admin.
+An admin-curated catalog entry representing an organizational consumer (e.g. Finance, HR) that a System declares is using it. Purely a reporting/grouping dimension — declaring a Business Unit has no effect on a System's applicable Controls. A System may declare any number of Business Units. Declared/changed by the System Owner or an Admin.
 _Avoid_: Consumer, department, used-by (informal phrasing during design; Business Unit is the canonical term)
 
+### The requirement database
+
 **Framework**:
-An admin-curated catalog entry for a compliance standard (e.g. ISO 27001:2022 Annex A, CMMC) that composes two independent relations: which Requirements satisfy it (tagging, as before — one Requirement can satisfy more than one Framework at once), and which Systems fall within its audit/certification boundary (a System's "Framework Scope," multi-select and independent per Framework — a System can be in ISO scope without being in CMMC scope, or vice versa). Like Business Unit, declaring a System's Framework Scope is a reporting dimension only, not locked to Draft. A Framework also carries a `strictComplianceRequired` flag: some frameworks only accept 100% Fulfilled (no partial credit for Waived/Not Applicable) when computing compliance percentage against them.
-_Avoid_: SoA, Statement of Applicability, Scope (informal phrasing during design; these all resolved to mean Framework in this codebase's specific sense — a System's framework audit boundary, not ISO 27001's own meaning of "which controls apply")
-_Historical note_: previously a bare `Requirement.framework: String[]` free-text tag, not a first-class catalog entity — promoted to support the `strictComplianceRequired` flag and the new System-side Framework Scope relation.
+A curated catalog entry for a compliance standard, law, or regulation (e.g. ISO 27001:2022, Cybersäkerhetslagen, GDPR, CSA CCM 4, CMMC), made up of its own **Requirements** — the standard's line items (see [ADR 0005](docs/adr/0005-split-requirement-and-control.md)). ISO 27001:2022 is the **base Framework**: its Annex A defines the base Control Library, and every other Framework is mapped onto that library, adding Supplementary Controls only where no base Control covers a Requirement. Each version of a standard is its own Framework (ISO 27001:2013 and ISO 27001:2022 are two), optionally linked by "supersedes"; a national law that transposes an EU directive (e.g. Cybersäkerhetslagen for NIS2) is modeled as the Framework, not the directive. Carries a `strictComplianceRequired` flag: some Frameworks only accept Fulfilled (no partial credit for Waived/Not Applicable) when computing compliance against them. Is either **Draft** (being authored or mapped — invisible to Systems) or **Published**; only a Published Framework can be in a System's Framework Scope or affect applicability, and Supplementary Controls authored for a Draft Framework reach Systems only when it's published.
+_Avoid_: Standard, regulation, overlay (Framework covers all of them)
+_Historical note_: previously a bare `Requirement.framework: String[]` free-text tag, promoted to a first-class catalog entity in [ADR 0004](docs/adr/0004-framework-as-first-class-entity.md).
 
 **Requirement**:
-A reusable, admin-curated definition of something a System must satisfy — security, privacy, legal, or operational — independent of any specific System. Requirements are managed by Admins only; other roles consume but don't edit the catalog. Each Requirement carries an Applicability scope — Organizational, Per-System, or Both — and, for Per-System/Both Requirements, may additionally be scoped across all three classification axes at once: a subset of Deployment Facets, a subset of Regulatory Overlays, and a minimum Impact Level threshold on any of Confidentiality/Integrity/Availability. All are independently optional and compose with AND — a Requirement applies to a System only if every axis it's scoped on passes (facet/overlay scoping is a membership check within an axis — empty means "applies regardless," non-empty means the System must declare at least one of the listed values; Impact Level scoping is a threshold comparison, not membership). A Requirement not scoped on any axis at all applies regardless of a System's classification. A mandatory Requirement that's applicable to a System must have some Requirement Assessment recorded before that System can be submitted for review. Organizational-scoped Requirements are never assessed per System, can't be scoped to any classification axis, and exist in the catalog for reference only. A Requirement may also be tagged with one or more Frameworks/standards it satisfies (e.g. both an ISO 27001 control and a CSA CCM control at once) — "author once, tag many" rather than a duplicate row per framework.
-_Avoid_: Control, policy
+One line item of a Framework — a clause, article, or control objective as the standard itself states it (e.g. ISO 27001 clause 6.1.2, ISO 27001 A.8.24, NIS2 Art. 21(2)(h), CCM CEK-03). Belongs to exactly one Framework. Never assessed directly: it is satisfied through the Controls mapped to it (see **Control Mapping**), and its status for a System is derived from theirs — **Met** (covered, and every mapped Control Fulfilled or inherited), **Partially Met**, or **Not Met**. For licensed standards the catalog holds only the identifier, title, and an own-words paraphrase, never verbatim text; public-domain texts (e.g. EU law) may be quoted.
+_Avoid_: Clause, framework requirement (Requirement alone is the canonical term), Control (a different, organization-authored thing — see below)
+_Historical note_: before [ADR 0005](docs/adr/0005-split-requirement-and-control.md), "Requirement" meant what is now called **Control**. Code still uses `Requirement` for the Control concept until the rename lands.
 
-**Requirement Catalog**:
-The full set of Requirement definitions available to assess Systems against. Curated centrally to avoid drift or duplicate/inconsistent requirements across onboardings.
+**Control**:
+A reusable, organization-authored safeguard that satisfies one or more Requirements, potentially from several Frameworks at once ("implement once, satisfy many") — security, privacy, legal, or operational — independent of any specific System. Either a **base Control** (seeded 1:1 from ISO 27001:2022 Annex A) or a **Supplementary Control**. Carries an Applicability — Organizational, Per-System, or Both — and, for Per-System/Both Controls, optional Deployment Facet and Impact Level scoping (independently optional, composed with AND; empty/unset means "applies regardless"). An Organizational Control is implemented once by the Organization (see **Organization Control Implementation**) rather than assessed per System. A mandatory Control applicable to a System must have some Control Assessment recorded before that System can be submitted for review. Which Frameworks a Control serves is expressed only through Control Mappings, never by tagging the Control with Frameworks directly. Each Control has a Control Owner.
+_Avoid_: Policy, measure, safeguard (Control is the canonical term)
+
+**Supplementary Control**:
+A Control added beyond the ISO 27001 Annex A base because some Framework's Requirement has no base Control covering it (e.g. "notify the national CSIRT of significant incidents within 24h" for Cybersäkerhetslagen). Records its **origin Framework**. Once it exists it is an ordinary Control — other Frameworks' Requirements can map to it too.
+_Avoid_: Overlay, overlay control
+
+**Control Library**:
+The full set of Controls — base plus Supplementary — available to assess Systems against. Curated centrally, by Compliance Managers, to avoid drift or duplicate/inconsistent controls across Systems.
+_Avoid_: Requirement Catalog (its name before [ADR 0005](docs/adr/0005-split-requirement-and-control.md)), Requirement database (the informal name for the whole Framework + Requirement + Control Library + mapping set)
+
+**Control Mapping**:
+A many-to-many link between one Requirement and one Control, carrying a **Coverage** of Full or Partial. A Requirement is **covered** only when its mapped Controls together give Full coverage; a Requirement with no mappings, or only Partial ones, is a **Coverage Gap** — the trigger for authoring a Supplementary Control.
+
+**Statement of Applicability (SoA)**:
+The organization-wide ISO 27001 statement listing every Control in the Control Library with whether it is included, the justification for including or excluding it, and its implementation status. Generated from applicability and assessment data, with exclusion justifications authored by a Compliance Manager.
+_Historical note_: before this model, "SoA" was used loosely to mean a System's Framework Scope; it now carries only its proper ISO meaning.
+
+### Implementing and inheriting Controls
+
+**Organization**:
+The enterprise itself, as the implementer of Organizational Controls. Single instance while the app is single-tenant.
+
+**Organization Control Implementation**:
+The Organization's own status and description of how it implements one Control (e.g. A.5.1 policies, A.6.1 screening). Maintained by that Control's Control Owner. Inherited by every System the Control applies to.
+
+**Provider**:
+A System that other Systems depend on and inherit Controls from (e.g. a landing zone, a directory service, a central KMS). Publishes Control Offerings. Its offerings count only once the Provider itself is Onboarded. A System declares which Providers it depends on (see [ADR 0008](docs/adr/0008-providers-are-systems.md)).
+_Avoid_: Capability (the retired, non-System predecessor), platform, shared service
+
+**Control Offering**:
+A Provider's statement that it implements one Control for the Systems depending on it, with an inheritance type of **Full** or **Shared** and, for Shared, a **customer responsibility** text describing what the depending System must still do itself.
+
+**Control Inheritance**:
+A System satisfying a Control through someone else's implementation of it rather than its own — from the Organization (an Organization Control Implementation) or from a Provider (a Control Offering). **Full** inheritance covers the Control entirely; **Shared** inheritance still requires the System to address the customer responsibility itself. Inherited status is **live**: it always reflects the source's current status, never a copy taken at declaration time. A System's own Control Assessment can override an inherited one. A Control not inherited at all is **System-specific**.
+
+**Capability** _(retired)_:
+Was a standalone, non-System catalog entry (e.g. Active Directory) whose declaration auto-fulfilled mapped Requirements. Replaced by Provider (see [ADR 0008](docs/adr/0008-providers-are-systems.md)).
+
+### Assessing
+
+**Control Assessment**:
+The fulfillment status of one Control for one specific System (Not Started, In Progress, Fulfilled, Not Applicable, Waived). This is where "does this System implement this Control?" is answered — neither the Control nor any Requirement carries a status of its own; Requirement status for a System is derived from these. Waiving or marking Not Applicable a mandatory Control requires a justification note and is restricted to Risk Owners/Admins — the System Owner being assessed cannot wave off their own mandatory Control. Where a Control is inherited, the Assessment shows its source (e.g. "inherited from Azure Landing Zone — Shared") and stays overridable.
+_Historical note_: called Requirement Assessment before [ADR 0005](docs/adr/0005-split-requirement-and-control.md).
 
 **Self-Assessment Question**:
-The question posed to a System Owner for one Per-System/Both Requirement, answered Yes, No, or N/A. Yes sets the Requirement Assessment to Fulfilled; No leaves the Assessment open and automatically creates a Risk linked back to it; N/A sets the Assessment to Not Applicable, still subject to the existing justification/Waiver rule for mandatory Requirements.
+The question posed to a System Owner for one Per-System/Both Control, answered Yes, No, or N/A. Yes sets the Control Assessment to Fulfilled; No leaves the Assessment open and automatically creates a Risk linked back to it; N/A sets the Assessment to Not Applicable, still subject to the justification/Waiver rule for mandatory Controls.
 
-**Requirement Assessment**:
-The fulfillment status of one Requirement for one specific System (e.g. Fulfilled, Waived, Not Applicable). This is where "does this System meet this Requirement?" is answered — the Requirement itself never carries a status. Waiving or marking Not Applicable a mandatory Requirement requires a justification note and is restricted to Risk Owners/Admins — the System Owner being assessed cannot wave off their own mandatory Requirement. An Assessment can also be set to Fulfilled automatically when the System declares a Capability mapped to its Requirement (recorded with a system-generated note, e.g. "inherited via Active Directory"); this stays visible and overridable like any other Assessment. If the fulfilling Capability is later un-declared, an auto-fulfilled Assessment reverts to Not Started — unless a human has since manually touched that Assessment, in which case the manual entry is left alone.
+**Assessment Query**:
+A lightweight, non-blocking question/reply thread a Reviewer, Risk Owner, or Admin raises against one specific Control Assessment, without rejecting the whole System (see #56). Purely informational: it never changes the Assessment's status, gates an Approval decision, or affects the mandatory-Control submission check. Made up of one or more **Query Messages** and an explicit `resolved` flag set only by a Reviewer/Risk Owner/Admin (never the System Owner, and not necessarily whoever raised it). Posting a new Query Message on an already-resolved thread reopens it automatically. More than one Assessment Query can be open on the same Assessment at once. Visible to anyone who can already see the System.
+_Avoid_: Question (that term means **Self-Assessment Question**), Comment (that's `Approval.comment`)
+_Historical note_: called Requirement Query before [ADR 0005](docs/adr/0005-split-requirement-and-control.md).
 
-**Requirement Query**:
-A lightweight, non-blocking question/reply thread a Reviewer, Risk Owner, or Admin raises against one specific Requirement Assessment, without rejecting the whole System (see #56). Purely informational: it never changes the Assessment's status, gates an Approval decision, or affects the mandatory-Requirement submission check. Made up of one or more **Query Messages** — the System's owner or a Reviewer/Risk Owner/Admin can each add one, in either order after the first — and an explicit `resolved` flag set only by a Reviewer/Risk Owner/Admin (never the System Owner, and not necessarily whoever raised it — resolving is an independent-party judgment call, the same pattern as Approval). Posting a new Query Message on an already-resolved thread reopens it automatically. More than one Requirement Query can be open on the same Assessment at once (e.g. a Reviewer and a Risk Owner each raising a separate one). Visible to anyone who can already see the System — no narrower per-thread visibility rule.
-_Avoid_: Question (that term means **Self-Assessment Question** in this glossary — a different, fixed catalog-authored concept, not a free-form reviewer-to-owner exchange), Comment (that's `Approval.comment`, a single immutable string set once at decision time, not a reply thread)
+**Internal Audit**:
+An engagement run by an Internal Auditor to verify that one or more Controls actually work, across a selection of Systems (by filter or by hand) and/or the Organization's own implementations. Generates one Check-up per recipient per Control, all sharing the Internal Audit's due date. Ad-hoc only for now; recurring schedules are future work.
+_Avoid_: Audit (alone — ambiguous with external certification audits and with Change Event's explicitly-not-an-audit-log scope), campaign, review (Approval's territory)
 
-**Change Event**:
-A curated record of one System-lifecycle-relevant mutation (a status transition, an Approval decision, a Risk status change, a Requirement Assessment status change, Requirement Query activity, or a classification/Capability/Business Unit/Framework Scope declare-or-remove), feeding the landing page's "Recent updates" feed (see #58). Deliberately not a full audit trail — pure catalog-admin CRUD (editing the Requirement/Deployment Facet/Capability/Regulatory Overlay/Business Unit/Framework catalogs themselves) is out of scope. Attributed to either the acting User, or the literal actor `"system"` when the backend computed the change as a side effect of a different, human-initiated action (e.g. a Requirement Assessment auto-fulfilled by declaring a Capability, or a Risk auto-opened by a "No" Self-Assessment answer) rather than a direct edit to that specific row.
-_Avoid_: Audit log, Activity log (this app doesn't claim compliance-grade completeness — "Change Event" is the deliberately narrower term)
+**Check-up**:
+One Control-verification request within an Internal Audit, sent to the System Owner (for a System's Control Assessment) or the Control Owner (for an Organization Control Implementation). Its question defaults to the Control's Self-Assessment Question and can be edited or extended by the auditor. The recipient answers Yes/No/N/A with a free-text description and evidence links; the answer itself never changes any status. The Internal Auditor then evaluates it as **Conforming**, **Observation**, or **Nonconformity**. A Nonconformity automatically opens a Risk linked to the Check-up and sets the targeted Control Assessment (or Organization Control Implementation — which then flows live to every inheriting System) back from Fulfilled to In Progress, attributed to `"system"`.
+_Avoid_: Assessment Query (a non-blocking reviewer thread with no formal outcome), Self-Assessment Question (the catalog-authored question a Check-up merely defaults to)
 
-**Risk**:
-A risk identified either ad-hoc (logged directly by the System's owner or a designated risk owner, matching no predefined Requirement) or automatically (generated when a System Owner answers a Requirement's Self-Assessment Question "No," carrying a link back to the originating Requirement Assessment). Both are otherwise the same record and follow the same lifecycle — requirement fulfillment is checked off against pre-defined expectations, while an ad-hoc Risk is a finding that may not map to any predefined Requirement at all.
-_Avoid_: Issue, finding (when referring to a tracked Risk record specifically)
-
-**Business Risk Owner**:
-A role scoped to a portfolio of Business Unit(s) and/or Framework(s) it's assigned to (independently — a Business Risk Owner may own Business Units, Frameworks, or both, not necessarily paired), rather than the full cross-System visibility `Risk Owner` has. Sees Risks, Requirement Assessment compliance percentage, and a System Portfolio view (Systems in scope grouped by `OnboardingStatus`, each with its compliance-% and open-Risk-count) for Systems within its assigned scope only, filterable by Business Unit and Framework together. Read/reporting-only — does not manage Risk status (that stays with `Risk Owner`/Admin). A separate role from `Risk Owner`, not a replacement for it. Can also drill into a System's own detail page for any System within its assigned scope, any status — the one exception to the general System visibility rule (`ADMIN`/`Risk Owner`/`Reviewer` see every System, everyone else only their own plus Onboarded ones).
-_Avoid_: Scoped Risk Owner (Business Risk Owner is the canonical term)
+**Continuous Compliance**:
+The principle that a System's Control Assessments stay live after onboarding. A change to its classification, Framework Scope, or Providers — or a new Framework or Control reaching it — recomputes its applicable Controls: newly applicable ones get Not Started Assessments, no-longer-applicable untouched ones are removed, and no-longer-applicable touched ones are kept as stale for the owner to resolve. This never reopens the onboarding Approval. See [ADR 0006](docs/adr/0006-continuous-compliance-replaces-draft-lock.md).
 
 **Compliance Percentage**:
-For a given scope (a Business Unit, a Framework, or both combined), the proportion of applicable mandatory Requirement Assessments that are Fulfilled, Waived, or Not Applicable (i.e. resolved, not left open) — pooled across every System in that scope (total resolved ÷ total applicable mandatory assessments, not an average of each System's own percentage, so a System with more applicable Requirements is weighted accordingly). A System's own individual percentage is also shown standalone. A Framework with `strictComplianceRequired` set counts only Fulfilled, not Waived/Not Applicable, in the numerator.
+For a given scope (a Business Unit, a Framework, or both combined), the proportion of applicable Requirements that are Met — pooled across every System in that scope (total Met ÷ total applicable, not an average of each System's own percentage). A System's own percentage is also shown standalone. A Framework with `strictComplianceRequired` set treats Waived/Not Applicable Control Assessments as not Fulfilled when deriving Met.
+
+### Risk, approval, and people
+
+**Risk**:
+A risk identified either ad-hoc (logged directly by the System's owner or a designated risk owner, matching no predefined Control) or automatically (generated when a System Owner answers a Control's Self-Assessment Question "No," carrying a link back to the originating Control Assessment). Both are otherwise the same record and follow the same lifecycle.
+_Avoid_: Issue, finding (when referring to a tracked Risk record specifically)
 
 **Approval**:
-A reviewer's recorded decision on a System's onboarding. Approval is a judgment call made by a human reviewer — it is not automatically derived from Requirement Assessment or Risk status. A reviewer may approve a System despite open gaps, at their discretion.
+A reviewer's recorded decision on a System's onboarding. Approval is a judgment call made by a human reviewer — it is not automatically derived from Control Assessment or Risk status. A reviewer may approve a System despite open gaps, at their discretion.
 
 **Onboarding Lifecycle**:
-The sequence a System moves through: Draft (owner is assembling assessments) → In Review (submitted by the owner; requires every mandatory Requirement to have an Assessment) → Approved or Rejected (a reviewer's Approval decision) → Onboarded. Rejected returns to Draft for revision and resubmission rather than ending the System's record. Approved and Onboarded are distinct: Approved means a reviewer cleared the System to proceed; Onboarded means the actual technical integration/cutover has since been completed, a separate later event triggered by the System Owner or an Admin.
+The sequence a System moves through: Draft (owner is assembling assessments) → In Review (submitted by the owner; requires every applicable mandatory Control to have an Assessment) → Approved or Rejected (a reviewer's Approval decision) → Onboarded. Rejected returns to Draft for revision and resubmission rather than ending the System's record. Approved and Onboarded are distinct: Approved means a reviewer cleared the System to proceed; Onboarded means the actual technical integration/cutover has since been completed, a separate later event triggered by the System Owner or an Admin. Onboarding is a System's first assessment, not its last (see **Continuous Compliance**).
+
+**Control Owner**:
+The User accountable for one Control organization-wide. Maintains that Control's Organization Control Implementation. Assigned per Control by a Compliance Manager; any User can hold it, independent of role.
+
+**Compliance Manager**:
+A role that curates the requirement database — Frameworks, Requirements, the Control Library, and Control Mappings — assigns Control Owners, and authors Statement of Applicability justifications. Separate from Admin, who manages users, roles, and the remaining catalogs.
+
+**Internal Auditor**:
+A role that runs Internal Audits and evaluates Check-up responses. Reads everything; cannot edit Control Assessments, the requirement database, or Risks — independence from what it audits is the point (ISO 27001 clause 9.2). Admins and Compliance Managers can't evaluate Check-ups, since they'd be auditing their own work.
+
+**Business Risk Owner**:
+A role scoped to a portfolio of Business Unit(s) and/or Framework(s) it's assigned to (independently — may own Business Units, Frameworks, or both), rather than the full cross-System visibility `Risk Owner` has. Sees Risks, Compliance Percentage, and a System Portfolio view (Systems in scope grouped by `OnboardingStatus`, each with its compliance-% and open-Risk-count) for Systems within its assigned scope only, filterable by Business Unit and Framework together. Read/reporting-only — does not manage Risk status. Can also drill into a System's own detail page for any System within its assigned scope, any status.
+_Avoid_: Scoped Risk Owner (Business Risk Owner is the canonical term)
+
+**Change Event**:
+A curated record of one compliance-relevant mutation, feeding the landing page's "Recent updates" feed (see #58). Either System-scoped — a status transition, an Approval decision, a Risk status change, a Control Assessment status change, Assessment Query activity, or a classification/Provider/Business Unit/Framework Scope declare-or-remove — or System-less, for the evidence-bearing parts of the requirement database: a Control Mapping added, removed, or changed in Coverage; a Framework published; a Statement of Applicability justification changed; a Check-up evaluated. Deliberately not a full audit trail — other catalog curation (e.g. editing a Control's text) is out of scope. Attributed to either the acting User, or the literal actor `"system"` when the backend computed the change as a side effect of a different, human-initiated action (e.g. an inherited status change, or a Risk auto-opened by a "No" Self-Assessment answer).
+_Avoid_: Audit log, Activity log (this app doesn't claim compliance-grade completeness — "Change Event" is the deliberately narrower term)
