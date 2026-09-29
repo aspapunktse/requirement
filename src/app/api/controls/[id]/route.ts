@@ -4,7 +4,7 @@ import { ImpactLevel, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { authenticate, authorize } from "@/lib/api-authz";
 import { ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE } from "@/lib/catalog";
-import { controlInclude } from "@/lib/frameworks";
+import { controlIncludeFor } from "@/lib/frameworks";
 
 const impactLevelSchema = z.nativeEnum(ImpactLevel).nullable();
 
@@ -15,7 +15,7 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/controls
   const { id } = await ctx.params;
   const control = await prisma.control.findUnique({
     where: { id },
-    include: controlInclude,
+    include: controlIncludeFor(auth.user),
   });
   if (!control) {
     return NextResponse.json({ error: "Control not found" }, { status: 404 });
@@ -114,7 +114,7 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/contro
         ...(minIntegrityImpactLevel !== undefined && { minIntegrityImpactLevel }),
         ...(minAvailabilityImpactLevel !== undefined && { minAvailabilityImpactLevel }),
       },
-      include: controlInclude,
+      include: controlIncludeFor(auth.user),
     });
     return NextResponse.json({ control: updated });
   } catch (error) {

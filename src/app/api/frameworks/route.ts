@@ -4,13 +4,15 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { authenticate, authorize } from "@/lib/api-authz";
 import { ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE } from "@/lib/catalog";
-import { BASE_FRAMEWORK_ERRORS, checkBaseFrameworkInvariant } from "@/lib/frameworks";
+import { BASE_FRAMEWORK_ERRORS, checkBaseFrameworkInvariant, visibleFrameworksWhere } from "@/lib/frameworks";
 
 export async function GET(request: NextRequest) {
   const auth = await authenticate(request);
   if ("response" in auth) return auth.response;
 
+  // Draft Frameworks are only visible to the requirement-database roles (#73).
   const frameworks = await prisma.framework.findMany({
+    where: visibleFrameworksWhere(auth.user),
     orderBy: [{ name: "asc" }, { version: "asc" }],
     include: { _count: { select: { requirements: true } } },
   });
@@ -28,8 +30,8 @@ const createFrameworkSchema = z.object({
 });
 
 /**
- * Creates a Draft Framework. Publishing is a separate action (#73), so
- * `status` is not accepted here. Exactly one Framework is the base; asking
+ * Creates a Draft Framework. Publishing is a separate action
+ * (POST /api/frameworks/[id]/publish), so `status` is not accepted here. Exactly one Framework is the base; asking
  * for a second is refused (see checkBaseFrameworkInvariant).
  */
 export async function POST(request: NextRequest) {

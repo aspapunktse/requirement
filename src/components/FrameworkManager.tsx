@@ -1,78 +1,95 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/Button";
+import { StatusChip } from "@/components/ui/StatusChip";
 import { frameworkLabel } from "@/lib/framework-label";
 
-type Framework = {
+export type FrameworkRow = {
   id: string;
   name: string;
   version: string;
   description: string | null;
   strictComplianceRequired: boolean;
   licensing: "PARAPHRASE_ONLY" | "QUOTABLE";
+  supersedesId: string | null;
   isBase: boolean;
   status: "DRAFT" | "PUBLISHED";
   _count?: { requirements: number };
 };
-type Draft = { name: string; version: string; description: string; strictComplianceRequired: boolean };
+type Draft = {
+  name: string;
+  version: string;
+  description: string;
+  strictComplianceRequired: boolean;
+  licensing: FrameworkRow["licensing"];
+  supersedesId: string;
+};
 
-const EMPTY_DRAFT: Draft = { name: "", version: "", description: "", strictComplianceRequired: false };
+const EMPTY_DRAFT: Draft = {
+  name: "",
+  version: "",
+  description: "",
+  strictComplianceRequired: false,
+  licensing: "PARAPHRASE_ONLY",
+  supersedesId: "",
+};
 
-async function fetchFrameworks(): Promise<Framework[]> {
+const INPUT_CLASS = "rounded border border-zinc-200 p-2 text-sm dark:border-zinc-800 dark:bg-transparent";
+
+async function fetchFrameworks(): Promise<FrameworkRow[]> {
   const response = await fetch("/api/frameworks");
   const body = await response.json();
   return body.frameworks ?? [];
 }
 
+async function errorMessage(response: Response, fallback: string): Promise<string> {
+  try {
+    return (await response.json()).error ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 /**
- * Admin CRUD for the Framework catalog — like CatalogManager's generic
- * name+description screen, but with the version and the extra
+ * Admin CRUD for the Framework catalog: name, version, the Framework it
+ * supersedes, licensing (paraphrase-only vs quotable), and the extra
  * strictComplianceRequired flag (some frameworks only accept 100% Fulfilled
  * — no partial credit for Waived/Not Applicable — when computing compliance
- * percentage against them). Each row also shows its read-only status
- * (Draft/Published), base-Framework marker and Requirement count. Authoring
- * Requirements, Control Mappings and publishing are #73. See #55, #72.
+ * percentage against them). Each row shows its status (Draft/Published) and
+ * Requirement count, links to the per-Framework authoring page (Requirements
+ * and Control Mappings), and has the one-way Publish action for a Draft.
+ * The server page passes the initial list; changes reload it from the API.
+ * See #55, #72, #73.
  */
-export function FrameworkManager() {
-  const [items, setItems] = useState<Framework[]>([]);
-  const [loading, setLoading] = useState(true);
+export function FrameworkManager({ initialFrameworks }: { initialFrameworks: FrameworkRow[] }) {
+  const [items, setItems] = useState<FrameworkRow[]>(initialFrameworks);
   const [error, setError] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
   const [newDraft, setNewDraft] = useState<Draft>(EMPTY_DRAFT);
 
-  function draftFor(item: Framework): Draft {
+  function draftFor(item: FrameworkRow): Draft {
     return (
       drafts[item.id] ?? {
         name: item.name,
         version: item.version,
         description: item.description ?? "",
         strictComplianceRequired: item.strictComplianceRequired,
+        licensing: item.licensing,
+        supersedesId: item.supersedesId ?? "",
       }
     );
   }
 
-  function updateDraft(item: Framework, patch: Partial<Draft>) {
+  function updateDraft(item: FrameworkRow, patch: Partial<Draft>) {
     setDrafts((prev) => ({ ...prev, [item.id]: { ...draftFor(item), ...patch } }));
   }
 
   async function refresh() {
     setItems(await fetchFrameworks());
+    setDrafts({});
   }
-
-  useEffect(() => {
-    let cancelled = false;
-
-    fetchFrameworks().then((fetched) => {
-      if (cancelled) return;
-      setItems(fetched);
-      setLoading(false);
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   async function handleCreate(event: React.FormEvent) {
     event.preventDefault();
@@ -86,12 +103,13 @@ export function FrameworkManager() {
         version: newDraft.version,
         description: newDraft.description || undefined,
         strictComplianceRequired: newDraft.strictComplianceRequired,
+        licensing: newDraft.licensing,
+        supersedesId: newDraft.supersedesId || null,
       }),
     });
 
     if (!response.ok) {
-      const body = await response.json();
-      setError(body.error ?? "Failed to create Framework");
+      setError(await errorMessage(response, "Failed to create Framework"));
       return;
     }
 
@@ -99,75 +117,137 @@ export function FrameworkManager() {
     await refresh();
   }
 
-  async function handleSave(item: Framework) {
+  async function handleSave(item: FrameworkRow) {
     setError(null);
     const draft = draftFor(item);
 
     const response = await fetch(`/api/frameworks/${item.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(draft),
+      body: JSON.stringify({ ...draft, supersedesId: draft.supersedesId || null }),
     });
 
     if (!response.ok) {
-      const body = await response.json();
-      setError(body.error ?? "Failed to update Framework");
+      setError(await errorMessage(response, "Failed to update Framework"));
       return;
     }
 
     await refresh();
   }
 
-  async function handleDelete(item: Framework) {
+  async function handlePublish(item: FrameworkRow) {
+    const count = item._count?.requirements ?? 0;
+    const confirmed = window.confirm(
+      `Publish ${frameworkLabel(item)} (${count} Requirement${count === 1 ? "" : "s"})? ` +
+        "Once published it becomes visible to everyone and can be put in a System's Framework Scope. " +
+        "This can't be undone.",
+    );
+    if (!confirmed) return;
+    setError(null);
+
+    const response = await fetch(`/api/frameworks/${item.id}/publish`, { method: "POST" });
+
+    if (!response.ok) {
+      setError(await errorMessage(response, "Failed to publish Framework"));
+      return;
+    }
+
+    await refresh();
+  }
+
+  async function handleDelete(item: FrameworkRow) {
     setError(null);
 
     const response = await fetch(`/api/frameworks/${item.id}`, { method: "DELETE" });
 
     if (!response.ok) {
-      const body = await response.json();
-      setError(body.error ?? "Failed to retire Framework");
+      setError(await errorMessage(response, "Failed to retire Framework"));
       return;
     }
 
     await refresh();
   }
 
-  if (loading) {
-    return <p>Loading Frameworks…</p>;
-  }
-
   return (
     <div className="flex flex-col gap-6">
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && (
+        <p role="alert" className="text-sm text-red-600">
+          {error}
+        </p>
+      )}
 
       <ul className="flex flex-col gap-3">
         {items.map((item) => {
           const draft = draftFor(item);
+          const label = frameworkLabel(item);
           return (
             <li key={item.id} className="rounded border border-zinc-200 p-3 dark:border-zinc-800">
+              <div className="mb-2 flex flex-wrap items-center gap-2 text-sm">
+                <span className="font-medium">{label}</span>
+                <StatusChip tone={item.status === "PUBLISHED" ? "success" : "warn"}>
+                  {item.status === "PUBLISHED" ? "Published" : "Draft"}
+                </StatusChip>
+                {item.isBase && <StatusChip tone="accent">Base Framework</StatusChip>}
+                <span className="text-xs text-zinc-500">
+                  {`${item._count?.requirements ?? 0} Requirements`}
+                </span>
+                <Link
+                  href={`/admin/frameworks/${item.id}`}
+                  className="ml-auto text-ems-blue hover:underline"
+                  aria-label={`Requirements and Control Mappings for ${label}`}
+                >
+                  Requirements &amp; mappings &rarr;
+                </Link>
+              </div>
               <div className="flex gap-2">
                 <input
-                  aria-label={`Name for ${frameworkLabel(item)}`}
-                  className="w-full rounded border border-zinc-200 p-2 text-sm font-medium dark:border-zinc-800 dark:bg-transparent"
+                  aria-label={`Name for ${label}`}
+                  className={`${INPUT_CLASS} w-full font-medium`}
                   value={draft.name}
                   onChange={(event) => updateDraft(item, { name: event.target.value })}
                 />
                 <input
-                  aria-label={`Version for ${frameworkLabel(item)}`}
-                  className="w-32 rounded border border-zinc-200 p-2 text-sm dark:border-zinc-800 dark:bg-transparent"
+                  aria-label={`Version for ${label}`}
+                  className={`${INPUT_CLASS} w-32`}
                   value={draft.version}
                   onChange={(event) => updateDraft(item, { version: event.target.value })}
                 />
               </div>
-              <p className="mt-2 text-xs text-zinc-500">
-                {item.status === "PUBLISHED" ? "Published" : "Draft"}
-                {item.isBase ? " · Base Framework" : ""}
-                {` · ${item._count?.requirements ?? 0} Requirements`}
-                {item.licensing === "PARAPHRASE_ONLY" ? " · Paraphrase only" : " · Quotable"}
-              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <label className="flex flex-1 flex-col gap-1 text-xs text-zinc-500">
+                  Supersedes
+                  <select
+                    aria-label={`Supersedes for ${label}`}
+                    className={`${INPUT_CLASS} text-zinc-900 dark:text-zinc-100`}
+                    value={draft.supersedesId}
+                    onChange={(event) => updateDraft(item, { supersedesId: event.target.value })}
+                  >
+                    <option value="">Nothing (first version)</option>
+                    {items
+                      .filter((other) => other.id !== item.id)
+                      .map((other) => (
+                        <option key={other.id} value={other.id}>
+                          {frameworkLabel(other)}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+                <label className="flex flex-1 flex-col gap-1 text-xs text-zinc-500">
+                  Licensing
+                  <select
+                    aria-label={`Licensing for ${label}`}
+                    className={`${INPUT_CLASS} text-zinc-900 dark:text-zinc-100`}
+                    value={draft.licensing}
+                    onChange={(event) => updateDraft(item, { licensing: event.target.value as Draft["licensing"] })}
+                  >
+                    <option value="PARAPHRASE_ONLY">Paraphrase only (licensed standard)</option>
+                    <option value="QUOTABLE">Quotable (public domain)</option>
+                  </select>
+                </label>
+              </div>
               <textarea
-                aria-label={`Description for ${frameworkLabel(item)}`}
-                className="mt-2 w-full rounded border border-zinc-200 p-2 text-sm dark:border-zinc-800 dark:bg-transparent"
+                aria-label={`Description for ${label}`}
+                className={`${INPUT_CLASS} mt-2 w-full`}
                 value={draft.description}
                 onChange={(event) => updateDraft(item, { description: event.target.value })}
               />
@@ -183,6 +263,11 @@ export function FrameworkManager() {
                 <Button variant="secondary" onClick={() => handleSave(item)}>
                   Save
                 </Button>
+                {item.status === "DRAFT" && (
+                  <Button variant="primary" onClick={() => handlePublish(item)}>
+                    Publish
+                  </Button>
+                )}
                 <Button
                   onClick={() => handleDelete(item)}
                   disabled={item.isBase}
@@ -201,10 +286,11 @@ export function FrameworkManager() {
         className="flex flex-col gap-2 border-t border-zinc-200 pt-4 dark:border-zinc-800"
       >
         <h2 className="text-base">Add a Framework</h2>
+        <p className="text-xs text-zinc-500">New Frameworks start as a Draft, visible only to Compliance Managers and Admins.</p>
         <input
           aria-label="Name"
           placeholder="Name"
-          className="rounded border border-zinc-200 p-2 text-sm dark:border-zinc-800 dark:bg-transparent"
+          className={INPUT_CLASS}
           value={newDraft.name}
           onChange={(event) => setNewDraft((prev) => ({ ...prev, name: event.target.value }))}
           required
@@ -212,15 +298,37 @@ export function FrameworkManager() {
         <input
           aria-label="Version"
           placeholder="Version (e.g. 2022)"
-          className="rounded border border-zinc-200 p-2 text-sm dark:border-zinc-800 dark:bg-transparent"
+          className={INPUT_CLASS}
           value={newDraft.version}
           onChange={(event) => setNewDraft((prev) => ({ ...prev, version: event.target.value }))}
           required
         />
+        <select
+          aria-label="New Framework supersedes"
+          className={INPUT_CLASS}
+          value={newDraft.supersedesId}
+          onChange={(event) => setNewDraft((prev) => ({ ...prev, supersedesId: event.target.value }))}
+        >
+          <option value="">Supersedes nothing (first version)</option>
+          {items.map((other) => (
+            <option key={other.id} value={other.id}>
+              Supersedes {frameworkLabel(other)}
+            </option>
+          ))}
+        </select>
+        <select
+          aria-label="New Framework licensing"
+          className={INPUT_CLASS}
+          value={newDraft.licensing}
+          onChange={(event) => setNewDraft((prev) => ({ ...prev, licensing: event.target.value as Draft["licensing"] }))}
+        >
+          <option value="PARAPHRASE_ONLY">Paraphrase only (licensed standard)</option>
+          <option value="QUOTABLE">Quotable (public domain)</option>
+        </select>
         <textarea
           aria-label="New Framework description"
           placeholder="Description (optional)"
-          className="rounded border border-zinc-200 p-2 text-sm dark:border-zinc-800 dark:bg-transparent"
+          className={INPUT_CLASS}
           value={newDraft.description}
           onChange={(event) => setNewDraft((prev) => ({ ...prev, description: event.target.value }))}
         />

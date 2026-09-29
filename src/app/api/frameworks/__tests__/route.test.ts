@@ -4,6 +4,10 @@ import { prisma } from "@/lib/prisma";
 import { ACTING_USER_COOKIE } from "@/lib/acting-user";
 import { POST, GET } from "../route";
 import { DELETE, PATCH } from "../[id]/route";
+import { POST as publish } from "../[id]/publish/route";
+import { POST as createRequirement } from "../[id]/requirements/route";
+import { PATCH as patchRequirement, DELETE as deleteRequirement } from "../[id]/requirements/[requirementId]/route";
+import { POST as createMapping } from "../[id]/requirements/[requirementId]/mappings/route";
 
 const SUFFIX = Date.now();
 const CM_EMAIL = "test-frameworks-cm@example.com";
@@ -172,6 +176,70 @@ describe("/api/frameworks: version, base Framework and supersedes rules", () => 
     const { framework } = await (await create({ name: `Test FW retire ${SUFFIX}`, version: "1" })).json();
     const response = await DELETE(req(`/api/frameworks/${framework.id}`, "DELETE", cmId), ctx(framework.id));
     expect(response.status).toBe(204);
+  });
+
+  it("the base Framework can't be moved back to Draft, or published again", async () => {
+    const back = await PATCH(req(`/api/frameworks/${baseId}`, "PATCH", cmId, { status: "DRAFT" }), ctx(baseId));
+    expect(back.status).toBe(409);
+    expect((await back.json()).error).toMatch(/base Framework/);
+
+    const again = await publish(req(`/api/frameworks/${baseId}/publish`, "POST", cmId), ctx(baseId));
+    expect(again.status).toBe(409);
+
+    expect((await prisma.framework.findUniqueOrThrow({ where: { id: baseId } })).status).toBe("PUBLISHED");
+  });
+
+  it("the base Framework's Requirements are editable: add, edit, map and delete", async () => {
+    const code = `TEST-BASE-${SUFFIX}`;
+    const control = await prisma.control.create({
+      data: {
+        code: `TEST-BASE-CTL-${SUFFIX}`,
+        title: "Base editing control",
+        description: "d",
+        category: "Test",
+        applicability: "ORGANIZATIONAL",
+      },
+    });
+    let requirementId: string | null = null;
+    try {
+      const created = await createRequirement(
+        req(`/api/frameworks/${baseId}/requirements`, "POST", cmId, { code, section: "Test", title: "T", text: "t" }),
+        ctx(baseId),
+      );
+      expect(created.status).toBe(201);
+      requirementId = (await created.json()).requirement.id as string;
+      const rctx = { params: Promise.resolve({ id: baseId, requirementId }) };
+
+      const edited = await patchRequirement(
+        req(`/api/frameworks/${baseId}/requirements/${requirementId}`, "PATCH", cmId, { title: "Edited" }),
+        rctx,
+      );
+      expect(edited.status).toBe(200);
+      expect((await edited.json()).requirement.title).toBe("Edited");
+
+      const mapped = await createMapping(
+        req(`/api/frameworks/${baseId}/requirements/${requirementId}/mappings`, "POST", cmId, {
+          controlId: control.id,
+          coverage: "FULL",
+        }),
+        rctx,
+      );
+      expect(mapped.status).toBe(201);
+
+      const deleted = await deleteRequirement(
+        req(`/api/frameworks/${baseId}/requirements/${requirementId}`, "DELETE", cmId),
+        rctx,
+      );
+      expect(deleted.status).toBe(204);
+      requirementId = null;
+    } finally {
+      // Net-zero on the (possibly seeded) base Framework, whatever happened above.
+      if (requirementId) await prisma.requirement.deleteMany({ where: { id: requirementId } });
+      await prisma.requirement.deleteMany({ where: { frameworkId: baseId, code } });
+      await prisma.control.delete({ where: { id: control.id } });
+      await prisma.changeEvent.deleteMany({ where: { actorId: cmId, detail: { contains: code } } });
+    }
+    expect(await prisma.requirement.count({ where: { frameworkId: baseId, code } })).toBe(0);
   });
 
   it("is refused to a Viewer", async () => {

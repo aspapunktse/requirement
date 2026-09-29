@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { authorize } from "@/lib/api-authz";
+import { authenticate, authorize } from "@/lib/api-authz";
 import { ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE } from "@/lib/catalog";
-import { BASE_FRAMEWORK_ERRORS, checkBaseFrameworkInvariant } from "@/lib/frameworks";
+import { BASE_FRAMEWORK_ERRORS, checkBaseFrameworkInvariant, visibleFrameworksWhere } from "@/lib/frameworks";
 
 const updateFrameworkSchema = z
   .object({
@@ -15,6 +15,9 @@ const updateFrameworkSchema = z
     licensing: z.enum(["PARAPHRASE_ONLY", "QUOTABLE"]).optional(),
     supersedesId: z.string().min(1).nullable().optional(),
     isBase: z.boolean().optional(),
+    // Publishing is POST /api/frameworks/[id]/publish; `status` is only accepted here so an attempt to
+    // move a Published Framework back to Draft gets a clear refusal instead of being silently ignored.
+    status: z.enum(["DRAFT", "PUBLISHED"]).optional(),
   })
   .refine((data) => Object.values(data).some((value) => value !== undefined), {
     message: "Provide at least one field to update",
@@ -37,6 +40,22 @@ async function wouldCreateSupersedesCycle(id: string, supersedesId: string): Pro
   return false;
 }
 
+/** A Framework with its Requirement count; a Draft is a 404 for anyone who can't see Drafts. */
+export async function GET(request: NextRequest, ctx: RouteContext<"/api/frameworks/[id]">) {
+  const auth = await authenticate(request);
+  if ("response" in auth) return auth.response;
+
+  const { id } = await ctx.params;
+  const framework = await prisma.framework.findFirst({
+    where: { id, ...visibleFrameworksWhere(auth.user) },
+    include: { _count: { select: { requirements: true } } },
+  });
+  if (!framework) {
+    return NextResponse.json({ error: "Framework not found" }, { status: 404 });
+  }
+  return NextResponse.json({ framework });
+}
+
 export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/frameworks/[id]">) {
   const auth = await authorize(request, ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE);
   if ("response" in auth) return auth.response;
@@ -50,6 +69,21 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/framew
   const existing = await prisma.framework.findUnique({ where: { id } });
   if (!existing) {
     return NextResponse.json({ error: "Framework not found" }, { status: 404 });
+  }
+
+  const { status, ...changes } = parsed.data;
+  if (status === "DRAFT" && existing.status === "PUBLISHED") {
+    return NextResponse.json(
+      {
+        error: existing.isBase
+          ? "The base Framework can't be moved back to Draft"
+          : "A Published Framework can't be moved back to Draft",
+      },
+      { status: 409 },
+    );
+  }
+  if (status === "PUBLISHED" && existing.status === "DRAFT") {
+    return NextResponse.json({ error: "Publish a Framework with POST /api/frameworks/[id]/publish" }, { status: 400 });
   }
 
   if (parsed.data.isBase !== undefined) {
@@ -67,7 +101,7 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/framew
   }
 
   try {
-    const framework = await prisma.framework.update({ where: { id }, data: parsed.data });
+    const framework = await prisma.framework.update({ where: { id }, data: changes });
     return NextResponse.json({ framework });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError) {

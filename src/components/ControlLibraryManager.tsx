@@ -1,12 +1,23 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/Button";
-import { satisfiesEntries, satisfiesLabel, type ControlMappingForLabel } from "@/lib/framework-label";
+import { frameworkLabel, satisfiesEntries, satisfiesLabel, type ControlMappingForLabel } from "@/lib/framework-label";
 
 type Catalog = { id: string; name: string };
 type ImpactLevel = "LOW" | "MODERATE" | "HIGH" | "CRITICAL";
 type Applicability = "ORGANIZATIONAL" | "PER_SYSTEM" | "BOTH";
+
+// What `/api/controls` returns per Control Mapping: enough for the "Satisfies" line and the reverse view.
+type ControlMappingRow = ControlMappingForLabel & {
+  id: string;
+  requirement: ControlMappingForLabel["requirement"] & {
+    id: string;
+    title: string;
+    framework: { id: string; status?: "DRAFT" | "PUBLISHED" };
+  };
+};
 
 type ControlSummary = {
   id: string;
@@ -22,7 +33,7 @@ type ControlSummary = {
   deploymentFacets: Catalog[];
   regulatoryOverlays: Catalog[];
   capabilities: Catalog[];
-  mappings: ControlMappingForLabel[];
+  mappings: ControlMappingRow[];
   minConfidentialityImpactLevel: ImpactLevel | null;
   minIntegrityImpactLevel: ImpactLevel | null;
   minAvailabilityImpactLevel: ImpactLevel | null;
@@ -49,6 +60,17 @@ function summarizeTags(control: ControlSummary): string {
   );
   if (thresholds.length > 0) parts.push(thresholds.join(", "));
   return parts.length > 0 ? parts.join(" · ") : "Unscoped (applies regardless)";
+}
+
+/** The reverse view's order: by Framework, then Requirement code. */
+function sortMappings(mappings: ControlMappingRow[]): ControlMappingRow[] {
+  return [...mappings].sort((a, b) =>
+    `${frameworkLabel(a.requirement.framework)}|${a.requirement.code}`.localeCompare(
+      `${frameworkLabel(b.requirement.framework)}|${b.requirement.code}`,
+      undefined,
+      { numeric: true },
+    ),
+  );
 }
 
 const NEW_CONTROL_DRAFT = {
@@ -386,6 +408,28 @@ export function ControlLibraryManager() {
           <p className="text-sm text-zinc-500">
             {satisfiesLabel(selected.mappings) ?? "Satisfies: no Framework Requirement yet"}
           </p>
+
+          {selected.mappings.length > 0 && (
+            <div>
+              <h4 className="mb-1 text-sm font-semibold">Mapped Requirements</h4>
+              <ul aria-label={`Requirements mapped to ${selected.code}`} className="flex flex-col gap-1 text-sm">
+                {sortMappings(selected.mappings).map((mapping) => (
+                  <li key={mapping.id}>
+                    <Link
+                      href={`/admin/frameworks/${mapping.requirement.framework.id}`}
+                      className="text-ems-blue hover:underline"
+                    >
+                      {frameworkLabel(mapping.requirement.framework)} {mapping.requirement.code}
+                    </Link>
+                    <span className="text-zinc-500">
+                      {` — ${mapping.requirement.title} · ${mapping.coverage === "FULL" ? "Full" : "Partial"} coverage`}
+                      {mapping.requirement.framework.status === "DRAFT" ? " · Draft Framework" : ""}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {selected.applicability === "ORGANIZATIONAL" ? (
             <p className="text-sm text-zinc-500">
