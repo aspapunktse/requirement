@@ -3,7 +3,7 @@ import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { authenticate, authorize } from "@/lib/api-authz";
-import { ROLES_ALLOWED_TO_MANAGE_CATALOG } from "@/lib/catalog";
+import { ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE } from "@/lib/catalog";
 
 export async function GET(request: NextRequest) {
   const auth = await authenticate(request);
@@ -20,7 +20,7 @@ const createFrameworkSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
-  const auth = await authorize(request, ROLES_ALLOWED_TO_MANAGE_CATALOG);
+  const auth = await authorize(request, ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE);
   if ("response" in auth) return auth.response;
 
   const parsed = createFrameworkSchema.safeParse(await request.json());

@@ -1,5 +1,5 @@
 import { getActingUser } from "@/lib/acting-user";
-import { getVisibleSystem } from "@/lib/system-visibility";
+import { canWriteSystems, getVisibleSystem } from "@/lib/system-visibility";
 import { canLogRisk, ROLES_ALLOWED_TO_MANAGE_RISK_STATUS } from "@/lib/risks";
 import { ROLES_ALLOWED_TO_APPROVE } from "@/lib/approvals";
 import { canMarkOnboarded } from "@/lib/onboarding";
@@ -97,7 +97,7 @@ export default async function SystemDetailPage({ params }: PageProps<"/systems/[
         />
       )}
 
-      {system.status === "DRAFT" && <SubmitForReviewButton systemId={system.id} />}
+      {system.status === "DRAFT" && canWriteSystems(user) && <SubmitForReviewButton systemId={system.id} />}
       {system.status === "APPROVED" && canMarkOnboarded(user, system) && (
         <MarkOnboardedButton systemId={system.id} />
       )}
@@ -143,6 +143,7 @@ export default async function SystemDetailPage({ params }: PageProps<"/systems/[
         userRole={user.role}
         currentUserId={user.id}
         systemOwnerId={system.ownerId}
+        readOnly={!canWriteSystems(user)}
       />
 
       <h2 className="mb-3 mt-8 text-xl">Risks</h2>

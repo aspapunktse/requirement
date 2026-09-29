@@ -1,5 +1,6 @@
 import { getActingUser } from "@/lib/acting-user";
 import { ControlLibraryManager } from "@/components/ControlLibraryManager";
+import { ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE } from "@/lib/catalog";
 
 export default async function ControlLibraryPage() {
   const user = await getActingUser();
@@ -8,11 +9,11 @@ export default async function ControlLibraryPage() {
     return <p className="p-6 text-zinc-600 dark:text-zinc-400">Pick a user to act as first.</p>;
   }
 
-  if (user.role !== "ADMIN") {
+  if (!ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE.includes(user.role)) {
     return (
       <p className="p-6 text-zinc-600 dark:text-zinc-400">
-        Only Admins can author Controls and map them to Deployment Facets, Regulatory
-        Overlays, Impact Levels, and Capabilities.
+        Only Compliance Managers and Admins can author Controls and map them to Deployment
+        Facets, Regulatory Overlays, Impact Levels, and Capabilities.
       </p>
     );
   }

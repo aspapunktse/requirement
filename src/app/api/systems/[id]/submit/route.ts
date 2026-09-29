@@ -1,13 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authenticate } from "@/lib/api-authz";
-import { getVisibleSystem } from "@/lib/system-visibility";
+import { canWriteSystems, getVisibleSystem } from "@/lib/system-visibility";
 import { getUnaddressedMandatoryControls } from "@/lib/control-assessments";
 import { logChangeEvent } from "@/lib/change-events";
 
 export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems/[id]/submit">) {
   const auth = await authenticate(request);
   if ("response" in auth) return auth.response;
+  if (!canWriteSystems(auth.user)) {
+    return NextResponse.json({ error: "Your role can read Systems but not change them" }, { status: 403 });
+  }
 
   const { id } = await ctx.params;
   const system = await getVisibleSystem(auth.user, id);

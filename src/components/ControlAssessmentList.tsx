@@ -6,7 +6,14 @@ import { StatusChip } from "@/components/ui/StatusChip";
 import { controlAssessmentStatusTone } from "@/lib/status-tones";
 
 type ControlAssessmentStatus = "NOT_STARTED" | "IN_PROGRESS" | "FULFILLED" | "NOT_APPLICABLE" | "WAIVED";
-type UserRole = "ADMIN" | "RISK_OWNER" | "SYSTEM_OWNER" | "REVIEWER" | "VIEWER" | "BUSINESS_RISK_OWNER";
+type UserRole =
+  | "ADMIN"
+  | "RISK_OWNER"
+  | "SYSTEM_OWNER"
+  | "REVIEWER"
+  | "VIEWER"
+  | "BUSINESS_RISK_OWNER"
+  | "COMPLIANCE_MANAGER";
 
 type SelfAssessmentAnswer = "YES" | "NO" | "NA";
 
@@ -259,6 +266,7 @@ function AssessmentQueries({
   controlId,
   userRole,
   isSystemOwner,
+  readOnly,
   onChange,
 }: {
   queries: AssessmentQuery[];
@@ -266,10 +274,11 @@ function AssessmentQueries({
   controlId: string;
   userRole: UserRole;
   isSystemOwner: boolean;
+  readOnly: boolean;
   onChange: (queries: AssessmentQuery[]) => void;
 }) {
-  const canRaise = ROLES_ALLOWED_TO_MANAGE_QUERIES.includes(userRole);
-  const canReply = isSystemOwner || canRaise;
+  const canRaise = !readOnly && ROLES_ALLOWED_TO_MANAGE_QUERIES.includes(userRole);
+  const canReply = !readOnly && (isSystemOwner || canRaise);
   const openCount = queries.filter((q) => !q.resolved).length;
   const [showForm, setShowForm] = useState(false);
   const [draft, setDraft] = useState("");
@@ -369,6 +378,7 @@ function ControlRow({
   systemId,
   userRole,
   isSystemOwner,
+  readOnly,
   onSaved,
   onQueriesChanged,
   stale = false,
@@ -377,6 +387,7 @@ function ControlRow({
   systemId: string;
   userRole: UserRole;
   isSystemOwner: boolean;
+  readOnly: boolean;
   onSaved: (assessment: NonNullable<Assessment>) => void;
   onQueriesChanged: (queries: AssessmentQuery[]) => void;
   stale?: boolean;
@@ -447,53 +458,72 @@ function ControlRow({
         </div>
       </div>
 
-      <div className="flex flex-col gap-2">
-        {error && <p className="text-sm text-red-600">{error}</p>}
+      {readOnly ? (
+        (assessment?.evidence || assessment?.notes) && (
+          <dl className="flex flex-col gap-1 text-sm">
+            {assessment?.evidence && (
+              <div>
+                <dt className="font-medium">Evidence</dt>
+                <dd>{assessment.evidence}</dd>
+              </div>
+            )}
+            {assessment?.notes && (
+              <div>
+                <dt className="font-medium">Notes</dt>
+                <dd>{assessment.notes}</dd>
+              </div>
+            )}
+          </dl>
+        )
+      ) : (
+        <div className="flex flex-col gap-2">
+          {error && <p className="text-sm text-red-600">{error}</p>}
 
-        <label className="flex flex-col gap-1 text-sm">
-          Status
-          <select
-            aria-label={`Status for ${control.code}`}
-            className="rounded border border-zinc-200 p-2 dark:border-zinc-800 dark:bg-transparent"
-            value={status}
-            onChange={(event) => setStatus(event.target.value as ControlAssessmentStatus)}
-          >
-            {availableStatuses.map((candidate) => (
-              <option key={candidate} value={candidate}>
-                {STATUS_LABELS[candidate]}
-              </option>
-            ))}
-          </select>
-        </label>
+          <label className="flex flex-col gap-1 text-sm">
+            Status
+            <select
+              aria-label={`Status for ${control.code}`}
+              className="rounded border border-zinc-200 p-2 dark:border-zinc-800 dark:bg-transparent"
+              value={status}
+              onChange={(event) => setStatus(event.target.value as ControlAssessmentStatus)}
+            >
+              {availableStatuses.map((candidate) => (
+                <option key={candidate} value={candidate}>
+                  {STATUS_LABELS[candidate]}
+                </option>
+              ))}
+            </select>
+          </label>
 
-        <label className="flex flex-col gap-1 text-sm">
-          Evidence (optional)
-          <input
-            aria-label={`Evidence for ${control.code}`}
-            className="rounded border border-zinc-200 p-2 dark:border-zinc-800 dark:bg-transparent"
-            value={evidence}
-            onChange={(event) => setEvidence(event.target.value)}
-          />
-        </label>
+          <label className="flex flex-col gap-1 text-sm">
+            Evidence (optional)
+            <input
+              aria-label={`Evidence for ${control.code}`}
+              className="rounded border border-zinc-200 p-2 dark:border-zinc-800 dark:bg-transparent"
+              value={evidence}
+              onChange={(event) => setEvidence(event.target.value)}
+            />
+          </label>
 
-        <label className="flex flex-col gap-1 text-sm">
-          {STATUSES_REQUIRING_WAIVE_ROLE.includes(status) && control.mandatory
-            ? "Justification (required)"
-            : "Notes (optional)"}
-          <textarea
-            aria-label={`Notes for ${control.code}`}
-            className="rounded border border-zinc-200 p-2 dark:border-zinc-800 dark:bg-transparent"
-            value={notes}
-            onChange={(event) => setNotes(event.target.value)}
-          />
-        </label>
+          <label className="flex flex-col gap-1 text-sm">
+            {STATUSES_REQUIRING_WAIVE_ROLE.includes(status) && control.mandatory
+              ? "Justification (required)"
+              : "Notes (optional)"}
+            <textarea
+              aria-label={`Notes for ${control.code}`}
+              className="rounded border border-zinc-200 p-2 dark:border-zinc-800 dark:bg-transparent"
+              value={notes}
+              onChange={(event) => setNotes(event.target.value)}
+            />
+          </label>
 
-        <Button variant="secondary" onClick={handleSave} disabled={saving}>
-          Save
-        </Button>
-      </div>
+          <Button variant="secondary" onClick={handleSave} disabled={saving}>
+            Save
+          </Button>
+        </div>
+      )}
 
-      {!stale && (
+      {!stale && !readOnly && (
         <SelfAssessmentQuestion
           control={control}
           assessment={assessment}
@@ -509,6 +539,7 @@ function ControlRow({
         controlId={control.id}
         userRole={userRole}
         isSystemOwner={isSystemOwner}
+        readOnly={readOnly}
         onChange={onQueriesChanged}
       />
     </li>
@@ -522,11 +553,15 @@ export function ControlAssessmentList({
   userRole,
   currentUserId,
   systemOwnerId,
+  readOnly = false,
 }: {
   systemId: string;
   userRole: UserRole;
   currentUserId: string;
   systemOwnerId: string;
+  /** Show Assessments and Assessment Queries without any way to change
+   * them — for a role that may read Systems but not write them (#71). */
+  readOnly?: boolean;
 }) {
   const isSystemOwner = currentUserId === systemOwnerId;
   const [rows, setRows] = useState<AssessmentRow[] | null>(null);
@@ -576,6 +611,7 @@ export function ControlAssessmentList({
               systemId={systemId}
               userRole={userRole}
               isSystemOwner={isSystemOwner}
+              readOnly={readOnly}
               onSaved={(assessment) =>
                 setRows((prev) =>
                   (prev ?? []).map((r) =>
@@ -604,6 +640,7 @@ export function ControlAssessmentList({
                 systemId={systemId}
                 userRole={userRole}
                 isSystemOwner={isSystemOwner}
+                readOnly={readOnly}
                 stale
                 onSaved={(assessment) =>
                   setStaleRows((prev) =>

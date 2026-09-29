@@ -2,11 +2,29 @@ import type { Prisma, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getAssignedScope, scopedSystemsWhere } from "@/lib/business-risk-owner";
 
-const FULL_VISIBILITY_ROLES: UserRole[] = ["ADMIN", "RISK_OWNER", "REVIEWER"];
+const FULL_VISIBILITY_ROLES: UserRole[] = ["ADMIN", "RISK_OWNER", "REVIEWER", "COMPLIANCE_MANAGER"];
+
+/**
+ * Roles that see every System purely to read it: they may never create or
+ * change a System, its lifecycle status or classification, its Control
+ * Assessments, Risks, or Assessment Queries. The COMPLIANCE_MANAGER needs
+ * to see every System to curate applicability and (later) coverage, not to
+ * work on them (#71). Several System mutation routes only check that the
+ * System is visible to the acting user, so full visibility alone would
+ * otherwise have let these roles write — those routes check
+ * `canWriteSystems` explicitly.
+ */
+const READ_ONLY_SYSTEM_ROLES: UserRole[] = ["COMPLIANCE_MANAGER"];
+
+/** False for a role that may only read Systems (see READ_ONLY_SYSTEM_ROLES). */
+export function canWriteSystems(user: { role: UserRole }) {
+  return !READ_ONLY_SYSTEM_ROLES.includes(user.role);
+}
 
 /**
  * The Prisma `where` clause for Systems a given user is allowed to see:
- * ADMIN/RISK_OWNER/REVIEWER see every System in every status; a
+ * ADMIN/RISK_OWNER/REVIEWER/COMPLIANCE_MANAGER see every System in every
+ * status (COMPLIANCE_MANAGER read-only, see `canWriteSystems`); a
  * BUSINESS_RISK_OWNER additionally sees every System within their assigned
  * Business Unit(s)/Framework(s), any status — they already see these
  * Systems' Risks/compliance data via the Business Risk Owner dashboard, so

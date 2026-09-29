@@ -3,7 +3,7 @@ import { z } from "zod";
 import { ImpactLevel, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { authenticate, authorize } from "@/lib/api-authz";
-import { ROLES_ALLOWED_TO_MANAGE_CATALOG } from "@/lib/catalog";
+import { ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE } from "@/lib/catalog";
 
 const impactLevelSchema = z.nativeEnum(ImpactLevel).nullable();
 
@@ -44,7 +44,7 @@ const updateControlSchema = z
   });
 
 export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/controls/[id]">) {
-  const auth = await authorize(request, ROLES_ALLOWED_TO_MANAGE_CATALOG);
+  const auth = await authorize(request, ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE);
   if ("response" in auth) return auth.response;
 
   const { id } = await ctx.params;

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { authenticate } from "@/lib/api-authz";
-import { getVisibleSystem } from "@/lib/system-visibility";
+import { canWriteSystems, getVisibleSystem } from "@/lib/system-visibility";
 import { addQueryMessage, canReplyToQuery } from "@/lib/assessment-queries";
 
 const addMessageSchema = z.object({ body: z.string().min(1) });
@@ -17,6 +17,9 @@ export async function POST(
 ) {
   const auth = await authenticate(request);
   if ("response" in auth) return auth.response;
+  if (!canWriteSystems(auth.user)) {
+    return NextResponse.json({ error: "Your role can read Systems but not change them" }, { status: 403 });
+  }
 
   const { id, controlId, queryId } = await ctx.params;
   const system = await getVisibleSystem(auth.user, id);
