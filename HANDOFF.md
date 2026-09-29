@@ -1,8 +1,34 @@
 # Handoff
 
-Read this first in a fresh session, then [`README.md`](README.md)'s Project status section, then [`CONTEXT.md`](CONTEXT.md), then [`docs/adr/`](docs/adr/) (at least 0002 and 0003). This file is a snapshot of in-flight state, not a permanent doc — update or trim it as things land rather than letting it accumulate.
+Read this first in a fresh session. Then read:
+1. [`docs/agents/supervised-workflow.md`](docs/agents/supervised-workflow.md), for **how** work is run: you are the supervisor, and Sonnet sub-agents implement;
+2. [`README.md`](README.md)'s Project status section;
+3. [`CONTEXT.md`](CONTEXT.md);
+4. [PRD 0001](docs/prd/0001-grc-requirement-database.md);
+5. [`docs/adr/`](docs/adr/) (at least 0003 and 0005–0008).
 
-## Next up: GRC requirement database (PRD 0001)
+This file is a snapshot of in-flight state, not a permanent doc. Update or trim it as things land rather than letting it accumulate.
+
+## Next up: the queue (start here)
+
+PRD 0001 **milestone 1 (model split) is complete** (#70–#75), and so is **#78** (System write permissions). Work the following **in this order**, one issue per Sonnet sub-agent, following [`docs/agents/supervised-workflow.md`](docs/agents/supervised-workflow.md). Each issue carries native GitHub "blocked by" links; the order below respects them.
+
+1. **#91**: unify the owner rule (`ownerId` alone, everywhere), restrict System creation to SYSTEM_OWNER/RISK_OWNER/ADMIN, and reject evidence changes on waive-only edits. These are product-owner decisions from 2026-09-29, recorded in the issue body. It goes first because #86 touches the same permission helpers (`src/lib/system-permissions.ts`, `canChangeSystemClassification`, `canManageRegulatoryOverlays`, `canManageCapabilities`, `canManageFrameworkScopes`).
+2. Milestone **"PRD 0001 · M2 Applicability & continuous compliance"**:
+   1. **#85**: Framework Scope drives applicability; the base Framework is always in scope. Unblocks the rest. It also has to report Controls that map to no Published Framework, because they stop applying; stop and ask the product owner if any exist.
+   2. **#86**: Continuous compliance: lift the Draft-only lock (after #85 and #91).
+   3. **#87**: Recompute affected Systems on Framework publish, mapping changes and Control scoping edits (after #85 and #86).
+   4. **#88**: Retire Regulatory Overlay (migrate overlays to Frameworks) (after #85).
+   5. **#89**: Derived Requirement status per System, plus a per-Framework view on the System page (after #85). It uses the PRD OQ-1 default: a Requirement with no applicable mapped Control is Not Applicable.
+   6. **#90**: Requirement-based Compliance Percentage per Framework (after #89).
+
+   Close the GitHub milestone when all six are closed. Then **ask the product owner** before cutting milestone 3 (Inheritance) into issues.
+
+Other open items (not in the queue): #46 needs re-scoping against the PRD before anyone picks it up; #61 is deferred; #63 is independent lint cleanup.
+
+**Known environment issue:** every PR since #82 shows a failing **Vercel** preview check ("Resource provisioning failed", which happens on Vercel's side before any build step). The workflow doc says how to confirm it and why it's safe to merge on green GitHub CI. The product owner has been told about it.
+
+## Milestone 1 history (PRD 0001)
 
 A design session (grill-with-docs) on 2026-09-29 produced [PRD 0001](docs/prd/0001-grc-requirement-database.md), the steering document for turning this app into a GRC tool, plus [ADRs 0005–0008](docs/adr/) and a rewritten [`CONTEXT.md`](CONTEXT.md). **`CONTEXT.md` describes the target model, not (yet) the current code.** #70 has landed: the code now says `Control`/`ControlAssessment`/`AssessmentQuery` (enums `ControlAssessmentStatus`/`ControlApplicability`, routes `/admin/controls`, `/api/controls`, `/api/systems/[id]/assessments/[controlId]/...`), matching the glossary — see the #70 note below. It still has `Capability`/`RegulatoryOverlay`, which the glossary marks retired, and has no Provider yet (Framework-owned Requirements and Control Mappings landed with #72, Framework authoring with #73, the Coverage view with #74 — see their notes below). Each entry's historical note maps new terms to old. Milestone 1 (model split) is cut into issues under the GitHub milestone "PRD 0001 · M1 Model split", with native blocked-by dependencies. #70, #71, #72, #73, #74 and #75 are done, so **milestone 1 (model split) is complete**; the issues were:
 - #70 rename `Requirement` → `Control` (unblocks everything else) — **done** on branch `70-rename-requirement-to-control`
@@ -169,5 +195,5 @@ Nothing else is open (see #46/#61/#63 above). The extension-points catalog (**#3
 - **Renaming a Prisma model where a required scalar FK needs to become a many-to-many relation** (exactly what #47 did to `SystemType`→`DeploymentFacet`): `prisma migrate dev`'s auto-diff cannot express this as a data-preserving change on its own. Hand-write the migration SQL instead — rename the table in place (preserves rows/ids), create the new join table, backfill it from the old FK column *before* dropping that column, and get the new join table's `A`/`B` column semantics right (Prisma names implicit m:n join tables `_<ModelAlphabeticallyFirst>To<ModelAlphabeticallySecond>`, so renaming a model can flip which side is `A` vs `B` — see `prisma/migrations/20260914175041_replace_system_type_with_deployment_facet/migration.sql` for the full worked example, including the rename-dance needed to swap column identity without moving data).
 - **Test conventions**: route handlers are tested by importing and calling the exported `GET`/`POST`/`PATCH`/`DELETE` functions directly against a real Postgres (not mocked) — see any `__tests__/route.test.ts` for the `requestAs`/`ctxFor` helper pattern. Component tests use Testing Library with `vi.stubGlobal("fetch", ...)`.
 - **Domain vocabulary**: `CONTEXT.md` is the glossary of record. Use its exact terms in code, tests, commits, and issues — don't drift to synonyms it explicitly avoids (see each entry's `_Avoid_` line).
-- **Issue tracker**: GitHub Issues via `gh` CLI, conventions in `docs/agents/issue-tracker.md`. Standard flow this session: read issue → do the work → typecheck/lint/test → commit referencing the issue number → push → `gh issue close <n> --comment "..."` summarizing what was done/found.
+- **Issue tracker**: GitHub Issues via the `gh` CLI; conventions are in `docs/agents/issue-tracker.md`. Since PRD 0001 the flow is the supervised one in `docs/agents/supervised-workflow.md`: a sub-agent implements on a branch, then the supervisor reviews it, opens the PR, and merges on green CI. "Closes #n" in the PR body closes the issue.
 - **README currency rule** (from `CLAUDE.md`): update `README.md`'s Project status whenever a change lands that affects what it describes. Don't let it go stale — this was the standing instruction that prompted the #47 README update.
