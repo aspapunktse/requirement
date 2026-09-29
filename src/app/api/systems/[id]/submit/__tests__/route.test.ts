@@ -2,20 +2,20 @@ import { NextRequest } from "next/server";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
 import { ACTING_USER_COOKIE } from "@/lib/acting-user";
-import { getUnaddressedMandatoryRequirements } from "@/lib/requirement-assessments";
-import { PATCH as patchAssessment } from "../../assessments/[requirementId]/route";
+import { getUnaddressedMandatoryControls } from "@/lib/control-assessments";
+import { PATCH as patchAssessment } from "../../assessments/[controlId]/route";
 import { POST as declareCapability } from "../../capabilities/route";
 import { POST } from "../route";
 
 /**
- * The seeded ISO 27001 catalog ships several mandatory Requirements with no
+ * The seeded ISO 27001 catalog ships several mandatory Controls with no
  * System Type scoping, so they apply to every Type — including the one
  * created for this test. Satisfy all of them, not just the test's own
- * custom Requirement, so submission is only gated by what this test means
+ * custom Control, so submission is only gated by what this test means
  * to gate it by.
  */
-async function fulfillAllMandatoryRequirements(systemId: string, deploymentFacetIds: string[]) {
-  const unaddressed = await getUnaddressedMandatoryRequirements({
+async function fulfillAllMandatoryControls(systemId: string, deploymentFacetIds: string[]) {
+  const unaddressed = await getUnaddressedMandatoryControls({
     id: systemId,
     deploymentFacets: deploymentFacetIds.map((id) => ({ id })),
     regulatoryOverlays: [],
@@ -23,10 +23,10 @@ async function fulfillAllMandatoryRequirements(systemId: string, deploymentFacet
     integrityImpactLevel: null,
     availabilityImpactLevel: null,
   });
-  await prisma.requirementAssessment.createMany({
-    data: unaddressed.map((requirement) => ({
+  await prisma.controlAssessment.createMany({
+    data: unaddressed.map((control) => ({
       systemId,
-      requirementId: requirement.id,
+      controlId: control.id,
       status: "FULFILLED" as const,
     })),
     skipDuplicates: true,
@@ -67,9 +67,9 @@ describe("POST /api/systems/[id]/submit", () => {
   let riskOwnerId: string;
   let systemTypeId: string;
   let systemId: string;
-  let mandatoryRequirementId: string;
-  let optionalRequirementId: string;
-  let organizationalRequirementId: string;
+  let mandatoryControlId: string;
+  let optionalControlId: string;
+  let organizationalControlId: string;
   let capabilityId: string;
 
   beforeAll(async () => {
@@ -98,42 +98,42 @@ describe("POST /api/systems/[id]/submit", () => {
     systemTypeId = systemType.id;
 
     const suffix = Date.now();
-    const mandatory = await prisma.requirement.create({
+    const mandatory = await prisma.control.create({
       data: {
         code: `SUBMIT-MAND-${suffix}`,
-        title: "Mandatory Gate Requirement",
+        title: "Mandatory Gate Control",
         description: "Must be addressed before submission",
         category: "Security",
         applicability: "PER_SYSTEM",
         mandatory: true,
       },
     });
-    const optional = await prisma.requirement.create({
+    const optional = await prisma.control.create({
       data: {
         code: `SUBMIT-OPT-${suffix}`,
-        title: "Optional Requirement",
+        title: "Optional Control",
         description: "Never blocks submission",
         category: "Security",
         applicability: "PER_SYSTEM",
         mandatory: false,
       },
     });
-    const organizational = await prisma.requirement.create({
+    const organizational = await prisma.control.create({
       data: {
         code: `SUBMIT-ORG-${suffix}`,
-        title: "Organizational Requirement",
+        title: "Organizational Control",
         description: "Never blocks submission, even though mandatory",
         category: "Security",
         applicability: "ORGANIZATIONAL",
         mandatory: true,
       },
     });
-    mandatoryRequirementId = mandatory.id;
-    optionalRequirementId = optional.id;
-    organizationalRequirementId = organizational.id;
+    mandatoryControlId = mandatory.id;
+    optionalControlId = optional.id;
+    organizationalControlId = organizational.id;
 
     const capability = await prisma.capability.create({
-      data: { name: `Submit Test Capability ${suffix}`, requirements: { connect: [{ id: mandatory.id }] } },
+      data: { name: `Submit Test Capability ${suffix}`, controls: { connect: [{ id: mandatory.id }] } },
     });
     capabilityId = capability.id;
 
@@ -144,18 +144,18 @@ describe("POST /api/systems/[id]/submit", () => {
   });
 
   afterAll(async () => {
-    await prisma.requirementAssessment.deleteMany({ where: { systemId } });
+    await prisma.controlAssessment.deleteMany({ where: { systemId } });
     await prisma.system.deleteMany({ where: { id: systemId } });
     await prisma.capability.deleteMany({ where: { id: capabilityId } });
-    await prisma.requirement.deleteMany({
-      where: { id: { in: [mandatoryRequirementId, optionalRequirementId, organizationalRequirementId] } },
+    await prisma.control.deleteMany({
+      where: { id: { in: [mandatoryControlId, optionalControlId, organizationalControlId] } },
     });
     await prisma.deploymentFacet.deleteMany({ where: { id: systemTypeId } });
     await prisma.user.deleteMany({ where: { email: { in: [OWNER_EMAIL, VIEWER_EMAIL, RISK_OWNER_EMAIL] } } });
   });
 
   afterEach(async () => {
-    await prisma.requirementAssessment.deleteMany({ where: { systemId } });
+    await prisma.controlAssessment.deleteMany({ where: { systemId } });
     await prisma.system.update({
       where: { id: systemId },
       data: { status: "DRAFT", capabilities: { disconnect: { id: capabilityId } } },
@@ -172,7 +172,7 @@ describe("POST /api/systems/[id]/submit", () => {
     expect(response.status).toBe(404);
   });
 
-  it("rejects submission when a mandatory Requirement is unaddressed, naming it", async () => {
+  it("rejects submission when a mandatory Control is unaddressed, naming it", async () => {
     const response = await POST(requestAs(systemId, ownerId), ctxFor(systemId));
     const body = await response.json();
 
@@ -180,16 +180,16 @@ describe("POST /api/systems/[id]/submit", () => {
     expect(body.error).toContain("SUBMIT-MAND");
   });
 
-  it("does not require the optional Requirement to be addressed", async () => {
-    await fulfillAllMandatoryRequirements(systemId, [systemTypeId]);
+  it("does not require the optional Control to be addressed", async () => {
+    await fulfillAllMandatoryControls(systemId, [systemTypeId]);
 
     const response = await POST(requestAs(systemId, ownerId), ctxFor(systemId));
     expect(response.status).toBe(200);
   });
 
-  it("does not count a mandatory Requirement stuck at NOT_STARTED as addressed", async () => {
-    await prisma.requirementAssessment.create({
-      data: { systemId, requirementId: mandatoryRequirementId, status: "NOT_STARTED" },
+  it("does not count a mandatory Control stuck at NOT_STARTED as addressed", async () => {
+    await prisma.controlAssessment.create({
+      data: { systemId, controlId: mandatoryControlId, status: "NOT_STARTED" },
     });
 
     const response = await POST(requestAs(systemId, ownerId), ctxFor(systemId));
@@ -199,8 +199,8 @@ describe("POST /api/systems/[id]/submit", () => {
     expect(body.error).toContain("SUBMIT-MAND");
   });
 
-  it("succeeds and moves the System to IN_REVIEW once every mandatory Requirement is addressed", async () => {
-    await fulfillAllMandatoryRequirements(systemId, [systemTypeId]);
+  it("succeeds and moves the System to IN_REVIEW once every mandatory Control is addressed", async () => {
+    await fulfillAllMandatoryControls(systemId, [systemTypeId]);
 
     const response = await POST(requestAs(systemId, ownerId), ctxFor(systemId));
     const body = await response.json();
@@ -216,32 +216,32 @@ describe("POST /api/systems/[id]/submit", () => {
   });
 
   it("rejects submitting a System that isn't Draft", async () => {
-    await fulfillAllMandatoryRequirements(systemId, [systemTypeId]);
+    await fulfillAllMandatoryControls(systemId, [systemTypeId]);
     await prisma.system.update({ where: { id: systemId }, data: { status: "IN_REVIEW" } });
 
     const response = await POST(requestAs(systemId, ownerId), ctxFor(systemId));
     expect(response.status).toBe(400);
   });
 
-  it("counts a Waived mandatory Requirement (with justification) as addressed", async () => {
+  it("counts a Waived mandatory Control (with justification) as addressed", async () => {
     const waiveResponse = await patchAssessment(
       requestWith(
-        `http://localhost/api/systems/${systemId}/assessments/${mandatoryRequirementId}`,
+        `http://localhost/api/systems/${systemId}/assessments/${mandatoryControlId}`,
         "PATCH",
         riskOwnerId,
         { status: "WAIVED", notes: "Accepted risk, documented in the Risk register" },
       ),
-      { params: Promise.resolve({ id: systemId, requirementId: mandatoryRequirementId }) },
+      { params: Promise.resolve({ id: systemId, controlId: mandatoryControlId }) },
     );
     expect(waiveResponse.status).toBe(200);
 
-    await fulfillAllMandatoryRequirements(systemId, [systemTypeId]);
+    await fulfillAllMandatoryControls(systemId, [systemTypeId]);
 
     const response = await POST(requestAs(systemId, ownerId), ctxFor(systemId));
     expect(response.status).toBe(200);
   });
 
-  it("counts a mandatory Requirement auto-fulfilled via a declared Capability as addressed", async () => {
+  it("counts a mandatory Control auto-fulfilled via a declared Capability as addressed", async () => {
     const declareResponse = await declareCapability(
       requestWith(`http://localhost/api/systems/${systemId}/capabilities`, "POST", ownerId, {
         capabilityId,
@@ -250,8 +250,8 @@ describe("POST /api/systems/[id]/submit", () => {
     );
     expect(declareResponse.status).toBe(201);
 
-    const autoFulfilled = await prisma.requirementAssessment.findUnique({
-      where: { systemId_requirementId: { systemId, requirementId: mandatoryRequirementId } },
+    const autoFulfilled = await prisma.controlAssessment.findUnique({
+      where: { systemId_controlId: { systemId, controlId: mandatoryControlId } },
     });
     expect(autoFulfilled).toMatchObject({ status: "FULFILLED", fulfilledByCapabilityId: capabilityId });
 
@@ -261,7 +261,7 @@ describe("POST /api/systems/[id]/submit", () => {
     });
     expect(autoFulfillEvent?.detail).toContain("auto-fulfilled");
 
-    await fulfillAllMandatoryRequirements(systemId, [systemTypeId]);
+    await fulfillAllMandatoryControls(systemId, [systemTypeId]);
 
     const response = await POST(requestAs(systemId, ownerId), ctxFor(systemId));
     expect(response.status).toBe(200);

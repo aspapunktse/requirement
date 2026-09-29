@@ -27,7 +27,7 @@ type Risk = {
   likelihood: string;
   status: string;
   system: { id: string; name: string };
-  requirementAssessment: { requirement: { code: string; title: string } } | null;
+  controlAssessment: { control: { code: string; title: string } } | null;
 };
 
 type SystemCompliance = {
@@ -172,7 +172,7 @@ export function BusinessRiskOwnerDashboard({
             <p className="text-2xl">
               {compliance.percentage === null ? "—" : `${compliance.percentage}%`}{" "}
               <span className="text-sm font-normal text-zinc-500">
-                ({compliance.resolved}/{compliance.total} mandatory Requirements resolved, pooled across
+                ({compliance.resolved}/{compliance.total} mandatory Controls resolved, pooled across
                 Systems)
               </span>
             </p>
@@ -250,10 +250,10 @@ export function BusinessRiskOwnerDashboard({
                 <p className="text-xs text-zinc-500">
                   Severity: {risk.severity} · Likelihood: {risk.likelihood}
                 </p>
-                {risk.requirementAssessment && (
+                {risk.controlAssessment && (
                   <p className="text-xs text-zinc-500">
-                    Originated from {risk.requirementAssessment.requirement.code} —{" "}
-                    {risk.requirementAssessment.requirement.title}
+                    Originated from {risk.controlAssessment.control.code} —{" "}
+                    {risk.controlAssessment.control.title}
                   </p>
                 )}
               </li>

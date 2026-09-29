@@ -5,8 +5,8 @@
  * as `npm run dev` — see HANDOFF.md's "Conventions and gotchas" section).
  *
  * Looks for the naming convention the test suite uses for throwaway fixtures
- * — `test-*` emails, `Test *` catalog names, `TEST*` Requirement codes —
- * across User/Requirement/DeploymentFacet/RegulatoryOverlay/Capability/
+ * — `test-*` emails, `Test *` catalog names, `TEST*` Control codes —
+ * across User/Control/DeploymentFacet/RegulatoryOverlay/Capability/
  * BusinessUnit/Framework, and deletes whatever isn't still referenced
  * elsewhere (a System, Assessment, Risk, or Approval). Anything that *is*
  * still referenced is reported, not force-deleted — that's more likely a
@@ -60,10 +60,10 @@ async function main() {
   );
 
   await cleanup(
-    "Requirement",
-    await prisma.requirement.findMany({ where: { code: insensitiveStartsWith("test") } }),
+    "Control",
+    await prisma.control.findMany({ where: { code: insensitiveStartsWith("test") } }),
     (r) => `${r.code} (${r.title})`,
-    (id) => prisma.requirement.delete({ where: { id } }),
+    (id) => prisma.control.delete({ where: { id } }),
   );
 
   await cleanup(

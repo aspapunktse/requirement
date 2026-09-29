@@ -27,7 +27,7 @@ describe("GET /api/systems/[id]/assessments", () => {
   let matchingTypeId: string;
   let otherTypeId: string;
   let systemId: string;
-  const requirementIds: string[] = [];
+  const controlIds: string[] = [];
 
   beforeAll(async () => {
     const owner = await prisma.user.upsert({
@@ -58,57 +58,57 @@ describe("GET /api/systems/[id]/assessments", () => {
     systemId = system.id;
 
     const suffix = Date.now();
-    const organizational = await prisma.requirement.create({
+    const organizational = await prisma.control.create({
       data: {
         code: `ORG-${suffix}`,
-        title: "Organizational Requirement",
+        title: "Organizational Control",
         description: "Org scoped, never assessed per System",
         category: "Security",
         applicability: "ORGANIZATIONAL",
       },
     });
-    const unscopedPerSystem = await prisma.requirement.create({
+    const unscopedPerSystem = await prisma.control.create({
       data: {
         code: `PS-UNSCOPED-${suffix}`,
-        title: "Unscoped Per-System Requirement",
+        title: "Unscoped Per-System Control",
         description: "Applies to every System Type",
         category: "Security",
         applicability: "PER_SYSTEM",
       },
     });
-    const matchingScoped = await prisma.requirement.create({
+    const matchingScoped = await prisma.control.create({
       data: {
         code: `PS-MATCH-${suffix}`,
-        title: "Matching-Type Requirement",
+        title: "Matching-Type Control",
         description: "Scoped to the matching Type",
         category: "Security",
         applicability: "BOTH",
         deploymentFacets: { connect: [{ id: matchingTypeId }] },
       },
     });
-    const otherScoped = await prisma.requirement.create({
+    const otherScoped = await prisma.control.create({
       data: {
         code: `PS-OTHER-${suffix}`,
-        title: "Other-Type Requirement",
+        title: "Other-Type Control",
         description: "Scoped to a different Type",
         category: "Security",
         applicability: "PER_SYSTEM",
         deploymentFacets: { connect: [{ id: otherTypeId }] },
       },
     });
-    requirementIds.push(organizational.id, unscopedPerSystem.id, matchingScoped.id, otherScoped.id);
+    controlIds.push(organizational.id, unscopedPerSystem.id, matchingScoped.id, otherScoped.id);
   });
 
   afterAll(async () => {
-    await prisma.requirementAssessment.deleteMany({ where: { systemId } });
+    await prisma.controlAssessment.deleteMany({ where: { systemId } });
     await prisma.system.deleteMany({ where: { id: systemId } });
-    await prisma.requirement.deleteMany({ where: { id: { in: requirementIds } } });
+    await prisma.control.deleteMany({ where: { id: { in: controlIds } } });
     await prisma.deploymentFacet.deleteMany({ where: { id: { in: [matchingTypeId, otherTypeId] } } });
     await prisma.user.deleteMany({ where: { email: { in: [OWNER_EMAIL, VIEWER_EMAIL] } } });
   });
 
   afterEach(async () => {
-    await prisma.requirementAssessment.deleteMany({ where: { systemId } });
+    await prisma.controlAssessment.deleteMany({ where: { systemId } });
   });
 
   it("rejects an unauthenticated request", async () => {
@@ -121,42 +121,42 @@ describe("GET /api/systems/[id]/assessments", () => {
     expect(response.status).toBe(404);
   });
 
-  it("lists only Requirements applicable to the System's Type, excluding ORGANIZATIONAL ones", async () => {
+  it("lists only Controls applicable to the System's Type, excluding ORGANIZATIONAL ones", async () => {
     const response = await GET(requestAs(systemId, ownerId), ctxFor(systemId));
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    const ids = body.assessments.map((a: { requirement: { id: string } }) => a.requirement.id);
+    const ids = body.assessments.map((a: { control: { id: string } }) => a.control.id);
 
-    expect(ids).toContain(requirementIds[1]); // unscoped
-    expect(ids).toContain(requirementIds[2]); // matching-type scoped
-    expect(ids).not.toContain(requirementIds[0]); // organizational
-    expect(ids).not.toContain(requirementIds[3]); // other-type scoped
+    expect(ids).toContain(controlIds[1]); // unscoped
+    expect(ids).toContain(controlIds[2]); // matching-type scoped
+    expect(ids).not.toContain(controlIds[0]); // organizational
+    expect(ids).not.toContain(controlIds[3]); // other-type scoped
   });
 
-  it("defaults an untouched Requirement's assessment to NOT_STARTED with no assessment id", async () => {
+  it("defaults an untouched Control's assessment to NOT_STARTED with no assessment id", async () => {
     const response = await GET(requestAs(systemId, ownerId), ctxFor(systemId));
     const body = await response.json();
     const row = body.assessments.find(
-      (a: { requirement: { id: string } }) => a.requirement.id === requirementIds[1],
+      (a: { control: { id: string } }) => a.control.id === controlIds[1],
     );
 
     expect(row.assessment).toBeNull();
   });
 
-  it("surfaces a recorded Assessment for a no-longer-applicable Requirement as stale, not in the main list", async () => {
-    const staleRequirementId = requirementIds[3]; // other-type scoped, not applicable to this System
-    await prisma.requirementAssessment.create({
-      data: { systemId, requirementId: staleRequirementId, status: "FULFILLED" },
+  it("surfaces a recorded Assessment for a no-longer-applicable Control as stale, not in the main list", async () => {
+    const staleControlId = controlIds[3]; // other-type scoped, not applicable to this System
+    await prisma.controlAssessment.create({
+      data: { systemId, controlId: staleControlId, status: "FULFILLED" },
     });
 
     const response = await GET(requestAs(systemId, ownerId), ctxFor(systemId));
     const body = await response.json();
 
-    const mainIds = body.assessments.map((a: { requirement: { id: string } }) => a.requirement.id);
-    expect(mainIds).not.toContain(staleRequirementId);
+    const mainIds = body.assessments.map((a: { control: { id: string } }) => a.control.id);
+    expect(mainIds).not.toContain(staleControlId);
 
-    const staleIds = body.staleAssessments.map((a: { requirement: { id: string } }) => a.requirement.id);
-    expect(staleIds).toContain(staleRequirementId);
+    const staleIds = body.staleAssessments.map((a: { control: { id: string } }) => a.control.id);
+    expect(staleIds).toContain(staleControlId);
   });
 });

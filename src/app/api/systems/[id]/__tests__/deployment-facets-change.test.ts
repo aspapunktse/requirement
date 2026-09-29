@@ -34,11 +34,11 @@ describe("PATCH /api/systems/[id] (Deployment Facet change)", () => {
   let typeBId: string;
   let systemId: string;
 
-  // Requirement applicable only to Facet A
+  // Control applicable only to Facet A
   let onlyAId: string;
-  // Requirement applicable only to Facet B
+  // Control applicable only to Facet B
   let onlyBId: string;
-  // Requirement applicable regardless of facet (unscoped)
+  // Control applicable regardless of facet (unscoped)
   let bothId: string;
 
   beforeAll(async () => {
@@ -67,7 +67,7 @@ describe("PATCH /api/systems/[id] (Deployment Facet change)", () => {
     typeAId = typeA.id;
     typeBId = typeB.id;
 
-    const onlyA = await prisma.requirement.create({
+    const onlyA = await prisma.control.create({
       data: {
         code: `TC-A-${suffix}`,
         title: "Only for Facet A",
@@ -77,7 +77,7 @@ describe("PATCH /api/systems/[id] (Deployment Facet change)", () => {
         deploymentFacets: { connect: [{ id: typeAId }] },
       },
     });
-    const onlyB = await prisma.requirement.create({
+    const onlyB = await prisma.control.create({
       data: {
         code: `TC-B-${suffix}`,
         title: "Only for Facet B",
@@ -87,7 +87,7 @@ describe("PATCH /api/systems/[id] (Deployment Facet change)", () => {
         deploymentFacets: { connect: [{ id: typeBId }] },
       },
     });
-    const both = await prisma.requirement.create({
+    const both = await prisma.control.create({
       data: {
         code: `TC-BOTH-${suffix}`,
         title: "Applies regardless of facet",
@@ -103,7 +103,7 @@ describe("PATCH /api/systems/[id] (Deployment Facet change)", () => {
 
   afterAll(async () => {
     await prisma.system.deleteMany({ where: { id: systemId } });
-    await prisma.requirement.deleteMany({ where: { id: { in: [onlyAId, onlyBId, bothId] } } });
+    await prisma.control.deleteMany({ where: { id: { in: [onlyAId, onlyBId, bothId] } } });
     await prisma.deploymentFacet.deleteMany({ where: { id: { in: [typeAId, typeBId] } } });
     await prisma.user.deleteMany({ where: { email: { in: [OWNER_EMAIL, OTHER_OWNER_EMAIL, ADMIN_EMAIL] } } });
   });
@@ -116,7 +116,7 @@ describe("PATCH /api/systems/[id] (Deployment Facet change)", () => {
   });
 
   afterEach(async () => {
-    await prisma.requirementAssessment.deleteMany({ where: { systemId } });
+    await prisma.controlAssessment.deleteMany({ where: { systemId } });
     await prisma.system.deleteMany({ where: { id: systemId } });
   });
 
@@ -168,7 +168,7 @@ describe("PATCH /api/systems/[id] (Deployment Facet change)", () => {
     expect(response.status).toBe(400);
   });
 
-  it("creates NOT_STARTED rows for newly-applicable Requirements and removes untouched no-longer-applicable ones", async () => {
+  it("creates NOT_STARTED rows for newly-applicable Controls and removes untouched no-longer-applicable ones", async () => {
     const response = await PATCH(
       requestAs(systemId, ownerId, { deploymentFacetIds: [typeBId] }),
       ctxFor(systemId),
@@ -180,13 +180,13 @@ describe("PATCH /api/systems/[id] (Deployment Facet change)", () => {
     expect(body.added).toBe(1);
     expect(body.removed).toBe(0);
 
-    const onlyBAssessment = await prisma.requirementAssessment.findUnique({
-      where: { systemId_requirementId: { systemId, requirementId: onlyBId } },
+    const onlyBAssessment = await prisma.controlAssessment.findUnique({
+      where: { systemId_controlId: { systemId, controlId: onlyBId } },
     });
     expect(onlyBAssessment).toMatchObject({ status: "NOT_STARTED", assessedById: null });
 
-    const onlyAAssessment = await prisma.requirementAssessment.findUnique({
-      where: { systemId_requirementId: { systemId, requirementId: onlyAId } },
+    const onlyAAssessment = await prisma.controlAssessment.findUnique({
+      where: { systemId_controlId: { systemId, controlId: onlyAId } },
     });
     expect(onlyAAssessment).toBeNull();
 
@@ -198,10 +198,10 @@ describe("PATCH /api/systems/[id] (Deployment Facet change)", () => {
   });
 
   it("leaves a manually-touched no-longer-applicable Assessment in place instead of deleting it", async () => {
-    await prisma.requirementAssessment.create({
+    await prisma.controlAssessment.create({
       data: {
         systemId,
-        requirementId: onlyAId,
+        controlId: onlyAId,
         status: "FULFILLED",
         assessedById: ownerId,
         assessedAt: new Date(),
@@ -217,22 +217,22 @@ describe("PATCH /api/systems/[id] (Deployment Facet change)", () => {
     expect(response.status).toBe(200);
     expect(body.removed).toBe(0);
 
-    const stillThere = await prisma.requirementAssessment.findUnique({
-      where: { systemId_requirementId: { systemId, requirementId: onlyAId } },
+    const stillThere = await prisma.controlAssessment.findUnique({
+      where: { systemId_controlId: { systemId, controlId: onlyAId } },
     });
     expect(stillThere).not.toBeNull();
     expect(stillThere?.status).toBe("FULFILLED");
   });
 
-  it("does not touch an Assessment for a Requirement applicable regardless of facet", async () => {
-    await prisma.requirementAssessment.create({
-      data: { systemId, requirementId: bothId, status: "IN_PROGRESS" },
+  it("does not touch an Assessment for a Control applicable regardless of facet", async () => {
+    await prisma.controlAssessment.create({
+      data: { systemId, controlId: bothId, status: "IN_PROGRESS" },
     });
 
     await PATCH(requestAs(systemId, ownerId, { deploymentFacetIds: [typeBId] }), ctxFor(systemId));
 
-    const stillThere = await prisma.requirementAssessment.findUnique({
-      where: { systemId_requirementId: { systemId, requirementId: bothId } },
+    const stillThere = await prisma.controlAssessment.findUnique({
+      where: { systemId_controlId: { systemId, controlId: bothId } },
     });
     expect(stillThere?.status).toBe("IN_PROGRESS");
   });
@@ -268,17 +268,17 @@ describe("PATCH /api/systems/[id] (Deployment Facet change)", () => {
     expect(body.added).toBe(1);
     expect(body.removed).toBe(0);
 
-    const onlyBAssessment = await prisma.requirementAssessment.findUnique({
-      where: { systemId_requirementId: { systemId, requirementId: onlyBId } },
+    const onlyBAssessment = await prisma.controlAssessment.findUnique({
+      where: { systemId_controlId: { systemId, controlId: onlyBId } },
     });
     expect(onlyBAssessment).toMatchObject({ status: "NOT_STARTED" });
   });
 
-  it("recomputes as a true union: a facet-only System first, then Hybrid, ends up with every Requirement either Facet requires", async () => {
+  it("recomputes as a true union: a facet-only System first, then Hybrid, ends up with every Control either Facet requires", async () => {
     // Bootstrap: PATCH to a *different* single Facet first, forcing a real
     // recompute against an empty starting Assessment set, then add the
     // second Facet — proving the union covers every already-applicable
-    // Requirement too, not just the newly-added Facet's.
+    // Control too, not just the newly-added Facet's.
     const other = await prisma.deploymentFacet.create({ data: { name: `Facet Bootstrap ${Date.now()}` } });
     await PATCH(requestAs(systemId, ownerId, { deploymentFacetIds: [other.id] }), ctxFor(systemId));
 
@@ -292,11 +292,11 @@ describe("PATCH /api/systems/[id] (Deployment Facet change)", () => {
     expect(body.added).toBe(2); // onlyA and onlyB both newly applicable
 
     const [onlyAAssessment, onlyBAssessment] = await Promise.all([
-      prisma.requirementAssessment.findUnique({
-        where: { systemId_requirementId: { systemId, requirementId: onlyAId } },
+      prisma.controlAssessment.findUnique({
+        where: { systemId_controlId: { systemId, controlId: onlyAId } },
       }),
-      prisma.requirementAssessment.findUnique({
-        where: { systemId_requirementId: { systemId, requirementId: onlyBId } },
+      prisma.controlAssessment.findUnique({
+        where: { systemId_controlId: { systemId, controlId: onlyBId } },
       }),
     ]);
     expect(onlyAAssessment).toMatchObject({ status: "NOT_STARTED" });

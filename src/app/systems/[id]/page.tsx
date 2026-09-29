@@ -8,7 +8,7 @@ import { canChangeSystemClassification } from "@/lib/system-classification-chang
 import { canManageRegulatoryOverlays } from "@/lib/system-overlays";
 import { canManageBusinessUnits } from "@/lib/business-units";
 import { canManageFrameworkScopes } from "@/lib/framework-scope";
-import { RequirementAssessmentList } from "@/components/RequirementAssessmentList";
+import { ControlAssessmentList } from "@/components/ControlAssessmentList";
 import { SubmitForReviewButton } from "@/components/SubmitForReviewButton";
 import { RiskList } from "@/components/RiskList";
 import { ApprovalPanel } from "@/components/ApprovalPanel";
@@ -137,8 +137,8 @@ export default async function SystemDetailPage({ params }: PageProps<"/systems/[
         emptyLabel="This System isn't in scope for any Framework's audit boundary yet."
       />
 
-      <h2 className="mb-3 mt-8 text-xl">Requirements</h2>
-      <RequirementAssessmentList
+      <h2 className="mb-3 mt-8 text-xl">Controls</h2>
+      <ControlAssessmentList
         systemId={system.id}
         userRole={user.role}
         currentUserId={user.id}

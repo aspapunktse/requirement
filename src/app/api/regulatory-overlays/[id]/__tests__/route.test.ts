@@ -182,8 +182,8 @@ describe("DELETE /api/regulatory-overlays/[id]", () => {
     await prisma.system.delete({ where: { id: system.id } });
   });
 
-  it("blocks retiring a Regulatory Overlay mapped to a Requirement", async () => {
-    const requirement = await prisma.requirement.create({
+  it("blocks retiring a Regulatory Overlay mapped to a Control", async () => {
+    const control = await prisma.control.create({
       data: {
         code: `OVERLAY-DELETE-${Date.now()}`,
         title: "Uses The Overlay",
@@ -197,6 +197,6 @@ describe("DELETE /api/regulatory-overlays/[id]", () => {
     const response = await DELETE(requestAs(overlayId, adminId, { method: "DELETE" }), ctxFor(overlayId));
     expect(response.status).toBe(409);
 
-    await prisma.requirement.delete({ where: { id: requirement.id } });
+    await prisma.control.delete({ where: { id: control.id } });
   });
 });

@@ -23,7 +23,7 @@ describe("GET /api/business-risk-owner/compliance", () => {
   let adminId: string;
   let businessUnitId: string;
   let otherBusinessUnitId: string;
-  let requirementId: string;
+  let controlId: string;
   let systemId: string;
   let facetId: string;
 
@@ -62,16 +62,16 @@ describe("GET /api/business-risk-owner/compliance", () => {
 
     await prisma.user.update({ where: { id: broId }, data: { businessUnitScopes: { connect: { id: businessUnitId } } } });
 
-    // Scope the fixture Requirement/System to a dedicated Deployment Facet
+    // Scope the fixture Control/System to a dedicated Deployment Facet
     // so it doesn't get diluted by the real seeded ISO 27001 catalog (which
     // applies to every unscoped System) — see the compliance.test.ts note.
     const facet = await prisma.deploymentFacet.create({ data: { name: `Test BRO Compliance Facet ${suffix}` } });
     facetId = facet.id;
 
-    const requirement = await prisma.requirement.create({
+    const control = await prisma.control.create({
       data: {
         code: `TEST-BRO-COMPLIANCE-${suffix}`,
-        title: "Test requirement",
+        title: "Test control",
         description: "d",
         category: "Test",
         applicability: "BOTH",
@@ -79,7 +79,7 @@ describe("GET /api/business-risk-owner/compliance", () => {
         deploymentFacets: { connect: { id: facetId } },
       },
     });
-    requirementId = requirement.id;
+    controlId = control.id;
 
     const system = await prisma.system.create({
       data: {
@@ -91,15 +91,15 @@ describe("GET /api/business-risk-owner/compliance", () => {
     });
     systemId = system.id;
 
-    await prisma.requirementAssessment.create({
-      data: { systemId, requirementId, status: "FULFILLED" },
+    await prisma.controlAssessment.create({
+      data: { systemId, controlId, status: "FULFILLED" },
     });
   });
 
   afterAll(async () => {
-    await prisma.requirementAssessment.deleteMany({ where: { systemId } });
+    await prisma.controlAssessment.deleteMany({ where: { systemId } });
     await prisma.system.deleteMany({ where: { id: systemId } });
-    await prisma.requirement.deleteMany({ where: { id: requirementId } });
+    await prisma.control.deleteMany({ where: { id: controlId } });
     await prisma.deploymentFacet.deleteMany({ where: { id: facetId } });
     await prisma.businessUnit.deleteMany({ where: { id: { in: [businessUnitId, otherBusinessUnitId] } } });
     await prisma.user.deleteMany({ where: { email: { in: [OWNER_EMAIL, BRO_EMAIL, VIEWER_EMAIL, ADMIN_EMAIL] } } });
@@ -115,8 +115,8 @@ describe("GET /api/business-risk-owner/compliance", () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    // No frameworkId filter here means the real seeded Requirement Catalog's
-    // own unscoped mandatory Requirements are legitimately part of the mix
+    // No frameworkId filter here means the real seeded Control Library's
+    // own unscoped mandatory Controls are legitimately part of the mix
     // (that's correct product behavior, not test pollution — see
     // compliance.test.ts for exact-math assertions via a frameworkId
     // filter, which is what actually isolates fixture data). This route

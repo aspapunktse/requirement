@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authenticate } from "@/lib/api-authz";
 import { getVisibleSystem } from "@/lib/system-visibility";
-import { getUnaddressedMandatoryRequirements } from "@/lib/requirement-assessments";
+import { getUnaddressedMandatoryControls } from "@/lib/control-assessments";
 import { logChangeEvent } from "@/lib/change-events";
 
 export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems/[id]/submit">) {
@@ -19,11 +19,11 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems
     return NextResponse.json({ error: "Only a Draft System can be submitted for review" }, { status: 400 });
   }
 
-  const unaddressed = await getUnaddressedMandatoryRequirements(system);
+  const unaddressed = await getUnaddressedMandatoryControls(system);
   if (unaddressed.length > 0) {
     const names = unaddressed.map((r) => `${r.code} (${r.title})`).join(", ");
     return NextResponse.json(
-      { error: `Cannot submit: mandatory Requirements not yet addressed: ${names}` },
+      { error: `Cannot submit: mandatory Controls not yet addressed: ${names}` },
       { status: 400 },
     );
   }

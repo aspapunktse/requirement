@@ -1,10 +1,10 @@
 import type { ImpactLevel, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
-  getApplicableRequirements,
+  getApplicableControls,
   diffApplicabilityOps,
   type SystemClassification,
-} from "@/lib/requirement-assessments";
+} from "@/lib/control-assessments";
 import { logChangeEvent } from "@/lib/change-events";
 
 /**
@@ -42,10 +42,10 @@ export type ClassificationChanges = {
 /**
  * Change a Draft System's classification — any combination of Deployment
  * Facets and/or Impact Level axes in one call — and recompute its
- * Requirement Assessment set to match: create NOT_STARTED rows for newly-
- * applicable Requirements, and remove rows for no-longer-applicable ones —
+ * Control Assessment set to match: create NOT_STARTED rows for newly-
+ * applicable Controls, and remove rows for no-longer-applicable ones —
  * but only if untouched (still NOT_STARTED and never manually edited, i.e.
- * assessedById is null). A Requirement Assessment a human has already
+ * assessedById is null). A Control Assessment a human has already
  * worked on is left in place even though it's no longer applicable; it
  * becomes visible via getStaleAssessments so the System Owner can resolve
  * it manually.
@@ -88,8 +88,8 @@ export async function changeSystemClassification(
   };
 
   const [oldApplicable, newApplicable] = await Promise.all([
-    getApplicableRequirements(system),
-    getApplicableRequirements(newClassification),
+    getApplicableControls(system),
+    getApplicableControls(newClassification),
   ]);
 
   const { added, deleteOp, createOp } = diffApplicabilityOps(system.id, oldApplicable, newApplicable);
@@ -119,7 +119,7 @@ export async function changeSystemClassification(
   await logChangeEvent(
     system.id,
     "CLASSIFICATION_CHANGED",
-    `Classification changed (+${added}/-${removed.count} Requirement Assessment(s))`,
+    `Classification changed (+${added}/-${removed.count} Control Assessment(s))`,
     actorId,
   );
 

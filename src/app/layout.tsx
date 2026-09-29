@@ -5,7 +5,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "ISMS - system onboarding",
-  description: "Onboard systems against the ISMS requirement catalog, assess requirements and track risks.",
+  description: "Onboard systems against the ISMS Control Library, assess controls and track risks.",
 };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {

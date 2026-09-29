@@ -17,9 +17,9 @@ type Risk = {
   likelihood: RiskSeverity;
   status: RiskStatus;
   mitigationPlan: string | null;
-  requirementAssessment: {
+  controlAssessment: {
     id: string;
-    requirement: { id: string; code: string; title: string };
+    control: { id: string; code: string; title: string };
   } | null;
 };
 
@@ -79,10 +79,10 @@ function RiskRow({
       <p className="text-xs text-zinc-500">
         Severity: {risk.severity} · Likelihood: {risk.likelihood}
       </p>
-      {risk.requirementAssessment && (
+      {risk.controlAssessment && (
         <p className="text-xs text-zinc-500">
-          Originated from {risk.requirementAssessment.requirement.code} —{" "}
-          {risk.requirementAssessment.requirement.title}
+          Originated from {risk.controlAssessment.control.code} —{" "}
+          {risk.controlAssessment.control.title}
         </p>
       )}
       {risk.mitigationPlan && (

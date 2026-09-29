@@ -24,7 +24,7 @@ describe("Impact Level threshold applicability", () => {
   let ownerId: string;
   let facetId: string;
   let systemId: string;
-  const requirementIds: string[] = [];
+  const controlIds: string[] = [];
   let noThresholdId: string;
   let highConfidentialityId: string;
   let criticalAvailabilityId: string;
@@ -54,7 +54,7 @@ describe("Impact Level threshold applicability", () => {
     systemId = system.id;
 
     const suffix = Date.now();
-    const noThreshold = await prisma.requirement.create({
+    const noThreshold = await prisma.control.create({
       data: {
         code: `IMP-NONE-${suffix}`,
         title: "No Impact threshold",
@@ -63,7 +63,7 @@ describe("Impact Level threshold applicability", () => {
         applicability: "PER_SYSTEM",
       },
     });
-    const highConfidentiality = await prisma.requirement.create({
+    const highConfidentiality = await prisma.control.create({
       data: {
         code: `IMP-CONF-${suffix}`,
         title: "Requires High Confidentiality",
@@ -73,7 +73,7 @@ describe("Impact Level threshold applicability", () => {
         minConfidentialityImpactLevel: "HIGH",
       },
     });
-    const criticalAvailability = await prisma.requirement.create({
+    const criticalAvailability = await prisma.control.create({
       data: {
         code: `IMP-AVAIL-${suffix}`,
         title: "Requires Critical Availability",
@@ -86,50 +86,50 @@ describe("Impact Level threshold applicability", () => {
     noThresholdId = noThreshold.id;
     highConfidentialityId = highConfidentiality.id;
     criticalAvailabilityId = criticalAvailability.id;
-    requirementIds.push(noThresholdId, highConfidentialityId, criticalAvailabilityId);
+    controlIds.push(noThresholdId, highConfidentialityId, criticalAvailabilityId);
   });
 
   afterAll(async () => {
-    await prisma.requirementAssessment.deleteMany({ where: { systemId } });
+    await prisma.controlAssessment.deleteMany({ where: { systemId } });
     await prisma.system.deleteMany({ where: { id: systemId } });
-    await prisma.requirement.deleteMany({ where: { id: { in: requirementIds } } });
+    await prisma.control.deleteMany({ where: { id: { in: controlIds } } });
     await prisma.deploymentFacet.deleteMany({ where: { id: facetId } });
     await prisma.user.deleteMany({ where: { email: OWNER_EMAIL } });
   });
 
   afterEach(async () => {
-    await prisma.requirementAssessment.deleteMany({ where: { systemId } });
+    await prisma.controlAssessment.deleteMany({ where: { systemId } });
   });
 
-  it("includes a Requirement with no Impact threshold regardless of the System's declared levels", async () => {
+  it("includes a Control with no Impact threshold regardless of the System's declared levels", async () => {
     const response = await GET(requestAs(systemId, ownerId), ctxFor(systemId));
     const body = await response.json();
-    const ids = body.assessments.map((a: { requirement: { id: string } }) => a.requirement.id);
+    const ids = body.assessments.map((a: { control: { id: string } }) => a.control.id);
     expect(ids).toContain(noThresholdId);
   });
 
-  it("excludes a Requirement whose threshold on a null-classified axis isn't met", async () => {
+  it("excludes a Control whose threshold on a null-classified axis isn't met", async () => {
     const response = await GET(requestAs(systemId, ownerId), ctxFor(systemId));
     const body = await response.json();
-    const ids = body.assessments.map((a: { requirement: { id: string } }) => a.requirement.id);
+    const ids = body.assessments.map((a: { control: { id: string } }) => a.control.id);
     // System's availabilityImpactLevel is null (not yet classified) — a CRITICAL threshold isn't met.
     expect(ids).not.toContain(criticalAvailabilityId);
   });
 
-  it("excludes a Requirement whose threshold exceeds the System's declared level on that axis", async () => {
+  it("excludes a Control whose threshold exceeds the System's declared level on that axis", async () => {
     const response = await GET(requestAs(systemId, ownerId), ctxFor(systemId));
     const body = await response.json();
-    const ids = body.assessments.map((a: { requirement: { id: string } }) => a.requirement.id);
-    // System's confidentialityImpactLevel is MODERATE, Requirement needs HIGH.
+    const ids = body.assessments.map((a: { control: { id: string } }) => a.control.id);
+    // System's confidentialityImpactLevel is MODERATE, Control needs HIGH.
     expect(ids).not.toContain(highConfidentialityId);
   });
 
-  it("includes a Requirement once the System's declared level meets the threshold", async () => {
+  it("includes a Control once the System's declared level meets the threshold", async () => {
     await prisma.system.update({ where: { id: systemId }, data: { confidentialityImpactLevel: "CRITICAL" } });
 
     const response = await GET(requestAs(systemId, ownerId), ctxFor(systemId));
     const body = await response.json();
-    const ids = body.assessments.map((a: { requirement: { id: string } }) => a.requirement.id);
+    const ids = body.assessments.map((a: { control: { id: string } }) => a.control.id);
     expect(ids).toContain(highConfidentialityId);
 
     await prisma.system.update({ where: { id: systemId }, data: { confidentialityImpactLevel: "MODERATE" } });

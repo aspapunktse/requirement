@@ -31,7 +31,7 @@ describe("PATCH /api/systems/[id]/risks/[riskId]", () => {
   let systemTypeId: string;
   let systemId: string;
   let riskId: string;
-  let requirementId: string;
+  let controlId: string;
   let assessmentId: string;
   let originatedRiskId: string;
 
@@ -59,19 +59,19 @@ describe("PATCH /api/systems/[id]/risks/[riskId]", () => {
     });
     systemId = system.id;
 
-    const requirement = await prisma.requirement.create({
+    const control = await prisma.control.create({
       data: {
         code: `RISK-PATCH-${Date.now()}`,
-        title: "Origin Requirement",
+        title: "Origin Control",
         description: "desc",
         category: "Security",
         applicability: "PER_SYSTEM",
       },
     });
-    requirementId = requirement.id;
+    controlId = control.id;
 
-    const assessment = await prisma.requirementAssessment.create({
-      data: { systemId, requirementId, status: "IN_PROGRESS", selfAssessmentAnswer: "NO" },
+    const assessment = await prisma.controlAssessment.create({
+      data: { systemId, controlId, status: "IN_PROGRESS", selfAssessmentAnswer: "NO" },
     });
     assessmentId = assessment.id;
 
@@ -82,7 +82,7 @@ describe("PATCH /api/systems/[id]/risks/[riskId]", () => {
         description: "auto",
         severity: "MEDIUM",
         likelihood: "MEDIUM",
-        requirementAssessmentId: assessmentId,
+        controlAssessmentId: assessmentId,
       },
     });
     originatedRiskId = originatedRisk.id;
@@ -97,9 +97,9 @@ describe("PATCH /api/systems/[id]/risks/[riskId]", () => {
 
   afterAll(async () => {
     await prisma.risk.deleteMany({ where: { systemId } });
-    await prisma.requirementAssessment.deleteMany({ where: { systemId } });
+    await prisma.controlAssessment.deleteMany({ where: { systemId } });
     await prisma.system.deleteMany({ where: { id: systemId } });
-    await prisma.requirement.deleteMany({ where: { id: requirementId } });
+    await prisma.control.deleteMany({ where: { id: controlId } });
     await prisma.deploymentFacet.deleteMany({ where: { id: systemTypeId } });
     await prisma.user.deleteMany({ where: { email: { in: [OWNER_EMAIL, RISK_OWNER_EMAIL] } } });
   });
@@ -173,11 +173,11 @@ describe("PATCH /api/systems/[id]/risks/[riskId]", () => {
     await prisma.deploymentFacet.delete({ where: { id: otherSystemType.id } });
   });
 
-  it("an auto-created Risk shows its originating Requirement Assessment", async () => {
+  it("an auto-created Risk shows its originating Control Assessment", async () => {
     const risk = await prisma.risk.findUnique({
       where: { id: originatedRiskId },
-      include: { requirementAssessment: { include: { requirement: true } } },
+      include: { controlAssessment: { include: { control: true } } },
     });
-    expect(risk?.requirementAssessment?.requirement.id).toBe(requirementId);
+    expect(risk?.controlAssessment?.control.id).toBe(controlId);
   });
 });

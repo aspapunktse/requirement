@@ -1,6 +1,6 @@
-import type { Prisma, RequirementStatus } from "@prisma/client";
+import type { Prisma, ControlAssessmentStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { getApplicableRequirements } from "@/lib/requirement-assessments";
+import { getApplicableControls } from "@/lib/control-assessments";
 
 /**
  * Statuses that count as "resolved" (not an open gap) for compliance
@@ -8,17 +8,17 @@ import { getApplicableRequirements } from "@/lib/requirement-assessments";
  * Not Applicable) — both already require justification and Risk-Owner/
  * Admin sign-off. See CONTEXT.md's "Compliance Percentage" entry.
  */
-const RESOLVED_STATUSES_LENIENT: RequirementStatus[] = ["FULFILLED", "WAIVED", "NOT_APPLICABLE"];
+const RESOLVED_STATUSES_LENIENT: ControlAssessmentStatus[] = ["FULFILLED", "WAIVED", "NOT_APPLICABLE"];
 
 /** Some Frameworks only accept 100% Fulfilled — no partial credit for Waived/Not Applicable. */
-const RESOLVED_STATUSES_STRICT: RequirementStatus[] = ["FULFILLED"];
+const RESOLVED_STATUSES_STRICT: ControlAssessmentStatus[] = ["FULFILLED"];
 
 export type SystemCompliance = {
   systemId: string;
   systemName: string;
   resolved: number;
   total: number;
-  /** Null when `total` is 0 (no applicable mandatory Requirements to measure against). */
+  /** Null when `total` is 0 (no applicable mandatory Controls to measure against). */
   percentage: number | null;
 };
 
@@ -36,7 +36,7 @@ function percentageOf(resolved: number, total: number): number | null {
 
 /**
  * Compliance percentage across the Systems matched by `where`, optionally
- * narrowed to only the Requirements tagged with `frameworkId` (and using
+ * narrowed to only the Controls tagged with `frameworkId` (and using
  * that Framework's strictComplianceRequired flag to decide which statuses
  * count as resolved). Pooled across every matched System — total resolved
  * ÷ total applicable mandatory assessments, not an average of each
@@ -63,21 +63,21 @@ export async function getComplianceForSystems(
 
   const bySystem = await Promise.all(
     systems.map(async (system): Promise<SystemCompliance> => {
-      const applicable = await getApplicableRequirements(system);
+      const applicable = await getApplicableControls(system);
       const mandatoryIds = applicable.filter((r) => r.mandatory).map((r) => r.id);
 
       const inScopeIds = options.frameworkId
         ? (
-            await prisma.requirement.findMany({
+            await prisma.control.findMany({
               where: { id: { in: mandatoryIds }, frameworks: { some: { id: options.frameworkId } } },
               select: { id: true },
             })
           ).map((r) => r.id)
         : mandatoryIds;
 
-      const statusByRequirementId = new Map(system.assessments.map((a) => [a.requirementId, a.status]));
+      const statusByControlId = new Map(system.assessments.map((a) => [a.controlId, a.status]));
       const resolved = inScopeIds.filter((id) =>
-        resolvedStatuses.includes(statusByRequirementId.get(id) ?? "NOT_STARTED"),
+        resolvedStatuses.includes(statusByControlId.get(id) ?? "NOT_STARTED"),
       ).length;
 
       return {

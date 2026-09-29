@@ -39,7 +39,7 @@ const updateSystemSchema = z
 /**
  * Changes a Draft System's classification — its declared Deployment Facets
  * and/or self-declared Impact Levels, any combination in one request — and
- * recomputes its applicable Requirement Assessment set to match (see #15,
+ * recomputes its applicable Control Assessment set to match (see #15,
  * #47, #49, #50). Regulatory Overlay declare/undeclare has its own endpoint
  * (`/api/systems/[id]/regulatory-overlays`) since it's a single-item
  * connect/disconnect rather than a "set" like these two axes, but goes

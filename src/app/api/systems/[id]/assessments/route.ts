@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authenticate } from "@/lib/api-authz";
 import { getVisibleSystem } from "@/lib/system-visibility";
-import { getStaleAssessments, getSystemAssessments } from "@/lib/requirement-assessments";
+import { getStaleAssessments, getSystemAssessments } from "@/lib/control-assessments";
 
 export async function GET(request: NextRequest, ctx: RouteContext<"/api/systems/[id]/assessments">) {
   const auth = await authenticate(request);

@@ -44,8 +44,8 @@ describe("Capability declare/undeclare auto-fulfillment", () => {
   let systemId: string;
   let capabilityAId: string;
   let capabilityBId: string;
-  let mappedRequirementId: string;
-  let unmappedRequirementId: string;
+  let mappedControlId: string;
+  let unmappedControlId: string;
 
   beforeAll(async () => {
     const owner = await prisma.user.upsert({
@@ -66,7 +66,7 @@ describe("Capability declare/undeclare auto-fulfillment", () => {
     capabilityAId = capabilityA.id;
     capabilityBId = capabilityB.id;
 
-    const mapped = await prisma.requirement.create({
+    const mapped = await prisma.control.create({
       data: {
         code: `CAP-FUL-${suffix}`,
         title: "Fulfilled by Capability",
@@ -77,7 +77,7 @@ describe("Capability declare/undeclare auto-fulfillment", () => {
         capabilities: { connect: [{ id: capabilityAId }, { id: capabilityBId }] },
       },
     });
-    const unmapped = await prisma.requirement.create({
+    const unmapped = await prisma.control.create({
       data: {
         code: `CAP-UNM-${suffix}`,
         title: "Not mapped to any Capability",
@@ -86,14 +86,14 @@ describe("Capability declare/undeclare auto-fulfillment", () => {
         applicability: "PER_SYSTEM",
       },
     });
-    mappedRequirementId = mapped.id;
-    unmappedRequirementId = unmapped.id;
+    mappedControlId = mapped.id;
+    unmappedControlId = unmapped.id;
   });
 
   afterAll(async () => {
-    await prisma.requirementAssessment.deleteMany({ where: { systemId } });
+    await prisma.controlAssessment.deleteMany({ where: { systemId } });
     await prisma.system.deleteMany({ where: { id: systemId } });
-    await prisma.requirement.deleteMany({ where: { id: { in: [mappedRequirementId, unmappedRequirementId] } } });
+    await prisma.control.deleteMany({ where: { id: { in: [mappedControlId, unmappedControlId] } } });
     await prisma.capability.deleteMany({ where: { id: { in: [capabilityAId, capabilityBId] } } });
     await prisma.deploymentFacet.deleteMany({ where: { id: systemTypeId } });
     await prisma.user.deleteMany({ where: { email: OWNER_EMAIL } });
@@ -107,15 +107,15 @@ describe("Capability declare/undeclare auto-fulfillment", () => {
   });
 
   afterEach(async () => {
-    await prisma.requirementAssessment.deleteMany({ where: { systemId } });
+    await prisma.controlAssessment.deleteMany({ where: { systemId } });
     await prisma.system.deleteMany({ where: { id: systemId } });
   });
 
-  it("declaring a mapped Capability auto-fulfills the Requirement with an identifying note", async () => {
+  it("declaring a mapped Capability auto-fulfills the Control with an identifying note", async () => {
     await POST(postAs(systemId, ownerId, capabilityAId), postCtxFor(systemId));
 
-    const assessment = await prisma.requirementAssessment.findUnique({
-      where: { systemId_requirementId: { systemId, requirementId: mappedRequirementId } },
+    const assessment = await prisma.controlAssessment.findUnique({
+      where: { systemId_controlId: { systemId, controlId: mappedControlId } },
     });
     expect(assessment).toMatchObject({
       status: "FULFILLED",
@@ -125,11 +125,11 @@ describe("Capability declare/undeclare auto-fulfillment", () => {
     expect(assessment?.assessedById).toBeNull();
   });
 
-  it("does not touch Requirements the Capability isn't mapped to", async () => {
+  it("does not touch Controls the Capability isn't mapped to", async () => {
     await POST(postAs(systemId, ownerId, capabilityAId), postCtxFor(systemId));
 
-    const assessment = await prisma.requirementAssessment.findUnique({
-      where: { systemId_requirementId: { systemId, requirementId: unmappedRequirementId } },
+    const assessment = await prisma.controlAssessment.findUnique({
+      where: { systemId_controlId: { systemId, controlId: unmappedControlId } },
     });
     expect(assessment).toBeNull();
   });
@@ -138,8 +138,8 @@ describe("Capability declare/undeclare auto-fulfillment", () => {
     await POST(postAs(systemId, ownerId, capabilityAId), postCtxFor(systemId));
     await DELETE(deleteAs(systemId, ownerId, capabilityAId), deleteCtxFor(systemId, capabilityAId));
 
-    const assessment = await prisma.requirementAssessment.findUnique({
-      where: { systemId_requirementId: { systemId, requirementId: mappedRequirementId } },
+    const assessment = await prisma.controlAssessment.findUnique({
+      where: { systemId_controlId: { systemId, controlId: mappedControlId } },
     });
     expect(assessment).toMatchObject({
       status: "NOT_STARTED",
@@ -152,27 +152,27 @@ describe("Capability declare/undeclare auto-fulfillment", () => {
     await POST(postAs(systemId, ownerId, capabilityAId), postCtxFor(systemId));
 
     // Human manually edits it (e.g. adds evidence), which should clear the auto-fulfillment marker.
-    await prisma.requirementAssessment.update({
-      where: { systemId_requirementId: { systemId, requirementId: mappedRequirementId } },
+    await prisma.controlAssessment.update({
+      where: { systemId_controlId: { systemId, controlId: mappedControlId } },
       data: { assessedById: ownerId, assessedAt: new Date(), fulfilledByCapabilityId: null },
     });
 
     await DELETE(deleteAs(systemId, ownerId, capabilityAId), deleteCtxFor(systemId, capabilityAId));
 
-    const assessment = await prisma.requirementAssessment.findUnique({
-      where: { systemId_requirementId: { systemId, requirementId: mappedRequirementId } },
+    const assessment = await prisma.controlAssessment.findUnique({
+      where: { systemId_controlId: { systemId, controlId: mappedControlId } },
     });
     expect(assessment?.status).toBe("FULFILLED");
   });
 
-  it("keeps a Requirement Fulfilled, re-attributed, when a second mapped Capability is still declared", async () => {
+  it("keeps a Control Fulfilled, re-attributed, when a second mapped Capability is still declared", async () => {
     await POST(postAs(systemId, ownerId, capabilityAId), postCtxFor(systemId));
     await POST(postAs(systemId, ownerId, capabilityBId), postCtxFor(systemId));
 
     await DELETE(deleteAs(systemId, ownerId, capabilityAId), deleteCtxFor(systemId, capabilityAId));
 
-    const assessment = await prisma.requirementAssessment.findUnique({
-      where: { systemId_requirementId: { systemId, requirementId: mappedRequirementId } },
+    const assessment = await prisma.controlAssessment.findUnique({
+      where: { systemId_controlId: { systemId, controlId: mappedControlId } },
     });
     expect(assessment).toMatchObject({ status: "FULFILLED", fulfilledByCapabilityId: capabilityBId });
     expect(assessment?.notes).toContain("Central IAM");
@@ -181,9 +181,9 @@ describe("Capability declare/undeclare auto-fulfillment", () => {
   it("a manual PATCH clears the auto-fulfillment marker, making the Assessment immune to reversion", async () => {
     await POST(postAs(systemId, ownerId, capabilityAId), postCtxFor(systemId));
 
-    const { PATCH } = await import("../../assessments/[requirementId]/route");
+    const { PATCH } = await import("../../assessments/[controlId]/route");
     await PATCH(
-      new NextRequest(`http://localhost/api/systems/${systemId}/assessments/${mappedRequirementId}`, {
+      new NextRequest(`http://localhost/api/systems/${systemId}/assessments/${mappedControlId}`, {
         method: "PATCH",
         headers: new Headers({
           "Content-Type": "application/json",
@@ -191,13 +191,13 @@ describe("Capability declare/undeclare auto-fulfillment", () => {
         }),
         body: JSON.stringify({ status: "FULFILLED", evidence: "manually confirmed" }),
       }),
-      { params: Promise.resolve({ id: systemId, requirementId: mappedRequirementId }) },
+      { params: Promise.resolve({ id: systemId, controlId: mappedControlId }) },
     );
 
     await DELETE(deleteAs(systemId, ownerId, capabilityAId), deleteCtxFor(systemId, capabilityAId));
 
-    const assessment = await prisma.requirementAssessment.findUnique({
-      where: { systemId_requirementId: { systemId, requirementId: mappedRequirementId } },
+    const assessment = await prisma.controlAssessment.findUnique({
+      where: { systemId_controlId: { systemId, controlId: mappedControlId } },
     });
     expect(assessment).toMatchObject({ status: "FULFILLED", fulfilledByCapabilityId: null });
     expect(assessment?.evidence).toBe("manually confirmed");

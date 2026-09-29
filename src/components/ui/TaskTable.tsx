@@ -15,7 +15,7 @@ export type TaskRow = {
 
 /**
  * The "My tasks" section: one status-row table unifying every kind of thing
- * that needs this role's attention (Systems, Risks, Requirement Queries),
+ * that needs this role's attention (Systems, Risks, Assessment Queries),
  * instead of a separate card per concern. See issue #57.
  */
 export function TaskTable({ rows }: { rows: TaskRow[] }) {

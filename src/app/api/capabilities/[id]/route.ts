@@ -49,15 +49,15 @@ export async function DELETE(request: NextRequest, ctx: RouteContext<"/api/capab
 
   const { id } = await ctx.params;
 
-  const [systemsUsingIt, requirementsUsingIt] = await Promise.all([
+  const [systemsUsingIt, controlsUsingIt] = await Promise.all([
     prisma.system.count({ where: { capabilities: { some: { id } } } }),
-    prisma.requirement.count({ where: { capabilities: { some: { id } } } }),
+    prisma.control.count({ where: { capabilities: { some: { id } } } }),
   ]);
-  if (systemsUsingIt > 0 || requirementsUsingIt > 0) {
+  if (systemsUsingIt > 0 || controlsUsingIt > 0) {
     return NextResponse.json(
       {
         error:
-          "This Capability is declared by one or more Systems, or mapped to one or more Requirements, and can't be retired",
+          "This Capability is declared by one or more Systems, or mapped to one or more Controls, and can't be retired",
       },
       { status: 409 },
     );

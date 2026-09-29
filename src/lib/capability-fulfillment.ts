@@ -1,41 +1,41 @@
 import { prisma } from "@/lib/prisma";
-import { getApplicableRequirements, type SystemClassification } from "@/lib/requirement-assessments";
+import { getApplicableControls, type SystemClassification } from "@/lib/control-assessments";
 import { logChangeEvent, SYSTEM_ACTOR } from "@/lib/change-events";
 
-async function getApplicableRequirementsForCapability(system: SystemClassification, capabilityId: string) {
+async function getApplicableControlsForCapability(system: SystemClassification, capabilityId: string) {
   const [applicable, mapped] = await Promise.all([
-    getApplicableRequirements(system),
-    prisma.requirement.findMany({ where: { capabilities: { some: { id: capabilityId } } } }),
+    getApplicableControls(system),
+    prisma.control.findMany({ where: { capabilities: { some: { id: capabilityId } } } }),
   ]);
   const applicableIds = new Set(applicable.map((r) => r.id));
   return mapped.filter((r) => applicableIds.has(r.id));
 }
 
 /**
- * Declaring a Capability auto-fulfills every applicable Requirement it's
+ * Declaring a Capability auto-fulfills every applicable Control it's
  * mapped to — unless a human has already touched that specific Assessment
  * (assessedById set), in which case it's left alone. Builds on the same
- * RequirementAssessment rows the #15 recompute path manages, rather than a
+ * ControlAssessment rows the #15 recompute path manages, rather than a
  * second mechanism.
  */
 export async function applyCapabilityDeclared(
   system: SystemClassification & { id: string },
   capability: { id: string; name: string },
 ) {
-  const requirements = await getApplicableRequirementsForCapability(system, capability.id);
-  if (requirements.length === 0) return;
+  const controls = await getApplicableControlsForCapability(system, capability.id);
+  if (controls.length === 0) return;
 
-  const existing = await prisma.requirementAssessment.findMany({
-    where: { systemId: system.id, requirementId: { in: requirements.map((r) => r.id) } },
+  const existing = await prisma.controlAssessment.findMany({
+    where: { systemId: system.id, controlId: { in: controls.map((r) => r.id) } },
   });
-  const existingByRequirementId = new Map(existing.map((a) => [a.requirementId, a]));
+  const existingByControlId = new Map(existing.map((a) => [a.controlId, a]));
 
-  const toCreateRequirementIds: string[] = [];
+  const toCreateControlIds: string[] = [];
   const toUpdateAssessmentIds: string[] = [];
-  for (const requirement of requirements) {
-    const current = existingByRequirementId.get(requirement.id);
+  for (const control of controls) {
+    const current = existingByControlId.get(control.id);
     if (!current) {
-      toCreateRequirementIds.push(requirement.id);
+      toCreateControlIds.push(control.id);
     } else if (current.assessedById === null) {
       toUpdateAssessmentIds.push(current.id);
     }
@@ -44,12 +44,12 @@ export async function applyCapabilityDeclared(
 
   const note = `Inherited via ${capability.name}`;
   await prisma.$transaction([
-    ...(toCreateRequirementIds.length > 0
+    ...(toCreateControlIds.length > 0
       ? [
-          prisma.requirementAssessment.createMany({
-            data: toCreateRequirementIds.map((requirementId) => ({
+          prisma.controlAssessment.createMany({
+            data: toCreateControlIds.map((controlId) => ({
               systemId: system.id,
-              requirementId,
+              controlId,
               status: "FULFILLED" as const,
               notes: note,
               fulfilledByCapabilityId: capability.id,
@@ -60,7 +60,7 @@ export async function applyCapabilityDeclared(
       : []),
     ...(toUpdateAssessmentIds.length > 0
       ? [
-          prisma.requirementAssessment.updateMany({
+          prisma.controlAssessment.updateMany({
             where: { id: { in: toUpdateAssessmentIds } },
             data: {
               status: "FULFILLED",
@@ -73,12 +73,12 @@ export async function applyCapabilityDeclared(
       : []),
   ]);
 
-  const affectedCount = toCreateRequirementIds.length + toUpdateAssessmentIds.length;
+  const affectedCount = toCreateControlIds.length + toUpdateAssessmentIds.length;
   if (affectedCount > 0) {
     await logChangeEvent(
       system.id,
       "ASSESSMENT_STATUS_CHANGED",
-      `${affectedCount} Requirement Assessment(s) auto-fulfilled via Capability "${capability.name}"`,
+      `${affectedCount} Control Assessment(s) auto-fulfilled via Capability "${capability.name}"`,
       SYSTEM_ACTOR,
     );
   }
@@ -87,14 +87,14 @@ export async function applyCapabilityDeclared(
 /**
  * Un-declaring a Capability reverts each Assessment it had auto-fulfilled
  * back to Not Started — unless another Capability the System still
- * declares also fulfills that Requirement (OR semantics: any one Capability
+ * declares also fulfills that Control (OR semantics: any one Capability
  * suffices), in which case the Assessment stays Fulfilled, re-attributed to
  * that surviving Capability.
  */
 export async function applyCapabilityRemoved(system: { id: string }, capabilityId: string) {
-  const affected = await prisma.requirementAssessment.findMany({
+  const affected = await prisma.controlAssessment.findMany({
     where: { systemId: system.id, fulfilledByCapabilityId: capabilityId },
-    include: { requirement: { include: { capabilities: true } } },
+    include: { control: { include: { capabilities: true } } },
   });
   if (affected.length === 0) return;
 
@@ -113,7 +113,7 @@ export async function applyCapabilityRemoved(system: { id: string }, capabilityI
   const repoint: { id: string; capabilityId: string; capabilityName: string }[] = [];
 
   for (const assessment of affected) {
-    const alternative = assessment.requirement.capabilities.find(
+    const alternative = assessment.control.capabilities.find(
       (c) => c.id !== capabilityId && stillDeclaredById.has(c.id),
     );
     if (alternative) {
@@ -126,14 +126,14 @@ export async function applyCapabilityRemoved(system: { id: string }, capabilityI
   await prisma.$transaction([
     ...(revertIds.length > 0
       ? [
-          prisma.requirementAssessment.updateMany({
+          prisma.controlAssessment.updateMany({
             where: { id: { in: revertIds } },
             data: { status: "NOT_STARTED", notes: null, fulfilledByCapabilityId: null, assessedAt: null },
           }),
         ]
       : []),
     ...repoint.map((r) =>
-      prisma.requirementAssessment.update({
+      prisma.controlAssessment.update({
         where: { id: r.id },
         data: { notes: `Inherited via ${r.capabilityName}`, fulfilledByCapabilityId: r.capabilityId },
       }),
@@ -143,7 +143,7 @@ export async function applyCapabilityRemoved(system: { id: string }, capabilityI
   await logChangeEvent(
     system.id,
     "ASSESSMENT_STATUS_CHANGED",
-    `${revertIds.length} Requirement Assessment(s) reverted, ${repoint.length} re-attributed, after Capability "${removedCapability?.name ?? capabilityId}" removed`,
+    `${revertIds.length} Control Assessment(s) reverted, ${repoint.length} re-attributed, after Capability "${removedCapability?.name ?? capabilityId}" removed`,
     SYSTEM_ACTOR,
   );
 }
