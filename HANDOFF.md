@@ -26,7 +26,7 @@ PRD 0001 **milestone 1 (model split) is complete** (#70–#75), and so is **#78*
 
 Other open items (not in the queue): #46 needs re-scoping against the PRD before anyone picks it up; #61 is deferred; #63 is independent lint cleanup.
 
-**Known environment issue:** every PR since #82 shows a failing **Vercel** preview check ("Resource provisioning failed", which happens on Vercel's side before any build step). The workflow doc says how to confirm it and why it's safe to merge on green GitHub CI. The product owner has been told about it.
+**Known environment issue (resolved for now, will come back):** PRs #82–#92 showed a failing **Vercel** preview check ("Resource provisioning failed"). The cause was Neon's free-plan limit of 10 database branches: each git branch's first preview creates a `preview/<branch>` Neon branch, and Neon never deletes them. On 2026-09-29 the product owner deleted the old preview branches. Neon has no setting to delete them automatically, so the error will come back after about 9 more new branches. When it does, ask the product owner to clear merged `preview/*` branches again. The workflow doc says how to confirm it and why it's safe to merge on green GitHub CI in the meantime.
 
 ## Milestone 1 history (PRD 0001)
 
