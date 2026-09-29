@@ -2,14 +2,22 @@
 
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
+import { frameworkLabel } from "@/lib/framework-label";
 
 type Framework = {
   id: string;
   name: string;
+  version: string;
   description: string | null;
   strictComplianceRequired: boolean;
+  licensing: "PARAPHRASE_ONLY" | "QUOTABLE";
+  isBase: boolean;
+  status: "DRAFT" | "PUBLISHED";
+  _count?: { requirements: number };
 };
-type Draft = { name: string; description: string; strictComplianceRequired: boolean };
+type Draft = { name: string; version: string; description: string; strictComplianceRequired: boolean };
+
+const EMPTY_DRAFT: Draft = { name: "", version: "", description: "", strictComplianceRequired: false };
 
 async function fetchFrameworks(): Promise<Framework[]> {
   const response = await fetch("/api/frameworks");
@@ -19,22 +27,25 @@ async function fetchFrameworks(): Promise<Framework[]> {
 
 /**
  * Admin CRUD for the Framework catalog — like CatalogManager's generic
- * name+description screen, but with the extra strictComplianceRequired
- * flag (some frameworks only accept 100% Fulfilled — no partial credit for
- * Waived/Not Applicable — when computing compliance percentage against
- * them). See #55.
+ * name+description screen, but with the version and the extra
+ * strictComplianceRequired flag (some frameworks only accept 100% Fulfilled
+ * — no partial credit for Waived/Not Applicable — when computing compliance
+ * percentage against them). Each row also shows its read-only status
+ * (Draft/Published), base-Framework marker and Requirement count. Authoring
+ * Requirements, Control Mappings and publishing are #73. See #55, #72.
  */
 export function FrameworkManager() {
   const [items, setItems] = useState<Framework[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
-  const [newDraft, setNewDraft] = useState<Draft>({ name: "", description: "", strictComplianceRequired: false });
+  const [newDraft, setNewDraft] = useState<Draft>(EMPTY_DRAFT);
 
   function draftFor(item: Framework): Draft {
     return (
       drafts[item.id] ?? {
         name: item.name,
+        version: item.version,
         description: item.description ?? "",
         strictComplianceRequired: item.strictComplianceRequired,
       }
@@ -72,6 +83,7 @@ export function FrameworkManager() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         name: newDraft.name,
+        version: newDraft.version,
         description: newDraft.description || undefined,
         strictComplianceRequired: newDraft.strictComplianceRequired,
       }),
@@ -83,7 +95,7 @@ export function FrameworkManager() {
       return;
     }
 
-    setNewDraft({ name: "", description: "", strictComplianceRequired: false });
+    setNewDraft(EMPTY_DRAFT);
     await refresh();
   }
 
@@ -133,14 +145,28 @@ export function FrameworkManager() {
           const draft = draftFor(item);
           return (
             <li key={item.id} className="rounded border border-zinc-200 p-3 dark:border-zinc-800">
-              <input
-                aria-label={`Name for ${item.name}`}
-                className="w-full rounded border border-zinc-200 p-2 text-sm font-medium dark:border-zinc-800 dark:bg-transparent"
-                value={draft.name}
-                onChange={(event) => updateDraft(item, { name: event.target.value })}
-              />
+              <div className="flex gap-2">
+                <input
+                  aria-label={`Name for ${frameworkLabel(item)}`}
+                  className="w-full rounded border border-zinc-200 p-2 text-sm font-medium dark:border-zinc-800 dark:bg-transparent"
+                  value={draft.name}
+                  onChange={(event) => updateDraft(item, { name: event.target.value })}
+                />
+                <input
+                  aria-label={`Version for ${frameworkLabel(item)}`}
+                  className="w-32 rounded border border-zinc-200 p-2 text-sm dark:border-zinc-800 dark:bg-transparent"
+                  value={draft.version}
+                  onChange={(event) => updateDraft(item, { version: event.target.value })}
+                />
+              </div>
+              <p className="mt-2 text-xs text-zinc-500">
+                {item.status === "PUBLISHED" ? "Published" : "Draft"}
+                {item.isBase ? " · Base Framework" : ""}
+                {` · ${item._count?.requirements ?? 0} Requirements`}
+                {item.licensing === "PARAPHRASE_ONLY" ? " · Paraphrase only" : " · Quotable"}
+              </p>
               <textarea
-                aria-label={`Description for ${item.name}`}
+                aria-label={`Description for ${frameworkLabel(item)}`}
                 className="mt-2 w-full rounded border border-zinc-200 p-2 text-sm dark:border-zinc-800 dark:bg-transparent"
                 value={draft.description}
                 onChange={(event) => updateDraft(item, { description: event.target.value })}
@@ -157,7 +183,13 @@ export function FrameworkManager() {
                 <Button variant="secondary" onClick={() => handleSave(item)}>
                   Save
                 </Button>
-                <Button onClick={() => handleDelete(item)}>Retire</Button>
+                <Button
+                  onClick={() => handleDelete(item)}
+                  disabled={item.isBase}
+                  title={item.isBase ? "The base Framework can't be retired" : undefined}
+                >
+                  Retire
+                </Button>
               </div>
             </li>
           );
@@ -175,6 +207,14 @@ export function FrameworkManager() {
           className="rounded border border-zinc-200 p-2 text-sm dark:border-zinc-800 dark:bg-transparent"
           value={newDraft.name}
           onChange={(event) => setNewDraft((prev) => ({ ...prev, name: event.target.value }))}
+          required
+        />
+        <input
+          aria-label="Version"
+          placeholder="Version (e.g. 2022)"
+          className="rounded border border-zinc-200 p-2 text-sm dark:border-zinc-800 dark:bg-transparent"
+          value={newDraft.version}
+          onChange={(event) => setNewDraft((prev) => ({ ...prev, version: event.target.value }))}
           required
         />
         <textarea

@@ -40,7 +40,7 @@ describe("getAssignedScope / resolveScopeWhere", () => {
 
     const bu = await prisma.businessUnit.create({ data: { name: `Test BU ${Date.now()}` } });
     const otherBu = await prisma.businessUnit.create({ data: { name: `Test BU Other ${Date.now()}` } });
-    const fw = await prisma.framework.create({ data: { name: `Test Framework ${Date.now()}` } });
+    const fw = await prisma.framework.create({ data: { name: `Test Framework ${Date.now()}`, version: "1" } });
     businessUnitId = bu.id;
     otherBusinessUnitId = otherBu.id;
     frameworkId = fw.id;

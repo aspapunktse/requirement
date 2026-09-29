@@ -4,17 +4,38 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { authorize } from "@/lib/api-authz";
 import { ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE } from "@/lib/catalog";
+import { BASE_FRAMEWORK_ERRORS, checkBaseFrameworkInvariant } from "@/lib/frameworks";
 
 const updateFrameworkSchema = z
   .object({
     name: z.string().min(1).optional(),
+    version: z.string().min(1).optional(),
     description: z.string().nullable().optional(),
     strictComplianceRequired: z.boolean().optional(),
+    licensing: z.enum(["PARAPHRASE_ONLY", "QUOTABLE"]).optional(),
+    supersedesId: z.string().min(1).nullable().optional(),
+    isBase: z.boolean().optional(),
   })
-  .refine(
-    (data) => data.name !== undefined || data.description !== undefined || data.strictComplianceRequired !== undefined,
-    { message: "Provide at least one field to update" },
-  );
+  .refine((data) => Object.values(data).some((value) => value !== undefined), {
+    message: "Provide at least one field to update",
+  });
+
+/** True if pointing `id` at `supersedesId` would close a loop in the supersedes chain. */
+async function wouldCreateSupersedesCycle(id: string, supersedesId: string): Promise<boolean> {
+  const seen = new Set<string>();
+  let cursor: string | null = supersedesId;
+  while (cursor) {
+    if (cursor === id) return true;
+    if (seen.has(cursor)) return false;
+    seen.add(cursor);
+    const next: { supersedesId: string | null } | null = await prisma.framework.findUnique({
+      where: { id: cursor },
+      select: { supersedesId: true },
+    });
+    cursor = next?.supersedesId ?? null;
+  }
+  return false;
+}
 
 export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/frameworks/[id]">) {
   const auth = await authorize(request, ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE);
@@ -26,6 +47,25 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/framew
     return NextResponse.json({ error: "Invalid update" }, { status: 400 });
   }
 
+  const existing = await prisma.framework.findUnique({ where: { id } });
+  if (!existing) {
+    return NextResponse.json({ error: "Framework not found" }, { status: 404 });
+  }
+
+  if (parsed.data.isBase !== undefined) {
+    const violation = await checkBaseFrameworkInvariant(id, {
+      wasBase: existing.isBase,
+      isBase: parsed.data.isBase,
+    });
+    if (violation) {
+      return NextResponse.json({ error: BASE_FRAMEWORK_ERRORS[violation] }, { status: 409 });
+    }
+  }
+
+  if (parsed.data.supersedesId && (await wouldCreateSupersedesCycle(id, parsed.data.supersedesId))) {
+    return NextResponse.json({ error: "A Framework can't supersede itself, directly or indirectly" }, { status: 400 });
+  }
+
   try {
     const framework = await prisma.framework.update({ where: { id }, data: parsed.data });
     return NextResponse.json({ framework });
@@ -35,7 +75,13 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/framew
         return NextResponse.json({ error: "Framework not found" }, { status: 404 });
       }
       if (error.code === "P2002") {
-        return NextResponse.json({ error: "A Framework with that name already exists" }, { status: 409 });
+        return NextResponse.json(
+          { error: "A Framework with that name and version already exists" },
+          { status: 409 },
+        );
+      }
+      if (error.code === "P2003") {
+        return NextResponse.json({ error: "The superseded Framework does not exist" }, { status: 400 });
       }
     }
     throw error;
@@ -48,13 +94,25 @@ export async function DELETE(request: NextRequest, ctx: RouteContext<"/api/frame
 
   const { id } = await ctx.params;
 
-  const [systemsUsingIt, controlsUsingIt] = await Promise.all([
+  const existing = await prisma.framework.findUnique({ where: { id } });
+  if (!existing) {
+    return NextResponse.json({ error: "Framework not found" }, { status: 404 });
+  }
+  if (existing.isBase) {
+    return NextResponse.json({ error: BASE_FRAMEWORK_ERRORS.LAST_BASE }, { status: 409 });
+  }
+
+  const [systemsUsingIt, requirements, supplementaryControls] = await Promise.all([
     prisma.system.count({ where: { frameworkScopes: { some: { id } } } }),
-    prisma.control.count({ where: { frameworks: { some: { id } } } }),
+    prisma.requirement.count({ where: { frameworkId: id } }),
+    prisma.control.count({ where: { originFrameworkId: id } }),
   ]);
-  if (systemsUsingIt > 0 || controlsUsingIt > 0) {
+  if (systemsUsingIt > 0 || requirements > 0 || supplementaryControls > 0) {
     return NextResponse.json(
-      { error: "This Framework is in use by one or more Systems or Controls and can't be retired" },
+      {
+        error:
+          "This Framework is in use by Systems, or has Requirements or Supplementary Controls, and can't be retired",
+      },
       { status: 409 },
     );
   }

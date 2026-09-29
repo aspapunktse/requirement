@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { StatusChip } from "@/components/ui/StatusChip";
+import { frameworkLabel } from "@/lib/framework-label";
 import { onboardingStatusTone, riskStatusTone } from "@/lib/status-tones";
 
-type CatalogItem = { id: string; name: string };
+type CatalogItem = { id: string; name: string; version?: string };
 
 type PortfolioSystem = {
   id: string;
@@ -156,7 +157,7 @@ export function BusinessRiskOwnerDashboard({
             <option value="">All assigned</option>
             {frameworks.map((framework) => (
               <option key={framework.id} value={framework.id}>
-                {framework.name}
+                {frameworkLabel(framework)}
               </option>
             ))}
           </select>

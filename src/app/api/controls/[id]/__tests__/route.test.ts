@@ -31,6 +31,8 @@ describe("/api/controls/[id]", () => {
   let capabilityId: string;
   let frameworkAId: string;
   let frameworkBId: string;
+  let requirementAId: string;
+  let requirementBId: string;
 
   beforeAll(async () => {
     const admin = await prisma.user.upsert({
@@ -60,10 +62,20 @@ describe("/api/controls/[id]", () => {
     });
     capabilityId = capability.id;
 
-    const frameworkA = await prisma.framework.create({ data: { name: `Test Framework A ${Date.now()}` } });
-    const frameworkB = await prisma.framework.create({ data: { name: `Test Framework B ${Date.now()}` } });
+    const frameworkA = await prisma.framework.create({ data: { name: `Test Framework A ${Date.now()}`, version: "1" } });
+    const frameworkB = await prisma.framework.create({ data: { name: `Test Framework B ${Date.now()}`, version: "2" } });
     frameworkAId = frameworkA.id;
     frameworkBId = frameworkB.id;
+    requirementAId = (
+      await prisma.requirement.create({
+        data: { frameworkId: frameworkAId, code: "TA.1", section: "TA", title: "Req A", text: "text" },
+      })
+    ).id;
+    requirementBId = (
+      await prisma.requirement.create({
+        data: { frameworkId: frameworkBId, code: "TB.1", section: "TB", title: "Req B", text: "text" },
+      })
+    ).id;
   });
 
   afterAll(async () => {
@@ -211,14 +223,18 @@ describe("/api/controls/[id]", () => {
     expect(response.status).toBe(404);
   });
 
-  it("PATCH lets an admin edit core fields, including tagging more than one Framework", async () => {
+  it("PATCH lets an admin edit core fields and returns the Control's Control Mappings", async () => {
+    await prisma.controlMapping.createMany({
+      data: [
+        { requirementId: requirementAId, controlId: perSystemControlId, coverage: "FULL" },
+        { requirementId: requirementBId, controlId: perSystemControlId, coverage: "PARTIAL" },
+      ],
+    });
+
     const response = await PATCH(
       requestAs(perSystemControlId, adminId, {
         method: "PATCH",
-        body: JSON.stringify({
-          title: "Updated title",
-          frameworkIds: [frameworkAId, frameworkBId],
-        }),
+        body: JSON.stringify({ title: "Updated title" }),
       }),
       ctxFor(perSystemControlId),
     );
@@ -226,9 +242,31 @@ describe("/api/controls/[id]", () => {
 
     expect(response.status).toBe(200);
     expect(body.control.title).toBe("Updated title");
-    expect(body.control.frameworks.map((f: { id: string }) => f.id).sort()).toEqual(
-      [frameworkAId, frameworkBId].sort(),
+    expect(
+      body.control.mappings
+        .map((m: { coverage: string; requirement: { id: string } }) => [m.requirement.id, m.coverage])
+        .sort(),
+    ).toEqual(
+      [
+        [requirementAId, "FULL"],
+        [requirementBId, "PARTIAL"],
+      ].sort(),
     );
+  });
+
+  it("PATCH no longer tags a Control with Frameworks directly: frameworkIds is ignored", async () => {
+    const response = await PATCH(
+      requestAs(perSystemControlId, adminId, {
+        method: "PATCH",
+        body: JSON.stringify({ title: "Still updated", frameworkIds: [frameworkAId] }),
+      }),
+      ctxFor(perSystemControlId),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.control.frameworks).toBeUndefined();
+    expect(body.control.mappings).toEqual([]);
   });
 
   it("PATCH rejects an unknown Deployment Facet id", async () => {

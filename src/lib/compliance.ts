@@ -36,8 +36,8 @@ function percentageOf(resolved: number, total: number): number | null {
 
 /**
  * Compliance percentage across the Systems matched by `where`, optionally
- * narrowed to only the Controls tagged with `frameworkId` (and using
- * that Framework's strictComplianceRequired flag to decide which statuses
+ * narrowed to only the Controls mapped to a Requirement of `frameworkId`
+ * (and using that Framework's strictComplianceRequired flag to decide which statuses
  * count as resolved). Pooled across every matched System — total resolved
  * ÷ total applicable mandatory assessments, not an average of each
  * System's own percentage — plus each System's own standalone percentage.
@@ -69,7 +69,7 @@ export async function getComplianceForSystems(
       const inScopeIds = options.frameworkId
         ? (
             await prisma.control.findMany({
-              where: { id: { in: mandatoryIds }, frameworks: { some: { id: options.frameworkId } } },
+              where: { id: { in: mandatoryIds }, mappings: { some: { requirement: { frameworkId: options.frameworkId } } } },
               select: { id: true },
             })
           ).map((r) => r.id)

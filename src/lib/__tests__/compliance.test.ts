@@ -35,16 +35,18 @@ describe("getComplianceForSystems", () => {
     // any other concurrently-running test file's fixtures), since an
     // *unscoped* mandatory Control applies to every System regardless
     // of facet, and this app has no per-test database. Only Controls
-    // tagged with this test's own unique Framework rows can ever enter the
-    // computation. See HANDOFF.md's note on this exact isolation gotcha.
+    // mapped to this test's own unique Framework rows can ever enter the
+    // computation. A Control is "in" a Framework when it's mapped to one of
+    // that Framework's Requirements (ADR 0005). See HANDOFF.md's note on
+    // this exact isolation gotcha.
     const facet = await prisma.deploymentFacet.create({ data: { name: `Test Compliance Facet ${suffix}` } });
     facetId = facet.id;
 
     const lenientFramework = await prisma.framework.create({
-      data: { name: `Test Lenient Framework ${suffix}`, strictComplianceRequired: false },
+      data: { name: `Test Lenient Framework ${suffix}`, version: "1", strictComplianceRequired: false },
     });
     const strictFramework = await prisma.framework.create({
-      data: { name: `Test Strict Framework ${suffix}`, strictComplianceRequired: true },
+      data: { name: `Test Strict Framework ${suffix}`, version: "1", strictComplianceRequired: true },
     });
     lenientFrameworkId = lenientFramework.id;
     strictFrameworkId = strictFramework.id;
@@ -59,7 +61,6 @@ describe("getComplianceForSystems", () => {
         category: "Test",
         applicability: "BOTH",
         mandatory: true,
-        frameworks: { connect: { id: lenientFrameworkId } },
       },
     });
     // reqB: scoped to facetId, so it only applies to Systems that declare
@@ -74,24 +75,42 @@ describe("getComplianceForSystems", () => {
         applicability: "BOTH",
         mandatory: true,
         deploymentFacets: { connect: { id: facetId } },
-        frameworks: { connect: [{ id: lenientFrameworkId }, { id: strictFrameworkId }] },
       },
     });
     const optional = await prisma.control.create({
       data: {
         code: `TEST-COMPLIANCE-OPTIONAL-${suffix}`,
-        title: "Optional, tagged but not mandatory",
+        title: "Optional, mapped but not mandatory",
         description: "d",
         category: "Test",
         applicability: "BOTH",
         mandatory: false,
         deploymentFacets: { connect: { id: facetId } },
-        frameworks: { connect: { id: lenientFrameworkId } },
       },
     });
     reqAId = reqA.id;
     reqBId = reqB.id;
     optionalId = optional.id;
+
+    // One Requirement per Framework (plus a second lenient one), mapped to the Controls above.
+    async function requirementOf(frameworkId: string, code: string) {
+      return prisma.requirement.create({
+        data: { frameworkId, code, section: "Test", title: code, text: "t" },
+      });
+    }
+    const lenient1 = await requirementOf(lenientFrameworkId, "L.1");
+    const lenient2 = await requirementOf(lenientFrameworkId, "L.2");
+    const lenient3 = await requirementOf(lenientFrameworkId, "L.3");
+    const strict1 = await requirementOf(strictFrameworkId, "S.1");
+    await prisma.controlMapping.createMany({
+      data: [
+        { requirementId: lenient1.id, controlId: reqAId, coverage: "FULL" },
+        // A PARTIAL mapping still puts the Control in the Framework's scope (like-for-like with the old tag).
+        { requirementId: lenient2.id, controlId: reqBId, coverage: "PARTIAL" },
+        { requirementId: lenient3.id, controlId: optionalId, coverage: "FULL" },
+        { requirementId: strict1.id, controlId: reqBId, coverage: "FULL" },
+      ],
+    });
 
     const systemA = await prisma.system.create({
       data: {
@@ -131,7 +150,7 @@ describe("getComplianceForSystems", () => {
   it("counts Fulfilled and Waived as resolved (lenient), ignores non-mandatory Controls", async () => {
     const result = await getComplianceForSystems({ id: systemAId }, { frameworkId: lenientFrameworkId });
 
-    // reqA + reqB; optional excluded despite being tagged, since it's not mandatory.
+    // reqA + reqB; optional excluded despite being mapped, since it's not mandatory.
     expect(result.total).toBe(2);
     expect(result.resolved).toBe(2); // FULFILLED + WAIVED both count
     expect(result.percentage).toBe(100);
@@ -157,10 +176,37 @@ describe("getComplianceForSystems", () => {
   it("a strictComplianceRequired Framework only counts Fulfilled, not Waived", async () => {
     const result = await getComplianceForSystems({ id: systemAId }, { frameworkId: strictFrameworkId });
 
-    // Only reqB is tagged with the strict Framework; it's WAIVED, which doesn't count under strict.
+    // Only reqB is mapped to a Requirement of the strict Framework; it's WAIVED, which doesn't count under strict.
     expect(result.total).toBe(1);
     expect(result.resolved).toBe(0);
     expect(result.percentage).toBe(0);
+  });
+
+  it("narrows to Controls mapped to a Requirement of the Framework, not another Framework's", async () => {
+    // reqA is mapped only to the lenient Framework, so the strict one doesn't see it (and vice versa for
+    // nothing here: reqB is mapped to both).
+    const strict = await getComplianceForSystems({ id: systemBId }, { frameworkId: strictFrameworkId });
+    // System B never declares facetId, so reqB (the only strict-mapped Control) isn't applicable to it.
+    expect(strict.total).toBe(0);
+    expect(strict.percentage).toBeNull();
+
+    const lenient = await getComplianceForSystems({ id: systemBId }, { frameworkId: lenientFrameworkId });
+    expect(lenient.total).toBe(1); // reqA only
+  });
+
+  it("stops counting a Control once its Control Mapping is removed", async () => {
+    const mapping = await prisma.controlMapping.findFirstOrThrow({
+      where: { controlId: reqAId, requirement: { frameworkId: lenientFrameworkId } },
+    });
+    await prisma.controlMapping.delete({ where: { id: mapping.id } });
+    try {
+      const result = await getComplianceForSystems({ id: systemAId }, { frameworkId: lenientFrameworkId });
+      expect(result.total).toBe(1); // reqB only
+    } finally {
+      await prisma.controlMapping.create({
+        data: { requirementId: mapping.requirementId, controlId: reqAId, coverage: "FULL" },
+      });
+    }
   });
 
   it("filters by Business Unit membership via the where clause", async () => {

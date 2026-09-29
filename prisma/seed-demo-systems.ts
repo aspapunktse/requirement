@@ -84,11 +84,8 @@ async function main() {
     ),
   ) as Record<(typeof businessUnitNames)[number], { id: string }>;
 
-  const isoFramework = await prisma.framework.upsert({
-    where: { name: "ISO27001:2022 Annex A" },
-    update: {},
-    create: { name: "ISO27001:2022 Annex A" },
-  });
+  // The base Framework, created by the main seed (prisma/seed.ts).
+  const isoFramework = await prisma.framework.findFirstOrThrow({ where: { isBase: true } });
 
   // Corporate SSO capability, auto-fulfilling the identity/access-control
   // Controls a System inherits by declaring it — see CONTEXT.md's
@@ -578,7 +575,7 @@ async function main() {
 
   console.log("Demo Systems seeded:", DEMO_SYSTEM_NAMES.join(", "));
   console.log("Owners:", [owner, priya, marcus, elena].map((u) => u.email).join(", "));
-  console.log(`Business Risk Owner portfolio: Business Unit "Engineering" + Framework "ISO27001:2022 Annex A".`);
+  console.log(`Business Risk Owner portfolio: Business Unit "Engineering" + Framework "${isoFramework.name}:${isoFramework.version}".`);
   await prisma.user.update({
     where: { id: businessRiskOwner.id },
     data: {

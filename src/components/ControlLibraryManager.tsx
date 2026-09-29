@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
+import { satisfiesEntries, satisfiesLabel, type ControlMappingForLabel } from "@/lib/framework-label";
 
 type Catalog = { id: string; name: string };
 type ImpactLevel = "LOW" | "MODERATE" | "HIGH" | "CRITICAL";
@@ -21,7 +22,7 @@ type ControlSummary = {
   deploymentFacets: Catalog[];
   regulatoryOverlays: Catalog[];
   capabilities: Catalog[];
-  frameworks: Catalog[];
+  mappings: ControlMappingForLabel[];
   minConfidentialityImpactLevel: ImpactLevel | null;
   minIntegrityImpactLevel: ImpactLevel | null;
   minAvailabilityImpactLevel: ImpactLevel | null;
@@ -37,7 +38,6 @@ const IMPACT_AXES: { key: "minConfidentialityImpactLevel" | "minIntegrityImpactL
 
 function summarizeTags(control: ControlSummary): string {
   const parts: string[] = [];
-  if (control.frameworks.length > 0) parts.push(control.frameworks.map((f) => f.name).join(", "));
   if (control.deploymentFacets.length > 0) {
     parts.push(`Facets: ${control.deploymentFacets.map((f) => f.name).join(", ")}`);
   }
@@ -68,14 +68,12 @@ export function ControlLibraryManager() {
   const [deploymentFacets, setDeploymentFacets] = useState<Catalog[]>([]);
   const [regulatoryOverlays, setRegulatoryOverlays] = useState<Catalog[]>([]);
   const [capabilities, setCapabilities] = useState<Catalog[]>([]);
-  const [frameworks, setFrameworks] = useState<Catalog[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState("");
   const [selectedDeploymentFacetIds, setSelectedDeploymentFacetIds] = useState<Set<string>>(new Set());
   const [selectedRegulatoryOverlayIds, setSelectedRegulatoryOverlayIds] = useState<Set<string>>(new Set());
   const [selectedCapabilityIds, setSelectedCapabilityIds] = useState<Set<string>>(new Set());
-  const [selectedFrameworkIds, setSelectedFrameworkIds] = useState<Set<string>>(new Set());
   const [impactLevels, setImpactLevels] = useState<{
     minConfidentialityImpactLevel: ImpactLevel | null;
     minIntegrityImpactLevel: ImpactLevel | null;
@@ -86,25 +84,21 @@ export function ControlLibraryManager() {
   const [draft, setDraft] = useState(NEW_CONTROL_DRAFT);
 
   async function loadAll() {
-    const [controlsRes, deploymentFacetsRes, regulatoryOverlaysRes, capabilitiesRes, frameworksRes] =
-      await Promise.all([
-        fetch("/api/controls"),
-        fetch("/api/deployment-facets"),
-        fetch("/api/regulatory-overlays"),
-        fetch("/api/capabilities"),
-        fetch("/api/frameworks"),
-      ]);
+    const [controlsRes, deploymentFacetsRes, regulatoryOverlaysRes, capabilitiesRes] = await Promise.all([
+      fetch("/api/controls"),
+      fetch("/api/deployment-facets"),
+      fetch("/api/regulatory-overlays"),
+      fetch("/api/capabilities"),
+    ]);
     const controlsBody = await controlsRes.json();
     const deploymentFacetsBody = await deploymentFacetsRes.json();
     const regulatoryOverlaysBody = await regulatoryOverlaysRes.json();
     const capabilitiesBody = await capabilitiesRes.json();
-    const frameworksBody = await frameworksRes.json();
     return {
       controls: (controlsBody.controls ?? []) as ControlSummary[],
       deploymentFacets: (deploymentFacetsBody.deploymentFacets ?? []) as Catalog[],
       regulatoryOverlays: (regulatoryOverlaysBody.regulatoryOverlays ?? []) as Catalog[],
       capabilities: (capabilitiesBody.capabilities ?? []) as Catalog[],
-      frameworks: (frameworksBody.frameworks ?? []) as Catalog[],
     };
   }
 
@@ -117,7 +111,6 @@ export function ControlLibraryManager() {
       setDeploymentFacets(data.deploymentFacets);
       setRegulatoryOverlays(data.regulatoryOverlays);
       setCapabilities(data.capabilities);
-      setFrameworks(data.frameworks);
       setLoading(false);
     });
 
@@ -135,7 +128,6 @@ export function ControlLibraryManager() {
     setSelectedDeploymentFacetIds(new Set(control?.deploymentFacets.map((t) => t.id) ?? []));
     setSelectedRegulatoryOverlayIds(new Set(control?.regulatoryOverlays.map((o) => o.id) ?? []));
     setSelectedCapabilityIds(new Set(control?.capabilities.map((c) => c.id) ?? []));
-    setSelectedFrameworkIds(new Set(control?.frameworks.map((f) => f.id) ?? []));
     setImpactLevels({
       minConfidentialityImpactLevel: control?.minConfidentialityImpactLevel ?? null,
       minIntegrityImpactLevel: control?.minIntegrityImpactLevel ?? null,
@@ -162,13 +154,11 @@ export function ControlLibraryManager() {
       deploymentFacetIds?: string[];
       regulatoryOverlayIds?: string[];
       capabilityIds?: string[];
-      frameworkIds?: string[];
       minConfidentialityImpactLevel?: ImpactLevel | null;
       minIntegrityImpactLevel?: ImpactLevel | null;
       minAvailabilityImpactLevel?: ImpactLevel | null;
     } = {
       capabilityIds: Array.from(selectedCapabilityIds),
-      frameworkIds: Array.from(selectedFrameworkIds),
     };
     if (selected.applicability !== "ORGANIZATIONAL") {
       body.deploymentFacetIds = Array.from(selectedDeploymentFacetIds);
@@ -251,6 +241,7 @@ export function ControlLibraryManager() {
             <tr className="border-b border-zinc-200 dark:border-zinc-800">
               <th className="p-2 font-semibold">Code</th>
               <th className="p-2 font-semibold">Title</th>
+              <th className="p-2 font-semibold">Satisfies</th>
               <th className="p-2 font-semibold">Tags</th>
             </tr>
           </thead>
@@ -263,6 +254,7 @@ export function ControlLibraryManager() {
               >
                 <td className="p-2 whitespace-nowrap">{control.code}</td>
                 <td className="p-2">{control.title}</td>
+                <td className="p-2 text-zinc-500">{satisfiesEntries(control.mappings).join(", ")}</td>
                 <td className="p-2 text-zinc-500">{summarizeTags(control)}</td>
               </tr>
             ))}
@@ -391,19 +383,9 @@ export function ControlLibraryManager() {
             {selected.code} — {selected.title}
           </h3>
 
-          <fieldset className="flex flex-col gap-2">
-            <legend className="text-sm font-semibold">Frameworks/standards satisfied</legend>
-            {frameworks.map((framework) => (
-              <label key={framework.id} className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={selectedFrameworkIds.has(framework.id)}
-                  onChange={() => setSelectedFrameworkIds((prev) => toggle(prev, framework.id))}
-                />
-                {framework.name}
-              </label>
-            ))}
-          </fieldset>
+          <p className="text-sm text-zinc-500">
+            {satisfiesLabel(selected.mappings) ?? "Satisfies: no Framework Requirement yet"}
+          </p>
 
           {selected.applicability === "ORGANIZATIONAL" ? (
             <p className="text-sm text-zinc-500">

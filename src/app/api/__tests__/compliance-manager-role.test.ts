@@ -109,7 +109,7 @@ describe("COMPLIANCE_MANAGER role (#71)", () => {
       prisma.capability.create({ data: { name: `Test CM Capability ${SUFFIX}` } }),
       prisma.regulatoryOverlay.create({ data: { name: `Test CM Overlay ${SUFFIX}` } }),
       prisma.businessUnit.create({ data: { name: `Test CM BU ${SUFFIX}` } }),
-      prisma.framework.create({ data: { name: `Test CM Framework ${SUFFIX}` } }),
+      prisma.framework.create({ data: { name: `Test CM Framework ${SUFFIX}`, version: "1" } }),
     ]);
     facetId = facet.id;
     capabilityId = capability.id;
@@ -205,22 +205,21 @@ describe("COMPLIANCE_MANAGER role (#71)", () => {
       expect(body.control.title).toBe("Authored by a Compliance Manager");
     });
 
-    it("edits a Control via PATCH /api/controls/[id], including its Framework tags", async () => {
+    it("edits a Control via PATCH /api/controls/[id]", async () => {
       const response = await updateControl(
-        req(`/api/controls/${controlId}`, "PATCH", cmId, { title: "Renamed by CM", frameworkIds: [frameworkId] }),
+        req(`/api/controls/${controlId}`, "PATCH", cmId, { title: "Renamed by CM" }),
         ctx({ id: controlId }),
       );
       expect(response.status).toBe(200);
       const body = await response.json();
       expect(body.control.title).toBe("Renamed by CM");
-      expect(body.control.frameworks.map((f: { id: string }) => f.id)).toEqual([frameworkId]);
     });
   });
 
   describe("curates the Framework catalog", () => {
     it("creates, edits and retires a Framework", async () => {
       const created = await createFramework(
-        req("/api/frameworks", "POST", cmId, { name: `Test CM Created Framework ${SUFFIX}` }),
+        req("/api/frameworks", "POST", cmId, { name: `Test CM Created Framework ${SUFFIX}`, version: "1" }),
       );
       expect(created.status).toBe(201);
       const { framework } = await created.json();
