@@ -2,6 +2,12 @@
 
 Internal webapp for tracking requirement fulfillment and risk assessment when onboarding a new system or cloud solution into the enterprise.
 
+## Direction: becoming a GRC tool
+
+The app is being developed into a governance, risk and compliance (GRC) tool. The first module is a **requirement database**: Frameworks (ISO 27001:2022 as the base, plus Cybersäkerhetslagen, CSA CCM 4, …), each made up of its own Requirements, all mapped onto one Control Library. Controls are inherited from the Organization or from Provider Systems, compliance is continuous rather than frozen at onboarding, and internal audit can verify Controls through Check-ups. The steering document is [PRD 0001](docs/prd/0001-grc-requirement-database.md), with decisions in [ADRs 0005–0008](docs/adr/).
+
+**None of this is implemented yet.** [`CONTEXT.md`](CONTEXT.md) already describes the *target* vocabulary (e.g. **Control** for what the code still calls `Requirement`, and **Provider** replacing `Capability`). Each glossary entry's historical note maps new terms to the names still used in code. The "Project status" section below describes what's actually built today, using the code's current names. Work proceeds in the PRD's five milestones (model split → applicability → inheritance → content & SoA → internal audit).
+
 ## Project status
 
 **As of this writing: the full original 16-issue backlog, the follow-on [ADR 0003](docs/adr/0003-multiselect-deployment-facets-plus-overlays.md) design (issues #47–#53), the Business Risk Owner role (#55), the role-differentiated landing page (#54), Requirement Queries (#56), the EMS-style landing-page redesign (#57), the `/` role-checker page (#59) and its isms-style redesign (#64), and the header / `/home` chrome alignment (#65), the Change Event log (#58), and the Business Risk Owner's System Portfolio view (#62) are implemented, tested, and merged.** The core onboarding workflow, the ISO 27001 Annex A Requirement Catalog, multi-axis classification (Deployment Facet, Regulatory Overlay, Impact Level), and scoped cross-System Risk/compliance reporting all work end-to-end. The extension-points catalog (10 "evaluate this question" tickets) has also been fully worked through and closed. Three issues are open right now — see `HANDOFF.md`.
@@ -39,7 +45,7 @@ What's *not* decided yet (deliberately deferred, not overlooked):
 
 ## Domain model
 
-Vocabulary and workflow rules live in [`CONTEXT.md`](CONTEXT.md), not here — that's the source of truth so it doesn't drift out of sync with a second copy. Architectural decisions (e.g. why `Approved` and `Onboarded` are separate states) are in [`docs/adr/`](docs/adr/). The Prisma schema implementing all of this is [`prisma/schema.prisma`](prisma/schema.prisma).
+Vocabulary and workflow rules live in [`CONTEXT.md`](CONTEXT.md), not here — that's the source of truth so it doesn't drift out of sync with a second copy. It describes the target GRC model from [PRD 0001](docs/prd/0001-grc-requirement-database.md), which the code is still being migrated to (see "Direction" above). Architectural decisions (e.g. why `Approved` and `Onboarded` are separate states) are in [`docs/adr/`](docs/adr/). The Prisma schema implementing all of this is [`prisma/schema.prisma`](prisma/schema.prisma).
 
 ## Getting started
 
