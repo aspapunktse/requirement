@@ -48,13 +48,13 @@ export async function DELETE(request: NextRequest, ctx: RouteContext<"/api/frame
 
   const { id } = await ctx.params;
 
-  const [systemsUsingIt, requirementsUsingIt] = await Promise.all([
+  const [systemsUsingIt, controlsUsingIt] = await Promise.all([
     prisma.system.count({ where: { frameworkScopes: { some: { id } } } }),
-    prisma.requirement.count({ where: { frameworks: { some: { id } } } }),
+    prisma.control.count({ where: { frameworks: { some: { id } } } }),
   ]);
-  if (systemsUsingIt > 0 || requirementsUsingIt > 0) {
+  if (systemsUsingIt > 0 || controlsUsingIt > 0) {
     return NextResponse.json(
-      { error: "This Framework is in use by one or more Systems or Requirements and can't be retired" },
+      { error: "This Framework is in use by one or more Systems or Controls and can't be retired" },
       { status: 409 },
     );
   }

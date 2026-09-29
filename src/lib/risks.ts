@@ -16,7 +16,7 @@ export function canLogRisk(user: { id: string; role: UserRole }, system: { owner
 
 const RISK_INCLUDE = {
   owner: true,
-  requirementAssessment: { include: { requirement: true } },
+  controlAssessment: { include: { control: true } },
 } as const;
 
 /** Every Risk logged against a System, newest first, with its origin (if auto-created). */

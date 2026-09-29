@@ -114,7 +114,7 @@ describe("/api/systems/[id]/risks", () => {
     if (response.status === 201) createdRiskIds.push(body.risk.id);
 
     expect(response.status).toBe(201);
-    expect(body.risk).toMatchObject({ title: "Test Risk", status: "OPEN", requirementAssessment: null });
+    expect(body.risk).toMatchObject({ title: "Test Risk", status: "OPEN", controlAssessment: null });
   });
 
   it("POST forbids a SYSTEM_OWNER who doesn't own this System (but can see it)", async () => {

@@ -15,7 +15,7 @@ enum OnboardingStatus {
   ONBOARDED
 }
 
-enum RequirementStatus {
+enum ControlAssessmentStatus {
   NOT_STARTED
   IN_PROGRESS
   FULFILLED
@@ -23,8 +23,8 @@ enum RequirementStatus {
   WAIVED
 }
 
-// The System Owner's answer to a Requirement's Self-Assessment Question —
-// recorded alongside RequirementStatus, not a replacement for it. Yes/No/NA
+// The System Owner's answer to a Control's Self-Assessment Question —
+// recorded alongside ControlAssessmentStatus, not a replacement for it. Yes/No/NA
 // map to Fulfilled/left-open-plus-Risk/Not Applicable respectively.
 enum SelfAssessmentAnswer {
   YES
@@ -79,16 +79,16 @@ model User {
   role      UserRole @default(VIEWER)
   createdAt DateTime @default(now())
 
-  ownedSystems       System[]                @relation("SystemOwner")
-  assessments        RequirementAssessment[] @relation("AssessedBy")
-  riskActions        Risk[]                  @relation("RiskOwner")
+  ownedSystems       System[]            @relation("SystemOwner")
+  assessments        ControlAssessment[] @relation("AssessedBy")
+  riskActions        Risk[]              @relation("RiskOwner")
   approvals          Approval[]
   // Business Units and Frameworks this User (as a BUSINESS_RISK_OWNER) is
   // assigned to. Independent of each other — a Business Risk Owner may own
   // Business Units, Frameworks, or both, not necessarily paired. See #55.
   businessUnitScopes BusinessUnit[]
-  frameworkScopes    Framework[]             @relation("FrameworkRiskOwner")
-  resolvedQueries    RequirementQuery[]      @relation("QueryResolvedBy")
+  frameworkScopes    Framework[]         @relation("FrameworkRiskOwner")
+  resolvedQueries    AssessmentQuery[]   @relation("QueryResolvedBy")
   queryMessages      QueryMessage[]
 }
 
@@ -120,28 +120,28 @@ model System {
   // ADR 0001.
   onboardedAt                DateTime?
 
-  assessments     RequirementAssessment[]
+  assessments     ControlAssessment[]
   risks           Risk[]
   approvals       Approval[]
   // Centrally-managed dependencies this System declares it consumes. Purely
-  // declarative in this ticket — auto-fulfilling mapped Requirements is #16.
+  // declarative in this ticket — auto-fulfilling mapped Controls is #16.
   capabilities    Capability[]
   // Business Units that consume this System, and the Framework(s) whose
   // audit/certification boundary it falls within. Both are purely
   // reporting/grouping dimensions — unlike deploymentFacets/
   // regulatoryOverlays/Impact Level/capabilities, declaring either has no
-  // effect on the applicable Requirement set, and neither is Draft-locked:
+  // effect on the applicable Control set, and neither is Draft-locked:
   // usage and audit scope can both change after a System is Onboarded. See
   // #55.
   businessUnits   BusinessUnit[]
-  frameworkScopes Framework[]             @relation("SystemFrameworkScope")
+  frameworkScopes Framework[]         @relation("SystemFrameworkScope")
   // Curated log of System-lifecycle-relevant mutations, feeding the landing
   // page's "Recent updates" feed. See #58.
   changeEvents    ChangeEvent[]
 }
 
 // An admin-curated deployment classification (e.g. On-Premises Datacenter,
-// Cloud IaaS/PaaS, SaaS) that determines which Requirements apply to a
+// Cloud IaaS/PaaS, SaaS) that determines which Controls apply to a
 // System. A System declares one or more facets — Hybrid is simply a System
 // with more than one declared, not its own catalog entry. See ADR 0003
 // (which supersedes ADR 0002's single-select-only design).
@@ -151,10 +151,10 @@ model DeploymentFacet {
   description String?
   createdAt   DateTime @default(now())
 
-  // Requirements scoped to this facet. A Requirement with no rows here at
-  // all applies regardless of facet (see Requirement.deploymentFacets).
-  requirements Requirement[]
-  systems      System[]
+  // Controls scoped to this facet. A Control with no rows here at
+  // all applies regardless of facet (see Control.deploymentFacets).
+  controls Control[]
+  systems  System[]
 }
 
 // An admin-curated, centrally-provided dependency (e.g. Active Directory,
@@ -168,12 +168,12 @@ model Capability {
   description String?
   createdAt   DateTime @default(now())
 
-  // Requirements this Capability auto-fulfills when a System declares it.
-  requirements             Requirement[]
+  // Controls this Capability auto-fulfills when a System declares it.
+  controls                 Control[]
   // Systems that have declared this Capability as consumed.
   systems                  System[]
-  // RequirementAssessments currently auto-fulfilled by this Capability.
-  autoFulfilledAssessments RequirementAssessment[]
+  // ControlAssessments currently auto-fulfilled by this Capability.
+  autoFulfilledAssessments ControlAssessment[]
 }
 
 // An admin-curated regulatory flag (e.g. GDPR, EAR/ITAR) a System Owner
@@ -186,15 +186,15 @@ model RegulatoryOverlay {
   description String?
   createdAt   DateTime @default(now())
 
-  // Requirements scoped to this overlay. A Requirement with no rows here at
-  // all applies regardless of overlay (see Requirement.regulatoryOverlays).
-  requirements Requirement[]
-  systems      System[]
+  // Controls scoped to this overlay. A Control with no rows here at
+  // all applies regardless of overlay (see Control.regulatoryOverlays).
+  controls Control[]
+  systems  System[]
 }
 
 // An admin-curated organizational consumer (e.g. Finance, HR) that a System
 // declares is using it. Purely a reporting/grouping dimension — has no
-// effect on a System's applicable Requirement set. Not Draft-locked: a
+// effect on a System's applicable Control set. Not Draft-locked: a
 // Business Unit can start or stop consuming an already-Onboarded System.
 // See #55.
 model BusinessUnit {
@@ -211,14 +211,15 @@ model BusinessUnit {
 }
 
 // An admin-curated compliance standard (e.g. ISO 27001:2022 Annex A, CMMC)
-// that composes two independent relations: which Requirements satisfy it
-// (tagging — one Requirement can satisfy more than one Framework at once,
+// that composes two independent relations: which Controls satisfy it
+// (tagging — one Control can satisfy more than one Framework at once,
 // same "author once, tag many" model as before), and which Systems fall
 // within its audit/certification boundary (a System's Framework Scope,
 // multi-select and independent per Framework — a System can be in ISO
 // scope without being in CMMC scope). Declaring a System's Framework Scope
 // is a reporting dimension only, like Business Unit, and not Draft-locked.
-// Promoted from a bare `Requirement.framework: String[]` free-text tag to
+// Promoted from a bare `Requirement.framework: String[]` free-text tag (the
+// model since renamed Control, ADR 0005) to
 // support strictComplianceRequired and the System-side relation — see #55
 // and its ADR.
 model Framework {
@@ -230,48 +231,48 @@ model Framework {
   strictComplianceRequired Boolean  @default(false)
   createdAt                DateTime @default(now())
 
-  // Requirements tagged as satisfying this Framework.
-  requirements  Requirement[]
+  // Controls tagged as satisfying this Framework.
+  controls      Control[]
   // Systems whose audit/certification boundary includes this Framework.
-  scopedSystems System[]      @relation("SystemFrameworkScope")
+  scopedSystems System[]  @relation("SystemFrameworkScope")
   // Users assigned this Framework as (part of) their BUSINESS_RISK_OWNER
   // portfolio.
-  riskOwners    User[]        @relation("FrameworkRiskOwner")
+  riskOwners    User[]    @relation("FrameworkRiskOwner")
 }
 
-enum RequirementApplicability {
+enum ControlApplicability {
   ORGANIZATIONAL
   PER_SYSTEM
   BOTH
 }
 
-// A reusable requirement definition (security, legal, compliance, operational, etc.)
-model Requirement {
-  id            String                   @id @default(cuid())
-  code          String                   @unique // e.g. SEC-001
+// A reusable control definition (security, legal, compliance, operational, etc.)
+model Control {
+  id            String               @id @default(cuid())
+  code          String               @unique // e.g. SEC-001
   title         String
   description   String
   category      String // e.g. Security, Privacy, Legal, Operational
-  mandatory     Boolean                  @default(true)
-  applicability RequirementApplicability
-  question      String? // self-assessment question; null for ORGANIZATIONAL-only requirements
+  mandatory     Boolean              @default(true)
+  applicability ControlApplicability
+  question      String? // self-assessment question; null for ORGANIZATIONAL-only controls
   intent        String? // why the question matters, shown alongside it
-  examples      String[] // example ways to satisfy the requirement
-  createdAt     DateTime                 @default(now())
+  examples      String[] // example ways to satisfy the control
+  createdAt     DateTime             @default(now())
 
-  assessments RequirementAssessment[]
+  assessments ControlAssessment[]
 
-  // Deployment Facets this Requirement is scoped to. Empty means "applies
+  // Deployment Facets this Control is scoped to. Empty means "applies
   // regardless of facet" (how the Annex A seed ships). Must stay empty for
-  // ORGANIZATIONAL requirements, which are never assessed per System.
+  // ORGANIZATIONAL controls, which are never assessed per System.
   deploymentFacets              DeploymentFacet[]
-  // Regulatory Overlays this Requirement is scoped to. Empty means "applies
+  // Regulatory Overlays this Control is scoped to. Empty means "applies
   // regardless of overlay." AND'd together with deploymentFacets scoping —
   // both independently optional, and both must pass. Must stay empty for
-  // ORGANIZATIONAL requirements, which are never assessed per System.
+  // ORGANIZATIONAL controls, which are never assessed per System.
   regulatoryOverlays            RegulatoryOverlay[]
   // Minimum required Impact Level on each CIA axis, independently — null
-  // means no threshold on that axis. A Requirement can combine thresholds
+  // means no threshold on that axis. A Control can combine thresholds
   // on one, two, or all three axes; each is a "System's level on this axis
   // must be >= this" comparison, not a membership check like facet/overlay
   // scoping. See ADR 0003.
@@ -279,10 +280,10 @@ model Requirement {
   minIntegrityImpactLevel       ImpactLevel?
   minAvailabilityImpactLevel    ImpactLevel?
   // Capabilities that, if a System declares one, auto-fulfill this
-  // Requirement. May be empty, one, or several (any one suffices).
+  // Control. May be empty, one, or several (any one suffices).
   capabilities                  Capability[]
-  // Every Framework/standard this Requirement satisfies (e.g. ISO 27001:2022
-  // Annex A, CSA CCM 4.0). A relation, not a single value: one Requirement
+  // Every Framework/standard this Control satisfies (e.g. ISO 27001:2022
+  // Annex A, CSA CCM 4.0). A relation, not a single value: one Control
   // row can be conceptually "the same control" across more than one
   // Framework at once (see #52). Empty means no Framework tagged yet, not
   // "applies to all Frameworks." Was a free-text String[] tag before #55;
@@ -290,60 +291,60 @@ model Requirement {
   frameworks                    Framework[]
 }
 
-// Fulfillment status of a Requirement for a specific System.
-model RequirementAssessment {
-  id                      String                @id @default(cuid())
+// Fulfillment status of a Control for a specific System.
+model ControlAssessment {
+  id                      String                  @id @default(cuid())
   systemId                String
-  system                  System                @relation(fields: [systemId], references: [id], onDelete: Cascade)
-  requirementId           String
-  requirement             Requirement           @relation(fields: [requirementId], references: [id])
-  status                  RequirementStatus     @default(NOT_STARTED)
+  system                  System                  @relation(fields: [systemId], references: [id], onDelete: Cascade)
+  controlId               String
+  control                 Control                 @relation(fields: [controlId], references: [id])
+  status                  ControlAssessmentStatus @default(NOT_STARTED)
   evidence                String? // link or note to supporting evidence
   notes                   String?
-  // The System Owner's Yes/No/N/A answer to the Requirement's Self-
+  // The System Owner's Yes/No/N/A answer to the Control's Self-
   // Assessment Question, if it's been answered. Distinct from `status`:
   // both are shown, and manual status edits don't touch this field.
   selfAssessmentAnswer    SelfAssessmentAnswer?
   assessedById            String?
-  assessedBy              User?                 @relation("AssessedBy", fields: [assessedById], references: [id])
+  assessedBy              User?                   @relation("AssessedBy", fields: [assessedById], references: [id])
   assessedAt              DateTime?
-  updatedAt               DateTime              @updatedAt
+  updatedAt               DateTime                @updatedAt
   // Set when this Assessment was auto-fulfilled by a declared Capability
   // (see #16) rather than by a human. Non-null means "eligible for
   // automatic reversion if that Capability is un-declared" — any manual
   // edit to this Assessment clears it, which is what makes the row immune
   // to future automatic reversion and marks it as human-owned going forward.
   fulfilledByCapabilityId String?
-  fulfilledByCapability   Capability?           @relation(fields: [fulfilledByCapabilityId], references: [id])
+  fulfilledByCapability   Capability?             @relation(fields: [fulfilledByCapabilityId], references: [id])
 
-  // Risks auto-opened by answering "No" to this Requirement's Self-
+  // Risks auto-opened by answering "No" to this Control's Self-
   // Assessment Question.
   originatedRisks Risk[]
-  // Requirement Queries raised against this Assessment specifically (see
+  // Assessment Queries raised against this Assessment specifically (see
   // #56) — a lightweight, non-blocking question/reply thread, distinct from
   // both the Self-Assessment Question above and Approval.comment.
-  queries RequirementQuery[]
+  queries         AssessmentQuery[]
 
-  @@unique([systemId, requirementId])
+  @@unique([systemId, controlId])
 }
 
 // A lightweight, non-blocking question/reply thread scoped to one specific
-// RequirementAssessment (see #56) — lets a REVIEWER/RISK_OWNER/ADMIN push
-// back on one Requirement without a whole-System Rejection. Purely
+// ControlAssessment (see #56) — lets a REVIEWER/RISK_OWNER/ADMIN push
+// back on one Control without a whole-System Rejection. Purely
 // informational: it never touches the Assessment's status, gates Approval,
-// or affects the mandatory-Requirement submission check. `resolved` is an
+// or affects the mandatory-Control submission check. `resolved` is an
 // explicit judgment call by a REVIEWER/RISK_OWNER/ADMIN (not the System
 // Owner, and not necessarily the original asker) — see `lastMessageAuthorId`
 // below for the "whose turn is it" logic the various open-Query counters use.
-model RequirementQuery {
-  id                      String    @id @default(cuid())
-  requirementAssessmentId String
-  requirementAssessment   RequirementAssessment @relation(fields: [requirementAssessmentId], references: [id], onDelete: Cascade)
-  resolved                Boolean   @default(false)
-  resolvedById            String?
-  resolvedBy              User?     @relation("QueryResolvedBy", fields: [resolvedById], references: [id])
-  resolvedAt              DateTime?
-  createdAt               DateTime  @default(now())
+model AssessmentQuery {
+  id                  String            @id @default(cuid())
+  controlAssessmentId String
+  controlAssessment   ControlAssessment @relation(fields: [controlAssessmentId], references: [id], onDelete: Cascade)
+  resolved            Boolean           @default(false)
+  resolvedById        String?
+  resolvedBy          User?             @relation("QueryResolvedBy", fields: [resolvedById], references: [id])
+  resolvedAt          DateTime?
+  createdAt           DateTime          @default(now())
   // Denormalized copy of the most recent QueryMessage's authorId, kept in
   // sync on every new message. Lets "is it the System Owner's turn, or the
   // reviewer side's?" be answered with a plain field comparison instead of a
@@ -353,18 +354,18 @@ model RequirementQuery {
   messages QueryMessage[]
 }
 
-// One turn within a RequirementQuery thread — either the question that
+// One turn within an AssessmentQuery thread — either the question that
 // opened it or a later reply. No separate subject/title on the thread
-// itself; it's identified by the Requirement it's attached to plus this
+// itself; it's identified by the Control it's attached to plus this
 // message's own text.
 model QueryMessage {
-  id                 String           @id @default(cuid())
-  requirementQueryId String
-  requirementQuery   RequirementQuery @relation(fields: [requirementQueryId], references: [id], onDelete: Cascade)
-  authorId           String
-  author             User             @relation(fields: [authorId], references: [id])
-  body               String
-  createdAt          DateTime         @default(now())
+  id                String          @id @default(cuid())
+  assessmentQueryId String
+  assessmentQuery   AssessmentQuery @relation(fields: [assessmentQueryId], references: [id], onDelete: Cascade)
+  authorId          String
+  author            User            @relation(fields: [authorId], references: [id])
+  body              String
+  createdAt         DateTime        @default(now())
 }
 
 // A risk identified during onboarding of a System.
@@ -383,10 +384,10 @@ model Risk {
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
-  // Set when this Risk was auto-opened by a "No" answer to a Requirement's
+  // Set when this Risk was auto-opened by a "No" answer to a Control's
   // Self-Assessment Question, rather than logged ad-hoc. Null for ad-hoc Risks.
-  requirementAssessmentId String?
-  requirementAssessment   RequirementAssessment? @relation(fields: [requirementAssessmentId], references: [id])
+  controlAssessmentId String?
+  controlAssessment   ControlAssessment? @relation(fields: [controlAssessmentId], references: [id])
 }
 
 // Formal sign-off record on a System's onboarding.
@@ -415,7 +416,7 @@ enum ChangeEventAction {
 
 // A curated, System-lifecycle-relevant mutation record — feeds the landing
 // page's "Recent updates" feed (see #58). Deliberately not a full audit
-// trail: pure catalog-admin CRUD (Requirement/DeploymentFacet/Capability/
+// trail: pure catalog-admin CRUD (Control/DeploymentFacet/Capability/
 // RegulatoryOverlay/BusinessUnit/Framework create/edit/delete) is out of
 // scope, since this exists for role-relevant "what changed on this System"
 // visibility, not compliance auditing. `actorId` is either a User id, or the

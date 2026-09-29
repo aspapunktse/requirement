@@ -40,8 +40,8 @@ describe("/api/systems/[id]/regulatory-overlays", () => {
   let draftSystemId: string;
   let inReviewSystemId: string;
 
-  // Requirement scoped only to the overlay under test.
-  let overlayScopedRequirementId: string;
+  // Control scoped only to the overlay under test.
+  let overlayScopedControlId: string;
 
   beforeAll(async () => {
     const owner = await prisma.user.upsert({
@@ -70,7 +70,7 @@ describe("/api/systems/[id]/regulatory-overlays", () => {
     const overlay = await prisma.regulatoryOverlay.create({ data: { name: `GDPR ${suffix}` } });
     overlayId = overlay.id;
 
-    const overlayScoped = await prisma.requirement.create({
+    const overlayScoped = await prisma.control.create({
       data: {
         code: `OV-${suffix}`,
         title: "Only for this overlay",
@@ -80,11 +80,11 @@ describe("/api/systems/[id]/regulatory-overlays", () => {
         regulatoryOverlays: { connect: [{ id: overlayId }] },
       },
     });
-    overlayScopedRequirementId = overlayScoped.id;
+    overlayScopedControlId = overlayScoped.id;
   });
 
   afterAll(async () => {
-    await prisma.requirement.deleteMany({ where: { id: overlayScopedRequirementId } });
+    await prisma.control.deleteMany({ where: { id: overlayScopedControlId } });
     await prisma.regulatoryOverlay.deleteMany({ where: { id: overlayId } });
     await prisma.deploymentFacet.deleteMany({ where: { id: facetId } });
     await prisma.user.deleteMany({ where: { email: { in: [OWNER_EMAIL, OTHER_OWNER_EMAIL, ADMIN_EMAIL] } } });
@@ -107,7 +107,7 @@ describe("/api/systems/[id]/regulatory-overlays", () => {
   });
 
   afterEach(async () => {
-    await prisma.requirementAssessment.deleteMany({
+    await prisma.controlAssessment.deleteMany({
       where: { systemId: { in: [draftSystemId, inReviewSystemId] } },
     });
     await prisma.system.deleteMany({ where: { id: { in: [draftSystemId, inReviewSystemId] } } });
@@ -158,7 +158,7 @@ describe("/api/systems/[id]/regulatory-overlays", () => {
     expect(response.status).toBe(400);
   });
 
-  it("POST lets the owning SYSTEM_OWNER declare a Regulatory Overlay, creating a NOT_STARTED Assessment for a newly-applicable Requirement", async () => {
+  it("POST lets the owning SYSTEM_OWNER declare a Regulatory Overlay, creating a NOT_STARTED Assessment for a newly-applicable Control", async () => {
     const response = await POST(
       requestAs(draftSystemId, ownerId, { method: "POST", body: { regulatoryOverlayId: overlayId } }),
       ctxFor(draftSystemId),
@@ -168,8 +168,8 @@ describe("/api/systems/[id]/regulatory-overlays", () => {
     expect(response.status).toBe(201);
     expect(body.regulatoryOverlays.map((o: { id: string }) => o.id)).toContain(overlayId);
 
-    const assessment = await prisma.requirementAssessment.findUnique({
-      where: { systemId_requirementId: { systemId: draftSystemId, requirementId: overlayScopedRequirementId } },
+    const assessment = await prisma.controlAssessment.findUnique({
+      where: { systemId_controlId: { systemId: draftSystemId, controlId: overlayScopedControlId } },
     });
     expect(assessment).toMatchObject({ status: "NOT_STARTED", assessedById: null });
   });
@@ -189,8 +189,8 @@ describe("/api/systems/[id]/regulatory-overlays", () => {
     );
 
     // Touch the overlay-scoped Assessment so it should be preserved as stale, not deleted.
-    await prisma.requirementAssessment.update({
-      where: { systemId_requirementId: { systemId: draftSystemId, requirementId: overlayScopedRequirementId } },
+    await prisma.controlAssessment.update({
+      where: { systemId_controlId: { systemId: draftSystemId, controlId: overlayScopedControlId } },
       data: { status: "FULFILLED", assessedById: ownerId, assessedAt: new Date() },
     });
 
@@ -203,8 +203,8 @@ describe("/api/systems/[id]/regulatory-overlays", () => {
     expect(response.status).toBe(200);
     expect(body.regulatoryOverlays).toEqual([]);
 
-    const stillPresent = await prisma.requirementAssessment.findUnique({
-      where: { systemId_requirementId: { systemId: draftSystemId, requirementId: overlayScopedRequirementId } },
+    const stillPresent = await prisma.controlAssessment.findUnique({
+      where: { systemId_controlId: { systemId: draftSystemId, controlId: overlayScopedControlId } },
     });
     expect(stillPresent).toMatchObject({ status: "FULFILLED", assessedById: ownerId });
   });

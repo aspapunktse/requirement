@@ -5,7 +5,7 @@ import { resolveScopeWhere } from "@/lib/business-risk-owner";
 import { RISK_INCLUDE } from "@/lib/risks";
 
 /**
- * Risks (ad-hoc and Requirement-auto-opened alike) for Systems within the
+ * Risks (ad-hoc and Control-auto-opened alike) for Systems within the
  * acting user's Business Risk Owner scope, optionally narrowed further by
  * businessUnitId/frameworkId query params. Read-only view — see #55.
  */

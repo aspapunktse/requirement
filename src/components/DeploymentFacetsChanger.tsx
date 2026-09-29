@@ -68,7 +68,7 @@ export function DeploymentFacetsChanger({
 
       const body = await response.json();
       setMessage(
-        `Deployment Facets changed: ${body.added} Requirement(s) added, ${body.removed} untouched Requirement(s) removed.`,
+        `Deployment Facets changed: ${body.added} Control(s) added, ${body.removed} untouched Control(s) removed.`,
       );
       router.refresh();
     } finally {

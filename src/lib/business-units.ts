@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
  * owning SYSTEM_OWNER — at any point in the System's lifecycle, not just
  * Draft. Unlike Deployment Facet/Regulatory Overlay/Impact Level/
  * Capability, Business Unit is purely a reporting dimension (no effect on
- * the applicable Requirement set), so there's no reason to lock it to
+ * the applicable Control set), so there's no reason to lock it to
  * Draft — a new Business Unit can start consuming an already-Onboarded
  * System. See #55.
  */

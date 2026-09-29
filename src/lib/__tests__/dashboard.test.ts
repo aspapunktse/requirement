@@ -9,7 +9,7 @@ describe("dashboard", () => {
   let ownerId: string;
   let reviewerId: string;
   let facetId: string;
-  let scopedRequirementId: string;
+  let scopedControlId: string;
   const systemIds: string[] = [];
 
   beforeAll(async () => {
@@ -30,7 +30,7 @@ describe("dashboard", () => {
     const facet = await prisma.deploymentFacet.create({ data: { name: `Dashboard Facet ${suffix}` } });
     facetId = facet.id;
 
-    const requirement = await prisma.requirement.create({
+    const control = await prisma.control.create({
       data: {
         code: `DASH-${suffix}`,
         title: "Only for the Dashboard Facet",
@@ -40,15 +40,15 @@ describe("dashboard", () => {
         deploymentFacets: { connect: [{ id: facetId }] },
       },
     });
-    scopedRequirementId = requirement.id;
+    scopedControlId = control.id;
   });
 
   afterAll(async () => {
     await prisma.risk.deleteMany({ where: { systemId: { in: systemIds } } });
-    await prisma.requirementAssessment.deleteMany({ where: { systemId: { in: systemIds } } });
+    await prisma.controlAssessment.deleteMany({ where: { systemId: { in: systemIds } } });
     await prisma.approval.deleteMany({ where: { systemId: { in: systemIds } } });
     await prisma.system.deleteMany({ where: { id: { in: systemIds } } });
-    await prisma.requirement.deleteMany({ where: { id: scopedRequirementId } });
+    await prisma.control.deleteMany({ where: { id: scopedControlId } });
     await prisma.deploymentFacet.deleteMany({ where: { id: facetId } });
     await prisma.user.deleteMany({ where: { email: { in: [OWNER_EMAIL, REVIEWER_EMAIL] } } });
   });
@@ -67,15 +67,15 @@ describe("dashboard", () => {
       expect(attention).toContainEqual({ id: system.id, name: system.name, reason: "rejected" });
     });
 
-    it("flags a Draft System with a stale Requirement Assessment as 'stale'", async () => {
-      // No Facets declared, so the Facet-scoped Requirement isn't applicable —
+    it("flags a Draft System with a stale Control Assessment as 'stale'", async () => {
+      // No Facets declared, so the Facet-scoped Control isn't applicable —
       // an existing Assessment against it is therefore stale.
       const system = await prisma.system.create({
         data: { name: `Stale Draft ${Date.now()}`, ownerId, status: "DRAFT" },
       });
       systemIds.push(system.id);
-      await prisma.requirementAssessment.create({
-        data: { systemId: system.id, requirementId: scopedRequirementId, status: "FULFILLED" },
+      await prisma.controlAssessment.create({
+        data: { systemId: system.id, controlId: scopedControlId, status: "FULFILLED" },
       });
 
       const attention = await getSystemsNeedingAttention(ownerId);

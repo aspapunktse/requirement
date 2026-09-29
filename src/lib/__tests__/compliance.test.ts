@@ -33,8 +33,8 @@ describe("getComplianceForSystems", () => {
     // Every test below filters by frameworkId — that's what actually
     // isolates these fixtures from the real seeded ISO 27001 catalog (and
     // any other concurrently-running test file's fixtures), since an
-    // *unscoped* mandatory Requirement applies to every System regardless
-    // of facet, and this app has no per-test database. Only Requirements
+    // *unscoped* mandatory Control applies to every System regardless
+    // of facet, and this app has no per-test database. Only Controls
     // tagged with this test's own unique Framework rows can ever enter the
     // computation. See HANDOFF.md's note on this exact isolation gotcha.
     const facet = await prisma.deploymentFacet.create({ data: { name: `Test Compliance Facet ${suffix}` } });
@@ -51,7 +51,7 @@ describe("getComplianceForSystems", () => {
 
     // reqA: unscoped on facet, so it applies to every System regardless of
     // declared facets (including System B, which declares none of ours).
-    const reqA = await prisma.requirement.create({
+    const reqA = await prisma.control.create({
       data: {
         code: `TEST-COMPLIANCE-A-${suffix}`,
         title: "Applies everywhere",
@@ -65,7 +65,7 @@ describe("getComplianceForSystems", () => {
     // reqB: scoped to facetId, so it only applies to Systems that declare
     // it (System A) — gives A and B different applicable totals, which is
     // what actually distinguishes "pooled" from "averaged".
-    const reqB = await prisma.requirement.create({
+    const reqB = await prisma.control.create({
       data: {
         code: `TEST-COMPLIANCE-B-${suffix}`,
         title: "Applies only where facetId is declared",
@@ -77,7 +77,7 @@ describe("getComplianceForSystems", () => {
         frameworks: { connect: [{ id: lenientFrameworkId }, { id: strictFrameworkId }] },
       },
     });
-    const optional = await prisma.requirement.create({
+    const optional = await prisma.control.create({
       data: {
         code: `TEST-COMPLIANCE-OPTIONAL-${suffix}`,
         title: "Optional, tagged but not mandatory",
@@ -107,11 +107,11 @@ describe("getComplianceForSystems", () => {
     systemAId = systemA.id;
     systemBId = systemB.id;
 
-    await prisma.requirementAssessment.createMany({
+    await prisma.controlAssessment.createMany({
       data: [
-        { systemId: systemAId, requirementId: reqAId, status: "FULFILLED" },
-        { systemId: systemAId, requirementId: reqBId, status: "WAIVED" },
-        { systemId: systemAId, requirementId: optionalId, status: "FULFILLED" },
+        { systemId: systemAId, controlId: reqAId, status: "FULFILLED" },
+        { systemId: systemAId, controlId: reqBId, status: "WAIVED" },
+        { systemId: systemAId, controlId: optionalId, status: "FULFILLED" },
         // systemB's reqA is left with no Assessment row at all (NOT_STARTED by default).
         // systemB never declares facetId, so reqB isn't applicable to it at all.
       ],
@@ -119,16 +119,16 @@ describe("getComplianceForSystems", () => {
   });
 
   afterAll(async () => {
-    await prisma.requirementAssessment.deleteMany({ where: { systemId: { in: [systemAId, systemBId] } } });
+    await prisma.controlAssessment.deleteMany({ where: { systemId: { in: [systemAId, systemBId] } } });
     await prisma.system.deleteMany({ where: { id: { in: [systemAId, systemBId] } } });
-    await prisma.requirement.deleteMany({ where: { id: { in: [reqAId, reqBId, optionalId] } } });
+    await prisma.control.deleteMany({ where: { id: { in: [reqAId, reqBId, optionalId] } } });
     await prisma.businessUnit.deleteMany({ where: { id: businessUnitId } });
     await prisma.framework.deleteMany({ where: { id: { in: [lenientFrameworkId, strictFrameworkId] } } });
     await prisma.deploymentFacet.deleteMany({ where: { id: facetId } });
     await prisma.user.deleteMany({ where: { id: ownerId } });
   });
 
-  it("counts Fulfilled and Waived as resolved (lenient), ignores non-mandatory Requirements", async () => {
+  it("counts Fulfilled and Waived as resolved (lenient), ignores non-mandatory Controls", async () => {
     const result = await getComplianceForSystems({ id: systemAId }, { frameworkId: lenientFrameworkId });
 
     // reqA + reqB; optional excluded despite being tagged, since it's not mandatory.

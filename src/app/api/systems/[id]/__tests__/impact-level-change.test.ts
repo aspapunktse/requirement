@@ -30,7 +30,7 @@ describe("PATCH /api/systems/[id] (Impact Level change)", () => {
   let otherOwnerId: string;
   let facetId: string;
   let systemId: string;
-  let highConfidentialityRequirementId: string;
+  let highConfidentialityControlId: string;
 
   beforeAll(async () => {
     const owner = await prisma.user.upsert({
@@ -49,7 +49,7 @@ describe("PATCH /api/systems/[id] (Impact Level change)", () => {
     const facet = await prisma.deploymentFacet.create({ data: { name: `Impact Test Facet ${Date.now()}` } });
     facetId = facet.id;
 
-    const requirement = await prisma.requirement.create({
+    const control = await prisma.control.create({
       data: {
         code: `IMP-RECOMPUTE-${Date.now()}`,
         title: "Requires High Confidentiality",
@@ -59,11 +59,11 @@ describe("PATCH /api/systems/[id] (Impact Level change)", () => {
         minConfidentialityImpactLevel: "HIGH",
       },
     });
-    highConfidentialityRequirementId = requirement.id;
+    highConfidentialityControlId = control.id;
   });
 
   afterAll(async () => {
-    await prisma.requirement.deleteMany({ where: { id: highConfidentialityRequirementId } });
+    await prisma.control.deleteMany({ where: { id: highConfidentialityControlId } });
     await prisma.deploymentFacet.deleteMany({ where: { id: facetId } });
     await prisma.user.deleteMany({ where: { email: { in: [OWNER_EMAIL, OTHER_OWNER_EMAIL] } } });
   });
@@ -167,7 +167,7 @@ describe("PATCH /api/systems/[id] (Impact Level change)", () => {
     await prisma.deploymentFacet.delete({ where: { id: otherFacet.id } });
   });
 
-  it("raising an Impact Level axis creates a NOT_STARTED Assessment for a newly-applicable Requirement", async () => {
+  it("raising an Impact Level axis creates a NOT_STARTED Assessment for a newly-applicable Control", async () => {
     const response = await PATCH(
       requestAs(systemId, ownerId, { confidentialityImpactLevel: "HIGH" }),
       ctxFor(systemId),
@@ -177,8 +177,8 @@ describe("PATCH /api/systems/[id] (Impact Level change)", () => {
     expect(response.status).toBe(200);
     expect(body.added).toBe(1);
 
-    const assessment = await prisma.requirementAssessment.findUnique({
-      where: { systemId_requirementId: { systemId, requirementId: highConfidentialityRequirementId } },
+    const assessment = await prisma.controlAssessment.findUnique({
+      where: { systemId_controlId: { systemId, controlId: highConfidentialityControlId } },
     });
     expect(assessment).toMatchObject({ status: "NOT_STARTED", assessedById: null });
   });
@@ -186,8 +186,8 @@ describe("PATCH /api/systems/[id] (Impact Level change)", () => {
   it("lowering an Impact Level axis removes an untouched Assessment that's no longer applicable, but keeps a manually-touched one", async () => {
     await PATCH(requestAs(systemId, ownerId, { confidentialityImpactLevel: "CRITICAL" }), ctxFor(systemId));
 
-    await prisma.requirementAssessment.update({
-      where: { systemId_requirementId: { systemId, requirementId: highConfidentialityRequirementId } },
+    await prisma.controlAssessment.update({
+      where: { systemId_controlId: { systemId, controlId: highConfidentialityControlId } },
       data: { status: "FULFILLED", assessedById: ownerId, assessedAt: new Date() },
     });
 
@@ -200,8 +200,8 @@ describe("PATCH /api/systems/[id] (Impact Level change)", () => {
     expect(response.status).toBe(200);
     expect(body.removed).toBe(0);
 
-    const stillPresent = await prisma.requirementAssessment.findUnique({
-      where: { systemId_requirementId: { systemId, requirementId: highConfidentialityRequirementId } },
+    const stillPresent = await prisma.controlAssessment.findUnique({
+      where: { systemId_controlId: { systemId, controlId: highConfidentialityControlId } },
     });
     expect(stillPresent).toMatchObject({ status: "FULFILLED", assessedById: ownerId });
   });

@@ -14,7 +14,7 @@ export function onboardingStatusTone(status: string): ChipTone {
   }
 }
 
-export function requirementStatusTone(status: string): ChipTone {
+export function controlAssessmentStatusTone(status: string): ChipTone {
   switch (status) {
     case "FULFILLED":
       return "success";

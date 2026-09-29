@@ -2,19 +2,19 @@ import { NextRequest } from "next/server";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
 import { ACTING_USER_COOKIE } from "@/lib/acting-user";
-import { getUnaddressedMandatoryRequirements } from "@/lib/requirement-assessments";
-import { PATCH as patchAssessment } from "@/app/api/systems/[id]/assessments/[requirementId]/route";
+import { getUnaddressedMandatoryControls } from "@/lib/control-assessments";
+import { PATCH as patchAssessment } from "@/app/api/systems/[id]/assessments/[controlId]/route";
 import { POST as logRisk } from "@/app/api/systems/[id]/risks/route";
 import { POST as submitForReview } from "@/app/api/systems/[id]/submit/route";
 import { GET, POST } from "../route";
 
 /**
- * The seeded ISO 27001 catalog ships several mandatory Requirements with no
+ * The seeded ISO 27001 catalog ships several mandatory Controls with no
  * System Type scoping, so they apply to every Type. Satisfy all of them so
  * resubmission is only gated by what a test means to gate it by.
  */
-async function fulfillAllMandatoryRequirements(systemId: string, deploymentFacetIds: string[]) {
-  const unaddressed = await getUnaddressedMandatoryRequirements({
+async function fulfillAllMandatoryControls(systemId: string, deploymentFacetIds: string[]) {
+  const unaddressed = await getUnaddressedMandatoryControls({
     id: systemId,
     deploymentFacets: deploymentFacetIds.map((id) => ({ id })),
     regulatoryOverlays: [],
@@ -22,10 +22,10 @@ async function fulfillAllMandatoryRequirements(systemId: string, deploymentFacet
     integrityImpactLevel: null,
     availabilityImpactLevel: null,
   });
-  await prisma.requirementAssessment.createMany({
-    data: unaddressed.map((requirement) => ({
+  await prisma.controlAssessment.createMany({
+    data: unaddressed.map((control) => ({
       systemId,
-      requirementId: requirement.id,
+      controlId: control.id,
       status: "FULFILLED" as const,
     })),
     skipDuplicates: true,
@@ -61,7 +61,7 @@ describe("/api/systems/[id]/approvals", () => {
   let systemTypeId: string;
   let inReviewSystemId: string;
   let draftSystemId: string;
-  let mandatoryRequirementId: string;
+  let mandatoryControlId: string;
   const createdApprovalIds: string[] = [];
 
   beforeAll(async () => {
@@ -99,34 +99,34 @@ describe("/api/systems/[id]/approvals", () => {
     });
     draftSystemId = draftSystem.id;
 
-    const mandatoryRequirement = await prisma.requirement.create({
+    const mandatoryControl = await prisma.control.create({
       data: {
         code: `APPROVAL-DISCRETION-${Date.now()}`,
-        title: "Open Gap Requirement",
+        title: "Open Gap Control",
         description: "Deliberately left unaddressed to prove Approval isn't gated by it",
         category: "Security",
         applicability: "PER_SYSTEM",
         mandatory: true,
       },
     });
-    mandatoryRequirementId = mandatoryRequirement.id;
+    mandatoryControlId = mandatoryControl.id;
   });
 
   afterAll(async () => {
     await prisma.risk.deleteMany({ where: { systemId: { in: [inReviewSystemId, draftSystemId] } } });
-    await prisma.requirementAssessment.deleteMany({
+    await prisma.controlAssessment.deleteMany({
       where: { systemId: { in: [inReviewSystemId, draftSystemId] } },
     });
     await prisma.approval.deleteMany({ where: { systemId: { in: [inReviewSystemId, draftSystemId] } } });
     await prisma.system.deleteMany({ where: { id: { in: [inReviewSystemId, draftSystemId] } } });
-    await prisma.requirement.deleteMany({ where: { id: mandatoryRequirementId } });
+    await prisma.control.deleteMany({ where: { id: mandatoryControlId } });
     await prisma.deploymentFacet.deleteMany({ where: { id: systemTypeId } });
     await prisma.user.deleteMany({ where: { email: { in: [OWNER_EMAIL, REVIEWER_EMAIL, VIEWER_EMAIL] } } });
   });
 
   afterEach(async () => {
     await prisma.risk.deleteMany({ where: { systemId: inReviewSystemId } });
-    await prisma.requirementAssessment.deleteMany({ where: { systemId: inReviewSystemId } });
+    await prisma.controlAssessment.deleteMany({ where: { systemId: inReviewSystemId } });
     await prisma.approval.deleteMany({ where: { id: { in: createdApprovalIds } } });
     createdApprovalIds.length = 0;
     await prisma.system.update({ where: { id: inReviewSystemId }, data: { status: "IN_REVIEW" } });
@@ -225,7 +225,7 @@ describe("/api/systems/[id]/approvals", () => {
     // gap, same as any other Draft System.
     const editResponse = await patchAssessment(
       new NextRequest(
-        `http://localhost/api/systems/${inReviewSystemId}/assessments/${mandatoryRequirementId}`,
+        `http://localhost/api/systems/${inReviewSystemId}/assessments/${mandatoryControlId}`,
         {
           method: "PATCH",
           headers: new Headers({
@@ -235,11 +235,11 @@ describe("/api/systems/[id]/approvals", () => {
           body: JSON.stringify({ status: "FULFILLED" }),
         },
       ),
-      { params: Promise.resolve({ id: inReviewSystemId, requirementId: mandatoryRequirementId }) },
+      { params: Promise.resolve({ id: inReviewSystemId, controlId: mandatoryControlId }) },
     );
     expect(editResponse.status).toBe(200);
 
-    await fulfillAllMandatoryRequirements(inReviewSystemId, [systemTypeId]);
+    await fulfillAllMandatoryControls(inReviewSystemId, [systemTypeId]);
 
     const resubmitResponse = await submitForReview(
       new NextRequest(`http://localhost/api/systems/${inReviewSystemId}/submit`, {
@@ -270,8 +270,8 @@ describe("/api/systems/[id]/approvals", () => {
     expect(ids.indexOf(first.id)).toBeLessThan(ids.indexOf(second.id));
   });
 
-  it("lets a REVIEWER approve a System despite an open mandatory Requirement gap and an unresolved Risk", async () => {
-    // Mandatory Requirement left untouched (NOT_STARTED) and an ad-hoc Risk
+  it("lets a REVIEWER approve a System despite an open mandatory Control gap and an unresolved Risk", async () => {
+    // Mandatory Control left untouched (NOT_STARTED) and an ad-hoc Risk
     // logged and left OPEN — deliberately unmitigated, real gaps.
     const riskResponse = await logRisk(
       requestAs(inReviewSystemId, ownerId, {
@@ -305,7 +305,7 @@ describe("/api/systems/[id]/approvals", () => {
   it("never sets Approval status or creates an Approval record as a side effect of unrelated System actions", async () => {
     const assessmentPatchResponse = await patchAssessment(
       new NextRequest(
-        `http://localhost/api/systems/${inReviewSystemId}/assessments/${mandatoryRequirementId}`,
+        `http://localhost/api/systems/${inReviewSystemId}/assessments/${mandatoryControlId}`,
         {
           method: "PATCH",
           headers: new Headers({
@@ -315,7 +315,7 @@ describe("/api/systems/[id]/approvals", () => {
           body: JSON.stringify({ status: "IN_PROGRESS" }),
         },
       ),
-      { params: Promise.resolve({ id: inReviewSystemId, requirementId: mandatoryRequirementId }) },
+      { params: Promise.resolve({ id: inReviewSystemId, controlId: mandatoryControlId }) },
     );
     expect(assessmentPatchResponse.status).toBe(200);
 

@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { OnboardingStatus } from "@prisma/client";
 import { getActingUser } from "@/lib/acting-user";
 import { getVisibleSystems } from "@/lib/system-visibility";
-import { getActionableQueryCountsBySystem } from "@/lib/requirement-queries";
+import { getActionableQueryCountsBySystem } from "@/lib/assessment-queries";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { onboardingStatusTone } from "@/lib/status-tones";
 

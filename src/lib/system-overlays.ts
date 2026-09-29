@@ -1,10 +1,10 @@
 import type { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
-  getApplicableRequirements,
+  getApplicableControls,
   diffApplicabilityOps,
   type SystemClassification,
-} from "@/lib/requirement-assessments";
+} from "@/lib/control-assessments";
 import { logChangeEvent } from "@/lib/change-events";
 
 /**
@@ -32,16 +32,16 @@ export function getSystemRegulatoryOverlays(systemId: string) {
 type OverlaySystem = SystemClassification & { id: string };
 
 /**
- * Declaring a Regulatory Overlay can widen the applicable Requirement set
- * (any Requirement scoped to this overlay). Syncs Assessment rows the same
+ * Declaring a Regulatory Overlay can widen the applicable Control set
+ * (any Control scoped to this overlay). Syncs Assessment rows the same
  * way a Deployment Facet change does — see diffApplicabilityOps.
  */
 export async function applyOverlayDeclared(system: OverlaySystem, overlayId: string, actorId: string) {
   const newOverlayIds = [...system.regulatoryOverlays.map((o) => o.id), overlayId];
 
   const [oldApplicable, newApplicable] = await Promise.all([
-    getApplicableRequirements(system),
-    getApplicableRequirements({ ...system, regulatoryOverlays: newOverlayIds.map((id) => ({ id })) }),
+    getApplicableControls(system),
+    getApplicableControls({ ...system, regulatoryOverlays: newOverlayIds.map((id) => ({ id })) }),
   ]);
 
   const { added, deleteOp, createOp } = diffApplicabilityOps(system.id, oldApplicable, newApplicable);
@@ -57,7 +57,7 @@ export async function applyOverlayDeclared(system: OverlaySystem, overlayId: str
   await logChangeEvent(
     system.id,
     "CLASSIFICATION_CHANGED",
-    `Regulatory Overlay declared (+${added}/-${removed.count} Requirement Assessment(s))`,
+    `Regulatory Overlay declared (+${added}/-${removed.count} Control Assessment(s))`,
     actorId,
   );
 
@@ -65,8 +65,8 @@ export async function applyOverlayDeclared(system: OverlaySystem, overlayId: str
 }
 
 /**
- * Un-declaring a Regulatory Overlay can narrow the applicable Requirement
- * set. An untouched Assessment for a Requirement that's no longer
+ * Un-declaring a Regulatory Overlay can narrow the applicable Control
+ * set. An untouched Assessment for a Control that's no longer
  * applicable is removed; one a human has already worked on is left in
  * place and surfaced via getStaleAssessments.
  */
@@ -74,8 +74,8 @@ export async function applyOverlayRemoved(system: OverlaySystem, overlayId: stri
   const newOverlayIds = system.regulatoryOverlays.map((o) => o.id).filter((id) => id !== overlayId);
 
   const [oldApplicable, newApplicable] = await Promise.all([
-    getApplicableRequirements(system),
-    getApplicableRequirements({ ...system, regulatoryOverlays: newOverlayIds.map((id) => ({ id })) }),
+    getApplicableControls(system),
+    getApplicableControls({ ...system, regulatoryOverlays: newOverlayIds.map((id) => ({ id })) }),
   ]);
 
   const { added, deleteOp, createOp } = diffApplicabilityOps(system.id, oldApplicable, newApplicable);
@@ -91,7 +91,7 @@ export async function applyOverlayRemoved(system: OverlaySystem, overlayId: stri
   await logChangeEvent(
     system.id,
     "CLASSIFICATION_CHANGED",
-    `Regulatory Overlay removed (+${added}/-${removed.count} Requirement Assessment(s))`,
+    `Regulatory Overlay removed (+${added}/-${removed.count} Control Assessment(s))`,
     actorId,
   );
 

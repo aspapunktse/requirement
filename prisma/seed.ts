@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
-import { PrismaClient, type Requirement } from "@prisma/client";
+import { PrismaClient, type Control } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
@@ -10,9 +10,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // The seed JSON authors one framework label per row as a plain string, for
 // authoring convenience — resolved to a Framework catalog row (created if
 // it doesn't exist yet) and connected below. See #55.
-type SeedRequirementJson = Omit<Requirement, "id" | "createdAt"> & { framework: string | null };
+type SeedControlJson = Omit<Control, "id" | "createdAt"> & { framework: string | null };
 
-// Placeholder requirements from before the ISO 27001 Annex A catalog was seeded.
+// Placeholder controls from before the ISO 27001 Annex A catalog was seeded.
 const OBSOLETE_PLACEHOLDER_CODES = ["SEC-001", "SEC-002", "PRIV-001", "OPS-001"];
 
 async function main() {
@@ -39,30 +39,30 @@ async function main() {
 
   const owner = await prisma.user.findUniqueOrThrow({ where: { email: "owner@example.com" } });
 
-  await prisma.requirement.deleteMany({ where: { code: { in: OBSOLETE_PLACEHOLDER_CODES } } });
+  await prisma.control.deleteMany({ where: { code: { in: OBSOLETE_PLACEHOLDER_CODES } } });
 
-  const requirementsPath = path.join(__dirname, "seed-data", "iso27001-annex-a.json");
-  const requirements: SeedRequirementJson[] = JSON.parse(readFileSync(requirementsPath, "utf-8"));
+  const controlsPath = path.join(__dirname, "seed-data", "iso27001-annex-a.json");
+  const controls: SeedControlJson[] = JSON.parse(readFileSync(controlsPath, "utf-8"));
 
-  const frameworkNames = [...new Set(requirements.map((r) => r.framework).filter((f) => f != null))];
+  const frameworkNames = [...new Set(controls.map((r) => r.framework).filter((f) => f != null))];
   for (const name of frameworkNames) {
     await prisma.framework.upsert({ where: { name }, update: {}, create: { name } });
   }
 
-  for (const { framework, ...req } of requirements) {
+  for (const { framework, ...control } of controls) {
     const data = {
-      ...req,
+      ...control,
       frameworks: framework ? { connect: { name: framework } } : undefined,
     };
-    await prisma.requirement.upsert({
-      where: { code: req.code },
+    await prisma.control.upsert({
+      where: { code: control.code },
       update: data,
       create: data,
     });
   }
 
   console.log(
-    `Seed complete. Default owner: ${owner.email}. Requirement catalog: ${requirements.length} controls.`,
+    `Seed complete. Default owner: ${owner.email}. Control Library: ${controls.length} controls.`,
   );
 }
 

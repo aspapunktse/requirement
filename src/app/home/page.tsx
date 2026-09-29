@@ -6,7 +6,7 @@ import { TaskTable, type TaskRow } from "@/components/ui/TaskTable";
 import { TileNav, type NavTile } from "@/components/ui/TileNav";
 import { getSystemsNeedingAttention, getSystemsAwaitingApproval, getAllOpenRisks } from "@/lib/dashboard";
 import { scopedSystemsWhere, getAssignedScope } from "@/lib/business-risk-owner";
-import { getActionableQueryCount, getActionableQueries } from "@/lib/requirement-queries";
+import { getActionableQueryCount, getActionableQueries } from "@/lib/assessment-queries";
 import { attentionReasonTone, riskSeverityTone } from "@/lib/status-tones";
 import { RISK_INCLUDE } from "@/lib/risks";
 
@@ -91,7 +91,7 @@ async function roleView(user: { id: string; name: string; role: UserRole }): Pro
         ...openQueries.map((query): TaskRow => ({
           id: query.id,
           kind: "Query",
-          title: query.requirementTitle,
+          title: query.controlTitle,
           subtitle: query.systemName,
           tone: "accent",
           status: "Awaiting your reply",
@@ -115,8 +115,8 @@ async function roleView(user: { id: string; name: string; role: UserRole }): Pro
     }
 
     case "ADMIN": {
-      const [requirements, facets, capabilities, overlays] = await Promise.all([
-        prisma.requirement.count(),
+      const [controls, facets, capabilities, overlays] = await Promise.all([
+        prisma.control.count(),
         prisma.deploymentFacet.count(),
         prisma.capability.count(),
         prisma.regulatoryOverlay.count(),
@@ -125,13 +125,13 @@ async function roleView(user: { id: string; name: string; role: UserRole }): Pro
       return {
         lede: "Manage the catalogs every System's onboarding is assessed against.",
         stats: [
-          { label: "Requirements", value: requirements },
+          { label: "Controls", value: controls },
           { label: "Deployment facets", value: facets },
           { label: "Capabilities", value: capabilities },
           { label: "Regulatory overlays", value: overlays },
         ],
         tiles: [
-          { title: "Requirements", description: "Manage the Requirement Catalog.", href: "/admin/requirements" },
+          { title: "Controls", description: "Manage the Control Library.", href: "/admin/controls" },
           { title: "Deployment Facets", description: "Manage deployment classifications.", href: "/admin/deployment-facets" },
           { title: "Capabilities", description: "Manage centrally-provided dependencies.", href: "/admin/capabilities" },
           { title: "Regulatory Overlays", description: "Manage regulatory classifications.", href: "/admin/regulatory-overlays" },
@@ -159,7 +159,7 @@ async function roleView(user: { id: string; name: string; role: UserRole }): Pro
         ...openQueries.map((query): TaskRow => ({
           id: query.id,
           kind: "Query",
-          title: query.requirementTitle,
+          title: query.controlTitle,
           subtitle: query.systemName,
           tone: "accent",
           status: "Your turn",
@@ -258,7 +258,7 @@ function riskAndQueryTasks(
     ...openQueries.map((query): TaskRow => ({
       id: query.id,
       kind: "Query",
-      title: query.requirementTitle,
+      title: query.controlTitle,
       subtitle: query.systemName,
       tone: "accent",
       status: "Your turn",

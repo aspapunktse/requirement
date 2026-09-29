@@ -7,7 +7,7 @@ import { getComplianceForSystems } from "@/lib/compliance";
  * Compliance percentage for Systems within the acting user's Business Risk
  * Owner scope, optionally narrowed further by businessUnitId/frameworkId
  * query params (combined, not either/or — see #55). Passing frameworkId
- * also narrows which Requirements count (only ones tagged with that
+ * also narrows which Controls count (only ones tagged with that
  * Framework) and applies its strictComplianceRequired rule.
  */
 export async function GET(request: NextRequest) {

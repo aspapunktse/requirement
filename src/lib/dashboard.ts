@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { getStaleAssessments } from "@/lib/requirement-assessments";
+import { getStaleAssessments } from "@/lib/control-assessments";
 import { RISK_INCLUDE } from "@/lib/risks";
 
 export type AttentionSystem = { id: string; name: string; reason: "stale" | "rejected" };
@@ -8,7 +8,7 @@ export type AttentionSystem = { id: string; name: string; reason: "stale" | "rej
  * Draft Systems owned by `userId` that need the owner's attention: either
  * previously Rejected and returned to Draft for revision (a REJECTED entry
  * exists in Approval history — checked first since it's the cheaper query),
- * or carrying a RequirementAssessment left stale by a later facet/overlay/
+ * or carrying a ControlAssessment left stale by a later facet/overlay/
  * impact-level change (see getStaleAssessments). See issue #54.
  */
 export async function getSystemsNeedingAttention(userId: string): Promise<AttentionSystem[]> {

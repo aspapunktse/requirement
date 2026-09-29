@@ -193,8 +193,8 @@ describe("DELETE /api/capabilities/[id]", () => {
     await prisma.system.delete({ where: { id: system.id } });
   });
 
-  it("blocks retiring a Capability mapped to a Requirement", async () => {
-    const requirement = await prisma.requirement.create({
+  it("blocks retiring a Capability mapped to a Control", async () => {
+    const control = await prisma.control.create({
       data: {
         code: `CAP-DELETE-${Date.now()}`,
         title: "Uses The Capability",
@@ -208,6 +208,6 @@ describe("DELETE /api/capabilities/[id]", () => {
     const response = await DELETE(requestAs(capabilityId, adminId, { method: "DELETE" }), ctxFor(capabilityId));
     expect(response.status).toBe(409);
 
-    await prisma.requirement.delete({ where: { id: requirement.id } });
+    await prisma.control.delete({ where: { id: control.id } });
   });
 });

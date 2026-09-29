@@ -7,7 +7,7 @@ import { prisma } from "@/lib/prisma";
  * scope"): ADMIN, or the owning SYSTEM_OWNER — at any point in the
  * System's lifecycle. Same reporting-only, not-Draft-locked rule as
  * Business Unit (canManageBusinessUnits) — declaring a Framework Scope has
- * no effect on the applicable Requirement set. See #55.
+ * no effect on the applicable Control set. See #55.
  */
 export function canManageFrameworkScopes(user: { id: string; role: UserRole }, system: { ownerId: string }) {
   if (user.role === "ADMIN") return true;

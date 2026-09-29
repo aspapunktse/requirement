@@ -9,11 +9,11 @@
  *
  * Idempotent: re-running deletes and recreates the 10 named Systems (their
  * Assessments/Risks/Approvals cascade with them) without touching anything
- * else (Requirement Catalog, other Systems/Users).
+ * else (Control Library, other Systems/Users).
  */
 import type { ImpactLevel } from "@prisma/client";
 import { prisma } from "../src/lib/prisma";
-import { getApplicableRequirements, type SystemClassification } from "../src/lib/requirement-assessments";
+import { getApplicableControls, type SystemClassification } from "../src/lib/control-assessments";
 import { applyCapabilityDeclared } from "../src/lib/capability-fulfillment";
 
 const DEMO_SYSTEM_NAMES = [
@@ -91,7 +91,7 @@ async function main() {
   });
 
   // Corporate SSO capability, auto-fulfilling the identity/access-control
-  // Requirements a System inherits by declaring it — see CONTEXT.md's
+  // Controls a System inherits by declaring it — see CONTEXT.md's
   // Capability entry (deliberately distinct from the Entra ID *System* below,
   // even though it's the same real-world product, per that glossary note).
   const ssoCapability = await prisma.capability.upsert({
@@ -99,17 +99,17 @@ async function main() {
     update: {},
     create: { name: "Entra ID SSO" },
   });
-  const ssoRequirementCodes = ["A.5.15", "A.5.16", "A.5.17", "A.8.5"];
+  const ssoControlCodes = ["A.5.15", "A.5.16", "A.5.17", "A.8.5"];
   await prisma.capability.update({
     where: { id: ssoCapability.id },
-    data: { requirements: { connect: ssoRequirementCodes.map((code) => ({ code })) } },
+    data: { controls: { connect: ssoControlCodes.map((code) => ({ code })) } },
   });
 
-  // Scope one PER_SYSTEM Requirement to the On-Premises Datacenter facet
-  // only, so it can be used below to demonstrate a stale RequirementAssessment
+  // Scope one PER_SYSTEM Control to the On-Premises Datacenter facet
+  // only, so it can be used below to demonstrate a stale ControlAssessment
   // (one left behind after a System's declared Facets change) — see
   // getStaleAssessments.
-  const equipmentSiting = await prisma.requirement.update({
+  const equipmentSiting = await prisma.control.update({
     where: { code: "A.7.8" },
     data: { deploymentFacets: { connect: { id: facets["On-Premises Datacenter"].id } } },
   });
@@ -119,13 +119,13 @@ async function main() {
     system: { id: string } & SystemClassification,
     options: { waiveEvery?: number; naEvery?: number } = {},
   ) {
-    const applicable = await getApplicableRequirements(system);
+    const applicable = await getApplicableControls(system);
     const { waiveEvery = 11, naEvery = 23 } = options;
-    const rows = applicable.map((requirement, i) => {
+    const rows = applicable.map((control, i) => {
       if (i > 0 && i % naEvery === 0) {
         return {
           systemId: system.id,
-          requirementId: requirement.id,
+          controlId: control.id,
           status: "NOT_APPLICABLE" as const,
           selfAssessmentAnswer: "NA" as const,
           notes: "Not applicable to this deployment model — confirmed with vendor's shared-responsibility matrix.",
@@ -136,7 +136,7 @@ async function main() {
       if (i > 0 && i % waiveEvery === 0) {
         return {
           systemId: system.id,
-          requirementId: requirement.id,
+          controlId: control.id,
           status: "WAIVED" as const,
           notes: "Waived pending vendor roadmap item; compensating control tracked as a Risk.",
           assessedById: riskOwner.id,
@@ -145,7 +145,7 @@ async function main() {
       }
       return {
         systemId: system.id,
-        requirementId: requirement.id,
+        controlId: control.id,
         status: "FULFILLED" as const,
         selfAssessmentAnswer: "YES" as const,
         evidence: "See onboarding evidence pack in Confluence.",
@@ -153,20 +153,20 @@ async function main() {
         assessedAt: new Date(),
       };
     });
-    await prisma.requirementAssessment.createMany({ data: rows });
+    await prisma.controlAssessment.createMany({ data: rows });
   }
 
   async function partiallyAssess(system: { id: string } & SystemClassification, doneCount: number) {
-    const applicable = await getApplicableRequirements(system);
-    const rows = applicable.slice(0, doneCount).map((requirement, i) => ({
+    const applicable = await getApplicableControls(system);
+    const rows = applicable.slice(0, doneCount).map((control, i) => ({
       systemId: system.id,
-      requirementId: requirement.id,
+      controlId: control.id,
       status: i % 4 === 0 ? ("IN_PROGRESS" as const) : ("FULFILLED" as const),
       selfAssessmentAnswer: i % 4 === 0 ? undefined : ("YES" as const),
       assessedById: i % 4 === 0 ? undefined : owner.id,
       assessedAt: i % 4 === 0 ? undefined : new Date(),
     }));
-    if (rows.length > 0) await prisma.requirementAssessment.createMany({ data: rows });
+    if (rows.length > 0) await prisma.controlAssessment.createMany({ data: rows });
   }
 
   function classification(
@@ -377,10 +377,10 @@ async function main() {
       businessUnits: { connect: [{ id: businessUnits.Engineering.id }] },
     },
   });
-  await prisma.requirementAssessment.create({
+  await prisma.controlAssessment.create({
     data: {
       systemId: catia.id,
-      requirementId: equipmentSiting.id,
+      controlId: equipmentSiting.id,
       status: "FULFILLED",
       selfAssessmentAnswer: "YES",
       evidence: "Datacenter access-control audit, 2026 Q1.",
@@ -437,13 +437,13 @@ async function main() {
   });
   // A "No" self-assessment answer, left open with its auto-generated Risk —
   // see CONTEXT.md's Risk entry.
-  const dataMaskingRequirement = await prisma.requirement.findUniqueOrThrow({ where: { code: "A.8.11" } });
-  const dataMaskingAssessment = await prisma.requirementAssessment.upsert({
-    where: { systemId_requirementId: { systemId: workday.id, requirementId: dataMaskingRequirement.id } },
+  const dataMaskingControl = await prisma.control.findUniqueOrThrow({ where: { code: "A.8.11" } });
+  const dataMaskingAssessment = await prisma.controlAssessment.upsert({
+    where: { systemId_controlId: { systemId: workday.id, controlId: dataMaskingControl.id } },
     update: { selfAssessmentAnswer: "NO", status: "IN_PROGRESS", assessedById: elena.id, assessedAt: new Date() },
     create: {
       systemId: workday.id,
-      requirementId: dataMaskingRequirement.id,
+      controlId: dataMaskingControl.id,
       selfAssessmentAnswer: "NO",
       status: "IN_PROGRESS",
       assessedById: elena.id,
@@ -459,7 +459,7 @@ async function main() {
       likelihood: "MEDIUM",
       status: "OPEN",
       ownerId: riskOwner.id,
-      requirementAssessmentId: dataMaskingAssessment.id,
+      controlAssessmentId: dataMaskingAssessment.id,
     },
   });
 
