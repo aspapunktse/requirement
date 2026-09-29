@@ -153,22 +153,9 @@ describe("POST /api/controls", () => {
     expect(response.status).toBe(403);
   });
 
-  it("creates a Control tagged with more than one Framework", async () => {
+  it("creates a bare Control with no Control Mappings; a Framework tag is not accepted", async () => {
     const code = "TEST-CREATE-002";
     createdCodes.push(code);
-
-    const [iso, csa] = await Promise.all([
-      prisma.framework.upsert({
-        where: { name: "Test ISO27001:2022 Annex A" },
-        update: {},
-        create: { name: "Test ISO27001:2022 Annex A" },
-      }),
-      prisma.framework.upsert({
-        where: { name: "Test CSA CCM 4.0" },
-        update: {},
-        create: { name: "Test CSA CCM 4.0" },
-      }),
-    ]);
 
     const response = await POST(
       requestPost(adminId, {
@@ -176,7 +163,7 @@ describe("POST /api/controls", () => {
         title: "Encryption at rest",
         description: "desc",
         category: "Security",
-        frameworkIds: [iso.id, csa.id],
+        frameworkIds: ["ignored"],
         applicability: "ORGANIZATIONAL",
       }),
     );
@@ -184,12 +171,9 @@ describe("POST /api/controls", () => {
 
     expect(response.status).toBe(201);
     expect(body.control).toMatchObject({ code, mandatory: true, examples: [] });
-    expect(body.control.frameworks.map((f: { name: string }) => f.name).sort()).toEqual([
-      "Test CSA CCM 4.0",
-      "Test ISO27001:2022 Annex A",
-    ]);
-
-    await prisma.framework.deleteMany({ where: { id: { in: [iso.id, csa.id] } } });
+    expect(body.control.frameworks).toBeUndefined();
+    expect(body.control.mappings).toEqual([]);
+    expect(body.control.originFrameworkId).toBeNull();
   });
 
   it("rejects a PER_SYSTEM/BOTH Control with no Self-Assessment Question", async () => {

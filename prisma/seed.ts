@@ -7,10 +7,13 @@ const prisma = new PrismaClient();
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// The seed JSON authors one framework label per row as a plain string, for
-// authoring convenience — resolved to a Framework catalog row (created if
-// it doesn't exist yet) and connected below. See #55.
-type SeedControlJson = Omit<Control, "id" | "createdAt"> & { framework: string | null };
+// The seed JSON holds the base Control Library (ISO/IEC 27001:2022 Annex A).
+// Each Control also becomes an ISO Requirement, FULL-mapped 1:1 — the same
+// shape the #72 data migration produced from the old Control.frameworks tag.
+type SeedControlJson = Omit<Control, "id" | "createdAt" | "originFrameworkId">;
+
+// The base Framework: exactly one, always Published (ADR 0005, #72).
+const BASE_FRAMEWORK = { name: "ISO/IEC 27001", version: "2022" };
 
 // Placeholder controls from before the ISO 27001 Annex A catalog was seeded.
 const OBSOLETE_PLACEHOLDER_CODES = ["SEC-001", "SEC-002", "PRIV-001", "OPS-001"];
@@ -49,25 +52,42 @@ async function main() {
   const controlsPath = path.join(__dirname, "seed-data", "iso27001-annex-a.json");
   const controls: SeedControlJson[] = JSON.parse(readFileSync(controlsPath, "utf-8"));
 
-  const frameworkNames = [...new Set(controls.map((r) => r.framework).filter((f) => f != null))];
-  for (const name of frameworkNames) {
-    await prisma.framework.upsert({ where: { name }, update: {}, create: { name } });
-  }
+  const baseFramework = await prisma.framework.upsert({
+    where: { name_version: BASE_FRAMEWORK },
+    update: {},
+    create: { ...BASE_FRAMEWORK, isBase: true, status: "PUBLISHED", licensing: "PARAPHRASE_ONLY" },
+  });
 
-  for (const { framework, ...control } of controls) {
-    const data = {
-      ...control,
-      frameworks: framework ? { connect: { name: framework } } : undefined,
-    };
-    await prisma.control.upsert({
-      where: { code: control.code },
-      update: data,
-      create: data,
+  for (const controlJson of controls) {
+    const control = await prisma.control.upsert({
+      where: { code: controlJson.code },
+      update: controlJson,
+      create: controlJson,
+    });
+
+    // Requirement code = the Annex A code, section = the Control's category,
+    // title/text = its title/description paraphrase. Left untouched on
+    // re-seed so curated Requirements and Coverage aren't clobbered.
+    const requirement = await prisma.requirement.upsert({
+      where: { frameworkId_code: { frameworkId: baseFramework.id, code: control.code } },
+      update: {},
+      create: {
+        frameworkId: baseFramework.id,
+        code: control.code,
+        section: control.category,
+        title: control.title,
+        text: control.description,
+      },
+    });
+    await prisma.controlMapping.upsert({
+      where: { requirementId_controlId: { requirementId: requirement.id, controlId: control.id } },
+      update: {},
+      create: { requirementId: requirement.id, controlId: control.id, coverage: "FULL" },
     });
   }
 
   console.log(
-    `Seed complete. Default owner: ${owner.email}. Control Library: ${controls.length} controls.`,
+    `Seed complete. Default owner: ${owner.email}. Control Library: ${controls.length} controls, ${controls.length} ${BASE_FRAMEWORK.name}:${BASE_FRAMEWORK.version} Requirements mapped Full.`,
   );
 }
 

@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { frameworkLabel } from "@/lib/framework-label";
 
-type CatalogItem = { id: string; name: string };
+type CatalogItem = { id: string; name: string; version?: string };
 type User = { id: string; name: string; email: string };
 
 /**
@@ -139,7 +140,7 @@ export function BusinessRiskOwnerAssignments() {
                     checked={assignedFW.has(framework.id)}
                     onChange={() => toggleFramework(user.id, framework.id, assignedFW.has(framework.id))}
                   />
-                  {framework.name}
+                  {frameworkLabel(framework)}
                 </label>
               ))}
             </fieldset>

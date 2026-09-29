@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { frameworkLabel } from "@/lib/framework-label";
 import { Button } from "@/components/ui/Button";
 
-type CatalogItem = { id: string; name: string; description: string | null };
+// `version` is only set on Frameworks, where it disambiguates two versions of one standard.
+type CatalogItem = { id: string; name: string; version?: string; description: string | null };
 
 type SystemCatalogRelationProps = {
   systemId: string;
@@ -128,7 +130,7 @@ export function SystemCatalogRelation({
               key={item.id}
               className="flex items-center justify-between rounded border border-zinc-200 p-2 text-sm dark:border-zinc-800"
             >
-              <span>{item.name}</span>
+              <span>{frameworkLabel(item)}</span>
               {canManage && (
                 <Button className="px-2 py-0.5 text-xs" onClick={() => handleRemove(item.id)}>
                   Remove
@@ -150,7 +152,7 @@ export function SystemCatalogRelation({
             <option value="">Select a {itemLabel}…</option>
             {available.map((item) => (
               <option key={item.id} value={item.id}>
-                {item.name}
+                {frameworkLabel(item)}
               </option>
             ))}
           </select>

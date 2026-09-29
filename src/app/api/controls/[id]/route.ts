@@ -4,6 +4,7 @@ import { ImpactLevel, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { authenticate, authorize } from "@/lib/api-authz";
 import { ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE } from "@/lib/catalog";
+import { controlInclude } from "@/lib/frameworks";
 
 const impactLevelSchema = z.nativeEnum(ImpactLevel).nullable();
 
@@ -14,7 +15,7 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/controls
   const { id } = await ctx.params;
   const control = await prisma.control.findUnique({
     where: { id },
-    include: { deploymentFacets: true, regulatoryOverlays: true, capabilities: true, frameworks: true },
+    include: controlInclude,
   });
   if (!control) {
     return NextResponse.json({ error: "Control not found" }, { status: 404 });
@@ -27,7 +28,6 @@ const updateControlSchema = z
     title: z.string().min(1).optional(),
     description: z.string().min(1).optional(),
     category: z.string().min(1).optional(),
-    frameworkIds: z.array(z.string().min(1)).optional(),
     mandatory: z.boolean().optional(),
     question: z.string().nullable().optional(),
     intent: z.string().nullable().optional(),
@@ -62,7 +62,6 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/contro
     title,
     description,
     category,
-    frameworkIds,
     mandatory,
     question,
     intent,
@@ -98,9 +97,6 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/contro
         ...(title !== undefined && { title }),
         ...(description !== undefined && { description }),
         ...(category !== undefined && { category }),
-        ...(frameworkIds !== undefined && {
-          frameworks: { set: frameworkIds.map((frameworkId) => ({ id: frameworkId })) },
-        }),
         ...(mandatory !== undefined && { mandatory }),
         ...(question !== undefined && { question }),
         ...(intent !== undefined && { intent }),
@@ -118,13 +114,13 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/contro
         ...(minIntegrityImpactLevel !== undefined && { minIntegrityImpactLevel }),
         ...(minAvailabilityImpactLevel !== undefined && { minAvailabilityImpactLevel }),
       },
-      include: { deploymentFacets: true, regulatoryOverlays: true, capabilities: true, frameworks: true },
+      include: controlInclude,
     });
     return NextResponse.json({ control: updated });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
       return NextResponse.json(
-        { error: "One or more Deployment Facet, Regulatory Overlay, Capability, or Framework ids do not exist" },
+        { error: "One or more Deployment Facet, Regulatory Overlay, or Capability ids do not exist" },
         { status: 400 },
       );
     }

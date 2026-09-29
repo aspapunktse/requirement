@@ -13,7 +13,11 @@ const baseControl = {
   deploymentFacets: [] as { id: string; name: string }[],
   regulatoryOverlays: [] as { id: string; name: string }[],
   capabilities: [] as { id: string; name: string }[],
-  frameworks: [] as { id: string; name: string }[],
+  mappings: [] as {
+    id: string;
+    coverage: "FULL" | "PARTIAL";
+    requirement: { id: string; code: string; framework: { id: string; name: string; version: string } };
+  }[],
   minConfidentialityImpactLevel: null,
   minIntegrityImpactLevel: null,
   minAvailabilityImpactLevel: null,
@@ -38,10 +42,8 @@ let controls = [
 const deploymentFacets = [{ id: "st1", name: "On-Premises Datacenter" }];
 const regulatoryOverlays = [{ id: "o1", name: "GDPR" }];
 const capabilities = [{ id: "c1", name: "Active Directory" }];
-const frameworks = [
-  { id: "f1", name: "ISO27001:2022 Annex A" },
-  { id: "f2", name: "CSA CCM 4.0" },
-];
+const iso = { id: "f1", name: "ISO/IEC 27001", version: "2022" };
+const nis2 = { id: "f2", name: "NIS2", version: "2022" };
 
 function mockFetch() {
   return vi.fn((input: string | URL | Request, init?: RequestInit) => {
@@ -59,9 +61,6 @@ function mockFetch() {
     }
     if (url.endsWith("/api/capabilities") && method === "GET") {
       return Promise.resolve(new Response(JSON.stringify({ capabilities }), { status: 200 }));
-    }
-    if (url.endsWith("/api/frameworks") && method === "GET") {
-      return Promise.resolve(new Response(JSON.stringify({ frameworks }), { status: 200 }));
     }
     if (url.includes("/api/controls/") && method === "PATCH") {
       return Promise.resolve(new Response(JSON.stringify({ control: {} }), { status: 200 }));
@@ -116,7 +115,6 @@ describe("ControlLibraryManager", () => {
       expect(patchCall).toBeTruthy();
       expect(JSON.parse(patchCall![1].body)).toEqual({
         capabilityIds: [],
-        frameworkIds: [],
         deploymentFacetIds: ["st1"],
         regulatoryOverlayIds: [],
         minConfidentialityImpactLevel: null,
@@ -145,24 +143,33 @@ describe("ControlLibraryManager", () => {
     });
   });
 
-  it("lets an admin tag a Control with Frameworks", async () => {
+  it("shows a read-only Satisfies line derived from Control Mappings, with no Framework picker", async () => {
+    controls[0] = {
+      ...controls[0],
+      mappings: [
+        { id: "m2", coverage: "PARTIAL", requirement: { id: "q2", code: "Art. 21(2)(h)", framework: nis2 } },
+        { id: "m1", coverage: "FULL", requirement: { id: "q1", code: "A.5.3", framework: iso } },
+      ],
+    };
     const user = userEvent.setup();
     render(<ControlLibraryManager />);
 
     await user.selectOptions(await screen.findByLabelText("Control"), "r1");
-    await user.click(screen.getByLabelText("ISO27001:2022 Annex A"));
-    await user.click(screen.getByLabelText("CSA CCM 4.0"));
-    await user.click(screen.getByRole("button", { name: "Save" }));
 
-    await waitFor(() => {
-      const patchCall = (fetch as ReturnType<typeof vi.fn>).mock.calls.find(
-        ([url, init]) =>
-          typeof url === "string" && url.endsWith("/api/controls/r1") && init?.method === "PATCH",
-      );
-      expect(patchCall).toBeTruthy();
-      const body = JSON.parse(patchCall![1].body);
-      expect(body.frameworkIds).toEqual(["f1", "f2"]);
-    });
+    expect(
+      screen.getByText("Satisfies: ISO/IEC 27001:2022 A.5.3, NIS2:2022 Art. 21(2)(h) (partial)"),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Frameworks\/standards satisfied/)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("ISO/IEC 27001")).not.toBeInTheDocument();
+  });
+
+  it("says so when a Control satisfies no Requirement yet", async () => {
+    const user = userEvent.setup();
+    render(<ControlLibraryManager />);
+
+    await user.selectOptions(await screen.findByLabelText("Control"), "r1");
+
+    expect(screen.getByText("Satisfies: no Framework Requirement yet")).toBeInTheDocument();
   });
 
   it("hides Deployment Facet, Regulatory Overlay, and Impact Level selection for an ORGANIZATIONAL control", async () => {
@@ -203,9 +210,8 @@ describe("ControlLibraryManager", () => {
         applicability: "ORGANIZATIONAL",
       });
     });
-    // Bumped from the 5s default: this test's initial render now waits on
-    // five parallel mocked fetches (added /api/frameworks alongside the
-    // existing four catalogs — see #55), which occasionally pushes total
-    // time close to/over 5s under load, unrelated to test correctness.
+    // Bumped from the 5s default: the initial render waits on several
+    // parallel mocked fetches, which occasionally pushes total time
+    // close to/over 5s under load, unrelated to test correctness.
   }, 10000);
 });

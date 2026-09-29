@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { authenticate, authorize } from "@/lib/api-authz";
 import { ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE } from "@/lib/catalog";
+import { controlInclude } from "@/lib/frameworks";
 
 export async function GET(request: NextRequest) {
   const auth = await authenticate(request);
@@ -11,7 +12,7 @@ export async function GET(request: NextRequest) {
 
   const controls = await prisma.control.findMany({
     orderBy: { code: "asc" },
-    include: { deploymentFacets: true, regulatoryOverlays: true, capabilities: true, frameworks: true },
+    include: controlInclude,
   });
   return NextResponse.json({ controls });
 }
@@ -22,7 +23,6 @@ const createControlSchema = z
     title: z.string().min(1),
     description: z.string().min(1),
     category: z.string().min(1),
-    frameworkIds: z.array(z.string().min(1)).optional(),
     mandatory: z.boolean().optional(),
     applicability: z.enum(["ORGANIZATIONAL", "PER_SYSTEM", "BOTH"]),
     question: z.string().nullable().optional(),
@@ -49,17 +49,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid Control" }, { status: 400 });
   }
 
-  const { frameworkIds, mandatory, examples, ...rest } = parsed.data;
+  const { mandatory, examples, ...rest } = parsed.data;
 
   try {
     const control = await prisma.control.create({
       data: {
         ...rest,
-        frameworks: frameworkIds ? { connect: frameworkIds.map((id) => ({ id })) } : undefined,
         mandatory: mandatory ?? true,
         examples: examples ?? [],
       },
-      include: { deploymentFacets: true, regulatoryOverlays: true, capabilities: true, frameworks: true },
+      include: controlInclude,
     });
     return NextResponse.json({ control }, { status: 201 });
   } catch (error) {

@@ -216,34 +216,117 @@ model BusinessUnit {
   riskOwners User[]
 }
 
-// An admin-curated compliance standard (e.g. ISO 27001:2022 Annex A, CMMC)
-// that composes two independent relations: which Controls satisfy it
-// (tagging — one Control can satisfy more than one Framework at once,
-// same "author once, tag many" model as before), and which Systems fall
-// within its audit/certification boundary (a System's Framework Scope,
-// multi-select and independent per Framework — a System can be in ISO
-// scope without being in CMMC scope). Declaring a System's Framework Scope
-// is a reporting dimension only, like Business Unit, and not Draft-locked.
-// Promoted from a bare `Requirement.framework: String[]` free-text tag (the
-// model since renamed Control, ADR 0005) to
-// support strictComplianceRequired and the System-side relation — see #55
-// and its ADR.
+// A curated compliance standard, law or regulation (e.g. ISO/IEC 27001:2022,
+// CMMC), made up of its own Requirements — the standard's line items —
+// which Controls satisfy through Control Mappings (ADR 0005). Each version
+// of a standard is its own Framework (name + version is unique), optionally
+// linked to the one it supersedes. Exactly one Framework is the base
+// Framework (ISO/IEC 27001:2022, whose Annex A seeds the base Control
+// Library); "exactly one" is enforced in application code (src/lib/
+// frameworks.ts), not by a partial unique index, which Prisma can't
+// represent without showing up as schema drift. A Draft Framework is
+// invisible to Systems until it's Published. Independently of that, a
+// System's Framework Scope says which Frameworks fall within its audit/
+// certification boundary (multi-select, per Framework), and a Business Risk
+// Owner can be assigned Frameworks as part of their portfolio. See #55,
+// #72 and PRD 0001 §7 F-FW.
 model Framework {
-  id                       String   @id @default(cuid())
-  name                     String   @unique
+  id                       String             @id @default(cuid())
+  name                     String
+  // e.g. "2022". Together with `name`, uniquely identifies the Framework.
+  version                  String
   description              String?
   // Some frameworks only accept 100% Fulfilled when computing compliance
   // percentage against them — no partial credit for Waived/Not Applicable.
-  strictComplianceRequired Boolean  @default(false)
-  createdAt                DateTime @default(now())
+  strictComplianceRequired Boolean            @default(false)
+  // For licensed standards the catalog holds only identifiers, titles and
+  // an own-words paraphrase; QUOTABLE (e.g. EU law) may hold verbatim text.
+  licensing                FrameworkLicensing @default(PARAPHRASE_ONLY)
+  // True for exactly one Framework: ISO/IEC 27001:2022. Always in every
+  // System's Framework Scope.
+  isBase                   Boolean            @default(false)
+  status                   FrameworkStatus    @default(DRAFT)
+  createdAt                DateTime           @default(now())
 
-  // Controls tagged as satisfying this Framework.
-  controls      Control[]
+  // The earlier version of this standard this Framework replaces, if any.
+  supersedesId String?
+  supersedes   Framework?  @relation("FrameworkSupersedes", fields: [supersedesId], references: [id], onDelete: SetNull)
+  supersededBy Framework[] @relation("FrameworkSupersedes")
+
+  // This Framework's own line items.
+  requirements       Requirement[]
+  // Supplementary Controls authored because a Requirement of this
+  // Framework had no covering base Control.
+  originatedControls Control[]     @relation("ControlOriginFramework")
   // Systems whose audit/certification boundary includes this Framework.
-  scopedSystems System[]  @relation("SystemFrameworkScope")
+  scopedSystems      System[]      @relation("SystemFrameworkScope")
   // Users assigned this Framework as (part of) their BUSINESS_RISK_OWNER
   // portfolio.
-  riskOwners    User[]    @relation("FrameworkRiskOwner")
+  riskOwners         User[]        @relation("FrameworkRiskOwner")
+
+  @@unique([name, version])
+}
+
+enum FrameworkLicensing {
+  PARAPHRASE_ONLY
+  QUOTABLE
+}
+
+// Draft: being authored or mapped — invisible to Systems. Published: can be
+// in a System's Framework Scope and affects applicability.
+enum FrameworkStatus {
+  DRAFT
+  PUBLISHED
+}
+
+// One line item of exactly one Framework — a clause, article or control
+// objective as the standard states it (e.g. ISO 27001 A.8.24). Never
+// assessed directly: it is satisfied through the Controls mapped to it (see
+// ControlMapping), and its status for a System is derived from theirs. See
+// ADR 0005.
+model Requirement {
+  id          String    @id @default(cuid())
+  frameworkId String
+  framework   Framework @relation(fields: [frameworkId], references: [id], onDelete: Cascade)
+  // The standard's own identifier, e.g. "A.8.24" or "Art. 21(2)(h)".
+  // Unique within its Framework.
+  code        String
+  // Grouping label, e.g. "A.8 Technological".
+  section     String
+  title       String
+  // For PARAPHRASE_ONLY Frameworks, an own-words paraphrase — never
+  // verbatim text.
+  text        String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  mappings ControlMapping[]
+
+  @@unique([frameworkId, code])
+}
+
+enum ControlCoverage {
+  FULL
+  PARTIAL
+}
+
+// A many-to-many link between one Requirement and one Control, carrying how
+// much of the Requirement the Control covers. A Requirement is covered only
+// when its mapped Controls together give FULL coverage; one with no
+// mappings, or only PARTIAL ones, is a Coverage Gap. See ADR 0005.
+model ControlMapping {
+  id            String          @id @default(cuid())
+  requirementId String
+  requirement   Requirement     @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+  controlId     String
+  control       Control         @relation(fields: [controlId], references: [id], onDelete: Cascade)
+  coverage      ControlCoverage
+  rationale     String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@unique([requirementId, controlId])
+  @@index([controlId])
 }
 
 enum ControlApplicability {
@@ -288,13 +371,15 @@ model Control {
   // Capabilities that, if a System declares one, auto-fulfill this
   // Control. May be empty, one, or several (any one suffices).
   capabilities                  Capability[]
-  // Every Framework/standard this Control satisfies (e.g. ISO 27001:2022
-  // Annex A, CSA CCM 4.0). A relation, not a single value: one Control
-  // row can be conceptually "the same control" across more than one
-  // Framework at once (see #52). Empty means no Framework tagged yet, not
-  // "applies to all Frameworks." Was a free-text String[] tag before #55;
-  // promoted to a real catalog entity — see Framework and its ADR.
-  frameworks                    Framework[]
+  // Which Requirements this Control satisfies, and how fully. The only way
+  // a Control is tied to a Framework — there is no direct Framework tag
+  // (ADR 0005, was `frameworks` before #72).
+  mappings                      ControlMapping[]
+  // Set: a Supplementary Control, authored because a Requirement of this
+  // Framework had no covering base Control. Null: a base Control (seeded
+  // 1:1 from ISO 27001:2022 Annex A).
+  originFrameworkId             String?
+  originFramework               Framework?          @relation("ControlOriginFramework", fields: [originFrameworkId], references: [id], onDelete: Restrict)
 }
 
 // Fulfillment status of a Control for a specific System.
@@ -418,10 +503,17 @@ enum ChangeEventAction {
   QUERY_REPLIED
   QUERY_RESOLVED
   CLASSIFICATION_CHANGED
+  // System-less: evidence-bearing changes to the requirement database
+  // (PRD 0001 F-CE.1). Schema only for now; emitted by the authoring
+  // issue (#73).
+  CONTROL_MAPPING_CHANGED
+  FRAMEWORK_PUBLISHED
 }
 
 // A curated, System-lifecycle-relevant mutation record — feeds the landing
-// page's "Recent updates" feed (see #58). Deliberately not a full audit
+// page's "Recent updates" feed (see #58). Usually System-scoped; the
+// System-less actions (systemId null) record evidence-bearing changes to the
+// requirement database (PRD 0001 F-CE.1). Deliberately not a full audit
 // trail: pure catalog-admin CRUD (Control/DeploymentFacet/Capability/
 // RegulatoryOverlay/BusinessUnit/Framework create/edit/delete) is out of
 // scope, since this exists for role-relevant "what changed on this System"
@@ -433,8 +525,9 @@ enum ChangeEventAction {
 // relation, since "system" never matches a real User id.
 model ChangeEvent {
   id        String            @id @default(cuid())
-  systemId  String
-  system    System            @relation(fields: [systemId], references: [id], onDelete: Cascade)
+  // Null for System-less events (CONTROL_MAPPING_CHANGED, FRAMEWORK_PUBLISHED).
+  systemId  String?
+  system    System?           @relation(fields: [systemId], references: [id], onDelete: Cascade)
   action    ChangeEventAction
   detail    String
   actorId   String
