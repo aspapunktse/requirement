@@ -96,6 +96,7 @@ model User {
   frameworkScopes    Framework[]         @relation("FrameworkRiskOwner")
   resolvedQueries    AssessmentQuery[]   @relation("QueryResolvedBy")
   queryMessages      QueryMessage[]
+  acceptedGaps       Requirement[]       @relation("GapAcceptedBy")
 }
 
 // A system or cloud solution being onboarded into the enterprise.
@@ -285,20 +286,29 @@ enum FrameworkStatus {
 // ControlMapping), and its status for a System is derived from theirs. See
 // ADR 0005.
 model Requirement {
-  id          String    @id @default(cuid())
-  frameworkId String
-  framework   Framework @relation(fields: [frameworkId], references: [id], onDelete: Cascade)
+  id               String    @id @default(cuid())
+  frameworkId      String
+  framework        Framework @relation(fields: [frameworkId], references: [id], onDelete: Cascade)
   // The standard's own identifier, e.g. "A.8.24" or "Art. 21(2)(h)".
   // Unique within its Framework.
-  code        String
+  code             String
   // Grouping label, e.g. "A.8 Technological".
-  section     String
-  title       String
+  section          String
+  title            String
   // For PARAPHRASE_ONLY Frameworks, an own-words paraphrase — never
   // verbatim text.
-  text        String
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  text             String
+  // Gap acceptance (PRD 0001 F-CL.5): a Compliance Manager/Admin accepted
+  // that this Requirement stays a Coverage Gap, with a justification. All
+  // three are set together or all null (the acceptor becomes null if that
+  // User is deleted). Only meaningful while the
+  // Requirement is a gap; gaining a Full mapping clears them.
+  gapAcceptedAt    DateTime?
+  gapAcceptedById  String?
+  gapAcceptedBy    User?     @relation("GapAcceptedBy", fields: [gapAcceptedById], references: [id], onDelete: SetNull)
+  gapJustification String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   mappings ControlMapping[]
 

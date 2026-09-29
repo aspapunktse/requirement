@@ -53,7 +53,7 @@ The full set of Controls — base plus Supplementary — available to assess Sys
 _Avoid_: Requirement Catalog (its name before [ADR 0005](docs/adr/0005-split-requirement-and-control.md)), Requirement database (the informal name for the whole Framework + Requirement + Control Library + mapping set)
 
 **Control Mapping**:
-A many-to-many link between one Requirement and one Control, carrying a **Coverage** of Full or Partial. A Requirement is **covered** only when its mapped Controls together give Full coverage; a Requirement with no mappings, or only Partial ones, is a **Coverage Gap** — the trigger for authoring a Supplementary Control.
+A many-to-many link between one Requirement and one Control, carrying a **Coverage** of Full or Partial. A Requirement is **covered** when at least one of its mappings has Full coverage; several Partial mappings never add up to Full, so a Requirement with no mappings, or only Partial ones, is a **Coverage Gap** — the trigger for authoring a Supplementary Control (one action creates the Control with its origin Framework and a Full mapping to the Requirement). A Coverage Gap a Compliance Manager has accepted with a justification is an **accepted gap**: shown separately from open gaps, and counted as resolved for coverage metrics. Gaining a Full mapping ends an acceptance (the Requirement is covered).
 
 **Statement of Applicability (SoA)**:
 The organization-wide ISO 27001 statement listing every Control in the Control Library with whether it is included, the justification for including or excluding it, and its implementation status. Generated from applicability and assessment data, with exclusion justifications authored by a Compliance Manager.

@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { authorize } from "@/lib/api-authz";
 import { ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE } from "@/lib/catalog";
 import { logMappingChange } from "@/lib/frameworks";
+import { clearGapAcceptance } from "@/lib/framework-coverage";
 
 type MappingContext = RouteContext<"/api/frameworks/[id]/requirements/[requirementId]/mappings/[mappingId]">;
 
@@ -69,6 +70,8 @@ export async function PATCH(request: NextRequest, ctx: MappingContext) {
           tx,
         );
       }
+      // Upgrading to Full makes the Requirement covered, so a gap acceptance no longer applies (#74).
+      if (updated.coverage === "FULL") await clearGapAcceptance(tx, requirementId);
       return updated;
     });
     return NextResponse.json({ mapping });

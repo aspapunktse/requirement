@@ -29,6 +29,9 @@ export function controlIncludeFor(user: { role: UserRole }) {
     deploymentFacets: true,
     regulatoryOverlays: true,
     capabilities: true,
+    // Set for a Supplementary Control (its origin Framework); `status` is only
+    // here so redactDraftOrigin can hide a Draft Framework from users who can't see it.
+    originFramework: { select: { id: true, name: true, version: true, status: true } },
     mappings: {
       where: canSeeDraftFrameworks(user) ? {} : { requirement: { framework: { status: "PUBLISHED" as const } } },
       select: {
@@ -45,6 +48,19 @@ export function controlIncludeFor(user: { role: UserRole }) {
       },
     },
   } satisfies Prisma.ControlInclude;
+}
+
+/**
+ * A Supplementary Control's origin Framework is left out (null) for users who
+ * can't see Drafts when that Framework is still a Draft, so a Draft
+ * Framework's name doesn't leak through the Control Library.
+ */
+export function redactDraftOrigin<T extends { originFramework: { status: "DRAFT" | "PUBLISHED" } | null }>(
+  user: { role: UserRole },
+  control: T,
+): T {
+  if (canSeeDraftFrameworks(user) || control.originFramework?.status !== "DRAFT") return control;
+  return { ...control, originFramework: null };
 }
 
 /** Prisma `include` for a Requirement with its Control Mappings (each with its Control). */

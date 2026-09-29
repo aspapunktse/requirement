@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { authenticate, authorize } from "@/lib/api-authz";
 import { ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE } from "@/lib/catalog";
+import { loadCoverageSummaries } from "@/lib/framework-coverage";
 import { BASE_FRAMEWORK_ERRORS, checkBaseFrameworkInvariant, visibleFrameworksWhere } from "@/lib/frameworks";
 
 export async function GET(request: NextRequest) {
@@ -16,7 +17,11 @@ export async function GET(request: NextRequest) {
     orderBy: [{ name: "asc" }, { version: "asc" }],
     include: { _count: { select: { requirements: true } } },
   });
-  return NextResponse.json({ frameworks });
+  // Covered / gap / accepted counts per Framework (F-FW.6, #74).
+  const summaries = await loadCoverageSummaries(frameworks.map((framework) => framework.id));
+  return NextResponse.json({
+    frameworks: frameworks.map((framework) => ({ ...framework, coverage: summaries[framework.id] })),
+  });
 }
 
 const createFrameworkSchema = z.object({

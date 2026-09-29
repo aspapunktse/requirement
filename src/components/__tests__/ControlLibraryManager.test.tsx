@@ -13,6 +13,7 @@ const baseControl = {
   deploymentFacets: [] as { id: string; name: string }[],
   regulatoryOverlays: [] as { id: string; name: string }[],
   capabilities: [] as { id: string; name: string }[],
+  originFramework: null as { id: string; name: string; version: string } | null,
   mappings: [] as {
     id: string;
     coverage: "FULL" | "PARTIAL";
@@ -102,6 +103,40 @@ describe("ControlLibraryManager", () => {
     render(<ControlLibraryManager />);
     expect(await screen.findByText("A.5.3")).toBeInTheDocument();
     expect(screen.getByText("A.5.1")).toBeInTheDocument();
+  });
+
+  it("marks a Supplementary Control with its origin Framework and filters base vs Supplementary", async () => {
+    const user = userEvent.setup();
+    controls = [
+      ...controls,
+      {
+        ...baseControl,
+        id: "r9",
+        code: "SUP-001",
+        title: "Notify the CSIRT",
+        applicability: "BOTH",
+        originFramework: { id: "f2", name: "NIS2", version: "2022" },
+      },
+    ];
+    render(<ControlLibraryManager />);
+
+    const table = within(await screen.findByRole("table"));
+    expect(table.getByText("Supplementary · NIS2:2022")).toBeInTheDocument();
+    expect(table.getAllByText(/^Supplementary/)).toHaveLength(1);
+
+    await user.selectOptions(screen.getByLabelText("Origin filter"), "SUPPLEMENTARY");
+    expect(table.getByText("SUP-001")).toBeInTheDocument();
+    expect(table.queryByText("A.5.3")).not.toBeInTheDocument();
+    expect(table.queryByText("A.5.1")).not.toBeInTheDocument();
+
+    await user.selectOptions(screen.getByLabelText("Origin filter"), "BASE");
+    expect(table.queryByText("SUP-001")).not.toBeInTheDocument();
+    expect(table.getByText("A.5.3")).toBeInTheDocument();
+    expect(table.getByText("A.5.1")).toBeInTheDocument();
+
+    await user.selectOptions(screen.getByLabelText("Origin filter"), "ALL");
+    expect(table.getByText("SUP-001")).toBeInTheDocument();
+    expect(table.getByText("A.5.3")).toBeInTheDocument();
   });
 
   it("lets an admin scope a Control to a Deployment Facet and save", async () => {

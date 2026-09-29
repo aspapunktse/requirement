@@ -3,11 +3,12 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
+import { StatusChip } from "@/components/ui/StatusChip";
+import { NEW_CONTROL_DRAFT, NewControlFields, newControlBody } from "@/components/NewControlFields";
 import { frameworkLabel, satisfiesEntries, satisfiesLabel, type ControlMappingForLabel } from "@/lib/framework-label";
 
 type Catalog = { id: string; name: string };
 type ImpactLevel = "LOW" | "MODERATE" | "HIGH" | "CRITICAL";
-type Applicability = "ORGANIZATIONAL" | "PER_SYSTEM" | "BOTH";
 
 // What `/api/controls` returns per Control Mapping: enough for the "Satisfies" line and the reverse view.
 type ControlMappingRow = ControlMappingForLabel & {
@@ -26,7 +27,7 @@ type ControlSummary = {
   description: string;
   category: string;
   mandatory: boolean;
-  applicability: Applicability;
+  applicability: "ORGANIZATIONAL" | "PER_SYSTEM" | "BOTH";
   question: string | null;
   intent: string | null;
   examples: string[];
@@ -34,6 +35,8 @@ type ControlSummary = {
   regulatoryOverlays: Catalog[];
   capabilities: Catalog[];
   mappings: ControlMappingRow[];
+  // Set for a Supplementary Control (authored for a gap in that Framework); null for a base Control.
+  originFramework: { id: string; name: string; version: string } | null;
   minConfidentialityImpactLevel: ImpactLevel | null;
   minIntegrityImpactLevel: ImpactLevel | null;
   minAvailabilityImpactLevel: ImpactLevel | null;
@@ -73,17 +76,17 @@ function sortMappings(mappings: ControlMappingRow[]): ControlMappingRow[] {
   );
 }
 
-const NEW_CONTROL_DRAFT = {
-  code: "",
-  title: "",
-  description: "",
-  category: "",
-  mandatory: true,
-  applicability: "PER_SYSTEM" as Applicability,
-  question: "",
-  intent: "",
-  examples: "",
-};
+/** Marks a Supplementary Control with the Framework it was authored for. */
+function OriginBadge({ control }: { control: Pick<ControlSummary, "originFramework"> }) {
+  if (!control.originFramework) return null;
+  return (
+    <span className="ml-2 inline-block align-middle">
+      <StatusChip tone="accent">{`Supplementary · ${frameworkLabel(control.originFramework)}`}</StatusChip>
+    </span>
+  );
+}
+
+type OriginFilter = "ALL" | "BASE" | "SUPPLEMENTARY";
 
 export function ControlLibraryManager() {
   const [controls, setControls] = useState<ControlSummary[]>([]);
@@ -104,6 +107,7 @@ export function ControlLibraryManager() {
 
   const [creating, setCreating] = useState(false);
   const [draft, setDraft] = useState(NEW_CONTROL_DRAFT);
+  const [originFilter, setOriginFilter] = useState<OriginFilter>("ALL");
 
   async function loadAll() {
     const [controlsRes, deploymentFacetsRes, regulatoryOverlaysRes, capabilitiesRes] = await Promise.all([
@@ -142,6 +146,11 @@ export function ControlLibraryManager() {
   }, []);
 
   const selected = controls.find((r) => r.id === selectedId) ?? null;
+  const visibleControls = controls.filter(
+    (control) =>
+      originFilter === "ALL" ||
+      (originFilter === "SUPPLEMENTARY" ? !!control.originFramework : !control.originFramework),
+  );
 
   function selectControl(id: string) {
     setCreating(false);
@@ -220,20 +229,7 @@ export function ControlLibraryManager() {
     const response = await fetch("/api/controls", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        code: draft.code,
-        title: draft.title,
-        description: draft.description,
-        category: draft.category,
-        mandatory: draft.mandatory,
-        applicability: draft.applicability,
-        question: draft.applicability === "ORGANIZATIONAL" ? undefined : draft.question || undefined,
-        intent: draft.intent || undefined,
-        examples: draft.examples
-          .split("\n")
-          .map((s) => s.trim())
-          .filter((s) => s.length > 0),
-      }),
+      body: JSON.stringify(newControlBody(draft)),
     });
 
     if (!response.ok) {
@@ -257,6 +253,20 @@ export function ControlLibraryManager() {
     <div className="flex flex-col gap-6">
       {error && <p className="text-sm text-red-600">{error}</p>}
 
+      <label className="flex items-center gap-2 text-sm">
+        Show
+        <select
+          aria-label="Origin filter"
+          className="rounded border border-zinc-200 p-1 text-sm dark:border-zinc-800 dark:bg-transparent"
+          value={originFilter}
+          onChange={(event) => setOriginFilter(event.target.value as OriginFilter)}
+        >
+          <option value="ALL">All Controls</option>
+          <option value="BASE">Base Controls</option>
+          <option value="SUPPLEMENTARY">Supplementary Controls</option>
+        </select>
+      </label>
+
       <div className="overflow-x-auto rounded border border-zinc-200 dark:border-zinc-800">
         <table className="w-full text-left text-sm">
           <thead>
@@ -268,14 +278,17 @@ export function ControlLibraryManager() {
             </tr>
           </thead>
           <tbody>
-            {controls.map((control) => (
+            {visibleControls.map((control) => (
               <tr
                 key={control.id}
                 className="cursor-pointer border-b border-zinc-100 hover:bg-zinc-50 dark:border-zinc-900 dark:hover:bg-zinc-900"
                 onClick={() => selectControl(control.id)}
               >
                 <td className="p-2 whitespace-nowrap">{control.code}</td>
-                <td className="p-2">{control.title}</td>
+                <td className="p-2">
+                  {control.title}
+                  <OriginBadge control={control} />
+                </td>
                 <td className="p-2 text-zinc-500">{satisfiesEntries(control.mappings).join(", ")}</td>
                 <td className="p-2 text-zinc-500">{summarizeTags(control)}</td>
               </tr>
@@ -312,87 +325,7 @@ export function ControlLibraryManager() {
           className="flex flex-col gap-2 rounded border border-zinc-200 p-4 dark:border-zinc-800"
         >
           <h3 className="text-sm font-semibold">New Control</h3>
-          <input
-            aria-label="Code"
-            placeholder="Code (e.g. SEC-042)"
-            className="rounded border border-zinc-200 p-2 text-sm dark:border-zinc-800 dark:bg-transparent"
-            value={draft.code}
-            onChange={(event) => setDraft((prev) => ({ ...prev, code: event.target.value }))}
-            required
-          />
-          <input
-            aria-label="Title"
-            placeholder="Title"
-            className="rounded border border-zinc-200 p-2 text-sm dark:border-zinc-800 dark:bg-transparent"
-            value={draft.title}
-            onChange={(event) => setDraft((prev) => ({ ...prev, title: event.target.value }))}
-            required
-          />
-          <textarea
-            aria-label="Description"
-            placeholder="Description"
-            className="rounded border border-zinc-200 p-2 text-sm dark:border-zinc-800 dark:bg-transparent"
-            value={draft.description}
-            onChange={(event) => setDraft((prev) => ({ ...prev, description: event.target.value }))}
-            required
-          />
-          <input
-            aria-label="Category"
-            placeholder="Category (e.g. Security)"
-            className="rounded border border-zinc-200 p-2 text-sm dark:border-zinc-800 dark:bg-transparent"
-            value={draft.category}
-            onChange={(event) => setDraft((prev) => ({ ...prev, category: event.target.value }))}
-            required
-          />
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={draft.mandatory}
-              onChange={(event) => setDraft((prev) => ({ ...prev, mandatory: event.target.checked }))}
-            />
-            Mandatory
-          </label>
-          <label className="flex flex-col gap-1 text-sm">
-            Applicability
-            <select
-              aria-label="Applicability"
-              className="rounded border border-zinc-200 p-2 dark:border-zinc-800 dark:bg-transparent"
-              value={draft.applicability}
-              onChange={(event) =>
-                setDraft((prev) => ({ ...prev, applicability: event.target.value as Applicability }))
-              }
-            >
-              <option value="ORGANIZATIONAL">Organizational</option>
-              <option value="PER_SYSTEM">Per-System</option>
-              <option value="BOTH">Both</option>
-            </select>
-          </label>
-          {draft.applicability !== "ORGANIZATIONAL" && (
-            <>
-              <input
-                aria-label="Self-Assessment Question"
-                placeholder="Self-Assessment Question"
-                className="rounded border border-zinc-200 p-2 text-sm dark:border-zinc-800 dark:bg-transparent"
-                value={draft.question}
-                onChange={(event) => setDraft((prev) => ({ ...prev, question: event.target.value }))}
-                required
-              />
-              <input
-                aria-label="Intent"
-                placeholder="Intent (why the question matters, optional)"
-                className="rounded border border-zinc-200 p-2 text-sm dark:border-zinc-800 dark:bg-transparent"
-                value={draft.intent}
-                onChange={(event) => setDraft((prev) => ({ ...prev, intent: event.target.value }))}
-              />
-              <textarea
-                aria-label="Examples"
-                placeholder="Example ways to satisfy it, one per line (optional)"
-                className="rounded border border-zinc-200 p-2 text-sm dark:border-zinc-800 dark:bg-transparent"
-                value={draft.examples}
-                onChange={(event) => setDraft((prev) => ({ ...prev, examples: event.target.value }))}
-              />
-            </>
-          )}
+          <NewControlFields draft={draft} onChange={(patch) => setDraft((prev) => ({ ...prev, ...patch }))} />
           <Button type="submit" variant="primary">
             Create
           </Button>
