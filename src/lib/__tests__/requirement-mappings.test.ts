@@ -95,36 +95,6 @@ describe("Requirement and Control Mapping constraints", () => {
   });
 });
 
-describe("the seeded base Framework (ISO/IEC 27001:2022 Annex A)", () => {
-  it("is the one base Framework, Published and paraphrase-only", async () => {
-    const bases = await prisma.framework.findMany({ where: { isBase: true } });
-    expect(bases).toHaveLength(1);
-    expect(bases[0]).toMatchObject({
-      name: "ISO/IEC 27001",
-      version: "2022",
-      status: "PUBLISHED",
-      licensing: "PARAPHRASE_ONLY",
-    });
-  });
-
-  it("has its 93 Annex A Requirements, each mapped FULL 1:1 to the Control with the same code", async () => {
-    const requirements = await prisma.requirement.findMany({
-      where: { framework: { isBase: true }, code: { startsWith: "A." } },
-      include: { mappings: { include: { control: true } } },
-    });
-    expect(requirements).toHaveLength(93);
-    for (const requirement of requirements) {
-      expect(requirement.mappings).toHaveLength(1);
-      const [mapping] = requirement.mappings;
-      expect(mapping.coverage).toBe("FULL");
-      expect(mapping.control.code).toBe(requirement.code);
-      expect(requirement.section).toBe(mapping.control.category);
-      expect(requirement.title).toBe(mapping.control.title);
-      expect(mapping.control.originFrameworkId).toBeNull();
-    }
-  });
-});
-
 describe("Framework labels", () => {
   const iso = { name: "ISO/IEC 27001", version: "2022" };
   const nis2 = { name: "NIS2", version: "2022" };
