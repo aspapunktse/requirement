@@ -15,6 +15,22 @@ type SeedControlJson = Omit<Control, "id" | "createdAt" | "originFrameworkId">;
 // The base Framework: exactly one, always Published (ADR 0005, #72).
 const BASE_FRAMEWORK = { name: "ISO/IEC 27001", version: "2022" };
 
+// ISO/IEC 27001:2022 clauses 4-10 (#75): Requirements plus the ORGANIZATIONAL
+// Supplementary Controls that cover them. Shaped like the PRD 0001 F-IMP.1
+// import sketch. Keep in sync with the SQL data migration
+// 20260929170000_add_iso27001_clause_requirements (a test compares the two).
+type ClausesJson = {
+  framework: { name: string; version: string };
+  supplementaryControls: SeedControlJson[];
+  requirements: {
+    code: string;
+    section: string;
+    title: string;
+    text: string;
+    mappings: { control: string; coverage: "FULL" | "PARTIAL"; rationale?: string }[];
+  }[];
+};
+
 // Placeholder controls from before the ISO 27001 Annex A catalog was seeded.
 const OBSOLETE_PLACEHOLDER_CODES = ["SEC-001", "SEC-002", "PRIV-001", "OPS-001"];
 
@@ -86,8 +102,59 @@ async function main() {
     });
   }
 
+  // Clauses 4-10. Controls, Requirements and mappings are all upserted by
+  // their natural keys without overwriting, so re-seeding never clobbers
+  // curation (or anything the data migration already inserted) and duplicates
+  // nothing.
+  const clausesPath = path.join(__dirname, "seed-data", "iso27001-clauses.json");
+  const clauses: ClausesJson = JSON.parse(readFileSync(clausesPath, "utf-8"));
+  if (clauses.framework.name !== baseFramework.name || clauses.framework.version !== baseFramework.version) {
+    throw new Error("iso27001-clauses.json does not describe the base Framework");
+  }
+
+  const clauseControlIdByCode = new Map<string, string>();
+  for (const controlJson of clauses.supplementaryControls) {
+    const control = await prisma.control.upsert({
+      where: { code: controlJson.code },
+      update: {},
+      create: { ...controlJson, originFrameworkId: baseFramework.id },
+    });
+    clauseControlIdByCode.set(control.code, control.id);
+  }
+
+  for (const requirementJson of clauses.requirements) {
+    const requirement = await prisma.requirement.upsert({
+      where: { frameworkId_code: { frameworkId: baseFramework.id, code: requirementJson.code } },
+      update: {},
+      create: {
+        frameworkId: baseFramework.id,
+        code: requirementJson.code,
+        section: requirementJson.section,
+        title: requirementJson.title,
+        text: requirementJson.text,
+      },
+    });
+    for (const mapping of requirementJson.mappings) {
+      // A clause maps either to a Supplementary Control from this file or to
+      // an Annex A Control seeded above.
+      const controlId =
+        clauseControlIdByCode.get(mapping.control) ??
+        (await prisma.control.findUniqueOrThrow({ where: { code: mapping.control }, select: { id: true } })).id;
+      await prisma.controlMapping.upsert({
+        where: { requirementId_controlId: { requirementId: requirement.id, controlId } },
+        update: {},
+        create: {
+          requirementId: requirement.id,
+          controlId,
+          coverage: mapping.coverage,
+          rationale: mapping.rationale ?? null,
+        },
+      });
+    }
+  }
+
   console.log(
-    `Seed complete. Default owner: ${owner.email}. Control Library: ${controls.length} controls, ${controls.length} ${BASE_FRAMEWORK.name}:${BASE_FRAMEWORK.version} Requirements mapped Full.`,
+    `Seed complete. Default owner: ${owner.email}. Control Library: ${controls.length} controls, ${controls.length} ${BASE_FRAMEWORK.name}:${BASE_FRAMEWORK.version} Requirements mapped Full, plus ${clauses.requirements.length} clause Requirements (4-10) with ${clauses.supplementaryControls.length} Supplementary Controls.`,
   );
 }
 
