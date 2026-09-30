@@ -36,9 +36,8 @@ type SystemCatalogRelationProps = {
 
 /**
  * A generic "declare/remove entries from an admin catalog on a System"
- * widget — the shared shape behind Regulatory Overlay, Business Unit, and
- * Framework Scope declaration. See SystemRegulatoryOverlays for the
- * original single-purpose version this generalizes.
+ * widget — the shared shape behind Business Unit and Framework Scope
+ * declaration.
  */
 export function SystemCatalogRelation({
   systemId,

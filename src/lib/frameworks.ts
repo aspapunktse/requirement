@@ -28,7 +28,6 @@ export function visibleFrameworksWhere(user: { role: UserRole }): Prisma.Framewo
 export function controlIncludeFor(user: { role: UserRole }) {
   return {
     deploymentFacets: true,
-    regulatoryOverlays: true,
     capabilities: true,
     // Set for a Supplementary Control (its origin Framework); `status` is only
     // here so redactDraftOrigin can hide a Draft Framework from users who can't see it.

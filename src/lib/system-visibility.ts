@@ -46,7 +46,6 @@ export async function visibleSystemsWhere(user: { id: string; role: UserRole }):
 
 const SYSTEM_SUMMARY_INCLUDE = {
   deploymentFacets: true,
-  regulatoryOverlays: true,
   // Declared Framework Scope rows, ids only: applicability needs them (ADR 0007), and a
   // Draft Framework's name mustn't leak to users who can't see Drafts.
   frameworkScopes: { select: { id: true } },

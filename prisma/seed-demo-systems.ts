@@ -64,15 +64,23 @@ async function main() {
     ),
   ) as Record<(typeof facetNames)[number], { id: string }>;
 
-  const overlayNames = ["GDPR", "Export Control (EAR/ITAR)"] as const;
-  const overlays = Object.fromEntries(
+  // The regimes that used to be Regulatory Overlays (retired by ADR 0007 / #88)
+  // are Frameworks now, shaped exactly as the migration creates them (version
+  // '1', QUOTABLE, Published, no Requirements yet), so a freshly seeded database
+  // matches a migrated one. A System declaring one puts it in its Framework Scope.
+  const regimeNames = ["GDPR", "Export Control (EAR/ITAR)"] as const;
+  const regimes = Object.fromEntries(
     await Promise.all(
-      overlayNames.map(async (name) => [
+      regimeNames.map(async (name) => [
         name,
-        await prisma.regulatoryOverlay.upsert({ where: { name }, update: {}, create: { name } }),
+        await prisma.framework.upsert({
+          where: { name_version: { name, version: "1" } },
+          update: {},
+          create: { name, version: "1", licensing: "QUOTABLE", status: "PUBLISHED" },
+        }),
       ]),
     ),
-  ) as Record<(typeof overlayNames)[number], { id: string }>;
+  ) as Record<(typeof regimeNames)[number], { id: string }>;
 
   const businessUnitNames = ["Engineering", "IT Operations", "HR", "Finance", "Legal", "Sales"] as const;
   const businessUnits = Object.fromEntries(
@@ -168,7 +176,7 @@ async function main() {
 
   function classification(
     facetKeys: (keyof typeof facets)[],
-    overlayKeys: (keyof typeof overlays)[] = [],
+    regimeKeys: (keyof typeof regimes)[] = [],
     impact: {
       c?: ImpactLevel | null;
       i?: ImpactLevel | null;
@@ -177,9 +185,8 @@ async function main() {
   ): SystemClassification {
     return {
       deploymentFacets: facetKeys.map((k) => ({ id: facets[k].id })),
-      regulatoryOverlays: overlayKeys.map((k) => ({ id: overlays[k].id })),
-      // Declared Framework Scope rows; the base Framework (ISO 27001) is always in scope on top.
-      frameworkScopes: [],
+      // Declared Framework Scope rows (here just the regimes); the base Framework (ISO 27001) is always in scope on top.
+      frameworkScopes: regimeKeys.map((k) => ({ id: regimes[k].id })),
       confidentialityImpactLevel: impact.c ?? null,
       integrityImpactLevel: impact.i ?? null,
       availabilityImpactLevel: impact.a ?? null,
@@ -242,12 +249,11 @@ async function main() {
       status: "ONBOARDED",
       onboardedAt: new Date(),
       deploymentFacets: { connect: confluenceClass.deploymentFacets },
-      regulatoryOverlays: { connect: confluenceClass.regulatoryOverlays },
       confidentialityImpactLevel: confluenceClass.confidentialityImpactLevel,
       integrityImpactLevel: confluenceClass.integrityImpactLevel,
       availabilityImpactLevel: confluenceClass.availabilityImpactLevel,
       businessUnits: { connect: [{ id: businessUnits.Engineering.id }, { id: businessUnits.Legal.id }] },
-      frameworkScopes: { connect: [{ id: isoFramework.id }] },
+      frameworkScopes: { connect: [{ id: isoFramework.id }, ...confluenceClass.frameworkScopes] },
     },
   });
   await fulfillMost({ id: confluence.id, ...confluenceClass });
@@ -277,14 +283,13 @@ async function main() {
       status: "ONBOARDED",
       onboardedAt: new Date(),
       deploymentFacets: { connect: m365Class.deploymentFacets },
-      regulatoryOverlays: { connect: m365Class.regulatoryOverlays },
       confidentialityImpactLevel: m365Class.confidentialityImpactLevel,
       integrityImpactLevel: m365Class.integrityImpactLevel,
       availabilityImpactLevel: m365Class.availabilityImpactLevel,
       businessUnits: {
         connect: businessUnitNames.map((name) => ({ id: businessUnits[name].id })),
       },
-      frameworkScopes: { connect: [{ id: isoFramework.id }] },
+      frameworkScopes: { connect: [{ id: isoFramework.id }, ...m365Class.frameworkScopes] },
       capabilities: { connect: [{ id: ssoCapability.id }] },
     },
   });
@@ -369,7 +374,7 @@ async function main() {
       ownerId: owner.id,
       status: "DRAFT",
       deploymentFacets: { connect: catiaInitialClass.deploymentFacets },
-      regulatoryOverlays: { connect: catiaInitialClass.regulatoryOverlays },
+      frameworkScopes: { connect: catiaInitialClass.frameworkScopes },
       confidentialityImpactLevel: catiaInitialClass.confidentialityImpactLevel,
       integrityImpactLevel: catiaInitialClass.integrityImpactLevel,
       availabilityImpactLevel: catiaInitialClass.availabilityImpactLevel,
@@ -422,12 +427,11 @@ async function main() {
       status: "ONBOARDED",
       onboardedAt: new Date(),
       deploymentFacets: { connect: workdayClass.deploymentFacets },
-      regulatoryOverlays: { connect: workdayClass.regulatoryOverlays },
       confidentialityImpactLevel: workdayClass.confidentialityImpactLevel,
       integrityImpactLevel: workdayClass.integrityImpactLevel,
       availabilityImpactLevel: workdayClass.availabilityImpactLevel,
       businessUnits: { connect: [{ id: businessUnits.HR.id }] },
-      frameworkScopes: { connect: [{ id: isoFramework.id }] },
+      frameworkScopes: { connect: [{ id: isoFramework.id }, ...workdayClass.frameworkScopes] },
     },
   });
   await fulfillMost({ id: workday.id, ...workdayClass });

@@ -14,11 +14,6 @@ import { POST as createDeploymentFacet } from "../deployment-facets/route";
 import { PATCH as updateDeploymentFacet, DELETE as deleteDeploymentFacet } from "../deployment-facets/[id]/route";
 import { POST as createCapability } from "../capabilities/route";
 import { PATCH as updateCapability, DELETE as deleteCapability } from "../capabilities/[id]/route";
-import { POST as createRegulatoryOverlay } from "../regulatory-overlays/route";
-import {
-  PATCH as updateRegulatoryOverlay,
-  DELETE as deleteRegulatoryOverlay,
-} from "../regulatory-overlays/[id]/route";
 import { POST as createBusinessUnit } from "../business-units/route";
 import { PATCH as updateBusinessUnit, DELETE as deleteBusinessUnit } from "../business-units/[id]/route";
 import { POST as assignBusinessUnitScope } from "../users/[id]/business-unit-scopes/route";
@@ -42,8 +37,6 @@ import { PATCH as updateRisk } from "../systems/[id]/risks/[riskId]/route";
 import { POST as submitSystem } from "../systems/[id]/submit/route";
 import { POST as decideApproval } from "../systems/[id]/approvals/route";
 import { POST as markOnboarded } from "../systems/[id]/onboard/route";
-import { POST as declareOverlay } from "../systems/[id]/regulatory-overlays/route";
-import { DELETE as removeOverlay } from "../systems/[id]/regulatory-overlays/[overlayId]/route";
 import { POST as declareCapability } from "../systems/[id]/capabilities/route";
 import { DELETE as removeCapability } from "../systems/[id]/capabilities/[capabilityId]/route";
 import { POST as declareBusinessUnit } from "../systems/[id]/business-units/route";
@@ -82,7 +75,6 @@ describe("COMPLIANCE_MANAGER role (#71)", () => {
   let broId: string;
   let facetId: string;
   let capabilityId: string;
-  let overlayId: string;
   let businessUnitId: string;
   let frameworkId: string;
   let systemId: string;
@@ -104,16 +96,14 @@ describe("COMPLIANCE_MANAGER role (#71)", () => {
     ownerId = owner.id;
     broId = bro.id;
 
-    const [facet, capability, overlay, businessUnit, framework] = await Promise.all([
+    const [facet, capability, businessUnit, framework] = await Promise.all([
       prisma.deploymentFacet.create({ data: { name: `Test CM Facet ${SUFFIX}` } }),
       prisma.capability.create({ data: { name: `Test CM Capability ${SUFFIX}` } }),
-      prisma.regulatoryOverlay.create({ data: { name: `Test CM Overlay ${SUFFIX}` } }),
       prisma.businessUnit.create({ data: { name: `Test CM BU ${SUFFIX}` } }),
       prisma.framework.create({ data: { name: `Test CM Framework ${SUFFIX}`, version: "1" } }),
     ]);
     facetId = facet.id;
     capabilityId = capability.id;
-    overlayId = overlay.id;
     businessUnitId = businessUnit.id;
     frameworkId = framework.id;
 
@@ -134,7 +124,7 @@ describe("COMPLIANCE_MANAGER role (#71)", () => {
     controlId = control.id;
 
     // A Draft System the Compliance Manager doesn't own, with a Business
-    // Unit, Framework Scope, Regulatory Overlay and Capability declared so
+    // Unit, Framework Scope and Capability declared so
     // the remove endpoints have something to remove.
     const system = await prisma.system.create({
       data: {
@@ -144,7 +134,6 @@ describe("COMPLIANCE_MANAGER role (#71)", () => {
         deploymentFacets: { connect: { id: facetId } },
         businessUnits: { connect: { id: businessUnitId } },
         frameworkScopes: { connect: { id: frameworkId } },
-        regulatoryOverlays: { connect: { id: overlayId } },
         capabilities: { connect: { id: capabilityId } },
       },
     });
@@ -183,7 +172,6 @@ describe("COMPLIANCE_MANAGER role (#71)", () => {
     await prisma.framework.deleteMany({ where: { id: { in: [frameworkId, ...createdFrameworkIds].filter(Boolean) } } });
     await prisma.deploymentFacet.deleteMany({ where: { id: facetId } });
     await prisma.capability.deleteMany({ where: { id: capabilityId } });
-    await prisma.regulatoryOverlay.deleteMany({ where: { id: overlayId } });
     await prisma.user.deleteMany({ where: { email: { in: [CM_EMAIL, OWNER_EMAIL, BRO_EMAIL] } } });
     await prisma.businessUnit.deleteMany({ where: { id: businessUnitId } });
   });
@@ -249,9 +237,6 @@ describe("COMPLIANCE_MANAGER role (#71)", () => {
       ["POST /api/capabilities", () => createCapability(req("/api/capabilities", "POST", cmId, { name: `x ${SUFFIX}` }))],
       ["PATCH /api/capabilities/[id]", () => updateCapability(req(`/api/capabilities/${capabilityId}`, "PATCH", cmId, { name: `x ${SUFFIX}` }), ctx({ id: capabilityId }))],
       ["DELETE /api/capabilities/[id]", () => deleteCapability(req(`/api/capabilities/${capabilityId}`, "DELETE", cmId), ctx({ id: capabilityId }))],
-      ["POST /api/regulatory-overlays", () => createRegulatoryOverlay(req("/api/regulatory-overlays", "POST", cmId, { name: `x ${SUFFIX}` }))],
-      ["PATCH /api/regulatory-overlays/[id]", () => updateRegulatoryOverlay(req(`/api/regulatory-overlays/${overlayId}`, "PATCH", cmId, { name: `x ${SUFFIX}` }), ctx({ id: overlayId }))],
-      ["DELETE /api/regulatory-overlays/[id]", () => deleteRegulatoryOverlay(req(`/api/regulatory-overlays/${overlayId}`, "DELETE", cmId), ctx({ id: overlayId }))],
       ["POST /api/business-units", () => createBusinessUnit(req("/api/business-units", "POST", cmId, { name: `x ${SUFFIX}` }))],
       ["PATCH /api/business-units/[id]", () => updateBusinessUnit(req(`/api/business-units/${businessUnitId}`, "PATCH", cmId, { name: `x ${SUFFIX}` }), ctx({ id: businessUnitId }))],
       ["DELETE /api/business-units/[id]", () => deleteBusinessUnit(req(`/api/business-units/${businessUnitId}`, "DELETE", cmId), ctx({ id: businessUnitId }))],
@@ -262,7 +247,6 @@ describe("COMPLIANCE_MANAGER role (#71)", () => {
     it("leaves those catalogs untouched", async () => {
       expect((await prisma.deploymentFacet.findUniqueOrThrow({ where: { id: facetId } })).name).toBe(`Test CM Facet ${SUFFIX}`);
       expect(await prisma.capability.findUnique({ where: { id: capabilityId } })).not.toBeNull();
-      expect(await prisma.regulatoryOverlay.findUnique({ where: { id: overlayId } })).not.toBeNull();
       expect(await prisma.businessUnit.findUnique({ where: { id: businessUnitId } })).not.toBeNull();
     });
   });
@@ -326,8 +310,6 @@ describe("COMPLIANCE_MANAGER role (#71)", () => {
       ["POST .../submit", () => submitSystem(req(`${base()}/submit`, "POST", cmId), ctx({ id: systemId }))],
       ["POST .../approvals (decide)", () => decideApproval(req(`/api/systems/${inReviewSystemId}/approvals`, "POST", cmId, { decision: "APPROVED" }), ctx({ id: inReviewSystemId }))],
       ["POST .../onboard", () => markOnboarded(req(`/api/systems/${approvedSystemId}/onboard`, "POST", cmId), ctx({ id: approvedSystemId }))],
-      ["POST .../regulatory-overlays (declare)", () => declareOverlay(req(`${base()}/regulatory-overlays`, "POST", cmId, { regulatoryOverlayId: overlayId }), ctx({ id: systemId }))],
-      ["DELETE .../regulatory-overlays/[overlayId]", () => removeOverlay(req(`${base()}/regulatory-overlays/${overlayId}`, "DELETE", cmId), ctx({ id: systemId, overlayId }))],
       ["POST .../capabilities (declare)", () => declareCapability(req(`${base()}/capabilities`, "POST", cmId, { capabilityId }), ctx({ id: systemId }))],
       ["DELETE .../capabilities/[capabilityId]", () => removeCapability(req(`${base()}/capabilities/${capabilityId}`, "DELETE", cmId), ctx({ id: systemId, capabilityId }))],
       ["POST .../business-units (declare)", () => declareBusinessUnit(req(`${base()}/business-units`, "POST", cmId, { businessUnitId }), ctx({ id: systemId }))],
@@ -341,13 +323,12 @@ describe("COMPLIANCE_MANAGER role (#71)", () => {
     it("leaves every System, Assessment, Risk and Query as it was", async () => {
       const system = await prisma.system.findUniqueOrThrow({
         where: { id: systemId },
-        include: { businessUnits: true, frameworkScopes: true, regulatoryOverlays: true, capabilities: true },
+        include: { businessUnits: true, frameworkScopes: true, capabilities: true },
       });
       expect(system.status).toBe("DRAFT");
       expect(system.confidentialityImpactLevel).toBeNull();
       expect(system.businessUnits.map((b) => b.id)).toEqual([businessUnitId]);
       expect(system.frameworkScopes.map((f) => f.id)).toEqual([frameworkId]);
-      expect(system.regulatoryOverlays.map((o) => o.id)).toEqual([overlayId]);
       expect(system.capabilities.map((c) => c.id)).toEqual([capabilityId]);
 
       expect((await prisma.system.findUniqueOrThrow({ where: { id: approvedSystemId } })).status).toBe("APPROVED");

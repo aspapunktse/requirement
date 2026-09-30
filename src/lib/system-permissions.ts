@@ -11,8 +11,8 @@ import type { ControlAssessmentStatus, SelfAssessmentAnswer, UserRole } from "@p
  *   Waived / Not Applicable transitions that go through the waive gate
  *   (`checkWaiveGate`).
  * - Submit for review: the System's owner or an ADMIN.
- * - Every other owner action (change classification, declare Regulatory
- *   Overlays / Capabilities / Business Units / Framework Scope, log a Risk,
+ * - Every other owner action (change classification, declare
+ *   Capabilities / Business Units / Framework Scope, log a Risk,
  *   mark Onboarded): the System's owner or an ADMIN too, through the
  *   `canX` helpers next to each feature, which all delegate to
  *   `isSystemOwnerOrAdmin` (#91), so there is one definition of "owner".

@@ -6,7 +6,7 @@
  *
  * Looks for the naming convention the test suite uses for throwaway fixtures
  * — `test-*` emails, `Test *` catalog names, `TEST*` Control codes —
- * across User/Control/DeploymentFacet/RegulatoryOverlay/Capability/
+ * across User/Control/DeploymentFacet/Capability/
  * BusinessUnit/Framework (plus fixture Requirements, `TEST-FX-*` codes), and deletes whatever isn't still referenced
  * elsewhere (a System, Assessment, Risk, or Approval). Anything that *is*
  * still referenced is reported, not force-deleted — that's more likely a
@@ -80,13 +80,6 @@ async function main() {
     await prisma.deploymentFacet.findMany({ where: { name: insensitiveStartsWith("test ") } }),
     (f) => f.name,
     (id) => prisma.deploymentFacet.delete({ where: { id } }),
-  );
-
-  await cleanup(
-    "RegulatoryOverlay",
-    await prisma.regulatoryOverlay.findMany({ where: { name: insensitiveStartsWith("test ") } }),
-    (o) => o.name,
-    (id) => prisma.regulatoryOverlay.delete({ where: { id } }),
   );
 
   await cleanup(

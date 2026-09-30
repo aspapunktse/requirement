@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * Creates a new Control Library entry — bare, with no facet/overlay/
+ * Creates a new Control Library entry — bare, with no facet/
  * capability/Impact Level tagging yet (use `PATCH /api/controls/[id]`
  * to tag it once created, same two-step flow as the rest of the admin
  * catalog UI). See #52.

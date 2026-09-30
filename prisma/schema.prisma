@@ -117,9 +117,6 @@ model System {
   // One or more deployment facets this System spans (e.g. On-Prem, Cloud) —
   // a Hybrid System is simply one that declares more than one. See ADR 0003.
   deploymentFacets           DeploymentFacet[]
-  // Regulatory Overlays this System Owner self-declares apply (e.g. GDPR,
-  // EAR/ITAR) — same self-declaration model as Capability. See ADR 0003.
-  regulatoryOverlays         RegulatoryOverlay[]
   createdAt                  DateTime            @default(now())
   updatedAt                  DateTime            @updatedAt
   // When the System was actually marked Onboarded — distinct from Approval
@@ -133,13 +130,11 @@ model System {
   // Centrally-managed dependencies this System declares it consumes. Purely
   // declarative in this ticket — auto-fulfilling mapped Controls is #16.
   capabilities    Capability[]
-  // Business Units that consume this System, and the Framework(s) whose
-  // audit/certification boundary it falls within. Both are purely
-  // reporting/grouping dimensions — unlike deploymentFacets/
-  // regulatoryOverlays/Impact Level/capabilities, declaring either has no
-  // effect on the applicable Control set, and neither is Draft-locked:
-  // usage and audit scope can both change after a System is Onboarded. See
-  // #55.
+  // Business Units that consume this System (a reporting/grouping dimension
+  // only), and the Framework(s) this System declares in scope. The declared
+  // Framework Scope drives which Controls apply (the base Framework is
+  // always in scope on top of it); see ADR 0007, which retired Regulatory
+  // Overlay in its favour. Neither is Draft-locked. See #55.
   businessUnits   BusinessUnit[]
   frameworkScopes Framework[]         @relation("SystemFrameworkScope")
   // Curated log of System-lifecycle-relevant mutations, feeding the landing
@@ -181,22 +176,6 @@ model Capability {
   systems                  System[]
   // ControlAssessments currently auto-fulfilled by this Capability.
   autoFulfilledAssessments ControlAssessment[]
-}
-
-// An admin-curated regulatory flag (e.g. GDPR, EAR/ITAR) a System Owner
-// self-declares applies to their System at onboarding — same self-
-// declaration model as Capability, not derived from any other structured
-// field. See ADR 0003.
-model RegulatoryOverlay {
-  id          String   @id @default(cuid())
-  name        String   @unique
-  description String?
-  createdAt   DateTime @default(now())
-
-  // Controls scoped to this overlay. A Control with no rows here at
-  // all applies regardless of overlay (see Control.regulatoryOverlays).
-  controls Control[]
-  systems  System[]
 }
 
 // An admin-curated organizational consumer (e.g. Finance, HR) that a System
@@ -365,15 +344,10 @@ model Control {
   // regardless of facet" (how the Annex A seed ships). Must stay empty for
   // ORGANIZATIONAL controls, which are never assessed per System.
   deploymentFacets              DeploymentFacet[]
-  // Regulatory Overlays this Control is scoped to. Empty means "applies
-  // regardless of overlay." AND'd together with deploymentFacets scoping —
-  // both independently optional, and both must pass. Must stay empty for
-  // ORGANIZATIONAL controls, which are never assessed per System.
-  regulatoryOverlays            RegulatoryOverlay[]
   // Minimum required Impact Level on each CIA axis, independently — null
   // means no threshold on that axis. A Control can combine thresholds
   // on one, two, or all three axes; each is a "System's level on this axis
-  // must be >= this" comparison, not a membership check like facet/overlay
+  // must be >= this" comparison, not a membership check like facet
   // scoping. See ADR 0003.
   minConfidentialityImpactLevel ImpactLevel?
   minIntegrityImpactLevel       ImpactLevel?
@@ -530,7 +504,7 @@ enum ChangeEventAction {
 // System-less actions (systemId null) record evidence-bearing changes to the
 // requirement database (PRD 0001 F-CE.1). Deliberately not a full audit
 // trail: pure catalog-admin CRUD (Control/DeploymentFacet/Capability/
-// RegulatoryOverlay/BusinessUnit/Framework create/edit/delete) is out of
+// BusinessUnit/Framework create/edit/delete) is out of
 // scope, since this exists for role-relevant "what changed on this System"
 // visibility, not compliance auditing. `actorId` is either a User id, or the
 // literal string "system" for a transition the backend computed as a side

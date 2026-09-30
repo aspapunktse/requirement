@@ -14,7 +14,6 @@ import { canMarkOnboarded } from "../onboarding";
 import { canLogRisk } from "../risks";
 import { canManageCapabilities } from "../system-capabilities";
 import { canChangeSystemClassification } from "../system-classification-change";
-import { canManageRegulatoryOverlays } from "../system-overlays";
 
 const system = { ownerId: "owner" };
 const ALL_ROLES: UserRole[] = [
@@ -128,7 +127,6 @@ describe("owner actions share one owner rule (#91)", () => {
   type Helper = (user: { id: string; role: UserRole }, system: { ownerId: string; status: string }) => boolean;
   const ownerActions: [string, Helper][] = [
     ["change classification", canChangeSystemClassification],
-    ["manage Regulatory Overlays", canManageRegulatoryOverlays],
     ["manage Capabilities", canManageCapabilities],
     ["manage Business Units", canManageBusinessUnits],
     ["manage Framework Scope", canManageFrameworkScopes],
@@ -170,10 +168,9 @@ describe("owner actions share one owner rule (#91)", () => {
     }
   });
 
-  it("has no lifecycle lock on classification, Regulatory Overlays, Capabilities, Framework Scope or Business Units (ADR 0006, #86)", () => {
+  it("has no lifecycle lock on classification, Capabilities, Framework Scope or Business Units (ADR 0006, #86)", () => {
     const helpers = [
       canChangeSystemClassification,
-      canManageRegulatoryOverlays,
       canManageCapabilities,
       canManageFrameworkScopes,
       canManageBusinessUnits,

@@ -4,8 +4,6 @@ import type { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { ACTING_USER_COOKIE } from "@/lib/acting-user";
 import { PATCH as patchSystem } from "../systems/[id]/route";
-import { POST as declareOverlay } from "../systems/[id]/regulatory-overlays/route";
-import { DELETE as removeOverlay } from "../systems/[id]/regulatory-overlays/[overlayId]/route";
 import { POST as declareCapability } from "../systems/[id]/capabilities/route";
 import { DELETE as removeCapability } from "../systems/[id]/capabilities/[capabilityId]/route";
 import { POST as declareBusinessUnit } from "../systems/[id]/business-units/route";
@@ -49,7 +47,6 @@ describe("The System's owner is ownerId, whatever the role (#91)", () => {
   const systemIds: string[] = [];
   let facetA: string;
   let facetB: string;
-  let overlayId: string;
   let capabilityId: string;
   let businessUnitId: string;
   let frameworkId: string;
@@ -73,7 +70,6 @@ describe("The System's owner is ownerId, whatever the role (#91)", () => {
       where: { id: systemId },
       include: {
         deploymentFacets: true,
-        regulatoryOverlays: true,
         capabilities: true,
         businessUnits: true,
         frameworkScopes: true,
@@ -83,7 +79,6 @@ describe("The System's owner is ownerId, whatever the role (#91)", () => {
       status: system.status,
       onboardedAt: system.onboardedAt,
       facets: system.deploymentFacets.map((f) => f.id).sort(),
-      overlays: system.regulatoryOverlays.map((o) => o.id).sort(),
       capabilities: system.capabilities.map((c) => c.id).sort(),
       businessUnits: system.businessUnits.map((b) => b.id).sort(),
       frameworkScopes: system.frameworkScopes.map((f) => f.id).sort(),
@@ -109,22 +104,6 @@ describe("The System's owner is ownerId, whatever the role (#91)", () => {
       run: (id, u) =>
         patchSystem(req(`/api/systems/${id}`, "PATCH", u, { deploymentFacetIds: [facetB] }), {
           params: Promise.resolve({ id }),
-        }),
-    },
-    {
-      name: "declare a Regulatory Overlay",
-      ok: 201,
-      run: (id, u) =>
-        declareOverlay(req(`/api/systems/${id}/regulatory-overlays`, "POST", u, { regulatoryOverlayId: overlayId }), {
-          params: Promise.resolve({ id }),
-        }),
-    },
-    {
-      name: "remove a Regulatory Overlay",
-      ok: 200,
-      run: (id, u) =>
-        removeOverlay(req(`/api/systems/${id}/regulatory-overlays/${overlayId}`, "DELETE", u), {
-          params: Promise.resolve({ id, overlayId }),
         }),
     },
     {
@@ -236,7 +215,6 @@ describe("The System's owner is ownerId, whatever the role (#91)", () => {
     }
     facetA = (await prisma.deploymentFacet.create({ data: { name: `Test OwnerRule Facet A ${SUFFIX}` } })).id;
     facetB = (await prisma.deploymentFacet.create({ data: { name: `Test OwnerRule Facet B ${SUFFIX}` } })).id;
-    overlayId = (await prisma.regulatoryOverlay.create({ data: { name: `Test OwnerRule Overlay ${SUFFIX}` } })).id;
     capabilityId = (await prisma.capability.create({ data: { name: `Test OwnerRule Capability ${SUFFIX}` } })).id;
     businessUnitId = (await prisma.businessUnit.create({ data: { name: `Test OwnerRule BU ${SUFFIX}` } })).id;
     frameworkId = (
@@ -254,13 +232,12 @@ describe("The System's owner is ownerId, whatever the role (#91)", () => {
     await prisma.framework.deleteMany({ where: { id: frameworkId } });
     await prisma.businessUnit.deleteMany({ where: { id: businessUnitId } });
     await prisma.capability.deleteMany({ where: { id: capabilityId } });
-    await prisma.regulatoryOverlay.deleteMany({ where: { id: overlayId } });
     await prisma.deploymentFacet.deleteMany({ where: { id: { in: [facetA, facetB] } } });
     await prisma.user.deleteMany({ where: { id: { in: Object.values(users) } } });
   });
 
   it.each(OWNING_ROLES)(
-    "lets an owning %s do every owner action: classification, overlays, capabilities, business units, framework scope, log a Risk, onboard",
+    "lets an owning %s do every owner action: classification, capabilities, business units, framework scope, log a Risk, onboard",
     async (role) => {
       const systemId = await makeSystem(role);
       await expectAllOwnerActionsAllowed(systemId, role);
@@ -303,12 +280,12 @@ describe("The System's owner is ownerId, whatever the role (#91)", () => {
   });
 
   it.each(["APPROVED", "ONBOARDED"] as const)(
-    "lets the owner and an ADMIN change classification, Overlays, Capabilities and Framework Scope on a %s System, leaving its status alone (no Draft lock, ADR 0006 / #86)",
+    "lets the owner and an ADMIN change classification, Capabilities and Framework Scope on a %s System, leaving its status alone (no Draft lock, ADR 0006 / #86)",
     async (status) => {
       const classificationActions = actions().filter((a) =>
-        /classification|Regulatory Overlay|Capability|Framework Scope/.test(a.name),
+        /classification|Capability|Framework Scope/.test(a.name),
       );
-      expect(classificationActions).toHaveLength(7);
+      expect(classificationActions).toHaveLength(5);
       for (const userKey of ["SYSTEM_OWNER", "ADMIN"]) {
         const systemId = await makeSystem("SYSTEM_OWNER", status);
         if (status === "ONBOARDED") {

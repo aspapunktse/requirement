@@ -8,16 +8,15 @@ import { getSystemsNeedingAttention } from "@/lib/dashboard";
 import { getStaleAssessments, getUnaddressedMandatoryControls } from "@/lib/control-assessments";
 import { mapControlsToBase, mapControlsToFramework } from "@/test/framework-fixtures";
 import { PATCH as patchSystem } from "../[id]/route";
-import { POST as declareOverlay } from "../[id]/regulatory-overlays/route";
-import { DELETE as removeOverlay } from "../[id]/regulatory-overlays/[overlayId]/route";
 import { POST as declareCapability } from "../[id]/capabilities/route";
 import { DELETE as removeCapability } from "../[id]/capabilities/[capabilityId]/route";
 import { POST as declareFrameworkScope } from "../[id]/framework-scopes/route";
+import { DELETE as removeFrameworkScope } from "../[id]/framework-scopes/[frameworkId]/route";
 import { PATCH as patchAssessment } from "../[id]/assessments/[controlId]/route";
 
 /**
  * Continuous compliance (ADR 0006, #86): Deployment Facets, Impact Levels,
- * Regulatory Overlays, Capabilities and Framework Scope can all be changed by
+ * Capabilities and Framework Scope can all be changed by
  * the System's owner or an Admin at any lifecycle stage. Every change
  * recomputes the Assessments (newly applicable -> Not Started, untouched
  * no-longer-applicable -> removed, touched -> stale) and never changes the
@@ -50,11 +49,10 @@ describe("Continuous compliance: classification and scope change at any lifecycl
   const controlIds: string[] = [];
   let facetA: string;
   let facetB: string;
-  let overlayId: string;
   let capabilityId: string;
   let frameworkId: string;
   // One newly applicable Control per mechanism.
-  const control = {} as Record<"facet" | "impact" | "overlay" | "scope" | "capability", string>;
+  const control = {} as Record<"facet" | "impact" | "scope" | "capability", string>;
 
   async function makeControl(
     key: keyof typeof control,
@@ -93,7 +91,6 @@ describe("Continuous compliance: classification and scope change at any lifecycl
     }
     facetA = (await prisma.deploymentFacet.create({ data: { name: `Test CC Facet A ${SUFFIX}` } })).id;
     facetB = (await prisma.deploymentFacet.create({ data: { name: `Test CC Facet B ${SUFFIX}` } })).id;
-    overlayId = (await prisma.regulatoryOverlay.create({ data: { name: `Test CC Overlay ${SUFFIX}` } })).id;
     capabilityId = (await prisma.capability.create({ data: { name: `Test CC Capability ${SUFFIX}` } })).id;
     frameworkId = (
       await prisma.framework.create({ data: { name: `Test CC Framework ${SUFFIX}`, version: "1", status: "PUBLISHED" } })
@@ -102,13 +99,12 @@ describe("Continuous compliance: classification and scope change at any lifecycl
     // Every System here declares Facet A only; each Control below becomes applicable through exactly one change.
     await makeControl("facet", {}, [facetB]);
     await makeControl("impact", { minConfidentialityImpactLevel: "HIGH" });
-    await makeControl("overlay", { regulatoryOverlays: { connect: [{ id: overlayId }] } });
     await makeControl("scope", {});
     await makeControl("capability", { capabilities: { connect: [{ id: capabilityId }] } });
-    await mapControlsToBase([control.facet, control.impact, control.overlay, control.capability]);
+    await mapControlsToBase([control.facet, control.impact, control.capability]);
     // Every fixture Control is also mapped to the fixture Framework, so compliance can be read for that Framework alone
     // (`complianceOf`), unaffected by other Controls that come and go while other test files run.
-    await mapControlsToFramework(frameworkId, [control.scope, control.facet, control.impact, control.overlay, control.capability]);
+    await mapControlsToFramework(frameworkId, [control.scope, control.facet, control.impact, control.capability]);
   });
 
   afterEach(async () => {
@@ -127,7 +123,6 @@ describe("Continuous compliance: classification and scope change at any lifecycl
     await prisma.control.deleteMany({ where: { id: { in: controlIds } } });
     await prisma.framework.deleteMany({ where: { id: frameworkId } });
     await prisma.capability.deleteMany({ where: { id: capabilityId } });
-    await prisma.regulatoryOverlay.deleteMany({ where: { id: overlayId } });
     await prisma.deploymentFacet.deleteMany({ where: { id: { in: [facetA, facetB] } } });
     await prisma.user.deleteMany({ where: { id: { in: Object.values(users) } } });
   });
@@ -166,12 +161,11 @@ describe("Continuous compliance: classification and scope change at any lifecycl
   async function snapshot(systemId: string) {
     const system = await prisma.system.findUniqueOrThrow({
       where: { id: systemId },
-      include: { deploymentFacets: true, regulatoryOverlays: true, capabilities: true, frameworkScopes: true },
+      include: { deploymentFacets: true, capabilities: true, frameworkScopes: true },
     });
     return {
       ...(await lifecycle(systemId)),
       facets: system.deploymentFacets.map((f) => f.id).sort(),
-      overlays: system.regulatoryOverlays.map((o) => o.id).sort(),
       capabilities: system.capabilities.map((c) => c.id).sort(),
       scopes: system.frameworkScopes.map((f) => f.id).sort(),
       impact: [system.confidentialityImpactLevel, system.integrityImpactLevel, system.availabilityImpactLevel],
@@ -190,7 +184,7 @@ describe("Continuous compliance: classification and scope change at any lifecycl
   async function isTask(systemId: string, controlId: string) {
     const system = await prisma.system.findUniqueOrThrow({
       where: { id: systemId },
-      include: { deploymentFacets: true, regulatoryOverlays: true, frameworkScopes: { select: { id: true } } },
+      include: { deploymentFacets: true, frameworkScopes: { select: { id: true } } },
     });
     const unaddressed = (await getUnaddressedMandatoryControls(system)).map((c) => c.id);
     const entry = (await getSystemsNeedingAttention(users.owner)).find(
@@ -210,7 +204,7 @@ describe("Continuous compliance: classification and scope change at any lifecycl
     run: (systemId: string, userId: string) => Promise<Response>;
     ok: number;
   };
-  const mechanisms: Record<"Deployment Facets" | "Impact Levels" | "Regulatory Overlays" | "Framework Scope", Mechanism> = {
+  const mechanisms: Record<"Deployment Facets" | "Impact Levels" | "Framework Scope", Mechanism> = {
     "Deployment Facets": {
       get control() {
         return control.facet;
@@ -225,14 +219,6 @@ describe("Continuous compliance: classification and scope change at any lifecycl
       },
       ok: 200,
       run: (id, u) => patchSystem(req(`/api/systems/${id}`, "PATCH", u, { confidentialityImpactLevel: "HIGH" }), ctx(id)),
-    },
-    "Regulatory Overlays": {
-      get control() {
-        return control.overlay;
-      },
-      ok: 201,
-      run: (id, u) =>
-        declareOverlay(req(`/api/systems/${id}/regulatory-overlays`, "POST", u, { regulatoryOverlayId: overlayId }), ctx(id)),
     },
     "Framework Scope": {
       get control() {
@@ -343,23 +329,24 @@ describe("Continuous compliance: classification and scope change at any lifecycl
   it("keeps a touched Assessment as stale, and reports it, when the owner undoes a change on an Onboarded System", async () => {
     const systemId = await makeSystem("ONBOARDED");
     const lifecycleBefore = await lifecycle(systemId);
-    const declared = await mechanisms["Regulatory Overlays"].run(systemId, users.owner);
+    const declared = await mechanisms["Framework Scope"].run(systemId, users.owner);
     expect(declared.status).toBe(201);
     await prisma.controlAssessment.update({
-      where: { systemId_controlId: { systemId, controlId: control.overlay } },
+      where: { systemId_controlId: { systemId, controlId: control.scope } },
       data: { status: "FULFILLED", assessedById: users.owner },
     });
 
-    const removed = await removeOverlay(req(`/api/systems/${systemId}/regulatory-overlays/${overlayId}`, "DELETE", users.owner), {
-      params: Promise.resolve({ id: systemId, overlayId }),
-    });
+    const removed = await removeFrameworkScope(
+      req(`/api/systems/${systemId}/framework-scopes/${frameworkId}`, "DELETE", users.owner),
+      { params: Promise.resolve({ id: systemId, frameworkId }) },
+    );
     expect(removed.status).toBe(200);
 
     const system = await prisma.system.findUniqueOrThrow({
       where: { id: systemId },
-      include: { deploymentFacets: true, regulatoryOverlays: true, frameworkScopes: { select: { id: true } } },
+      include: { deploymentFacets: true, frameworkScopes: { select: { id: true } } },
     });
-    expect((await getStaleAssessments(system)).map((a) => a.controlId)).toEqual([control.overlay]);
+    expect((await getStaleAssessments(system)).map((a) => a.controlId)).toEqual([control.scope]);
     expect(
       (await getSystemsNeedingAttention(users.owner)).filter((e) => e.id === systemId && e.reason === "stale"),
     ).toHaveLength(1);

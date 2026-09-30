@@ -18,7 +18,6 @@ async function fulfillAllMandatoryControls(systemId: string, deploymentFacetIds:
   const unaddressed = await getUnaddressedMandatoryControls({
     id: systemId,
     deploymentFacets: deploymentFacetIds.map((id) => ({ id })),
-    regulatoryOverlays: [],
     frameworkScopes: [],
     confidentialityImpactLevel: null,
     integrityImpactLevel: null,

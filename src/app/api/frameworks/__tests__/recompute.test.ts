@@ -162,7 +162,7 @@ describe("Recompute affected Systems on catalog changes (#87)", { timeout: 60_00
   const loadForStale = (id: string) =>
     prisma.system.findUniqueOrThrow({
       where: { id },
-      include: { deploymentFacets: true, regulatoryOverlays: true, frameworkScopes: { select: { id: true } } },
+      include: { deploymentFacets: true, frameworkScopes: { select: { id: true } } },
     });
   /** Everything a recompute must never touch, plus the System's rows, for "no change" assertions. */
   async function fingerprint(systemId: string) {

@@ -52,7 +52,6 @@ export async function getComplianceForSystems(
       where,
       include: {
         deploymentFacets: true,
-        regulatoryOverlays: true,
         frameworkScopes: { select: { id: true } },
         assessments: true,
       },

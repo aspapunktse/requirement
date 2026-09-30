@@ -376,7 +376,6 @@ describe("System write permissions (#78)", () => {
       const unaddressed = await getUnaddressedMandatoryControls({
         id: systemId,
         deploymentFacets: [{ id: facetId }],
-        regulatoryOverlays: [],
         frameworkScopes: [],
         confidentialityImpactLevel: null,
         integrityImpactLevel: null,
