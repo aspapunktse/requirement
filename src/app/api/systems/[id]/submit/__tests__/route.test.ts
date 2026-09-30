@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
+import { mapControlsToBase } from "@/test/framework-fixtures";
 import { ACTING_USER_COOKIE } from "@/lib/acting-user";
 import { getUnaddressedMandatoryControls } from "@/lib/control-assessments";
 import { PATCH as patchAssessment } from "../../assessments/[controlId]/route";
@@ -19,6 +20,7 @@ async function fulfillAllMandatoryControls(systemId: string, deploymentFacetIds:
     id: systemId,
     deploymentFacets: deploymentFacetIds.map((id) => ({ id })),
     regulatoryOverlays: [],
+    frameworkScopes: [],
     confidentialityImpactLevel: null,
     integrityImpactLevel: null,
     availabilityImpactLevel: null,
@@ -131,6 +133,7 @@ describe("POST /api/systems/[id]/submit", () => {
     mandatoryControlId = mandatory.id;
     optionalControlId = optional.id;
     organizationalControlId = organizational.id;
+    await mapControlsToBase([mandatoryControlId, optionalControlId, organizationalControlId]);
 
     const capability = await prisma.capability.create({
       data: { name: `Submit Test Capability ${suffix}`, controls: { connect: [{ id: mandatory.id }] } },

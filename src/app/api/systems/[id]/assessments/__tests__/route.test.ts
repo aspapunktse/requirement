@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
+import { mapControlsToBase } from "@/test/framework-fixtures";
 import { ACTING_USER_COOKIE } from "@/lib/acting-user";
 import { GET } from "../route";
 
@@ -97,6 +98,7 @@ describe("GET /api/systems/[id]/assessments", () => {
       },
     });
     controlIds.push(organizational.id, unscopedPerSystem.id, matchingScoped.id, otherScoped.id);
+    await mapControlsToBase(controlIds);
   });
 
   afterAll(async () => {

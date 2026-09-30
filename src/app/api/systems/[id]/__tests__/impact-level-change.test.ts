@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
+import { mapControlsToBase } from "@/test/framework-fixtures";
 import { ACTING_USER_COOKIE } from "@/lib/acting-user";
 import { PATCH } from "../route";
 
@@ -60,6 +61,7 @@ describe("PATCH /api/systems/[id] (Impact Level change)", () => {
       },
     });
     highConfidentialityControlId = control.id;
+    await mapControlsToBase([highConfidentialityControlId]);
   });
 
   afterAll(async () => {

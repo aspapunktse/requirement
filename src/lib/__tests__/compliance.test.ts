@@ -43,10 +43,20 @@ describe("getComplianceForSystems", () => {
     facetId = facet.id;
 
     const lenientFramework = await prisma.framework.create({
-      data: { name: `Test Lenient Framework ${suffix}`, version: "1", strictComplianceRequired: false },
+      data: {
+        name: `Test Lenient Framework ${suffix}`,
+        version: "1",
+        strictComplianceRequired: false,
+        status: "PUBLISHED",
+      },
     });
     const strictFramework = await prisma.framework.create({
-      data: { name: `Test Strict Framework ${suffix}`, version: "1", strictComplianceRequired: true },
+      data: {
+        name: `Test Strict Framework ${suffix}`,
+        version: "1",
+        strictComplianceRequired: true,
+        status: "PUBLISHED",
+      },
     });
     lenientFrameworkId = lenientFramework.id;
     strictFrameworkId = strictFramework.id;
@@ -112,16 +122,20 @@ describe("getComplianceForSystems", () => {
       ],
     });
 
+    // Both Frameworks are Published and in scope for both Systems: a Control only applies
+    // through a Requirement of a Published Framework in scope (ADR 0007).
+    const scopes = { connect: [{ id: lenientFrameworkId }, { id: strictFrameworkId }] };
     const systemA = await prisma.system.create({
       data: {
         name: `Test Compliance System A ${suffix}`,
         ownerId,
+        frameworkScopes: scopes,
         deploymentFacets: { connect: { id: facetId } },
         businessUnits: { connect: { id: businessUnitId } },
       },
     });
     const systemB = await prisma.system.create({
-      data: { name: `Test Compliance System B ${suffix}`, ownerId },
+      data: { name: `Test Compliance System B ${suffix}`, ownerId, frameworkScopes: scopes },
     });
     systemAId = systemA.id;
     systemBId = systemB.id;

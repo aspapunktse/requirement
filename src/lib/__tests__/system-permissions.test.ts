@@ -170,16 +170,16 @@ describe("owner actions share one owner rule (#91)", () => {
     }
   });
 
-  it("keeps Regulatory Overlays and Capabilities locked once a System leaves Draft, for owner and ADMIN alike", () => {
-    for (const can of [canManageRegulatoryOverlays, canManageCapabilities]) {
+  it("keeps Regulatory Overlays, Capabilities and Framework Scope locked once a System leaves Draft, for owner and ADMIN alike", () => {
+    // Framework Scope drives applicability now (ADR 0007, #85), so it shares the Draft lock until #86 lifts it.
+    for (const can of [canManageRegulatoryOverlays, canManageCapabilities, canManageFrameworkScopes]) {
       expect(can({ id: "owner", role: "RISK_OWNER" }, onboarded)).toBe(false);
       expect(can({ id: "a", role: "ADMIN" }, onboarded)).toBe(false);
+      expect(can({ id: "owner", role: "RISK_OWNER" }, draft)).toBe(true);
     }
   });
 
-  it("keeps Business Units and Framework Scope open in every status", () => {
-    for (const can of [canManageBusinessUnits, canManageFrameworkScopes]) {
-      expect(can({ id: "owner", role: "REVIEWER" }, onboarded)).toBe(true);
-    }
+  it("keeps Business Units open in every status", () => {
+    expect(canManageBusinessUnits({ id: "owner", role: "REVIEWER" }, onboarded)).toBe(true);
   });
 });

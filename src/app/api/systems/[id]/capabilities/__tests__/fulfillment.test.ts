@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
+import { mapControlsToBase } from "@/test/framework-fixtures";
 import { ACTING_USER_COOKIE } from "@/lib/acting-user";
 import { POST } from "../route";
 import { DELETE } from "../[capabilityId]/route";
@@ -88,6 +89,7 @@ describe("Capability declare/undeclare auto-fulfillment", () => {
     });
     mappedControlId = mapped.id;
     unmappedControlId = unmapped.id;
+    await mapControlsToBase([mappedControlId, unmappedControlId]);
   });
 
   afterAll(async () => {

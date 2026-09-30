@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import type { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { mapControlsToBase } from "@/test/framework-fixtures";
 import { ACTING_USER_COOKIE } from "@/lib/acting-user";
 import { getUnaddressedMandatoryControls } from "@/lib/control-assessments";
 import { PATCH as updateAssessment } from "../systems/[id]/assessments/[controlId]/route";
@@ -109,6 +110,7 @@ describe("System write permissions (#78)", () => {
         data: { ...controlBase, code: `TEST-SW-MAND-${SUFFIX}`, title: "Mandatory", mandatory: true },
       })
     ).id;
+    await mapControlsToBase([optionalControlId, mandatoryControlId]);
 
     onboardedId = await makeSystem("owner", "ONBOARDED");
     draftId = await makeSystem("owner", "DRAFT");
@@ -375,6 +377,7 @@ describe("System write permissions (#78)", () => {
         id: systemId,
         deploymentFacets: [{ id: facetId }],
         regulatoryOverlays: [],
+        frameworkScopes: [],
         confidentialityImpactLevel: null,
         integrityImpactLevel: null,
         availabilityImpactLevel: null,

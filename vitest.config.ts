@@ -8,6 +8,8 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: ["./vitest.setup.ts"],
+    // Ensures exactly one base Framework exists for the run (see the file).
+    globalSetup: ["./vitest.global-setup.ts"],
   },
   resolve: {
     alias: {

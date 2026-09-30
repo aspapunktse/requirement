@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
+import { mapControlsToBase } from "@/test/framework-fixtures";
 import { ACTING_USER_COOKIE } from "@/lib/acting-user";
 import { getUnaddressedMandatoryControls } from "@/lib/control-assessments";
 import { PATCH as patchAssessment } from "@/app/api/systems/[id]/assessments/[controlId]/route";
@@ -18,6 +19,7 @@ async function fulfillAllMandatoryControls(systemId: string, deploymentFacetIds:
     id: systemId,
     deploymentFacets: deploymentFacetIds.map((id) => ({ id })),
     regulatoryOverlays: [],
+    frameworkScopes: [],
     confidentialityImpactLevel: null,
     integrityImpactLevel: null,
     availabilityImpactLevel: null,
@@ -110,6 +112,7 @@ describe("/api/systems/[id]/approvals", () => {
       },
     });
     mandatoryControlId = mandatoryControl.id;
+    await mapControlsToBase([mandatoryControlId]);
   });
 
   afterAll(async () => {
