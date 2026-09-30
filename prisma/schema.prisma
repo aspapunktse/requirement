@@ -518,6 +518,11 @@ enum ChangeEventAction {
   // issue (#73).
   CONTROL_MAPPING_CHANGED
   FRAMEWORK_PUBLISHED
+  // "system"-actor: the requirement database changed under a System (a Framework was
+  // published, a Control Mapping or a Control's scoping changed) and its applicable
+  // Controls moved (PRD 0001 F-AP.3, #87). Kept apart from CLASSIFICATION_CHANGED,
+  // which is the owner changing the System's own classification.
+  APPLICABILITY_RECOMPUTED
 }
 
 // A curated, System-lifecycle-relevant mutation record — feeds the landing

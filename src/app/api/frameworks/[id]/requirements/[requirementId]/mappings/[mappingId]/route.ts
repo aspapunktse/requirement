@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { authorize } from "@/lib/api-authz";
 import { ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE } from "@/lib/catalog";
 import { logMappingChange } from "@/lib/frameworks";
+import { finishRecompute, prepareRecompute, scopeForMappedControls } from "@/lib/applicability-recompute";
+import { frameworkLabel } from "@/lib/framework-label";
 import { clearGapAcceptance } from "@/lib/framework-coverage";
 
 type MappingContext = RouteContext<"/api/frameworks/[id]/requirements/[requirementId]/mappings/[mappingId]">;
@@ -24,7 +26,9 @@ function findMapping(id: string, requirementId: string, mappingId: string) {
     where: { id: mappingId, requirementId, requirement: { frameworkId: id } },
     include: {
       control: { select: { id: true, code: true, title: true } },
-      requirement: { select: { code: true, framework: { select: { name: true, version: true } } } },
+      requirement: {
+        select: { code: true, framework: { select: { id: true, name: true, version: true, isBase: true, status: true } } },
+      },
     },
   });
 }
@@ -83,7 +87,13 @@ export async function PATCH(request: NextRequest, ctx: MappingContext) {
   }
 }
 
-/** Removes a Control from a Requirement. Logs a CONTROL_MAPPING_CHANGED event (old Coverage -> none). */
+/**
+ * Removes a Control from a Requirement. Logs a CONTROL_MAPPING_CHANGED event (old Coverage -> none).
+ * On a Published Framework the removal takes effect immediately (F-CL.7, #87): every System with
+ * the Framework in scope is recomputed, so an untouched Assessment for a Control that no longer
+ * applies is removed and a touched one is kept as stale. A Coverage-only PATCH above is not a
+ * trigger: the applicability gate is "mapped at any Coverage".
+ */
 export async function DELETE(request: NextRequest, ctx: MappingContext) {
   const auth = await authorize(request, ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE);
   if ("response" in auth) return auth.response;
@@ -94,6 +104,11 @@ export async function DELETE(request: NextRequest, ctx: MappingContext) {
   if (!existing) {
     return NextResponse.json({ error: "Control Mapping not found" }, { status: 404 });
   }
+
+  // Snapshot before the write, so the recompute can tell what just stopped applying.
+  const pending = await prepareRecompute(scopeForMappedControls(existing.requirement.framework, [existing.control.id]), {
+    snapshot: true,
+  });
 
   try {
     await prisma.$transaction(async (tx) => {
@@ -111,6 +126,10 @@ export async function DELETE(request: NextRequest, ctx: MappingContext) {
         tx,
       );
     });
+    await finishRecompute(
+      pending,
+      `Control Mapping removed: ${frameworkLabel(existing.requirement.framework)} ${existing.requirement.code} ↔ ${existing.control.code}`,
+    );
     return new NextResponse(null, { status: 204 });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {

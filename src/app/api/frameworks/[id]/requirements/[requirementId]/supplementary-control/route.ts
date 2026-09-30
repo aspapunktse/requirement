@@ -7,6 +7,8 @@ import { createControlSchema } from "@/lib/control-schema";
 import { isCovered } from "@/lib/coverage-state";
 import { clearGapAcceptance } from "@/lib/framework-coverage";
 import { controlIncludeFor, logMappingChange } from "@/lib/frameworks";
+import { finishRecompute, prepareRecompute, scopeForMappedControls } from "@/lib/applicability-recompute";
+import { frameworkLabel } from "@/lib/framework-label";
 
 /**
  * Closes a Coverage Gap by authoring a Supplementary Control: creates the
@@ -16,7 +18,10 @@ import { controlIncludeFor, logMappingChange } from "@/lib/frameworks";
  * mapping endpoint does, all in one transaction (a failure, such as a duplicate
  * Control code, leaves nothing behind). Only a gap can be closed this way: a
  * covered Requirement is a 409; an accepted gap can be, and stops being
- * accepted since it is now covered. See #74, PRD 0001 F-CL.2.
+ * accepted since it is now covered. On a Published Framework the new mapping is a
+ * mapping-added trigger like any other: Systems with the Framework in scope are
+ * recomputed and the new Control gets Not Started Assessments where it applies (#87).
+ * See #74, PRD 0001 F-CL.2.
  */
 export async function POST(
   request: NextRequest,
@@ -36,7 +41,7 @@ export async function POST(
     select: {
       id: true,
       code: true,
-      framework: { select: { name: true, version: true } },
+      framework: { select: { id: true, name: true, version: true, isBase: true, status: true } },
       mappings: { select: { coverage: true } },
     },
   });
@@ -77,6 +82,13 @@ export async function POST(
       await clearGapAcceptance(tx, requirementId);
       return { control, mapping };
     });
+    const pending = await prepareRecompute(scopeForMappedControls(requirement.framework, [result.control.id]), {
+      snapshot: false,
+    });
+    await finishRecompute(
+      pending,
+      `Control Mapping added: ${frameworkLabel(requirement.framework)} ${requirement.code} ↔ ${result.control.code}`,
+    );
     return NextResponse.json(result, { status: 201 });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
