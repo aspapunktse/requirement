@@ -10,15 +10,13 @@ import { isSystemOwnerOrAdmin } from "@/lib/system-permissions";
 
 /**
  * Who may change a System's classification — its declared Deployment
- * Facets, declared Regulatory Overlays, or Impact Level axes: ADMIN, or the
- * System's owner (`ownerId`, whatever their role — see
- * `isSystemOwnerOrAdmin`). One shared rule across all three axes — see
- * ADR 0003.
+ * Facets or Impact Level axes: ADMIN, or the System's owner (`ownerId`,
+ * whatever their role — see `isSystemOwnerOrAdmin`). One shared rule across
+ * the axes — see ADR 0003.
  *
  * There is no lifecycle check: classification can change at any stage
  * (ADR 0006 removed the Draft-only lock that #51/ADR 0003 had put on it,
- * along with the matching locks on Capabilities, Regulatory Overlays and
- * Framework Scope). A System lives for years after onboarding and what
+ * along with the matching locks on Capabilities and Framework Scope). A System lives for years after onboarding and what
  * applies to it keeps changing, so the change is recorded and the recompute
  * runs; it never touches the System's status or its Approval history.
  */
@@ -50,11 +48,10 @@ export type ClassificationChanges = {
  * The diff is computed once against the *combined* old -> new transition
  * (not once per changed axis), so a request that changes both Facets and an
  * Impact Level at once produces one correct recompute rather than two
- * partially-overlapping ones. Regulatory Overlay declare/undeclare goes
- * through the same diffApplicabilityOps helper via
- * `src/lib/system-overlays.ts` instead of this function, since it has its
- * own single-item connect/disconnect API shape — but the recompute logic
- * itself is shared. This is the generalization of the old System-Type-only
+ * partially-overlapping ones. Framework Scope declare/remove goes through the
+ * same diffApplicabilityOps helper via `src/lib/framework-scope.ts` instead of
+ * this function, since it has its own single-item connect/disconnect API
+ * shape — but the recompute logic itself is shared. This is the generalization of the old System-Type-only
  * `changeSystemType`/`changeDeploymentFacets` to every classification axis
  * — see ADR 0003 and #29/#47's original invariant.
  *
@@ -76,7 +73,6 @@ export async function changeSystemClassification(
       changes.deploymentFacetIds !== undefined
         ? changes.deploymentFacetIds.map((id) => ({ id }))
         : system.deploymentFacets,
-    regulatoryOverlays: system.regulatoryOverlays,
     frameworkScopes: system.frameworkScopes,
     confidentialityImpactLevel:
       changes.confidentialityImpactLevel !== undefined

@@ -32,7 +32,6 @@ type ControlSummary = {
   intent: string | null;
   examples: string[];
   deploymentFacets: Catalog[];
-  regulatoryOverlays: Catalog[];
   capabilities: Catalog[];
   mappings: ControlMappingRow[];
   // Set for a Supplementary Control (authored for a gap in that Framework); null for a base Control.
@@ -54,9 +53,6 @@ function summarizeTags(control: ControlSummary): string {
   const parts: string[] = [];
   if (control.deploymentFacets.length > 0) {
     parts.push(`Facets: ${control.deploymentFacets.map((f) => f.name).join(", ")}`);
-  }
-  if (control.regulatoryOverlays.length > 0) {
-    parts.push(`Overlays: ${control.regulatoryOverlays.map((o) => o.name).join(", ")}`);
   }
   const thresholds = IMPACT_AXES.filter(({ key }) => control[key]).map(
     ({ key, label }) => `${label}: ${control[key]}`,
@@ -91,13 +87,11 @@ type OriginFilter = "ALL" | "BASE" | "SUPPLEMENTARY";
 export function ControlLibraryManager() {
   const [controls, setControls] = useState<ControlSummary[]>([]);
   const [deploymentFacets, setDeploymentFacets] = useState<Catalog[]>([]);
-  const [regulatoryOverlays, setRegulatoryOverlays] = useState<Catalog[]>([]);
   const [capabilities, setCapabilities] = useState<Catalog[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState("");
   const [selectedDeploymentFacetIds, setSelectedDeploymentFacetIds] = useState<Set<string>>(new Set());
-  const [selectedRegulatoryOverlayIds, setSelectedRegulatoryOverlayIds] = useState<Set<string>>(new Set());
   const [selectedCapabilityIds, setSelectedCapabilityIds] = useState<Set<string>>(new Set());
   const [impactLevels, setImpactLevels] = useState<{
     minConfidentialityImpactLevel: ImpactLevel | null;
@@ -110,20 +104,17 @@ export function ControlLibraryManager() {
   const [originFilter, setOriginFilter] = useState<OriginFilter>("ALL");
 
   async function loadAll() {
-    const [controlsRes, deploymentFacetsRes, regulatoryOverlaysRes, capabilitiesRes] = await Promise.all([
+    const [controlsRes, deploymentFacetsRes, capabilitiesRes] = await Promise.all([
       fetch("/api/controls"),
       fetch("/api/deployment-facets"),
-      fetch("/api/regulatory-overlays"),
       fetch("/api/capabilities"),
     ]);
     const controlsBody = await controlsRes.json();
     const deploymentFacetsBody = await deploymentFacetsRes.json();
-    const regulatoryOverlaysBody = await regulatoryOverlaysRes.json();
     const capabilitiesBody = await capabilitiesRes.json();
     return {
       controls: (controlsBody.controls ?? []) as ControlSummary[],
       deploymentFacets: (deploymentFacetsBody.deploymentFacets ?? []) as Catalog[],
-      regulatoryOverlays: (regulatoryOverlaysBody.regulatoryOverlays ?? []) as Catalog[],
       capabilities: (capabilitiesBody.capabilities ?? []) as Catalog[],
     };
   }
@@ -135,7 +126,6 @@ export function ControlLibraryManager() {
       if (cancelled) return;
       setControls(data.controls);
       setDeploymentFacets(data.deploymentFacets);
-      setRegulatoryOverlays(data.regulatoryOverlays);
       setCapabilities(data.capabilities);
       setLoading(false);
     });
@@ -157,7 +147,6 @@ export function ControlLibraryManager() {
     setSelectedId(id);
     const control = controls.find((r) => r.id === id);
     setSelectedDeploymentFacetIds(new Set(control?.deploymentFacets.map((t) => t.id) ?? []));
-    setSelectedRegulatoryOverlayIds(new Set(control?.regulatoryOverlays.map((o) => o.id) ?? []));
     setSelectedCapabilityIds(new Set(control?.capabilities.map((c) => c.id) ?? []));
     setImpactLevels({
       minConfidentialityImpactLevel: control?.minConfidentialityImpactLevel ?? null,
@@ -183,7 +172,6 @@ export function ControlLibraryManager() {
 
     const body: {
       deploymentFacetIds?: string[];
-      regulatoryOverlayIds?: string[];
       capabilityIds?: string[];
       minConfidentialityImpactLevel?: ImpactLevel | null;
       minIntegrityImpactLevel?: ImpactLevel | null;
@@ -193,7 +181,6 @@ export function ControlLibraryManager() {
     };
     if (selected.applicability !== "ORGANIZATIONAL") {
       body.deploymentFacetIds = Array.from(selectedDeploymentFacetIds);
-      body.regulatoryOverlayIds = Array.from(selectedRegulatoryOverlayIds);
       body.minConfidentialityImpactLevel = impactLevels.minConfidentialityImpactLevel;
       body.minIntegrityImpactLevel = impactLevels.minIntegrityImpactLevel;
       body.minAvailabilityImpactLevel = impactLevels.minAvailabilityImpactLevel;
@@ -367,7 +354,7 @@ export function ControlLibraryManager() {
           {selected.applicability === "ORGANIZATIONAL" ? (
             <p className="text-sm text-zinc-500">
               Organizational controls are never assessed per System, so they can&apos;t be
-              scoped to Deployment Facets, Regulatory Overlays, or Impact Level.
+              scoped to Deployment Facets or Impact Level.
             </p>
           ) : (
             <>
@@ -385,24 +372,6 @@ export function ControlLibraryManager() {
                       }
                     />
                     {facet.name}
-                  </label>
-                ))}
-              </fieldset>
-
-              <fieldset className="flex flex-col gap-2">
-                <legend className="text-sm font-semibold">
-                  Applicable Regulatory Overlays (none selected = all)
-                </legend>
-                {regulatoryOverlays.map((overlay) => (
-                  <label key={overlay.id} className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={selectedRegulatoryOverlayIds.has(overlay.id)}
-                      onChange={() =>
-                        setSelectedRegulatoryOverlayIds((prev) => toggle(prev, overlay.id))
-                      }
-                    />
-                    {overlay.name}
                   </label>
                 ))}
               </fieldset>

@@ -12,7 +12,7 @@ const IMPACT_LEVEL_RANK: Record<ImpactLevel, number> = { LOW: 0, MODERATE: 1, HI
  * doesn't care about this axis (always met). A null System level means
  * "not yet classified" on this axis — that only meets an unset threshold.
  * Impact Level thresholds are a >= comparison, not a membership check like
- * facet/overlay scoping — see ADR 0003.
+ * facet scoping — see ADR 0003.
  */
 function meetsImpactThreshold(systemLevel: ImpactLevel | null, minimum: ImpactLevel | null): boolean {
   if (!minimum) return true;
@@ -62,8 +62,8 @@ export const UNTOUCHED_ASSESSMENT_WHERE = { status: "NOT_STARTED", assessedById:
  * the System Owner can resolve it manually. Returns the ops (rather than
  * running them) so a caller can combine them with its own classification
  * update in one atomic `prisma.$transaction`. Shared by every
- * classification-changing mutation (Deployment Facets, Regulatory
- * Overlays, ...) — see ADR 0003.
+ * classification-changing mutation (Deployment Facets, Framework Scope,
+ * ...) — see ADR 0003 and ADR 0007.
  */
 export function diffApplicabilityOps(
   systemId: string,
@@ -128,7 +128,6 @@ export function checkWaiveGate(
  */
 export type SystemClassification = {
   deploymentFacets: { id: string }[];
-  regulatoryOverlays: { id: string }[];
   frameworkScopes: { id: string }[];
   confidentialityImpactLevel: ImpactLevel | null;
   integrityImpactLevel: ImpactLevel | null;
@@ -149,13 +148,12 @@ type ControlImpactThresholds = {
  *   (always in scope, stored scope row or not) or one of the System's declared
  *   Framework Scope rows. A declared row pointing at a Draft Framework matches
  *   nothing, so it's inert until that Framework is published.
- * - Deployment Facet and Regulatory Overlay scoping, per axis: unscoped, or
- *   scoped to include at least one of the System's declared values.
+ * - Deployment Facet scoping: unscoped, or scoped to include at least one of
+ *   the System's declared facets.
  * Impact Level thresholds are applied in application code afterwards.
  */
-const APPLICABILITY_SCOPING = (classification: Pick<SystemClassification, "deploymentFacets" | "regulatoryOverlays" | "frameworkScopes">) => {
+const APPLICABILITY_SCOPING = (classification: Pick<SystemClassification, "deploymentFacets" | "frameworkScopes">) => {
   const facetIds = classification.deploymentFacets.map((f) => f.id);
-  const overlayIds = classification.regulatoryOverlays.map((o) => o.id);
   const scopedFrameworkIds = classification.frameworkScopes.map((f) => f.id);
   return [
     {
@@ -168,17 +166,15 @@ const APPLICABILITY_SCOPING = (classification: Pick<SystemClassification, "deplo
       },
     },
     { OR: [{ deploymentFacets: { none: {} } }, { deploymentFacets: { some: { id: { in: facetIds } } } }] },
-    { OR: [{ regulatoryOverlays: { none: {} } }, { regulatoryOverlays: { some: { id: { in: overlayIds } } } } ] },
   ];
 };
 
 /**
  * Controls that apply to a System with the given classification: scoped
- * PER_SYSTEM or BOTH; for each of facet and overlay independently, either
- * unscoped on that axis (applies regardless) or explicitly scoped to
- * include at least one of the System's declared values on that axis (union
- * within an axis, e.g. a Hybrid System declaring both On-Prem and Cloud gets
- * everything either facet requires); and meeting every Impact Level
+ * PER_SYSTEM or BOTH; either unscoped by Deployment Facet (applies
+ * regardless) or explicitly scoped to include at least one of the System's
+ * declared facets (a union, e.g. a Hybrid System declaring both On-Prem and
+ * Cloud gets everything either facet requires); and meeting every Impact Level
  * threshold the Control sets (a >= comparison per CIA axis, not a
  * membership check). All conditions AND together — see ADR 0003.
  * ORGANIZATIONAL-scoped Controls are never assessed per System, so
@@ -234,7 +230,7 @@ export async function getSystemAssessments(system: SystemClassification & { id: 
 /**
  * The Control `controlId`, if it's applicable to `system` — null if
  * it doesn't exist or isn't scoped to one of this System's declared
- * Deployment Facets/Regulatory Overlays/applicability.
+ * Deployment Facets/applicability.
  */
 export async function getApplicableControl(system: SystemClassification, controlId: string) {
   const control = await prisma.control.findFirst({

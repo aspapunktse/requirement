@@ -5,7 +5,6 @@ import { ROLES_ALLOWED_TO_APPROVE } from "@/lib/approvals";
 import { canMarkOnboarded } from "@/lib/onboarding";
 import { canManageCapabilities } from "@/lib/system-capabilities";
 import { canChangeSystemClassification } from "@/lib/system-classification-change";
-import { canManageRegulatoryOverlays } from "@/lib/system-overlays";
 import { canManageBusinessUnits } from "@/lib/business-units";
 import { canManageFrameworkScopes } from "@/lib/framework-scope";
 import { assessmentEditAccess, canSubmit } from "@/lib/system-permissions";
@@ -15,7 +14,6 @@ import { RiskList } from "@/components/RiskList";
 import { ApprovalPanel } from "@/components/ApprovalPanel";
 import { MarkOnboardedButton } from "@/components/MarkOnboardedButton";
 import { SystemCapabilities } from "@/components/SystemCapabilities";
-import { SystemRegulatoryOverlays } from "@/components/SystemRegulatoryOverlays";
 import { SystemCatalogRelation } from "@/components/SystemCatalogRelation";
 import { DeploymentFacetsChanger } from "@/components/DeploymentFacetsChanger";
 import { ImpactLevelsChanger } from "@/components/ImpactLevelsChanger";
@@ -105,12 +103,6 @@ export default async function SystemDetailPage({ params }: PageProps<"/systems/[
 
       <h2 className="mb-3 mt-8 text-xl">Capabilities</h2>
       <SystemCapabilities systemId={system.id} canManage={canManageCapabilities(user, system)} />
-
-      <h2 className="mb-3 mt-8 text-xl">Regulatory Overlays</h2>
-      <SystemRegulatoryOverlays
-        systemId={system.id}
-        canManage={canManageRegulatoryOverlays(user, system)}
-      />
 
       <h2 className="mb-3 mt-8 text-xl">Business Units</h2>
       <SystemCatalogRelation

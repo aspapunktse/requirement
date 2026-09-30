@@ -41,8 +41,8 @@ const updateSystemSchema = z
  * and/or self-declared Impact Levels, any combination in one request — at any
  * lifecycle stage (ADR 0006), and recomputes its applicable Control Assessment
  * set to match (see #15, #47, #49, #50). The recompute never changes the
- * System's onboarding status. Regulatory Overlay declare/undeclare has its own endpoint
- * (`/api/systems/[id]/regulatory-overlays`) since it's a single-item
+ * System's onboarding status. Framework Scope declare/remove has its own endpoint
+ * (`/api/systems/[id]/framework-scopes`) since it's a single-item
  * connect/disconnect rather than a "set" like these two axes, but goes
  * through the same recompute logic underneath.
  */
@@ -94,7 +94,7 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/system
 
   const updated = await prisma.system.findUnique({
     where: { id: system.id },
-    include: { deploymentFacets: true, regulatoryOverlays: true, owner: true },
+    include: { deploymentFacets: true, owner: true },
   });
 
   return NextResponse.json({ system: updated, added, removed });

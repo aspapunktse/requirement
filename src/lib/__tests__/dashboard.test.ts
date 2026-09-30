@@ -168,7 +168,7 @@ describe("dashboard", () => {
         for (let attempt = 0; attempt < 10; attempt++) {
           const system = await prisma.system.findUniqueOrThrow({
             where: { id: systemId },
-            include: { deploymentFacets: true, regulatoryOverlays: true, frameworkScopes: { select: { id: true } } },
+            include: { deploymentFacets: true, frameworkScopes: { select: { id: true } } },
           });
           const before = (await getUnaddressedMandatoryControls(system)).map((c) => c.id);
           const count = await needsAssessmentCount(ownerId, systemId);

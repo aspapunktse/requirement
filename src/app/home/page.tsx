@@ -128,11 +128,10 @@ async function roleView(user: { id: string; name: string; role: UserRole }): Pro
     }
 
     case "ADMIN": {
-      const [controls, facets, capabilities, overlays] = await Promise.all([
+      const [controls, facets, capabilities] = await Promise.all([
         prisma.control.count(),
         prisma.deploymentFacet.count(),
         prisma.capability.count(),
-        prisma.regulatoryOverlay.count(),
       ]);
 
       return {
@@ -141,13 +140,11 @@ async function roleView(user: { id: string; name: string; role: UserRole }): Pro
           { label: "Controls", value: controls },
           { label: "Deployment facets", value: facets },
           { label: "Capabilities", value: capabilities },
-          { label: "Regulatory overlays", value: overlays },
         ],
         tiles: [
           { title: "Controls", description: "Manage the Control Library.", href: "/admin/controls" },
           { title: "Deployment Facets", description: "Manage deployment classifications.", href: "/admin/deployment-facets" },
           { title: "Capabilities", description: "Manage centrally-provided dependencies.", href: "/admin/capabilities" },
-          { title: "Regulatory Overlays", description: "Manage regulatory classifications.", href: "/admin/regulatory-overlays" },
         ],
       };
     }

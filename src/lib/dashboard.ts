@@ -35,7 +35,6 @@ export async function getSystemsNeedingAttention(ownerId: string): Promise<Atten
     orderBy: { createdAt: "asc" },
     include: {
       deploymentFacets: true,
-      regulatoryOverlays: true,
       frameworkScopes: { select: { id: true } },
       approvals: { where: { decision: "REJECTED" }, take: 1 },
     },

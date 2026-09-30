@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
       ownerId: auth.user.id,
       deploymentFacets: { connect: deploymentFacetIds.map((id) => ({ id })) },
     },
-    include: { deploymentFacets: true, regulatoryOverlays: true, owner: true },
+    include: { deploymentFacets: true, owner: true },
   });
   return NextResponse.json({ system }, { status: 201 });
 }

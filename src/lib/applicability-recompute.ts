@@ -62,7 +62,6 @@ const CLASSIFICATION_SELECT = {
   integrityImpactLevel: true,
   availabilityImpactLevel: true,
   deploymentFacets: { select: { id: true } },
-  regulatoryOverlays: { select: { id: true } },
   frameworkScopes: { select: { id: true } },
 } satisfies Prisma.SystemSelect;
 
@@ -86,7 +85,6 @@ function classificationKey(s: ClassifiedSystem): string {
   const level = (l: ImpactLevel | null) => l ?? "-";
   return [
     ids(s.deploymentFacets),
-    ids(s.regulatoryOverlays),
     ids(s.frameworkScopes),
     level(s.confidentialityImpactLevel),
     level(s.integrityImpactLevel),

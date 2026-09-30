@@ -34,7 +34,6 @@ const updateControlSchema = z
     intent: z.string().nullable().optional(),
     examples: z.array(z.string()).optional(),
     deploymentFacetIds: z.array(z.string()).optional(),
-    regulatoryOverlayIds: z.array(z.string()).optional(),
     capabilityIds: z.array(z.string()).optional(),
     minConfidentialityImpactLevel: impactLevelSchema.optional(),
     minIntegrityImpactLevel: impactLevelSchema.optional(),
@@ -48,8 +47,8 @@ const sameIds = (a: string[], b: string[]) => new Set(a).size === new Set(b).siz
 
 /**
  * Edits a Control. `applicability` and the mapping to Requirements aren't editable here, so the
- * fields that decide which Systems the Control applies to are its Deployment Facets, Regulatory
- * Overlays and the three Impact Level thresholds. When one of those actually changes (not merely
+ * fields that decide which Systems the Control applies to are its Deployment Facets and the three
+ * Impact Level thresholds. When one of those actually changes (not merely
  * present in the body) every System that has in scope a Published Framework the Control is mapped
  * to is recomputed for this Control (F-AP.3, #87): Not Started Assessments appear where it now
  * applies, untouched ones go where it no longer does, touched ones are kept as stale.
@@ -67,7 +66,7 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/contro
 
   const control = await prisma.control.findUnique({
     where: { id },
-    include: { deploymentFacets: { select: { id: true } }, regulatoryOverlays: { select: { id: true } } },
+    include: { deploymentFacets: { select: { id: true } } },
   });
   if (!control) {
     return NextResponse.json({ error: "Control not found" }, { status: 404 });
@@ -82,7 +81,6 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/contro
     intent,
     examples,
     deploymentFacetIds,
-    regulatoryOverlayIds,
     capabilityIds,
     minConfidentialityImpactLevel,
     minIntegrityImpactLevel,
@@ -91,7 +89,6 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/contro
   if (
     control.applicability === "ORGANIZATIONAL" &&
     ((deploymentFacetIds !== undefined && deploymentFacetIds.length > 0) ||
-      (regulatoryOverlayIds !== undefined && regulatoryOverlayIds.length > 0) ||
       minConfidentialityImpactLevel != null ||
       minIntegrityImpactLevel != null ||
       minAvailabilityImpactLevel != null)
@@ -99,7 +96,7 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/contro
     return NextResponse.json(
       {
         error:
-          "ORGANIZATIONAL controls cannot be scoped to Deployment Facets, Regulatory Overlays, or Impact Level",
+          "ORGANIZATIONAL controls cannot be scoped to Deployment Facets or Impact Level",
       },
       { status: 400 },
     );
@@ -108,8 +105,6 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/contro
   const scopingChanged =
     (deploymentFacetIds !== undefined &&
       !sameIds(deploymentFacetIds, control.deploymentFacets.map((f) => f.id))) ||
-    (regulatoryOverlayIds !== undefined &&
-      !sameIds(regulatoryOverlayIds, control.regulatoryOverlays.map((o) => o.id))) ||
     (minConfidentialityImpactLevel !== undefined &&
       minConfidentialityImpactLevel !== control.minConfidentialityImpactLevel) ||
     (minIntegrityImpactLevel !== undefined && minIntegrityImpactLevel !== control.minIntegrityImpactLevel) ||
@@ -131,9 +126,6 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/contro
         ...(deploymentFacetIds !== undefined && {
           deploymentFacets: { set: deploymentFacetIds.map((facetId) => ({ id: facetId })) },
         }),
-        ...(regulatoryOverlayIds !== undefined && {
-          regulatoryOverlays: { set: regulatoryOverlayIds.map((overlayId) => ({ id: overlayId })) },
-        }),
         ...(capabilityIds !== undefined && {
           capabilities: { set: capabilityIds.map((capabilityId) => ({ id: capabilityId })) },
         }),
@@ -148,7 +140,7 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/contro
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
       return NextResponse.json(
-        { error: "One or more Deployment Facet, Regulatory Overlay, or Capability ids do not exist" },
+        { error: "One or more Deployment Facet or Capability ids do not exist" },
         { status: 400 },
       );
     }

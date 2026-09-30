@@ -11,7 +11,6 @@ const baseControl = {
   intent: null,
   examples: [] as string[],
   deploymentFacets: [] as { id: string; name: string }[],
-  regulatoryOverlays: [] as { id: string; name: string }[],
   capabilities: [] as { id: string; name: string }[],
   originFramework: null as { id: string; name: string; version: string } | null,
   mappings: [] as {
@@ -46,7 +45,6 @@ let controls = [
   },
 ];
 const deploymentFacets = [{ id: "st1", name: "On-Premises Datacenter" }];
-const regulatoryOverlays = [{ id: "o1", name: "GDPR" }];
 const capabilities = [{ id: "c1", name: "Active Directory" }];
 const iso = { id: "f1", name: "ISO/IEC 27001", version: "2022" };
 const nis2 = { id: "f2", name: "NIS2", version: "2022" };
@@ -61,9 +59,6 @@ function mockFetch() {
     }
     if (url.endsWith("/api/deployment-facets") && method === "GET") {
       return Promise.resolve(new Response(JSON.stringify({ deploymentFacets }), { status: 200 }));
-    }
-    if (url.endsWith("/api/regulatory-overlays") && method === "GET") {
-      return Promise.resolve(new Response(JSON.stringify({ regulatoryOverlays }), { status: 200 }));
     }
     if (url.endsWith("/api/capabilities") && method === "GET") {
       return Promise.resolve(new Response(JSON.stringify({ capabilities }), { status: 200 }));
@@ -156,30 +151,10 @@ describe("ControlLibraryManager", () => {
       expect(JSON.parse(patchCall![1].body)).toEqual({
         capabilityIds: [],
         deploymentFacetIds: ["st1"],
-        regulatoryOverlayIds: [],
         minConfidentialityImpactLevel: null,
         minIntegrityImpactLevel: null,
         minAvailabilityImpactLevel: null,
       });
-    });
-  });
-
-  it("lets an admin scope a Control to a Regulatory Overlay and save", async () => {
-    const user = userEvent.setup();
-    render(<ControlLibraryManager />);
-
-    await user.selectOptions(await screen.findByLabelText("Control"), "r1");
-    await user.click(screen.getByLabelText("GDPR"));
-    await user.click(screen.getByRole("button", { name: "Save" }));
-
-    await waitFor(() => {
-      const patchCall = (fetch as ReturnType<typeof vi.fn>).mock.calls.find(
-        ([url, init]) =>
-          typeof url === "string" && url.endsWith("/api/controls/r1") && init?.method === "PATCH",
-      );
-      expect(patchCall).toBeTruthy();
-      const body = JSON.parse(patchCall![1].body);
-      expect(body.regulatoryOverlayIds).toEqual(["o1"]);
     });
   });
 
@@ -256,14 +231,13 @@ describe("ControlLibraryManager", () => {
     expect(screen.getByText("Satisfies: no Framework Requirement yet")).toBeInTheDocument();
   });
 
-  it("hides Deployment Facet, Regulatory Overlay, and Impact Level selection for an ORGANIZATIONAL control", async () => {
+  it("hides Deployment Facet and Impact Level selection for an ORGANIZATIONAL control", async () => {
     const user = userEvent.setup();
     render(<ControlLibraryManager />);
 
     await user.selectOptions(await screen.findByLabelText("Control"), "r2");
 
     expect(screen.queryByLabelText("On-Premises Datacenter")).not.toBeInTheDocument();
-    expect(screen.queryByLabelText("GDPR")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Min. Confidentiality")).not.toBeInTheDocument();
     expect(screen.getByText(/never assessed per System/)).toBeInTheDocument();
   });

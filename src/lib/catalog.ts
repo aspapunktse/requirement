@@ -1,7 +1,7 @@
 import type { UserRole } from "@prisma/client";
 
 /** Who may create, edit, or retire entries in the catalogs Admin owns
- * (Deployment Facets, Capabilities, Regulatory Overlays, Business Units)
+ * (Deployment Facets, Capabilities, Business Units)
  * and assign a Business Risk Owner's portfolio: ADMIN only. */
 export const ROLES_ALLOWED_TO_MANAGE_CATALOG: UserRole[] = ["ADMIN"];
 

@@ -18,7 +18,7 @@ import { DELETE } from "../[frameworkId]/route";
  * Framework Scope drives applicability (ADR 0007, #85): a Per-System/Both
  * Control applies to a System only if it's mapped to a Requirement of a
  * Published Framework in the System's effective Framework Scope (declared scope
- * rows + the base Framework, always), on top of its facet/overlay/impact
+ * rows + the base Framework, always), on top of its facet/impact
  * scoping. Every fixture Control here is scoped to one fixture Deployment
  * Facet so it can't leak into other test files' Systems.
  */
@@ -74,7 +74,7 @@ describe("Framework Scope drives applicability (#85)", () => {
   function loadSystem(id: string) {
     return prisma.system.findUniqueOrThrow({
       where: { id },
-      include: { deploymentFacets: true, regulatoryOverlays: true, frameworkScopes: { select: { id: true } } },
+      include: { deploymentFacets: true, frameworkScopes: { select: { id: true } } },
     });
   }
 
