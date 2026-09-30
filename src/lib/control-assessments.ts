@@ -170,6 +170,38 @@ const APPLICABILITY_SCOPING = (classification: Pick<SystemClassification, "deplo
 };
 
 /**
+ * The in-memory twin of `getApplicableControls`' rules, for callers that have
+ * already bulk-loaded Controls and need the answer for many Systems without a
+ * query per System (the derived Requirement status, #89). MUST stay in sync
+ * with APPLICABILITY_SCOPING and the applicability filter above; a DB test
+ * asserts the two agree on fixtures. `control.mappings` must list the
+ * Framework of every Requirement the Control is mapped to (any Coverage).
+ */
+export function controlAppliesToSystem(
+  control: ControlImpactThresholds & {
+    applicability: "ORGANIZATIONAL" | "PER_SYSTEM" | "BOTH";
+    deploymentFacets: { id: string }[];
+    mappings: { requirement: { framework: { id: string; status: string; isBase: boolean } } }[];
+  },
+  classification: SystemClassification,
+): boolean {
+  if (!(APPLICABLE_APPLICABILITIES as readonly string[]).includes(control.applicability)) return false;
+
+  const scopedFrameworkIds = new Set(classification.frameworkScopes.map((f) => f.id));
+  const inScopePublishedFramework = control.mappings.some(({ requirement: { framework } }) => {
+    return framework.status === "PUBLISHED" && (framework.isBase || scopedFrameworkIds.has(framework.id));
+  });
+  if (!inScopePublishedFramework) return false;
+
+  if (control.deploymentFacets.length > 0) {
+    const facetIds = new Set(classification.deploymentFacets.map((f) => f.id));
+    if (!control.deploymentFacets.some((f) => facetIds.has(f.id))) return false;
+  }
+
+  return meetsAllImpactThresholds(classification, control);
+}
+
+/**
  * Controls that apply to a System with the given classification: scoped
  * PER_SYSTEM or BOTH; either unscoped by Deployment Facet (applies
  * regardless) or explicitly scoped to include at least one of the System's

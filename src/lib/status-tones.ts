@@ -58,3 +58,17 @@ export function riskSeverityTone(severity: string): ChipTone {
 export function attentionReasonTone(reason: "stale" | "rejected" | "needs-assessment"): ChipTone {
   return reason === "rejected" ? "danger" : "warn";
 }
+
+/** Tone for a derived Requirement status (Met / Partially Met / Not Met / Not Applicable). */
+export function requirementStatusTone(status: "MET" | "PARTIALLY_MET" | "NOT_MET" | "NOT_APPLICABLE"): ChipTone {
+  switch (status) {
+    case "MET":
+      return "success";
+    case "PARTIALLY_MET":
+      return "warn";
+    case "NOT_MET":
+      return "danger";
+    default:
+      return "neutral";
+  }
+}

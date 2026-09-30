@@ -8,7 +8,9 @@ import { canChangeSystemClassification } from "@/lib/system-classification-chang
 import { canManageBusinessUnits } from "@/lib/business-units";
 import { canManageFrameworkScopes } from "@/lib/framework-scope";
 import { assessmentEditAccess, canSubmit } from "@/lib/system-permissions";
+import { getSystemFrameworkRequirements } from "@/lib/requirement-status";
 import { ControlAssessmentList } from "@/components/ControlAssessmentList";
+import { SystemFrameworkRequirementsView } from "@/components/SystemFrameworkRequirements";
 import { SubmitForReviewButton } from "@/components/SubmitForReviewButton";
 import { RiskList } from "@/components/RiskList";
 import { ApprovalPanel } from "@/components/ApprovalPanel";
@@ -33,6 +35,8 @@ export default async function SystemDetailPage({ params }: PageProps<"/systems/[
   if (!system) {
     return <p className="p-6 text-zinc-600 dark:text-zinc-400">System not found.</p>;
   }
+
+  const frameworkRequirements = await getSystemFrameworkRequirements(system);
 
   return (
     <div className="mx-auto max-w-2xl p-6">
@@ -139,6 +143,9 @@ export default async function SystemDetailPage({ params }: PageProps<"/systems/[
         readOnly={!canWriteSystems(user)}
         assessmentEditAccess={assessmentEditAccess(user, system)}
       />
+
+      <h2 className="mb-3 mt-8 text-xl">Requirements by Framework</h2>
+      <SystemFrameworkRequirementsView frameworks={frameworkRequirements} />
 
       <h2 className="mb-3 mt-8 text-xl">Risks</h2>
       <RiskList
