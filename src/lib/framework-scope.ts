@@ -1,22 +1,124 @@
 import type { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import {
+  getApplicableControls,
+  diffApplicabilityOps,
+  type SystemClassification,
+} from "@/lib/control-assessments";
+import { logChangeEvent } from "@/lib/change-events";
 import { isSystemOwnerOrAdmin } from "@/lib/system-permissions";
 
 /**
- * Who may declare or undeclare a System's Framework Scope — which
- * Framework's audit/certification boundary it falls within (e.g. "in ISO
- * scope"): ADMIN, or the System's owner (`ownerId`, whatever their role) — at any point in the
- * System's lifecycle. Same reporting-only, not-Draft-locked rule as
- * Business Unit (canManageBusinessUnits) — declaring a Framework Scope has
- * no effect on the applicable Control set. See #55.
+ * Who may declare or undeclare a System's Framework Scope: ADMIN, or the
+ * System's owner (`ownerId`, whatever their role) — and only while the System
+ * is still Draft. Framework Scope now *drives* which Controls apply to the
+ * System (ADR 0007), so it gets the same Draft-only lock as the other
+ * classification axes (`canManageRegulatoryOverlays`,
+ * `canChangeSystemClassification`): there must never be a way to change
+ * applicability without the lock. Temporary — the Draft lock is lifted for
+ * every axis together by the continuous-compliance issue (#86, ADR 0006).
  */
-export function canManageFrameworkScopes(user: { id: string; role: UserRole }, system: { ownerId: string }) {
+export function canManageFrameworkScopes(
+  user: { id: string; role: UserRole },
+  system: { ownerId: string; status: string },
+) {
+  if (system.status !== "DRAFT") return false;
   return isSystemOwnerOrAdmin(user, system);
 }
 
-export function getSystemFrameworkScopes(systemId: string) {
-  return prisma.framework.findMany({
-    where: { scopedSystems: { some: { id: systemId } } },
-    orderBy: { name: "asc" },
-  });
+/**
+ * A System's Framework Scope as shown to users: every declared scope row, plus
+ * the base Framework, which is always in scope whether or not a row is stored
+ * for it (each item carries `isBase` so the UI can show it as fixed). Declared
+ * rows pointing at a Draft Framework are included too (they're inert, see
+ * getApplicableControls) so a Compliance Manager can still see and remove them.
+ */
+export async function getSystemFrameworkScopes(systemId: string) {
+  const [declared, base] = await Promise.all([
+    prisma.framework.findMany({ where: { scopedSystems: { some: { id: systemId } } } }),
+    prisma.framework.findFirst({ where: { isBase: true } }),
+  ]);
+  const frameworks = base && !declared.some((f) => f.id === base.id) ? [...declared, base] : declared;
+  return frameworks.sort((a, b) => a.name.localeCompare(b.name) || a.version.localeCompare(b.version));
+}
+
+type ScopeSystem = SystemClassification & { id: string };
+
+/**
+ * Declaring a Framework Scope can widen the applicable Control set (every
+ * Control mapped to a Requirement of the Framework, if it's Published). Syncs
+ * Assessment rows the same way a classification change does — see
+ * diffApplicabilityOps — with the scope row, the deletes and the creates in
+ * one transaction. Declaring a Framework that's already in scope is a no-op
+ * diff.
+ */
+export async function applyFrameworkScopeDeclared(
+  system: ScopeSystem,
+  framework: { id: string; name: string },
+  actorId: string,
+) {
+  const newScopeIds = [...new Set([...system.frameworkScopes.map((f) => f.id), framework.id])];
+
+  const [oldApplicable, newApplicable] = await Promise.all([
+    getApplicableControls(system),
+    getApplicableControls({ ...system, frameworkScopes: newScopeIds.map((id) => ({ id })) }),
+  ]);
+
+  const { added, deleteOp, createOp } = diffApplicabilityOps(system.id, oldApplicable, newApplicable);
+  const [, removed] = await prisma.$transaction([
+    prisma.system.update({
+      where: { id: system.id },
+      data: { frameworkScopes: { connect: { id: framework.id } } },
+    }),
+    deleteOp,
+    createOp,
+  ]);
+
+  await logChangeEvent(
+    system.id,
+    "CLASSIFICATION_CHANGED",
+    `Framework Scope "${framework.name}" added (+${added}/-${removed.count} Control Assessment(s))`,
+    actorId,
+  );
+
+  return { added, removed: removed.count };
+}
+
+/**
+ * Removing a Framework from a System's scope can narrow the applicable
+ * Control set. An untouched Assessment for a Control that's no longer
+ * applicable is removed; one a human has already worked on is left in place
+ * and surfaced via getStaleAssessments. The caller must have refused the base
+ * Framework first — it can't be removed (F-FW.3).
+ */
+export async function applyFrameworkScopeRemoved(
+  system: ScopeSystem,
+  framework: { id: string; name: string },
+  actorId: string,
+) {
+  const newScopeIds = system.frameworkScopes.map((f) => f.id).filter((id) => id !== framework.id);
+
+  const [oldApplicable, newApplicable] = await Promise.all([
+    getApplicableControls(system),
+    getApplicableControls({ ...system, frameworkScopes: newScopeIds.map((id) => ({ id })) }),
+  ]);
+
+  const { added, deleteOp, createOp } = diffApplicabilityOps(system.id, oldApplicable, newApplicable);
+  const [, removed] = await prisma.$transaction([
+    prisma.system.update({
+      where: { id: system.id },
+      data: { frameworkScopes: { disconnect: { id: framework.id } } },
+    }),
+    deleteOp,
+    createOp,
+  ]);
+
+  await logChangeEvent(
+    system.id,
+    "CLASSIFICATION_CHANGED",
+    `Framework Scope "${framework.name}" removed (+${added}/-${removed.count} Control Assessment(s))`,
+    actorId,
+  );
+
+  return { added, removed: removed.count };
 }

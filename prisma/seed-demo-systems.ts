@@ -178,6 +178,8 @@ async function main() {
     return {
       deploymentFacets: facetKeys.map((k) => ({ id: facets[k].id })),
       regulatoryOverlays: overlayKeys.map((k) => ({ id: overlays[k].id })),
+      // Declared Framework Scope rows; the base Framework (ISO 27001) is always in scope on top.
+      frameworkScopes: [],
       confidentialityImpactLevel: impact.c ?? null,
       integrityImpactLevel: impact.i ?? null,
       availabilityImpactLevel: impact.a ?? null,

@@ -19,8 +19,10 @@ import { isSystemOwnerOrAdmin } from "@/lib/system-permissions";
  *
  * Draft-only (not merely "not yet Onboarded") is a deliberate, confirmed
  * choice (#51): it matches Capability's existing rule (`canManageCapabilities`
- * in system-capabilities.ts) and Regulatory Overlay's (`canManageRegulatoryOverlays`
- * in system-overlays.ts), so all four mechanisms are locked from the moment
+ * in system-capabilities.ts), Regulatory Overlay's (`canManageRegulatoryOverlays`
+ * in system-overlays.ts) and, since ADR 0007 made Framework Scope drive
+ * applicability, Framework Scope's (`canManageFrameworkScopes` in
+ * framework-scope.ts), so all the mechanisms are locked from the moment
  * a System leaves Draft (submitted for review) rather than only once
  * Onboarded — trivially satisfies "locked once Onboarded" as a strict
  * subset, and keeps one consistent rule instead of each mechanism picking
@@ -76,6 +78,7 @@ export async function changeSystemClassification(
         ? changes.deploymentFacetIds.map((id) => ({ id }))
         : system.deploymentFacets,
     regulatoryOverlays: system.regulatoryOverlays,
+    frameworkScopes: system.frameworkScopes,
     confidentialityImpactLevel:
       changes.confidentialityImpactLevel !== undefined
         ? changes.confidentialityImpactLevel

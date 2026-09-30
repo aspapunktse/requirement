@@ -12,6 +12,8 @@ type CatalogItem = {
   description: string | null;
   // Only Frameworks have a status; a Draft one can't be declared (the API rejects it too).
   status?: "DRAFT" | "PUBLISHED";
+  // Only set on Frameworks: the base Framework is always in scope and can't be removed.
+  isBase?: boolean;
 };
 
 type SystemCatalogRelationProps = {
@@ -137,8 +139,16 @@ export function SystemCatalogRelation({
               key={item.id}
               className="flex items-center justify-between rounded border border-zinc-200 p-2 text-sm dark:border-zinc-800"
             >
-              <span>{frameworkLabel(item)}</span>
-              {canManage && (
+              <span>
+                {frameworkLabel(item)}
+                {item.isBase && (
+                  <span className="ml-2 text-xs text-zinc-500">Base Framework, always in scope</span>
+                )}
+                {item.status === "DRAFT" && (
+                  <span className="ml-2 text-xs text-zinc-500">Draft, no effect until published</span>
+                )}
+              </span>
+              {canManage && !item.isBase && (
                 <Button className="px-2 py-0.5 text-xs" onClick={() => handleRemove(item.id)}>
                   Remove
                 </Button>

@@ -111,10 +111,18 @@ export function checkWaiveGate(
   return { ok: true };
 }
 
-/** A System's declared classification, as far as applicability filtering cares. */
+/**
+ * A System's declared classification, as far as applicability filtering cares.
+ * `frameworkScopes` is the System's *declared* Framework Scope rows (ids
+ * only); the base Framework is always in scope on top of them and needn't be
+ * listed. Required, not optional, so that a caller which forgets to load it
+ * fails typecheck instead of silently dropping every non-base Framework's
+ * Controls (ADR 0007).
+ */
 export type SystemClassification = {
   deploymentFacets: { id: string }[];
   regulatoryOverlays: { id: string }[];
+  frameworkScopes: { id: string }[];
   confidentialityImpactLevel: ImpactLevel | null;
   integrityImpactLevel: ImpactLevel | null;
   availabilityImpactLevel: ImpactLevel | null;
@@ -127,10 +135,35 @@ type ControlImpactThresholds = {
   minAvailabilityImpactLevel: ImpactLevel | null;
 };
 
-const APPLICABLE_BY_FACET_AND_OVERLAY = (facetIds: string[], overlayIds: string[]) => [
-  { OR: [{ deploymentFacets: { none: {} } }, { deploymentFacets: { some: { id: { in: facetIds } } } }] },
-  { OR: [{ regulatoryOverlays: { none: {} } }, { regulatoryOverlays: { some: { id: { in: overlayIds } } } } ] },
-];
+/**
+ * The DB-side applicability conditions for `classification`, ANDed together:
+ * - Framework gate (ADR 0007): the Control is mapped, at any Coverage, to a
+ *   Requirement of a PUBLISHED Framework that's either the base Framework
+ *   (always in scope, stored scope row or not) or one of the System's declared
+ *   Framework Scope rows. A declared row pointing at a Draft Framework matches
+ *   nothing, so it's inert until that Framework is published.
+ * - Deployment Facet and Regulatory Overlay scoping, per axis: unscoped, or
+ *   scoped to include at least one of the System's declared values.
+ * Impact Level thresholds are applied in application code afterwards.
+ */
+const APPLICABILITY_SCOPING = (classification: Pick<SystemClassification, "deploymentFacets" | "regulatoryOverlays" | "frameworkScopes">) => {
+  const facetIds = classification.deploymentFacets.map((f) => f.id);
+  const overlayIds = classification.regulatoryOverlays.map((o) => o.id);
+  const scopedFrameworkIds = classification.frameworkScopes.map((f) => f.id);
+  return [
+    {
+      mappings: {
+        some: {
+          requirement: {
+            framework: { status: "PUBLISHED" as const, OR: [{ isBase: true }, { id: { in: scopedFrameworkIds } }] },
+          },
+        },
+      },
+    },
+    { OR: [{ deploymentFacets: { none: {} } }, { deploymentFacets: { some: { id: { in: facetIds } } } }] },
+    { OR: [{ regulatoryOverlays: { none: {} } }, { regulatoryOverlays: { some: { id: { in: overlayIds } } } } ] },
+  ];
+};
 
 /**
  * Controls that apply to a System with the given classification: scoped
@@ -144,15 +177,19 @@ const APPLICABLE_BY_FACET_AND_OVERLAY = (facetIds: string[], overlayIds: string[
  * ORGANIZATIONAL-scoped Controls are never assessed per System, so
  * they're excluded here. Impact Level thresholds can't be expressed as a
  * portable Prisma enum filter, so they're applied in application code after
- * the facet/overlay-filtered fetch.
+ * the DB-side fetch.
+ *
+ * On top of that, a Control only applies if it's mapped to a Requirement of a
+ * Published Framework in the System's effective Framework Scope (its declared
+ * scope rows plus the always-in-scope base Framework), and a Control mapped to
+ * no Published Framework in scope applies to nothing — see
+ * APPLICABILITY_SCOPING and ADR 0007.
  */
 export async function getApplicableControls(classification: SystemClassification) {
-  const facetIds = classification.deploymentFacets.map((f) => f.id);
-  const overlayIds = classification.regulatoryOverlays.map((o) => o.id);
   const controls = await prisma.control.findMany({
     where: {
       applicability: { in: [...APPLICABLE_APPLICABILITIES] },
-      AND: APPLICABLE_BY_FACET_AND_OVERLAY(facetIds, overlayIds),
+      AND: APPLICABILITY_SCOPING(classification),
     },
     orderBy: { code: "asc" },
   });
@@ -187,13 +224,11 @@ export async function getSystemAssessments(system: SystemClassification & { id: 
  * Deployment Facets/Regulatory Overlays/applicability.
  */
 export async function getApplicableControl(system: SystemClassification, controlId: string) {
-  const facetIds = system.deploymentFacets.map((f) => f.id);
-  const overlayIds = system.regulatoryOverlays.map((o) => o.id);
   const control = await prisma.control.findFirst({
     where: {
       id: controlId,
       applicability: { in: [...APPLICABLE_APPLICABILITIES] },
-      AND: APPLICABLE_BY_FACET_AND_OVERLAY(facetIds, overlayIds),
+      AND: APPLICABILITY_SCOPING(system),
     },
   });
   if (!control || !meetsAllImpactThresholds(system, control)) return null;
@@ -249,13 +284,11 @@ export async function getStaleAssessments(system: SystemClassification & { id: s
  * only cares that each has been touched, not that it's Fulfilled.
  */
 export async function getUnaddressedMandatoryControls(system: SystemClassification & { id: string }) {
-  const facetIds = system.deploymentFacets.map((f) => f.id);
-  const overlayIds = system.regulatoryOverlays.map((o) => o.id);
   const candidates = await prisma.control.findMany({
     where: {
       mandatory: true,
       applicability: { in: [...APPLICABLE_APPLICABILITIES] },
-      AND: APPLICABLE_BY_FACET_AND_OVERLAY(facetIds, overlayIds),
+      AND: APPLICABILITY_SCOPING(system),
     },
   });
   const mandatoryControls = candidates.filter((control) => meetsAllImpactThresholds(system, control));

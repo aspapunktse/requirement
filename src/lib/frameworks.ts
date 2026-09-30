@@ -112,10 +112,11 @@ export const BASE_FRAMEWORK_ERRORS: Record<BaseFrameworkViolation, string> = {
  * (POST /api/frameworks/[id]/publish) records the FRAMEWORK_PUBLISHED Change
  * Event and then calls this.
  *
- * Deliberately a no-op for now (PRD 0001 F-FW.5): once Framework Scope drives
- * applicability (M2, ADR 0007) this is where every System that already has
- * the Framework in scope gets its applicable Controls recomputed. Until then
- * Framework Scope is reporting-only, so there is nothing to recompute.
+ * Deliberately still a no-op (PRD 0001 F-FW.5): Framework Scope drives
+ * applicability since #85 (ADR 0007), but recomputing every System that already
+ * has the Framework in scope (its Draft scope rows become effective on publish)
+ * is #87's job, and this is where it goes. Until then such a System's
+ * Assessments catch up on its next recompute trigger.
  */
 export async function onFrameworkPublished(frameworkId: string): Promise<void> {
   void frameworkId;

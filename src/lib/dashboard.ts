@@ -17,6 +17,7 @@ export async function getSystemsNeedingAttention(userId: string): Promise<Attent
     include: {
       deploymentFacets: true,
       regulatoryOverlays: true,
+      frameworkScopes: { select: { id: true } },
       approvals: { where: { decision: "REJECTED" }, take: 1 },
     },
   });
