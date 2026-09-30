@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
+import { getBaseFramework } from "@/test/framework-fixtures";
 import { ACTING_USER_COOKIE } from "@/lib/acting-user";
 import { POST, GET } from "../route";
 import { DELETE, PATCH } from "../[id]/route";
@@ -32,8 +33,6 @@ describe("/api/frameworks: version, base Framework and supersedes rules", () => 
   let viewerId: string;
   let baseId: string;
   const createdIds: string[] = [];
-  // Only set when this file had to create a base Framework itself (CI's DB is migrated but not seeded).
-  let createdBaseId: string | null = null;
 
   async function create(body: Record<string, unknown>) {
     const response = await POST(req("/api/frameworks", "POST", cmId, body));
@@ -56,23 +55,14 @@ describe("/api/frameworks: version, base Framework and supersedes rules", () => 
     ]);
     cmId = cm.id;
     viewerId = viewer.id;
-    // The base Framework: the seeded ISO/IEC 27001:2022 on a seeded DB (never mutated by these
-    // tests), otherwise a fixture base created here and removed in afterAll.
-    const existingBase = await prisma.framework.findFirst({ where: { isBase: true } });
-    if (existingBase) {
-      baseId = existingBase.id;
-    } else {
-      const base = await prisma.framework.create({
-        data: { name: `Test Base FW ${SUFFIX}`, version: "1", isBase: true, status: "PUBLISHED" },
-      });
-      baseId = createdBaseId = base.id;
-    }
+    // The base Framework: the seeded ISO/IEC 27001:2022, or the one vitest.global-setup.ts creates
+    // for CI's unseeded DB. Never mutated by these tests.
+    baseId = (await getBaseFramework()).id;
   });
 
   afterAll(async () => {
     await prisma.framework.updateMany({ where: { id: { in: createdIds } }, data: { supersedesId: null } });
     await prisma.framework.deleteMany({ where: { id: { in: createdIds } } });
-    if (createdBaseId) await prisma.framework.deleteMany({ where: { id: createdBaseId } });
     await prisma.user.deleteMany({ where: { email: { in: [CM_EMAIL, VIEWER_EMAIL] } } });
   });
 

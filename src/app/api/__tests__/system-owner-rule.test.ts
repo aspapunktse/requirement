@@ -302,6 +302,23 @@ describe("The System's owner is ownerId, whatever the role (#91)", () => {
     expect((await prisma.system.findUniqueOrThrow({ where: { id: approved } })).status).toBe("APPROVED");
   });
 
+  it.each(["APPROVED", "ONBOARDED"] as const)(
+    "refuses Framework Scope changes on a %s System even for its owner and an ADMIN (Draft-only lock, ADR 0007 / #85), changing nothing",
+    async (status) => {
+      const systemId = await makeSystem("SYSTEM_OWNER", status);
+      const scopeActions = actions().filter((a) => a.name.endsWith("a Framework Scope"));
+      expect(scopeActions).toHaveLength(2);
+      for (const userKey of ["SYSTEM_OWNER", "ADMIN"]) {
+        for (const action of scopeActions) {
+          const before = await snapshot(systemId);
+          const response = await action.run(systemId, users[userKey]);
+          expect(response.status, `${userKey}: ${action.name} on a ${status} System`).toBe(403);
+          expect(await snapshot(systemId), `${userKey}: ${action.name} changed something`).toEqual(before);
+        }
+      }
+    },
+  );
+
   it("keeps the 400 for onboarding a System that isn't Approved, once the owner is allowed", async () => {
     const systemId = await makeSystem("REVIEWER", "DRAFT");
     const response = await onboard(req(`/api/systems/${systemId}/onboard`, "POST", users.REVIEWER), {

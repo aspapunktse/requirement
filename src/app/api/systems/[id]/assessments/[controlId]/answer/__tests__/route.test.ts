@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
+import { mapControlsToBase } from "@/test/framework-fixtures";
 import { ACTING_USER_COOKIE } from "@/lib/acting-user";
 import { PATCH } from "../route";
 
@@ -95,6 +96,7 @@ describe("PATCH /api/systems/[id]/assessments/[controlId]/answer", () => {
     });
     mandatoryControlId = mandatory.id;
     optionalControlId = optional.id;
+    await mapControlsToBase([mandatoryControlId, optionalControlId]);
   });
 
   afterAll(async () => {
@@ -234,6 +236,7 @@ describe("PATCH /api/systems/[id]/assessments/[controlId]/answer", () => {
       },
     });
 
+    await mapControlsToBase([scoped.id]); // so it's the Deployment Facet scoping that makes it inapplicable
     const response = await PATCH(
       requestAs(systemId, scoped.id, ownerId, { answer: "YES" }),
       ctxFor(systemId, scoped.id),

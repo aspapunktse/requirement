@@ -2,8 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authenticate } from "@/lib/api-authz";
 import { getVisibleSystem } from "@/lib/system-visibility";
-import { canManageFrameworkScopes, getSystemFrameworkScopes } from "@/lib/framework-scope";
-import { logChangeEvent } from "@/lib/change-events";
+import {
+  applyFrameworkScopeRemoved,
+  canManageFrameworkScopes,
+  getSystemFrameworkScopes,
+} from "@/lib/framework-scope";
 
 export async function DELETE(
   request: NextRequest,
@@ -20,23 +23,22 @@ export async function DELETE(
 
   if (!canManageFrameworkScopes(auth.user, system)) {
     return NextResponse.json(
-      { error: "Only the System's owner or an Admin can remove Framework Scope from a System" },
+      { error: "Only the System's owner or an Admin can remove Framework Scope from a Draft System" },
       { status: 403 },
     );
   }
 
   const framework = await prisma.framework.findUnique({ where: { id: frameworkId } });
+  // The base Framework is always in every System's Framework Scope (F-FW.3): whether or not a
+  // row is stored for it, it can't be removed.
+  if (framework?.isBase) {
+    return NextResponse.json(
+      { error: "The base Framework is always in a System's Framework Scope and can't be removed" },
+      { status: 409 },
+    );
+  }
 
-  await prisma.system.update({
-    where: { id: system.id },
-    data: { frameworkScopes: { disconnect: { id: frameworkId } } },
-  });
-  await logChangeEvent(
-    system.id,
-    "CLASSIFICATION_CHANGED",
-    `Framework Scope "${framework?.name ?? frameworkId}" removed`,
-    auth.user.id,
-  );
+  await applyFrameworkScopeRemoved(system, { id: frameworkId, name: framework?.name ?? frameworkId }, auth.user.id);
 
   const frameworkScopes = await getSystemFrameworkScopes(system.id);
   return NextResponse.json({ frameworkScopes });

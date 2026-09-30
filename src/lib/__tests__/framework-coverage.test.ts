@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
+import { summarizeCoverage } from "../coverage-state";
 import { clearGapAcceptance, loadCoverageSummaries, loadFrameworkCoverage } from "../framework-coverage";
 
 /**
@@ -126,7 +127,12 @@ describe("Framework coverage (database)", () => {
   it("the migrated ISO/IEC 27001:2022 Framework is fully covered (when the base Framework is seeded)", async () => {
     const iso = await prisma.framework.findFirst({ where: { name: "ISO/IEC 27001", version: "2022" } });
     if (!iso) return; // CI's database is migrated but not seeded
-    const { summary } = await loadFrameworkCoverage(iso.id);
+    // Other test files temporarily park fixture Requirements (`TEST-FX-*`, see src/test/framework-fixtures.ts)
+    // in the base Framework, and they're briefly unmapped while those files clean up: only count the real ones.
+    const { requirements } = await loadFrameworkCoverage(iso.id);
+    const summary = summarizeCoverage(
+      requirements.filter((r) => !r.code.startsWith("TEST-FX-")).map((r) => r.state),
+    );
     if (summary.total === 0) return;
     expect(summary).toEqual({ total: summary.total, covered: summary.total, gaps: 0, accepted: 0 });
   });

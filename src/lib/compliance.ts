@@ -50,7 +50,12 @@ export async function getComplianceForSystems(
   const [systems, framework] = await Promise.all([
     prisma.system.findMany({
       where,
-      include: { deploymentFacets: true, regulatoryOverlays: true, assessments: true },
+      include: {
+        deploymentFacets: true,
+        regulatoryOverlays: true,
+        frameworkScopes: { select: { id: true } },
+        assessments: true,
+      },
     }),
     options.frameworkId
       ? prisma.framework.findUnique({ where: { id: options.frameworkId } })

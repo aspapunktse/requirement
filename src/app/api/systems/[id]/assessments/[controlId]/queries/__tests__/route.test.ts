@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
+import { mapControlsToBase } from "@/test/framework-fixtures";
 import { ACTING_USER_COOKIE } from "@/lib/acting-user";
 import { POST } from "../route";
 
@@ -68,6 +69,7 @@ describe("POST /api/systems/[id]/assessments/[controlId]/queries", () => {
       },
     });
     controlId = control.id;
+    await mapControlsToBase([controlId]);
   });
 
   afterAll(async () => {

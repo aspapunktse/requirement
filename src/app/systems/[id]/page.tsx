@@ -135,7 +135,7 @@ export default async function SystemDetailPage({ params }: PageProps<"/systems/[
         catalogKey="frameworks"
         idField="frameworkId"
         itemLabel="Framework"
-        emptyLabel="This System isn't in scope for any Framework's audit boundary yet."
+        emptyLabel="This System isn't in scope for any Framework yet."
       />
 
       <h2 className="mb-3 mt-8 text-xl">Controls</h2>

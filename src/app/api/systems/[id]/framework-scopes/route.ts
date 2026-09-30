@@ -3,8 +3,11 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { authenticate } from "@/lib/api-authz";
 import { getVisibleSystem } from "@/lib/system-visibility";
-import { canManageFrameworkScopes, getSystemFrameworkScopes } from "@/lib/framework-scope";
-import { logChangeEvent } from "@/lib/change-events";
+import {
+  applyFrameworkScopeDeclared,
+  canManageFrameworkScopes,
+  getSystemFrameworkScopes,
+} from "@/lib/framework-scope";
 import { canSeeDraftFrameworks } from "@/lib/frameworks";
 
 export async function GET(request: NextRequest, ctx: RouteContext<"/api/systems/[id]/framework-scopes">) {
@@ -35,7 +38,7 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems
 
   if (!canManageFrameworkScopes(auth.user, system)) {
     return NextResponse.json(
-      { error: "Only the System's owner or an Admin can declare Framework Scope on a System" },
+      { error: "Only the System's owner or an Admin can declare Framework Scope on a Draft System" },
       { status: 403 },
     );
   }
@@ -51,7 +54,7 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems
     return NextResponse.json({ error: "Framework not found" }, { status: 400 });
   }
   // Draft Frameworks are invisible to Systems: they can't be put in scope until Published (#73).
-  // (Scope rows that predate Draft/Published, e.g. from the #72 migration, are left alone.)
+  // (Scope rows that predate Draft/Published, e.g. from the #72 migration, are left alone; they're inert.)
   if (framework.status === "DRAFT") {
     return NextResponse.json(
       { error: "A Draft Framework can't be added to a System's Framework Scope; publish it first" },
@@ -59,16 +62,10 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems
     );
   }
 
-  await prisma.system.update({
-    where: { id: system.id },
-    data: { frameworkScopes: { connect: { id: framework.id } } },
-  });
-  await logChangeEvent(
-    system.id,
-    "CLASSIFICATION_CHANGED",
-    `Framework Scope "${framework.name}" added`,
-    auth.user.id,
-  );
+  // The base Framework is always in scope, so declaring it changes nothing (and isn't logged).
+  if (!framework.isBase) {
+    await applyFrameworkScopeDeclared(system, framework, auth.user.id);
+  }
 
   const frameworkScopes = await getSystemFrameworkScopes(system.id);
   return NextResponse.json({ frameworkScopes }, { status: 201 });

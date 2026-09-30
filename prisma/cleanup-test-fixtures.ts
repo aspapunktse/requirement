@@ -7,7 +7,7 @@
  * Looks for the naming convention the test suite uses for throwaway fixtures
  * — `test-*` emails, `Test *` catalog names, `TEST*` Control codes —
  * across User/Control/DeploymentFacet/RegulatoryOverlay/Capability/
- * BusinessUnit/Framework, and deletes whatever isn't still referenced
+ * BusinessUnit/Framework (plus fixture Requirements, `TEST-FX-*` codes), and deletes whatever isn't still referenced
  * elsewhere (a System, Assessment, Risk, or Approval). Anything that *is*
  * still referenced is reported, not force-deleted — that's more likely a
  * genuinely orphaned fixture worth a human look than something safe to
@@ -52,6 +52,15 @@ async function cleanup<T extends { id: string }>(
 }
 
 async function main() {
+  // Fixture Requirements (src/test/framework-fixtures.ts) live in the base Framework, which is
+  // never deleted, so a killed run leaves them behind; their Control Mappings go with them.
+  await cleanup(
+    "Requirement",
+    await prisma.requirement.findMany({ where: { code: { startsWith: "TEST-FX-" } } }),
+    (r) => r.code,
+    (id) => prisma.requirement.delete({ where: { id } }),
+  );
+
   await cleanup(
     "User",
     await prisma.user.findMany({ where: { email: insensitiveStartsWith("test-") } }),

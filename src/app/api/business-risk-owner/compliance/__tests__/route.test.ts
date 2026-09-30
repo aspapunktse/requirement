@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
+import { mapControlsToBase } from "@/test/framework-fixtures";
 import { ACTING_USER_COOKIE } from "@/lib/acting-user";
 import { GET } from "../route";
 
@@ -80,6 +81,7 @@ describe("GET /api/business-risk-owner/compliance", () => {
       },
     });
     controlId = control.id;
+    await mapControlsToBase([controlId]);
 
     const system = await prisma.system.create({
       data: {

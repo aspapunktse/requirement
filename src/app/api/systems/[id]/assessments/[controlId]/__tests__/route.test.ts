@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
+import { mapControlsToBase } from "@/test/framework-fixtures";
 import { ACTING_USER_COOKIE } from "@/lib/acting-user";
 import { PATCH } from "../route";
 
@@ -110,6 +111,7 @@ describe("PATCH /api/systems/[id]/assessments/[controlId]", () => {
     optionalControlId = optional.id;
     outOfScopeControlId = outOfScope.id;
     otherTypeId = otherType.id;
+    await mapControlsToBase([mandatoryControlId, optionalControlId, outOfScopeControlId]);
   });
 
   afterAll(async () => {
