@@ -55,6 +55,6 @@ export function riskSeverityTone(severity: string): ChipTone {
 }
 
 /** Tone for a `getSystemsNeedingAttention` reason. */
-export function attentionReasonTone(reason: "stale" | "rejected"): ChipTone {
+export function attentionReasonTone(reason: "stale" | "rejected" | "needs-assessment"): ChipTone {
   return reason === "rejected" ? "danger" : "warn";
 }

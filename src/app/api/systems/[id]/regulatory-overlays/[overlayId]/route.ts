@@ -22,7 +22,7 @@ export async function DELETE(
 
   if (!canManageRegulatoryOverlays(auth.user, system)) {
     return NextResponse.json(
-      { error: "Only the System's owner or an Admin can remove Regulatory Overlays on a Draft System" },
+      { error: "Only the System's owner or an Admin can remove Regulatory Overlays" },
       { status: 403 },
     );
   }

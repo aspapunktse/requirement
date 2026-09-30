@@ -38,7 +38,7 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems
 
   if (!canManageFrameworkScopes(auth.user, system)) {
     return NextResponse.json(
-      { error: "Only the System's owner or an Admin can declare Framework Scope on a Draft System" },
+      { error: "Only the System's owner or an Admin can declare Framework Scope" },
       { status: 403 },
     );
   }

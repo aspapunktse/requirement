@@ -268,8 +268,7 @@ describe("POST /api/systems/[id]/submit", () => {
 
     const response = await POST(requestAs(systemId, ownerId), ctxFor(systemId));
     expect(response.status).toBe(200);
-    // Submission moves the System to IN_REVIEW, so undeclaring through the
-    // route is no longer possible (Capabilities lock like everything else
-    // once a System leaves Draft) — afterEach disconnects it directly.
+    // afterEach disconnects the Capability directly, so cleanup doesn't
+    // depend on the route.
   });
 });

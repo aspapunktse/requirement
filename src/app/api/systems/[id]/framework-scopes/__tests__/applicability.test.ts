@@ -341,25 +341,44 @@ describe("Framework Scope drives applicability (#85)", () => {
     });
   });
 
-  describe("the Draft-only lock (until #86)", () => {
+  describe("no lifecycle lock (ADR 0006, #86)", () => {
     it.each(["IN_REVIEW", "APPROVED", "ONBOARDED"] as const)(
-      "refuses declaring and removing on a %s System, for its owner and an Admin, changing nothing",
+      "lets the owner declare and an Admin remove on a %s System, recomputing the Assessments and keeping the status",
       async (status) => {
-        const id = await makeSystem(status, [publishedId]);
-        await prisma.controlAssessment.create({ data: { systemId: id, controlId: pControlId } });
-        const before = await snapshot(id);
+        const id = await makeSystem(status);
 
-        for (const userId of [ownerId, adminId]) {
-          const declared = await declare(userId, publishedId, id);
-          const declaredBase = await declare(userId, baseId, id);
-          const removed = await remove(userId, publishedId, id);
-          const removedBase = await remove(userId, baseId, id);
-          expect([declared.status, declaredBase.status, removed.status, removedBase.status]).toEqual([403, 403, 403, 403]);
-          expect((await removed.json()).error).toMatch(/Draft System/);
-        }
-        expect(await snapshot(id)).toEqual(before);
+        const declared = await declare(ownerId, publishedId, id);
+        expect(declared.status).toBe(201);
         expect(await applicableIds(id)).toEqual([baseControlId, pControlId, pControl2Id].sort());
+        const rows = await prisma.controlAssessment.findMany({ where: { systemId: id } });
+        expect(rows.map((a) => a.controlId).sort()).toEqual([pControlId, pControl2Id].sort());
+        expect(rows.every((a) => a.status === "NOT_STARTED" && a.assessedById === null)).toBe(true);
+        expect((await loadSystem(id)).status).toBe(status);
+
+        const removed = await remove(adminId, publishedId, id);
+        expect(removed.status).toBe(200);
+        expect(await applicableIds(id)).toEqual([baseControlId]);
+        expect(await prisma.controlAssessment.count({ where: { systemId: id } })).toBe(0);
+        expect((await loadSystem(id)).status).toBe(status);
       },
     );
+
+    it("keeps a touched Assessment as stale when the owner removes the Framework from an Onboarded System", async () => {
+      const id = await makeSystem("ONBOARDED", [publishedId]);
+      await prisma.controlAssessment.create({
+        data: { systemId: id, controlId: pControlId, status: "FULFILLED", assessedById: ownerId },
+      });
+      const removed = await remove(ownerId, publishedId, id);
+      expect(removed.status).toBe(200);
+      expect((await getStaleAssessments(await loadSystem(id))).map((a) => a.controlId)).toEqual([pControlId]);
+      expect((await loadSystem(id)).status).toBe("ONBOARDED");
+    });
+
+    it("still refuses removing the base Framework (409), whatever the status", async () => {
+      const id = await makeSystem("ONBOARDED");
+      const before = await snapshot(id);
+      expect((await remove(ownerId, baseId, id)).status).toBe(409);
+      expect(await snapshot(id)).toEqual(before);
+    });
   });
 });

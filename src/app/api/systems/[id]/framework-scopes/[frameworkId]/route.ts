@@ -23,7 +23,7 @@ export async function DELETE(
 
   if (!canManageFrameworkScopes(auth.user, system)) {
     return NextResponse.json(
-      { error: "Only the System's owner or an Admin can remove Framework Scope from a Draft System" },
+      { error: "Only the System's owner or an Admin can remove Framework Scope" },
       { status: 403 },
     );
   }

@@ -37,10 +37,11 @@ const updateSystemSchema = z
   );
 
 /**
- * Changes a Draft System's classification — its declared Deployment Facets
- * and/or self-declared Impact Levels, any combination in one request — and
- * recomputes its applicable Control Assessment set to match (see #15,
- * #47, #49, #50). Regulatory Overlay declare/undeclare has its own endpoint
+ * Changes a System's classification — its declared Deployment Facets
+ * and/or self-declared Impact Levels, any combination in one request — at any
+ * lifecycle stage (ADR 0006), and recomputes its applicable Control Assessment
+ * set to match (see #15, #47, #49, #50). The recompute never changes the
+ * System's onboarding status. Regulatory Overlay declare/undeclare has its own endpoint
  * (`/api/systems/[id]/regulatory-overlays`) since it's a single-item
  * connect/disconnect rather than a "set" like these two axes, but goes
  * through the same recompute logic underneath.
@@ -59,13 +60,6 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/system
     return NextResponse.json(
       { error: "Only the System's owner or an Admin can change this System's classification" },
       { status: 403 },
-    );
-  }
-
-  if (system.status !== "DRAFT") {
-    return NextResponse.json(
-      { error: "Only a Draft System's classification can be changed" },
-      { status: 400 },
     );
   }
 

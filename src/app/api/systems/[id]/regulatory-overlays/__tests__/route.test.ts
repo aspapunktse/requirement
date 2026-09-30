@@ -134,23 +134,22 @@ describe("/api/systems/[id]/regulatory-overlays", () => {
     await prisma.system.delete({ where: { id: onboarded.id } });
   });
 
-  it("POST forbids declaring on a System that isn't Draft", async () => {
-    const response = await POST(
-      requestAs(inReviewSystemId, ownerId, { method: "POST", body: { regulatoryOverlayId: overlayId } }),
-      ctxFor(inReviewSystemId),
-    );
-    expect(response.status).toBe(403);
-  });
-
-  it("POST forbids declaring on an Onboarded System (#51)", async () => {
-    await prisma.system.update({ where: { id: inReviewSystemId }, data: { status: "ONBOARDED" } });
-    const response = await POST(
-      requestAs(inReviewSystemId, ownerId, { method: "POST", body: { regulatoryOverlayId: overlayId } }),
-      ctxFor(inReviewSystemId),
-    );
-    expect(response.status).toBe(403);
-    await prisma.system.update({ where: { id: inReviewSystemId }, data: { status: "IN_REVIEW" } });
-  });
+  it.each(["IN_REVIEW", "ONBOARDED"] as const)(
+    "POST lets the owner declare on a %s System: a Not Started Assessment appears and the status is unchanged (ADR 0006)",
+    async (status) => {
+      await prisma.system.update({ where: { id: inReviewSystemId }, data: { status } });
+      const response = await POST(
+        requestAs(inReviewSystemId, ownerId, { method: "POST", body: { regulatoryOverlayId: overlayId } }),
+        ctxFor(inReviewSystemId),
+      );
+      expect(response.status).toBe(201);
+      expect((await prisma.system.findUniqueOrThrow({ where: { id: inReviewSystemId } })).status).toBe(status);
+      const assessment = await prisma.controlAssessment.findUnique({
+        where: { systemId_controlId: { systemId: inReviewSystemId, controlId: overlayScopedControlId } },
+      });
+      expect(assessment).toMatchObject({ status: "NOT_STARTED", assessedById: null });
+    },
+  );
 
   it("POST rejects an unknown regulatoryOverlayId", async () => {
     const response = await POST(
@@ -211,18 +210,21 @@ describe("/api/systems/[id]/regulatory-overlays", () => {
     expect(stillPresent).toMatchObject({ status: "FULFILLED", assessedById: ownerId });
   });
 
-  it("DELETE forbids removal on a System that isn't Draft", async () => {
-    await prisma.system.update({ where: { id: inReviewSystemId }, data: { status: "DRAFT" } });
+  it("DELETE lets the owner remove an Overlay from a System that isn't Draft, removing the untouched Assessment and keeping the status (ADR 0006)", async () => {
     await POST(
       requestAs(inReviewSystemId, ownerId, { method: "POST", body: { regulatoryOverlayId: overlayId } }),
       ctxFor(inReviewSystemId),
     );
-    await prisma.system.update({ where: { id: inReviewSystemId }, data: { status: "IN_REVIEW" } });
 
     const response = await DELETE(
       requestAs(inReviewSystemId, ownerId, { method: "DELETE" }),
       ctxForDelete(inReviewSystemId, overlayId),
     );
-    expect(response.status).toBe(403);
+    expect(response.status).toBe(200);
+    expect((await prisma.system.findUniqueOrThrow({ where: { id: inReviewSystemId } })).status).toBe("IN_REVIEW");
+    const gone = await prisma.controlAssessment.findUnique({
+      where: { systemId_controlId: { systemId: inReviewSystemId, controlId: overlayScopedControlId } },
+    });
+    expect(gone).toBeNull();
   });
 });

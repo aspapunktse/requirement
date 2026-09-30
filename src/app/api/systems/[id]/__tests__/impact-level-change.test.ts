@@ -98,23 +98,24 @@ describe("PATCH /api/systems/[id] (Impact Level change)", () => {
     expect(response.status).toBe(403);
   });
 
-  it("rejects changing Impact Levels on a System that isn't Draft", async () => {
-    await prisma.system.update({ where: { id: systemId }, data: { status: "IN_REVIEW" } });
-    const response = await PATCH(
-      requestAs(systemId, ownerId, { confidentialityImpactLevel: "HIGH" }),
-      ctxFor(systemId),
-    );
-    expect(response.status).toBe(400);
-  });
-
-  it("rejects changing Impact Levels on an Onboarded System (#51)", async () => {
-    await prisma.system.update({ where: { id: systemId }, data: { status: "ONBOARDED" } });
-    const response = await PATCH(
-      requestAs(systemId, ownerId, { confidentialityImpactLevel: "HIGH" }),
-      ctxFor(systemId),
-    );
-    expect(response.status).toBe(400);
-  });
+  // ADR 0006 removed the Draft-only lock (#51): Impact Levels change at any lifecycle stage, and never move the status.
+  it.each(["IN_REVIEW", "APPROVED", "ONBOARDED"] as const)(
+    "lets the owner change Impact Levels on a %s System: the Assessments recompute and the status is unchanged",
+    async (status) => {
+      await prisma.system.update({ where: { id: systemId }, data: { status } });
+      const response = await PATCH(
+        requestAs(systemId, ownerId, { confidentialityImpactLevel: "HIGH" }),
+        ctxFor(systemId),
+      );
+      expect(response.status).toBe(200);
+      expect(await response.json()).toMatchObject({ added: 1, removed: 0 });
+      expect((await prisma.system.findUniqueOrThrow({ where: { id: systemId } })).status).toBe(status);
+      const assessment = await prisma.controlAssessment.findUnique({
+        where: { systemId_controlId: { systemId, controlId: highConfidentialityControlId } },
+      });
+      expect(assessment).toMatchObject({ status: "NOT_STARTED", assessedById: null });
+    },
+  );
 
   it("rejects an empty body", async () => {
     const response = await PATCH(requestAs(systemId, ownerId, {}), ctxFor(systemId));
