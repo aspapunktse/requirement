@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { authorize } from "@/lib/api-authz";
 import { ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE } from "@/lib/catalog";
 import { logMappingChange } from "@/lib/frameworks";
+import { finishRecompute, prepareRecompute, scopeForMappedControls } from "@/lib/applicability-recompute";
+import { frameworkLabel } from "@/lib/framework-label";
 import { clearGapAcceptance } from "@/lib/framework-coverage";
 
 const createMappingSchema = z.object({
@@ -17,7 +19,11 @@ const createMappingSchema = z.object({
  * Maps a Control onto a Requirement with a Coverage (Full/Partial) and an
  * optional rationale. A Requirement can map to several Controls, but to each
  * Control only once (409). Logs a System-less CONTROL_MAPPING_CHANGED event
- * in the same transaction. See #73, PRD 0001 F-CL.4.
+ * in the same transaction. On a Published Framework the mapping takes effect
+ * immediately: every System with the Framework in scope (all Systems for the
+ * base) is recomputed and gets a Not Started Assessment if the Control now
+ * applies (F-CL.7, #87). A mapping on a Draft Framework is inert.
+ * See #73, PRD 0001 F-CL.4.
  */
 export async function POST(
   request: NextRequest,
@@ -34,7 +40,7 @@ export async function POST(
 
   const requirement = await prisma.requirement.findFirst({
     where: { id: requirementId, frameworkId: id },
-    include: { framework: { select: { name: true, version: true } } },
+    include: { framework: { select: { id: true, name: true, version: true, isBase: true, status: true } } },
   });
   if (!requirement) {
     return NextResponse.json({ error: "Requirement not found" }, { status: 404 });
@@ -75,6 +81,13 @@ export async function POST(
       if (created.coverage === "FULL") await clearGapAcceptance(tx, requirementId);
       return created;
     });
+    const pending = await prepareRecompute(scopeForMappedControls(requirement.framework, [control.id]), {
+      snapshot: false,
+    });
+    await finishRecompute(
+      pending,
+      `Control Mapping added: ${frameworkLabel(requirement.framework)} ${requirement.code} ↔ ${control.code}`,
+    );
     return NextResponse.json({ mapping }, { status: 201 });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {

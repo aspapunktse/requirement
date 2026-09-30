@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { authorize } from "@/lib/api-authz";
 import { ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE } from "@/lib/catalog";
 import { logMappingChange, requirementInclude } from "@/lib/frameworks";
+import { finishRecompute, prepareRecompute, scopeForMappedControls } from "@/lib/applicability-recompute";
+import { frameworkLabel } from "@/lib/framework-label";
 
 const updateRequirementSchema = z
   .object({
@@ -64,7 +66,9 @@ export async function PATCH(
  * Framework's Requirements are editable). Its Control Mappings go with it
  * (cascade), so one CONTROL_MAPPING_CHANGED "removed" event is logged per
  * mapping it had, in the same transaction as the delete, naming the cascade
- * as the reason.
+ * as the reason. On a Published Framework that is a mapping removal, so it takes
+ * effect immediately like any other (F-CL.7, #87): every System with the Framework in
+ * scope is recomputed for the Controls the Requirement was mapped to.
  */
 export async function DELETE(
   request: NextRequest,
@@ -78,13 +82,22 @@ export async function DELETE(
   const existing = await prisma.requirement.findFirst({
     where: { id: requirementId, frameworkId: id },
     include: {
-      framework: { select: { name: true, version: true } },
-      mappings: { select: { coverage: true, control: { select: { code: true } } } },
+      framework: { select: { id: true, name: true, version: true, isBase: true, status: true } },
+      mappings: { select: { coverage: true, control: { select: { id: true, code: true } } } },
     },
   });
   if (!existing) {
     return NextResponse.json({ error: "Requirement not found" }, { status: 404 });
   }
+
+  // Snapshot before the write, so the recompute can tell what just stopped applying.
+  const pending = await prepareRecompute(
+    scopeForMappedControls(
+      existing.framework,
+      existing.mappings.map((m) => m.control.id),
+    ),
+    { snapshot: true },
+  );
 
   try {
     await prisma.$transaction(async (tx) => {
@@ -105,6 +118,7 @@ export async function DELETE(
         );
       }
     });
+    await finishRecompute(pending, `Requirement deleted: ${frameworkLabel(existing.framework)} ${existing.code}`);
     return new NextResponse(null, { status: 204 });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {

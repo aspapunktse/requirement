@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE } from "@/lib/catalog";
 import { logChangeEvent } from "@/lib/change-events";
 import { frameworkLabel } from "@/lib/framework-label";
+import { finishRecompute, prepareRecompute, scopeForFramework } from "@/lib/applicability-recompute";
 
 /** Only Compliance Managers and Admins can see (or touch) Draft Frameworks. */
 export function canSeeDraftFrameworks(user: { role: UserRole }): boolean {
@@ -110,16 +111,24 @@ export const BASE_FRAMEWORK_ERRORS: Record<BaseFrameworkViolation, string> = {
 /**
  * The single hook point for "a Framework was just published". Publishing
  * (POST /api/frameworks/[id]/publish) records the FRAMEWORK_PUBLISHED Change
- * Event and then calls this.
+ * Event and then calls this, which recomputes every System that has the
+ * Framework in its scope (F-FW.5, ADR 0007): the Draft scope rows those
+ * Systems already declared become effective now, so the Controls mapped to the
+ * Framework's Requirements become applicable and get Not Started Assessments.
+ * The base Framework is in every System's scope, so publishing it (it's normally
+ * Published from the start) would recompute every System. Publishing only ever
+ * widens applicability, so no "before" snapshot is needed.
  *
- * Deliberately still a no-op (PRD 0001 F-FW.5): Framework Scope drives
- * applicability since #85 (ADR 0007), but recomputing every System that already
- * has the Framework in scope (its Draft scope rows become effective on publish)
- * is #87's job, and this is where it goes. Until then such a System's
- * Assessments catch up on its next recompute trigger.
+ * Returns the recompute summary (null when nothing was affected).
  */
-export async function onFrameworkPublished(frameworkId: string): Promise<void> {
-  void frameworkId;
+export async function onFrameworkPublished(frameworkId: string) {
+  const framework = await prisma.framework.findUnique({
+    where: { id: frameworkId },
+    select: { id: true, name: true, version: true, isBase: true, status: true },
+  });
+  if (!framework) return null;
+  const pending = await prepareRecompute(await scopeForFramework(framework), { snapshot: false });
+  return finishRecompute(pending, `Framework "${frameworkLabel(framework)}" published`);
 }
 
 export type MappingChange = "added" | "changed" | "removed";

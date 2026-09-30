@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { authenticate, authorize } from "@/lib/api-authz";
 import { ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE } from "@/lib/catalog";
 import { controlIncludeFor, redactDraftOrigin } from "@/lib/frameworks";
+import { finishRecompute, prepareRecompute, scopeForControl } from "@/lib/applicability-recompute";
 
 const impactLevelSchema = z.nativeEnum(ImpactLevel).nullable();
 
@@ -43,6 +44,17 @@ const updateControlSchema = z
     message: "Provide at least one field to update",
   });
 
+const sameIds = (a: string[], b: string[]) => new Set(a).size === new Set(b).size && a.every((id) => b.includes(id));
+
+/**
+ * Edits a Control. `applicability` and the mapping to Requirements aren't editable here, so the
+ * fields that decide which Systems the Control applies to are its Deployment Facets, Regulatory
+ * Overlays and the three Impact Level thresholds. When one of those actually changes (not merely
+ * present in the body) every System that has in scope a Published Framework the Control is mapped
+ * to is recomputed for this Control (F-AP.3, #87): Not Started Assessments appear where it now
+ * applies, untouched ones go where it no longer does, touched ones are kept as stale.
+ * `mandatory`, Capabilities and text edits don't change applicability, so they recompute nothing.
+ */
 export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/controls/[id]">) {
   const auth = await authorize(request, ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE);
   if ("response" in auth) return auth.response;
@@ -53,7 +65,10 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/contro
     return NextResponse.json({ error: "Invalid update" }, { status: 400 });
   }
 
-  const control = await prisma.control.findUnique({ where: { id } });
+  const control = await prisma.control.findUnique({
+    where: { id },
+    include: { deploymentFacets: { select: { id: true } }, regulatoryOverlays: { select: { id: true } } },
+  });
   if (!control) {
     return NextResponse.json({ error: "Control not found" }, { status: 404 });
   }
@@ -90,6 +105,18 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/contro
     );
   }
 
+  const scopingChanged =
+    (deploymentFacetIds !== undefined &&
+      !sameIds(deploymentFacetIds, control.deploymentFacets.map((f) => f.id))) ||
+    (regulatoryOverlayIds !== undefined &&
+      !sameIds(regulatoryOverlayIds, control.regulatoryOverlays.map((o) => o.id))) ||
+    (minConfidentialityImpactLevel !== undefined &&
+      minConfidentialityImpactLevel !== control.minConfidentialityImpactLevel) ||
+    (minIntegrityImpactLevel !== undefined && minIntegrityImpactLevel !== control.minIntegrityImpactLevel) ||
+    (minAvailabilityImpactLevel !== undefined && minAvailabilityImpactLevel !== control.minAvailabilityImpactLevel);
+  // Snapshot before the write, so the recompute can tell what just stopped applying.
+  const pending = scopingChanged ? await prepareRecompute(await scopeForControl(id), { snapshot: true }) : null;
+
   try {
     const updated = await prisma.control.update({
       where: { id },
@@ -116,6 +143,7 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/contro
       },
       include: controlIncludeFor(auth.user),
     });
+    await finishRecompute(pending, `Control ${control.code} scoping edited`);
     return NextResponse.json({ control: updated });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {

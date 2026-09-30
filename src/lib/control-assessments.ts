@@ -21,7 +21,7 @@ function meetsImpactThreshold(systemLevel: ImpactLevel | null, minimum: ImpactLe
 }
 
 /** Does `classification` meet every Impact Level threshold `control` sets? */
-function meetsAllImpactThresholds(
+export function meetsAllImpactThresholds(
   classification: Pick<
     SystemClassification,
     "confidentialityImpactLevel" | "integrityImpactLevel" | "availabilityImpactLevel"
@@ -42,6 +42,14 @@ function meetsAllImpactThresholds(
 export const ROLES_ALLOWED_TO_WAIVE: UserRole[] = ["ADMIN", "RISK_OWNER"];
 
 export type WaiveGateResult = { ok: true } | { ok: false; status: 403 | 400; error: string };
+
+/**
+ * "Untouched": a ControlAssessment still at NOT_STARTED that no human ever
+ * edited (assessedById is null). The one definition every recompute uses to
+ * decide whether a no-longer-applicable row may be removed; anything else is
+ * kept in place as stale (see getStaleAssessments).
+ */
+export const UNTOUCHED_ASSESSMENT_WHERE = { status: "NOT_STARTED", assessedById: null } as const;
 
 /**
  * Diff an old vs new applicable-Control set for a System into the two
@@ -74,8 +82,7 @@ export function diffApplicabilityOps(
       where: {
         systemId,
         controlId: { in: noLongerApplicableIds },
-        status: "NOT_STARTED",
-        assessedById: null,
+        ...UNTOUCHED_ASSESSMENT_WHERE,
       },
     }),
     createOp: prisma.controlAssessment.createMany({
@@ -177,7 +184,9 @@ const APPLICABILITY_SCOPING = (classification: Pick<SystemClassification, "deplo
  * ORGANIZATIONAL-scoped Controls are never assessed per System, so
  * they're excluded here. Impact Level thresholds can't be expressed as a
  * portable Prisma enum filter, so they're applied in application code after
- * the DB-side fetch.
+ * the DB-side fetch. `options.controlIds` narrows the answer to those
+ * Controls (used by the catalog-change recompute, which only needs to know
+ * about the Controls a change touched).
  *
  * On top of that, a Control only applies if it's mapped to a Requirement of a
  * Published Framework in the System's effective Framework Scope (its declared
@@ -185,9 +194,13 @@ const APPLICABILITY_SCOPING = (classification: Pick<SystemClassification, "deplo
  * no Published Framework in scope applies to nothing — see
  * APPLICABILITY_SCOPING and ADR 0007.
  */
-export async function getApplicableControls(classification: SystemClassification) {
+export async function getApplicableControls(
+  classification: SystemClassification,
+  options: { controlIds?: string[] } = {},
+) {
   const controls = await prisma.control.findMany({
     where: {
+      ...(options.controlIds !== undefined && { id: { in: options.controlIds } }),
       applicability: { in: [...APPLICABLE_APPLICABILITIES] },
       AND: APPLICABILITY_SCOPING(classification),
     },

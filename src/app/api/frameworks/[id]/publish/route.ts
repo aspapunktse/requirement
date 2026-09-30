@@ -9,9 +9,10 @@ import { onFrameworkPublished } from "@/lib/frameworks";
 /**
  * Publishes a Draft Framework (Draft -> Published, one-way in v1: there is
  * no way back to Draft). Records a System-less FRAMEWORK_PUBLISHED Change
- * Event with the acting user as actor, then calls `onFrameworkPublished`,
- * the hook where M2 will recompute applicability for Systems that already
- * have the Framework in scope. See #73, PRD 0001 F-FW.4-5.
+ * Event with the acting user as actor, then calls `onFrameworkPublished`, which
+ * recomputes applicability for every System that already has the Framework in
+ * scope (synchronously, so the Assessments are in place when the response
+ * returns). See #73, #87, PRD 0001 F-FW.4-5.
  */
 export async function POST(request: NextRequest, ctx: RouteContext<"/api/frameworks/[id]/publish">) {
   const auth = await authorize(request, ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE);

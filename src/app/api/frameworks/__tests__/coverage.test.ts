@@ -68,6 +68,9 @@ describe("Framework coverage: view, gap acceptance, Supplementary Controls", () 
     ...over,
   });
 
+  // Only this file's Controls are counted: other test files create Controls concurrently.
+  const ownControls = () => prisma.control.count({ where: { code: { startsWith: `TEST-COV-SUP-${SUFFIX}-` } } });
+
   const coverageOf = async (frameworkId: string, tag = "cm") => {
     const response = await getCoverage(
       req(`/api/frameworks/${frameworkId}/coverage`, "GET", userIds[tag]),
@@ -351,12 +354,12 @@ describe("Framework coverage: view, gap acceptance, Supplementary Controls", () 
 
   describe("POST …/supplementary-control (create a Supplementary Control from a gap)", () => {
     it("requires Compliance Manager or Admin and creates nothing otherwise", async () => {
-      const before = await prisma.control.count();
+      const before = await ownControls();
       expect((await createFromGap(publishedId, requirements.unmapped, null, controlBody())).status).toBe(401);
       for (const tag of ["viewer", "owner"]) {
         expect((await createFromGap(publishedId, requirements.unmapped, tag, controlBody())).status).toBe(403);
       }
-      expect(await prisma.control.count()).toBe(before);
+      expect(await ownControls()).toBe(before);
     });
 
     it("creates the Control with its origin Framework and a FULL mapping, leaving the Requirement covered", async () => {
@@ -410,7 +413,7 @@ describe("Framework coverage: view, gap acceptance, Supplementary Controls", () 
     });
 
     it("validates the Control like POST /api/controls (400) and refuses a covered Requirement (409)", async () => {
-      const before = await prisma.control.count();
+      const before = await ownControls();
       for (const body of [
         undefined,
         {},
@@ -421,7 +424,7 @@ describe("Framework coverage: view, gap acceptance, Supplementary Controls", () 
         expect((await createFromGap(publishedId, requirements.unmapped, "cm", body)).status).toBe(400);
       }
       expect((await createFromGap(publishedId, requirements.full, "cm", controlBody())).status).toBe(409);
-      expect(await prisma.control.count()).toBe(before);
+      expect(await ownControls()).toBe(before);
     });
 
     it("scopes the Requirement to the Framework in the URL (404)", async () => {
