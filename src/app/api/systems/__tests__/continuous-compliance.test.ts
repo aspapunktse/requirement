@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import type { OnboardingStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { ACTING_USER_COOKIE } from "@/lib/acting-user";
@@ -42,9 +42,11 @@ function req(url: string, method: string, userId: string, body?: unknown) {
 
 const ctx = (id: string) => ({ params: Promise.resolve({ id }) });
 
-describe("Continuous compliance: classification and scope change at any lifecycle stage (#86)", () => {
+describe("Continuous compliance: classification and scope change at any lifecycle stage (#86)", { timeout: 30_000 }, () => {
   const users = {} as Record<"owner" | "otherOwner" | "admin" | "reviewer", string>;
   const systemIds: string[] = [];
+  // The Systems the current test made; removed after it, so the owner's System count (which "My tasks" scans) stays small.
+  const testSystemIds: string[] = [];
   const controlIds: string[] = [];
   let facetA: string;
   let facetB: string;
@@ -104,7 +106,17 @@ describe("Continuous compliance: classification and scope change at any lifecycl
     await makeControl("scope", {});
     await makeControl("capability", { capabilities: { connect: [{ id: capabilityId }] } });
     await mapControlsToBase([control.facet, control.impact, control.overlay, control.capability]);
-    await mapControlsToFramework(frameworkId, [control.scope]);
+    // Every fixture Control is also mapped to the fixture Framework, so compliance can be read for that Framework alone
+    // (`complianceOf`), unaffected by other Controls that come and go while other test files run.
+    await mapControlsToFramework(frameworkId, [control.scope, control.facet, control.impact, control.overlay, control.capability]);
+  });
+
+  afterEach(async () => {
+    const ids = testSystemIds.splice(0);
+    await prisma.controlAssessment.deleteMany({ where: { systemId: { in: ids } } });
+    await prisma.approval.deleteMany({ where: { systemId: { in: ids } } });
+    await prisma.changeEvent.deleteMany({ where: { systemId: { in: ids } } });
+    await prisma.system.deleteMany({ where: { id: { in: ids } } });
   });
 
   afterAll(async () => {
@@ -132,6 +144,7 @@ describe("Continuous compliance: classification and scope change at any lifecycl
       },
     });
     systemIds.push(system.id);
+    testSystemIds.push(system.id);
     if (status === "APPROVED" || status === "ONBOARDED") {
       await prisma.approval.create({ data: { systemId: system.id, approverId: users.reviewer, decision: "APPROVED" } });
     }
@@ -187,7 +200,7 @@ describe("Continuous compliance: classification and scope change at any lifecycl
   }
 
   async function complianceOf(systemId: string) {
-    const { resolved, total } = await getComplianceForSystems({ id: systemId });
+    const { resolved, total } = await getComplianceForSystems({ id: systemId }, { frameworkId });
     return { resolved, total };
   }
 
@@ -240,9 +253,9 @@ describe("Continuous compliance: classification and scope change at any lifecycl
     const expectedRefusal = (who: "otherOwner" | "reviewer") =>
       who === "otherOwner" && status !== "ONBOARDED" ? 404 : 403;
 
-    it.each(MECHANISM_NAMES.flatMap((name) => [[name, "owner"] as const, [name, "admin"] as const]))(
-      "lets the %s's change to %s through: newly applicable Control -> Not Started, in My tasks and compliance, status and Approval history untouched (F-AP.4)",
-      async (name, who) => {
+    it.each(MECHANISM_NAMES.flatMap((name) => [["owner", name] as const, ["admin", name] as const]))(
+      "lets the %s change %s: newly applicable Control -> Not Started, in My tasks and compliance, status and Approval history untouched (F-AP.4)",
+      async (who, name) => {
         const mechanism = mechanisms[name];
         const systemId = await makeSystem(status);
         const lifecycleBefore = await lifecycle(systemId);
@@ -262,8 +275,7 @@ describe("Continuous compliance: classification and scope change at any lifecycl
         // "My tasks" (one more mandatory Control to assess) and the compliance figures (one more open Control).
         expect(await isTask(systemId, mechanism.control)).toBe(true);
         const complianceAfter = await complianceOf(systemId);
-        expect(complianceAfter.resolved).toBe(complianceBefore.resolved);
-        expect(complianceAfter.total).toBeGreaterThanOrEqual(complianceBefore.total + 1);
+        expect(complianceAfter).toEqual({ resolved: complianceBefore.resolved, total: complianceBefore.total + 1 });
       },
     );
 
@@ -296,7 +308,10 @@ describe("Continuous compliance: classification and scope change at any lifecycl
       expect(fulfilled).toMatchObject({ status: "FULFILLED", fulfilledByCapabilityId: capabilityId });
       expect(await lifecycle(systemId)).toEqual(lifecycleBefore);
       // The Capability's Control was already applicable (and unresolved); auto-fulfilment resolves it.
-      expect((await complianceOf(systemId)).resolved).toBe(complianceBefore.resolved + 1);
+      expect(await complianceOf(systemId)).toEqual({
+        resolved: complianceBefore.resolved + 1,
+        total: complianceBefore.total,
+      });
       expect(await isTask(systemId, control.capability)).toBe(false);
 
       const removed = await removeCapability(

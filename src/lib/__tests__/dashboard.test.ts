@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
 import { mapControlsToBase } from "@/test/framework-fixtures";
+import { getUnaddressedMandatoryControls } from "@/lib/control-assessments";
 import { getAllOpenRisks, getSystemsAwaitingApproval, getSystemsNeedingAttention } from "../dashboard";
 
 const OWNER_EMAIL = "test-dashboard-owner@example.com";
@@ -157,6 +158,26 @@ describe("dashboard", () => {
         return entry?.reason === "needs-assessment" ? entry.count : 0;
       }
 
+      /**
+       * What "My tasks" reports for a System next to what the submission check says is still unassessed: the reported
+       * count must equal the number of unaddressed mandatory Controls, and the ids say which. Other test files' fixture
+       * Controls can come and go while this runs, so this only compares reads taken while the set was stable (the
+       * unaddressed set read before and after the attention read is the same size).
+       */
+      async function reportedAndUnaddressed(systemId: string) {
+        for (let attempt = 0; attempt < 10; attempt++) {
+          const system = await prisma.system.findUniqueOrThrow({
+            where: { id: systemId },
+            include: { deploymentFacets: true, regulatoryOverlays: true, frameworkScopes: { select: { id: true } } },
+          });
+          const before = (await getUnaddressedMandatoryControls(system)).map((c) => c.id);
+          const count = await needsAssessmentCount(ownerId, systemId);
+          const after = (await getUnaddressedMandatoryControls(system)).map((c) => c.id);
+          if (before.length === after.length && count === before.length) return { count, ids: before };
+        }
+        throw new Error("The set of mandatory Controls kept changing under this test");
+      }
+
       /** A System without the fixture Facet declared; `declareFacet` then makes the two fixture Controls applicable. */
       async function makeSystem(status: "IN_REVIEW" | "APPROVED" | "ONBOARDED") {
         const system = await prisma.system.create({
@@ -169,17 +190,19 @@ describe("dashboard", () => {
       const declareFacet = (systemId: string) =>
         prisma.system.update({ where: { id: systemId }, data: { deploymentFacets: { connect: [{ id: facetId }] } } });
 
-      // Every count is compared with the same System's count just before a change, because on the seeded dev DB the
-      // seeded catalog's mandatory Controls are unassessed here too, and the delta is what this test controls.
+      // On the seeded dev DB the seeded catalog's mandatory Controls are unassessed here too, so these tests check the
+      // fixture Controls by id and the reported count against the unaddressed set, not a fixed number.
       it.each(["IN_REVIEW", "APPROVED", "ONBOARDED"] as const)(
         "counts the newly applicable mandatory Controls on a %s System, with the right count and only for its owner",
         async (status) => {
           const system = await makeSystem(status);
-          const before = await needsAssessmentCount(ownerId, system.id);
+          expect((await reportedAndUnaddressed(system.id)).ids).not.toEqual(expect.arrayContaining(mandatoryControlIds));
 
           await declareFacet(system.id);
 
-          expect(await needsAssessmentCount(ownerId, system.id)).toBe(before + 2);
+          const { count, ids } = await reportedAndUnaddressed(system.id);
+          expect(ids).toEqual(expect.arrayContaining(mandatoryControlIds));
+          expect(count).toBeGreaterThanOrEqual(2);
           expect(await needsAssessmentCount(otherOwnerId, system.id)).toBe(0);
           expect((await getSystemsNeedingAttention(otherOwnerId)).map((entry) => entry.id)).not.toContain(system.id);
         },
@@ -188,17 +211,18 @@ describe("dashboard", () => {
       it("stops counting a Control once its Assessment is touched, but keeps counting an untouched Not Started row", async () => {
         const system = await makeSystem("ONBOARDED");
         await declareFacet(system.id);
-        const before = await needsAssessmentCount(ownerId, system.id);
 
         // An untouched Not Started row (what a recompute creates) still counts.
         await prisma.controlAssessment.create({ data: { systemId: system.id, controlId: mandatoryControlIds[0] } });
-        expect(await needsAssessmentCount(ownerId, system.id)).toBe(before);
+        expect((await reportedAndUnaddressed(system.id)).ids).toEqual(expect.arrayContaining(mandatoryControlIds));
 
         await prisma.controlAssessment.update({
           where: { systemId_controlId: { systemId: system.id, controlId: mandatoryControlIds[0] } },
           data: { status: "IN_PROGRESS", assessedById: ownerId },
         });
-        expect(await needsAssessmentCount(ownerId, system.id)).toBe(before - 1);
+        const { ids } = await reportedAndUnaddressed(system.id);
+        expect(ids).not.toContain(mandatoryControlIds[0]);
+        expect(ids).toContain(mandatoryControlIds[1]);
       });
 
       it("reports a stale Assessment on a non-Draft System as 'stale', alongside 'needs-assessment' rather than instead of it", async () => {
