@@ -34,7 +34,7 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems
 
   if (!canManageBusinessUnits(auth.user, system)) {
     return NextResponse.json(
-      { error: "Only the System Owner or an Admin can declare Business Units on a System" },
+      { error: "Only the System's owner or an Admin can declare Business Units on a System" },
       { status: 403 },
     );
   }

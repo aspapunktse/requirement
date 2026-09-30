@@ -30,7 +30,7 @@ export async function PATCH(
   // Seeing a System is not enough to edit its Assessments (#78).
   if (assessmentEditAccess(auth.user, system) === "none") {
     return NextResponse.json(
-      { error: "Only the System Owner or an Admin can edit this System's Control Assessments" },
+      { error: "Only the System's owner or an Admin can edit this System's Control Assessments" },
       { status: 403 },
     );
   }
@@ -44,7 +44,7 @@ export async function PATCH(
   // A Risk Owner who doesn't own the System may only waive / mark Not Applicable.
   if (!canEditAssessment(auth.user, system, status)) {
     return NextResponse.json(
-      { error: "Only the System Owner or an Admin can edit this System's Control Assessments" },
+      { error: "Only the System's owner or an Admin can edit this System's Control Assessments" },
       { status: 403 },
     );
   }
@@ -54,16 +54,31 @@ export async function PATCH(
     return NextResponse.json({ error: "Control not found" }, { status: 404 });
   }
 
+  const existing = await prisma.controlAssessment.findUnique({
+    where: { systemId_controlId: { systemId: system.id, controlId } },
+  });
+
+  // A Risk Owner who doesn't own the System may change only the status and
+  // the justification note, never the evidence (#91). Reject rather than
+  // silently ignore, so the client learns it wasn't applied. Re-sending the
+  // stored value is not a change.
+  if (
+    assessmentEditAccess(auth.user, system) === "waive-only" &&
+    evidence !== undefined &&
+    evidence !== (existing?.evidence ?? null)
+  ) {
+    return NextResponse.json(
+      { error: "A Risk Owner who doesn't own this System can't change evidence" },
+      { status: 400 },
+    );
+  }
+
   if (WAIVE_GATED_STATUSES.includes(status)) {
     const gate = checkWaiveGate(auth.user, control, notes);
     if (!gate.ok) {
       return NextResponse.json({ error: gate.error }, { status: gate.status });
     }
   }
-
-  const existing = await prisma.controlAssessment.findUnique({
-    where: { systemId_controlId: { systemId: system.id, controlId } },
-  });
 
   const assessment = await prisma.controlAssessment.upsert({
     where: { systemId_controlId: { systemId: system.id, controlId } },

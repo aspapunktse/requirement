@@ -139,6 +139,52 @@ describe("/api/systems", () => {
     expect(body.system.deploymentFacets.map((f: { id: string }) => f.id)).toEqual([systemTypeId]);
   });
 
+  describe("who may create a System (#91)", () => {
+    const createAs = (userId: string) =>
+      POST(
+        requestAs(userId, {
+          method: "POST",
+          body: JSON.stringify({ name: "Test Creator System", deploymentFacetIds: [systemTypeId] }),
+        }),
+      );
+
+    it.each(["SYSTEM_OWNER", "RISK_OWNER", "ADMIN"] as const)(
+      "lets a %s create a System and become its owner",
+      async (role) => {
+        const user = await prisma.user.create({
+          data: { email: `test-systems-creator-${role}-${Date.now()}@example.com`, name: `Creator ${role}`, role },
+        });
+        const response = await createAs(user.id);
+        const body = await response.json();
+        if (response.status === 201) createdSystemIds.push(body.system.id);
+        expect(response.status).toBe(201);
+        expect(body.system.ownerId).toBe(user.id);
+        await prisma.system.deleteMany({ where: { id: { in: createdSystemIds } } });
+        createdSystemIds.length = 0;
+        await prisma.user.delete({ where: { id: user.id } });
+      },
+    );
+
+    it.each(["VIEWER", "REVIEWER", "BUSINESS_RISK_OWNER", "COMPLIANCE_MANAGER"] as const)(
+      "refuses a %s with 403 and creates nothing",
+      async (role) => {
+        const user = await prisma.user.create({
+          data: { email: `test-systems-creator-${role}-${Date.now()}@example.com`, name: `Creator ${role}`, role },
+        });
+        const before = await prisma.system.count({ where: { name: "Test Creator System" } });
+        const response = await createAs(user.id);
+        expect(response.status).toBe(403);
+        expect(await prisma.system.count({ where: { name: "Test Creator System" } })).toBe(before);
+        await prisma.user.delete({ where: { id: user.id } });
+      },
+    );
+
+    it("checks the role before validating the body", async () => {
+      const response = await POST(requestAs(viewerId, { method: "POST", body: JSON.stringify({}) }));
+      expect(response.status).toBe(403);
+    });
+  });
+
   it("POST creates a Hybrid System when multiple Deployment Facets are declared", async () => {
     const other = await prisma.deploymentFacet.create({
       data: { name: `Test Systems Route Other Type ${Date.now()}` },

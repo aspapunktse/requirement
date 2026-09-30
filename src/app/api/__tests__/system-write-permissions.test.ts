@@ -194,6 +194,77 @@ describe("System write permissions (#78)", () => {
       await expectNothingChanged(onboardedId);
     });
 
+    describe("evidence on a waive-only edit (#91)", () => {
+      it("rejects a non-owner RISK_OWNER's evidence on a new Assessment with 400 and changes nothing", async () => {
+        const response = await patchAssessment(onboardedId, optionalControlId, "riskOwner", {
+          status: "NOT_APPLICABLE",
+          evidence: "smuggled in",
+        });
+        expect(response.status).toBe(400);
+        expect((await response.json()).error).toMatch(/can't change evidence/);
+        await expectNothingChanged(onboardedId);
+      });
+
+      it("rejects a changed evidence on an existing Assessment, leaving the row and its history untouched", async () => {
+        await prisma.controlAssessment.create({
+          data: { systemId: onboardedId, controlId: optionalControlId, status: "FULFILLED", evidence: "original" },
+        });
+        for (const evidence of ["replaced", "", null]) {
+          const response = await patchAssessment(onboardedId, optionalControlId, "riskOwner", {
+            status: "WAIVED",
+            evidence,
+            notes: "accepted risk",
+          });
+          expect(response.status).toBe(400);
+        }
+        const row = await prisma.controlAssessment.findUniqueOrThrow({
+          where: { systemId_controlId: { systemId: onboardedId, controlId: optionalControlId } },
+        });
+        expect(row).toMatchObject({ status: "FULFILLED", evidence: "original", notes: null, assessedById: null });
+        expect(await prisma.changeEvent.count({ where: { systemId: onboardedId } })).toBe(0);
+      });
+
+      it("allows evidence that is absent, or re-sent unchanged (that's not a change)", async () => {
+        await prisma.controlAssessment.create({
+          data: { systemId: onboardedId, controlId: optionalControlId, status: "FULFILLED", evidence: "original" },
+        });
+        const unchanged = await patchAssessment(onboardedId, optionalControlId, "riskOwner", {
+          status: "WAIVED",
+          evidence: "original",
+          notes: "accepted risk",
+        });
+        expect(unchanged.status).toBe(200);
+        const absent = await patchAssessment(onboardedId, optionalControlId, "riskOwner", {
+          status: "NOT_APPLICABLE",
+          notes: "n/a here",
+        });
+        expect(absent.status).toBe(200);
+        expect((await absent.json()).assessment).toMatchObject({ status: "NOT_APPLICABLE", evidence: "original" });
+      });
+
+      it("treats a missing row's evidence as null: sending null is not a change", async () => {
+        const response = await patchAssessment(onboardedId, optionalControlId, "riskOwner", {
+          status: "NOT_APPLICABLE",
+          evidence: null,
+        });
+        expect(response.status).toBe(200);
+      });
+
+      it.each([
+        ["owner", "the owner's System"],
+        ["admin", "the owner's System"],
+        ["riskOwner", "their own System"],
+      ])("still lets %s (owner or Admin) change evidence on %s", async (who, which) => {
+        const systemId = which === "their own System" ? riskOwnerOwnedId : onboardedId;
+        const response = await patchAssessment(systemId, optionalControlId, who, {
+          status: "FULFILLED",
+          evidence: "new proof",
+        });
+        expect(response.status).toBe(200);
+        expect((await response.json()).assessment.evidence).toBe("new proof");
+      });
+    });
+
     it.each(["FULFILLED", "IN_PROGRESS", "NOT_STARTED"])(
       "forbids a non-owner RISK_OWNER from setting %s",
       async (status) => {

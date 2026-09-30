@@ -6,11 +6,13 @@ import {
   type SystemClassification,
 } from "@/lib/control-assessments";
 import { logChangeEvent } from "@/lib/change-events";
+import { isSystemOwnerOrAdmin } from "@/lib/system-permissions";
 
 /**
  * Who may change a System's classification — its declared Deployment
  * Facets, declared Regulatory Overlays, or Impact Level axes: ADMIN, or the
- * owning SYSTEM_OWNER. Callers still need to check the System is Draft
+ * System's owner (`ownerId`, whatever their role — see
+ * `isSystemOwnerOrAdmin`). Callers still need to check the System is Draft
  * separately (kept out of here, like `canMarkOnboarded`'s Approved check,
  * so a caller can report "wrong role" vs "wrong status" as distinct errors).
  * One shared rule across all three axes — see ADR 0003.
@@ -28,8 +30,7 @@ export function canChangeSystemClassification(
   user: { id: string; role: UserRole },
   system: { ownerId: string },
 ) {
-  if (user.role === "ADMIN") return true;
-  return user.role === "SYSTEM_OWNER" && system.ownerId === user.id;
+  return isSystemOwnerOrAdmin(user, system);
 }
 
 export type ClassificationChanges = {

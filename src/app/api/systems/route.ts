@@ -3,7 +3,8 @@ import { z } from "zod";
 import { ImpactLevel } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { authenticate } from "@/lib/api-authz";
-import { canWriteSystems, getVisibleSystems } from "@/lib/system-visibility";
+import { getVisibleSystems } from "@/lib/system-visibility";
+import { canCreateSystem } from "@/lib/system-permissions";
 
 const impactLevelSchema = z.nativeEnum(ImpactLevel).optional();
 
@@ -28,8 +29,11 @@ const createSystemSchema = z.object({
 export async function POST(request: NextRequest) {
   const auth = await authenticate(request);
   if ("response" in auth) return auth.response;
-  if (!canWriteSystems(auth.user)) {
-    return NextResponse.json({ error: "Your role can read Systems but not change them" }, { status: 403 });
+  if (!canCreateSystem(auth.user)) {
+    return NextResponse.json(
+      { error: "Only a System Owner, Risk Owner or Admin can create a System" },
+      { status: 403 },
+    );
   }
 
   const parsed = createSystemSchema.safeParse(await request.json());

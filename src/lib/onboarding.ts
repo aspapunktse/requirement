@@ -1,10 +1,10 @@
 import type { UserRole } from "@prisma/client";
+import { isSystemOwnerOrAdmin } from "@/lib/system-permissions";
 
-/** Who may mark an Approved System Onboarded: ADMIN, or the owning SYSTEM_OWNER. */
+/** Who may mark an Approved System Onboarded: ADMIN, or the System's owner (whatever their role). */
 export function canMarkOnboarded(
   user: { id: string; role: UserRole },
   system: { ownerId: string },
 ) {
-  if (user.role === "ADMIN") return true;
-  return user.role === "SYSTEM_OWNER" && system.ownerId === user.id;
+  return isSystemOwnerOrAdmin(user, system);
 }

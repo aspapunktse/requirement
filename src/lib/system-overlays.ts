@@ -6,20 +6,20 @@ import {
   type SystemClassification,
 } from "@/lib/control-assessments";
 import { logChangeEvent } from "@/lib/change-events";
+import { isSystemOwnerOrAdmin } from "@/lib/system-permissions";
 
 /**
  * Who may declare or undeclare a Regulatory Overlay on a System: ADMIN, or
- * the owning SYSTEM_OWNER — and only while the System is still Draft. Same
+ * the System's owner (`ownerId`, whatever their role) — and only while the System is still Draft. Same
  * rule as Capability declaration (see canManageCapabilities) — these are
- * both System-Owner self-declarations, not admin-only edits. See ADR 0003.
+ * both System-owner self-declarations, not admin-only edits. See ADR 0003.
  */
 export function canManageRegulatoryOverlays(
   user: { id: string; role: UserRole },
   system: { ownerId: string; status: string },
 ) {
   if (system.status !== "DRAFT") return false;
-  if (user.role === "ADMIN") return true;
-  return user.role === "SYSTEM_OWNER" && system.ownerId === user.id;
+  return isSystemOwnerOrAdmin(user, system);
 }
 
 export function getSystemRegulatoryOverlays(systemId: string) {

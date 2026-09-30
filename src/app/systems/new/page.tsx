@@ -1,6 +1,6 @@
 import { getActingUser } from "@/lib/acting-user";
 import { NewSystemForm } from "@/components/NewSystemForm";
-import { canWriteSystems } from "@/lib/system-visibility";
+import { canCreateSystem } from "@/lib/system-permissions";
 
 export default async function NewSystemPage() {
   const user = await getActingUser();
@@ -9,8 +9,12 @@ export default async function NewSystemPage() {
     return <p className="p-6 text-zinc-600 dark:text-zinc-400">Pick a user to act as first.</p>;
   }
 
-  if (!canWriteSystems(user)) {
-    return <p className="p-6 text-zinc-600 dark:text-zinc-400">Your role can read Systems but not create them.</p>;
+  if (!canCreateSystem(user)) {
+    return (
+      <p className="p-6 text-zinc-600 dark:text-zinc-400">
+        Only a System Owner, Risk Owner or Admin can create a System.
+      </p>
+    );
   }
 
   return (

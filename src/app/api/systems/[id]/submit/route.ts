@@ -17,7 +17,7 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems
   }
 
   if (!canSubmit(auth.user, system)) {
-    return NextResponse.json({ error: "Only the System Owner or an Admin can submit this System for review" }, { status: 403 });
+    return NextResponse.json({ error: "Only the System's owner or an Admin can submit this System for review" }, { status: 403 });
   }
 
   if (system.status !== "DRAFT") {

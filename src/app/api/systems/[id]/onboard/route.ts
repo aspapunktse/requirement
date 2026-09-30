@@ -1,14 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { authorize } from "@/lib/api-authz";
+import { authenticate } from "@/lib/api-authz";
 import { getVisibleSystem } from "@/lib/system-visibility";
 import { canMarkOnboarded } from "@/lib/onboarding";
 import { logChangeEvent } from "@/lib/change-events";
 
-const ROLES_ALLOWED_TO_ONBOARD = ["ADMIN", "SYSTEM_OWNER"] as const;
-
 export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems/[id]/onboard">) {
-  const auth = await authorize(request, [...ROLES_ALLOWED_TO_ONBOARD]);
+  const auth = await authenticate(request);
   if ("response" in auth) return auth.response;
 
   const { id } = await ctx.params;
@@ -19,7 +17,7 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems
 
   if (!canMarkOnboarded(auth.user, system)) {
     return NextResponse.json(
-      { error: "Only the System Owner or an Admin can mark this System Onboarded" },
+      { error: "Only the System's owner or an Admin can mark this System Onboarded" },
       { status: 403 },
     );
   }

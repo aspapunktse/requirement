@@ -29,7 +29,7 @@ export async function POST(
 
   if (!canReplyToQuery(auth.user, system)) {
     return NextResponse.json(
-      { error: "Only the System Owner, a Reviewer, a Risk Owner, or an Admin can reply" },
+      { error: "Only the System's owner, a Reviewer, a Risk Owner, or an Admin can reply" },
       { status: 403 },
     );
   }

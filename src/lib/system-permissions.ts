@@ -11,6 +11,13 @@ import type { ControlAssessmentStatus, SelfAssessmentAnswer, UserRole } from "@p
  *   Waived / Not Applicable transitions that go through the waive gate
  *   (`checkWaiveGate`).
  * - Submit for review: the System's owner or an ADMIN.
+ * - Every other owner action (change classification, declare Regulatory
+ *   Overlays / Capabilities / Business Units / Framework Scope, log a Risk,
+ *   mark Onboarded): the System's owner or an ADMIN too, through the
+ *   `canX` helpers next to each feature, which all delegate to
+ *   `isSystemOwnerOrAdmin` (#91), so there is one definition of "owner".
+ * - Create a System: SYSTEM_OWNER, RISK_OWNER or ADMIN only (`canCreateSystem`);
+ *   the creator becomes the System's owner.
  *
  * "The System's owner" is `system.ownerId`, whatever the owner's role — a
  * RISK_OWNER who owns the System is simply its owner. The one exception is
@@ -26,7 +33,19 @@ export const WAIVE_GATED_STATUSES: ControlAssessmentStatus[] = ["WAIVED", "NOT_A
 /** How far a user's edit rights on a System's Control Assessments reach. */
 export type AssessmentEditAccess = "full" | "waive-only" | "none";
 
-/** The System's owner, or an ADMIN (a COMPLIANCE_MANAGER is never either). */
+/** Roles that may create a System (#91): the creator becomes its owner. */
+export const ROLES_ALLOWED_TO_CREATE_SYSTEM: UserRole[] = ["SYSTEM_OWNER", "RISK_OWNER", "ADMIN"];
+
+/** May `user` create a System? Anyone not named (VIEWER, REVIEWER, ...) is refused. */
+export function canCreateSystem(user: { role: UserRole }) {
+  return ROLES_ALLOWED_TO_CREATE_SYSTEM.includes(user.role);
+}
+
+/**
+ * The System's owner, or an ADMIN (a COMPLIANCE_MANAGER is never either).
+ * "Owner" means `ownerId` alone, whatever the user's role (#91): the one rule
+ * every owner action goes through.
+ */
 export function isSystemOwnerOrAdmin(user: Actor, system: OwnedSystem) {
   if (user.role === "ADMIN") return true;
   if (user.role === "COMPLIANCE_MANAGER") return false;
