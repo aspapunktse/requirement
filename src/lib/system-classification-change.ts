@@ -12,21 +12,15 @@ import { isSystemOwnerOrAdmin } from "@/lib/system-permissions";
  * Who may change a System's classification — its declared Deployment
  * Facets, declared Regulatory Overlays, or Impact Level axes: ADMIN, or the
  * System's owner (`ownerId`, whatever their role — see
- * `isSystemOwnerOrAdmin`). Callers still need to check the System is Draft
- * separately (kept out of here, like `canMarkOnboarded`'s Approved check,
- * so a caller can report "wrong role" vs "wrong status" as distinct errors).
- * One shared rule across all three axes — see ADR 0003.
+ * `isSystemOwnerOrAdmin`). One shared rule across all three axes — see
+ * ADR 0003.
  *
- * Draft-only (not merely "not yet Onboarded") is a deliberate, confirmed
- * choice (#51): it matches Capability's existing rule (`canManageCapabilities`
- * in system-capabilities.ts), Regulatory Overlay's (`canManageRegulatoryOverlays`
- * in system-overlays.ts) and, since ADR 0007 made Framework Scope drive
- * applicability, Framework Scope's (`canManageFrameworkScopes` in
- * framework-scope.ts), so all the mechanisms are locked from the moment
- * a System leaves Draft (submitted for review) rather than only once
- * Onboarded — trivially satisfies "locked once Onboarded" as a strict
- * subset, and keeps one consistent rule instead of each mechanism picking
- * its own lifecycle cutoff.
+ * There is no lifecycle check: classification can change at any stage
+ * (ADR 0006 removed the Draft-only lock that #51/ADR 0003 had put on it,
+ * along with the matching locks on Capabilities, Regulatory Overlays and
+ * Framework Scope). A System lives for years after onboarding and what
+ * applies to it keeps changing, so the change is recorded and the recompute
+ * runs; it never touches the System's status or its Approval history.
  */
 export function canChangeSystemClassification(
   user: { id: string; role: UserRole },
@@ -43,7 +37,7 @@ export type ClassificationChanges = {
 };
 
 /**
- * Change a Draft System's classification — any combination of Deployment
+ * Change a System's classification (at any lifecycle stage, ADR 0006) — any combination of Deployment
  * Facets and/or Impact Level axes in one call — and recompute its
  * Control Assessment set to match: create NOT_STARTED rows for newly-
  * applicable Controls, and remove rows for no-longer-applicable ones —
@@ -66,6 +60,11 @@ export type ClassificationChanges = {
  *
  * A Hybrid System declaring both On-Prem and Cloud simply gets the union of
  * what each facet requires — see ADR 0003.
+ *
+ * Only the classification and the Assessment rows are written. The System's
+ * `status`, `onboardedAt` and Approval history are never touched, so an
+ * Approved or Onboarded System stays that way while its newly applicable
+ * Controls show up as Not Started (F-AP.4).
  */
 export async function changeSystemClassification(
   system: SystemClassification & { id: string },

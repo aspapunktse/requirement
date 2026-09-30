@@ -10,15 +10,12 @@ import { isSystemOwnerOrAdmin } from "@/lib/system-permissions";
 
 /**
  * Who may declare or undeclare a Regulatory Overlay on a System: ADMIN, or
- * the System's owner (`ownerId`, whatever their role) — and only while the System is still Draft. Same
- * rule as Capability declaration (see canManageCapabilities) — these are
- * both System-owner self-declarations, not admin-only edits. See ADR 0003.
+ * the System's owner (`ownerId`, whatever their role), at any lifecycle stage
+ * (ADR 0006 removed the Draft-only lock). Same rule as Capability declaration
+ * (see canManageCapabilities) — these are both System-owner self-declarations,
+ * not admin-only edits. See ADR 0003.
  */
-export function canManageRegulatoryOverlays(
-  user: { id: string; role: UserRole },
-  system: { ownerId: string; status: string },
-) {
-  if (system.status !== "DRAFT") return false;
+export function canManageRegulatoryOverlays(user: { id: string; role: UserRole }, system: { ownerId: string }) {
   return isSystemOwnerOrAdmin(user, system);
 }
 

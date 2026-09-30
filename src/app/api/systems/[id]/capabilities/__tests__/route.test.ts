@@ -107,12 +107,13 @@ describe("/api/systems/[id]/capabilities", () => {
     await prisma.system.delete({ where: { id: onboarded.id } });
   });
 
-  it("POST forbids declaring on a System that isn't Draft", async () => {
+  it("POST lets the owner declare on a System that isn't Draft, without changing its status (ADR 0006)", async () => {
     const response = await POST(
       requestAs(inReviewSystemId, ownerId, { method: "POST", body: { capabilityId } }),
       ctxFor(inReviewSystemId),
     );
-    expect(response.status).toBe(403);
+    expect(response.status).toBe(201);
+    expect((await prisma.system.findUniqueOrThrow({ where: { id: inReviewSystemId } })).status).toBe("IN_REVIEW");
   });
 
   it("POST lets the owning SYSTEM_OWNER declare a Capability", async () => {

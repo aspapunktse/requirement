@@ -10,19 +10,13 @@ import { isSystemOwnerOrAdmin } from "@/lib/system-permissions";
 
 /**
  * Who may declare or undeclare a System's Framework Scope: ADMIN, or the
- * System's owner (`ownerId`, whatever their role) — and only while the System
- * is still Draft. Framework Scope now *drives* which Controls apply to the
- * System (ADR 0007), so it gets the same Draft-only lock as the other
- * classification axes (`canManageRegulatoryOverlays`,
- * `canChangeSystemClassification`): there must never be a way to change
- * applicability without the lock. Temporary — the Draft lock is lifted for
- * every axis together by the continuous-compliance issue (#86, ADR 0006).
+ * System's owner (`ownerId`, whatever their role), at any lifecycle stage.
+ * Framework Scope *drives* which Controls apply to the System (ADR 0007), so
+ * this is one of the applicability-changing mechanisms whose Draft-only lock
+ * ADR 0006 removed; every change goes through the same recompute and never
+ * touches the System's onboarding status.
  */
-export function canManageFrameworkScopes(
-  user: { id: string; role: UserRole },
-  system: { ownerId: string; status: string },
-) {
-  if (system.status !== "DRAFT") return false;
+export function canManageFrameworkScopes(user: { id: string; role: UserRole }, system: { ownerId: string }) {
   return isSystemOwnerOrAdmin(user, system);
 }
 

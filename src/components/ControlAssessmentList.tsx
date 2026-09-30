@@ -459,7 +459,7 @@ function ControlRow({
     <li className="rounded border border-zinc-200 p-3 dark:border-zinc-800">
       {stale && (
         <p className="mb-2 rounded bg-ems-warn-tint p-2 text-xs text-ems-warn">
-          No longer applicable to this System&apos;s current Type — left in place because it was
+          No longer applicable to this System&apos;s current classification or Framework Scope — left in place because it was
           already worked on. Resolve it manually below, or leave it as a record.
         </p>
       )}

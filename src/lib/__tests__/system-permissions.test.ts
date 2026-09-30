@@ -119,12 +119,12 @@ describe("canCreateSystem (#91)", () => {
 /**
  * Every per-feature owner rule delegates to `isSystemOwnerOrAdmin` (#91): the
  * System's owner (`ownerId`, whatever the role) or an ADMIN, never a
- * COMPLIANCE_MANAGER, never a non-owner. Lifecycle checks (Draft-only) stay
- * with the individual helper.
+ * COMPLIANCE_MANAGER, never a non-owner. The classification helpers have no
+ * lifecycle check any more (ADR 0006, #86); `canMarkOnboarded` and the
+ * review lifecycle keep theirs.
  */
 describe("owner actions share one owner rule (#91)", () => {
   const draft = { ownerId: "owner", status: "DRAFT" };
-  const onboarded = { ownerId: "owner", status: "ONBOARDED" };
   type Helper = (user: { id: string; role: UserRole }, system: { ownerId: string; status: string }) => boolean;
   const ownerActions: [string, Helper][] = [
     ["change classification", canChangeSystemClassification],
@@ -170,16 +170,21 @@ describe("owner actions share one owner rule (#91)", () => {
     }
   });
 
-  it("keeps Regulatory Overlays, Capabilities and Framework Scope locked once a System leaves Draft, for owner and ADMIN alike", () => {
-    // Framework Scope drives applicability now (ADR 0007, #85), so it shares the Draft lock until #86 lifts it.
-    for (const can of [canManageRegulatoryOverlays, canManageCapabilities, canManageFrameworkScopes]) {
-      expect(can({ id: "owner", role: "RISK_OWNER" }, onboarded)).toBe(false);
-      expect(can({ id: "a", role: "ADMIN" }, onboarded)).toBe(false);
-      expect(can({ id: "owner", role: "RISK_OWNER" }, draft)).toBe(true);
+  it("has no lifecycle lock on classification, Regulatory Overlays, Capabilities, Framework Scope or Business Units (ADR 0006, #86)", () => {
+    const helpers = [
+      canChangeSystemClassification,
+      canManageRegulatoryOverlays,
+      canManageCapabilities,
+      canManageFrameworkScopes,
+      canManageBusinessUnits,
+    ];
+    for (const status of ["DRAFT", "IN_REVIEW", "APPROVED", "ONBOARDED"]) {
+      const system = { ownerId: "owner", status };
+      for (const can of helpers) {
+        expect(can({ id: "owner", role: "RISK_OWNER" }, system), `owner, ${status}`).toBe(true);
+        expect(can({ id: "a", role: "ADMIN" }, system), `ADMIN, ${status}`).toBe(true);
+        expect(can({ id: "someone-else", role: "SYSTEM_OWNER" }, system), `non-owner, ${status}`).toBe(false);
+      }
     }
-  });
-
-  it("keeps Business Units open in every status", () => {
-    expect(canManageBusinessUnits({ id: "owner", role: "REVIEWER" }, onboarded)).toBe(true);
   });
 });

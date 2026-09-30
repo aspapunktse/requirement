@@ -4,13 +4,10 @@ import { isSystemOwnerOrAdmin } from "@/lib/system-permissions";
 
 /**
  * Who may declare or undeclare a Capability on a System: ADMIN, or the
- * System's owner (`ownerId`, whatever their role) — and only while the System is still Draft.
+ * System's owner (`ownerId`, whatever their role), at any lifecycle stage
+ * (ADR 0006 removed the Draft-only lock).
  */
-export function canManageCapabilities(
-  user: { id: string; role: UserRole },
-  system: { ownerId: string; status: string },
-) {
-  if (system.status !== "DRAFT") return false;
+export function canManageCapabilities(user: { id: string; role: UserRole }, system: { ownerId: string }) {
   return isSystemOwnerOrAdmin(user, system);
 }
 

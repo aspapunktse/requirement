@@ -139,22 +139,29 @@ describe("PATCH /api/systems/[id] (Deployment Facet change)", () => {
     expect(response.status).toBe(403);
   });
 
-  it("rejects changing Facets on a System that isn't Draft", async () => {
-    await prisma.system.update({ where: { id: systemId }, data: { status: "IN_REVIEW" } });
-    const response = await PATCH(
-      requestAs(systemId, ownerId, { deploymentFacetIds: [typeBId] }),
-      ctxFor(systemId),
-    );
-    expect(response.status).toBe(400);
-  });
+  // ADR 0006 removed the Draft-only lock (#51): classification changes at any lifecycle stage, and never moves the status.
+  it.each(["IN_REVIEW", "APPROVED", "ONBOARDED"] as const)(
+    "lets the owner change Facets on a %s System: the Assessments recompute and the status is unchanged",
+    async (status) => {
+      await prisma.system.update({ where: { id: systemId }, data: { status } });
+      await prisma.controlAssessment.create({ data: { systemId, controlId: onlyAId } });
+      const response = await PATCH(
+        requestAs(systemId, ownerId, { deploymentFacetIds: [typeBId] }),
+        ctxFor(systemId),
+      );
+      expect(response.status).toBe(200);
+      expect(await response.json()).toMatchObject({ added: 1, removed: 1 });
+      expect((await prisma.system.findUniqueOrThrow({ where: { id: systemId } })).status).toBe(status);
+      const controlIds = (await prisma.controlAssessment.findMany({ where: { systemId } })).map((a) => a.controlId);
+      expect(controlIds).toEqual([onlyBId]);
+    },
+  );
 
-  it("rejects changing Facets on an Onboarded System (see #51: every classification axis stays locked from IN_REVIEW onward, not just once Onboarded)", async () => {
+  it("lets an ADMIN change Facets on an Onboarded System they don't own", async () => {
     await prisma.system.update({ where: { id: systemId }, data: { status: "ONBOARDED" } });
-    const response = await PATCH(
-      requestAs(systemId, ownerId, { deploymentFacetIds: [typeBId] }),
-      ctxFor(systemId),
-    );
-    expect(response.status).toBe(400);
+    const response = await PATCH(requestAs(systemId, adminId, { deploymentFacetIds: [typeBId] }), ctxFor(systemId));
+    expect(response.status).toBe(200);
+    expect((await prisma.system.findUniqueOrThrow({ where: { id: systemId } })).status).toBe("ONBOARDED");
   });
 
   it("rejects an empty deploymentFacetIds array", async () => {

@@ -86,11 +86,19 @@ async function roleView(user: { id: string; name: string; role: UserRole }): Pro
 
       const tasks: TaskRow[] = [
         ...attention.map((system): TaskRow => ({
-          id: system.id,
+          id: `${system.id}:${system.reason}`,
           kind: "System",
           title: system.name,
+          ...(system.reason === "needs-assessment" && {
+            subtitle: `${system.count} ${system.count === 1 ? "Control needs" : "Controls need"} assessment`,
+          }),
           tone: attentionReasonTone(system.reason),
-          status: system.reason === "rejected" ? "Rejected" : "Stale assessment",
+          status:
+            system.reason === "rejected"
+              ? "Rejected"
+              : system.reason === "needs-assessment"
+                ? "Needs assessment"
+                : "Stale assessment",
           href: `/systems/${system.id}`,
         })),
         ...openQueries.map((query): TaskRow => ({
@@ -108,7 +116,7 @@ async function roleView(user: { id: string; name: string; role: UserRole }): Pro
       return {
         lede: "Track the Systems you own through onboarding, and reply to anything a Reviewer or Risk Owner has raised.",
         stats: [
-          { label: "Needing attention", value: attention.length },
+          { label: "Needing attention", value: new Set(attention.map((system) => system.id)).size },
           { label: "Open questions", value: openQueries.length },
         ],
         tasks,
