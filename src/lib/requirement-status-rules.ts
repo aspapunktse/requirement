@@ -179,6 +179,33 @@ export function addDerivedStatusCounts(a: DerivedStatusCounts, b: DerivedStatusC
   };
 }
 
+/**
+ * The Compliance Percentage of a set of counts (one System's, or several pooled
+ * with `addDerivedStatusCounts`): Met ÷ applicable, where applicable excludes Not
+ * Applicable. Partially Met counts as not Met. One decimal place; null when
+ * nothing is applicable (there is nothing to measure against). Pool the
+ * counts first and call this once: never average percentages (#90).
+ */
+export function compliancePercentage(counts: Pick<DerivedStatusCounts, "MET" | "applicable">): number | null {
+  if (counts.applicable === 0) return null;
+  return Math.round((counts.MET / counts.applicable) * 1000) / 10;
+}
+
+/** "61.2%", or an em dash when there is nothing applicable to measure. */
+export function formatCompliancePercentage(percentage: number | null): string {
+  return percentage === null ? "—" : `${percentage}%`;
+}
+
+/**
+ * Shown wherever a Compliance Percentage is (product-owner decision 3a on #89):
+ * until Organization Control Implementation (M3), a Requirement satisfied only by
+ * Organizational Controls (ISO/IEC 27001 clauses 4-10 and the Annex A Requirements
+ * mapped only to Organizational Controls) is Not Applicable per System, so it is
+ * left out of the percentage.
+ */
+export const ORGANIZATIONAL_REQUIREMENTS_NOTE =
+  "Organizational Requirements aren't counted yet: Requirements met only by Organizational Controls (for example ISO/IEC 27001 clauses 4–10) are Not Applicable per System until Organization Control Implementation arrives.";
+
 export type DerivedStatusFilter = "ALL" | DerivedRequirementStatus;
 
 export function matchesDerivedStatusFilter(status: DerivedRequirementStatus, filter: DerivedStatusFilter): boolean {

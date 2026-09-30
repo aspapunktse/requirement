@@ -1,238 +1,246 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
+import { mapControlsToBase } from "@/test/framework-fixtures";
 import { getComplianceForSystems } from "../compliance";
 
+/**
+ * The Requirement-based Compliance Percentage (#90): Met ÷ applicable Requirements
+ * of one Framework, pooled across Systems. Fixtures (CI's DB is migrated, not
+ * seeded): two Published non-base Frameworks (one lenient, one strict) whose
+ * Requirements map to Deployment-Facet-scoped and Organizational Controls, four
+ * Systems, and Assessments on one of them. Every figure is asserted for those
+ * fixture Frameworks, which only the fixture Systems declare, so other files'
+ * fixtures and the seeded catalog can't move them. Only the headline-is-the-base
+ * test touches the base Framework, and it asserts a delta on it.
+ *
+ * Layout (Lenient Framework L / Strict Framework S):
+ *   Controls:  cA (Facet 1), cB (Facet 2), cC (Facet 2), cOrg (Organizational)
+ *   L1 <- cA   L2 <- cB   L3 <- cA + cC   L4 <- cOrg      S1 <- cB   S2 <- cA
+ *   System A: Facets 1+2; cA Fulfilled, cB Waived, cC In Progress
+ *   System B: Facet 1 only; no Assessments
+ *   System C: no Facets (nothing applies); System D: declares neither Framework
+ */
 describe("getComplianceForSystems", () => {
   const suffix = Date.now();
   let ownerId: string;
   let businessUnitId: string;
-  let facetId: string;
-  let lenientFrameworkId: string;
-  let strictFrameworkId: string;
-  let reqAId: string;
-  let reqBId: string;
-  let optionalId: string;
+  let facet1Id: string;
+  let facet2Id: string;
+  let lenientId: string;
+  let strictId: string;
+  let cA: string;
+  let cB: string;
+  let cC: string;
+  let cOrg: string;
+  let l1Id: string;
   let systemAId: string;
   let systemBId: string;
+  let systemCId: string;
+  let systemDId: string;
+  const controlIds: string[] = [];
 
   beforeAll(async () => {
-    const owner = await prisma.user.upsert({
-      where: { email: `test-compliance-owner-${suffix}@example.com` },
-      update: {},
-      create: {
-        email: `test-compliance-owner-${suffix}@example.com`,
-        name: "Compliance Test Owner",
-        role: "SYSTEM_OWNER",
-      },
-    });
-    ownerId = owner.id;
+    ownerId = (
+      await prisma.user.create({
+        data: { email: `test-compliance-owner-${suffix}@example.com`, name: "Compliance Test Owner", role: "SYSTEM_OWNER" },
+      })
+    ).id;
+    businessUnitId = (await prisma.businessUnit.create({ data: { name: `Test Compliance BU ${suffix}` } })).id;
+    facet1Id = (await prisma.deploymentFacet.create({ data: { name: `Test Compliance Facet 1 ${suffix}` } })).id;
+    facet2Id = (await prisma.deploymentFacet.create({ data: { name: `Test Compliance Facet 2 ${suffix}` } })).id;
 
-    const businessUnit = await prisma.businessUnit.create({ data: { name: `Test Compliance BU ${suffix}` } });
-    businessUnitId = businessUnit.id;
+    lenientId = (
+      await prisma.framework.create({
+        data: { name: `Test Lenient Framework ${suffix}`, version: "1", strictComplianceRequired: false, status: "PUBLISHED" },
+      })
+    ).id;
+    strictId = (
+      await prisma.framework.create({
+        data: { name: `Test Strict Framework ${suffix}`, version: "1", strictComplianceRequired: true, status: "PUBLISHED" },
+      })
+    ).id;
 
-    // Every test below filters by frameworkId — that's what actually
-    // isolates these fixtures from the real seeded ISO 27001 catalog (and
-    // any other concurrently-running test file's fixtures), since an
-    // *unscoped* mandatory Control applies to every System regardless
-    // of facet, and this app has no per-test database. Only Controls
-    // mapped to this test's own unique Framework rows can ever enter the
-    // computation. A Control is "in" a Framework when it's mapped to one of
-    // that Framework's Requirements (ADR 0005). See HANDOFF.md's note on
-    // this exact isolation gotcha.
-    const facet = await prisma.deploymentFacet.create({ data: { name: `Test Compliance Facet ${suffix}` } });
-    facetId = facet.id;
-
-    const lenientFramework = await prisma.framework.create({
-      data: {
-        name: `Test Lenient Framework ${suffix}`,
-        version: "1",
-        strictComplianceRequired: false,
-        status: "PUBLISHED",
-      },
-    });
-    const strictFramework = await prisma.framework.create({
-      data: {
-        name: `Test Strict Framework ${suffix}`,
-        version: "1",
-        strictComplianceRequired: true,
-        status: "PUBLISHED",
-      },
-    });
-    lenientFrameworkId = lenientFramework.id;
-    strictFrameworkId = strictFramework.id;
-
-    // reqA: unscoped on facet, so it applies to every System regardless of
-    // declared facets (including System B, which declares none of ours).
-    const reqA = await prisma.control.create({
-      data: {
-        code: `TEST-COMPLIANCE-A-${suffix}`,
-        title: "Applies everywhere",
-        description: "d",
-        category: "Test",
-        applicability: "BOTH",
-        mandatory: true,
-      },
-    });
-    // reqB: scoped to facetId, so it only applies to Systems that declare
-    // it (System A) — gives A and B different applicable totals, which is
-    // what actually distinguishes "pooled" from "averaged".
-    const reqB = await prisma.control.create({
-      data: {
-        code: `TEST-COMPLIANCE-B-${suffix}`,
-        title: "Applies only where facetId is declared",
-        description: "d",
-        category: "Test",
-        applicability: "BOTH",
-        mandatory: true,
-        deploymentFacets: { connect: { id: facetId } },
-      },
-    });
-    const optional = await prisma.control.create({
-      data: {
-        code: `TEST-COMPLIANCE-OPTIONAL-${suffix}`,
-        title: "Optional, mapped but not mandatory",
-        description: "d",
-        category: "Test",
-        applicability: "BOTH",
-        mandatory: false,
-        deploymentFacets: { connect: { id: facetId } },
-      },
-    });
-    reqAId = reqA.id;
-    reqBId = reqB.id;
-    optionalId = optional.id;
-
-    // One Requirement per Framework (plus a second lenient one), mapped to the Controls above.
-    async function requirementOf(frameworkId: string, code: string) {
-      return prisma.requirement.create({
-        data: { frameworkId, code, section: "Test", title: code, text: "t" },
+    async function control(key: string, facetIds: string[], applicability: "BOTH" | "ORGANIZATIONAL") {
+      const created = await prisma.control.create({
+        data: {
+          code: `TEST-COMPLIANCE-${key}-${suffix}`,
+          title: `Test compliance ${key}`,
+          description: "d",
+          category: "Test",
+          applicability,
+          mandatory: true,
+          deploymentFacets: { connect: facetIds.map((id) => ({ id })) },
+        },
       });
+      controlIds.push(created.id);
+      return created.id;
     }
-    const lenient1 = await requirementOf(lenientFrameworkId, "L.1");
-    const lenient2 = await requirementOf(lenientFrameworkId, "L.2");
-    const lenient3 = await requirementOf(lenientFrameworkId, "L.3");
-    const strict1 = await requirementOf(strictFrameworkId, "S.1");
-    await prisma.controlMapping.createMany({
-      data: [
-        { requirementId: lenient1.id, controlId: reqAId, coverage: "FULL" },
-        // A PARTIAL mapping still puts the Control in the Framework's scope (like-for-like with the old tag).
-        { requirementId: lenient2.id, controlId: reqBId, coverage: "PARTIAL" },
-        { requirementId: lenient3.id, controlId: optionalId, coverage: "FULL" },
-        { requirementId: strict1.id, controlId: reqBId, coverage: "FULL" },
-      ],
-    });
+    cA = await control("A", [facet1Id], "BOTH");
+    cB = await control("B", [facet2Id], "BOTH");
+    cC = await control("C", [facet2Id], "BOTH");
+    cOrg = await control("ORG", [], "ORGANIZATIONAL");
 
-    // Both Frameworks are Published and in scope for both Systems: a Control only applies
-    // through a Requirement of a Published Framework in scope (ADR 0007).
-    const scopes = { connect: [{ id: lenientFrameworkId }, { id: strictFrameworkId }] };
-    const systemA = await prisma.system.create({
-      data: {
-        name: `Test Compliance System A ${suffix}`,
-        ownerId,
-        frameworkScopes: scopes,
-        deploymentFacets: { connect: { id: facetId } },
-        businessUnits: { connect: { id: businessUnitId } },
-      },
+    async function requirement(frameworkId: string, code: string, mapped: string[]) {
+      const created = await prisma.requirement.create({
+        data: {
+          frameworkId,
+          code,
+          section: "Test",
+          title: code,
+          text: "t",
+          mappings: { create: mapped.map((controlId) => ({ controlId, coverage: "FULL" as const })) },
+        },
+      });
+      return created.id;
+    }
+    l1Id = await requirement(lenientId, "L.1", [cA]);
+    await requirement(lenientId, "L.2", [cB]);
+    await requirement(lenientId, "L.3", [cA, cC]);
+    await requirement(lenientId, "L.4", [cOrg]);
+    await requirement(strictId, "S.1", [cB]);
+    await requirement(strictId, "S.2", [cA]);
+
+    const scopes = { connect: [{ id: lenientId }, { id: strictId }] };
+    const system = async (name: string, data: Record<string, unknown>) =>
+      (await prisma.system.create({ data: { name: `Test Compliance System ${name} ${suffix}`, ownerId, ...data } })).id;
+    systemAId = await system("A", {
+      frameworkScopes: scopes,
+      deploymentFacets: { connect: [{ id: facet1Id }, { id: facet2Id }] },
+      businessUnits: { connect: { id: businessUnitId } },
     });
-    const systemB = await prisma.system.create({
-      data: { name: `Test Compliance System B ${suffix}`, ownerId, frameworkScopes: scopes },
-    });
-    systemAId = systemA.id;
-    systemBId = systemB.id;
+    systemBId = await system("B", { frameworkScopes: scopes, deploymentFacets: { connect: { id: facet1Id } } });
+    systemCId = await system("C", { frameworkScopes: scopes });
+    systemDId = await system("D", { deploymentFacets: { connect: [{ id: facet1Id }, { id: facet2Id }] } });
 
     await prisma.controlAssessment.createMany({
       data: [
-        { systemId: systemAId, controlId: reqAId, status: "FULFILLED" },
-        { systemId: systemAId, controlId: reqBId, status: "WAIVED" },
-        { systemId: systemAId, controlId: optionalId, status: "FULFILLED" },
-        // systemB's reqA is left with no Assessment row at all (NOT_STARTED by default).
-        // systemB never declares facetId, so reqB isn't applicable to it at all.
+        { systemId: systemAId, controlId: cA, status: "FULFILLED" },
+        { systemId: systemAId, controlId: cB, status: "WAIVED" },
+        { systemId: systemAId, controlId: cC, status: "IN_PROGRESS" },
       ],
     });
   });
 
   afterAll(async () => {
-    await prisma.controlAssessment.deleteMany({ where: { systemId: { in: [systemAId, systemBId] } } });
-    await prisma.system.deleteMany({ where: { id: { in: [systemAId, systemBId] } } });
-    await prisma.control.deleteMany({ where: { id: { in: [reqAId, reqBId, optionalId] } } });
+    const systemIds = [systemAId, systemBId, systemCId, systemDId];
+    await prisma.controlAssessment.deleteMany({ where: { systemId: { in: systemIds } } });
+    await prisma.system.deleteMany({ where: { id: { in: systemIds } } });
+    await prisma.framework.deleteMany({ where: { id: { in: [lenientId, strictId] } } });
+    await prisma.control.deleteMany({ where: { id: { in: controlIds } } });
     await prisma.businessUnit.deleteMany({ where: { id: businessUnitId } });
-    await prisma.framework.deleteMany({ where: { id: { in: [lenientFrameworkId, strictFrameworkId] } } });
-    await prisma.deploymentFacet.deleteMany({ where: { id: facetId } });
+    await prisma.deploymentFacet.deleteMany({ where: { id: { in: [facet1Id, facet2Id] } } });
     await prisma.user.deleteMany({ where: { id: ownerId } });
   });
 
-  it("counts Fulfilled and Waived as resolved (lenient), ignores non-mandatory Controls", async () => {
-    const result = await getComplianceForSystems({ id: systemAId }, { frameworkId: lenientFrameworkId });
+  const figure = (result: Awaited<ReturnType<typeof getComplianceForSystems>>, systemId: string) => {
+    const s = result.bySystem.find((x) => x.systemId === systemId);
+    return s && { met: s.met, applicable: s.applicable, percentage: s.percentage };
+  };
 
-    // reqA + reqB; optional excluded despite being mapped, since it's not mandatory.
-    expect(result.total).toBe(2);
-    expect(result.resolved).toBe(2); // FULFILLED + WAIVED both count
-    expect(result.percentage).toBe(100);
+  it("is Met ÷ applicable Requirements: Waived counts (lenient), Partially Met does not, Not Applicable is left out", async () => {
+    const result = await getComplianceForSystems({ id: systemAId }, { frameworkId: lenientId });
+
+    // A: L1 Met (cA Fulfilled), L2 Met (cB Waived, lenient), L3 Partially Met (cA Fulfilled, cC In Progress),
+    // L4 Not Applicable (only an Organizational Control). Met 2 of 3 applicable; the Partially Met one is not Met.
+    expect(result.framework).toMatchObject({ id: lenientId, isBase: false, strictComplianceRequired: false });
+    expect(result.met).toBe(2);
+    expect(result.applicable).toBe(3);
+    expect(result.percentage).toBe(66.7);
     expect(result.bySystem).toEqual([
-      { systemId: systemAId, systemName: expect.any(String), resolved: 2, total: 2, percentage: 100 },
+      { systemId: systemAId, systemName: expect.any(String), met: 2, applicable: 3, percentage: 66.7 },
     ]);
   });
 
-  it("pools resolved/total across every System rather than averaging their percentages", async () => {
-    const result = await getComplianceForSystems(
-      { id: { in: [systemAId, systemBId] } },
-      { frameworkId: lenientFrameworkId },
-    );
+  it("pools Met and applicable across Systems rather than averaging their percentages", async () => {
+    const result = await getComplianceForSystems({ id: { in: [systemAId, systemBId] } }, { frameworkId: lenientId });
 
-    // A: reqA FULFILLED + reqB WAIVED = 2/2 (100%). B: only reqA applies (no facetId
-    // declared), left NOT_STARTED = 0/1 (0%). A simple average of the two systems'
-    // percentages would be (100+0)/2 = 50 — pooling instead gives 2 resolved of 3 total.
-    expect(result.total).toBe(3);
-    expect(result.resolved).toBe(2);
-    expect(result.percentage).toBe(66.7);
+    // A: 2 of 3 (66.7%). B (Facet 1 only, no Assessments): L1 Not Met, L2 Not Applicable (cB needs Facet 2),
+    // L3 Not Met (only cA applies, not started), L4 Not Applicable: 0 of 2. Pooled 2 of 5 = 40%; an average of the
+    // two percentages would be 33.3%.
+    expect(figure(result, systemAId)).toEqual({ met: 2, applicable: 3, percentage: 66.7 });
+    expect(figure(result, systemBId)).toEqual({ met: 0, applicable: 2, percentage: 0 });
+    expect(result.met).toBe(2);
+    expect(result.applicable).toBe(5);
+    expect(result.percentage).toBe(40);
   });
 
-  it("a strictComplianceRequired Framework only counts Fulfilled, not Waived", async () => {
-    const result = await getComplianceForSystems({ id: systemAId }, { frameworkId: strictFrameworkId });
+  it("a strictComplianceRequired Framework does not count Waived as fulfilled", async () => {
+    const result = await getComplianceForSystems({ id: systemAId }, { frameworkId: strictId });
 
-    // Only reqB is mapped to a Requirement of the strict Framework; it's WAIVED, which doesn't count under strict.
-    expect(result.total).toBe(1);
-    expect(result.resolved).toBe(0);
-    expect(result.percentage).toBe(0);
+    // S1's only Control (cB) is Waived: Not Met under strict (it was Met under the lenient Framework's L2). S2 is Met.
+    expect(result.framework?.strictComplianceRequired).toBe(true);
+    expect(result.met).toBe(1);
+    expect(result.applicable).toBe(2);
+    expect(result.percentage).toBe(50);
   });
 
-  it("narrows to Controls mapped to a Requirement of the Framework, not another Framework's", async () => {
-    // reqA is mapped only to the lenient Framework, so the strict one doesn't see it (and vice versa for
-    // nothing here: reqB is mapped to both).
-    const strict = await getComplianceForSystems({ id: systemBId }, { frameworkId: strictFrameworkId });
-    // System B never declares facetId, so reqB (the only strict-mapped Control) isn't applicable to it.
-    expect(strict.total).toBe(0);
-    expect(strict.percentage).toBeNull();
+  it("is null, not 0, when no Requirement is applicable to a System, and such a System adds nothing to the pool", async () => {
+    // C has both Frameworks in scope but no Facet, so every mapped Control is out of scope for it.
+    const alone = await getComplianceForSystems({ id: systemCId }, { frameworkId: lenientId });
+    expect(alone).toMatchObject({ met: 0, applicable: 0, percentage: null });
+    expect(figure(alone, systemCId)).toEqual({ met: 0, applicable: 0, percentage: null });
 
-    const lenient = await getComplianceForSystems({ id: systemBId }, { frameworkId: lenientFrameworkId });
-    expect(lenient.total).toBe(1); // reqA only
+    const pooled = await getComplianceForSystems({ id: { in: [systemAId, systemCId] } }, { frameworkId: lenientId });
+    expect(pooled.percentage).toBe(66.7);
+    expect(figure(pooled, systemCId)?.percentage).toBeNull();
   });
 
-  it("stops counting a Control once its Control Mapping is removed", async () => {
-    const mapping = await prisma.controlMapping.findFirstOrThrow({
-      where: { controlId: reqAId, requirement: { frameworkId: lenientFrameworkId } },
-    });
+  it("leaves a System without the Framework in its scope out of the figures, listing it with a null percentage", async () => {
+    // D has the Facets but never declared L, so none of L's Requirements is in scope there (not a 0%).
+    const result = await getComplianceForSystems({ id: { in: [systemAId, systemDId] } }, { frameworkId: lenientId });
+    expect(figure(result, systemDId)).toEqual({ met: 0, applicable: 0, percentage: null });
+    expect(result.met).toBe(2);
+    expect(result.applicable).toBe(3);
+  });
+
+  it("keeps a Requirement whose mappings were all removed in the denominator, as Not Met", async () => {
+    const mapping = await prisma.controlMapping.findFirstOrThrow({ where: { requirementId: l1Id, controlId: cA } });
     await prisma.controlMapping.delete({ where: { id: mapping.id } });
     try {
-      const result = await getComplianceForSystems({ id: systemAId }, { frameworkId: lenientFrameworkId });
-      expect(result.total).toBe(1); // reqB only
+      const result = await getComplianceForSystems({ id: systemAId }, { frameworkId: lenientId });
+      // L1 has no mapped Controls at all: Not Met (an unmapped Framework must not look compliant). L2 is still Met.
+      expect(result.met).toBe(1);
+      expect(result.applicable).toBe(3);
     } finally {
-      await prisma.controlMapping.create({
-        data: { requirementId: mapping.requirementId, controlId: reqAId, coverage: "FULL" },
-      });
+      await prisma.controlMapping.create({ data: { requirementId: l1Id, controlId: cA, coverage: "FULL" } });
     }
   });
 
-  it("filters by Business Unit membership via the where clause", async () => {
+  it("filters the Systems by the where clause (Business Unit membership)", async () => {
     const result = await getComplianceForSystems(
       { businessUnits: { some: { id: businessUnitId } } },
-      { frameworkId: lenientFrameworkId },
+      { frameworkId: lenientId },
     );
     expect(result.bySystem.map((s) => s.systemId)).toEqual([systemAId]);
   });
 
-  it("returns null percentage when there's nothing applicable to measure", async () => {
-    const result = await getComplianceForSystems({ id: { in: [] } });
-    expect(result).toEqual({ resolved: 0, total: 0, percentage: null, bySystem: [] });
+  it("with no Framework filter the figures are for the base Framework, which is in every System's scope", async () => {
+    const base = await prisma.framework.findFirstOrThrow({ where: { isBase: true } });
+    const systems = { id: { in: [systemAId, systemBId, systemDId] } };
+    const before = await getComplianceForSystems(systems);
+    expect(before.framework).toMatchObject({ id: base.id, isBase: true });
+    // No stored scope row for the base on any fixture System, yet all three are measured against it.
+    expect(before.bySystem.map((s) => s.systemId).sort()).toEqual([systemAId, systemBId, systemDId].sort());
+
+    // One more base Requirement, mapped to cA (Facet 1): applicable on A, B and D, Met only on A (Fulfilled).
+    await mapControlsToBase([cA]);
+    const after = await getComplianceForSystems(systems);
+    expect(figure(after, systemAId)!.applicable).toBe(figure(before, systemAId)!.applicable + 1);
+    expect(figure(after, systemAId)!.met).toBe(figure(before, systemAId)!.met + 1);
+    expect(figure(after, systemBId)!.applicable).toBe(figure(before, systemBId)!.applicable + 1);
+    expect(figure(after, systemBId)!.met).toBe(figure(before, systemBId)!.met);
+    expect(figure(after, systemDId)!.applicable).toBe(figure(before, systemDId)!.applicable + 1);
+    expect(after.applicable).toBe(before.applicable + 3);
+    expect(after.met).toBe(before.met + 1);
+  });
+
+  it("returns an empty, null-percentage result for no Systems, and for an unknown Framework", async () => {
+    const none = await getComplianceForSystems({ id: { in: [] } });
+    expect(none).toMatchObject({ met: 0, applicable: 0, percentage: null, bySystem: [] });
+    expect(none.framework?.isBase).toBe(true);
+
+    const unknown = await getComplianceForSystems({ id: systemAId }, { frameworkId: "no-such-framework" });
+    expect(unknown).toMatchObject({ framework: null, met: 0, applicable: 0, percentage: null });
+    expect(unknown.bySystem).toHaveLength(1);
   });
 });

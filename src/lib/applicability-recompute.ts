@@ -2,6 +2,7 @@ import type { ImpactLevel, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getApplicableControls, UNTOUCHED_ASSESSMENT_WHERE, type SystemClassification } from "@/lib/control-assessments";
 import { SYSTEM_ACTOR } from "@/lib/change-events";
+import { systemsInScopeOf } from "@/lib/framework-scope";
 
 /**
  * Recompute of applicability when the requirement database changes under
@@ -234,14 +235,6 @@ export async function finishRecompute(
 type SystemPlan = { systemId: string; toCreate: string[]; toDelete: string[]; stale: number };
 
 // --- Scope builders: which Systems and Controls does each trigger affect? ---
-
-/**
- * Systems with `framework` in their *effective* Framework Scope: the ones that
- * declared it, or every System when it's the base Framework (always in scope).
- */
-export function systemsInScopeOf(framework: { id: string; isBase: boolean }): Prisma.SystemWhereInput {
-  return framework.isBase ? {} : { frameworkScopes: { some: { id: framework.id } } };
-}
 
 /**
  * Scope for a Framework being published: the Controls mapped to any of its

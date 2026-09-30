@@ -77,6 +77,29 @@ describe("SystemFrameworkRequirementsView", () => {
     expect(screen.getByText("This System has no Published Framework in scope.")).toBeInTheDocument();
   });
 
+  it("shows each Framework's Compliance Percentage (Met ÷ applicable) in its header, and the Organizational note once (#90)", () => {
+    render(<SystemFrameworkRequirementsView frameworks={[iso, empty]} />);
+    // iso: Met 1 of 3 applicable (Partially Met counts as not Met; 2 Not Applicable are left out): 33.3%.
+    const figure = within(screen.getByLabelText("Compliance for ISO/IEC 27001:2022"));
+    expect(figure.getByText("33.3%")).toBeInTheDocument();
+    expect(figure.getByText(/1 of 3 applicable Requirements met/)).toBeInTheDocument();
+    // A Framework with no Requirements has no figure, only its "no Requirements yet" line.
+    expect(screen.queryByLabelText("Compliance for GDPR:1")).not.toBeInTheDocument();
+    expect(screen.getAllByText(/Organizational Requirements aren't counted yet/)).toHaveLength(1);
+  });
+
+  it("shows an em dash when no Requirement is applicable", () => {
+    const allNotApplicable: SystemFrameworkRequirements = {
+      ...iso,
+      counts: { MET: 0, PARTIALLY_MET: 0, NOT_MET: 0, NOT_APPLICABLE: 2, total: 2, applicable: 0 },
+      rows: [iso.rows[3], iso.rows[4]],
+    };
+    render(<SystemFrameworkRequirementsView frameworks={[allNotApplicable]} />);
+    const figure = within(screen.getByLabelText("Compliance for ISO/IEC 27001:2022"));
+    expect(figure.getByText("—")).toBeInTheDocument();
+    expect(figure.getByText(/0 of 0 applicable Requirements met/)).toBeInTheDocument();
+  });
+
   it("is collapsed by default, with the per-status counts in the header", () => {
     render(<SystemFrameworkRequirementsView frameworks={[iso]} />);
     const header = toggle("ISO/IEC 27001:2022");

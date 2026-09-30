@@ -9,7 +9,10 @@ export type PortfolioSystem = {
   name: string;
   vendor: string | null;
   status: string;
+  /** Met ÷ applicable Requirements of the filtered Framework, else the base Framework; null if none apply. */
   compliancePercentage: number | null;
+  requirementsMet: number;
+  requirementsApplicable: number;
   openRiskCount: number;
 };
 
@@ -17,7 +20,9 @@ export type PortfolioSystem = {
  * Systems within the acting user's Business Risk Owner scope, optionally
  * narrowed further by businessUnitId/frameworkId query params, each
  * carrying its onboarding status plus a compliance-% and open-Risk-count
- * badge — the "System Portfolio" view on the dashboard. See #62.
+ * badge — the "System Portfolio" view on the dashboard. See #62. The
+ * compliance-% is the Requirement-based one (#90) for the filtered Framework,
+ * or the base Framework when no Framework filter is set.
  */
 export async function GET(request: NextRequest) {
   const auth = await authorize(request, ["ADMIN", "BUSINESS_RISK_OWNER"]);
@@ -45,7 +50,7 @@ export async function GET(request: NextRequest) {
     }),
   ]);
 
-  const complianceBySystemId = new Map(compliance.bySystem.map((s) => [s.systemId, s.percentage]));
+  const complianceBySystemId = new Map(compliance.bySystem.map((s) => [s.systemId, s]));
   const openRiskCountBySystemId = new Map(openRisks.map((r) => [r.systemId, r._count._all]));
 
   const portfolio: PortfolioSystem[] = systems.map((system) => ({
@@ -53,7 +58,9 @@ export async function GET(request: NextRequest) {
     name: system.name,
     vendor: system.vendor,
     status: system.status,
-    compliancePercentage: complianceBySystemId.get(system.id) ?? null,
+    compliancePercentage: complianceBySystemId.get(system.id)?.percentage ?? null,
+    requirementsMet: complianceBySystemId.get(system.id)?.met ?? 0,
+    requirementsApplicable: complianceBySystemId.get(system.id)?.applicable ?? 0,
     openRiskCount: openRiskCountBySystemId.get(system.id) ?? 0,
   }));
 
