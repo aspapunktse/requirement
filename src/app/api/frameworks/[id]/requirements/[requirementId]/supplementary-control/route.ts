@@ -7,6 +7,7 @@ import { createControlSchema } from "@/lib/control-schema";
 import { isCovered } from "@/lib/coverage-state";
 import { clearGapAcceptance } from "@/lib/framework-coverage";
 import { controlIncludeFor, logMappingChange } from "@/lib/frameworks";
+import { createOrganizationImplementationFor } from "@/lib/organization-implementation";
 import { finishRecompute, prepareRecompute, scopeForMappedControls } from "@/lib/applicability-recompute";
 import { frameworkLabel } from "@/lib/framework-label";
 
@@ -63,6 +64,8 @@ export async function POST(
         data: { ...rest, mandatory: mandatory ?? true, examples: examples ?? [], originFrameworkId: id },
         include: controlIncludeFor(auth.user),
       });
+      // An Organizational or Both Control starts with a Not Started Organization Control Implementation (#120).
+      await createOrganizationImplementationFor(tx, control);
       const mapping = await tx.controlMapping.create({
         data: { requirementId, controlId: control.id, coverage: "FULL" },
         select: { id: true, coverage: true, rationale: true },

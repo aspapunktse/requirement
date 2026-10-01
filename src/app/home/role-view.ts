@@ -6,8 +6,16 @@ import { getSystemsAwaitingApproval, getAllOpenRisks } from "@/lib/dashboard";
 import { scopedSystemsWhere, getAssignedScope } from "@/lib/business-risk-owner";
 import { getActionableQueries } from "@/lib/assessment-queries";
 import { getOwnerTasks, mergeTaskRows } from "@/lib/owner-tasks";
+import { getControlOwnerTasks } from "@/lib/control-owner-tasks";
 import { riskSeverityTone } from "@/lib/status-tones";
 import { RISK_INCLUDE } from "@/lib/risks";
+
+/** Compliance Manager and Admin shortcut to the Organization's Control implementations (#120). */
+const ORGANIZATION_CONTROLS_TILE: NavTile = {
+  title: "Organization Controls",
+  description: "How the Organization implements its Organizational and Both Controls.",
+  href: "/organization/controls",
+};
 
 export type RoleView = {
   lede: string;
@@ -22,19 +30,28 @@ export type RoleView = {
  * (#98). Ownership is `ownerId` alone, whatever the role, so a REVIEWER or
  * VIEWER who owns a System also sees its rejected / stale / needs-assessment
  * rows and the Queries awaiting their reply. A user who owns nothing sees
- * exactly the role view. A COMPLIANCE_MANAGER never gets owner tasks, and a
+ * exactly the role view. A COMPLIANCE_MANAGER never gets System owner tasks, and a
  * SYSTEM_OWNER always gets the section, even while it's empty.
+ *
+ * Control Owner tasks (#120) are separate: one row per Control the user owns
+ * whose Organization Control Implementation is Not Started or In Progress, for
+ * any role, a COMPLIANCE_MANAGER included (owning a Control is not owning a
+ * System). They follow the System owner rows and come before the role's own.
  */
 export async function roleView(user: { id: string; name: string; role: UserRole }): Promise<RoleView> {
-  const [view, owner] = await Promise.all([roleOwnView(user), getOwnerTasks(user)]);
+  const [view, owner, controlRows] = await Promise.all([
+    roleOwnView(user),
+    getOwnerTasks(user),
+    getControlOwnerTasks(user),
+  ]);
   const isSystemOwnerRole = user.role === "SYSTEM_OWNER";
-  if (!isSystemOwnerRole && owner.ownedCount === 0) return view;
+  if (!isSystemOwnerRole && owner.ownedCount === 0 && controlRows.length === 0) return view;
 
   const stats = [...view.stats];
   if (isSystemOwnerRole) {
     stats.push({ label: "Needing attention", value: owner.needingAttentionCount });
     stats.push({ label: "Open questions", value: owner.openQuestionCount });
-  } else {
+  } else if (owner.ownedCount > 0) {
     // A second headline pair next to the role's own would clutter the strip.
     // "Your Systems needing attention" is always new information; the open
     // questions are skipped where the role's own "Open questions" stat
@@ -46,7 +63,7 @@ export async function roleView(user: { id: string; name: string; role: UserRole 
     }
   }
 
-  return { ...view, stats, tasks: mergeTaskRows(owner.rows, view.tasks ?? []) };
+  return { ...view, stats, tasks: mergeTaskRows([...owner.rows, ...controlRows], view.tasks ?? []) };
 }
 
 async function roleOwnView(user: { id: string; name: string; role: UserRole }): Promise<RoleView> {
@@ -80,6 +97,7 @@ async function roleOwnView(user: { id: string; name: string; role: UserRole }): 
           { title: "Controls", description: "Manage the Control Library.", href: "/admin/controls" },
           { title: "Deployment Facets", description: "Manage deployment classifications.", href: "/admin/deployment-facets" },
           { title: "Capabilities", description: "Manage centrally-provided dependencies.", href: "/admin/capabilities" },
+          ORGANIZATION_CONTROLS_TILE,
         ],
       };
     }
@@ -96,6 +114,7 @@ async function roleOwnView(user: { id: string; name: string; role: UserRole }): 
         tiles: [
           { title: "Control Library", description: "Author Controls and scope what each applies to.", href: "/admin/controls" },
           { title: "Frameworks", description: "Manage the Framework catalog.", href: "/admin/frameworks" },
+          ORGANIZATION_CONTROLS_TILE,
           { title: "Browse Systems", description: "Every System across every status, read-only.", href: "/systems" },
         ],
       };

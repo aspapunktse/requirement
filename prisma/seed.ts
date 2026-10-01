@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { PrismaClient, type Control } from "@prisma/client";
+import { createOrganizationImplementationFor } from "../src/lib/organization-implementation";
 
 const prisma = new PrismaClient();
 
@@ -80,6 +81,9 @@ async function main() {
       update: controlJson,
       create: controlJson,
     });
+    // Every Organizational/Both Control has an Organization Control Implementation,
+    // Not Started; re-seeding never resets one (#120).
+    await createOrganizationImplementationFor(prisma, control);
 
     // Requirement code = the Annex A code, section = the Control's category,
     // title/text = its title/description paraphrase. Left untouched on
@@ -119,6 +123,7 @@ async function main() {
       update: {},
       create: { ...controlJson, originFrameworkId: baseFramework.id },
     });
+    await createOrganizationImplementationFor(prisma, control);
     clauseControlIdByCode.set(control.code, control.id);
   }
 

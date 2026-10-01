@@ -67,7 +67,7 @@ _Historical note_: before this model, "SoA" was used loosely to mean a System's 
 The enterprise itself, as the implementer of Organizational Controls. Single instance while the app is single-tenant.
 
 **Organization Control Implementation**:
-The Organization's own status and description of how it implements one Control (e.g. A.5.1 policies, A.6.1 screening). Maintained by that Control's Control Owner. Inherited by every System the Control applies to.
+The Organization's own status and description of how it implements one Control (e.g. A.5.1 policies, A.6.1 screening). Maintained by that Control's Control Owner, or by a Compliance Manager or an Admin (PRD F-IN.1). Inherited by every System the Control applies to.
 
 **Provider**:
 A System that other Systems depend on and inherit Controls from (e.g. a landing zone, a directory service, a central KMS). Publishes Control Offerings. Its offerings count only once the Provider itself is Onboarded. A System declares which Providers it depends on (see [ADR 0008](docs/adr/0008-providers-are-systems.md)).

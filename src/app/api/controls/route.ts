@@ -5,6 +5,7 @@ import { authenticate, authorize } from "@/lib/api-authz";
 import { ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE } from "@/lib/catalog";
 import { createControlSchema } from "@/lib/control-schema";
 import { controlIncludeFor, redactDraftOrigin } from "@/lib/frameworks";
+import { createOrganizationImplementationFor } from "@/lib/organization-implementation";
 
 export async function GET(request: NextRequest) {
   const auth = await authenticate(request);
@@ -35,13 +36,19 @@ export async function POST(request: NextRequest) {
   const { mandatory, examples, ...rest } = parsed.data;
 
   try {
-    const control = await prisma.control.create({
-      data: {
-        ...rest,
-        mandatory: mandatory ?? true,
-        examples: examples ?? [],
-      },
-      include: controlIncludeFor(auth.user),
+    // An Organizational or Both Control starts with a Not Started Organization Control
+    // Implementation (#120), in the same transaction so a failure leaves neither behind.
+    const control = await prisma.$transaction(async (tx) => {
+      const created = await tx.control.create({
+        data: {
+          ...rest,
+          mandatory: mandatory ?? true,
+          examples: examples ?? [],
+        },
+        include: controlIncludeFor(auth.user),
+      });
+      await createOrganizationImplementationFor(tx, created);
+      return created;
     });
     return NextResponse.json({ control }, { status: 201 });
   } catch (error) {
