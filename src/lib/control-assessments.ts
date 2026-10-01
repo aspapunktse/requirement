@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { QUERY_INCLUDE } from "@/lib/assessment-queries";
 import { ROLES_ALLOWED_TO_WAIVE, waiveRefusal } from "@/lib/system-permissions";
 import { CONTROL_ASSESSMENT_STATUS_LABEL } from "@/lib/requirement-status-rules";
+import { inheritanceSourcesFor, resolveEffectiveStatus } from "@/lib/effective-status";
+import { loadOrganizationStatuses, toOwnAssessment } from "@/lib/effective-status-data";
 import { logChangeEvent } from "@/lib/change-events";
 
 const APPLICABLE_APPLICABILITIES = ["PER_SYSTEM", "BOTH"] as const;
@@ -265,8 +267,10 @@ export async function getApplicableControls(
 
 /**
  * Every Control applicable to a System, each paired with its current
- * ControlAssessment — a not-yet-touched Control is paired with a
- * default NOT_STARTED placeholder rather than a missing row.
+ * ControlAssessment (null when the Control has no row yet, which reads as an
+ * untouched Not Started one) and its `effective` status and sources (#121). The
+ * `assessment` is the System's own stored row, unchanged; `effective` is what
+ * the System is judged by, including what it inherits from the Organization.
  */
 export async function getSystemAssessments(system: SystemClassification & { id: string }) {
   const [controls, assessments] = await Promise.all([
@@ -278,11 +282,21 @@ export async function getSystemAssessments(system: SystemClassification & { id: 
   ]);
 
   const assessmentByControlId = new Map(assessments.map((a) => [a.controlId, a]));
+  const organizationStatuses = await loadOrganizationStatuses(
+    controls.filter((control) => control.applicability === "BOTH").map((control) => control.id),
+  );
 
-  return controls.map((control) => ({
-    control,
-    assessment: assessmentByControlId.get(control.id) ?? null,
-  }));
+  return controls.map((control) => {
+    const assessment = assessmentByControlId.get(control.id) ?? null;
+    return {
+      control,
+      assessment,
+      effective: resolveEffectiveStatus(
+        assessment ? toOwnAssessment(assessment) : null,
+        inheritanceSourcesFor(control, organizationStatuses.get(control.id)),
+      ),
+    };
+  });
 }
 
 /**
@@ -348,7 +362,10 @@ export async function getStaleAssessments(system: SystemClassification & { id: s
  * The mandatory Controls applicable to `system` that haven't been
  * addressed yet — no ControlAssessment row at all, or one still sitting
  * at NOT_STARTED. This is the gate for submitting a System for review: it
- * only cares that each has been touched, not that it's Fulfilled.
+ * only cares that each has been touched, not that it's Fulfilled. A Control
+ * whose *effective* status is past Not Started counts as addressed, so an
+ * untouched Both Control the Organization has Fulfilled does too (#121); a
+ * person-set Not Started Assessment still does not.
  */
 export async function getUnaddressedMandatoryControls(system: SystemClassification & { id: string }) {
   const candidates = await prisma.control.findMany({
@@ -361,17 +378,23 @@ export async function getUnaddressedMandatoryControls(system: SystemClassificati
   const mandatoryControls = candidates.filter((control) => meetsAllImpactThresholds(system, control));
   if (mandatoryControls.length === 0) return [];
 
-  const addressedAssessments = await prisma.controlAssessment.findMany({
-    where: {
-      systemId: system.id,
-      controlId: { in: mandatoryControls.map((r) => r.id) },
-      NOT: { status: "NOT_STARTED" },
-    },
-    select: { controlId: true },
-  });
-  const addressedIds = new Set(addressedAssessments.map((a) => a.controlId));
+  const [assessments, organizationStatuses] = await Promise.all([
+    prisma.controlAssessment.findMany({
+      where: { systemId: system.id, controlId: { in: mandatoryControls.map((r) => r.id) } },
+      select: { controlId: true, status: true, assessedById: true },
+    }),
+    loadOrganizationStatuses(mandatoryControls.filter((r) => r.applicability === "BOTH").map((r) => r.id)),
+  ]);
+  const assessmentByControlId = new Map(assessments.map((a) => [a.controlId, a]));
 
-  return mandatoryControls.filter((control) => !addressedIds.has(control.id));
+  return mandatoryControls.filter((control) => {
+    const assessment = assessmentByControlId.get(control.id);
+    const effective = resolveEffectiveStatus(
+      assessment ? toOwnAssessment(assessment) : null,
+      inheritanceSourcesFor(control, organizationStatuses.get(control.id)),
+    );
+    return effective.status === "NOT_STARTED";
+  });
 }
 
 /** The longest evidence / notes text kept in a removal's Change Event detail. */

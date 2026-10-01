@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ControlAssessmentList } from "../ControlAssessmentList";
+import { resolveEffectiveStatus, type InheritanceSource } from "@/lib/effective-status";
 
 const assessments = [
   {
@@ -361,5 +362,111 @@ describe("ControlAssessmentList removing a stale Assessment (#109)", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Remove" }));
     expect(await screen.findByText("This Control still applies; set its status instead")).toBeInTheDocument();
     expect(screen.getByText("STALE-1 — Stale Control")).toBeInTheDocument();
+  });
+});
+
+describe("ControlAssessmentList: effective status and its source (#121)", () => {
+  const organization = (status: InheritanceSource["status"]): InheritanceSource => ({ kind: "ORGANIZATION", type: "FULL", status });
+  const control = { id: "b1", code: "A.5.15", title: "Access control", description: "d", category: "Organizational", mandatory: true, question: null };
+  const assessmentOf = (status: string, assessedById: string | null) => ({
+    id: "ba1",
+    status,
+    evidence: null,
+    notes: null,
+    selfAssessmentAnswer: null,
+    assessedById,
+    queries: [],
+  });
+  const row = (own: ReturnType<typeof assessmentOf> | null, sources: InheritanceSource[]) => ({
+    control,
+    assessment: own,
+    effective: resolveEffectiveStatus(own ? { status: own.status as never, personSet: own.assessedById !== null } : null, sources),
+  });
+
+  function stubFetch(rows: unknown[], onPatch?: (body: { status: string }) => Response) {
+    const fetchMock = vi.fn((_url: string, init?: RequestInit) => {
+      if (init?.method === "PATCH") return Promise.resolve(onPatch!(JSON.parse(init.body as string)));
+      return Promise.resolve(new Response(JSON.stringify({ assessments: rows, staleAssessments: [] }), { status: 200 }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    return fetchMock;
+  }
+  const renderList = () =>
+    render(<ControlAssessmentList systemId="s1" userRole="SYSTEM_OWNER" currentUserId="owner" systemOwnerId="owner" />);
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("shows an untouched Both Control as Fulfilled, Inherited from Organization, while the form still edits the System's own status", async () => {
+    stubFetch([row(assessmentOf("NOT_STARTED", null), [organization("FULFILLED")])]);
+    renderList();
+
+    const item = within((await screen.findByText("A.5.15 — Access control")).closest("li")!);
+    expect(item.getByText("Fulfilled", { selector: "span" })).toBeInTheDocument();
+    expect(item.getByText(/Source: Inherited from Organization · Organization: Fulfilled/)).toBeInTheDocument();
+    expect(item.getByText(/Saving a status below sets this System's own Assessment/)).toBeInTheDocument();
+    expect(item.getByLabelText("Status for A.5.15")).toHaveValue("NOT_STARTED");
+  });
+
+  it("shows a Control with no Assessment row as inherited too", async () => {
+    stubFetch([row(null, [organization("FULFILLED")])]);
+    renderList();
+
+    const item = within((await screen.findByText("A.5.15 — Access control")).closest("li")!);
+    expect(item.getByText("Fulfilled", { selector: "span" })).toBeInTheDocument();
+    expect(item.getByText(/Source: Inherited from Organization/)).toBeInTheDocument();
+  });
+
+  it("shows the Organization's status even when it gives no credit, and the Control as System-specific", async () => {
+    stubFetch([row(assessmentOf("NOT_STARTED", null), [organization("WAIVED")])]);
+    renderList();
+
+    const item = within((await screen.findByText("A.5.15 — Access control")).closest("li")!);
+    expect(item.getByText("Not Started", { selector: "span" })).toBeInTheDocument();
+    expect(item.getByText(/Source: System-specific · Organization: Waived \(gives no credit\)/)).toBeInTheDocument();
+    expect(item.queryByText(/Saving a status below/)).not.toBeInTheDocument();
+  });
+
+  it("says in one line when the System's own person-set Assessment overrides a Fulfilled Organization", async () => {
+    stubFetch([row(assessmentOf("IN_PROGRESS", "owner"), [organization("FULFILLED")])]);
+    renderList();
+
+    const item = within((await screen.findByText("A.5.15 — Access control")).closest("li")!);
+    expect(item.getByText(/Source: System-specific · Organization: Fulfilled/)).toBeInTheDocument();
+    expect(item.getByText(/This System's own Assessment \(In Progress\) overrides the Organization's Fulfilled status\./)).toBeInTheDocument();
+  });
+
+  it("names a Per-System Control System-specific, with no other source", async () => {
+    stubFetch([row(assessmentOf("FULFILLED", "owner"), [])]);
+    renderList();
+
+    const item = within((await screen.findByText("A.5.15 — Access control")).closest("li")!);
+    expect(item.getByText("Source: System-specific")).toBeInTheDocument();
+  });
+
+  it("after the owner saves a status, that own Assessment decides and the inherited one is overridden", async () => {
+    const fetchMock = stubFetch([row(assessmentOf("NOT_STARTED", null), [organization("FULFILLED")])], (body) =>
+      new Response(JSON.stringify({ assessment: assessmentOf(body.status, "owner") }), { status: 200 }),
+    );
+    renderList();
+
+    const select = await screen.findByLabelText("Status for A.5.15");
+    fireEvent.change(select, { target: { value: "IN_PROGRESS" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(await screen.findByText(/overrides the Organization's Fulfilled status/)).toBeInTheDocument();
+    const item = within(screen.getByText("A.5.15 — Access control").closest("li")!);
+    expect(item.getByText(/Source: System-specific · Organization: Fulfilled/)).toBeInTheDocument();
+    expect(fetchMock.mock.calls.some(([, init]) => init?.method === "PATCH")).toBe(true);
+  });
+
+  it("falls back to the own status when the response carries no effective status", async () => {
+    stubFetch([{ control, assessment: assessmentOf("WAIVED", "owner") }]);
+    renderList();
+
+    const item = within((await screen.findByText("A.5.15 — Access control")).closest("li")!);
+    expect(item.getByText("Waived", { selector: "span" })).toBeInTheDocument();
+    expect(item.queryByText(/Source:/)).not.toBeInTheDocument();
   });
 });

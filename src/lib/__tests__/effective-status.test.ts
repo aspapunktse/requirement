@@ -1,0 +1,153 @@
+import { describe, expect, it } from "vitest";
+import type { ControlAssessmentStatus } from "@prisma/client";
+import {
+  describeInheritedStatusChange,
+  effectiveOverrideNote,
+  effectiveSourceDetails,
+  effectiveSourceLabel,
+  INHERITED_SOURCE_STATUSES,
+  inheritanceSourcesFor,
+  resolveEffectiveStatus,
+  sourceGivesCredit,
+  type InheritanceSource,
+  type OwnAssessment,
+} from "../effective-status";
+import { isEffectivelyFulfilled } from "../requirement-status-rules";
+
+/** Pure effective-status rules (F-IN.5, #121): no database. */
+
+const STATUSES: ControlAssessmentStatus[] = ["NOT_STARTED", "IN_PROGRESS", "FULFILLED", "WAIVED", "NOT_APPLICABLE"];
+const organization = (status: ControlAssessmentStatus): InheritanceSource => ({ kind: "ORGANIZATION", type: "FULL", status });
+
+describe("which source statuses give credit", () => {
+  it("is Fulfilled and nothing else (product-owner decision on #121)", () => {
+    expect(INHERITED_SOURCE_STATUSES).toEqual(["FULFILLED"]);
+    expect(STATUSES.filter(sourceGivesCredit)).toEqual(["FULFILLED"]);
+  });
+});
+
+describe("resolveEffectiveStatus", () => {
+  describe("an own Assessment nobody set (untouched, or none at all)", () => {
+    const owns: [string, OwnAssessment][] = [
+      ["no row", null],
+      ...STATUSES.map((status): [string, OwnAssessment] => [`${status}`, { status, personSet: false }]),
+    ];
+
+    it.each(owns)("with own %s: a Fulfilled Organization makes it Fulfilled, decided by the Organization", (_label, own) => {
+      const result = resolveEffectiveStatus(own, [organization("FULFILLED")]);
+      expect(result.status).toBe("FULFILLED");
+      expect(result.source).toEqual({ kind: "ORGANIZATION", type: "FULL", status: "FULFILLED" });
+      expect(result.sources).toEqual([{ ...organization("FULFILLED"), givesCredit: true }]);
+      expect(result.overridesInherited).toBe(false);
+    });
+
+    it.each(owns)("with own %s: no source at all leaves the own status", (_label, own) => {
+      const result = resolveEffectiveStatus(own, []);
+      expect(result.status).toBe(own?.status ?? "NOT_STARTED");
+      expect(result.source).toEqual({ kind: "SYSTEM" });
+      expect(result.sources).toEqual([]);
+    });
+
+    it.each(STATUSES.filter((status) => status !== "FULFILLED"))(
+      "a %s Organization gives no credit: the own status stands, and the source is still listed",
+      (organizationStatus) => {
+        for (const [, own] of owns) {
+          const result = resolveEffectiveStatus(own, [organization(organizationStatus)]);
+          expect(result.status).toBe(own?.status ?? "NOT_STARTED");
+          expect(result.source).toEqual({ kind: "SYSTEM" });
+          expect(result.sources).toEqual([{ ...organization(organizationStatus), givesCredit: false }]);
+          expect(result.overridesInherited).toBe(false);
+        }
+      },
+    );
+  });
+
+  describe("an own Assessment a person set", () => {
+    it.each(STATUSES)("own %s is never overridden, whatever the Organization says", (status) => {
+      for (const organizationStatus of STATUSES) {
+        const result = resolveEffectiveStatus({ status, personSet: true }, [organization(organizationStatus)]);
+        expect(result.status).toBe(status);
+        expect(result.source).toEqual({ kind: "SYSTEM" });
+        expect(result.sources).toHaveLength(1);
+      }
+    });
+
+    it("says it overrides a Fulfilled Organization when it is not itself Fulfilled", () => {
+      for (const status of STATUSES) {
+        const result = resolveEffectiveStatus({ status, personSet: true }, [organization("FULFILLED")]);
+        expect(result.overridesInherited).toBe(status !== "FULFILLED");
+      }
+    });
+
+    it("overrides nothing when the Organization gives no credit or there is no source", () => {
+      expect(resolveEffectiveStatus({ status: "NOT_STARTED", personSet: true }, [organization("WAIVED")]).overridesInherited).toBe(false);
+      expect(resolveEffectiveStatus({ status: "NOT_STARTED", personSet: true }, []).overridesInherited).toBe(false);
+    });
+  });
+
+  it("an Assessment fulfilled by a Capability (Fulfilled, not person-set) stays Fulfilled when the Organization drops back", () => {
+    const own: OwnAssessment = { status: "FULFILLED", personSet: false };
+    expect(resolveEffectiveStatus(own, [organization("NOT_STARTED")]).status).toBe("FULFILLED");
+  });
+});
+
+describe("inheritanceSourcesFor", () => {
+  it("gives a Both Control an Organization source, Not Started while the Organization has recorded nothing", () => {
+    expect(inheritanceSourcesFor({ applicability: "BOTH" }, undefined)).toEqual([organization("NOT_STARTED")]);
+    expect(inheritanceSourcesFor({ applicability: "BOTH" }, "FULFILLED")).toEqual([organization("FULFILLED")]);
+  });
+
+  it("gives a Per-System Control no source, and an Organizational one none either (that is #122)", () => {
+    expect(inheritanceSourcesFor({ applicability: "PER_SYSTEM" }, "FULFILLED")).toEqual([]);
+    expect(inheritanceSourcesFor({ applicability: "ORGANIZATIONAL" }, "FULFILLED")).toEqual([]);
+  });
+});
+
+describe("the wording", () => {
+  it("names the source and lists every source with its own status", () => {
+    const inherited = resolveEffectiveStatus(null, [organization("FULFILLED")]);
+    expect(effectiveSourceLabel(inherited)).toBe("Inherited from Organization");
+    expect(effectiveSourceDetails(inherited)).toEqual(["Organization: Fulfilled"]);
+
+    const waived = resolveEffectiveStatus(null, [organization("WAIVED")]);
+    expect(effectiveSourceLabel(waived)).toBe("System-specific");
+    expect(effectiveSourceDetails(waived)).toEqual(["Organization: Waived (gives no credit)"]);
+
+    expect(effectiveSourceLabel(resolveEffectiveStatus(null, []))).toBe("System-specific");
+    expect(effectiveSourceDetails(resolveEffectiveStatus(null, []))).toEqual([]);
+  });
+
+  it("says so in one line when the System's own person-set Assessment overrides a Fulfilled Organization", () => {
+    const overriding = resolveEffectiveStatus({ status: "IN_PROGRESS", personSet: true }, [organization("FULFILLED")]);
+    expect(effectiveOverrideNote(overriding)).toBe("This System's own Assessment (In Progress) overrides the Organization's Fulfilled status.");
+    expect(effectiveOverrideNote(resolveEffectiveStatus(null, [organization("FULFILLED")]))).toBeNull();
+  });
+
+  it("words the Change Event for gaining and losing credit, and has none when the status stays", () => {
+    const untouched = (organizationStatus: ControlAssessmentStatus) => resolveEffectiveStatus(null, [organization(organizationStatus)]);
+    expect(describeInheritedStatusChange("A.5.15", untouched("NOT_STARTED"), untouched("FULFILLED"))).toBe(
+      "A.5.15 is now Fulfilled, inherited from the Organization",
+    );
+    expect(describeInheritedStatusChange("A.5.15", untouched("FULFILLED"), untouched("WAIVED"))).toBe(
+      "A.5.15 is no longer inherited from the Organization (now Not Started)",
+    );
+    expect(describeInheritedStatusChange("A.5.15", untouched("NOT_STARTED"), untouched("WAIVED"))).toBeNull();
+    const own = { status: "WAIVED", personSet: true } as const;
+    expect(
+      describeInheritedStatusChange(
+        "A.5.15",
+        resolveEffectiveStatus(own, [organization("NOT_STARTED")]),
+        resolveEffectiveStatus(own, [organization("FULFILLED")]),
+      ),
+    ).toBeNull();
+  });
+});
+
+describe("what the readers do with the effective status", () => {
+  it("judges Waived and Not Applicable by the Framework, and inherited Fulfilled like any Fulfilled", () => {
+    const inherited = resolveEffectiveStatus(null, [organization("FULFILLED")]).status;
+    expect(isEffectivelyFulfilled(inherited, { strictComplianceRequired: true })).toBe(true);
+    expect(isEffectivelyFulfilled("WAIVED", { strictComplianceRequired: true })).toBe(false);
+    expect(isEffectivelyFulfilled("WAIVED", { strictComplianceRequired: false })).toBe(true);
+  });
+});
