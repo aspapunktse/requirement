@@ -20,13 +20,13 @@ This file is a snapshot of in-flight state, not a permanent doc. Update or trim 
   - #95 (GitHub Actions on their Node 24 majors);
   - #115 (CI, the CD deploy job and the Docker image on Node 24);
   - PR #106 (Vercel records production deploys as `main`).
-- `main` is at #115 (PR #118). There are no open PRs.
+- `main` is at #119 (PR #127). There are no open PRs.
 - The dev DB is in its seeded state:
   - 10 Systems, 471 Control Assessments, 0 Change Events.
   - Frameworks: ISO/IEC 27001:2022, which is the base and Published. GDPR 1 and Export Control (EAR/ITAR) 1 are Published but have no Requirements yet; they came from #88.
 
 **Milestone "PRD 0001 · M3 Inheritance" is open on GitHub and cut into issues.** The product owner approved the cut on 2026-10-01. Work them in this order, one at a time:
-1. ~~**#119: Control Owner**, one User per Control (F-CL.3).~~ **Done** on branch `119-control-owner` (key pieces below).
+1. ~~**#119: Control Owner**, one User per Control (F-CL.3).~~ **Done** (PR #127, key pieces below).
 2. **#120: Organization Control Implementation**, status and description per Organizational/Both Control (F-IN.1, §9.7). After #119. **Start here.**
 3. **#121: effective status**, Systems inherit Both Controls from the Organization (F-IN.5, F-IN.6, F-IN.7). After #120.
 4. **#122: count Organizational Requirements per System** (#89 decision 3a). After #121.
@@ -53,7 +53,7 @@ Facts checked on the dev DB while cutting M3:
 **#119 (Control Owner) is done.** Key pieces, for when #120 builds on it:
 - Schema: `Control.ownerId String?`, relation `owner User? @relation("ControlOwner", onDelete: SetNull)` with `@@index([ownerId])`; `User.ownedControls`. Hand-written migration `prisma/migrations/20261001100000_add_control_owner` (column, index, foreign key; no data change). Every Control starts unassigned; deleting a User leaves their Controls unassigned. The dev DB's row counts were identical before and after (118 Controls, 11 Users, 10 Systems, 471 Control Assessments, 0 Change Events; the 11th User was a fixture leaked by `src/app/api/controls/__tests__/route.test.ts`, fixed and removed in the same PR, so the seeded state is 10 Users), and the seed does not assign owners.
 - API: `PATCH /api/controls/[id]` takes `ownerId` (a User id or `null`); an unknown id is a 400 with nothing changed (a Prisma `P2003` race, the User deleted mid-request, is a 400 too). It is not a Change Event and not a recompute, whatever else is in the body. `POST /api/controls` takes no owner. `controlIncludeFor` (`src/lib/frameworks.ts`) adds `owner: { select: { id: true, name: true } }`, so every Control read carries it (name only, no email).
-- `GET /api/users` now lists Users (same `PublicUser` shape, optional `?role=`) for every role in `ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE` (`ADMIN`, `COMPLIANCE_MANAGER`), so a Compliance Manager can fill the picker in production. Every other role still gets 404 once the dev stub is off. The product owner is being told, since it widens who can list Users (names, emails, roles).
+- `GET /api/users` now lists Users (same `PublicUser` shape, optional `?role=`) for every role in `ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE` (`ADMIN`, `COMPLIANCE_MANAGER`), so a Compliance Manager can fill the picker in production. Every other role still gets 404 once the dev stub is off. The product owner confirmed this on 2026-10-01, and that the Control Owner picker stays on every Control, Per-System ones included (both recorded on #119).
 - UI: `ControlLibraryManager` loads `/api/users` with the rest, lists a "Control Owner" column ("No Control Owner" when unassigned), has an "Owner" filter (Any / No Control Owner) that ANDs with the origin filter, and a Control Owner picker in the edit form. It sends `ownerId` only when the picker changed, so a failed User list can't clear an owner. The picker keeps the current owner selectable even if the User list lacks them.
 - Publishing a Framework is not blocked by unassigned Controls (product-owner decision on #119).
 - Tests: `src/app/api/controls/[id]/__tests__/control-owner.test.ts` (assign/clear by Compliance Manager and Admin, every other role 403 with no change, unknown id 400, any role as owner, deleting the User, no Change Event and no Assessment created or removed, reads carry the owner, POST takes none), `src/app/api/users/__tests__/route.test.ts` (Compliance Manager allowed, other roles still 404), `src/components/__tests__/ControlLibraryManager.test.tsx` (column, filter, picker, save payloads). The fixtures are self-contained (an ORGANIZATIONAL Control, plus one Facet-scoped Control and a System for the no-recompute check), so the tests pass on CI's unseeded database.
@@ -69,7 +69,8 @@ Facts checked on the dev DB while cutting M3:
 
 **Open items for the product owner** (not blocking):
 - `.dockerignore` doesn't exclude `.env.production.local`, so a local `docker build` copies the production credentials into the build stage. The final image has no env files, and CI never has that file, so the pushed image isn't affected. Found during #115; not fixed yet.
-- The 18 `DATA_*` Vercel environment variables are still exposed to Preview. They hold production database credentials and the app doesn't use them. Unticking Preview is a dashboard change only the product owner can make.
+- The Vercel project has a `VERCEL_TOKEN` environment variable set for Production and for Preview. The app doesn't read it (CD uses the GitHub secret of the same name), and on Preview it is available to every preview build. Seen while reading the settings back on 2026-10-01; removing it is the product owner's call.
+- ~~The 18 `DATA_*` Vercel environment variables were exposed to Preview.~~ **Fixed by the product owner on 2026-10-01**; read back through the API: all 18 target Production only.
 - #46 needs re-scoping against the PRD before anyone picks it up.
 - #61 is deferred.
 - #63 is independent lint cleanup.
@@ -98,7 +99,7 @@ Facts checked on the dev DB while cutting M3:
 
 **Known environment issue (fixed):** PRs #82–#92 showed a failing **Vercel** preview check ("Resource provisioning failed"). The cause was Neon's free-plan limit of 10 database branches: each git branch's first preview creates a `preview/<branch>` Neon branch, and Neon never deletes them. On 2026-09-29 the product owner deleted the old preview branches. Neon has no setting to delete them automatically, so the error will come back after about 9 more new branches. When it does, ask the product owner to clear merged `preview/*` branches again. The workflow doc says how to confirm it and why it's safe to merge on green GitHub CI in the meantime. **Update 2026-10-01:** previews no longer use a database at all (see below). So the product owner turned off the Neon integration's preview branching and cleared the old `preview/*` branches. Previews have passed since PR #105. If "Resource provisioning failed" ever returns, check that setting first.
 
-**Fixed on 2026-09-30: Vercel previews used to migrate the production database.** `DATABASE_URL` was shared by Production and Preview, and the build command ran `prisma migrate deploy` for every build. As a result, each preview applied its unmerged migrations to production; #87's enum migration was the one that exposed it. The product owner changed the build command to migrate only when `VERCEL_ENV=production` and limited `DATABASE_URL` to Production. Before pushing a branch with a migration, read both settings back; the "Known environment gotchas" section of the workflow doc has the commands. Open item: the `DATA_*` Vercel variables (production credentials, unused by the app) are still exposed to Preview. Unticking Preview on them is the product owner's call.
+**Fixed on 2026-09-30: Vercel previews used to migrate the production database.** `DATABASE_URL` was shared by Production and Preview, and the build command ran `prisma migrate deploy` for every build. As a result, each preview applied its unmerged migrations to production; #87's enum migration was the one that exposed it. The product owner changed the build command to migrate only when `VERCEL_ENV=production` and limited `DATABASE_URL` to Production. Before pushing a branch with a migration, read both settings back; the "Known environment gotchas" section of the workflow doc has the commands. The `DATA_*` Vercel variables (production credentials, unused by the app) were also exposed to Preview until the product owner limited them to Production on 2026-10-01.
 
 ## Milestone 1 history (PRD 0001)
 

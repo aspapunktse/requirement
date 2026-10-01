@@ -136,7 +136,7 @@ Run only one implementer at a time (see above).
   - `MSYS_NO_PATHCONV=1 npx vercel api /v9/projects/prj_whCroO48Sq1pZZa0yLpdDUI8she3` for `buildCommand`;
   - `.../env` for `DATABASE_URL`'s `target`.
 
-  Changing Vercel settings is the product owner's job; the permission classifier treats it as a production deploy. The 18 `DATA_*` variables were still exposed to Preview as of 2026-09-30. The app doesn't read them, but they hold production credentials.
+  Changing Vercel settings is the product owner's job; the permission classifier treats it as a production deploy. The 18 `DATA_*` variables hold production credentials the app doesn't read. They were exposed to Preview until the product owner limited them to Production on 2026-10-01.
 - **Keep the checkout out of OneDrive.** The repo lives at `C:\dev\requirement`. It used to sit in a OneDrive-synced folder, which made first compiles take tens of seconds, caused transient 404/500 responses and made sync fight the tooling over file locks. It was moved on 2026-09-29. Don't clone or move it back under a synced folder.
 - **Tests share the dev DB.** Killed runs leak `Test …` fixtures into it, so clean them up occasionally.
 - **A stale `.next` cache can make API routes return a Next.js HTML 404.** After many branch switches in the shared checkout, `PATCH /api/systems/[id]/assessments/[controlId]` returned the HTML "This page could not be found" for every call, although the route file was unchanged and the handler never reached its first query. Stopping the dev server, running `rm -rf .next` and starting it again fixed it. Check for this before suspecting the code.
