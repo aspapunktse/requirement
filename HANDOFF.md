@@ -20,14 +20,14 @@ This file is a snapshot of in-flight state, not a permanent doc. Update or trim 
   - #95 (GitHub Actions on their Node 24 majors);
   - #115 (CI, the CD deploy job and the Docker image on Node 24);
   - PR #106 (Vercel records production deploys as `main`).
-- `main` is at #119 (PR #127). There are no open PRs.
+- `main` is at #120 (PR #128). There are no open PRs.
 - The dev DB is in its seeded state:
   - 10 Systems, 471 Control Assessments, 0 Change Events, and (since #120) 92 Organization Control Implementations, all Not Started: one per Organizational/Both Control.
   - Frameworks: ISO/IEC 27001:2022, which is the base and Published. GDPR 1 and Export Control (EAR/ITAR) 1 are Published but have no Requirements yet; they came from #88.
 
 **Milestone "PRD 0001 · M3 Inheritance" is open on GitHub and cut into issues.** The product owner approved the cut on 2026-10-01. Work them in this order, one at a time:
 1. ~~**#119: Control Owner**, one User per Control (F-CL.3).~~ **Done** (PR #127, key pieces below).
-2. ~~**#120: Organization Control Implementation**, status and description per Organizational/Both Control (F-IN.1, §9.7).~~ **Done** (branch `120-organization-control-implementation`, key pieces below).
+2. ~~**#120: Organization Control Implementation**, status and description per Organizational/Both Control (F-IN.1, §9.7).~~ **Done** (PR #128, key pieces below).
 3. **#121: effective status**, Systems inherit Both Controls from the Organization (F-IN.5, F-IN.6, F-IN.7). After #120. **Start here.**
 4. **#122: count Organizational Requirements per System** (#89 decision 3a). After #121.
 5. **#123: Providers and Control Offerings** (F-IN.2). Blocked by nothing.
@@ -42,6 +42,7 @@ F-OUT.2 (the source of each Control on the System page) and F-CE.2 (Change Event
 - **Shared inheritance (#125):** with a Shared source, the System's own Assessment is the customer's half. Own Fulfilled is effectively Fulfilled only if the Provider is Fulfilled too. Own Waived or Not Applicable still wins. (PRD F-IN.5 rule 1 read literally would make a Shared Offering never matter.)
 - **Organizational Requirements (#122) count on every System**, not once at organization level. The drop on the day it ships is accepted: Jira goes from 98.2% (56 of 57) to 47.5% (56 of 118) until Control Owners record implementations.
 - **A dependent reads the Provider's own Assessment status (#124)**, as ADR 0008 says. No chains through a Provider's own Providers.
+- **Only a Fulfilled Organization Control Implementation is inherited (#121).** If the Organization's implementation is Waived or Not Applicable, a System's untouched Assessment gets no credit and its own status stands.
 - **OQ-2 (#124):** the most favourable source wins, and every source is listed.
 - **Publishing a Framework isn't blocked by Controls without a Control Owner (#119).** The UI shows "No Control Owner" and a filter.
 - Accepted consequence of #126: each migrated Capability becomes an Onboarded Provider System owned by an Admin. Its other applicable Controls start Not Started, so it shows in that Admin's tasks and lowers the pooled percentage.
