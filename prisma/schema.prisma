@@ -85,28 +85,29 @@ model User {
   role      UserRole @default(VIEWER)
   createdAt DateTime @default(now())
 
-  ownedSystems       System[]            @relation("SystemOwner")
-  assessments        ControlAssessment[] @relation("AssessedBy")
-  riskActions        Risk[]              @relation("RiskOwner")
-  approvals          Approval[]
+  ownedSystems                       System[]                            @relation("SystemOwner")
+  assessments                        ControlAssessment[]                 @relation("AssessedBy")
+  riskActions                        Risk[]                              @relation("RiskOwner")
+  approvals                          Approval[]
   // Business Units and Frameworks this User (as a BUSINESS_RISK_OWNER) is
   // assigned to. Independent of each other — a Business Risk Owner may own
   // Business Units, Frameworks, or both, not necessarily paired. See #55.
-  businessUnitScopes BusinessUnit[]
-  frameworkScopes    Framework[]         @relation("FrameworkRiskOwner")
-  resolvedQueries    AssessmentQuery[]   @relation("QueryResolvedBy")
-  queryMessages      QueryMessage[]
-  acceptedGaps       Requirement[]       @relation("GapAcceptedBy")
-  ownedControls      Control[]           @relation("ControlOwner")
+  businessUnitScopes                 BusinessUnit[]
+  frameworkScopes                    Framework[]                         @relation("FrameworkRiskOwner")
+  resolvedQueries                    AssessmentQuery[]                   @relation("QueryResolvedBy")
+  queryMessages                      QueryMessage[]
+  acceptedGaps                       Requirement[]                       @relation("GapAcceptedBy")
+  ownedControls                      Control[]                           @relation("ControlOwner")
+  organizationImplementationsUpdated OrganizationControlImplementation[] @relation("OrganizationImplementationUpdatedBy")
 }
 
 // A system or cloud solution being onboarded into the enterprise.
 model System {
-  id                         String              @id @default(cuid())
+  id                         String            @id @default(cuid())
   name                       String
   vendor                     String?
   description                String?
-  status                     OnboardingStatus    @default(DRAFT)
+  status                     OnboardingStatus  @default(DRAFT)
   // Self-declared Impact Level on each CIA axis, independently — null means
   // "not yet classified" on that axis, distinct from LOW. Replaces the old
   // unenforced free-text dataClassification field. See ADR 0003.
@@ -114,12 +115,12 @@ model System {
   integrityImpactLevel       ImpactLevel?
   availabilityImpactLevel    ImpactLevel?
   ownerId                    String
-  owner                      User                @relation("SystemOwner", fields: [ownerId], references: [id])
+  owner                      User              @relation("SystemOwner", fields: [ownerId], references: [id])
   // One or more deployment facets this System spans (e.g. On-Prem, Cloud) —
   // a Hybrid System is simply one that declares more than one. See ADR 0003.
   deploymentFacets           DeploymentFacet[]
-  createdAt                  DateTime            @default(now())
-  updatedAt                  DateTime            @updatedAt
+  createdAt                  DateTime          @default(now())
+  updatedAt                  DateTime          @updatedAt
   // When the System was actually marked Onboarded — distinct from Approval
   // (a judgment call) and from updatedAt (touched by unrelated edits). See
   // ADR 0001.
@@ -364,15 +365,43 @@ model Control {
   // Framework had no covering base Control. Null: a base Control (seeded
   // 1:1 from ISO 27001:2022 Annex A).
   originFrameworkId             String?
-  originFramework               Framework?          @relation("ControlOriginFramework", fields: [originFrameworkId], references: [id], onDelete: Restrict)
+  originFramework               Framework?                         @relation("ControlOriginFramework", fields: [originFrameworkId], references: [id], onDelete: Restrict)
   // The Control Owner: the one User who maintains this Control's Organization
   // Control Implementation (F-CL.3, #119). Any User, whatever their role; null
   // means unassigned (every existing Control starts that way, PRD §9.7).
   // Deleting the User leaves the Control unassigned. Curation, not a Change Event.
   ownerId                       String?
-  owner                         User?               @relation("ControlOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  owner                         User?                              @relation("ControlOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  // The Organization's own implementation of this Control (#120). Exists for
+  // ORGANIZATIONAL and BOTH Controls, never PER_SYSTEM; a missing row reads as
+  // Not Started and the first edit creates it.
+  organizationImplementation    OrganizationControlImplementation?
 
   @@index([ownerId])
+}
+
+// The Organization's own status and description of how it implements one
+// Control (PRD 0001 F-IN.1, #120), e.g. A.5.1 policies or A.6.1 screening.
+// At most one per Control (`controlId` is unique), only for ORGANIZATIONAL and
+// BOTH Controls. Edited by the Control Owner, a Compliance Manager or an
+// Admin. Changes nothing on any System yet: inheritance is #121. Not a
+// Change Event, so `updatedById`/`updatedAt` are the whole record. Deleting
+// the User who last edited it leaves the row and drops the attribution.
+model OrganizationControlImplementation {
+  id          String                  @id @default(cuid())
+  controlId   String                  @unique
+  control     Control                 @relation(fields: [controlId], references: [id], onDelete: Cascade)
+  // Same status set as a Control Assessment. Starts Not Started.
+  status      ControlAssessmentStatus @default(NOT_STARTED)
+  // How the Organization implements the Control. Required (non-empty) once
+  // the status is Waived or Not Applicable (`implementationDescriptionRefusal`).
+  description String?
+  updatedById String?
+  updatedBy   User?                   @relation("OrganizationImplementationUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
+
+  @@index([updatedById])
 }
 
 // Fulfillment status of a Control for a specific System.
