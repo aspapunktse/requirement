@@ -29,6 +29,8 @@ export function controlIncludeFor(user: { role: UserRole }) {
   return {
     deploymentFacets: true,
     capabilities: true,
+    // The Control Owner (F-CL.3), name only: the id feeds the picker, and no email goes to every reader.
+    owner: { select: { id: true, name: true } },
     // Set for a Supplementary Control (its origin Framework); `status` is only
     // here so redactDraftOrigin can hide a Draft Framework from users who can't see it.
     originFramework: { select: { id: true, name: true, version: true, status: true } },

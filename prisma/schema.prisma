@@ -97,6 +97,7 @@ model User {
   resolvedQueries    AssessmentQuery[]   @relation("QueryResolvedBy")
   queryMessages      QueryMessage[]
   acceptedGaps       Requirement[]       @relation("GapAcceptedBy")
+  ownedControls      Control[]           @relation("ControlOwner")
 }
 
 // A system or cloud solution being onboarded into the enterprise.
@@ -364,6 +365,14 @@ model Control {
   // 1:1 from ISO 27001:2022 Annex A).
   originFrameworkId             String?
   originFramework               Framework?          @relation("ControlOriginFramework", fields: [originFrameworkId], references: [id], onDelete: Restrict)
+  // The Control Owner: the one User who maintains this Control's Organization
+  // Control Implementation (F-CL.3, #119). Any User, whatever their role; null
+  // means unassigned (every existing Control starts that way, PRD §9.7).
+  // Deleting the User leaves the Control unassigned. Curation, not a Change Event.
+  ownerId                       String?
+  owner                         User?               @relation("ControlOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+
+  @@index([ownerId])
 }
 
 // Fulfillment status of a Control for a specific System.

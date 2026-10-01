@@ -8,6 +8,7 @@ import { NEW_CONTROL_DRAFT, NewControlFields, newControlBody } from "@/component
 import { frameworkLabel, satisfiesEntries, satisfiesLabel, type ControlMappingForLabel } from "@/lib/framework-label";
 
 type Catalog = { id: string; name: string };
+type ControlOwner = { id: string; name: string };
 type ImpactLevel = "LOW" | "MODERATE" | "HIGH" | "CRITICAL";
 
 // What `/api/controls` returns per Control Mapping: enough for the "Satisfies" line and the reverse view.
@@ -34,6 +35,9 @@ type ControlSummary = {
   deploymentFacets: Catalog[];
   capabilities: Catalog[];
   mappings: ControlMappingRow[];
+  // The Control Owner (F-CL.3): the one User who maintains the Control's Organization Control
+  // Implementation; null while unassigned.
+  owner: ControlOwner | null;
   // Set for a Supplementary Control (authored for a gap in that Framework); null for a base Control.
   originFramework: { id: string; name: string; version: string } | null;
   minConfidentialityImpactLevel: ImpactLevel | null;
@@ -83,16 +87,20 @@ function OriginBadge({ control }: { control: Pick<ControlSummary, "originFramewo
 }
 
 type OriginFilter = "ALL" | "BASE" | "SUPPLEMENTARY";
+type OwnerFilter = "ALL" | "UNASSIGNED";
 
 export function ControlLibraryManager() {
   const [controls, setControls] = useState<ControlSummary[]>([]);
   const [deploymentFacets, setDeploymentFacets] = useState<Catalog[]>([]);
   const [capabilities, setCapabilities] = useState<Catalog[]>([]);
+  const [users, setUsers] = useState<ControlOwner[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState("");
   const [selectedDeploymentFacetIds, setSelectedDeploymentFacetIds] = useState<Set<string>>(new Set());
   const [selectedCapabilityIds, setSelectedCapabilityIds] = useState<Set<string>>(new Set());
+  // The Control Owner picked in the form; "" is "No Control Owner".
+  const [selectedOwnerId, setSelectedOwnerId] = useState("");
   const [impactLevels, setImpactLevels] = useState<{
     minConfidentialityImpactLevel: ImpactLevel | null;
     minIntegrityImpactLevel: ImpactLevel | null;
@@ -102,20 +110,25 @@ export function ControlLibraryManager() {
   const [creating, setCreating] = useState(false);
   const [draft, setDraft] = useState(NEW_CONTROL_DRAFT);
   const [originFilter, setOriginFilter] = useState<OriginFilter>("ALL");
+  const [ownerFilter, setOwnerFilter] = useState<OwnerFilter>("ALL");
 
   async function loadAll() {
-    const [controlsRes, deploymentFacetsRes, capabilitiesRes] = await Promise.all([
+    const [controlsRes, deploymentFacetsRes, capabilitiesRes, usersRes] = await Promise.all([
       fetch("/api/controls"),
       fetch("/api/deployment-facets"),
       fetch("/api/capabilities"),
+      fetch("/api/users"),
     ]);
     const controlsBody = await controlsRes.json();
     const deploymentFacetsBody = await deploymentFacetsRes.json();
     const capabilitiesBody = await capabilitiesRes.json();
+    // The Control Owner picker's Users; a refusal (no `users`) leaves the picker empty.
+    const usersBody = await usersRes.json();
     return {
       controls: (controlsBody.controls ?? []) as ControlSummary[],
       deploymentFacets: (deploymentFacetsBody.deploymentFacets ?? []) as Catalog[],
       capabilities: (capabilitiesBody.capabilities ?? []) as Catalog[],
+      users: ((usersBody.users ?? []) as ControlOwner[]).map(({ id, name }) => ({ id, name })),
     };
   }
 
@@ -127,6 +140,7 @@ export function ControlLibraryManager() {
       setControls(data.controls);
       setDeploymentFacets(data.deploymentFacets);
       setCapabilities(data.capabilities);
+      setUsers(data.users);
       setLoading(false);
     });
 
@@ -138,8 +152,9 @@ export function ControlLibraryManager() {
   const selected = controls.find((r) => r.id === selectedId) ?? null;
   const visibleControls = controls.filter(
     (control) =>
-      originFilter === "ALL" ||
-      (originFilter === "SUPPLEMENTARY" ? !!control.originFramework : !control.originFramework),
+      (originFilter === "ALL" ||
+        (originFilter === "SUPPLEMENTARY" ? !!control.originFramework : !control.originFramework)) &&
+      (ownerFilter === "ALL" || !control.owner),
   );
 
   function selectControl(id: string) {
@@ -148,6 +163,7 @@ export function ControlLibraryManager() {
     const control = controls.find((r) => r.id === id);
     setSelectedDeploymentFacetIds(new Set(control?.deploymentFacets.map((t) => t.id) ?? []));
     setSelectedCapabilityIds(new Set(control?.capabilities.map((c) => c.id) ?? []));
+    setSelectedOwnerId(control?.owner?.id ?? "");
     setImpactLevels({
       minConfidentialityImpactLevel: control?.minConfidentialityImpactLevel ?? null,
       minIntegrityImpactLevel: control?.minIntegrityImpactLevel ?? null,
@@ -173,12 +189,17 @@ export function ControlLibraryManager() {
     const body: {
       deploymentFacetIds?: string[];
       capabilityIds?: string[];
+      ownerId?: string | null;
       minConfidentialityImpactLevel?: ImpactLevel | null;
       minIntegrityImpactLevel?: ImpactLevel | null;
       minAvailabilityImpactLevel?: ImpactLevel | null;
     } = {
       capabilityIds: Array.from(selectedCapabilityIds),
     };
+    // Only when it changed, so a Save cannot clear an owner the picker never offered (e.g. the User list failed to load).
+    if (selectedOwnerId !== (selected.owner?.id ?? "")) {
+      body.ownerId = selectedOwnerId === "" ? null : selectedOwnerId;
+    }
     if (selected.applicability !== "ORGANIZATIONAL") {
       body.deploymentFacetIds = Array.from(selectedDeploymentFacetIds);
       body.minConfidentialityImpactLevel = impactLevels.minConfidentialityImpactLevel;
@@ -200,6 +221,7 @@ export function ControlLibraryManager() {
 
     const data = await loadAll();
     setControls(data.controls);
+    setUsers(data.users);
   }
 
   function startCreating() {
@@ -254,6 +276,19 @@ export function ControlLibraryManager() {
         </select>
       </label>
 
+      <label className="flex items-center gap-2 text-sm">
+        Owner
+        <select
+          aria-label="Control Owner filter"
+          className="rounded border border-zinc-200 p-1 text-sm dark:border-zinc-800 dark:bg-transparent"
+          value={ownerFilter}
+          onChange={(event) => setOwnerFilter(event.target.value as OwnerFilter)}
+        >
+          <option value="ALL">Any Control Owner</option>
+          <option value="UNASSIGNED">No Control Owner</option>
+        </select>
+      </label>
+
       <div className="overflow-x-auto rounded border border-zinc-200 dark:border-zinc-800">
         <table className="w-full text-left text-sm">
           <thead>
@@ -261,6 +296,7 @@ export function ControlLibraryManager() {
               <th className="p-2 font-semibold">Code</th>
               <th className="p-2 font-semibold">Title</th>
               <th className="p-2 font-semibold">Satisfies</th>
+              <th className="p-2 font-semibold">Control Owner</th>
               <th className="p-2 font-semibold">Tags</th>
             </tr>
           </thead>
@@ -277,6 +313,7 @@ export function ControlLibraryManager() {
                   <OriginBadge control={control} />
                 </td>
                 <td className="p-2 text-zinc-500">{satisfiesEntries(control.mappings).join(", ")}</td>
+                <td className="p-2 text-zinc-500">{control.owner?.name ?? "No Control Owner"}</td>
                 <td className="p-2 text-zinc-500">{summarizeTags(control)}</td>
               </tr>
             ))}
@@ -350,6 +387,27 @@ export function ControlLibraryManager() {
               </ul>
             </div>
           )}
+
+          <label className="flex items-center gap-2 text-sm">
+            Control Owner
+            <select
+              aria-label="Control Owner"
+              className="rounded border border-zinc-200 p-1 text-sm dark:border-zinc-800 dark:bg-transparent"
+              value={selectedOwnerId}
+              onChange={(event) => setSelectedOwnerId(event.target.value)}
+            >
+              <option value="">No Control Owner</option>
+              {/* Keeps the current owner selectable even if the User list did not include them. */}
+              {selected.owner && !users.some((user) => user.id === selected.owner?.id) && (
+                <option value={selected.owner.id}>{selected.owner.name}</option>
+              )}
+              {users.map((user) => (
+                <option key={user.id} value={user.id}>
+                  {user.name}
+                </option>
+              ))}
+            </select>
+          </label>
 
           {selected.applicability === "ORGANIZATIONAL" ? (
             <p className="text-sm text-zinc-500">

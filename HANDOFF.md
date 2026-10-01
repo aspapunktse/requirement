@@ -26,8 +26,8 @@ This file is a snapshot of in-flight state, not a permanent doc. Update or trim 
   - Frameworks: ISO/IEC 27001:2022, which is the base and Published. GDPR 1 and Export Control (EAR/ITAR) 1 are Published but have no Requirements yet; they came from #88.
 
 **Milestone "PRD 0001 · M3 Inheritance" is open on GitHub and cut into issues.** The product owner approved the cut on 2026-10-01. Work them in this order, one at a time:
-1. **#119: Control Owner**, one User per Control (F-CL.3). **Start here.**
-2. **#120: Organization Control Implementation**, status and description per Organizational/Both Control (F-IN.1, §9.7). After #119.
+1. ~~**#119: Control Owner**, one User per Control (F-CL.3).~~ **Done** on branch `119-control-owner` (key pieces below).
+2. **#120: Organization Control Implementation**, status and description per Organizational/Both Control (F-IN.1, §9.7). After #119. **Start here.**
 3. **#121: effective status**, Systems inherit Both Controls from the Organization (F-IN.5, F-IN.6, F-IN.7). After #120.
 4. **#122: count Organizational Requirements per System** (#89 decision 3a). After #121.
 5. **#123: Providers and Control Offerings** (F-IN.2). Blocked by nothing.
@@ -49,7 +49,14 @@ F-OUT.2 (the source of each Control on the System page) and F-CE.2 (Change Event
 Facts checked on the dev DB while cutting M3:
 - 118 Controls: 61 Organizational, 31 Both, 26 Per-System. All mandatory.
 - One Capability, "Entra ID SSO", mapped to A.5.15, A.5.16, A.5.17 (Both) and A.8.5 (Per-System), declared by GitHub and Microsoft 365. All 8 covered Assessments are Fulfilled and person-set; no Assessment has `fulfilledByCapabilityId` set.
-- `GET /api/users` lists Users only for an Admin (or under the dev auth stub), so a Compliance Manager can't populate a User picker in production until #119 changes that.
+
+**#119 (Control Owner) is done.** Key pieces, for when #120 builds on it:
+- Schema: `Control.ownerId String?`, relation `owner User? @relation("ControlOwner", onDelete: SetNull)` with `@@index([ownerId])`; `User.ownedControls`. Hand-written migration `prisma/migrations/20261001100000_add_control_owner` (column, index, foreign key; no data change). Every Control starts unassigned; deleting a User leaves their Controls unassigned. The dev DB's row counts were identical before and after (118 Controls, 11 Users, 10 Systems, 471 Control Assessments, 0 Change Events), and the seed does not assign owners.
+- API: `PATCH /api/controls/[id]` takes `ownerId` (a User id or `null`); an unknown id is a 400 with nothing changed (a Prisma `P2003` race, the User deleted mid-request, is a 400 too). It is not a Change Event and not a recompute, whatever else is in the body. `POST /api/controls` takes no owner. `controlIncludeFor` (`src/lib/frameworks.ts`) adds `owner: { select: { id: true, name: true } }`, so every Control read carries it (name only, no email).
+- `GET /api/users` now lists Users (same `PublicUser` shape, optional `?role=`) for every role in `ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE` (`ADMIN`, `COMPLIANCE_MANAGER`), so a Compliance Manager can fill the picker in production. Every other role still gets 404 once the dev stub is off. The product owner is being told, since it widens who can list Users (names, emails, roles).
+- UI: `ControlLibraryManager` loads `/api/users` with the rest, lists a "Control Owner" column ("No Control Owner" when unassigned), has an "Owner" filter (Any / No Control Owner) that ANDs with the origin filter, and a Control Owner picker in the edit form. It sends `ownerId` only when the picker changed, so a failed User list can't clear an owner. The picker keeps the current owner selectable even if the User list lacks them.
+- Publishing a Framework is not blocked by unassigned Controls (product-owner decision on #119).
+- Tests: `src/app/api/controls/[id]/__tests__/control-owner.test.ts` (assign/clear by Compliance Manager and Admin, every other role 403 with no change, unknown id 400, any role as owner, deleting the User, no Change Event and no Assessment created or removed, reads carry the owner, POST takes none), `src/app/api/users/__tests__/route.test.ts` (Compliance Manager allowed, other roles still 404), `src/components/__tests__/ControlLibraryManager.test.tsx` (column, filter, picker, save payloads). The fixtures are self-contained (an ORGANIZATIONAL Control, plus one Facet-scoped Control and a System for the no-recompute check), so the tests pass on CI's unseeded database.
 
 **Follow-ups already done in this milestone:**
 1. ~~**#115: run CI and the Docker image on the production Node version.**~~ **Done** (PR #118). Everything now runs Node 24, like Vercel production.
