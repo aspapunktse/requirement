@@ -8,6 +8,9 @@ import {
   CONTROL_ASSESSMENT_STATUS_LABEL,
   DERIVED_STATUS_LABEL,
   DERIVED_STATUS_ORDER,
+  ORGANIZATIONAL_REQUIREMENTS_NOTE,
+  compliancePercentage,
+  formatCompliancePercentage,
   matchesDerivedStatusFilter,
   type DerivationBasis,
   type DerivedStatusFilter,
@@ -60,14 +63,22 @@ function FrameworkRequirements({ entry }: { entry: SystemFrameworkRequirements }
         {entry.counts.total === 0 ? (
           <span className="text-sm text-zinc-500">This Framework has no Requirements yet.</span>
         ) : (
-          <span className="flex flex-wrap items-center gap-1.5" aria-label={`Status counts for ${label}`}>
-            {DERIVED_STATUS_ORDER.map((status) => (
-              <StatusChip key={status} tone={requirementStatusTone(status)}>
-                {`${DERIVED_STATUS_LABEL[status]} ${entry.counts[status]}`}
-              </StatusChip>
-            ))}
-            <span className="text-xs text-zinc-500">{`of ${entry.counts.total}`}</span>
-          </span>
+          <>
+            <span aria-label={`Compliance for ${label}`} className="text-sm">
+              <span className="font-semibold">{formatCompliancePercentage(compliancePercentage(entry.counts))}</span>
+              <span className="text-zinc-500">
+                {` compliant (${entry.counts.MET} of ${entry.counts.applicable} applicable Requirements met)`}
+              </span>
+            </span>
+            <span className="flex flex-wrap items-center gap-1.5" aria-label={`Status counts for ${label}`}>
+              {DERIVED_STATUS_ORDER.map((status) => (
+                <StatusChip key={status} tone={requirementStatusTone(status)}>
+                  {`${DERIVED_STATUS_LABEL[status]} ${entry.counts[status]}`}
+                </StatusChip>
+              ))}
+              <span className="text-xs text-zinc-500">{`of ${entry.counts.total}`}</span>
+            </span>
+          </>
         )}
       </button>
 
@@ -77,7 +88,8 @@ function FrameworkRequirements({ entry }: { entry: SystemFrameworkRequirements }
             {entry.framework.strictComplianceRequired
               ? "Strict Framework: Waived and Not Applicable Control Assessments do not count as fulfilled."
               : "Waived and Not Applicable Control Assessments count as fulfilled."}{" "}
-            A Requirement with no applicable mapped Control is Not Applicable to this System.
+            A Requirement with no applicable mapped Control is Not Applicable to this System and is left out of the
+            percentage. Partially Met counts as not Met.
           </p>
 
           <label className="flex items-center gap-2 text-sm">
@@ -165,8 +177,10 @@ function FrameworkRequirements({ entry }: { entry: SystemFrameworkRequirements }
  * Met / Not Applicable) and the applicable Controls behind each with their
  * Control Assessment status. Each Framework is collapsed by default with
  * per-status counts in its header, and filterable by status once opened.
- * Read-only: the data is derived live on the server. M3 adds an inheritance
- * source column.
+ * Each header also carries the Framework's Compliance Percentage for this System
+ * (Met ÷ applicable Requirements, #90), with the note that Organizational
+ * Requirements aren't counted yet. Read-only: the data is derived live on the
+ * server. M3 adds an inheritance source column.
  */
 export function SystemFrameworkRequirementsView({ frameworks }: { frameworks: SystemFrameworkRequirements[] }) {
   if (frameworks.length === 0) {
@@ -174,6 +188,7 @@ export function SystemFrameworkRequirementsView({ frameworks }: { frameworks: Sy
   }
   return (
     <div className="flex flex-col gap-3">
+      <p className="text-sm text-zinc-500">{ORGANIZATIONAL_REQUIREMENTS_NOTE}</p>
       {frameworks.map((entry) => (
         <FrameworkRequirements key={entry.framework.id} entry={entry} />
       ))}

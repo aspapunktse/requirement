@@ -3,8 +3,10 @@ import type { ControlAssessmentStatus } from "@prisma/client";
 import {
   NO_MAPPED_CONTROLS_STATUS,
   addDerivedStatusCounts,
+  compliancePercentage,
   countDerivedStatuses,
   deriveRequirementStatus,
+  formatCompliancePercentage,
   isEffectivelyFulfilled,
   matchesDerivedStatusFilter,
   type MappedControlForDerivation,
@@ -204,5 +206,50 @@ describe("status counts and filter", () => {
     expect(matchesDerivedStatusFilter("MET", "ALL")).toBe(true);
     expect(matchesDerivedStatusFilter("MET", "MET")).toBe(true);
     expect(matchesDerivedStatusFilter("NOT_MET", "MET")).toBe(false);
+  });
+});
+
+describe("compliancePercentage: Met ÷ applicable (#90)", () => {
+  it("is Met over applicable Requirements, to one decimal place", () => {
+    expect(compliancePercentage(countDerivedStatuses(["MET", "NOT_MET", "NOT_MET"]))).toBe(33.3);
+    expect(compliancePercentage(countDerivedStatuses(["MET", "MET", "NOT_MET"]))).toBe(66.7);
+    expect(compliancePercentage(countDerivedStatuses(["MET", "MET"]))).toBe(100);
+  });
+
+  it("leaves Not Applicable out of the denominator", () => {
+    const counts = countDerivedStatuses(["MET", "NOT_MET", "NOT_APPLICABLE", "NOT_APPLICABLE", "NOT_APPLICABLE"]);
+    expect(compliancePercentage(counts)).toBe(50);
+  });
+
+  it("counts Partially Met as not Met: it is in the denominator but not the numerator", () => {
+    expect(compliancePercentage(countDerivedStatuses(["MET", "PARTIALLY_MET"]))).toBe(50);
+    expect(compliancePercentage(countDerivedStatuses(["PARTIALLY_MET", "PARTIALLY_MET"]))).toBe(0);
+  });
+
+  it("is null when nothing is applicable, not 0 or 100", () => {
+    expect(compliancePercentage(countDerivedStatuses([]))).toBeNull();
+    expect(compliancePercentage(countDerivedStatuses(["NOT_APPLICABLE", "NOT_APPLICABLE"]))).toBeNull();
+  });
+
+  it("pools: a System with more applicable Requirements weighs more than an average of percentages would give it", () => {
+    const small = countDerivedStatuses(["MET", "MET"]); // 100% of 2
+    const large = countDerivedStatuses(["MET", "NOT_MET", "NOT_MET", "NOT_MET", "NOT_MET", "NOT_APPLICABLE"]); // 20% of 5
+    const pooled = addDerivedStatusCounts(small, large);
+    expect(pooled.MET).toBe(3);
+    expect(pooled.applicable).toBe(7);
+    expect(compliancePercentage(pooled)).toBe(42.9); // 3/7, not the (100 + 20) / 2 = 60 of an average
+  });
+
+  it("pooling ignores a System with nothing applicable, which has a null percentage of its own", () => {
+    const none = countDerivedStatuses(["NOT_APPLICABLE"]);
+    const some = countDerivedStatuses(["MET", "NOT_MET"]);
+    expect(compliancePercentage(none)).toBeNull();
+    expect(compliancePercentage(addDerivedStatusCounts(none, some))).toBe(50);
+  });
+
+  it("formats a percentage, or an em dash for null", () => {
+    expect(formatCompliancePercentage(66.7)).toBe("66.7%");
+    expect(formatCompliancePercentage(0)).toBe("0%");
+    expect(formatCompliancePercentage(null)).toBe("—");
   });
 });

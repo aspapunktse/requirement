@@ -1,101 +1,126 @@
-import type { Prisma, ControlAssessmentStatus } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { getApplicableControls } from "@/lib/control-assessments";
+import {
+  addDerivedStatusCounts,
+  compliancePercentage,
+  countRowStatuses,
+  deriveFrameworkStatusesForSystems,
+  emptyDerivedStatusCounts,
+  isFrameworkInEffectiveScope,
+} from "@/lib/requirement-status";
 
 /**
- * Statuses that count as "resolved" (not an open gap) for compliance
- * percentage: Fulfilled, or a deliberate risk-accepted decision (Waived/
- * Not Applicable) — both already require justification and Risk-Owner/
- * Admin sign-off. See CONTEXT.md's "Compliance Percentage" entry.
+ * The Requirement-based Compliance Percentage (PRD 0001 F-AS.4, F-OUT.3; #90;
+ * CONTEXT.md -> Compliance Percentage), built on the derived Requirement status
+ * of #89: for one Framework, Met Requirements ÷ applicable Requirements (every
+ * derived status except Not Applicable), with Partially Met counting as not Met.
+ * Whether Waived / Not Applicable Assessments count as Fulfilled is decided in
+ * the derivation (`isEffectivelyFulfilled`, strict Frameworks), not here.
  */
-const RESOLVED_STATUSES_LENIENT: ControlAssessmentStatus[] = ["FULFILLED", "WAIVED", "NOT_APPLICABLE"];
-
-/** Some Frameworks only accept 100% Fulfilled — no partial credit for Waived/Not Applicable. */
-const RESOLVED_STATUSES_STRICT: ControlAssessmentStatus[] = ["FULFILLED"];
 
 export type SystemCompliance = {
   systemId: string;
   systemName: string;
-  resolved: number;
-  total: number;
-  /** Null when `total` is 0 (no applicable mandatory Controls to measure against). */
+  /** Requirements of the Framework derived as Met on this System. */
+  met: number;
+  /** Requirements of the Framework that are applicable on this System (not Not Applicable). */
+  applicable: number;
+  /** Null when `applicable` is 0 (nothing to measure against), or the Framework isn't in this System's scope. */
   percentage: number | null;
 };
 
+export type ComplianceFramework = {
+  id: string;
+  name: string;
+  version: string;
+  isBase: boolean;
+  strictComplianceRequired: boolean;
+};
+
 export type ScopeCompliance = {
-  resolved: number;
-  total: number;
+  /** The Framework the figures are for: the filtered one, else the base Framework. Null if there is none. */
+  framework: ComplianceFramework | null;
+  met: number;
+  applicable: number;
+  /** Pooled: total Met ÷ total applicable across the Systems, never an average of percentages. Null when `applicable` is 0. */
   percentage: number | null;
   bySystem: SystemCompliance[];
 };
 
-function percentageOf(resolved: number, total: number): number | null {
-  if (total === 0) return null;
-  return Math.round((resolved / total) * 1000) / 10;
-}
-
 /**
- * Compliance percentage across the Systems matched by `where`, optionally
- * narrowed to only the Controls mapped to a Requirement of `frameworkId`
- * (and using that Framework's strictComplianceRequired flag to decide which statuses
- * count as resolved). Pooled across every matched System — total resolved
- * ÷ total applicable mandatory assessments, not an average of each
- * System's own percentage — plus each System's own standalone percentage.
- * See #55 / CONTEXT.md's "Compliance Percentage" entry.
+ * Compliance percentage across the Systems matched by `where`, for one
+ * Framework: `options.frameworkId`, or, with no filter, the **base Framework**.
+ * Pooled across every matched System that has the Framework in its effective
+ * scope (total Met ÷ total applicable, not an average of each System's own
+ * percentage), plus each System's own standalone figure. A matched System
+ * without the Framework in scope is listed with 0 applicable and a null
+ * percentage and adds nothing to the pool.
+ *
+ * Uses the bulk derivation: a constant number of queries however many Systems
+ * match (the Framework, the Systems, then the derivation's three).
  */
 export async function getComplianceForSystems(
   where: Prisma.SystemWhereInput,
   options: { frameworkId?: string } = {},
 ): Promise<ScopeCompliance> {
-  const [systems, framework] = await Promise.all([
+  const [framework, systems] = await Promise.all([
+    prisma.framework.findFirst({
+      where: options.frameworkId ? { id: options.frameworkId } : { isBase: true },
+      select: { id: true, name: true, version: true, isBase: true, status: true, strictComplianceRequired: true },
+    }),
     prisma.system.findMany({
       where,
-      include: {
-        deploymentFacets: true,
+      select: {
+        id: true,
+        name: true,
+        confidentialityImpactLevel: true,
+        integrityImpactLevel: true,
+        availabilityImpactLevel: true,
+        deploymentFacets: { select: { id: true } },
         frameworkScopes: { select: { id: true } },
-        assessments: true,
       },
+      orderBy: { createdAt: "asc" },
     }),
-    options.frameworkId
-      ? prisma.framework.findUnique({ where: { id: options.frameworkId } })
-      : Promise.resolve(null),
   ]);
 
-  const resolvedStatuses = framework?.strictComplianceRequired
-    ? RESOLVED_STATUSES_STRICT
-    : RESOLVED_STATUSES_LENIENT;
+  const emptyBySystem = systems.map((s): SystemCompliance => ({
+    systemId: s.id,
+    systemName: s.name,
+    met: 0,
+    applicable: 0,
+    percentage: null,
+  }));
+  if (!framework) return { framework: null, met: 0, applicable: 0, percentage: null, bySystem: emptyBySystem };
 
-  const bySystem = await Promise.all(
-    systems.map(async (system): Promise<SystemCompliance> => {
-      const applicable = await getApplicableControls(system);
-      const mandatoryIds = applicable.filter((r) => r.mandatory).map((r) => r.id);
+  const inScope = systems.filter((s) => isFrameworkInEffectiveScope(framework, s.frameworkScopes));
+  const derived = await deriveFrameworkStatusesForSystems(framework.id, inScope);
 
-      const inScopeIds = options.frameworkId
-        ? (
-            await prisma.control.findMany({
-              where: { id: { in: mandatoryIds }, mappings: { some: { requirement: { frameworkId: options.frameworkId } } } },
-              select: { id: true },
-            })
-          ).map((r) => r.id)
-        : mandatoryIds;
+  let pooled = emptyDerivedStatusCounts();
+  const bySystem = systems.map((system): SystemCompliance => {
+    const rows = derived?.bySystem.get(system.id);
+    if (!rows) return { systemId: system.id, systemName: system.name, met: 0, applicable: 0, percentage: null };
+    const counts = countRowStatuses(rows);
+    pooled = addDerivedStatusCounts(pooled, counts);
+    return {
+      systemId: system.id,
+      systemName: system.name,
+      met: counts.MET,
+      applicable: counts.applicable,
+      percentage: compliancePercentage(counts),
+    };
+  });
 
-      const statusByControlId = new Map(system.assessments.map((a) => [a.controlId, a.status]));
-      const resolved = inScopeIds.filter((id) =>
-        resolvedStatuses.includes(statusByControlId.get(id) ?? "NOT_STARTED"),
-      ).length;
-
-      return {
-        systemId: system.id,
-        systemName: system.name,
-        resolved,
-        total: inScopeIds.length,
-        percentage: percentageOf(resolved, inScopeIds.length),
-      };
-    }),
-  );
-
-  const resolved = bySystem.reduce((sum, s) => sum + s.resolved, 0);
-  const total = bySystem.reduce((sum, s) => sum + s.total, 0);
-
-  return { resolved, total, percentage: percentageOf(resolved, total), bySystem };
+  return {
+    framework: {
+      id: framework.id,
+      name: framework.name,
+      version: framework.version,
+      isBase: framework.isBase,
+      strictComplianceRequired: framework.strictComplianceRequired,
+    },
+    met: pooled.MET,
+    applicable: pooled.applicable,
+    percentage: compliancePercentage(pooled),
+    bySystem,
+  };
 }

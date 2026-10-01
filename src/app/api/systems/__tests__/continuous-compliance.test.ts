@@ -51,6 +51,10 @@ describe("Continuous compliance: classification and scope change at any lifecycl
   let facetB: string;
   let capabilityId: string;
   let frameworkId: string;
+  // A second fixture Published Framework every System declares up front, with one Requirement per Control of the
+  // Facet / Impact / Capability mechanisms; `frameworkId` (declared by the Framework Scope mechanism) has the rest.
+  // Together they are the Requirement-based compliance figures (#90) `complianceOf` reads.
+  let complianceFrameworkId: string;
   // One newly applicable Control per mechanism.
   const control = {} as Record<"facet" | "impact" | "scope" | "capability", string>;
 
@@ -96,15 +100,25 @@ describe("Continuous compliance: classification and scope change at any lifecycl
       await prisma.framework.create({ data: { name: `Test CC Framework ${SUFFIX}`, version: "1", status: "PUBLISHED" } })
     ).id;
 
+    complianceFrameworkId = (
+      await prisma.framework.create({
+        data: { name: `Test CC Compliance Framework ${SUFFIX}`, version: "1", status: "PUBLISHED" },
+      })
+    ).id;
+
     // Every System here declares Facet A only; each Control below becomes applicable through exactly one change.
     await makeControl("facet", {}, [facetB]);
     await makeControl("impact", { minConfidentialityImpactLevel: "HIGH" });
     await makeControl("scope", {});
     await makeControl("capability", { capabilities: { connect: [{ id: capabilityId }] } });
     await mapControlsToBase([control.facet, control.impact, control.capability]);
-    // Every fixture Control is also mapped to the fixture Framework, so compliance can be read for that Framework alone
-    // (`complianceOf`), unaffected by other Controls that come and go while other test files run.
+    // Every fixture Control is also mapped to a fixture Framework, so compliance can be read for those Frameworks alone
+    // (`complianceOf`), unaffected by other Controls that come and go while other test files run. The compliance
+    // Framework's Requirements are one per Control, so each newly applicable Control is one more applicable Requirement.
     await mapControlsToFramework(frameworkId, [control.scope, control.facet, control.impact, control.capability]);
+    for (const id of [control.facet, control.impact, control.capability]) {
+      await mapControlsToFramework(complianceFrameworkId, [id]);
+    }
   });
 
   afterEach(async () => {
@@ -121,7 +135,7 @@ describe("Continuous compliance: classification and scope change at any lifecycl
     await prisma.changeEvent.deleteMany({ where: { systemId: { in: systemIds } } });
     await prisma.system.deleteMany({ where: { id: { in: systemIds } } });
     await prisma.control.deleteMany({ where: { id: { in: controlIds } } });
-    await prisma.framework.deleteMany({ where: { id: frameworkId } });
+    await prisma.framework.deleteMany({ where: { id: { in: [frameworkId, complianceFrameworkId] } } });
     await prisma.capability.deleteMany({ where: { id: capabilityId } });
     await prisma.deploymentFacet.deleteMany({ where: { id: { in: [facetA, facetB] } } });
     await prisma.user.deleteMany({ where: { id: { in: Object.values(users) } } });
@@ -136,6 +150,7 @@ describe("Continuous compliance: classification and scope change at any lifecycl
         status,
         onboardedAt: status === "ONBOARDED" ? new Date("2026-01-15T10:00:00Z") : null,
         deploymentFacets: { connect: { id: facetA } },
+        frameworkScopes: { connect: { id: complianceFrameworkId } },
       },
     });
     systemIds.push(system.id);
@@ -193,9 +208,12 @@ describe("Continuous compliance: classification and scope change at any lifecycl
     return unaddressed.includes(controlId) && entry?.reason === "needs-assessment" && entry.count >= 1;
   }
 
+  /** Requirements Met and applicable on the System, over the two fixture Frameworks (a Framework not in scope counts 0). */
   async function complianceOf(systemId: string) {
-    const { resolved, total } = await getComplianceForSystems({ id: systemId }, { frameworkId });
-    return { resolved, total };
+    const figures = await Promise.all(
+      [complianceFrameworkId, frameworkId].map((id) => getComplianceForSystems({ id: systemId }, { frameworkId: id })),
+    );
+    return { met: figures[0].met + figures[1].met, applicable: figures[0].applicable + figures[1].applicable };
   }
 
   type Mechanism = {
@@ -258,10 +276,10 @@ describe("Continuous compliance: classification and scope change at any lifecycl
         // F-AP.4: nothing about the lifecycle moved.
         expect(await lifecycle(systemId)).toEqual(lifecycleBefore);
 
-        // "My tasks" (one more mandatory Control to assess) and the compliance figures (one more open Control).
+        // "My tasks" (one more mandatory Control to assess) and the compliance figures (one more applicable, Not Met Requirement).
         expect(await isTask(systemId, mechanism.control)).toBe(true);
         const complianceAfter = await complianceOf(systemId);
-        expect(complianceAfter).toEqual({ resolved: complianceBefore.resolved, total: complianceBefore.total + 1 });
+        expect(complianceAfter).toEqual({ met: complianceBefore.met, applicable: complianceBefore.applicable + 1 });
       },
     );
 
@@ -293,10 +311,11 @@ describe("Continuous compliance: classification and scope change at any lifecycl
       });
       expect(fulfilled).toMatchObject({ status: "FULFILLED", fulfilledByCapabilityId: capabilityId });
       expect(await lifecycle(systemId)).toEqual(lifecycleBefore);
-      // The Capability's Control was already applicable (and unresolved); auto-fulfilment resolves it.
+      // The Capability's Control was already applicable (and unresolved), so its Requirement was already counted and
+      // Not Met; auto-fulfilment makes it Met.
       expect(await complianceOf(systemId)).toEqual({
-        resolved: complianceBefore.resolved + 1,
-        total: complianceBefore.total,
+        met: complianceBefore.met + 1,
+        applicable: complianceBefore.applicable,
       });
       expect(await isTask(systemId, control.capability)).toBe(false);
 

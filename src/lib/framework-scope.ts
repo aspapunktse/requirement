@@ -1,4 +1,4 @@
-import type { UserRole } from "@prisma/client";
+import type { Prisma, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
   getApplicableControls,
@@ -34,6 +34,17 @@ export async function getSystemFrameworkScopes(systemId: string) {
   ]);
   const frameworks = base && !declared.some((f) => f.id === base.id) ? [...declared, base] : declared;
   return frameworks.sort((a, b) => a.name.localeCompare(b.name) || a.version.localeCompare(b.version));
+}
+
+/**
+ * Systems with `framework` in their *effective* Framework Scope: the ones that
+ * declared it, or every System when it's the base Framework (always in scope,
+ * whether or not a row is stored for it, see getSystemFrameworkScopes). The one
+ * definition of "Systems in scope of Framework F", shared by the applicability
+ * recompute and the Business Risk Owner views / Compliance Percentage (#90).
+ */
+export function systemsInScopeOf(framework: { id: string; isBase: boolean }): Prisma.SystemWhereInput {
+  return framework.isBase ? {} : { frameworkScopes: { some: { id: framework.id } } };
 }
 
 type ScopeSystem = SystemClassification & { id: string };

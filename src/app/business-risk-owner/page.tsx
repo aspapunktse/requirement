@@ -26,7 +26,7 @@ export default async function BusinessRiskOwnerPage() {
     <div className="mx-auto max-w-2xl p-6">
       <h1 className="mb-1 text-2xl">Business Risk Owner Dashboard</h1>
       <p className="mb-4 text-sm text-zinc-500">
-        Compliance percentage, System portfolio, and Risks for Systems within your assigned Business Unit(s) and
+        Compliance percentage (Requirements met, per Framework), System portfolio, and Risks for Systems within your assigned Business Unit(s) and
         Framework(s).
       </p>
       <BusinessRiskOwnerDashboard

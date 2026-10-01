@@ -4,11 +4,12 @@ import { resolveScopeWhere } from "@/lib/business-risk-owner";
 import { getComplianceForSystems } from "@/lib/compliance";
 
 /**
- * Compliance percentage for Systems within the acting user's Business Risk
- * Owner scope, optionally narrowed further by businessUnitId/frameworkId
- * query params (combined, not either/or — see #55). Passing frameworkId
- * also narrows which Controls count (only ones mapped to a Requirement of that
- * Framework) and applies its strictComplianceRequired rule.
+ * Requirement-based Compliance Percentage for Systems within the acting user's
+ * Business Risk Owner scope, optionally narrowed further by
+ * businessUnitId/frameworkId query params (combined, not either/or, see #55).
+ * The figures are for one Framework: the `frameworkId` filter, else the base
+ * Framework (Met Requirements ÷ applicable Requirements, pooled across the
+ * Systems; see getComplianceForSystems, #90). The response names that Framework.
  */
 export async function GET(request: NextRequest) {
   const auth = await authorize(request, ["ADMIN", "BUSINESS_RISK_OWNER"]);

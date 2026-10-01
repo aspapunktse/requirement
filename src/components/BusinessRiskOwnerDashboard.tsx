@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { frameworkLabel } from "@/lib/framework-label";
+import { ORGANIZATIONAL_REQUIREMENTS_NOTE, formatCompliancePercentage } from "@/lib/requirement-status-rules";
 import { onboardingStatusTone, riskStatusTone } from "@/lib/status-tones";
 
 type CatalogItem = { id: string; name: string; version?: string };
@@ -13,7 +14,10 @@ type PortfolioSystem = {
   name: string;
   vendor: string | null;
   status: string;
+  /** Met ÷ applicable Requirements of the filtered Framework (else the base Framework). */
   compliancePercentage: number | null;
+  requirementsMet: number;
+  requirementsApplicable: number;
   openRiskCount: number;
 };
 
@@ -34,14 +38,16 @@ type Risk = {
 type SystemCompliance = {
   systemId: string;
   systemName: string;
-  resolved: number;
-  total: number;
+  met: number;
+  applicable: number;
   percentage: number | null;
 };
 
 type Compliance = {
-  resolved: number;
-  total: number;
+  /** The Framework the figures are for: the filtered one, else the base Framework. */
+  framework: { id: string; name: string; version: string; isBase: boolean } | null;
+  met: number;
+  applicable: number;
   percentage: number | null;
   bySystem: SystemCompliance[];
 };
@@ -55,8 +61,10 @@ function buildQuery(businessUnitId: string, frameworkId: string) {
 }
 
 /**
- * The Business Risk Owner's three views: a compliance-% breakdown, a System
- * Portfolio grouped by onboarding status (see #62), and a Risk queue — all
+ * The Business Risk Owner's three views: a compliance-% breakdown (Requirements
+ * Met ÷ applicable, per Framework, #90; the base Framework when no Framework
+ * filter is set), a System Portfolio grouped by onboarding status (see #62),
+ * and a Risk queue — all
  * scoped to the acting user's assigned Business Unit(s)/Framework(s)
  * server-side, and all filterable together by an explicit Business Unit
  * and/or Framework picked from the assigned portfolio (the
@@ -170,13 +178,21 @@ export function BusinessRiskOwnerDashboard({
           <p className="text-sm text-zinc-500">Loading…</p>
         ) : (
           <>
+            {compliance.framework && (
+              <p className="mb-1 text-sm text-zinc-500">
+                {frameworkLabel(compliance.framework)}
+                {!frameworkId && compliance.framework.isBase
+                  ? " (base Framework: the headline figure when no Framework is selected)"
+                  : ""}
+              </p>
+            )}
             <p className="text-2xl">
-              {compliance.percentage === null ? "—" : `${compliance.percentage}%`}{" "}
+              {formatCompliancePercentage(compliance.percentage)}{" "}
               <span className="text-sm font-normal text-zinc-500">
-                ({compliance.resolved}/{compliance.total} mandatory Controls resolved, pooled across
-                Systems)
+                ({compliance.met}/{compliance.applicable} applicable Requirements met, pooled across Systems)
               </span>
             </p>
+            <p className="mt-1 text-xs text-zinc-500">{ORGANIZATIONAL_REQUIREMENTS_NOTE}</p>
             <ul className="mt-3 flex flex-col gap-2">
               {compliance.bySystem.map((s) => (
                 <li
@@ -185,7 +201,7 @@ export function BusinessRiskOwnerDashboard({
                 >
                   <span>{s.systemName}</span>
                   <span className="text-zinc-500">
-                    {s.percentage === null ? "—" : `${s.percentage}%`} ({s.resolved}/{s.total})
+                    {formatCompliancePercentage(s.percentage)} ({s.met}/{s.applicable})
                   </span>
                 </li>
               ))}
@@ -196,6 +212,12 @@ export function BusinessRiskOwnerDashboard({
 
       <section>
         <h2 className="mb-2 text-lg">System Portfolio</h2>
+        {compliance?.framework && (
+          <p className="mb-2 text-xs text-zinc-500">
+            Percentages are the share of applicable {frameworkLabel(compliance.framework)} Requirements met
+            {!frameworkId && compliance.framework.isBase ? " (the base Framework, as no Framework is selected)" : ""}.
+          </p>
+        )}
         {portfolioByStatus === null ? (
           <p className="text-sm text-zinc-500">Loading…</p>
         ) : portfolioByStatus.length === 0 ? (
@@ -218,7 +240,7 @@ export function BusinessRiskOwnerDashboard({
                       <span className="font-medium">{system.name}</span>
                       {system.vendor && <span className="text-xs text-zinc-500">{system.vendor}</span>}
                       <span className="text-xs text-zinc-500">
-                        {system.compliancePercentage === null ? "—" : `${system.compliancePercentage}%`} compliant ·{" "}
+                        {formatCompliancePercentage(system.compliancePercentage)} Requirements met ·{" "}
                         {system.openRiskCount} open Risk{system.openRiskCount === 1 ? "" : "s"}
                       </span>
                     </Link>
