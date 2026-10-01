@@ -6,7 +6,9 @@ import {
   canCreateSystem,
   canEditAssessment,
   canSubmit,
+  canWaiveControl,
   isSystemOwnerOrAdmin,
+  waiveRefusal,
 } from "../system-permissions";
 import { canManageBusinessUnits } from "../business-units";
 import { canManageFrameworkScopes } from "../framework-scope";
@@ -98,6 +100,60 @@ describe("canAnswerSelfAssessment", () => {
     for (const answer of ALL_ANSWERS) {
       expect(canAnswerSelfAssessment({ id: "x", role }, system, answer)).toBe(false);
     }
+  });
+});
+
+describe("canWaiveControl / waiveRefusal (#97)", () => {
+  const mandatory = { mandatory: true };
+  const optional = { mandatory: false };
+
+  it("refuses a RISK_OWNER who owns the System a mandatory Control, with the owns-system reason", () => {
+    const owningRiskOwner = { id: "owner", role: "RISK_OWNER" as const };
+    expect(canWaiveControl(owningRiskOwner, system, mandatory)).toBe(false);
+    expect(waiveRefusal(owningRiskOwner, system, mandatory)).toBe("owns-system");
+  });
+
+  it("lets a RISK_OWNER who owns the System waive a non-mandatory Control", () => {
+    expect(canWaiveControl({ id: "owner", role: "RISK_OWNER" }, system, optional)).toBe(true);
+  });
+
+  it.each([mandatory, optional])("lets a RISK_OWNER who doesn't own the System waive (%o)", (control) => {
+    expect(canWaiveControl({ id: "ro", role: "RISK_OWNER" }, system, control)).toBe(true);
+  });
+
+  it.each([mandatory, optional])("lets an ADMIN waive, including on a System they own (%o)", (control) => {
+    expect(canWaiveControl({ id: "a", role: "ADMIN" }, system, control)).toBe(true);
+    expect(canWaiveControl({ id: "owner", role: "ADMIN" }, system, control)).toBe(true);
+  });
+
+  it.each(ALL_ROLES.filter((role) => role !== "ADMIN" && role !== "RISK_OWNER"))(
+    "refuses a %s with the role reason, owner or not, mandatory or not",
+    (role) => {
+      for (const id of ["owner", "someone-else"]) {
+        for (const control of [mandatory, optional]) {
+          expect(waiveRefusal({ id, role }, system, control)).toBe("role");
+          expect(canWaiveControl({ id, role }, system, control)).toBe(false);
+        }
+      }
+    },
+  );
+});
+
+describe("a RISK_OWNER who owns the System keeps every other owner action (#97)", () => {
+  const owningRiskOwner = { id: "owner", role: "RISK_OWNER" as const };
+
+  it("keeps full Assessment edit access, every non-waive status and every answer", () => {
+    expect(assessmentEditAccess(owningRiskOwner, system)).toBe("full");
+    for (const status of ALL_STATUSES.filter((s) => s !== "WAIVED" && s !== "NOT_APPLICABLE")) {
+      expect(canEditAssessment(owningRiskOwner, system, status), status).toBe(true);
+    }
+    for (const answer of ALL_ANSWERS) {
+      expect(canAnswerSelfAssessment(owningRiskOwner, system, answer), answer).toBe(true);
+    }
+  });
+
+  it("can still submit for review", () => {
+    expect(canSubmit(owningRiskOwner, system)).toBe(true);
   });
 });
 

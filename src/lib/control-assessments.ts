@@ -1,6 +1,7 @@
 import type { ImpactLevel, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { QUERY_INCLUDE } from "@/lib/assessment-queries";
+import { ROLES_ALLOWED_TO_WAIVE, waiveRefusal } from "@/lib/system-permissions";
 
 const APPLICABLE_APPLICABILITIES = ["PER_SYSTEM", "BOTH"] as const;
 
@@ -37,9 +38,6 @@ export function meetsAllImpactThresholds(
     meetsImpactThreshold(classification.availabilityImpactLevel, control.minAvailabilityImpactLevel)
   );
 }
-
-/** Only these roles may set a Control Assessment to Waived or Not Applicable. */
-export const ROLES_ALLOWED_TO_WAIVE: UserRole[] = ["ADMIN", "RISK_OWNER"];
 
 export type WaiveGateResult = { ok: true } | { ok: false; status: 403 | 400; error: string };
 
@@ -96,17 +94,29 @@ export function diffApplicabilityOps(
  * The shared gate on setting a Control Assessment to Waived or Not
  * Applicable, used both for direct manual status edits and for answering
  * "N/A" to a Control's Self-Assessment Question: restricted to
- * ADMIN/RISK_OWNER, and requiring a non-empty justification note when the
- * Control is mandatory — server-enforced so a SYSTEM_OWNER can't waive
- * or N/A their own System's mandatory Control through either path.
+ * ADMIN/RISK_OWNER, refusing a RISK_OWNER who owns the System when the
+ * Control is mandatory (#97), and requiring a non-empty justification note
+ * when the Control is mandatory — server-enforced so a SYSTEM_OWNER can't
+ * waive or N/A their own System's mandatory Control through either path.
+ * The permission rule itself is `waiveRefusal` in `system-permissions.ts`,
+ * shared with the UI; this adds the distinct error messages and the note check.
  */
 export function checkWaiveGate(
-  user: { role: UserRole },
+  user: { id: string; role: UserRole },
+  system: { ownerId: string },
   control: { mandatory: boolean },
   notes: string | null | undefined,
 ): WaiveGateResult {
-  if (!ROLES_ALLOWED_TO_WAIVE.includes(user.role)) {
+  const refusal = waiveRefusal(user, system, control);
+  if (refusal === "role") {
     return { ok: false, status: 403, error: `Requires role: ${ROLES_ALLOWED_TO_WAIVE.join(", ")}` };
+  }
+  if (refusal === "owns-system") {
+    return {
+      ok: false,
+      status: 403,
+      error: "You own this System, so another Risk Owner or an Admin must waive this mandatory Control",
+    };
   }
   if (control.mandatory && !notes?.trim()) {
     return {
