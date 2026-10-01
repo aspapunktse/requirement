@@ -51,6 +51,12 @@ jobs:
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
 
+      # The checkout above is a detached HEAD at the exact commit CI passed, so
+      # `vercel deploy` would record the branch as "HEAD". Name it `main` (still
+      # that same commit) so Vercel shows the production branch correctly.
+      - name: Name the checkout main
+        run: git checkout -B main
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
