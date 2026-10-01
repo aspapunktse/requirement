@@ -1,10 +1,7 @@
 import type { ImpactLevel, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import {
-  getApplicableControls,
-  diffApplicabilityOps,
-  type SystemClassification,
-} from "@/lib/control-assessments";
+import { getApplicableControls, type SystemClassification } from "@/lib/control-assessments";
+import { diffApplicabilityOpsWithCapabilities, logAutoFulfilment } from "@/lib/capability-fulfillment";
 import { logChangeEvent } from "@/lib/change-events";
 import { isSystemOwnerOrAdmin } from "@/lib/system-permissions";
 
@@ -37,8 +34,9 @@ export type ClassificationChanges = {
 /**
  * Change a System's classification (at any lifecycle stage, ADR 0006) — any combination of Deployment
  * Facets and/or Impact Level axes in one call — and recompute its
- * Control Assessment set to match: create NOT_STARTED rows for newly-
- * applicable Controls, and remove rows for no-longer-applicable ones —
+ * Control Assessment set to match: create rows for newly-applicable Controls
+ * (NOT_STARTED, or FULFILLED when a Capability the System declares covers the
+ * Control, #110), and remove rows for no-longer-applicable ones —
  * but only if untouched (still NOT_STARTED and never manually edited, i.e.
  * assessedById is null). A Control Assessment a human has already
  * worked on is left in place even though it's no longer applicable; it
@@ -91,7 +89,11 @@ export async function changeSystemClassification(
     getApplicableControls(newClassification),
   ]);
 
-  const { added, deleteOp, createOp } = diffApplicabilityOps(system.id, oldApplicable, newApplicable);
+  const { added, deleteOp, createOp, plan } = await diffApplicabilityOpsWithCapabilities(
+    system.id,
+    oldApplicable,
+    newApplicable,
+  );
 
   const [, removed] = await prisma.$transaction([
     prisma.system.update({
@@ -121,6 +123,7 @@ export async function changeSystemClassification(
     `Classification changed (+${added}/-${removed.count} Control Assessment(s))`,
     actorId,
   );
+  await logAutoFulfilment(system.id, plan);
 
   return { added, removed: removed.count };
 }

@@ -1,4 +1,4 @@
-import type { ControlAssessmentStatus, ImpactLevel, UserRole } from "@prisma/client";
+import type { ControlAssessmentStatus, ImpactLevel, Prisma, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { QUERY_INCLUDE } from "@/lib/assessment-queries";
 import { ROLES_ALLOWED_TO_WAIVE, waiveRefusal } from "@/lib/system-permissions";
@@ -54,7 +54,7 @@ export const UNTOUCHED_ASSESSMENT_WHERE = { status: "NOT_STARTED", assessedById:
 /**
  * Diff an old vs new applicable-Control set for a System into the two
  * Prisma ops needed to sync its ControlAssessment rows to match: create
- * NOT_STARTED rows for newly-applicable Controls, and remove rows for
+ * rows for newly-applicable Controls, and remove rows for
  * no-longer-applicable ones — but only if untouched (still NOT_STARTED and
  * never manually edited, i.e. assessedById is null). A Control
  * Assessment a human has already worked on is left in place even though
@@ -64,20 +64,24 @@ export const UNTOUCHED_ASSESSMENT_WHERE = { status: "NOT_STARTED", assessedById:
  * update in one atomic `prisma.$transaction`. Shared by every
  * classification-changing mutation (Deployment Facets, Framework Scope,
  * ...) — see ADR 0003 and ADR 0007.
+ *
+ * The created rows are NOT_STARTED unless the caller passes `newRows`: the
+ * ready-made create data for exactly the newly applicable Controls, which is how
+ * Capability auto-fulfilment (#110, `planNewAssessments` in
+ * `capability-fulfillment.ts`) makes a Control a declared Capability covers
+ * come out FULFILLED in the same createMany. Use
+ * `diffApplicabilityOpsWithCapabilities` there rather than building rows by hand.
  */
 export function diffApplicabilityOps(
   systemId: string,
   oldApplicable: { id: string }[],
   newApplicable: { id: string }[],
+  newRows?: Prisma.ControlAssessmentCreateManyInput[],
 ) {
-  const newIds = new Set(newApplicable.map((r) => r.id));
-  const oldIds = new Set(oldApplicable.map((r) => r.id));
-
-  const newlyApplicable = newApplicable.filter((r) => !oldIds.has(r.id));
-  const noLongerApplicableIds = oldApplicable.filter((r) => !newIds.has(r.id)).map((r) => r.id);
+  const { newlyApplicableIds, noLongerApplicableIds } = diffApplicability(oldApplicable, newApplicable);
 
   return {
-    added: newlyApplicable.length,
+    added: newlyApplicableIds.length,
     deleteOp: prisma.controlAssessment.deleteMany({
       where: {
         systemId,
@@ -86,9 +90,19 @@ export function diffApplicabilityOps(
       },
     }),
     createOp: prisma.controlAssessment.createMany({
-      data: newlyApplicable.map((r) => ({ systemId, controlId: r.id })),
+      data: newRows ?? newlyApplicableIds.map((controlId) => ({ systemId, controlId })),
       skipDuplicates: true,
     }),
+  };
+}
+
+/** The Control ids that became applicable and the ones that stopped, between two applicable sets. */
+export function diffApplicability(oldApplicable: { id: string }[], newApplicable: { id: string }[]) {
+  const newIds = new Set(newApplicable.map((r) => r.id));
+  const oldIds = new Set(oldApplicable.map((r) => r.id));
+  return {
+    newlyApplicableIds: newApplicable.filter((r) => !oldIds.has(r.id)).map((r) => r.id),
+    noLongerApplicableIds: oldApplicable.filter((r) => !newIds.has(r.id)).map((r) => r.id),
   };
 }
 
