@@ -538,12 +538,19 @@ enum ChangeEventAction {
   // The System's owner or an Admin removed a stale Control Assessment (#109). The row is
   // deleted, so its last status, evidence and notes are kept only in this event's detail.
   ASSESSMENT_REMOVED
+  // System-less: the status of an Organizational Control's Organization Control
+  // Implementation changed (PRD 0001 F-IN.7, F-CE.2, #122). One event per change, actor
+  // the User who made it; nothing is written per System, because the status counts live
+  // on every System with the Framework in scope. (A Both Control's status change writes
+  // per-System ASSESSMENT_STATUS_CHANGED events instead, #121.)
+  ORGANIZATION_IMPLEMENTATION_CHANGED
 }
 
 // A curated, System-lifecycle-relevant mutation record — feeds the landing
 // page's "Recent updates" feed (see #58). Usually System-scoped; the
 // System-less actions (systemId null) record evidence-bearing changes to the
-// requirement database (PRD 0001 F-CE.1). Deliberately not a full audit
+// requirement database and to the Organization's own Control implementations
+// (PRD 0001 F-CE.1, F-CE.2). Deliberately not a full audit
 // trail: pure catalog-admin CRUD (Control/DeploymentFacet/Capability/
 // BusinessUnit/Framework create/edit/delete) is out of
 // scope, since this exists for role-relevant "what changed on this System"
@@ -555,7 +562,8 @@ enum ChangeEventAction {
 // relation, since "system" never matches a real User id.
 model ChangeEvent {
   id        String            @id @default(cuid())
-  // Null for System-less events (CONTROL_MAPPING_CHANGED, FRAMEWORK_PUBLISHED).
+  // Null for System-less events (CONTROL_MAPPING_CHANGED, FRAMEWORK_PUBLISHED,
+  // ORGANIZATION_IMPLEMENTATION_CHANGED).
   systemId  String?
   system    System?           @relation(fields: [systemId], references: [id], onDelete: Cascade)
   action    ChangeEventAction

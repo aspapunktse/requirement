@@ -94,6 +94,8 @@ describe("PATCH /api/organization/controls/[controlId] (#120)", () => {
   afterAll(async () => {
     await prisma.controlAssessment.deleteMany({ where: { systemId } });
     await prisma.changeEvent.deleteMany({ where: { systemId } });
+    // An Organizational Control's status change writes a System-less event (#122); it has no System to cascade from.
+    await prisma.changeEvent.deleteMany({ where: { systemId: null, detail: { contains: `TEST-OCI-${SUFFIX}` } } });
     await prisma.system.deleteMany({ where: { id: systemId } });
     // The implementations go with their Controls (cascade).
     await prisma.control.deleteMany({ where: { id: { in: controlIds } } });

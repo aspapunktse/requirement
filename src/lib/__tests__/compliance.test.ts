@@ -14,11 +14,14 @@ import { getComplianceForSystems } from "../compliance";
  * test touches the base Framework, and it asserts a delta on it.
  *
  * Layout (Lenient Framework L / Strict Framework S):
- *   Controls:  cA (Facet 1), cB (Facet 2), cC (Facet 2), cOrg (Organizational)
+ *   Controls:  cA (Facet 1), cB (Facet 2), cC (Facet 2), cOrg (Organizational, no
+ *              implementation row: Not Started)
  *   L1 <- cA   L2 <- cB   L3 <- cA + cC   L4 <- cOrg      S1 <- cB   S2 <- cA
  *   System A: Facets 1+2; cA Fulfilled, cB Waived, cC In Progress
  *   System B: Facet 1 only; no Assessments
- *   System C: no Facets (nothing applies); System D: declares neither Framework
+ *   System C: no Facets (no Per-System/Both Control applies); System D: declares neither Framework
+ * Since #122 L4 counts on every System that has L in scope (A, B and C), as Not Met
+ * while the Organization hasn't implemented cOrg.
  */
 describe("getComplianceForSystems", () => {
   const suffix = Date.now();
@@ -141,27 +144,28 @@ describe("getComplianceForSystems", () => {
     const result = await getComplianceForSystems({ id: systemAId }, { frameworkId: lenientId });
 
     // A: L1 Met (cA Fulfilled), L2 Met (cB Waived, lenient), L3 Partially Met (cA Fulfilled, cC In Progress),
-    // L4 Not Applicable (only an Organizational Control). Met 2 of 3 applicable; the Partially Met one is not Met.
+    // L4 Not Met (only an Organizational Control, Not Started; counted since #122). Met 2 of 4 applicable;
+    // the Partially Met one is not Met. Nothing is Not Applicable here.
     expect(result.framework).toMatchObject({ id: lenientId, isBase: false, strictComplianceRequired: false });
     expect(result.met).toBe(2);
-    expect(result.applicable).toBe(3);
-    expect(result.percentage).toBe(66.7);
+    expect(result.applicable).toBe(4);
+    expect(result.percentage).toBe(50);
     expect(result.bySystem).toEqual([
-      { systemId: systemAId, systemName: expect.any(String), met: 2, applicable: 3, percentage: 66.7 },
+      { systemId: systemAId, systemName: expect.any(String), met: 2, applicable: 4, percentage: 50 },
     ]);
   });
 
   it("pools Met and applicable across Systems rather than averaging their percentages", async () => {
     const result = await getComplianceForSystems({ id: { in: [systemAId, systemBId] } }, { frameworkId: lenientId });
 
-    // A: 2 of 3 (66.7%). B (Facet 1 only, no Assessments): L1 Not Met, L2 Not Applicable (cB needs Facet 2),
-    // L3 Not Met (only cA applies, not started), L4 Not Applicable: 0 of 2. Pooled 2 of 5 = 40%; an average of the
-    // two percentages would be 33.3%.
-    expect(figure(result, systemAId)).toEqual({ met: 2, applicable: 3, percentage: 66.7 });
-    expect(figure(result, systemBId)).toEqual({ met: 0, applicable: 2, percentage: 0 });
+    // A: 2 of 4 (50%). B (Facet 1 only, no Assessments): L1 Not Met, L2 Not Applicable (cB needs Facet 2),
+    // L3 Not Met (only cA applies, not started), L4 Not Met (the Organizational Control counts): 0 of 3.
+    // Pooled 2 of 7 = 28.6%; an average of the two percentages would be 25%.
+    expect(figure(result, systemAId)).toEqual({ met: 2, applicable: 4, percentage: 50 });
+    expect(figure(result, systemBId)).toEqual({ met: 0, applicable: 3, percentage: 0 });
     expect(result.met).toBe(2);
-    expect(result.applicable).toBe(5);
-    expect(result.percentage).toBe(40);
+    expect(result.applicable).toBe(7);
+    expect(result.percentage).toBe(28.6);
   });
 
   it("a strictComplianceRequired Framework does not count Waived as fulfilled", async () => {
@@ -175,13 +179,15 @@ describe("getComplianceForSystems", () => {
   });
 
   it("is null, not 0, when no Requirement is applicable to a System, and such a System adds nothing to the pool", async () => {
-    // C has both Frameworks in scope but no Facet, so every mapped Control is out of scope for it.
-    const alone = await getComplianceForSystems({ id: systemCId }, { frameworkId: lenientId });
+    // C has both Frameworks in scope but no Facet, so every Per-System/Both Control mapped to the strict Framework
+    // (it has no Organizational Control, which would count on C) is out of scope for it.
+    const alone = await getComplianceForSystems({ id: systemCId }, { frameworkId: strictId });
     expect(alone).toMatchObject({ met: 0, applicable: 0, percentage: null });
     expect(figure(alone, systemCId)).toEqual({ met: 0, applicable: 0, percentage: null });
 
-    const pooled = await getComplianceForSystems({ id: { in: [systemAId, systemCId] } }, { frameworkId: lenientId });
-    expect(pooled.percentage).toBe(66.7);
+    // A: S1 Not Met (cB Waived, strict), S2 Met: 1 of 2.
+    const pooled = await getComplianceForSystems({ id: { in: [systemAId, systemCId] } }, { frameworkId: strictId });
+    expect(pooled.percentage).toBe(50);
     expect(figure(pooled, systemCId)?.percentage).toBeNull();
   });
 
@@ -190,7 +196,7 @@ describe("getComplianceForSystems", () => {
     const result = await getComplianceForSystems({ id: { in: [systemAId, systemDId] } }, { frameworkId: lenientId });
     expect(figure(result, systemDId)).toEqual({ met: 0, applicable: 0, percentage: null });
     expect(result.met).toBe(2);
-    expect(result.applicable).toBe(3);
+    expect(result.applicable).toBe(4);
   });
 
   it("keeps a Requirement whose mappings were all removed in the denominator, as Not Met", async () => {
@@ -200,7 +206,7 @@ describe("getComplianceForSystems", () => {
       const result = await getComplianceForSystems({ id: systemAId }, { frameworkId: lenientId });
       // L1 has no mapped Controls at all: Not Met (an unmapped Framework must not look compliant). L2 is still Met.
       expect(result.met).toBe(1);
-      expect(result.applicable).toBe(3);
+      expect(result.applicable).toBe(4);
     } finally {
       await prisma.controlMapping.create({ data: { requirementId: l1Id, controlId: cA, coverage: "FULL" } });
     }

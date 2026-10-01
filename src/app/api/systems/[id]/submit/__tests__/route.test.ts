@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
-import { mapControlsToBase } from "@/test/framework-fixtures";
+import { createFixtureFramework, mapControlsToBase, mapControlsToFramework } from "@/test/framework-fixtures";
 import { ACTING_USER_COOKIE } from "@/lib/acting-user";
 import { getUnaddressedMandatoryControls } from "@/lib/control-assessments";
 import { PATCH as patchAssessment } from "../../assessments/[controlId]/route";
@@ -71,6 +71,7 @@ describe("POST /api/systems/[id]/submit", () => {
   let mandatoryControlId: string;
   let optionalControlId: string;
   let organizationalControlId: string;
+  let organizationalFrameworkId: string;
   let capabilityId: string;
 
   beforeAll(async () => {
@@ -132,7 +133,12 @@ describe("POST /api/systems/[id]/submit", () => {
     mandatoryControlId = mandatory.id;
     optionalControlId = optional.id;
     organizationalControlId = organizational.id;
-    await mapControlsToBase([mandatoryControlId, optionalControlId, organizationalControlId]);
+    await mapControlsToBase([mandatoryControlId, optionalControlId]);
+    // The Organizational Control goes to a fixture Framework this System declares, not to the base: it counts
+    // on every System with its Framework in scope (#122).
+    const organizationalFramework = await createFixtureFramework("Submit Org");
+    organizationalFrameworkId = organizationalFramework.id;
+    await mapControlsToFramework(organizationalFramework.id, [organizationalControlId]);
 
     const capability = await prisma.capability.create({
       data: { name: `Submit Test Capability ${suffix}`, controls: { connect: [{ id: mandatory.id }] } },
@@ -140,7 +146,13 @@ describe("POST /api/systems/[id]/submit", () => {
     capabilityId = capability.id;
 
     const system = await prisma.system.create({
-      data: { name: "Submit Test System", deploymentFacets: { connect: [{ id: systemTypeId }] }, ownerId, status: "DRAFT" },
+      data: {
+        name: "Submit Test System",
+        deploymentFacets: { connect: [{ id: systemTypeId }] },
+        frameworkScopes: { connect: { id: organizationalFrameworkId } },
+        ownerId,
+        status: "DRAFT",
+      },
     });
     systemId = system.id;
   });

@@ -6,6 +6,7 @@ import type { MappingCoverage } from "@/lib/coverage-state";
 import {
   inheritanceSourcesFor,
   resolveEffectiveStatus,
+  resolveImplementedByOrganization,
   type EffectiveStatus,
   type OwnAssessment,
 } from "@/lib/effective-status";
@@ -32,24 +33,37 @@ export * from "@/lib/requirement-status-rules";
  *   Requirements with their mapped Controls, the Organization's implementation
  *   statuses of those Controls, then one query for the Systems' Control
  *   Assessments), never a query per System or per Requirement.
- *   Applicability is decided in memory by `controlAppliesToSystem`, which
- *   mirrors `getApplicableControls`.
- * - Each mapped Control is judged by its *effective* status
- *   (`resolveEffectiveStatus`, #121): a Both Control the System hasn't assessed
- *   itself is Fulfilled while the Organization's implementation is. The stored
- *   Assessment status is never changed or copied.
+ *   Whether a mapped Control counts for a System is decided in memory:
+ *   `controlAppliesToSystem` (which mirrors `getApplicableControls`) for a
+ *   Per-System or Both Control, and the Framework being in the System's
+ *   effective scope for an Organizational one (#122, `controlCountsForSystem`).
+ * - Each mapped Control that counts for the System is judged by its *effective*
+ *   status: a Both Control the System hasn't assessed itself is Fulfilled while
+ *   the Organization's implementation is (`resolveEffectiveStatus`, #121), and an
+ *   Organizational Control is whatever the Organization's implementation says
+ *   (`resolveImplementedByOrganization`, #122). The stored Assessment status is
+ *   never changed or copied.
  * - `countDerivedStatuses(rows.map((r) => r.status))` (from the rules module)
  *   gives per-status counts; Met ÷ `applicable` is the Met ratio, and
  *   `addDerivedStatusCounts` pools Systems (total Met ÷ total applicable).
  * - The caller decides which Systems to include. The derivation treats a
  *   Framework that isn't in a System's effective scope like any other: Controls
- *   mapped only to it don't apply there, so every Requirement comes out Not
+ *   mapped only to it don't count there (an Organizational Control never does
+ *   outside the Framework's scope), so every Requirement comes out Not
  *   Applicable. Use `isFrameworkInEffectiveScope` to filter Systems first.
  */
 
 export type DerivationSystem = SystemClassification & { id: string };
 
-type DerivationFramework = { id: string; name: string; version: string; strictComplianceRequired: boolean };
+type DerivationFramework = {
+  id: string;
+  name: string;
+  version: string;
+  strictComplianceRequired: boolean;
+  /** Needed to tell whether the Framework is in a System's effective scope (an Organizational Control counts only there, #122). */
+  status: string;
+  isBase: boolean;
+};
 
 /** A Requirement's mapped Control, with everything needed to decide applicability. */
 type DerivationControl = {
@@ -79,8 +93,9 @@ export type FrameworkDerivationData = {
   /** Every Control mapped to any of the Framework's Requirements. */
   controlIds: string[];
   /**
-   * The Organization's implementation status of those Controls (#121). A Control
-   * with no row is absent and reads as Not Started; it only matters for Both Controls.
+   * The Organization's implementation status of those Controls (#121, #122). A
+   * Control with no row is absent and reads as Not Started; it only matters for
+   * Both and Organizational Controls.
    */
   organizationStatusByControlId: ReadonlyMap<string, ControlAssessmentStatus>;
 };
@@ -91,10 +106,19 @@ export type DerivedRequirementControl = {
   code: string;
   title: string;
   coverage: MappingCoverage;
+  /** Does this Control count for the System? (A Per-System/Both Control that applies, or an Organizational Control while the Framework is in scope.) */
   applicable: boolean;
-  /** The System's own stored Assessment status; null = no row yet (counts as Not Started). Null too when not applicable. */
+  /**
+   * The System's own stored Assessment status; null = no row yet (counts as Not
+   * Started). Null too when not applicable, and for an Organizational Control,
+   * which has no per-System Assessment.
+   */
   assessmentStatus: ControlAssessmentStatus | null;
-  /** The status the derivation judges: the own status, or Fulfilled through inheritance (#121). Null when not applicable. */
+  /**
+   * The status the derivation judges: the own status, Fulfilled through
+   * inheritance (#121), or the Organization's implementation status for an
+   * Organizational Control (#122). Null when not applicable.
+   */
   effective: EffectiveStatus | null;
 };
 
@@ -109,6 +133,24 @@ export type DerivedRequirementRow = {
   gapAccepted: boolean;
   controls: DerivedRequirementControl[];
 };
+
+/**
+ * Does a mapped Control count for the System when deriving a Requirement of the
+ * Framework? A Per-System or Both Control does when it applies to the System
+ * (`controlAppliesToSystem`). An Organizational Control is implemented once by
+ * the Organization, so for every System it counts exactly while the Requirement's
+ * Framework is Published and in the System's effective scope; Deployment Facets
+ * and Impact Levels don't apply to it (#122). It still gets no Control
+ * Assessment: `controlAppliesToSystem` and `getApplicableControls` keep excluding
+ * it, because they decide what a System assesses.
+ */
+export function controlCountsForSystem(
+  control: Parameters<typeof controlAppliesToSystem>[0],
+  system: SystemClassification,
+  frameworkInScope: boolean,
+): boolean {
+  return control.applicability === "ORGANIZATIONAL" ? frameworkInScope : controlAppliesToSystem(control, system);
+}
 
 const byNumericText = (a: string, b: string) => a.localeCompare(b, undefined, { numeric: true });
 
@@ -125,6 +167,8 @@ export async function loadFrameworkDerivationData(frameworkId: string): Promise<
       name: true,
       version: true,
       strictComplianceRequired: true,
+      status: true,
+      isBase: true,
       requirements: {
         select: {
           id: true,
@@ -177,6 +221,8 @@ export async function loadFrameworkDerivationData(frameworkId: string): Promise<
       name: framework.name,
       version: framework.version,
       strictComplianceRequired: framework.strictComplianceRequired,
+      status: framework.status,
+      isBase: framework.isBase,
     },
     requirements,
     controlIds,
@@ -189,19 +235,21 @@ export async function loadFrameworkDerivationData(frameworkId: string): Promise<
  * with its derived status and the mapped Controls behind it.
  * `ownAssessmentByControlId` holds the System's own Assessment rows; a Control
  * with no row counts as an untouched Not Started one. Each Control is judged by
- * its effective status (#121), through `resolveEffectiveStatus`.
+ * its effective status (#121, #122), through `resolveEffectiveStatus` or, for an
+ * Organizational Control, `resolveImplementedByOrganization`.
  */
 export function deriveRequirementRowsForSystem(
   data: FrameworkDerivationData,
   system: SystemClassification,
   ownAssessmentByControlId: ReadonlyMap<string, NonNullable<OwnAssessment>>,
 ): DerivedRequirementRow[] {
-  // A Control appears under several Requirements: decide its applicability once.
+  // A Control appears under several Requirements: decide whether it counts once.
+  const frameworkInScope = isFrameworkInEffectiveScope(data.framework, system.frameworkScopes);
   const applicableByControlId = new Map<string, boolean>();
   const applies = (control: DerivationControl) => {
     let value = applicableByControlId.get(control.id);
     if (value === undefined) {
-      value = controlAppliesToSystem(control, system);
+      value = controlCountsForSystem(control, system, frameworkInScope);
       applicableByControlId.set(control.id, value);
     }
     return value;
@@ -217,13 +265,15 @@ export function deriveRequirementRowsForSystem(
         title: control.title,
         coverage: control.coverage,
         applicable,
-        assessmentStatus: applicable ? (own?.status ?? "NOT_STARTED") : null,
-        effective: applicable
-          ? resolveEffectiveStatus(
-              own ?? null,
-              inheritanceSourcesFor(control, data.organizationStatusByControlId.get(control.id)),
-            )
-          : null,
+        assessmentStatus: applicable && control.applicability !== "ORGANIZATIONAL" ? (own?.status ?? "NOT_STARTED") : null,
+        effective: !applicable
+          ? null
+          : control.applicability === "ORGANIZATIONAL"
+            ? resolveImplementedByOrganization(data.organizationStatusByControlId.get(control.id))
+            : resolveEffectiveStatus(
+                own ?? null,
+                inheritanceSourcesFor(control, data.organizationStatusByControlId.get(control.id)),
+              ),
       };
     });
     const { status, basis } = deriveRequirementStatus({
@@ -294,7 +344,7 @@ export function isFrameworkInEffectiveScope(
 }
 
 export type SystemFrameworkRequirements = {
-  framework: DerivationFramework & { isBase: boolean };
+  framework: Pick<DerivationFramework, "id" | "name" | "version" | "strictComplianceRequired" | "isBase">;
   counts: DerivedStatusCounts;
   rows: DerivedRequirementRow[];
 };

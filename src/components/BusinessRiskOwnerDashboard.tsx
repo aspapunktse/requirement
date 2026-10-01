@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { frameworkLabel } from "@/lib/framework-label";
-import { ORGANIZATIONAL_REQUIREMENTS_NOTE, formatCompliancePercentage } from "@/lib/requirement-status-rules";
+import { formatCompliancePercentage } from "@/lib/requirement-status-rules";
 import { onboardingStatusTone, riskStatusTone } from "@/lib/status-tones";
 
 type CatalogItem = { id: string; name: string; version?: string };
@@ -192,7 +192,6 @@ export function BusinessRiskOwnerDashboard({
                 ({compliance.met}/{compliance.applicable} applicable Requirements met, pooled across Systems)
               </span>
             </p>
-            <p className="mt-1 text-xs text-zinc-500">{ORGANIZATIONAL_REQUIREMENTS_NOTE}</p>
             <ul className="mt-3 flex flex-col gap-2">
               {compliance.bySystem.map((s) => (
                 <li

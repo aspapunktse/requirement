@@ -9,7 +9,6 @@ import {
   CONTROL_ASSESSMENT_STATUS_LABEL,
   DERIVED_STATUS_LABEL,
   DERIVED_STATUS_ORDER,
-  ORGANIZATIONAL_REQUIREMENTS_NOTE,
   compliancePercentage,
   formatCompliancePercentage,
   matchesDerivedStatusFilter,
@@ -89,7 +88,7 @@ function FrameworkRequirements({ entry }: { entry: SystemFrameworkRequirements }
             {entry.framework.strictComplianceRequired
               ? "Strict Framework: Waived and Not Applicable Control Assessments do not count as fulfilled."
               : "Waived and Not Applicable Control Assessments count as fulfilled."}{" "}
-            A Requirement with no applicable mapped Control is Not Applicable to this System and is left out of the
+            A Requirement none of whose mapped Controls apply to this System is Not Applicable and is left out of the
             percentage. Partially Met counts as not Met.
           </p>
 
@@ -192,11 +191,12 @@ function FrameworkRequirements({ entry }: { entry: SystemFrameworkRequirements }
  * Control Assessment status. Each Framework is collapsed by default with
  * per-status counts in its header, and filterable by status once opened.
  * Each header also carries the Framework's Compliance Percentage for this System
- * (Met ÷ applicable Requirements, #90), with the note that Organizational
- * Requirements aren't counted yet. Each applicable Control shows its effective
- * status and where it comes from, *System-specific* or *Inherited from
- * Organization*, with the Organization's own status (#121). Read-only: the data
- * is derived live on the server.
+ * (Met ÷ applicable Requirements, #90). Each Control that counts shows its
+ * effective status and where it comes from: *System-specific*, *Inherited from
+ * Organization* with the Organization's own status (#121), or *Implemented by the
+ * Organization* for an Organizational Control, which counts on every System with
+ * the Framework in scope and has no Assessment of its own (#122). Read-only: the
+ * data is derived live on the server.
  */
 export function SystemFrameworkRequirementsView({ frameworks }: { frameworks: SystemFrameworkRequirements[] }) {
   if (frameworks.length === 0) {
@@ -204,7 +204,6 @@ export function SystemFrameworkRequirementsView({ frameworks }: { frameworks: Sy
   }
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-sm text-zinc-500">{ORGANIZATIONAL_REQUIREMENTS_NOTE}</p>
       {frameworks.map((entry) => (
         <FrameworkRequirements key={entry.framework.id} entry={entry} />
       ))}
