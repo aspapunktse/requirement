@@ -53,7 +53,7 @@ What's *not* decided yet (deliberately deferred, not overlooked):
 - **Prisma + PostgreSQL** — data layer
 - **Vitest + Testing Library** — unit/integration tests
 - **Docker** — local Postgres and production container image
-- **GitHub Actions** — CI on every PR, CD on merge to `main`
+- **GitHub Actions** — CI on every PR, CD on merge to `main`; jobs run on `ubuntu-latest` and the actions are pinned to major tags that run on Node 24
 
 ## Domain model
 
