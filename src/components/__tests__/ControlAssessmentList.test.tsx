@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ControlAssessmentList } from "../ControlAssessmentList";
 
@@ -127,6 +127,101 @@ describe("ControlAssessmentList", () => {
     // The current status (In Progress) is shown but can't be saved as-is.
     expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
     fireEvent.change(select, { target: { value: "WAIVED" } });
+    expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
+  });
+});
+
+describe("ControlAssessmentList waive options on a System the user owns (#97)", () => {
+  const row = (code: string, mandatory: boolean) => ({
+    control: {
+      id: `c-${code}`,
+      code,
+      title: `Control ${code}`,
+      description: "Desc",
+      category: "Organizational",
+      mandatory,
+      question: `Do you do ${code}?`,
+    },
+    assessment: { id: `a-${code}`, status: "IN_PROGRESS", evidence: null, notes: null, selfAssessmentAnswer: null, queries: [] },
+  });
+  const rows = [row("MAND-1", true), row("OPT-1", false)];
+
+  beforeEach(() => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() =>
+        Promise.resolve(new Response(JSON.stringify({ assessments: rows, staleAssessments: [] }), { status: 200 })),
+      ),
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  function enabledOptions(code: string) {
+    const select = screen.getByLabelText(`Status for ${code}`);
+    return Array.from(select.querySelectorAll("option"))
+      .filter((o) => !o.disabled)
+      .map((o) => o.textContent);
+  }
+
+  function answerButtons(code: string) {
+    const control = screen.getByText(`Do you do ${code}?`).parentElement!;
+    return within(control)
+      .getAllByRole("button")
+      .map((b) => b.textContent);
+  }
+
+  it("hides Waived / Not Applicable and the N/A answer on mandatory Controls from an owning Risk Owner, but keeps them on non-mandatory ones", async () => {
+    render(<ControlAssessmentList systemId="s1" userRole="RISK_OWNER" currentUserId="ro" systemOwnerId="ro" />);
+    await screen.findByLabelText("Status for MAND-1");
+
+    expect(enabledOptions("MAND-1")).toEqual(["Not Started", "In Progress", "Fulfilled"]);
+    expect(answerButtons("MAND-1")).toEqual(["Yes", "No"]);
+
+    expect(enabledOptions("OPT-1")).toEqual(["Not Started", "In Progress", "Fulfilled", "Not Applicable", "Waived"]);
+    expect(answerButtons("OPT-1")).toEqual(["Yes", "No", "N/A"]);
+  });
+
+  it("still offers an Admin who owns the System every option on mandatory Controls", async () => {
+    render(<ControlAssessmentList systemId="s1" userRole="ADMIN" currentUserId="admin" systemOwnerId="admin" />);
+    await screen.findByLabelText("Status for MAND-1");
+
+    expect(enabledOptions("MAND-1")).toEqual(["Not Started", "In Progress", "Fulfilled", "Not Applicable", "Waived"]);
+    expect(answerButtons("MAND-1")).toEqual(["Yes", "No", "N/A"]);
+  });
+
+  it("still offers a Risk Owner who doesn't own the System Waived / Not Applicable / N/A on mandatory Controls", async () => {
+    render(
+      <ControlAssessmentList
+        systemId="s1"
+        userRole="RISK_OWNER"
+        currentUserId="ro"
+        systemOwnerId="someone-else"
+        assessmentEditAccess="waive-only"
+      />,
+    );
+    await screen.findByLabelText("Status for MAND-1");
+
+    expect(enabledOptions("MAND-1")).toEqual(["Not Applicable", "Waived"]);
+    expect(answerButtons("MAND-1")).toEqual(["N/A"]);
+  });
+
+  it("disables Save for an owning Risk Owner on a mandatory Control already waived by someone else", async () => {
+    const waived = { ...rows[0], assessment: { ...rows[0].assessment, status: "WAIVED", notes: "Admin exception" } };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() =>
+        Promise.resolve(new Response(JSON.stringify({ assessments: [waived], staleAssessments: [] }), { status: 200 })),
+      ),
+    );
+    render(<ControlAssessmentList systemId="s1" userRole="RISK_OWNER" currentUserId="ro" systemOwnerId="ro" />);
+
+    const select = (await screen.findByLabelText("Status for MAND-1")) as HTMLSelectElement;
+    expect(select.value).toBe("WAIVED");
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+    fireEvent.change(select, { target: { value: "FULFILLED" } });
     expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
   });
 });

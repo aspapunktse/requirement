@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { controlAssessmentStatusTone } from "@/lib/status-tones";
-import type { AssessmentEditAccess } from "@/lib/system-permissions";
+import { canWaiveControl, type AssessmentEditAccess } from "@/lib/system-permissions";
 
 type ControlAssessmentStatus = "NOT_STARTED" | "IN_PROGRESS" | "FULFILLED" | "NOT_APPLICABLE" | "WAIVED";
 type UserRole =
@@ -59,7 +59,6 @@ type AssessmentRow = { control: Control; assessment: Assessment; queries: Assess
 const ROLES_ALLOWED_TO_MANAGE_QUERIES: UserRole[] = ["REVIEWER", "RISK_OWNER", "ADMIN"];
 
 const STATUSES_REQUIRING_WAIVE_ROLE: ControlAssessmentStatus[] = ["NOT_APPLICABLE", "WAIVED"];
-const ROLES_ALLOWED_TO_WAIVE: UserRole[] = ["ADMIN", "RISK_OWNER"];
 
 const STATUS_LABELS: Record<ControlAssessmentStatus, string> = {
   NOT_STARTED: "Not Started",
@@ -80,6 +79,8 @@ function SelfAssessmentQuestion({
   assessment,
   systemId,
   userRole,
+  currentUserId,
+  systemOwnerId,
   editAccess,
   onAnswered,
 }: {
@@ -87,11 +88,15 @@ function SelfAssessmentQuestion({
   assessment: Assessment;
   systemId: string;
   userRole: UserRole;
+  currentUserId: string;
+  systemOwnerId: string;
   /** "waive-only" (a Risk Owner who doesn't own the System) offers only N/A (#78). */
   editAccess: AssessmentEditAccess;
   onAnswered: (assessment: NonNullable<Assessment>) => void;
 }) {
-  const canAnswerNa = ROLES_ALLOWED_TO_WAIVE.includes(userRole);
+  // The shared waive rule (#97): an owning Risk Owner can't answer N/A to a
+  // mandatory Control, so the button is hidden for them.
+  const canAnswerNa = canWaiveControl({ id: currentUserId, role: userRole }, { ownerId: systemOwnerId }, control);
   const [notes, setNotes] = useState(assessment?.notes ?? "");
   const [error, setError] = useState<string | null>(null);
   const [answering, setAnswering] = useState(false);
@@ -385,6 +390,8 @@ function ControlRow({
   row,
   systemId,
   userRole,
+  currentUserId,
+  systemOwnerId,
   isSystemOwner,
   readOnly,
   editAccess,
@@ -395,6 +402,8 @@ function ControlRow({
   row: AssessmentRow;
   systemId: string;
   userRole: UserRole;
+  currentUserId: string;
+  systemOwnerId: string;
   isSystemOwner: boolean;
   readOnly: boolean;
   editAccess: AssessmentEditAccess;
@@ -403,7 +412,7 @@ function ControlRow({
   stale?: boolean;
 }) {
   const { control, assessment } = row;
-  const canWaive = ROLES_ALLOWED_TO_WAIVE.includes(userRole);
+  const canWaive = canWaiveControl({ id: currentUserId, role: userRole }, { ownerId: systemOwnerId }, control);
   const [status, setStatus] = useState<ControlAssessmentStatus>(assessment?.status ?? "NOT_STARTED");
   const [evidence, setEvidence] = useState(assessment?.evidence ?? "");
   const [notes, setNotes] = useState(assessment?.notes ?? "");
@@ -423,9 +432,13 @@ function ControlRow({
   const availableStatuses = (Object.keys(STATUS_LABELS) as ControlAssessmentStatus[]).filter((candidate) =>
     waiveOnly
       ? STATUSES_REQUIRING_WAIVE_ROLE.includes(candidate) || candidate === currentStatus
-      : canWaive || !STATUSES_REQUIRING_WAIVE_ROLE.includes(candidate),
+      : canWaive || !STATUSES_REQUIRING_WAIVE_ROLE.includes(candidate) || candidate === currentStatus,
   );
-  const canSave = !waiveOnly || STATUSES_REQUIRING_WAIVE_ROLE.includes(status);
+  // Saving a Waived / Not Applicable status this user can't set (it was set by
+  // someone else) would only be refused, so leave Save disabled until they pick another.
+  const canSave =
+    (!waiveOnly || STATUSES_REQUIRING_WAIVE_ROLE.includes(status)) &&
+    (canWaive || !STATUSES_REQUIRING_WAIVE_ROLE.includes(status));
 
   async function handleSave() {
     setError(null);
@@ -509,7 +522,11 @@ function ControlRow({
                 <option
                   key={candidate}
                   value={candidate}
-                  disabled={waiveOnly && !STATUSES_REQUIRING_WAIVE_ROLE.includes(candidate)}
+                  disabled={
+                    waiveOnly
+                      ? !STATUSES_REQUIRING_WAIVE_ROLE.includes(candidate)
+                      : !canWaive && STATUSES_REQUIRING_WAIVE_ROLE.includes(candidate)
+                  }
                 >
                   {STATUS_LABELS[candidate]}
                 </option>
@@ -553,6 +570,8 @@ function ControlRow({
           assessment={assessment}
           systemId={systemId}
           userRole={userRole}
+          currentUserId={currentUserId}
+          systemOwnerId={systemOwnerId}
           editAccess={editAccess}
           onAnswered={onSaved}
         />
@@ -641,6 +660,8 @@ export function ControlAssessmentList({
               row={row}
               systemId={systemId}
               userRole={userRole}
+              currentUserId={currentUserId}
+              systemOwnerId={systemOwnerId}
               isSystemOwner={isSystemOwner}
               readOnly={readOnly}
               editAccess={editAccess}
@@ -671,6 +692,8 @@ export function ControlAssessmentList({
                 row={row}
                 systemId={systemId}
                 userRole={userRole}
+                currentUserId={currentUserId}
+                systemOwnerId={systemOwnerId}
                 isSystemOwner={isSystemOwner}
                 readOnly={readOnly}
                 editAccess={editAccess}
