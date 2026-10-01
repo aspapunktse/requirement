@@ -5,6 +5,13 @@ import { Button } from "@/components/ui/Button";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { controlAssessmentStatusTone } from "@/lib/status-tones";
 import { canWaiveControl, isSystemOwnerOrAdmin, type AssessmentEditAccess } from "@/lib/system-permissions";
+import {
+  effectiveOverrideNote,
+  effectiveSourceDetails,
+  effectiveSourceLabel,
+  resolveEffectiveStatus,
+  type EffectiveStatus,
+} from "@/lib/effective-status";
 
 type ControlAssessmentStatus = "NOT_STARTED" | "IN_PROGRESS" | "FULFILLED" | "NOT_APPLICABLE" | "WAIVED";
 type UserRole =
@@ -31,6 +38,7 @@ type Control = {
 type Assessment = {
   id: string;
   status: ControlAssessmentStatus;
+  assessedById?: string | null;
   evidence: string | null;
   notes: string | null;
   selfAssessmentAnswer: SelfAssessmentAnswer | null;
@@ -51,7 +59,30 @@ type AssessmentQuery = {
   messages: QueryMessage[];
 };
 
-type AssessmentRow = { control: Control; assessment: Assessment; queries: AssessmentQuery[] };
+/**
+ * `effective` is what the System is judged by (own status, or inherited from the
+ * Organization, #121); null for a stale row, which no longer applies. The edit
+ * form below it still edits the System's own `assessment`.
+ */
+type AssessmentRow = {
+  control: Control;
+  assessment: Assessment;
+  queries: AssessmentQuery[];
+  effective: EffectiveStatus | null;
+};
+
+/**
+ * The row after the System's own Assessment was saved: a saved Assessment is
+ * person-set, so it now decides the effective status (it overrides what was
+ * inherited). Same rule as the server's, applied to the sources the API sent.
+ */
+function withSavedAssessment(row: AssessmentRow, assessment: NonNullable<Assessment>): AssessmentRow {
+  return {
+    ...row,
+    assessment,
+    effective: row.effective ? resolveEffectiveStatus({ status: assessment.status, personSet: true }, row.effective.sources) : null,
+  };
+}
 
 // Mirrors src/lib/assessment-queries.ts's ROLES_ALLOWED_TO_MANAGE_QUERIES —
 // duplicated here (not imported) because that module pulls in the Prisma
@@ -470,7 +501,7 @@ function ControlRow({
   onRemoved?: () => void;
   stale?: boolean;
 }) {
-  const { control, assessment } = row;
+  const { control, assessment, effective } = row;
   const canWaive = canWaiveControl({ id: currentUserId, role: userRole }, { ownerId: systemOwnerId }, control);
   const [status, setStatus] = useState<ControlAssessmentStatus>(assessment?.status ?? "NOT_STARTED");
   const [evidence, setEvidence] = useState(assessment?.evidence ?? "");
@@ -539,12 +570,21 @@ function ControlRow({
         <div>
           <div className="mb-1 flex flex-wrap items-center gap-2 font-medium">
             <span>{control.code} — {control.title}</span>
-            <StatusChip tone={controlAssessmentStatusTone(assessment?.status ?? "NOT_STARTED")}>
-              {STATUS_LABELS[assessment?.status ?? "NOT_STARTED"]}
+            <StatusChip tone={controlAssessmentStatusTone(effective?.status ?? assessment?.status ?? "NOT_STARTED")}>
+              {STATUS_LABELS[effective?.status ?? assessment?.status ?? "NOT_STARTED"]}
             </StatusChip>
             {control.mandatory && <span className="text-xs text-zinc-500">Mandatory</span>}
           </div>
           <p className="text-sm text-zinc-500">{control.description}</p>
+          {effective && !stale && (
+            <p className="mt-1 text-xs text-zinc-500">
+              {[`Source: ${effectiveSourceLabel(effective)}`, ...effectiveSourceDetails(effective)].join(" · ")}
+              {effectiveOverrideNote(effective) && `. ${effectiveOverrideNote(effective)}`}
+              {effective.source.kind !== "SYSTEM" &&
+                editAccess !== "none" &&
+                ". Saving a status below sets this System's own Assessment, which then overrides the inherited one."}
+            </p>
+          )}
         </div>
       </div>
 
@@ -697,16 +737,20 @@ export function ControlAssessmentList({
       .then((body) => {
         if (cancelled) return;
         setRows(
-          (body.assessments ?? []).map((row: { control: Control; assessment: Assessment }) => ({
-            ...row,
-            queries: (row.assessment as (Assessment & { queries?: AssessmentQuery[] }))?.queries ?? [],
-          })),
+          (body.assessments ?? []).map(
+            (row: { control: Control; assessment: Assessment; effective?: EffectiveStatus }) => ({
+              ...row,
+              queries: (row.assessment as (Assessment & { queries?: AssessmentQuery[] }))?.queries ?? [],
+              effective: row.effective ?? null,
+            }),
+          ),
         );
         setStaleRows(
           (body.staleAssessments ?? []).map((assessment: StaleAssessmentApi) => ({
             control: assessment.control,
             assessment,
             queries: assessment.queries ?? [],
+            effective: null,
           })),
         );
       });
@@ -739,9 +783,7 @@ export function ControlAssessmentList({
               editAccess={editAccess}
               onSaved={(assessment) =>
                 setRows((prev) =>
-                  (prev ?? []).map((r) =>
-                    r.control.id === row.control.id ? { ...r, assessment } : r,
-                  ),
+                  (prev ?? []).map((r) => (r.control.id === row.control.id ? withSavedAssessment(r, assessment) : r)),
                 )
               }
               onQueriesChanged={(queries) =>

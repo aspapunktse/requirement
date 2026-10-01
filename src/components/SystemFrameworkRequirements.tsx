@@ -4,6 +4,7 @@ import { useState } from "react";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { controlAssessmentStatusTone, requirementStatusTone } from "@/lib/status-tones";
 import { frameworkLabel } from "@/lib/framework-label";
+import { effectiveOverrideNote, effectiveSourceDetails, effectiveSourceLabel } from "@/lib/effective-status";
 import {
   CONTROL_ASSESSMENT_STATUS_LABEL,
   DERIVED_STATUS_LABEL,
@@ -136,17 +137,30 @@ function FrameworkRequirements({ entry }: { entry: SystemFrameworkRequirements }
 
                       {applicable.length > 0 && (
                         <ul aria-label={`Applicable Controls for ${row.code}`} className="mt-1 flex flex-col gap-0.5 text-sm">
-                          {applicable.map((control) => (
-                            <li key={control.controlId} className="flex flex-wrap items-center gap-2">
-                              <span>
-                                <span className="font-medium">{control.code}</span> {control.title}
-                                <span className="text-zinc-500">{` · ${control.coverage === "FULL" ? "Full" : "Partial"} coverage`}</span>
-                              </span>
-                              <StatusChip tone={controlAssessmentStatusTone(control.assessmentStatus ?? "NOT_STARTED")}>
-                                {CONTROL_ASSESSMENT_STATUS_LABEL[control.assessmentStatus ?? "NOT_STARTED"]}
-                              </StatusChip>
-                            </li>
-                          ))}
+                          {applicable.map((control) => {
+                            const status = control.effective?.status ?? control.assessmentStatus ?? "NOT_STARTED";
+                            const details = control.effective ? effectiveSourceDetails(control.effective) : [];
+                            const override = control.effective ? effectiveOverrideNote(control.effective) : null;
+                            return (
+                              <li key={control.controlId} className="flex flex-col">
+                                <span className="flex flex-wrap items-center gap-2">
+                                  <span>
+                                    <span className="font-medium">{control.code}</span> {control.title}
+                                    <span className="text-zinc-500">{` · ${control.coverage === "FULL" ? "Full" : "Partial"} coverage`}</span>
+                                  </span>
+                                  <StatusChip tone={controlAssessmentStatusTone(status)}>
+                                    {CONTROL_ASSESSMENT_STATUS_LABEL[status]}
+                                  </StatusChip>
+                                </span>
+                                {control.effective && (
+                                  <span className="text-xs text-zinc-500">
+                                    {[effectiveSourceLabel(control.effective), ...details].join(" · ")}
+                                    {override && ` ${override}`}
+                                  </span>
+                                )}
+                              </li>
+                            );
+                          })}
                         </ul>
                       )}
 
@@ -179,8 +193,10 @@ function FrameworkRequirements({ entry }: { entry: SystemFrameworkRequirements }
  * per-status counts in its header, and filterable by status once opened.
  * Each header also carries the Framework's Compliance Percentage for this System
  * (Met ÷ applicable Requirements, #90), with the note that Organizational
- * Requirements aren't counted yet. Read-only: the data is derived live on the
- * server. M3 adds an inheritance source column.
+ * Requirements aren't counted yet. Each applicable Control shows its effective
+ * status and where it comes from, *System-specific* or *Inherited from
+ * Organization*, with the Organization's own status (#121). Read-only: the data
+ * is derived live on the server.
  */
 export function SystemFrameworkRequirementsView({ frameworks }: { frameworks: SystemFrameworkRequirements[] }) {
   if (frameworks.length === 0) {

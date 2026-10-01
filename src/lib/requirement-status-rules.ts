@@ -56,12 +56,13 @@ export const NO_MAPPED_CONTROLS_STATUS: DerivedRequirementStatus = "NOT_MET";
 export const COVERAGE_JUDGED_OVER_APPLICABLE_MAPPINGS = true;
 
 /**
- * "Effectively Fulfilled" for one Control Assessment status: the single place
- * that decides whether a Control counts as satisfied for Requirement-status
- * purposes. M2: Fulfilled always counts; Waived and Not Applicable are
- * deliberate, already-signed-off decisions and count too, unless the Framework
- * is `strictComplianceRequired`. M3 (inheritance from the Organization or a
- * Provider) extends this function, not its callers.
+ * "Effectively Fulfilled" for one Control's *effective* status (see
+ * `resolveEffectiveStatus` in `effective-status.ts`, which has already applied
+ * inheritance by the time a status gets here): the single place that decides
+ * whether a Control counts as satisfied for Requirement-status purposes.
+ * Fulfilled always counts; Waived and Not Applicable are deliberate,
+ * already-signed-off decisions and count too, unless the Framework is
+ * `strictComplianceRequired`.
  */
 export function isEffectivelyFulfilled(
   status: ControlAssessmentStatus,
@@ -77,7 +78,7 @@ export type MappedControlForDerivation = {
   coverage: MappingCoverage;
   /** Does this mapped Control apply to the System (Framework gate, Deployment Facets, Impact Levels)? */
   applicable: boolean;
-  /** The System's Control Assessment status; null (no row yet) counts as NOT_STARTED. Ignored when not applicable. */
+  /** The Control's effective status for the System (#121); null (no row yet) counts as NOT_STARTED. Ignored when not applicable. */
   status: ControlAssessmentStatus | null;
 };
 

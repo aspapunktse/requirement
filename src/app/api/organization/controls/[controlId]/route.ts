@@ -3,7 +3,8 @@ import { z } from "zod";
 import { ControlAssessmentStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { authenticate } from "@/lib/api-authz";
-import { getOrganizationControl, normalizeDescription, saveOrganizationImplementation } from "@/lib/organization-implementation";
+import { getOrganizationControl, normalizeDescription } from "@/lib/organization-implementation";
+import { saveOrganizationImplementationWithEvents } from "@/lib/organization-inheritance";
 import { canEditOrganizationImplementation, implementationDescriptionRefusal } from "@/lib/organization-implementation-rules";
 
 const updateImplementationSchema = z
@@ -24,8 +25,11 @@ const updateImplementationSchema = z
  * Manager or an Admin (403, nothing written), then the body (400): at least one
  * field, and a description once the status is Waived or Not Applicable.
  *
- * Not a Change Event, and nothing changes on any System (inheritance is #121):
- * `updatedById` and `updatedAt` are the record of who and when.
+ * Nothing is written to any System's Assessments: a System inherits a Both
+ * Control's Fulfilled status live. The edit itself is not a Change Event
+ * (`updatedById` and `updatedAt` are the record of who and when), but when it
+ * moves a Both Control's effective status on some Systems, each of them gets a
+ * `"system"` Change Event in the same transaction (F-IN.7, #121).
  */
 export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/organization/controls/[controlId]">) {
   const auth = await authenticate(request);
@@ -62,6 +66,6 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/organi
     return NextResponse.json({ error: refusal }, { status: 400 });
   }
 
-  const saved = await saveOrganizationImplementation(prisma, control, auth.user.id, { status, description });
+  const saved = await saveOrganizationImplementationWithEvents(control, auth.user.id, { status, description });
   return NextResponse.json({ control: saved });
 }

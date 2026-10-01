@@ -6,6 +6,10 @@ import {
   type DerivedRequirementRow,
   type SystemFrameworkRequirements,
 } from "../SystemFrameworkRequirements";
+import { resolveEffectiveStatus } from "@/lib/effective-status";
+
+/** A System-specific Control status, as the server sends it for a Control with no inheritance source. */
+const own = (status: "NOT_STARTED" | "IN_PROGRESS" | "FULFILLED") => resolveEffectiveStatus({ status, personSet: true }, []);
 
 const row = (over: Partial<DerivedRequirementRow>): DerivedRequirementRow => ({
   requirementId: "q",
@@ -28,7 +32,7 @@ const iso: SystemFrameworkRequirements = {
       code: "A.5.1",
       status: "MET",
       controls: [
-        { controlId: "c1", code: "CTL-1", title: "Policies", coverage: "FULL", applicable: true, assessmentStatus: "FULFILLED" },
+        { controlId: "c1", code: "CTL-1", title: "Policies", coverage: "FULL", applicable: true, assessmentStatus: "FULFILLED", effective: own("FULFILLED") },
       ],
     }),
     row({
@@ -36,8 +40,8 @@ const iso: SystemFrameworkRequirements = {
       code: "A.5.2",
       status: "PARTIALLY_MET",
       controls: [
-        { controlId: "c1", code: "CTL-1", title: "Policies", coverage: "FULL", applicable: true, assessmentStatus: "FULFILLED" },
-        { controlId: "c2", code: "CTL-2", title: "Roles", coverage: "PARTIAL", applicable: true, assessmentStatus: "IN_PROGRESS" },
+        { controlId: "c1", code: "CTL-1", title: "Policies", coverage: "FULL", applicable: true, assessmentStatus: "FULFILLED", effective: own("FULFILLED") },
+        { controlId: "c2", code: "CTL-2", title: "Roles", coverage: "PARTIAL", applicable: true, assessmentStatus: "IN_PROGRESS", effective: own("IN_PROGRESS") },
       ],
     }),
     row({
@@ -46,7 +50,7 @@ const iso: SystemFrameworkRequirements = {
       section: "A.8 Technological",
       status: "NOT_MET",
       controls: [
-        { controlId: "c3", code: "CTL-3", title: "Endpoints", coverage: "FULL", applicable: true, assessmentStatus: "NOT_STARTED" },
+        { controlId: "c3", code: "CTL-3", title: "Endpoints", coverage: "FULL", applicable: true, assessmentStatus: "NOT_STARTED", effective: own("NOT_STARTED") },
       ],
     }),
     row({
@@ -56,7 +60,7 @@ const iso: SystemFrameworkRequirements = {
       status: "NOT_APPLICABLE",
       basis: "NO_APPLICABLE_CONTROLS",
       controls: [
-        { controlId: "c4", code: "ORG-1", title: "Risk process", coverage: "FULL", applicable: false, assessmentStatus: null },
+        { controlId: "c4", code: "ORG-1", title: "Risk process", coverage: "FULL", applicable: false, assessmentStatus: null, effective: null },
       ],
     }),
     row({ requirementId: "q5", code: "6.2", section: "6 Planning", status: "NOT_APPLICABLE", basis: "NO_APPLICABLE_CONTROLS" }),
@@ -211,5 +215,70 @@ describe("SystemFrameworkRequirementsView", () => {
     expect(within(screen.getByRole("listitem", { name: "Requirement Z.1" })).getByText(/counts as Not Met/)).toBeInTheDocument();
     expect(within(screen.getByRole("listitem", { name: "Requirement Z.2" })).getByText(/accepted gap/)).toBeInTheDocument();
     expect(within(screen.getByRole("listitem", { name: "Requirement Z.3" })).getByText(/only Partial coverage/)).toBeInTheDocument();
+  });
+
+  describe("the source of each applicable Control (#121)", () => {
+    const org = (status: "NOT_STARTED" | "FULFILLED" | "WAIVED") => ({ kind: "ORGANIZATION", type: "FULL", status }) as const;
+    const withSources = (
+      ownStatus: "NOT_STARTED" | "IN_PROGRESS" | "FULFILLED",
+      personSet: boolean,
+      sources: ReturnType<typeof org>[],
+    ) => ({
+      assessmentStatus: ownStatus,
+      effective: resolveEffectiveStatus({ status: ownStatus, personSet }, sources),
+    });
+    const framework: SystemFrameworkRequirements = {
+      ...iso,
+      counts: { MET: 1, PARTIALLY_MET: 1, NOT_MET: 0, NOT_APPLICABLE: 0, total: 2, applicable: 2 },
+      rows: [
+        row({
+          requirementId: "s1",
+          code: "A.5.15",
+          status: "MET",
+          controls: [
+            { controlId: "i1", code: "A.5.15", title: "Access control", coverage: "FULL", applicable: true, ...withSources("NOT_STARTED", false, [org("FULFILLED")]) },
+          ],
+        }),
+        row({
+          requirementId: "s2",
+          code: "A.5.16",
+          status: "PARTIALLY_MET",
+          controls: [
+            { controlId: "i2", code: "A.5.16", title: "Identity management", coverage: "FULL", applicable: true, ...withSources("NOT_STARTED", false, [org("WAIVED")]) },
+            { controlId: "i3", code: "A.5.17", title: "Authentication", coverage: "FULL", applicable: true, ...withSources("IN_PROGRESS", true, [org("FULFILLED")]) },
+            { controlId: "i4", code: "A.8.5", title: "Secure authentication", coverage: "FULL", applicable: true, ...withSources("FULFILLED", true, []) },
+          ],
+        }),
+      ],
+    };
+
+    it("shows the effective status and Inherited from Organization with the Organization's own status", async () => {
+      const user = userEvent.setup();
+      render(<SystemFrameworkRequirementsView frameworks={[framework]} />);
+      await user.click(toggle("ISO/IEC 27001:2022"));
+
+      const inherited = within(
+        within(screen.getByRole("listitem", { name: "Requirement A.5.15" })).getByRole("list", { name: "Applicable Controls for A.5.15" }),
+      );
+      expect(inherited.getByText("Fulfilled")).toBeInTheDocument();
+      expect(inherited.getByText("Inherited from Organization · Organization: Fulfilled")).toBeInTheDocument();
+    });
+
+    it("shows System-specific otherwise, with the Organization's status when it gives no credit, and the override line", async () => {
+      const user = userEvent.setup();
+      render(<SystemFrameworkRequirementsView frameworks={[framework]} />);
+      await user.click(toggle("ISO/IEC 27001:2022"));
+
+      const controls = within(
+        within(screen.getByRole("listitem", { name: "Requirement A.5.16" })).getByRole("list", { name: "Applicable Controls for A.5.16" }),
+      );
+      expect(controls.getByText("System-specific · Organization: Waived (gives no credit)")).toBeInTheDocument();
+      expect(
+        controls.getByText(
+          "System-specific · Organization: Fulfilled This System's own Assessment (In Progress) overrides the Organization's Fulfilled status.",
+        ),
+      ).toBeInTheDocument();
+      expect(controls.getByText("System-specific")).toBeInTheDocument();
+    });
   });
 });

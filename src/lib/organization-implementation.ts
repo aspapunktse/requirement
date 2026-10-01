@@ -15,8 +15,10 @@ import {
  * description, and the first edit creates the row. Every reader goes through
  * `toOrganizationControlRow` or tolerates `null` itself.
  *
- * It changes nothing on any System: no Control Assessment, no derived status,
- * no Change Event. Inheritance is #121.
+ * Nothing here touches a System: no Control Assessment is written. A Both
+ * Control's Fulfilled status is inherited live by the Systems it applies to
+ * (`effective-status.ts`, #121), and the Change Events that record a System's
+ * effective status moving are written by `organization-inheritance.ts`.
  */
 
 type Db = Pick<Prisma.TransactionClient, "control" | "organizationControlImplementation">;

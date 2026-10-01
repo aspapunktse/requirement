@@ -4,6 +4,13 @@ import { controlAppliesToSystem, type SystemClassification } from "@/lib/control
 import { getSystemFrameworkScopes } from "@/lib/framework-scope";
 import type { MappingCoverage } from "@/lib/coverage-state";
 import {
+  inheritanceSourcesFor,
+  resolveEffectiveStatus,
+  type EffectiveStatus,
+  type OwnAssessment,
+} from "@/lib/effective-status";
+import { loadOrganizationStatuses, toOwnAssessment } from "@/lib/effective-status-data";
+import {
   countDerivedStatuses,
   deriveRequirementStatus,
   type DerivationBasis,
@@ -22,10 +29,15 @@ export * from "@/lib/requirement-status-rules";
  *
  * - `deriveFrameworkStatusesForSystems(frameworkId, systems)`: many Systems x
  *   ONE Framework in a constant number of queries (the Framework and its
- *   Requirements with their mapped Controls, then one query for the Systems'
- *   Control Assessments), never a query per System or per Requirement.
+ *   Requirements with their mapped Controls, the Organization's implementation
+ *   statuses of those Controls, then one query for the Systems' Control
+ *   Assessments), never a query per System or per Requirement.
  *   Applicability is decided in memory by `controlAppliesToSystem`, which
  *   mirrors `getApplicableControls`.
+ * - Each mapped Control is judged by its *effective* status
+ *   (`resolveEffectiveStatus`, #121): a Both Control the System hasn't assessed
+ *   itself is Fulfilled while the Organization's implementation is. The stored
+ *   Assessment status is never changed or copied.
  * - `countDerivedStatuses(rows.map((r) => r.status))` (from the rules module)
  *   gives per-status counts; Met ÷ `applicable` is the Met ratio, and
  *   `addDerivedStatusCounts` pools Systems (total Met ÷ total applicable).
@@ -66,6 +78,11 @@ export type FrameworkDerivationData = {
   }[];
   /** Every Control mapped to any of the Framework's Requirements. */
   controlIds: string[];
+  /**
+   * The Organization's implementation status of those Controls (#121). A Control
+   * with no row is absent and reads as Not Started; it only matters for Both Controls.
+   */
+  organizationStatusByControlId: ReadonlyMap<string, ControlAssessmentStatus>;
 };
 
 /** One mapped Control of a Requirement, for one System. */
@@ -75,8 +92,10 @@ export type DerivedRequirementControl = {
   title: string;
   coverage: MappingCoverage;
   applicable: boolean;
-  /** The System's Assessment status; null = no row yet (counts as Not Started). Null too when not applicable. */
+  /** The System's own stored Assessment status; null = no row yet (counts as Not Started). Null too when not applicable. */
   assessmentStatus: ControlAssessmentStatus | null;
+  /** The status the derivation judges: the own status, or Fulfilled through inheritance (#121). Null when not applicable. */
+  effective: EffectiveStatus | null;
 };
 
 /** A Requirement with its derived status for one System, plain JSON (safe to pass to a client component). */
@@ -93,7 +112,11 @@ export type DerivedRequirementRow = {
 
 const byNumericText = (a: string, b: string) => a.localeCompare(b, undefined, { numeric: true });
 
-/** Load a Framework and, per Requirement, its mapped Controls. Two queries regardless of size. */
+/**
+ * Load a Framework and, per Requirement, its mapped Controls, plus the
+ * Organization's implementation status of those Controls, in a constant number
+ * of queries regardless of size.
+ */
 export async function loadFrameworkDerivationData(frameworkId: string): Promise<FrameworkDerivationData | null> {
   const framework = await prisma.framework.findUnique({
     where: { id: frameworkId },
@@ -147,6 +170,7 @@ export async function loadFrameworkDerivationData(frameworkId: string): Promise<
     }))
     .sort((a, b) => byNumericText(a.section, b.section) || byNumericText(a.code, b.code));
 
+  const controlIds = [...new Set(requirements.flatMap((requirement) => requirement.controls.map((c) => c.id)))];
   return {
     framework: {
       id: framework.id,
@@ -155,20 +179,22 @@ export async function loadFrameworkDerivationData(frameworkId: string): Promise<
       strictComplianceRequired: framework.strictComplianceRequired,
     },
     requirements,
-    controlIds: [...new Set(requirements.flatMap((requirement) => requirement.controls.map((c) => c.id)))],
+    controlIds,
+    organizationStatusByControlId: await loadOrganizationStatuses(controlIds),
   };
 }
 
 /**
  * The derivation for one System, in memory: every Requirement of the Framework
  * with its derived status and the mapped Controls behind it.
- * `assessmentStatusByControlId` holds the System's Assessment rows; a Control
- * with no row counts as Not Started.
+ * `ownAssessmentByControlId` holds the System's own Assessment rows; a Control
+ * with no row counts as an untouched Not Started one. Each Control is judged by
+ * its effective status (#121), through `resolveEffectiveStatus`.
  */
 export function deriveRequirementRowsForSystem(
   data: FrameworkDerivationData,
   system: SystemClassification,
-  assessmentStatusByControlId: ReadonlyMap<string, ControlAssessmentStatus>,
+  ownAssessmentByControlId: ReadonlyMap<string, NonNullable<OwnAssessment>>,
 ): DerivedRequirementRow[] {
   // A Control appears under several Requirements: decide its applicability once.
   const applicableByControlId = new Map<string, boolean>();
@@ -184,18 +210,25 @@ export function deriveRequirementRowsForSystem(
   return data.requirements.map((requirement) => {
     const controls: DerivedRequirementControl[] = requirement.controls.map((control) => {
       const applicable = applies(control);
+      const own = ownAssessmentByControlId.get(control.id);
       return {
         controlId: control.id,
         code: control.code,
         title: control.title,
         coverage: control.coverage,
         applicable,
-        assessmentStatus: applicable ? (assessmentStatusByControlId.get(control.id) ?? "NOT_STARTED") : null,
+        assessmentStatus: applicable ? (own?.status ?? "NOT_STARTED") : null,
+        effective: applicable
+          ? resolveEffectiveStatus(
+              own ?? null,
+              inheritanceSourcesFor(control, data.organizationStatusByControlId.get(control.id)),
+            )
+          : null,
       };
     });
     const { status, basis } = deriveRequirementStatus({
       framework: data.framework,
-      mappings: controls.map((c) => ({ coverage: c.coverage, applicable: c.applicable, status: c.assessmentStatus })),
+      mappings: controls.map((c) => ({ coverage: c.coverage, applicable: c.applicable, status: c.effective?.status ?? null })),
       gapAcceptedAt: requirement.gapAcceptedAt,
     });
     return {
@@ -213,7 +246,7 @@ export function deriveRequirementRowsForSystem(
 
 /**
  * Derived Requirement rows for many Systems x one Framework, from bulk-loaded
- * data (three queries in total, however many Systems). Returns null if the
+ * data (a constant number of queries, however many Systems). Returns null if the
  * Framework doesn't exist; otherwise a Map with an entry for every System given.
  * This is the function the Requirement-based Compliance Percentage (#90) builds on.
  */
@@ -226,19 +259,19 @@ export async function deriveFrameworkStatusesForSystems(frameworkId: string, sys
       ? []
       : await prisma.controlAssessment.findMany({
           where: { systemId: { in: systems.map((s) => s.id) }, controlId: { in: data.controlIds } },
-          select: { systemId: true, controlId: true, status: true },
+          select: { systemId: true, controlId: true, status: true, assessedById: true },
         });
-  const statusesBySystem = new Map<string, Map<string, ControlAssessmentStatus>>();
+  const assessmentsBySystem = new Map<string, Map<string, NonNullable<OwnAssessment>>>();
   for (const assessment of assessments) {
-    const statuses = statusesBySystem.get(assessment.systemId) ?? new Map<string, ControlAssessmentStatus>();
-    statuses.set(assessment.controlId, assessment.status);
-    statusesBySystem.set(assessment.systemId, statuses);
+    const own = assessmentsBySystem.get(assessment.systemId) ?? new Map<string, NonNullable<OwnAssessment>>();
+    own.set(assessment.controlId, toOwnAssessment(assessment));
+    assessmentsBySystem.set(assessment.systemId, own);
   }
 
   const bySystem = new Map<string, DerivedRequirementRow[]>(
     systems.map((system) => [
       system.id,
-      deriveRequirementRowsForSystem(data, system, statusesBySystem.get(system.id) ?? new Map()),
+      deriveRequirementRowsForSystem(data, system, assessmentsBySystem.get(system.id) ?? new Map()),
     ]),
   );
   return { framework: data.framework, bySystem };

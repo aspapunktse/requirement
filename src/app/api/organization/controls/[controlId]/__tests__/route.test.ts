@@ -323,14 +323,21 @@ describe("PATCH /api/organization/controls/[controlId] (#120)", () => {
   });
 
   describe("nothing changes on Systems", () => {
-    it("writes no Change Event and creates, changes or removes no Control Assessment", async () => {
+    it("writes no Change Event for a person-set Assessment and creates, changes or removes no Control Assessment", async () => {
       // The BOTH Control applies to the fixture System (Facet match + base mapping). Give it an Assessment
-      // a person has set, then move the Organization's implementation around.
+      // a person has set, then move the Organization's implementation around. A person-set Assessment is
+      // never overridden by inheritance (#121), so the System's effective status never moves and no event
+      // is written; the cases where it does move are in inheritance-events.test.ts. Earlier cases in this
+      // file may already have moved this System (it had no Assessment of the Control then), so the count
+      // is compared with what it was before the Assessment existed.
       await prisma.controlAssessment.create({
         data: { systemId, controlId: bothControlId, status: "IN_PROGRESS", notes: "System's own", assessedById: users.systemOwner, assessedAt: new Date() },
       });
       const snapshot = () => prisma.controlAssessment.findMany({ where: { systemId }, orderBy: { controlId: "asc" } });
       const events = () => prisma.changeEvent.count({ where: { systemId } });
+      const controlEvents = () => prisma.changeEvent.count({ where: { detail: { contains: `TEST-OCI-${SUFFIX}` } } });
+      const eventsBefore = await events();
+      const controlEventsBefore = await controlEvents();
       const before = await snapshot();
       expect(before).toHaveLength(1);
 
@@ -343,8 +350,8 @@ describe("PATCH /api/organization/controls/[controlId] (#120)", () => {
       }
 
       expect(await snapshot()).toEqual(before);
-      expect(await events()).toBe(0);
-      expect(await prisma.changeEvent.count({ where: { detail: { contains: `TEST-OCI-${SUFFIX}` } } })).toBe(0);
+      expect(await events()).toBe(eventsBefore);
+      expect(await controlEvents()).toBe(controlEventsBefore);
       await prisma.organizationControlImplementation.deleteMany({ where: { controlId: bothControlId } });
     });
   });
