@@ -11,16 +11,53 @@ This file is a snapshot of in-flight state, not a permanent doc. Update or trim 
 
 ## Next up: the queue (start here)
 
-PRD 0001 **milestone 1 (model split) is complete** (#70–#75), and so are **#78** (System write permissions), **#91** (unified owner rule), **#86** (continuous compliance), **#87** (recompute on catalog changes) and **#88** (retire Regulatory Overlay), **#89** (derived Requirement status) and **#90** (Requirement-based Compliance Percentage). Work the following **in this order**, one issue per Sonnet sub-agent, following [`docs/agents/supervised-workflow.md`](docs/agents/supervised-workflow.md). Each issue carries native GitHub "blocked by" links; the order below respects them.
+**State as of 2026-10-01**
+- PRD 0001 milestones 1 and 2 are complete, closed and in production.
+- Every post-M2 follow-up has also shipped:
+  - #91, #97 and #98 (owner rule and waiving);
+  - #109 (remove a stale Assessment);
+  - #110 (Capability auto-fulfilment in every recompute);
+  - #95 (GitHub Actions on their Node 24 majors);
+  - PR #106 (Vercel records production deploys as `main`).
+- `main` is at #110 (PR #113, CD run 36823376951) plus this docs update. There are no open PRs.
+- The dev DB is in its seeded state:
+  - 10 Systems, 471 Control Assessments, 0 Change Events.
+  - Frameworks: ISO/IEC 27001:2022, which is the base and Published. GDPR 1 and Export Control (EAR/ITAR) 1 are Published but have no Requirements yet; they came from #88.
+
+**Milestone "PRD 0001 · M3 Inheritance" is open on GitHub.** It holds three follow-ups the product owner placed there on 2026-10-01. **The main inheritance issues are not cut yet.**
+1. **#115: run CI and the Docker image on the production Node version.** `ready-for-agent`, so **start here**.
+   - The Vercel production runtime is **Node 24.x**, the CD deploy job uses 22, and CI and the Dockerfile use 20 (past end of life).
+   - The issue moves everything to 24.
+2. **#116: backfill Capability fulfilment** for existing untouched Not Started Assessments. *Not ready.*
+3. **#117: re-run Capability fulfilment** when a Control's Capability mappings change. *Not ready.*
+
+For both #116 and #117: `CONTEXT.md` marks Capability as retired in favour of Providers and inheritance. Decide whether M3 replaces them, and close them as superseded if so.
+
+**Then cut the rest of M3 into issues.** The scope is PRD 0001 §10, row 3:
+- F-IN.1–8, F-CL.3 (Control Owner), F-OUT.2 and F-CE.2;
+- migration steps §9.5 and §9.7;
+- the default for open question OQ-2.
+
+Follow "When the product owner asks for a milestone to be cut into issues" in the workflow doc. **Draft the issues and get the product owner's approval before creating any.** These decisions already constrain M3:
+- #89 decision 3a: Requirements met only by Organizational Controls (ISO clauses 4–10, plus 37 Annex A Requirements) are Not Applicable per System until M3. M3's Organization Control Implementation must make them count. Today, 61 of 118 ISO Requirements are Not Applicable on every System.
+- #110 and #116/#117 build on Capabilities, which M3's Providers replace.
+
+**Open items for the product owner** (not blocking):
+- The 18 `DATA_*` Vercel environment variables are still exposed to Preview. They hold production database credentials and the app doesn't use them. Unticking Preview is a dashboard change only the product owner can make.
+- #46 needs re-scoping against the PRD before anyone picks it up.
+- #61 is deferred.
+- #63 is independent lint cleanup.
+
+### Done so far (history; details in the per-issue notes below)
 
 1. ~~**#91**: unify the owner rule, restrict System creation, reject evidence changes on waive-only edits.~~ **Done** on branch `91-unify-owner-rule` (see the #91 note below); it landed before #86, which now builds on the unified helpers (`src/lib/system-permissions.ts`, `canChangeSystemClassification`, `canManageRegulatoryOverlays`, `canManageCapabilities`, `canManageFrameworkScopes`).
 2. Milestone **"PRD 0001 · M2 Applicability & continuous compliance"**:
    1. ~~**#85**: Framework Scope drives applicability; the base Framework is always in scope.~~ **Done** on branch `85-framework-scope-drives-applicability` (see the #85 note below). The unmapped-Control check found none on the dev DB.
    2. ~~**#86**: Continuous compliance: lift the Draft-only lock (after #85 and #91).~~ **Done** on branch `86-continuous-compliance` (see the #86 note below).
    3. ~~**#87**: Recompute affected Systems on Framework publish, mapping changes and Control scoping edits (after #85 and #86).~~ **Done** on branch `87-recompute-on-catalog-changes` (see the #87 note below).
-   4. ~~**#88**: Retire Regulatory Overlay (migrate overlays to Frameworks) (after #85).~~ **Done** on branch `88-retire-regulatory-overlay` (see the #88 note below). **Production heads-up:** the migration can abort on purpose; have the product owner run `npx tsx scripts/check-overlay-migration.ts` against production before merging.
-   5. ~~**#89**: Derived Requirement status per System, plus a per-Framework view on the System page (after #85).~~ **Done** on branch `89-derived-requirement-status` (see the #89 note below). **Open product questions** for the product owner are listed in that note.
-   6. ~~**#90**: Requirement-based Compliance Percentage per Framework (after #89).~~ **Done** on branch `90-requirement-based-compliance` (see the #90 note below). **Open question for the product owner:** the Business Risk Owner visibility widening (below).
+   4. ~~**#88**: Retire Regulatory Overlay (migrate overlays to Frameworks) (after #85).~~ **Done** on branch `88-retire-regulatory-overlay` (see the #88 note below). Its migration ran in production on 2026-09-30 without aborting.
+   5. ~~**#89**: Derived Requirement status per System, plus a per-Framework view on the System page (after #85).~~ **Done** on branch `89-derived-requirement-status` (see the #89 note below). The product owner decided its open questions on 2026-09-30 (recorded on #89): no mapped Controls means Not Met; "covered" is judged per System; Organizational-only Requirements stay Not Applicable until M3.
+   6. ~~**#90**: Requirement-based Compliance Percentage per Framework (after #89).~~ **Done** on branch `90-requirement-based-compliance` (see the #90 note below). The product owner confirmed the Business Risk Owner visibility rule (the base Framework covers every System) on 2026-09-30, recorded on #90.
 
    **Milestone 2 (#85–#90) is closed** (GitHub milestone closed 2026-10-01). Post-M2 follow-ups from the product owner's decisions on PR #96:
    1. ~~**#97**: a Risk Owner can't waive mandatory Controls on a System they own.~~ **Done** (PR #107, see the #97 note below).
@@ -30,11 +67,10 @@ PRD 0001 **milestone 1 (model split) is complete** (#70–#75), and so are **#78
 
    4. ~~**#110**: re-run Capability auto-fulfilment when a recompute makes Controls applicable (follow-up to #87).~~ **Done** on branch `110-capability-fulfilment-on-recompute` (see the #110 note below).
 
-   **The queue is now empty.** Next: **ask the product owner** before cutting milestone 3 (Inheritance) into issues.
+   5. ~~**#95**: upgrade GitHub Actions off Node.js 20.~~ **Done** (PR #111): all actions on their Node 24 majors, CI proven on `ubuntu-26.04`, first CD run green. CD also names the checkout `main` before deploying (PR #106), so Vercel records production deploys as `main`, not `HEAD`.
 
-Other open items (not in the queue): #46 needs re-scoping against the PRD before anyone picks it up; #61 is deferred; #63 is independent lint cleanup.
 
-**Known environment issue (resolved for now, will come back):** PRs #82–#92 showed a failing **Vercel** preview check ("Resource provisioning failed"). The cause was Neon's free-plan limit of 10 database branches: each git branch's first preview creates a `preview/<branch>` Neon branch, and Neon never deletes them. On 2026-09-29 the product owner deleted the old preview branches. Neon has no setting to delete them automatically, so the error will come back after about 9 more new branches. When it does, ask the product owner to clear merged `preview/*` branches again. The workflow doc says how to confirm it and why it's safe to merge on green GitHub CI in the meantime.
+**Known environment issue (fixed):** PRs #82–#92 showed a failing **Vercel** preview check ("Resource provisioning failed"). The cause was Neon's free-plan limit of 10 database branches: each git branch's first preview creates a `preview/<branch>` Neon branch, and Neon never deletes them. On 2026-09-29 the product owner deleted the old preview branches. Neon has no setting to delete them automatically, so the error will come back after about 9 more new branches. When it does, ask the product owner to clear merged `preview/*` branches again. The workflow doc says how to confirm it and why it's safe to merge on green GitHub CI in the meantime. **Update 2026-10-01:** previews no longer use a database at all (see below). So the product owner turned off the Neon integration's preview branching and cleared the old `preview/*` branches. Previews have passed since PR #105. If "Resource provisioning failed" ever returns, check that setting first.
 
 **Fixed on 2026-09-30: Vercel previews used to migrate the production database.** `DATABASE_URL` was shared by Production and Preview, and the build command ran `prisma migrate deploy` for every build. As a result, each preview applied its unmerged migrations to production; #87's enum migration was the one that exposed it. The product owner changed the build command to migrate only when `VERCEL_ENV=production` and limited `DATABASE_URL` to Production. Before pushing a branch with a migration, read both settings back; the "Known environment gotchas" section of the workflow doc has the commands. Open item: the `DATA_*` Vercel variables (production credentials, unused by the app) are still exposed to Preview. Unticking Preview on them is the product owner's call.
 
@@ -238,7 +274,7 @@ A design session (grill-with-docs) on 2026-09-29 produced [PRD 0001](docs/prd/00
 - **Versions** (all pinned to the major tag): `actions/checkout` v4 to v7, `actions/setup-node` v4 to v7, `docker/setup-buildx-action` v3 to v4, `docker/login-action` v3 to v4, `docker/build-push-action` v6 to v7. All five run on `node24` and need runner v2.327.1 or later (hosted runners are well past that).
 - **Breaking changes that mattered, and why none bite us:** checkout v7 refuses to check out *fork pull request* code in `pull_request_target` / `workflow_run` workflows unless `allow-unsafe-pr-checkout: true`. `cd.yml`'s deploy job is a `workflow_run` that checks out `workflow_run.head_sha`, so this was the one to verify: the guard only fires when the triggering run's event is a `pull_request*` event and the head repository differs from this one, so a same-repo push to `main` passes untouched. As a side effect it also closes a latent gap: `branches: [main]` on `workflow_run` matches the triggering run's head *branch*, so a fork PR from a branch called `main` would otherwise have reached the production deploy. (The repo is private, so this is theoretical.) checkout v6 moves the persisted credential out of `.git/config` into a file under `$RUNNER_TEMP`: no effect, since `git checkout -B main` is local and `vercel deploy` only reads local git metadata (commit, author, remote URL). Defaults we rely on are unchanged (`fetch-depth: 1`, full tree, `persist-credentials: true`). setup-node v5/v6 auto-cache npm when `package.json` has a `packageManager` field; ours has none, and CI sets `cache: npm` explicitly, so the `deploy` job still does not cache. build-push v7 dropped the `DOCKER_BUILD_NO_SUMMARY` / `DOCKER_BUILD_EXPORT_RETENTION_DAYS` env vars; setup-buildx v4 dropped the deprecated `config` / `config-inline` / `install` inputs and the `endpoint` / `status` / `flags` outputs. We use none of them. login v4 only changed runtime. The inputs we pass (`ref`, `node-version`, `cache`, `registry`, `username`, `password`, `context`, `push`, `tags`, `cache-from`, `cache-to`) are all unchanged.
 - **Runner decision: keep `ubuntu-latest`.** It moves to Ubuntu 26.04 from 2026-10-19 (finished by 2026-11-19, runner-images#14748). To prove CI works there first, the PR carries a **temporary commit** (subject starts `TEMP:`) that switches the four `ci.yml` jobs to `ubuntu-26.04`, the label the issue documents for testing the new image. **Revert it before merging** (`git revert <hash>`); `cd.yml` is untouched. If something breaks on 26.04, `ubuntu-24.04` is the documented fallback.
-- **Watch the first CD run after merge:** `publish` (GHCR login, buildx cache `type=gha`) and `deploy` (checkout with `ref`, `git checkout -B main`, `vercel deploy --prod`, which also runs `prisma migrate deploy` remotely). There should be no "Node.js 20 is deprecated" annotation on the CI or CD runs. The Node version for the app (`node-version: 20` in CI, `22` in the deploy job) is unchanged.
+- **First CD run after merge: confirmed green on 2026-10-01** (CD run 36818021180). There was no Node 20 annotation, `checkout@v7` passed the fork guard, and Vercel recorded the deploy as `main`. What was watched: `publish` (GHCR login, buildx cache `type=gha`) and `deploy` (checkout with `ref`, `git checkout -B main`, `vercel deploy --prod`, which also runs `prisma migrate deploy` remotely). There should be no "Node.js 20 is deprecated" annotation on the CI or CD runs. The Node version for the app (`node-version: 20` in CI, `22` in the deploy job) is unchanged.
 
 **#62 just landed this session.** A "System Portfolio" section on the Business Risk Owner dashboard (`/business-risk-owner`) — Systems within the current Business Unit filter, grouped into clusters by `OnboardingStatus`, each card colored via the existing `onboardingStatusTone`/`StatusChip` convention and showing name, vendor, compliance-%, and open-Risk-count. Grilled with the user before implementation — see [issue #62's comments](https://github.com/aspapunktse/requirement/issues/62) for the resolved design (no edges/graph-layout library needed — a styled grid reads as the "graph view" the issue asked for; same access as the rest of the page; cards link to `/systems/[id]`). Key pieces, for when this needs revisiting:
 - `src/app/api/business-risk-owner/portfolio/route.ts`: new endpoint, same `resolveScopeWhere`/businessUnitId+frameworkId filter pattern as the existing `/risks` and `/compliance` endpoints. Combines `prisma.system.findMany` (id/name/vendor/status), `getComplianceForSystems` (compliance-% per System), and `prisma.risk.groupBy` (open-Risk-count per System) into one `PortfolioSystem[]` response.
