@@ -35,6 +35,7 @@ How implementation work on this repo is run. The product owner set this up on 20
    - `git checkout main && git pull`.
    - Stop the supervisor's preview dev server (`preview_stop`). A running `next dev` locks Prisma's query-engine DLL, and `prisma generate` then fails with EPERM.
    - Read the issue and the code it names, so the brief can carry facts, not guesses.
+   - Read-only checks that decide policy (e.g. "do any rows hit this edge case?") are worth running yourself before briefing, so the product owner is asked only when it matters.
 2. **Brief the implementer.** It starts cold, so the brief must be self-contained. Use the template below.
 3. **Review the hand-back.**
    - Read the report critically. Check `git log`, `git diff --stat main...HEAD` and `git status`.
@@ -43,22 +44,44 @@ How implementation work on this repo is run. The product owner set this up on 20
    - Grep for leftovers the issue said to remove.
    - Check every changed file is valid UTF-8 (`iconv -f utf-8 -t utf-8 <file> >/dev/null`).
    - Send follow-ups to the **same** agent (SendMessage with its id), which keeps its context. Once a branch is pushed, fixes must be new commits, not amends.
+   - Bring the branch up to date with `main` (`git merge main`) before verifying, so you test what will actually land.
 4. **Verify in the browser.**
+   - If the checkout has switched branches since the dev server last ran, run `rm -rf .next` first (see the stale-`.next` gotcha).
    - `preview_start` with name `next-dev`.
    - Hit a route once before screenshotting it. Turbopack compiles each route on its first request, so the page may briefly show "Compiling…".
    - Sign in as the relevant role with the header role switcher.
    - Exercise the change and read the console and network logs. HMR websocket errors from the preview pane are noise.
-   - If you create test data, remove it afterwards and leave the dev DB as you found it.
+   - Prefer creating your own test data **through the app's API** (`fetch` from the page with the acting-user cookie set), e.g. a `Test #<n> …` System owned by the role you need. Changing seeded rows directly in SQL (e.g. reassigning a seeded System's owner) is blocked by the permission classifier; don't work around it.
+   - If you create test data, remove it afterwards and leave the dev DB as you found it. Deleting a test System cascades to its Assessments and Change Events. Delete any Change Events your test wrote on seeded Systems, and compare row counts before and after.
    - Restart the dev server after any migration, because it caches the old Prisma client.
 5. **PR and merge.**
    - `git push -u origin <branch>`.
    - `gh pr create` with a body of: Closes #n / Part of …; Summary; migration notes and a **production heads-up** if it has one; Test plan with checked boxes. End with `🤖 Generated with [Claude Code](https://claude.com/claude-code)`.
-   - `gh pr checks <n> --watch`.
-   - When CI is green: `gh pr merge <n> --squash --delete-branch`, then `git checkout main && git pull`.
+   - **Don't poll PR CI** (the session harness forbids `gh pr checks --watch` and similar loops). Tell the product owner the PR is waiting, and check once (`gh pr checks <n>`) when they say "continue".
+   - If the PR carries a migration, confirm its Vercel preview build ran **no** `prisma migrate deploy` (see the gotcha "Previews must never migrate or reach production").
+   - When GitHub CI is green: `gh pr merge <n> --squash --delete-branch`. Then update `main`: use `git checkout main && git pull` only if no implementer is running. Otherwise use `git fetch origin main:main` and **don't switch branches** (see "Shared checkout" below).
+   - A failing **Vercel** check alone doesn't block a merge when GitHub CI is green. Find out why first (`vercel api /v13/deployments/<id>`), and leave a PR comment saying why it's safe.
 6. **Watch production.**
-   - CD runs `prisma migrate deploy` against **production** on every merge to `main`. Watch the CD run (`gh run watch`) and report the result.
+   - CD runs `prisma migrate deploy` against **production** on every merge to `main`. Watch the run in the background: find the CI run for the merge commit and `gh run watch` it, then do the same for the CD run. Report the result, including the "Applying migration" / "No pending migrations" lines from the deploy log.
+   - Don't merge the next PR while the previous merge's CD run is still in progress, especially one that changes the pipeline itself.
    - Don't query the production DB directly. Targets named prod/production are off-limits without the product owner.
 7. Move to the next issue. Report progress to the product owner briefly after each merge.
+
+### Working with the product owner
+
+- Put policy and product questions **in the chat reply as plain text**: numbered questions, lettered options, and a marked recommendation, so the product owner can answer like "1a, 2b". Don't use the AskUserQuestion tool; its prompts weren't visible to the product owner.
+- Keep work going on anything a question doesn't block. Brief the implementer with your recommended default, kept in one named constant, and relay the answer with SendMessage when it arrives.
+- Record every decision as a comment on the relevant issue, and in `HANDOFF.md`.
+- Vercel project settings and other production configuration are the product owner's to change. The permission classifier blocks the supervisor from changing them. Give exact dashboard steps, then read the settings back through the API to confirm.
+
+### Shared checkout
+
+The supervisor and the implementer work in **the same** `C:\dev\requirement` working tree. While an implementer is running:
+- never `git checkout` or switch branches (it moves the implementer's uncommitted work);
+- merge PRs with `gh pr merge` alone, and update local `main` with `git fetch origin main:main`;
+- do any side edit (e.g. reverting a temporary commit on another PR's branch) in a separate worktree: `git worktree add <scratchpad>/wt -B wt origin/<branch>`, then push and `git worktree remove` it.
+
+Run only one implementer at a time (see above).
 
 ## Implementer brief template (rules every brief must carry)
 
