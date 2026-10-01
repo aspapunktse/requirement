@@ -74,7 +74,7 @@ export async function PATCH(
   }
 
   if (WAIVE_GATED_STATUSES.includes(status)) {
-    const gate = checkWaiveGate(auth.user, control, notes);
+    const gate = checkWaiveGate(auth.user, system, control, notes);
     if (!gate.ok) {
       return NextResponse.json({ error: gate.error }, { status: gate.status });
     }

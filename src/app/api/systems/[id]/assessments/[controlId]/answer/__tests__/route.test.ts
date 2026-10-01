@@ -8,6 +8,8 @@ import { PATCH } from "../route";
 const OWNER_EMAIL = "test-answer-owner@example.com";
 const RISK_OWNER_EMAIL = "test-answer-risk-owner@example.com";
 const VIEWER_EMAIL = "test-answer-viewer@example.com";
+const OTHER_RISK_OWNER_EMAIL = "test-answer-other-risk-owner@example.com";
+const ADMIN_EMAIL = "test-answer-admin@example.com";
 
 function urlFor(systemId: string, controlId: string) {
   return `http://localhost/api/systems/${systemId}/assessments/${controlId}/answer`;
@@ -36,6 +38,11 @@ describe("PATCH /api/systems/[id]/assessments/[controlId]/answer", () => {
   let ownerId: string;
   let riskOwnerId: string;
   let viewerId: string;
+  let otherRiskOwnerId: string;
+  let adminId: string;
+  // A System the Risk Owner owns, and one the Admin owns (#97).
+  let riskOwnedSystemId: string;
+  let adminOwnedSystemId: string;
   let systemTypeId: string;
   let systemId: string;
   let mandatoryControlId: string;
@@ -60,6 +67,18 @@ describe("PATCH /api/systems/[id]/assessments/[controlId]/answer", () => {
     ownerId = owner.id;
     riskOwnerId = riskOwner.id;
     viewerId = viewer.id;
+    const otherRiskOwner = await prisma.user.upsert({
+      where: { email: OTHER_RISK_OWNER_EMAIL },
+      update: {},
+      create: { email: OTHER_RISK_OWNER_EMAIL, name: "Answer Other Risk Owner", role: "RISK_OWNER" },
+    });
+    const admin = await prisma.user.upsert({
+      where: { email: ADMIN_EMAIL },
+      update: {},
+      create: { email: ADMIN_EMAIL, name: "Answer Admin", role: "ADMIN" },
+    });
+    otherRiskOwnerId = otherRiskOwner.id;
+    adminId = admin.id;
 
     const systemType = await prisma.deploymentFacet.create({
       data: { name: `Test Answer Type ${Date.now()}` },
@@ -70,6 +89,24 @@ describe("PATCH /api/systems/[id]/assessments/[controlId]/answer", () => {
       data: { name: "Answer Test System", deploymentFacets: { connect: [{ id: systemTypeId }] }, ownerId, status: "DRAFT" },
     });
     systemId = system.id;
+    const riskOwned = await prisma.system.create({
+      data: {
+        name: "Answer Risk-Owned System",
+        deploymentFacets: { connect: [{ id: systemTypeId }] },
+        ownerId: riskOwnerId,
+        status: "DRAFT",
+      },
+    });
+    const adminOwned = await prisma.system.create({
+      data: {
+        name: "Answer Admin-Owned System",
+        deploymentFacets: { connect: [{ id: systemTypeId }] },
+        ownerId: adminId,
+        status: "DRAFT",
+      },
+    });
+    riskOwnedSystemId = riskOwned.id;
+    adminOwnedSystemId = adminOwned.id;
 
     const suffix = Date.now();
     const mandatory = await prisma.control.create({
@@ -100,21 +137,25 @@ describe("PATCH /api/systems/[id]/assessments/[controlId]/answer", () => {
   });
 
   afterAll(async () => {
-    await prisma.risk.deleteMany({ where: { systemId } });
-    await prisma.controlAssessment.deleteMany({ where: { systemId } });
-    await prisma.system.deleteMany({ where: { id: systemId } });
+    const systemIds = [systemId, riskOwnedSystemId, adminOwnedSystemId];
+    await prisma.risk.deleteMany({ where: { systemId: { in: systemIds } } });
+    await prisma.changeEvent.deleteMany({ where: { systemId: { in: systemIds } } });
+    await prisma.controlAssessment.deleteMany({ where: { systemId: { in: systemIds } } });
+    await prisma.system.deleteMany({ where: { id: { in: systemIds } } });
     await prisma.control.deleteMany({
       where: { id: { in: [mandatoryControlId, optionalControlId] } },
     });
     await prisma.deploymentFacet.deleteMany({ where: { id: systemTypeId } });
     await prisma.user.deleteMany({
-      where: { email: { in: [OWNER_EMAIL, RISK_OWNER_EMAIL, VIEWER_EMAIL] } },
+      where: { email: { in: [OWNER_EMAIL, RISK_OWNER_EMAIL, VIEWER_EMAIL, OTHER_RISK_OWNER_EMAIL, ADMIN_EMAIL] } },
     });
   });
 
   afterEach(async () => {
-    await prisma.risk.deleteMany({ where: { systemId } });
-    await prisma.controlAssessment.deleteMany({ where: { systemId } });
+    const systemIds = [systemId, riskOwnedSystemId, adminOwnedSystemId];
+    await prisma.risk.deleteMany({ where: { systemId: { in: systemIds } } });
+    await prisma.changeEvent.deleteMany({ where: { systemId: { in: systemIds } } });
+    await prisma.controlAssessment.deleteMany({ where: { systemId: { in: systemIds } } });
   });
 
   it("rejects an unauthenticated request", async () => {
@@ -245,5 +286,64 @@ describe("PATCH /api/systems/[id]/assessments/[controlId]/answer", () => {
 
     await prisma.control.delete({ where: { id: scoped.id } });
     await prisma.deploymentFacet.delete({ where: { id: otherType.id } });
+  });
+
+  describe("a Risk Owner who owns the System can't answer N/A on its mandatory Controls (#97)", () => {
+    it("refuses the owning RISK_OWNER an N/A answer on a mandatory Control with 403, even with a note, changing nothing", async () => {
+      const response = await PATCH(
+        requestAs(riskOwnedSystemId, mandatoryControlId, riskOwnerId, { answer: "NA", notes: "Because I say so" }),
+        ctxFor(riskOwnedSystemId, mandatoryControlId),
+      );
+      const body = await response.json();
+
+      expect(response.status).toBe(403);
+      expect(body.error).toMatch(/You own this System, so another Risk Owner or an Admin must waive/);
+      expect(await prisma.controlAssessment.count({ where: { systemId: riskOwnedSystemId } })).toBe(0);
+      expect(await prisma.changeEvent.count({ where: { systemId: riskOwnedSystemId } })).toBe(0);
+    });
+
+    it("still lets the owning RISK_OWNER answer N/A on a non-mandatory Control", async () => {
+      const response = await PATCH(
+        requestAs(riskOwnedSystemId, optionalControlId, riskOwnerId, { answer: "NA" }),
+        ctxFor(riskOwnedSystemId, optionalControlId),
+      );
+      const body = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(body.assessment).toMatchObject({ status: "NOT_APPLICABLE", selfAssessmentAnswer: "NA" });
+    });
+
+    it.each([
+      ["YES", "FULFILLED"],
+      ["NO", "IN_PROGRESS"],
+    ] as const)("still lets the owning RISK_OWNER answer %s on a mandatory Control", async (answer, status) => {
+      const response = await PATCH(
+        requestAs(riskOwnedSystemId, mandatoryControlId, riskOwnerId, { answer }),
+        ctxFor(riskOwnedSystemId, mandatoryControlId),
+      );
+      const body = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(body.assessment).toMatchObject({ status, selfAssessmentAnswer: answer });
+    });
+
+    it("lets a different RISK_OWNER answer N/A on the mandatory Control of that System", async () => {
+      const response = await PATCH(
+        requestAs(riskOwnedSystemId, mandatoryControlId, otherRiskOwnerId, { answer: "NA", notes: "Not relevant here" }),
+        ctxFor(riskOwnedSystemId, mandatoryControlId),
+      );
+      expect(response.status).toBe(200);
+    });
+
+    it("lets an ADMIN who owns the System answer N/A on its mandatory Control", async () => {
+      const response = await PATCH(
+        requestAs(adminOwnedSystemId, mandatoryControlId, adminId, { answer: "NA", notes: "Own exception" }),
+        ctxFor(adminOwnedSystemId, mandatoryControlId),
+      );
+      const body = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(body.assessment.status).toBe("NOT_APPLICABLE");
+    });
   });
 });

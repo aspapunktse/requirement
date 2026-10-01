@@ -8,6 +8,8 @@ import { PATCH } from "../route";
 const OWNER_EMAIL = "test-assessment-patch-owner@example.com";
 const RISK_OWNER_EMAIL = "test-assessment-patch-risk-owner@example.com";
 const VIEWER_EMAIL = "test-assessment-patch-viewer@example.com";
+const OTHER_RISK_OWNER_EMAIL = "test-assessment-patch-other-risk-owner@example.com";
+const ADMIN_EMAIL = "test-assessment-patch-admin@example.com";
 
 function urlFor(systemId: string, controlId: string) {
   return `http://localhost/api/systems/${systemId}/assessments/${controlId}`;
@@ -36,6 +38,11 @@ describe("PATCH /api/systems/[id]/assessments/[controlId]", () => {
   let ownerId: string;
   let riskOwnerId: string;
   let viewerId: string;
+  let otherRiskOwnerId: string;
+  let adminId: string;
+  // A System the Risk Owner owns, and one the Admin owns (#97).
+  let riskOwnedSystemId: string;
+  let adminOwnedSystemId: string;
   let systemTypeId: string;
   let otherTypeId: string;
   let systemId: string;
@@ -62,6 +69,18 @@ describe("PATCH /api/systems/[id]/assessments/[controlId]", () => {
     ownerId = owner.id;
     riskOwnerId = riskOwner.id;
     viewerId = viewer.id;
+    const otherRiskOwner = await prisma.user.upsert({
+      where: { email: OTHER_RISK_OWNER_EMAIL },
+      update: {},
+      create: { email: OTHER_RISK_OWNER_EMAIL, name: "Assessment Patch Other Risk Owner", role: "RISK_OWNER" },
+    });
+    const admin = await prisma.user.upsert({
+      where: { email: ADMIN_EMAIL },
+      update: {},
+      create: { email: ADMIN_EMAIL, name: "Assessment Patch Admin", role: "ADMIN" },
+    });
+    otherRiskOwnerId = otherRiskOwner.id;
+    adminId = admin.id;
 
     const systemType = await prisma.deploymentFacet.create({
       data: { name: `Test Assessment Patch Type ${Date.now()}` },
@@ -75,6 +94,24 @@ describe("PATCH /api/systems/[id]/assessments/[controlId]", () => {
       data: { name: "Assessment Patch System", deploymentFacets: { connect: [{ id: systemTypeId }] }, ownerId, status: "DRAFT" },
     });
     systemId = system.id;
+    const riskOwned = await prisma.system.create({
+      data: {
+        name: "Assessment Patch Risk-Owned System",
+        deploymentFacets: { connect: [{ id: systemTypeId }] },
+        ownerId: riskOwnerId,
+        status: "DRAFT",
+      },
+    });
+    const adminOwned = await prisma.system.create({
+      data: {
+        name: "Assessment Patch Admin-Owned System",
+        deploymentFacets: { connect: [{ id: systemTypeId }] },
+        ownerId: adminId,
+        status: "DRAFT",
+      },
+    });
+    riskOwnedSystemId = riskOwned.id;
+    adminOwnedSystemId = adminOwned.id;
 
     const suffix = Date.now();
     const mandatory = await prisma.control.create({
@@ -115,17 +152,21 @@ describe("PATCH /api/systems/[id]/assessments/[controlId]", () => {
   });
 
   afterAll(async () => {
-    await prisma.controlAssessment.deleteMany({ where: { systemId } });
-    await prisma.system.deleteMany({ where: { id: systemId } });
+    const systemIds = [systemId, riskOwnedSystemId, adminOwnedSystemId];
+    await prisma.changeEvent.deleteMany({ where: { systemId: { in: systemIds } } });
+    await prisma.controlAssessment.deleteMany({ where: { systemId: { in: systemIds } } });
+    await prisma.system.deleteMany({ where: { id: { in: systemIds } } });
     await prisma.control.deleteMany({
       where: { id: { in: [mandatoryControlId, optionalControlId, outOfScopeControlId] } },
     });
     await prisma.deploymentFacet.deleteMany({ where: { id: { in: [systemTypeId, otherTypeId] } } });
-    await prisma.user.deleteMany({ where: { email: { in: [OWNER_EMAIL, RISK_OWNER_EMAIL, VIEWER_EMAIL] } } });
+    await prisma.user.deleteMany({ where: { email: { in: [OWNER_EMAIL, RISK_OWNER_EMAIL, VIEWER_EMAIL, OTHER_RISK_OWNER_EMAIL, ADMIN_EMAIL] } } });
   });
 
   afterEach(async () => {
-    await prisma.controlAssessment.deleteMany({ where: { systemId } });
+    const systemIds = [systemId, riskOwnedSystemId, adminOwnedSystemId];
+    await prisma.changeEvent.deleteMany({ where: { systemId: { in: systemIds } } });
+    await prisma.controlAssessment.deleteMany({ where: { systemId: { in: systemIds } } });
   });
 
   it("rejects an unauthenticated request", async () => {
@@ -264,5 +305,113 @@ describe("PATCH /api/systems/[id]/assessments/[controlId]", () => {
 
     expect(response.status).toBe(200);
     expect(body.assessment.status).toBe("FULFILLED");
+  });
+
+  describe("a Risk Owner who owns the System can't waive its mandatory Controls (#97)", () => {
+    async function expectUntouched(targetSystemId: string) {
+      expect(await prisma.controlAssessment.count({ where: { systemId: targetSystemId } })).toBe(0);
+      expect(await prisma.changeEvent.count({ where: { systemId: targetSystemId } })).toBe(0);
+    }
+
+    it.each(["WAIVED", "NOT_APPLICABLE"] as const)(
+      "refuses the owning RISK_OWNER %s on a mandatory Control with 403, even with a note, changing nothing",
+      async (status) => {
+        const response = await PATCH(
+          requestAs(riskOwnedSystemId, mandatoryControlId, riskOwnerId, { status, notes: "Because I say so" }),
+          ctxFor(riskOwnedSystemId, mandatoryControlId),
+        );
+        const body = await response.json();
+
+        expect(response.status).toBe(403);
+        expect(body.error).toMatch(/You own this System, so another Risk Owner or an Admin must waive/);
+        await expectUntouched(riskOwnedSystemId);
+      },
+    );
+
+    it("refuses with 403 before asking for a justification note", async () => {
+      const response = await PATCH(
+        requestAs(riskOwnedSystemId, mandatoryControlId, riskOwnerId, { status: "WAIVED" }),
+        ctxFor(riskOwnedSystemId, mandatoryControlId),
+      );
+      expect(response.status).toBe(403);
+      await expectUntouched(riskOwnedSystemId);
+    });
+
+    it("leaves an existing Assessment on a mandatory Control unchanged when refused", async () => {
+      await prisma.controlAssessment.create({
+        data: { systemId: riskOwnedSystemId, controlId: mandatoryControlId, status: "IN_PROGRESS" },
+      });
+      const response = await PATCH(
+        requestAs(riskOwnedSystemId, mandatoryControlId, riskOwnerId, { status: "WAIVED", notes: "n" }),
+        ctxFor(riskOwnedSystemId, mandatoryControlId),
+      );
+      expect(response.status).toBe(403);
+
+      const stored = await prisma.controlAssessment.findMany({ where: { systemId: riskOwnedSystemId } });
+      expect(stored).toHaveLength(1);
+      expect(stored[0].status).toBe("IN_PROGRESS");
+      expect(await prisma.changeEvent.count({ where: { systemId: riskOwnedSystemId } })).toBe(0);
+    });
+
+    it.each(["WAIVED", "NOT_APPLICABLE"] as const)(
+      "still lets the owning RISK_OWNER set %s on a non-mandatory Control",
+      async (status) => {
+        const response = await PATCH(
+          requestAs(riskOwnedSystemId, optionalControlId, riskOwnerId, { status }),
+          ctxFor(riskOwnedSystemId, optionalControlId),
+        );
+        const body = await response.json();
+
+        expect(response.status).toBe(200);
+        expect(body.assessment.status).toBe(status);
+      },
+    );
+
+    it.each(["FULFILLED", "IN_PROGRESS"] as const)(
+      "still lets the owning RISK_OWNER set %s on a mandatory Control, with evidence",
+      async (status) => {
+        const response = await PATCH(
+          requestAs(riskOwnedSystemId, mandatoryControlId, riskOwnerId, { status, evidence: "https://example.com/e" }),
+          ctxFor(riskOwnedSystemId, mandatoryControlId),
+        );
+        const body = await response.json();
+
+        expect(response.status).toBe(200);
+        expect(body.assessment).toMatchObject({ status, evidence: "https://example.com/e" });
+      },
+    );
+
+    it("lets a different RISK_OWNER waive the mandatory Control on that System", async () => {
+      const response = await PATCH(
+        requestAs(riskOwnedSystemId, mandatoryControlId, otherRiskOwnerId, {
+          status: "WAIVED",
+          notes: "Accepted by the other Risk Owner",
+        }),
+        ctxFor(riskOwnedSystemId, mandatoryControlId),
+      );
+      const body = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(body.assessment.status).toBe("WAIVED");
+    });
+
+    it("lets an ADMIN waive the mandatory Control on that System", async () => {
+      const response = await PATCH(
+        requestAs(riskOwnedSystemId, mandatoryControlId, adminId, { status: "WAIVED", notes: "Admin exception" }),
+        ctxFor(riskOwnedSystemId, mandatoryControlId),
+      );
+      expect(response.status).toBe(200);
+    });
+
+    it("lets an ADMIN who owns the System waive its mandatory Control", async () => {
+      const response = await PATCH(
+        requestAs(adminOwnedSystemId, mandatoryControlId, adminId, { status: "NOT_APPLICABLE", notes: "Own exception" }),
+        ctxFor(adminOwnedSystemId, mandatoryControlId),
+      );
+      const body = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(body.assessment.status).toBe("NOT_APPLICABLE");
+    });
   });
 });

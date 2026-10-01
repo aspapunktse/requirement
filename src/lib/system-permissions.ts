@@ -9,7 +9,9 @@ import type { ControlAssessmentStatus, SelfAssessmentAnswer, UserRole } from "@p
  * - Edit a Control Assessment / answer a Self-Assessment Question: the
  *   System's owner or an ADMIN. A RISK_OWNER additionally, but only for the
  *   Waived / Not Applicable transitions that go through the waive gate
- *   (`checkWaiveGate`).
+ *   (`checkWaiveGate`, built on `canWaiveControl`). A RISK_OWNER who owns
+ *   the System can't waive its *mandatory* Controls (#97): another Risk Owner
+ *   or an ADMIN has to.
  * - Submit for review: the System's owner or an ADMIN.
  * - Every other owner action (change classification, declare
  *   Capabilities / Business Units / Framework Scope, log a Risk,
@@ -29,6 +31,9 @@ type OwnedSystem = { ownerId: string };
 
 /** Statuses that only go through the waive gate (mirrors `checkWaiveGate`). */
 export const WAIVE_GATED_STATUSES: ControlAssessmentStatus[] = ["WAIVED", "NOT_APPLICABLE"];
+
+/** Only these roles may set a Control Assessment to Waived or Not Applicable. */
+export const ROLES_ALLOWED_TO_WAIVE: UserRole[] = ["ADMIN", "RISK_OWNER"];
 
 /** How far a user's edit rights on a System's Control Assessments reach. */
 export type AssessmentEditAccess = "full" | "waive-only" | "none";
@@ -80,4 +85,31 @@ export function canAnswerSelfAssessment(user: Actor, system: OwnedSystem, answer
 /** May `user` submit `system` for review? */
 export function canSubmit(user: Actor, system: OwnedSystem) {
   return isSystemOwnerOrAdmin(user, system);
+}
+
+/** Why `user` may not waive a Control on a System (see `waiveRefusal`). */
+export type WaiveRefusal = "role" | "owns-system";
+
+/**
+ * Why `user` may NOT waive (set Waived / Not Applicable, or answer N/A to the
+ * Self-Assessment Question of) `control` on `system`, or null if they may. The
+ * one definition of the waive rule, shared by the routes (`checkWaiveGate`)
+ * and the UI:
+ * - "role": only ADMIN and RISK_OWNER may waive at all.
+ * - "owns-system" (#97): a RISK_OWNER who owns the System can't waive its
+ *   *mandatory* Controls; another Risk Owner or an ADMIN has to. They may
+ *   still waive its non-mandatory Controls, and an ADMIN may waive anything,
+ *   including on a System they own.
+ * It doesn't cover the justification note a mandatory Control also needs
+ * (`checkWaiveGate`), which is a data check rather than a permission.
+ */
+export function waiveRefusal(user: Actor, system: OwnedSystem, control: { mandatory: boolean }): WaiveRefusal | null {
+  if (!ROLES_ALLOWED_TO_WAIVE.includes(user.role)) return "role";
+  if (user.role === "RISK_OWNER" && system.ownerId === user.id && control.mandatory) return "owns-system";
+  return null;
+}
+
+/** May `user` waive `control` on `system`? */
+export function canWaiveControl(user: Actor, system: OwnedSystem, control: { mandatory: boolean }) {
+  return waiveRefusal(user, system, control) === null;
 }
