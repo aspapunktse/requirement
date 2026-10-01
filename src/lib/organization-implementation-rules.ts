@@ -34,8 +34,8 @@ export function canEditOrganizationImplementation(user: Actor, control: { ownerI
 /**
  * The statuses that need a reason on record, i.e. a non-empty description.
  * Setting an implementation to Waived or Not Applicable takes the Control out of
- * what the Organization has to satisfy, so someone has to say why. One place to
- * change if the product owner decides otherwise (open question on #120).
+ * what the Organization has to satisfy, so someone has to say why. No extra role
+ * restriction (product-owner decision of 2026-10-01, on #120).
  */
 export const IMPLEMENTATION_STATUSES_REQUIRING_DESCRIPTION: ControlAssessmentStatus[] = ["WAIVED", "NOT_APPLICABLE"];
 
