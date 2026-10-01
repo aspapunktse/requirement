@@ -4,8 +4,8 @@ import { ControlAssessmentStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { authenticate } from "@/lib/api-authz";
 import { getVisibleSystem } from "@/lib/system-visibility";
-import { assessmentEditAccess, canEditAssessment, WAIVE_GATED_STATUSES } from "@/lib/system-permissions";
-import { checkWaiveGate, getControlForAssessmentEdit } from "@/lib/control-assessments";
+import { assessmentEditAccess, canEditAssessment, isSystemOwnerOrAdmin, WAIVE_GATED_STATUSES } from "@/lib/system-permissions";
+import { checkWaiveGate, getControlForAssessmentEdit, removeStaleAssessment } from "@/lib/control-assessments";
 import { logChangeEvent } from "@/lib/change-events";
 
 const updateAssessmentSchema = z.object({
@@ -115,4 +115,38 @@ export async function PATCH(
   }
 
   return NextResponse.json({ assessment });
+}
+
+/**
+ * Remove a *stale* Control Assessment (#109): one whose Control no longer
+ * applies to the System. The System's owner or an Admin only; a Control that
+ * still applies keeps its row (409), and so does one with an open Assessment
+ * Query (409). The removal is recorded in a Change Event (see
+ * `removeStaleAssessment`).
+ */
+export async function DELETE(
+  request: NextRequest,
+  ctx: RouteContext<"/api/systems/[id]/assessments/[controlId]">,
+) {
+  const auth = await authenticate(request);
+  if ("response" in auth) return auth.response;
+
+  const { id, controlId } = await ctx.params;
+  const system = await getVisibleSystem(auth.user, id);
+  if (!system) {
+    return NextResponse.json({ error: "System not found" }, { status: 404 });
+  }
+
+  if (!isSystemOwnerOrAdmin(auth.user, system)) {
+    return NextResponse.json(
+      { error: "Only the System's owner or an Admin can remove a stale Control Assessment" },
+      { status: 403 },
+    );
+  }
+
+  const result = await removeStaleAssessment(system, controlId, auth.user.id);
+  if (!result.ok) {
+    return NextResponse.json({ error: result.error }, { status: result.status });
+  }
+  return NextResponse.json({ removed: true });
 }

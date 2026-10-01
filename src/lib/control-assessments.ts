@@ -1,7 +1,9 @@
-import type { ImpactLevel, UserRole } from "@prisma/client";
+import type { ControlAssessmentStatus, ImpactLevel, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { QUERY_INCLUDE } from "@/lib/assessment-queries";
 import { ROLES_ALLOWED_TO_WAIVE, waiveRefusal } from "@/lib/system-permissions";
+import { CONTROL_ASSESSMENT_STATUS_LABEL } from "@/lib/requirement-status-rules";
+import { logChangeEvent } from "@/lib/change-events";
 
 const APPLICABLE_APPLICABILITIES = ["PER_SYSTEM", "BOTH"] as const;
 
@@ -356,4 +358,82 @@ export async function getUnaddressedMandatoryControls(system: SystemClassificati
   const addressedIds = new Set(addressedAssessments.map((a) => a.controlId));
 
   return mandatoryControls.filter((control) => !addressedIds.has(control.id));
+}
+
+/** The longest evidence / notes text kept in a removal's Change Event detail. */
+export const REMOVED_ASSESSMENT_TEXT_LIMIT = 200;
+
+function truncateForAudit(text: string) {
+  return text.length > REMOVED_ASSESSMENT_TEXT_LIMIT ? `${text.slice(0, REMOVED_ASSESSMENT_TEXT_LIMIT)}…` : text;
+}
+
+/**
+ * The Change Event detail for a removed stale Assessment (#109). The row is
+ * deleted, so this is the only place its last status, evidence and notes
+ * survive (long texts are truncated). `resolvedQueryCount` is the number of
+ * resolved Assessment Queries that went with the row (their text isn't kept).
+ */
+export function describeRemovedAssessment(
+  controlCode: string,
+  assessment: { status: ControlAssessmentStatus; evidence: string | null; notes: string | null },
+  resolvedQueryCount: number,
+) {
+  const parts = [`was ${CONTROL_ASSESSMENT_STATUS_LABEL[assessment.status]}`];
+  if (assessment.evidence?.trim()) parts.push(`evidence: "${truncateForAudit(assessment.evidence)}"`);
+  if (assessment.notes?.trim()) parts.push(`notes: "${truncateForAudit(assessment.notes)}"`);
+  if (resolvedQueryCount > 0) {
+    parts.push(`${resolvedQueryCount} resolved ${resolvedQueryCount === 1 ? "Query" : "Queries"} removed with it`);
+  }
+  return `Stale Assessment for ${controlCode} removed (${parts.join("; ")})`;
+}
+
+export type RemoveStaleAssessmentResult = { ok: true } | { ok: false; status: 404 | 409; error: string };
+
+/**
+ * Removes the stale ControlAssessment for `controlId` on `system` and records
+ * the removal in a Change Event, in one transaction (#109). Authorisation is
+ * the caller's job (`isSystemOwnerOrAdmin`). Refuses (nothing changes) when:
+ * - there is no Assessment row (404);
+ * - the Control still applies to the System, so the row is live, not stale (409);
+ * - an Assessment Query on it is still open (409). The check is part of the
+ *   delete itself, so a Query raised in the meantime can't be cascaded away.
+ * Resolved Queries (and their messages) cascade with the row; only their count
+ * goes into the Change Event.
+ */
+export async function removeStaleAssessment(
+  system: SystemClassification & { id: string },
+  controlId: string,
+  actorId: string,
+): Promise<RemoveStaleAssessmentResult> {
+  const assessment = await prisma.controlAssessment.findUnique({
+    where: { systemId_controlId: { systemId: system.id, controlId } },
+    include: { control: true, queries: { select: { resolved: true } } },
+  });
+  if (!assessment) return { ok: false, status: 404, error: "Assessment not found" };
+
+  if (await getApplicableControl(system, controlId)) {
+    return { ok: false, status: 409, error: "This Control still applies; set its status instead" };
+  }
+
+  const openQueryError = {
+    ok: false,
+    status: 409,
+    error: "This Assessment has an open question; resolve it before removing the Assessment",
+  } as const;
+  if (assessment.queries.some((query) => !query.resolved)) return openQueryError;
+
+  return prisma.$transaction(async (tx): Promise<RemoveStaleAssessmentResult> => {
+    const { count } = await tx.controlAssessment.deleteMany({
+      where: { id: assessment.id, queries: { none: { resolved: false } } },
+    });
+    if (count === 0) return openQueryError;
+    await logChangeEvent(
+      system.id,
+      "ASSESSMENT_REMOVED",
+      describeRemovedAssessment(assessment.control.code, assessment, assessment.queries.length),
+      actorId,
+      tx,
+    );
+    return { ok: true };
+  });
 }

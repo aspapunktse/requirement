@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ControlAssessmentList } from "../ControlAssessmentList";
 
@@ -223,5 +223,143 @@ describe("ControlAssessmentList waive options on a System the user owns (#97)", 
     expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
     fireEvent.change(select, { target: { value: "FULFILLED" } });
     expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
+  });
+});
+
+describe("ControlAssessmentList removing a stale Assessment (#109)", () => {
+  const staleRow = (queries: unknown[] = []) => ({
+    id: "stale-a1",
+    status: "FULFILLED",
+    evidence: "Old evidence",
+    notes: null,
+    selfAssessmentAnswer: null,
+    control: {
+      id: "stale-c1",
+      code: "STALE-1",
+      title: "Stale Control",
+      description: "Desc",
+      category: "Organizational",
+      mandatory: false,
+      question: null,
+    },
+    queries,
+  });
+  const openQuery = {
+    id: "sq1",
+    resolved: false,
+    lastMessageAuthorId: "reviewer",
+    createdAt: "2026-09-01T00:00:00Z",
+    messages: [
+      {
+        id: "sm1",
+        body: "Still true?",
+        createdAt: "2026-09-01T00:00:00Z",
+        author: { id: "reviewer", name: "Reviewer", role: "REVIEWER" },
+      },
+    ],
+  };
+  const resolvedQuery = { ...openQuery, id: "sq2", resolved: true };
+
+  function stubFetch(stale: unknown[], onDelete?: () => Response) {
+    const fetchMock = vi.fn((_url: string, init?: RequestInit) => {
+      if (init?.method === "DELETE") {
+        return Promise.resolve(onDelete ? onDelete() : new Response(JSON.stringify({ removed: true }), { status: 200 }));
+      }
+      return Promise.resolve(new Response(JSON.stringify({ assessments: [], staleAssessments: stale }), { status: 200 }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    return fetchMock;
+  }
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it.each([
+    ["the System's owner", "SYSTEM_OWNER", "owner", "owner"],
+    ["an owning Risk Owner", "RISK_OWNER", "ro", "ro"],
+    ["an Admin who doesn't own the System", "ADMIN", "admin", "owner"],
+  ] as const)("offers Remove to %s", async (_label, role, userId, ownerId) => {
+    stubFetch([staleRow()]);
+    render(<ControlAssessmentList systemId="s1" userRole={role} currentUserId={userId} systemOwnerId={ownerId} />);
+
+    expect(await screen.findByText("STALE-1 — Stale Control")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remove" })).toBeInTheDocument();
+  });
+
+  it.each([
+    ["a SYSTEM_OWNER who doesn't own the System", "SYSTEM_OWNER", "other", "owner", false],
+    ["a Reviewer", "REVIEWER", "reviewer", "owner", false],
+    ["a Risk Owner who doesn't own the System", "RISK_OWNER", "ro", "owner", false],
+    ["a Compliance Manager, even as the recorded owner", "COMPLIANCE_MANAGER", "cm", "cm", false],
+    ["an owner on a read-only page", "SYSTEM_OWNER", "owner", "owner", true],
+  ] as const)("hides Remove from %s", async (_label, role, userId, ownerId, readOnly) => {
+    stubFetch([staleRow()]);
+    render(
+      <ControlAssessmentList
+        systemId="s1"
+        userRole={role}
+        currentUserId={userId}
+        systemOwnerId={ownerId}
+        readOnly={readOnly}
+      />,
+    );
+
+    expect(await screen.findByText("STALE-1 — Stale Control")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Remove" })).not.toBeInTheDocument();
+  });
+
+  it("shows a note instead of the button while an open question exists, and offers it once only resolved ones remain", async () => {
+    stubFetch([staleRow([openQuery])]);
+    render(<ControlAssessmentList systemId="s1" userRole="SYSTEM_OWNER" currentUserId="owner" systemOwnerId="owner" />);
+
+    expect(await screen.findByText(/can't be removed while it has an open question/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Remove" })).not.toBeInTheDocument();
+    vi.unstubAllGlobals();
+
+    stubFetch([staleRow([resolvedQuery])]);
+    render(<ControlAssessmentList systemId="s1" userRole="SYSTEM_OWNER" currentUserId="owner" systemOwnerId="owner" />);
+    expect(await screen.findByRole("button", { name: "Remove" })).toBeInTheDocument();
+  });
+
+  it("never offers Remove on an applicable Assessment", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => Promise.resolve(new Response(JSON.stringify({ assessments, staleAssessments: [] }), { status: 200 }))),
+    );
+    render(<ControlAssessmentList systemId="s1" userRole="ADMIN" currentUserId="admin" systemOwnerId="owner" />);
+
+    await screen.findByLabelText("Status for A.5.1");
+    expect(screen.queryByRole("button", { name: "Remove" })).not.toBeInTheDocument();
+  });
+
+  it("asks to confirm, then removes the row from the list", async () => {
+    const fetchMock = stubFetch([staleRow()]);
+    const confirm = vi.spyOn(window, "confirm");
+    render(<ControlAssessmentList systemId="s1" userRole="SYSTEM_OWNER" currentUserId="owner" systemOwnerId="owner" />);
+
+    // Declined: nothing is sent.
+    confirm.mockReturnValueOnce(false);
+    fireEvent.click(await screen.findByRole("button", { name: "Remove" }));
+    expect(fetchMock.mock.calls.some(([, init]) => init?.method === "DELETE")).toBe(false);
+    expect(screen.getByText("STALE-1 — Stale Control")).toBeInTheDocument();
+
+    // Confirmed: DELETE, then the row is gone (and so is the now-empty section).
+    confirm.mockReturnValueOnce(true);
+    fireEvent.click(screen.getByRole("button", { name: "Remove" }));
+    await waitFor(() => expect(screen.queryByText("STALE-1 — Stale Control")).not.toBeInTheDocument());
+    expect(fetchMock).toHaveBeenCalledWith("/api/systems/s1/assessments/stale-c1", { method: "DELETE" });
+    expect(screen.queryByText("No Longer Applicable")).not.toBeInTheDocument();
+  });
+
+  it("keeps the row and shows the server's message when removal is refused", async () => {
+    stubFetch([staleRow()], () => new Response(JSON.stringify({ error: "This Control still applies; set its status instead" }), { status: 409 }));
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    render(<ControlAssessmentList systemId="s1" userRole="SYSTEM_OWNER" currentUserId="owner" systemOwnerId="owner" />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Remove" }));
+    expect(await screen.findByText("This Control still applies; set its status instead")).toBeInTheDocument();
+    expect(screen.getByText("STALE-1 — Stale Control")).toBeInTheDocument();
   });
 });

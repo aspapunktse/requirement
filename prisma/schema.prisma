@@ -497,6 +497,9 @@ enum ChangeEventAction {
   // Controls moved (PRD 0001 F-AP.3, #87). Kept apart from CLASSIFICATION_CHANGED,
   // which is the owner changing the System's own classification.
   APPLICABILITY_RECOMPUTED
+  // The System's owner or an Admin removed a stale Control Assessment (#109). The row is
+  // deleted, so its last status, evidence and notes are kept only in this event's detail.
+  ASSESSMENT_REMOVED
 }
 
 // A curated, System-lifecycle-relevant mutation record — feeds the landing

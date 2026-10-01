@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { controlAssessmentStatusTone } from "@/lib/status-tones";
-import { canWaiveControl, type AssessmentEditAccess } from "@/lib/system-permissions";
+import { canWaiveControl, isSystemOwnerOrAdmin, type AssessmentEditAccess } from "@/lib/system-permissions";
 
 type ControlAssessmentStatus = "NOT_STARTED" | "IN_PROGRESS" | "FULFILLED" | "NOT_APPLICABLE" | "WAIVED";
 type UserRole =
@@ -386,6 +386,62 @@ function AssessmentQueries({
   );
 }
 
+/**
+ * Remove a stale Assessment (#109): the System's owner or an Admin only (the
+ * shared `isSystemOwnerOrAdmin` rule). An open Assessment Query blocks the
+ * removal, so the button is replaced by a note until it's resolved.
+ */
+function RemoveStaleAssessment({
+  control,
+  systemId,
+  hasOpenQuery,
+  onRemoved,
+}: {
+  control: Control;
+  systemId: string;
+  hasOpenQuery: boolean;
+  onRemoved: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleRemove() {
+    const confirmed = window.confirm(
+      `Remove the Assessment for ${control.code}? Its last status, evidence and notes are kept in the ` +
+        "System's Change Event log, but the Assessment itself can't be restored.",
+    );
+    if (!confirmed) return;
+    setError(null);
+    setBusy(true);
+    try {
+      const response = await fetch(`/api/systems/${systemId}/assessments/${control.id}`, { method: "DELETE" });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        setError(body.error ?? "Failed to remove assessment");
+        return;
+      }
+      onRemoved();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="mt-3 flex flex-col gap-2 border-t border-zinc-200 pt-3 text-sm dark:border-zinc-800">
+      {error && <p className="text-sm text-red-600">{error}</p>}
+      {hasOpenQuery ? (
+        <p className="text-xs text-zinc-500">
+          This Assessment can&apos;t be removed while it has an open question. Resolve the question first.
+        </p>
+      ) : (
+        <Button variant="outline" className="self-start px-3 py-0.5 text-xs" onClick={handleRemove} disabled={busy}>
+          Remove
+        </Button>
+      )}
+    </div>
+  );
+}
+
 function ControlRow({
   row,
   systemId,
@@ -397,6 +453,7 @@ function ControlRow({
   editAccess,
   onSaved,
   onQueriesChanged,
+  onRemoved,
   stale = false,
 }: {
   row: AssessmentRow;
@@ -409,6 +466,8 @@ function ControlRow({
   editAccess: AssessmentEditAccess;
   onSaved: (assessment: NonNullable<Assessment>) => void;
   onQueriesChanged: (queries: AssessmentQuery[]) => void;
+  /** Called once a stale Assessment has been removed (stale rows only). */
+  onRemoved?: () => void;
   stale?: boolean;
 }) {
   const { control, assessment } = row;
@@ -473,7 +532,7 @@ function ControlRow({
       {stale && (
         <p className="mb-2 rounded bg-ems-warn-tint p-2 text-xs text-ems-warn">
           No longer applicable to this System&apos;s current classification or Framework Scope — left in place because it was
-          already worked on. Resolve it manually below, or leave it as a record.
+          already worked on. Resolve it manually below, remove it, or leave it as a record.
         </p>
       )}
       <div className="mb-2 flex items-start justify-between gap-2">
@@ -586,6 +645,19 @@ function ControlRow({
         readOnly={readOnly}
         onChange={onQueriesChanged}
       />
+
+      {stale &&
+        onRemoved &&
+        !readOnly &&
+        assessment &&
+        isSystemOwnerOrAdmin({ id: currentUserId, role: userRole }, { ownerId: systemOwnerId }) && (
+          <RemoveStaleAssessment
+            control={control}
+            systemId={systemId}
+            hasOpenQuery={row.queries.some((query) => !query.resolved)}
+            onRemoved={onRemoved}
+          />
+        )}
     </li>
   );
 }
@@ -698,6 +770,7 @@ export function ControlAssessmentList({
                 readOnly={readOnly}
                 editAccess={editAccess}
                 stale
+                onRemoved={() => setStaleRows((prev) => prev.filter((r) => r.control.id !== row.control.id))}
                 onSaved={(assessment) =>
                   setStaleRows((prev) =>
                     prev.map((r) => (r.control.id === row.control.id ? { ...r, assessment } : r)),
