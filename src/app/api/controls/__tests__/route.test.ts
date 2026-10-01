@@ -126,7 +126,7 @@ describe("POST /api/controls", () => {
   });
 
   afterAll(async () => {
-    await prisma.user.deleteMany({ where: { email: ADMIN_EMAIL } });
+    await prisma.user.deleteMany({ where: { email: { in: [ADMIN_EMAIL, VIEWER_EMAIL] } } });
   });
 
   afterEach(async () => {

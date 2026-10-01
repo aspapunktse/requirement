@@ -20,32 +20,55 @@ This file is a snapshot of in-flight state, not a permanent doc. Update or trim 
   - #95 (GitHub Actions on their Node 24 majors);
   - #115 (CI, the CD deploy job and the Docker image on Node 24);
   - PR #106 (Vercel records production deploys as `main`).
-- `main` is at #110 (PR #113, CD run 36823376951) plus this docs update. There are no open PRs.
+- `main` is at #115 (PR #118). There are no open PRs.
 - The dev DB is in its seeded state:
   - 10 Systems, 471 Control Assessments, 0 Change Events.
   - Frameworks: ISO/IEC 27001:2022, which is the base and Published. GDPR 1 and Export Control (EAR/ITAR) 1 are Published but have no Requirements yet; they came from #88.
 
-**Milestone "PRD 0001 · M3 Inheritance" is open on GitHub.** It holds three follow-ups the product owner placed there on 2026-10-01. **The main inheritance issues are not cut yet.**
-1. ~~**#115: run CI and the Docker image on the production Node version.**~~ **Done** (branch `115-node-24`). Everything now runs Node 24, like Vercel production.
+**Milestone "PRD 0001 · M3 Inheritance" is open on GitHub and cut into issues.** The product owner approved the cut on 2026-10-01. Work them in this order, one at a time:
+1. ~~**#119: Control Owner**, one User per Control (F-CL.3).~~ **Done** on branch `119-control-owner` (key pieces below).
+2. **#120: Organization Control Implementation**, status and description per Organizational/Both Control (F-IN.1, §9.7). After #119. **Start here.**
+3. **#121: effective status**, Systems inherit Both Controls from the Organization (F-IN.5, F-IN.6, F-IN.7). After #120.
+4. **#122: count Organizational Requirements per System** (#89 decision 3a). After #121.
+5. **#123: Providers and Control Offerings** (F-IN.2). Blocked by nothing.
+6. **#124: Provider dependencies and live Full inheritance** (F-IN.3, F-IN.4, OQ-2). After #121 and #123.
+7. **#125: Shared inheritance and customer responsibility** (F-IN.5 rule 3). After #124.
+8. **#126: retire Capability**, migrating each to a Provider System (F-IN.8, §9.5). After #124.
+
+F-OUT.2 (the source of each Control on the System page) and F-CE.2 (Change Events) are spread over #121, #122, #124 and #125 instead of having their own issue. Close the GitHub milestone when #126 is closed.
+
+**Product-owner decisions of 2026-10-01 that shape M3** (each is also in the issue it belongs to):
+- **#116 and #117 are closed as superseded by #126.** Live inheritance gives both results without a backfill or a re-run. On the dev DB the backfill would have changed 0 rows.
+- **Shared inheritance (#125):** with a Shared source, the System's own Assessment is the customer's half. Own Fulfilled is effectively Fulfilled only if the Provider is Fulfilled too. Own Waived or Not Applicable still wins. (PRD F-IN.5 rule 1 read literally would make a Shared Offering never matter.)
+- **Organizational Requirements (#122) count on every System**, not once at organization level. The drop on the day it ships is accepted: Jira goes from 98.2% (56 of 57) to 47.5% (56 of 118) until Control Owners record implementations.
+- **A dependent reads the Provider's own Assessment status (#124)**, as ADR 0008 says. No chains through a Provider's own Providers.
+- **OQ-2 (#124):** the most favourable source wins, and every source is listed.
+- **Publishing a Framework isn't blocked by Controls without a Control Owner (#119).** The UI shows "No Control Owner" and a filter.
+- Accepted consequence of #126: each migrated Capability becomes an Onboarded Provider System owned by an Admin. Its other applicable Controls start Not Started, so it shows in that Admin's tasks and lowers the pooled percentage.
+
+Facts checked on the dev DB while cutting M3:
+- 118 Controls: 61 Organizational, 31 Both, 26 Per-System. All mandatory.
+- One Capability, "Entra ID SSO", mapped to A.5.15, A.5.16, A.5.17 (Both) and A.8.5 (Per-System), declared by GitHub and Microsoft 365. All 8 covered Assessments are Fulfilled and person-set; no Assessment has `fulfilledByCapabilityId` set.
+
+**#119 (Control Owner) is done.** Key pieces, for when #120 builds on it:
+- Schema: `Control.ownerId String?`, relation `owner User? @relation("ControlOwner", onDelete: SetNull)` with `@@index([ownerId])`; `User.ownedControls`. Hand-written migration `prisma/migrations/20261001100000_add_control_owner` (column, index, foreign key; no data change). Every Control starts unassigned; deleting a User leaves their Controls unassigned. The dev DB's row counts were identical before and after (118 Controls, 11 Users, 10 Systems, 471 Control Assessments, 0 Change Events; the 11th User was a fixture leaked by `src/app/api/controls/__tests__/route.test.ts`, fixed and removed in the same PR, so the seeded state is 10 Users), and the seed does not assign owners.
+- API: `PATCH /api/controls/[id]` takes `ownerId` (a User id or `null`); an unknown id is a 400 with nothing changed (a Prisma `P2003` race, the User deleted mid-request, is a 400 too). It is not a Change Event and not a recompute, whatever else is in the body. `POST /api/controls` takes no owner. `controlIncludeFor` (`src/lib/frameworks.ts`) adds `owner: { select: { id: true, name: true } }`, so every Control read carries it (name only, no email).
+- `GET /api/users` now lists Users (same `PublicUser` shape, optional `?role=`) for every role in `ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE` (`ADMIN`, `COMPLIANCE_MANAGER`), so a Compliance Manager can fill the picker in production. Every other role still gets 404 once the dev stub is off. The product owner is being told, since it widens who can list Users (names, emails, roles).
+- UI: `ControlLibraryManager` loads `/api/users` with the rest, lists a "Control Owner" column ("No Control Owner" when unassigned), has an "Owner" filter (Any / No Control Owner) that ANDs with the origin filter, and a Control Owner picker in the edit form. It sends `ownerId` only when the picker changed, so a failed User list can't clear an owner. The picker keeps the current owner selectable even if the User list lacks them.
+- Publishing a Framework is not blocked by unassigned Controls (product-owner decision on #119).
+- Tests: `src/app/api/controls/[id]/__tests__/control-owner.test.ts` (assign/clear by Compliance Manager and Admin, every other role 403 with no change, unknown id 400, any role as owner, deleting the User, no Change Event and no Assessment created or removed, reads carry the owner, POST takes none), `src/app/api/users/__tests__/route.test.ts` (Compliance Manager allowed, other roles still 404), `src/components/__tests__/ControlLibraryManager.test.tsx` (column, filter, picker, save payloads). The fixtures are self-contained (an ORGANIZATIONAL Control, plus one Facet-scoped Control and a System for the no-recompute check), so the tests pass on CI's unseeded database.
+
+**Follow-ups already done in this milestone:**
+1. ~~**#115: run CI and the Docker image on the production Node version.**~~ **Done** (PR #118). Everything now runs Node 24, like Vercel production.
    - The version is stated once: `"engines": { "node": "24.x" }` in `package.json`. The three `ci.yml` setup-node steps and the `cd.yml` deploy step read it with `node-version-file: package.json` (setup-node reads `engines.node`; ranges are fine). `cache: npm` stays on the CI steps only.
    - The `Dockerfile` can't read `package.json`, so all three stages say `node:24-alpine` and a comment at the top says to keep them in step.
    - `@types/node` is `^24` (lockfile moved to 24.19.0, plus `undici-types` 7.x). No application code changed.
-   - Left for the supervisor: confirm the first CD run after merge is green on Node 24 (the deploy job's setup-node now resolves `24.x` from `package.json`).
-2. **#116: backfill Capability fulfilment** for existing untouched Not Started Assessments. *Not ready.*
-3. **#117: re-run Capability fulfilment** when a Control's Capability mappings change. *Not ready.*
-
-For both #116 and #117: `CONTEXT.md` marks Capability as retired in favour of Providers and inheritance. Decide whether M3 replaces them, and close them as superseded if so.
-
-**Then cut the rest of M3 into issues.** The scope is PRD 0001 §10, row 3:
-- F-IN.1–8, F-CL.3 (Control Owner), F-OUT.2 and F-CE.2;
-- migration steps §9.5 and §9.7;
-- the default for open question OQ-2.
-
-Follow "When the product owner asks for a milestone to be cut into issues" in the workflow doc. **Draft the issues and get the product owner's approval before creating any.** These decisions already constrain M3:
-- #89 decision 3a: Requirements met only by Organizational Controls (ISO clauses 4–10, plus 37 Annex A Requirements) are Not Applicable per System until M3. M3's Organization Control Implementation must make them count. Today, 61 of 118 ISO Requirements are Not Applicable on every System.
-- #110 and #116/#117 build on Capabilities, which M3's Providers replace.
+   - On the PR's CI, setup-node logged "Resolved package.json as 24.x" and ran Node v24.21.0. The image was also run as a server: `/api/health` 200, and a Prisma query from inside the container read the database.
+   - **First CD run after merge: confirmed green on 2026-10-01** (CD run 36885371340). The deploy job resolved `24.x` from `package.json` and ran Node v24.21.0, the deploy log said "25 migrations found" and "No pending migrations to apply", and Vercel shows the production deployment READY on `main`.
+2. ~~**#116** (backfill Capability fulfilment) and **#117** (re-run it when a Control's Capability mappings change).~~ **Closed as superseded by #126.**
 
 **Open items for the product owner** (not blocking):
+- `.dockerignore` doesn't exclude `.env.production.local`, so a local `docker build` copies the production credentials into the build stage. The final image has no env files, and CI never has that file, so the pushed image isn't affected. Found during #115; not fixed yet.
 - The 18 `DATA_*` Vercel environment variables are still exposed to Preview. They hold production database credentials and the app doesn't use them. Unticking Preview is a dashboard change only the product owner can make.
 - #46 needs re-scoping against the PRD before anyone picks it up.
 - #61 is deferred.

@@ -16,7 +16,12 @@ describe("GET /api/users", () => {
   const email = "test-users-route@example.com";
   const adminEmail = "test-users-route-admin@example.com";
   const businessRiskOwnerEmail = "test-users-route-bro@example.com";
+  const complianceManagerEmail = "test-users-route-cm@example.com";
+  const refusedRoles = ["VIEWER", "REVIEWER", "RISK_OWNER", "SYSTEM_OWNER", "BUSINESS_RISK_OWNER"] as const;
+  const refusedEmail = (role: string) => `test-users-route-${role.toLowerCase().replace(/_/g, "-")}@example.com`;
   let adminId: string;
+  let complianceManagerId: string;
+  const refusedIds: Record<string, string> = {};
 
   beforeAll(async () => {
     await prisma.user.upsert({
@@ -35,10 +40,30 @@ describe("GET /api/users", () => {
       update: {},
       create: { email: businessRiskOwnerEmail, name: "Route Test BRO", role: "BUSINESS_RISK_OWNER" },
     });
+    const complianceManager = await prisma.user.upsert({
+      where: { email: complianceManagerEmail },
+      update: {},
+      create: { email: complianceManagerEmail, name: "Route Test Compliance Manager", role: "COMPLIANCE_MANAGER" },
+    });
+    complianceManagerId = complianceManager.id;
+    for (const role of refusedRoles) {
+      const user = await prisma.user.upsert({
+        where: { email: refusedEmail(role) },
+        update: {},
+        create: { email: refusedEmail(role), name: `Route Test ${role}`, role },
+      });
+      refusedIds[role] = user.id;
+    }
   });
 
   afterAll(async () => {
-    await prisma.user.deleteMany({ where: { email: { in: [email, adminEmail, businessRiskOwnerEmail] } } });
+    await prisma.user.deleteMany({
+      where: {
+        email: {
+          in: [email, adminEmail, businessRiskOwnerEmail, complianceManagerEmail, ...refusedRoles.map(refusedEmail)],
+        },
+      },
+    });
   });
 
   afterEach(() => {
@@ -77,5 +102,34 @@ describe("GET /api/users", () => {
     expect(response.status).toBe(200);
     expect(body.users.every((u: { role: string }) => u.role === "BUSINESS_RISK_OWNER")).toBe(true);
     expect(body.users.some((u: { email: string }) => u.email === businessRiskOwnerEmail)).toBe(true);
+  });
+
+  // A Compliance Manager populates the Control Owner picker in the Control Library (#119).
+  it("lists the same users, in the same shape, for an authenticated COMPLIANCE_MANAGER regardless of NODE_ENV", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    const asCm = await (await GET(requestAs(complianceManagerId))).json();
+    const asAdmin = await (await GET(requestAs(adminId))).json();
+
+    expect(asCm.users.length).toBeGreaterThan(0);
+    expect(asCm.users).toEqual(asAdmin.users);
+    const user = asCm.users.find((u: { email: string }) => u.email === email);
+    expect(Object.keys(user).sort()).toEqual(["email", "id", "name", "role"]);
+  });
+
+  it("filters by role for an authenticated COMPLIANCE_MANAGER", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    const response = await GET(requestAs(complianceManagerId, "?role=BUSINESS_RISK_OWNER"));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.users.every((u: { role: string }) => u.role === "BUSINESS_RISK_OWNER")).toBe(true);
+    expect(body.users.some((u: { email: string }) => u.email === businessRiskOwnerEmail)).toBe(true);
+  });
+
+  it.each(refusedRoles)("still refuses (404) an authenticated %s once the dev stub is off", async (role) => {
+    vi.stubEnv("NODE_ENV", "production");
+    const response = await GET(requestAs(refusedIds[role]));
+    expect(response.status).toBe(404);
+    expect(await response.json()).not.toHaveProperty("users");
   });
 });

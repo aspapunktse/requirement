@@ -13,6 +13,7 @@ const baseControl = {
   deploymentFacets: [] as { id: string; name: string }[],
   capabilities: [] as { id: string; name: string }[],
   originFramework: null as { id: string; name: string; version: string } | null,
+  owner: null as { id: string; name: string } | null,
   mappings: [] as {
     id: string;
     coverage: "FULL" | "PARTIAL";
@@ -46,6 +47,12 @@ let controls = [
 ];
 const deploymentFacets = [{ id: "st1", name: "On-Premises Datacenter" }];
 const capabilities = [{ id: "c1", name: "Active Directory" }];
+// What GET /api/users returns (the component keeps only id and name).
+let users = [
+  { id: "u1", name: "Ada Admin", email: "ada@example.com", role: "ADMIN" },
+  { id: "u2", name: "Vera Viewer", email: "vera@example.com", role: "VIEWER" },
+];
+let usersStatus = 200;
 const iso = { id: "f1", name: "ISO/IEC 27001", version: "2022" };
 const nis2 = { id: "f2", name: "NIS2", version: "2022" };
 
@@ -62,6 +69,11 @@ function mockFetch() {
     }
     if (url.endsWith("/api/capabilities") && method === "GET") {
       return Promise.resolve(new Response(JSON.stringify({ capabilities }), { status: 200 }));
+    }
+    if (url.endsWith("/api/users") && method === "GET") {
+      return Promise.resolve(
+        new Response(JSON.stringify(usersStatus === 200 ? { users } : { error: "Not found" }), { status: usersStatus }),
+      );
     }
     if (url.includes("/api/controls/") && method === "PATCH") {
       return Promise.resolve(new Response(JSON.stringify({ control: {} }), { status: 200 }));
@@ -87,6 +99,11 @@ describe("ControlLibraryManager", () => {
         applicability: "ORGANIZATIONAL",
       },
     ];
+    users = [
+      { id: "u1", name: "Ada Admin", email: "ada@example.com", role: "ADMIN" },
+      { id: "u2", name: "Vera Viewer", email: "vera@example.com", role: "VIEWER" },
+    ];
+    usersStatus = 200;
     vi.stubGlobal("fetch", mockFetch());
   });
 
@@ -155,6 +172,124 @@ describe("ControlLibraryManager", () => {
         minIntegrityImpactLevel: null,
         minAvailabilityImpactLevel: null,
       });
+    });
+  });
+
+  describe("Control Owner", () => {
+    const patchBody = (controlId: string) => {
+      const call = (fetch as ReturnType<typeof vi.fn>).mock.calls.find(
+        ([url, init]) => typeof url === "string" && url.endsWith(`/api/controls/${controlId}`) && init?.method === "PATCH",
+      );
+      return call ? JSON.parse(call[1].body) : undefined;
+    };
+
+    it("lists each Control's Control Owner, or No Control Owner", async () => {
+      controls[0] = { ...controls[0], owner: { id: "u1", name: "Ada Admin" } };
+      render(<ControlLibraryManager />);
+
+      const table = within(await screen.findByRole("table"));
+      expect(table.getByRole("columnheader", { name: "Control Owner" })).toBeInTheDocument();
+      const rows = table.getAllByRole("row");
+      expect(within(rows.find((row) => within(row).queryByText("A.5.3"))!).getByText("Ada Admin")).toBeInTheDocument();
+      expect(
+        within(rows.find((row) => within(row).queryByText("A.5.1"))!).getByText("No Control Owner"),
+      ).toBeInTheDocument();
+    });
+
+    it("filters the list to Controls with no Control Owner, together with the origin filter", async () => {
+      const user = userEvent.setup();
+      controls = [
+        { ...controls[0], owner: { id: "u1", name: "Ada Admin" } },
+        controls[1],
+        {
+          ...baseControl,
+          id: "r9",
+          code: "SUP-001",
+          title: "Notify the CSIRT",
+          applicability: "BOTH",
+          originFramework: { id: "f2", name: "NIS2", version: "2022" },
+        },
+      ];
+      render(<ControlLibraryManager />);
+
+      const table = within(await screen.findByRole("table"));
+      expect(table.getByText("A.5.3")).toBeInTheDocument();
+
+      await user.selectOptions(screen.getByLabelText("Control Owner filter"), "UNASSIGNED");
+      expect(table.queryByText("A.5.3")).not.toBeInTheDocument();
+      expect(table.getByText("A.5.1")).toBeInTheDocument();
+      expect(table.getByText("SUP-001")).toBeInTheDocument();
+
+      await user.selectOptions(screen.getByLabelText("Origin filter"), "SUPPLEMENTARY");
+      expect(table.queryByText("A.5.1")).not.toBeInTheDocument();
+      expect(table.getByText("SUP-001")).toBeInTheDocument();
+
+      await user.selectOptions(screen.getByLabelText("Origin filter"), "ALL");
+      await user.selectOptions(screen.getByLabelText("Control Owner filter"), "ALL");
+      expect(table.getByText("A.5.3")).toBeInTheDocument();
+    });
+
+    it("offers every User in the picker and saves the chosen Control Owner", async () => {
+      const user = userEvent.setup();
+      render(<ControlLibraryManager />);
+
+      await user.selectOptions(await screen.findByLabelText("Control"), "r2");
+      const picker = screen.getByLabelText("Control Owner");
+      expect(within(picker).getAllByRole("option").map((o) => o.textContent)).toEqual([
+        "No Control Owner",
+        "Ada Admin",
+        "Vera Viewer",
+      ]);
+      expect(picker).toHaveValue("");
+
+      await user.selectOptions(picker, "u2");
+      await user.click(screen.getByRole("button", { name: "Save" }));
+
+      await waitFor(() => expect(patchBody("r2")).toEqual({ capabilityIds: [], ownerId: "u2" }));
+    });
+
+    it("pre-selects the current Control Owner and clears it with No Control Owner", async () => {
+      controls[1] = { ...controls[1], owner: { id: "u1", name: "Ada Admin" } };
+      const user = userEvent.setup();
+      render(<ControlLibraryManager />);
+
+      await user.selectOptions(await screen.findByLabelText("Control"), "r2");
+      const picker = screen.getByLabelText("Control Owner");
+      expect(picker).toHaveValue("u1");
+
+      await user.selectOptions(picker, "");
+      await user.click(screen.getByRole("button", { name: "Save" }));
+
+      await waitFor(() => expect(patchBody("r2")).toEqual({ capabilityIds: [], ownerId: null }));
+    });
+
+    it("does not send ownerId when the Control Owner was not touched", async () => {
+      controls[1] = { ...controls[1], owner: { id: "u1", name: "Ada Admin" } };
+      const user = userEvent.setup();
+      render(<ControlLibraryManager />);
+
+      await user.selectOptions(await screen.findByLabelText("Control"), "r2");
+      await user.click(screen.getByRole("button", { name: "Save" }));
+
+      await waitFor(() => expect(patchBody("r2")).toEqual({ capabilityIds: [] }));
+    });
+
+    it("keeps the picker usable, and never clears an owner, when the User list could not be loaded", async () => {
+      usersStatus = 404;
+      controls[1] = { ...controls[1], owner: { id: "u1", name: "Ada Admin" } };
+      const user = userEvent.setup();
+      render(<ControlLibraryManager />);
+
+      await user.selectOptions(await screen.findByLabelText("Control"), "r2");
+      const picker = screen.getByLabelText("Control Owner");
+      expect(within(picker).getAllByRole("option").map((o) => o.textContent)).toEqual([
+        "No Control Owner",
+        "Ada Admin",
+      ]);
+      expect(picker).toHaveValue("u1");
+
+      await user.click(screen.getByRole("button", { name: "Save" }));
+      await waitFor(() => expect(patchBody("r2")).toEqual({ capabilityIds: [] }));
     });
   });
 

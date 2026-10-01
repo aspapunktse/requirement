@@ -38,6 +38,8 @@ const updateControlSchema = z
     minConfidentialityImpactLevel: impactLevelSchema.optional(),
     minIntegrityImpactLevel: impactLevelSchema.optional(),
     minAvailabilityImpactLevel: impactLevelSchema.optional(),
+    // The Control Owner: a User id, or null to clear it. Any User qualifies, whatever their role.
+    ownerId: z.string().min(1).nullable().optional(),
   })
   .refine((data) => Object.values(data).some((value) => value !== undefined), {
     message: "Provide at least one field to update",
@@ -52,7 +54,9 @@ const sameIds = (a: string[], b: string[]) => new Set(a).size === new Set(b).siz
  * present in the body) every System that has in scope a Published Framework the Control is mapped
  * to is recomputed for this Control (F-AP.3, #87): Not Started Assessments appear where it now
  * applies, untouched ones go where it no longer does, touched ones are kept as stale.
- * `mandatory`, Capabilities and text edits don't change applicability, so they recompute nothing.
+ * `mandatory`, Capabilities, the Control Owner and text edits don't change applicability, so they
+ * recompute nothing. Assigning or clearing the Control Owner (F-CL.3, #119) is catalog curation, so
+ * it writes no Change Event (F-CE.1); an unknown User id is a 400 and changes nothing.
  */
 export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/controls/[id]">) {
   const auth = await authorize(request, ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE);
@@ -85,7 +89,14 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/contro
     minConfidentialityImpactLevel,
     minIntegrityImpactLevel,
     minAvailabilityImpactLevel,
+    ownerId,
   } = parsed.data;
+  if (ownerId) {
+    const owner = await prisma.user.findUnique({ where: { id: ownerId }, select: { id: true } });
+    if (!owner) {
+      return NextResponse.json({ error: "Control Owner not found: no User has that id" }, { status: 400 });
+    }
+  }
   if (
     control.applicability === "ORGANIZATIONAL" &&
     ((deploymentFacetIds !== undefined && deploymentFacetIds.length > 0) ||
@@ -132,6 +143,7 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/contro
         ...(minConfidentialityImpactLevel !== undefined && { minConfidentialityImpactLevel }),
         ...(minIntegrityImpactLevel !== undefined && { minIntegrityImpactLevel }),
         ...(minAvailabilityImpactLevel !== undefined && { minAvailabilityImpactLevel }),
+        ...(ownerId !== undefined && { ownerId }),
       },
       include: controlIncludeFor(auth.user),
     });
@@ -143,6 +155,10 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/contro
         { error: "One or more Deployment Facet or Capability ids do not exist" },
         { status: 400 },
       );
+    }
+    // The User was deleted between the check above and the write.
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2003") {
+      return NextResponse.json({ error: "Control Owner not found: no User has that id" }, { status: 400 });
     }
     throw error;
   }
