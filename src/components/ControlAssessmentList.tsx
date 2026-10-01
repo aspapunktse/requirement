@@ -579,10 +579,10 @@ function ControlRow({
           {effective && !stale && (
             <p className="mt-1 text-xs text-zinc-500">
               {[`Source: ${effectiveSourceLabel(effective)}`, ...effectiveSourceDetails(effective)].join(" · ")}
-              {effectiveOverrideNote(effective) && ` ${effectiveOverrideNote(effective)}`}
+              {effectiveOverrideNote(effective) && `. ${effectiveOverrideNote(effective)}`}
               {effective.source.kind !== "SYSTEM" &&
                 editAccess !== "none" &&
-                " Saving a status below sets this System's own Assessment, which then overrides the inherited one."}
+                ". Saving a status below sets this System's own Assessment, which then overrides the inherited one."}
             </p>
           )}
         </div>
