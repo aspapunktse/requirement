@@ -2,6 +2,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ControlOfferingRow, OfferableControl } from "@/lib/control-offerings";
+import type { DependentRow } from "@/lib/provider-dependency-rules";
 import { SystemProvider } from "../SystemProvider";
 
 const full: ControlOfferingRow = {
@@ -40,6 +41,7 @@ function renderSection(
     initialIsProvider: boolean;
     initialOfferings: ControlOfferingRow[];
     initialOfferable: OfferableControl[];
+    dependents: DependentRow[];
   }> = {},
 ) {
   return render(
@@ -377,6 +379,46 @@ describe("SystemProvider (#123)", () => {
       await user.click(screen.getByRole("button", { name: "Remove Offering A.5.15" }));
 
       await waitFor(() => expect(screen.getByRole("button", { name: "Stop being a Provider" })).toBeEnabled());
+    });
+  });
+
+  describe("the Systems that depend on this Provider (#124)", () => {
+    const dependents: DependentRow[] = [
+      { id: "d1", name: "Jira", canSee: true },
+      { id: "d2", name: "Secret Project", canSee: false },
+    ];
+
+    it("lists them for its owner or an Admin: a name only, linked only when the viewer can see the System", () => {
+      renderSection({ canManage: true, dependents });
+
+      expect(screen.getByText("Systems depending on this Provider")).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "Jira" })).toHaveAttribute("href", "/systems/d1");
+      expect(screen.getByText("Secret Project")).toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: "Secret Project" })).not.toBeInTheDocument();
+    });
+
+    it("says none depend on it yet", () => {
+      renderSection({ canManage: true, dependents: [] });
+      expect(screen.getByText("No System depends on this Provider yet.")).toBeInTheDocument();
+    });
+
+    it("does not list them for anyone who may not manage the Provider", () => {
+      renderSection({ canManage: false, dependents });
+      expect(screen.queryByText("Systems depending on this Provider")).not.toBeInTheDocument();
+      expect(screen.queryByText("Jira")).not.toBeInTheDocument();
+    });
+
+    it("disables Stop being a Provider while a System depends on it, with an explanation, even with no Offerings", () => {
+      renderSection({ canManage: true, initialOfferings: [], dependents });
+
+      expect(screen.getByRole("button", { name: "Stop being a Provider" })).toBeDisabled();
+      expect(screen.getByText(/Systems depend on it/)).toBeInTheDocument();
+      expect(screen.queryByText(/Remove its Control Offerings first/)).not.toBeInTheDocument();
+    });
+
+    it("enables it again when nothing depends on it and there are no Offerings", () => {
+      renderSection({ canManage: true, initialOfferings: [], dependents: [] });
+      expect(screen.getByRole("button", { name: "Stop being a Provider" })).toBeEnabled();
     });
   });
 });

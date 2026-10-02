@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ControlAssessmentList } from "../ControlAssessmentList";
-import { resolveEffectiveStatus, type InheritanceSource } from "@/lib/effective-status";
+import { resolveEffectiveStatus, type InheritanceSource, type ProviderSource } from "@/lib/effective-status";
 
 const assessments = [
   {
@@ -662,5 +662,134 @@ describe("ControlAssessmentList: reset to inherited (#129)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(await screen.findByRole("button", { name: "Reset to inherited" })).toBeInTheDocument();
+  });
+});
+
+describe("ControlAssessmentList: Provider sources (#124)", () => {
+  const provider = (overrides: Partial<ProviderSource> = {}): ProviderSource => ({
+    kind: "PROVIDER",
+    type: "FULL",
+    status: "FULFILLED",
+    provider: { id: "p1", name: "Landing Zone" },
+    providerOnboarded: true,
+    appliesToProvider: true,
+    customerResponsibility: null,
+    ...overrides,
+  });
+  const organization = (status: InheritanceSource["status"]): InheritanceSource => ({ kind: "ORGANIZATION", type: "FULL", status });
+  const control = { id: "p1c", code: "A.8.24", title: "Use of cryptography", description: "d", category: "Technological", mandatory: true, question: null };
+  const assessmentOf = (status: string, assessedById: string | null) => ({
+    id: "pa1",
+    status,
+    evidence: null,
+    notes: null,
+    selfAssessmentAnswer: null,
+    assessedById,
+    queries: [],
+  });
+  const rowOf = (own: ReturnType<typeof assessmentOf> | null, sources: InheritanceSource[]) => ({
+    control,
+    assessment: own,
+    effective: resolveEffectiveStatus(own ? { status: own.status as never, personSet: own.assessedById !== null } : null, sources),
+  });
+
+  function stubFetch(rows: unknown[], onPatch?: (body: { status: string }) => Response) {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((_url: string, init?: RequestInit) => {
+        if (init?.method === "PATCH") return Promise.resolve(onPatch!(JSON.parse(init.body as string)));
+        return Promise.resolve(new Response(JSON.stringify({ assessments: rows, staleAssessments: [] }), { status: 200 }));
+      }),
+    );
+  }
+  const renderList = () =>
+    render(<ControlAssessmentList systemId="s1" userRole="SYSTEM_OWNER" currentUserId="owner" systemOwnerId="owner" />);
+  const itemOf = async () => within((await screen.findByText("A.8.24 — Use of cryptography")).closest("li")!);
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("shows a Per-System Control as Fulfilled, Inherited from Provider X: Full, with the Provider's status", async () => {
+    stubFetch([rowOf(assessmentOf("NOT_STARTED", null), [provider()])]);
+    renderList();
+
+    const item = await itemOf();
+    expect(item.getByText("Fulfilled", { selector: "span" })).toBeInTheDocument();
+    expect(item.getByText(/Source: Inherited from Provider Landing Zone: Full · Provider "Landing Zone" \(Full\): Fulfilled/)).toBeInTheDocument();
+    expect(item.getByText(/Saving a status below sets this System's own Assessment/)).toBeInTheDocument();
+    expect(item.getByLabelText("Status for A.8.24")).toHaveValue("NOT_STARTED");
+  });
+
+  it("lists every source: the Organization and two Providers, the one that gives no credit with its reason", async () => {
+    stubFetch([
+      rowOf(null, [
+        organization("NOT_STARTED"),
+        provider({ provider: { id: "pa", name: "Alpha" }, providerOnboarded: false }),
+        provider({ provider: { id: "pb", name: "Beta" } }),
+      ]),
+    ]);
+    renderList();
+
+    const item = await itemOf();
+    expect(item.getByText(/Source: Inherited from Provider Beta: Full/)).toBeInTheDocument();
+    expect(item.getByText(/Organization: Not Started \(gives no credit\)/)).toBeInTheDocument();
+    expect(item.getByText(/Provider "Alpha" \(Full\): Fulfilled \(pending: Provider not Onboarded\)/)).toBeInTheDocument();
+    expect(item.getByText(/Provider "Beta" \(Full\): Fulfilled/)).toBeInTheDocument();
+  });
+
+  it("shows a pending Provider as pending, System-specific and Not Started", async () => {
+    stubFetch([rowOf(assessmentOf("NOT_STARTED", null), [provider({ providerOnboarded: false })])]);
+    renderList();
+
+    const item = await itemOf();
+    expect(item.getByText("Not Started", { selector: "span" })).toBeInTheDocument();
+    expect(item.getByText(/Source: System-specific · Provider "Landing Zone" \(Full\): Fulfilled \(pending: Provider not Onboarded\)/)).toBeInTheDocument();
+    expect(item.queryByText(/Saving a status below/)).not.toBeInTheDocument();
+  });
+
+  it("lists a Shared Offering with its customer responsibility, without credit", async () => {
+    stubFetch([rowOf(null, [provider({ type: "SHARED", customerResponsibility: "The tenant manages its own keys" })])]);
+    renderList();
+
+    const item = await itemOf();
+    expect(item.getByText("Not Started", { selector: "span" })).toBeInTheDocument();
+    expect(item.getByText(/Provider "Landing Zone" \(Shared\): Fulfilled \(a Shared Offering gives no credit yet; customer responsibility: The tenant manages its own keys\)/)).toBeInTheDocument();
+  });
+
+  it("says in one line when the System's own person-set Assessment overrides a Provider's Fulfilled status", async () => {
+    stubFetch([rowOf(assessmentOf("IN_PROGRESS", "owner"), [provider()])]);
+    renderList();
+
+    const item = await itemOf();
+    expect(item.getByText(/This System's own Assessment \(In Progress\) overrides Provider "Landing Zone"'s Fulfilled status\./)).toBeInTheDocument();
+  });
+
+  it("offers Reset to inherited on a person-set Per-System Control that has a Provider source, even a pending one", async () => {
+    stubFetch([rowOf(assessmentOf("IN_PROGRESS", "owner"), [provider({ providerOnboarded: false })])]);
+    renderList();
+
+    await itemOf();
+    expect(await screen.findByRole("button", { name: "Reset to inherited" })).toBeInTheDocument();
+  });
+
+  it("doesn't offer it on a Per-System Control with no source", async () => {
+    stubFetch([rowOf(assessmentOf("IN_PROGRESS", "owner"), [])]);
+    renderList();
+
+    await itemOf();
+    expect(screen.queryByRole("button", { name: "Reset to inherited" })).not.toBeInTheDocument();
+  });
+
+  it("after the owner saves, the own status decides and the Provider is named as overridden, using only what the API sent", async () => {
+    stubFetch([rowOf(assessmentOf("NOT_STARTED", null), [provider()])], (body) =>
+      new Response(JSON.stringify({ assessment: assessmentOf(body.status, "owner") }), { status: 200 }),
+    );
+    renderList();
+
+    fireEvent.change(await screen.findByLabelText("Status for A.8.24"), { target: { value: "IN_PROGRESS" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(await screen.findByText(/overrides Provider "Landing Zone"'s Fulfilled status/)).toBeInTheDocument();
   });
 });

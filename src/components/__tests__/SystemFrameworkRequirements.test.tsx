@@ -6,7 +6,7 @@ import {
   type DerivedRequirementRow,
   type SystemFrameworkRequirements,
 } from "../SystemFrameworkRequirements";
-import { resolveEffectiveStatus, resolveImplementedByOrganization } from "@/lib/effective-status";
+import { resolveEffectiveStatus, resolveImplementedByOrganization, type ProviderSource } from "@/lib/effective-status";
 
 /** A System-specific Control status, as the server sends it for a Control with no inheritance source. */
 const own = (status: "NOT_STARTED" | "IN_PROGRESS" | "FULFILLED") => resolveEffectiveStatus({ status, personSet: true }, []);
@@ -342,6 +342,74 @@ describe("SystemFrameworkRequirementsView", () => {
         ),
       ).toBeInTheDocument();
       expect(controls.getByText("System-specific")).toBeInTheDocument();
+    });
+  });
+
+  describe("Provider sources (#124)", () => {
+    const provider = (overrides: Partial<ProviderSource> = {}): ProviderSource => ({
+      kind: "PROVIDER",
+      type: "FULL",
+      status: "FULFILLED",
+      provider: { id: "p1", name: "Landing Zone" },
+      providerOnboarded: true,
+      appliesToProvider: true,
+      customerResponsibility: null,
+      ...overrides,
+    });
+    const controlOf = (id: string, code: string, sources: ProviderSource[], own: "NOT_STARTED" | "IN_PROGRESS" = "NOT_STARTED", personSet = false) => ({
+      controlId: id,
+      code,
+      title: `Title ${code}`,
+      coverage: "FULL" as const,
+      applicable: true,
+      assessmentStatus: own,
+      effective: resolveEffectiveStatus({ status: own, personSet }, sources),
+    });
+    const framework: SystemFrameworkRequirements = {
+      ...iso,
+      counts: { MET: 1, PARTIALLY_MET: 0, NOT_MET: 3, NOT_APPLICABLE: 0, total: 4, applicable: 4 },
+      rows: [
+        row({ requirementId: "r1", code: "P.1", status: "MET", controls: [controlOf("k1", "A.8.24", [provider()])] }),
+        row({ requirementId: "r2", code: "P.2", controls: [controlOf("k2", "A.8.25", [provider({ providerOnboarded: false })])] }),
+        row({
+          requirementId: "r3",
+          code: "P.3",
+          controls: [controlOf("k3", "A.8.26", [provider({ type: "SHARED", customerResponsibility: "Keys are yours" })])],
+        }),
+        row({
+          requirementId: "r4",
+          code: "P.4",
+          controls: [controlOf("k4", "A.8.27", [provider()], "IN_PROGRESS", true)],
+        }),
+      ],
+    };
+    const listFor = (code: string) => within(screen.getByRole("list", { name: `Applicable Controls for ${code}` }));
+
+    it("shows Inherited from Provider X: Full with the Provider's status, and the pending, Shared and overridden cases", async () => {
+      const user = userEvent.setup();
+      render(<SystemFrameworkRequirementsView frameworks={[framework]} />);
+      await user.click(toggle("ISO/IEC 27001:2022"));
+
+      const credited = listFor("P.1");
+      expect(credited.getByText("Fulfilled")).toBeInTheDocument();
+      expect(credited.getByText('Inherited from Provider Landing Zone: Full · Provider "Landing Zone" (Full): Fulfilled')).toBeInTheDocument();
+
+      const pending = listFor("P.2");
+      expect(pending.getByText("Not Started")).toBeInTheDocument();
+      expect(pending.getByText('System-specific · Provider "Landing Zone" (Full): Fulfilled (pending: Provider not Onboarded)')).toBeInTheDocument();
+
+      const shared = listFor("P.3");
+      expect(
+        shared.getByText(
+          'System-specific · Provider "Landing Zone" (Shared): Fulfilled (a Shared Offering gives no credit yet; customer responsibility: Keys are yours)',
+        ),
+      ).toBeInTheDocument();
+
+      expect(
+        listFor("P.4").getByText(
+          `System-specific · Provider "Landing Zone" (Full): Fulfilled This System's own Assessment (In Progress) overrides Provider "Landing Zone"'s Fulfilled status.`,
+        ),
+      ).toBeInTheDocument();
     });
   });
 });
