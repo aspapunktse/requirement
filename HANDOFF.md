@@ -12,11 +12,12 @@ This file is a snapshot of in-flight state, not a permanent doc. Update or trim 
 ## Next up: the queue (start here)
 
 **Where the last session stopped (2026-10-02). Do this first.**
-1. **The PR for #125 (Shared inheritance and customer responsibility) is open** from branch `125-shared-inheritance` (`gh pr list` gives its number). It is reviewed and browser-verified. It has no migration. Run `gh pr checks <n>` once.
-   - If it is still open and CI is green: `gh pr merge <n> --squash --delete-branch`, `git checkout main && git pull`, and watch the CI and CD runs of the merge commit (the deploy log should say "No pending migrations to apply", 31 found).
+1. **The PR for #126 (retire Capability) is open** from branch `126-retire-capability` (`gh pr list` gives its number). It is reviewed and browser-verified. **It carries a data migration, `20261002130000_retire_capability`, that can abort in production** (only when Capabilities exist and there is no Admin).
+   - **Do not merge it until the product owner has run the read-only pre-check against production and it says the migration would complete** (asked on 2026-10-02). The command, from the PR's branch: `npx dotenv -e .env.production.local -- npx tsx scripts/check-capability-migration.ts`. It only reads; it exits 1 when the migration would abort. The supervisor must not run it: production is the product owner's.
+   - Then run `gh pr checks <n>` once. If CI is green, confirm the PR's Vercel preview ran no `prisma migrate deploy` (the workflow doc has the commands), `gh pr merge <n> --squash --delete-branch`, `git checkout main && git pull`, and watch the CI and CD runs of the merge commit. The CD deploy log must show `20261002130000_retire_capability` applied (32 migrations found) and its NOTICE line, if the log prints it. If the deploy aborts, the #126 note below has the recovery steps.
    - If it is already merged: check that CD run instead (`gh run list --workflow CD --limit 3`), then correct the `main` line below.
-2. **Then brief #126** (retire Capability, migrating each to a Provider System). It is the last M3 issue and carries a data migration, so rehearse it on a `pg_dump` and read the Vercel settings back before pushing. The "For #126" lines of the #124 and #125 notes below say what it builds on. Close the GitHub milestone when #126 is closed. No implementer is running, so `git checkout` is safe.
-3. Nothing else is in flight. The dev DB is in its seeded state (see below), with no Providers, no Offerings and no dependencies.
+2. **Then close the GitHub milestone "PRD 0001 · M3 Inheritance"** (all nine issues are then closed) and tell the product owner M3 is complete. Nothing is queued after it: ask what comes next (PRD 0001's next milestone needs cutting into issues).
+3. Nothing else is in flight. The dev DB is in its new seeded state (see below).
 4. **Possible follow-up, not opened as an issue:** the older interactive transactions (the frameworks, controls and mappings routes, `assessment-queries.ts`) have not been audited for queries on the global Prisma client. PR #134's first CI run failed on exactly that in the Offering write (see the #124 note). The test run now uses a pool of 3, so a path that a test exercises concurrently would show it.
 5. **Small polish seen in the browser, not done:** on a Control with a Shared Offering, the Assessment form keeps saying "Set the status below to Fulfilled once this System has done it." after the System's own half is Fulfilled.
 
@@ -25,16 +26,17 @@ This file is a snapshot of in-flight state, not a permanent doc. Update or trim 
 - Every post-M2 follow-up has also shipped:
   - #91, #97 and #98 (owner rule and waiving);
   - #109 (remove a stale Assessment);
-  - #110 (Capability auto-fulfilment in every recompute);
+  - #110 (Capability auto-fulfilment in every recompute; removed again by #126);
   - #95 (GitHub Actions on their Node 24 majors);
   - #115 (CI, the CD deploy job and the Docker image on Node 24);
   - PR #106 (Vercel records production deploys as `main`).
-- `main` is at #124 (PR #134, deployed: CD run 37037625598, which applied `20261002120000_add_provider_dependency`). **The PR for #125 is open**; see "Where the last session stopped" above. Production has every migration up to `20261002120000_add_provider_dependency` (31 in all).
-- The dev DB is in its seeded state:
-  - 10 Systems, 10 Users, 118 Controls, 471 Control Assessments, 0 Change Events, and (since #120) 92 Organization Control Implementations, all Not Started: one per Organizational/Both Control. No Control Owners, no Providers, no Control Offerings, no Provider dependencies.
-  - ISO/IEC 27001:2022 figures since #122: Jira 56 of 117 (47.9%), pooled 463 of 1171 (39.5%). CATIA and Unily are the two Draft Systems with few Assessment rows ("needs assessment" 44 and 47).
-  - The dev DB already has the #124 migration applied (31 rows in `_prisma_migrations`).
+- `main` is at #125 (PR #135, deployed: CD run 37044103564, "No pending migrations to apply"). **The PR for #126 is open**; see "Where the last session stopped" above. Production has every migration up to `20261002120000_add_provider_dependency` (31 in all).
+- The dev DB is in its seeded state, which changed with #126:
+  - 11 Systems (one is the Provider "Entra ID SSO", migrated from the Capability), 10 Users, 118 Controls, 527 Control Assessments, 2 Change Events (the migration's `"system"` events on GitHub and Microsoft 365), 4 Control Offerings, 2 Provider dependencies, and 92 Organization Control Implementations, all Not Started. No Control Owners.
+  - ISO/IEC 27001:2022 figures: Jira 56 of 117 (47.9%), CATIA 9 of 117, Unily 6 of 117 ("needs assessment" 44 and 47), the Provider "Entra ID SSO" 4 of 117 ("needs assessment" 52), pooled 467 of 1288 (36.3%; it was 463 of 1171 before the Provider existed).
+  - The dev DB already has the #126 migration applied (32 rows in `_prisma_migrations`).
   - Frameworks: ISO/IEC 27001:2022, which is the base and Published. GDPR 1 and Export Control (EAR/ITAR) 1 are Published but have no Requirements yet; they came from #88.
+  - When cleaning up after a browser check, compare with these counts. The two Change Events are seeded state: do not delete them.
 
 **Milestone "PRD 0001 · M3 Inheritance" is open on GitHub and cut into issues.** The product owner approved the cut on 2026-10-01. Work them in this order, one at a time:
 1. ~~**#119: Control Owner**, one User per Control (F-CL.3).~~ **Done** (PR #127, key pieces below).
@@ -44,8 +46,8 @@ This file is a snapshot of in-flight state, not a permanent doc. Update or trim 
    - ~~Then **#129: reset a Control Assessment to inherited** (F-IN.5 follow-up, product-owner decision of 2026-10-01).~~ **Done** (PR #132, key pieces below).
 5. ~~**#123: Providers and Control Offerings** (F-IN.2).~~ **Done** (PR #133, key pieces below).
 6. ~~**#124: Provider dependencies and live Full inheritance** (F-IN.3, F-IN.4, OQ-2). After #121 and #123.~~ **Done** (PR #134, key pieces below).
-7. ~~**#125: Shared inheritance and customer responsibility** (F-IN.5 rule 3). After #124.~~ **Done on its branch `125-shared-inheritance`; its PR is open, not merged yet** (key pieces below).
-8. ~~**#126: retire Capability**, migrating each to a Provider System (F-IN.8, §9.5). After #124.~~ **Done on its branch `126-retire-capability`; no PR yet** (key pieces below). Run `scripts/check-capability-migration.ts` against production first (see the #126 note).
+7. ~~**#125: Shared inheritance and customer responsibility** (F-IN.5 rule 3). After #124.~~ **Done** (PR #135, key pieces below).
+8. ~~**#126: retire Capability**, migrating each to a Provider System (F-IN.8, §9.5). After #124.~~ **Done on its branch `126-retire-capability`; its PR is open, not merged yet** (key pieces below). Run `scripts/check-capability-migration.ts` against production first (see the #126 note).
 
 F-OUT.2 (the source of each Control on the System page) and F-CE.2 (Change Events) are spread over #121, #122, #124 and #125 instead of having their own issue. Close the GitHub milestone when #126 is closed.
 
