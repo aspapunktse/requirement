@@ -470,3 +470,197 @@ describe("ControlAssessmentList: effective status and its source (#121)", () => 
     expect(item.queryByText(/Source:/)).not.toBeInTheDocument();
   });
 });
+
+describe("ControlAssessmentList: reset to inherited (#129)", () => {
+  const organization = (status: InheritanceSource["status"]): InheritanceSource => ({ kind: "ORGANIZATION", type: "FULL", status });
+  const control = { id: "b1", code: "A.5.15", title: "Access control", description: "d", category: "Organizational", mandatory: true, question: null };
+  const openQuery = {
+    id: "rq1",
+    resolved: false,
+    lastMessageAuthorId: "reviewer",
+    createdAt: "2026-09-01T00:00:00Z",
+    messages: [
+      { id: "rm1", body: "Which policy?", createdAt: "2026-09-01T00:00:00Z", author: { id: "reviewer", name: "Reviewer", role: "REVIEWER" } },
+    ],
+  };
+  type TestAssessment = {
+    id: string;
+    status: string;
+    evidence: string | null;
+    notes: string | null;
+    selfAssessmentAnswer: null;
+    assessedById: string | null;
+    queries: unknown[];
+  };
+  const personSet: TestAssessment = {
+    id: "ba1",
+    status: "IN_PROGRESS",
+    evidence: "Policy doc v2",
+    notes: "Working on it",
+    selfAssessmentAnswer: null,
+    assessedById: "owner",
+    queries: [openQuery],
+  };
+  const untouched: TestAssessment = { ...personSet, status: "NOT_STARTED", evidence: null, notes: null, assessedById: null, queries: [] };
+  const rowOf = (own: TestAssessment | null, sources: InheritanceSource[]) => ({
+    control,
+    assessment: own,
+    effective: resolveEffectiveStatus(own ? { status: own.status as never, personSet: own.assessedById !== null } : null, sources),
+  });
+  // What the server returns after a reset: the same row, untouched, Queries still on it.
+  const resetResponse = (sources: InheritanceSource[]) => rowOf({ ...untouched, queries: [openQuery] }, sources);
+
+  function stubFetch(rows: unknown[], onReset?: () => Response) {
+    const fetchMock = vi.fn((_url: string, init?: RequestInit) => {
+      if (init?.method === "POST") return Promise.resolve(onReset!());
+      return Promise.resolve(new Response(JSON.stringify({ assessments: rows, staleAssessments: [] }), { status: 200 }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    return fetchMock;
+  }
+  const renderList = (props: Partial<React.ComponentProps<typeof ControlAssessmentList>> = {}) =>
+    render(<ControlAssessmentList systemId="s1" userRole="SYSTEM_OWNER" currentUserId="owner" systemOwnerId="owner" {...props} />);
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it.each([
+    ["the System's owner", "SYSTEM_OWNER", "owner"],
+    ["an owning Risk Owner", "RISK_OWNER", "owner"],
+    ["an Admin who doesn't own the System", "ADMIN", "admin"],
+  ] as const)("offers the action to %s on a person-set Assessment of a Control with a source", async (_label, role, userId) => {
+    stubFetch([rowOf(personSet, [organization("FULFILLED")])]);
+    renderList({ userRole: role, currentUserId: userId });
+
+    expect(await screen.findByRole("button", { name: "Reset to inherited" })).toBeInTheDocument();
+  });
+
+  it("offers it whatever the source's status, since the Control just goes back to what the source gives", async () => {
+    stubFetch([rowOf(personSet, [organization("WAIVED")])]);
+    renderList();
+
+    expect(await screen.findByRole("button", { name: "Reset to inherited" })).toBeInTheDocument();
+  });
+
+  it.each([
+    ["an untouched Assessment", () => rowOf(untouched, [organization("FULFILLED")])],
+    ["a Control with no Assessment row", () => rowOf(null, [organization("FULFILLED")])],
+    ["a Control with no inheritance source", () => rowOf(personSet, [])],
+    ["a row the API sent without an effective status", () => ({ control, assessment: personSet })],
+  ])("doesn't offer it on %s", async (_label, makeRow) => {
+    stubFetch([makeRow()]);
+    renderList();
+
+    await screen.findByText("A.5.15 — Access control");
+    expect(screen.queryByRole("button", { name: "Reset to inherited" })).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ["a SYSTEM_OWNER who doesn't own the System", { userRole: "SYSTEM_OWNER", currentUserId: "other" }],
+    ["a Reviewer", { userRole: "REVIEWER", currentUserId: "reviewer", assessmentEditAccess: "none" }],
+    ["a Risk Owner who doesn't own the System (waive-only)", { userRole: "RISK_OWNER", currentUserId: "ro", assessmentEditAccess: "waive-only" }],
+    ["a Risk Owner who doesn't own the System, even given full access", { userRole: "RISK_OWNER", currentUserId: "ro" }],
+    ["a Compliance Manager, even as the recorded owner", { userRole: "COMPLIANCE_MANAGER", currentUserId: "owner" }],
+    ["an owner on a read-only page", { readOnly: true }],
+  ] as const)("hides it from %s", async (_label, props) => {
+    stubFetch([rowOf(personSet, [organization("FULFILLED")])]);
+    renderList(props);
+
+    await screen.findByText("A.5.15 — Access control");
+    expect(screen.queryByRole("button", { name: "Reset to inherited" })).not.toBeInTheDocument();
+  });
+
+  it("asks first, saying what is cleared and what stays, and sends nothing when declined", async () => {
+    const fetchMock = stubFetch([rowOf(personSet, [organization("FULFILLED")])]);
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    renderList();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Reset to inherited" }));
+
+    expect(confirm).toHaveBeenCalledTimes(1);
+    const message = confirm.mock.calls[0][0] as string;
+    expect(message).toContain("A.5.15");
+    expect(message).toMatch(/clears this System's own status, evidence, notes and Self-Assessment answer/);
+    expect(message).toMatch(/Organization: Fulfilled/);
+    expect(message).toMatch(/questions and any Risks linked to it stay/);
+    expect(message).toMatch(/Change Event log/);
+    expect(fetchMock.mock.calls.some(([, init]) => init?.method === "POST")).toBe(false);
+    expect(screen.getByLabelText("Status for A.5.15")).toHaveValue("IN_PROGRESS");
+  });
+
+  it("after a confirmed reset shows the effective status and source again, with the form back to Not Started and empty", async () => {
+    const sources = [organization("FULFILLED")];
+    const fetchMock = stubFetch([rowOf(personSet, sources)], () => new Response(JSON.stringify(resetResponse(sources)), { status: 200 }));
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    renderList();
+
+    const select = await screen.findByLabelText("Status for A.5.15");
+    expect(select).toHaveValue("IN_PROGRESS");
+    expect(screen.getByLabelText("Evidence for A.5.15")).toHaveValue("Policy doc v2");
+    fireEvent.click(screen.getByRole("button", { name: "Reset to inherited" }));
+
+    expect(await screen.findByText(/Source: Inherited from Organization/)).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith("/api/systems/s1/assessments/b1/reset", { method: "POST" });
+    const item = within(screen.getByText("A.5.15 — Access control").closest("li")!);
+    expect(item.getByText("Fulfilled", { selector: "span" })).toBeInTheDocument();
+    expect(item.getByLabelText("Status for A.5.15")).toHaveValue("NOT_STARTED");
+    expect(item.getByLabelText("Evidence for A.5.15")).toHaveValue("");
+    expect(item.getByLabelText("Notes for A.5.15")).toHaveValue("");
+    // Nothing left to reset, and the Query stays.
+    expect(item.queryByRole("button", { name: "Reset to inherited" })).not.toBeInTheDocument();
+    expect(item.getByText("Which policy?")).toBeInTheDocument();
+  });
+
+  it("shows the Control as Not Started, System-specific, when the source gives no credit", async () => {
+    const sources = [organization("WAIVED")];
+    stubFetch([rowOf(personSet, sources)], () => new Response(JSON.stringify(resetResponse(sources)), { status: 200 }));
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    renderList();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Reset to inherited" }));
+
+    expect(await screen.findByText(/Source: System-specific · Organization: Waived \(gives no credit\)/)).toBeInTheDocument();
+    const item = within(screen.getByText("A.5.15 — Access control").closest("li")!);
+    expect(item.getByText("Not Started", { selector: "span" })).toBeInTheDocument();
+    expect(item.queryByRole("button", { name: "Reset to inherited" })).not.toBeInTheDocument();
+  });
+
+  it("keeps the row and shows the server's message when the reset is refused", async () => {
+    stubFetch(
+      [rowOf(personSet, [organization("FULFILLED")])],
+      () => new Response(JSON.stringify({ error: "This Assessment was not set by a person, so it already follows the Control's inheritance sources" }), { status: 409 }),
+    );
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    renderList();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Reset to inherited" }));
+
+    expect(await screen.findByText(/was not set by a person/)).toBeInTheDocument();
+    expect(screen.getByLabelText("Status for A.5.15")).toHaveValue("IN_PROGRESS");
+    expect(screen.getByRole("button", { name: "Reset to inherited" })).toBeEnabled();
+  });
+
+  it("offers the action after the owner saves a status over an inherited Control", async () => {
+    const sources = [organization("FULFILLED")];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((_url: string, init?: RequestInit) => {
+        if (init?.method === "PATCH") {
+          const body = JSON.parse(init.body as string);
+          return Promise.resolve(new Response(JSON.stringify({ assessment: { ...personSet, status: body.status, queries: undefined } }), { status: 200 }));
+        }
+        return Promise.resolve(new Response(JSON.stringify({ assessments: [rowOf(untouched, sources)], staleAssessments: [] }), { status: 200 }));
+      }),
+    );
+    renderList();
+
+    const select = await screen.findByLabelText("Status for A.5.15");
+    expect(screen.queryByRole("button", { name: "Reset to inherited" })).not.toBeInTheDocument();
+    fireEvent.change(select, { target: { value: "IN_PROGRESS" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(await screen.findByRole("button", { name: "Reset to inherited" })).toBeInTheDocument();
+  });
+});

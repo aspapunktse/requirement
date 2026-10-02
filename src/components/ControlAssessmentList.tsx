@@ -9,6 +9,7 @@ import {
   effectiveOverrideNote,
   effectiveSourceDetails,
   effectiveSourceLabel,
+  resetToInheritedRefusal,
   resolveEffectiveStatus,
   type EffectiveStatus,
 } from "@/lib/effective-status";
@@ -70,6 +71,17 @@ type AssessmentRow = {
   queries: AssessmentQuery[];
   effective: EffectiveStatus | null;
 };
+
+/** A row as `GET /api/systems/[id]/assessments` sends it (and the reset route returns it). */
+type AssessmentRowApi = { control: Control; assessment: Assessment; effective?: EffectiveStatus };
+
+function toAssessmentRow(row: AssessmentRowApi): AssessmentRow {
+  return {
+    ...row,
+    queries: (row.assessment as (Assessment & { queries?: AssessmentQuery[] }))?.queries ?? [],
+    effective: row.effective ?? null,
+  };
+}
 
 /**
  * The row after the System's own Assessment was saved: a saved Assessment is
@@ -473,6 +485,58 @@ function RemoveStaleAssessment({
   );
 }
 
+/**
+ * Reset the System's own Assessment to inherited (#129): the owner or an Admin
+ * only, and only where `resetToInheritedRefusal` allows it (the caller checks).
+ * A confirmation says what is cleared and what stays. The server answers with
+ * the row as the list shows it, so it replaces the row without a refetch.
+ */
+function ResetToInherited({
+  control,
+  effective,
+  systemId,
+  onReset,
+}: {
+  control: Control;
+  effective: EffectiveStatus;
+  systemId: string;
+  onReset: (row: AssessmentRowApi) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleReset() {
+    const confirmed = window.confirm(
+      `Reset ${control.code} to inherited? This clears this System's own status, evidence, notes and ` +
+        `Self-Assessment answer, so the Control goes back to what it inherits (${effectiveSourceDetails(effective).join("; ")}). ` +
+        "Its questions and any Risks linked to it stay as they are, and what was cleared is kept in the System's Change Event log.",
+    );
+    if (!confirmed) return;
+    setError(null);
+    setBusy(true);
+    try {
+      const response = await fetch(`/api/systems/${systemId}/assessments/${control.id}/reset`, { method: "POST" });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        setError(body.error ?? "Failed to reset assessment");
+        return;
+      }
+      onReset(await response.json());
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="mt-3 flex flex-col gap-2 border-t border-zinc-200 pt-3 text-sm dark:border-zinc-800">
+      {error && <p className="text-sm text-red-600">{error}</p>}
+      <Button variant="outline" className="self-start px-3 py-0.5 text-xs" onClick={handleReset} disabled={busy}>
+        Reset to inherited
+      </Button>
+    </div>
+  );
+}
+
 function ControlRow({
   row,
   systemId,
@@ -485,6 +549,7 @@ function ControlRow({
   onSaved,
   onQueriesChanged,
   onRemoved,
+  onReset,
   stale = false,
 }: {
   row: AssessmentRow;
@@ -499,6 +564,8 @@ function ControlRow({
   onQueriesChanged: (queries: AssessmentQuery[]) => void;
   /** Called once a stale Assessment has been removed (stale rows only). */
   onRemoved?: () => void;
+  /** Called with the server's row once the Assessment was reset to inherited (applicable rows only). */
+  onReset?: (row: AssessmentRowApi) => void;
   stale?: boolean;
 }) {
   const { control, assessment, effective } = row;
@@ -519,6 +586,20 @@ function ControlRow({
     setEvidence(assessment?.evidence ?? "");
     setNotes(assessment?.notes ?? "");
   }
+
+  // Reset to inherited (#129): the shared owner rule, plus the shared reset rule
+  // (the server runs both). Hidden for a read-only page and a waive-only Risk Owner.
+  const canReset =
+    !stale &&
+    !readOnly &&
+    editAccess === "full" &&
+    isSystemOwnerOrAdmin({ id: currentUserId, role: userRole }, { ownerId: systemOwnerId }) &&
+    effective !== null &&
+    resetToInheritedRefusal({
+      applies: true,
+      sources: effective.sources,
+      own: assessment ? { status: assessment.status, personSet: (assessment.assessedById ?? null) !== null } : null,
+    }) === null;
 
   const waiveOnly = editAccess === "waive-only";
   const currentStatus = assessment?.status ?? "NOT_STARTED";
@@ -681,6 +762,10 @@ function ControlRow({
         />
       )}
 
+      {canReset && onReset && (
+        <ResetToInherited control={control} effective={effective} systemId={systemId} onReset={onReset} />
+      )}
+
       <AssessmentQueries
         queries={row.queries}
         systemId={systemId}
@@ -741,15 +826,7 @@ export function ControlAssessmentList({
       .then((response) => response.json())
       .then((body) => {
         if (cancelled) return;
-        setRows(
-          (body.assessments ?? []).map(
-            (row: { control: Control; assessment: Assessment; effective?: EffectiveStatus }) => ({
-              ...row,
-              queries: (row.assessment as (Assessment & { queries?: AssessmentQuery[] }))?.queries ?? [],
-              effective: row.effective ?? null,
-            }),
-          ),
-        );
+        setRows((body.assessments ?? []).map(toAssessmentRow));
         setStaleRows(
           (body.staleAssessments ?? []).map((assessment: StaleAssessmentApi) => ({
             control: assessment.control,
@@ -795,6 +872,9 @@ export function ControlAssessmentList({
                 setRows((prev) =>
                   (prev ?? []).map((r) => (r.control.id === row.control.id ? { ...r, queries } : r)),
                 )
+              }
+              onReset={(reset) =>
+                setRows((prev) => (prev ?? []).map((r) => (r.control.id === row.control.id ? toAssessmentRow(reset) : r)))
               }
             />
           ))}

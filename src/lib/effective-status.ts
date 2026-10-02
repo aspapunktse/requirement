@@ -178,6 +178,65 @@ export function effectiveOverrideNote(
 }
 
 /**
+ * "now Fulfilled, inherited from the Organization" / "now Not Started": what a
+ * Control is effectively after something happened to it, for the Change Event
+ * of a reset to inherited (#129). Uses the same wording as
+ * `describeInheritedStatusChange`.
+ */
+export function describeEffectiveStatusNow(effective: Pick<EffectiveStatus, "status" | "source">): string {
+  const label = CONTROL_ASSESSMENT_STATUS_LABEL[effective.status];
+  if (isInheritanceSource(effective.source)) {
+    return `now ${label}, inherited from the ${SOURCE_KIND_LABEL[effective.source.kind]}`;
+  }
+  return `now ${label}`;
+}
+
+/**
+ * Why a System's own Assessment can't be reset to inherited (#129), in the
+ * order the rules are checked:
+ * - "NOT_APPLICABLE": the Control no longer applies to the System, so its row
+ *   is stale (removing it is #109's business, not a reset);
+ * - "NO_SOURCE": the Control has no inheritance source for this System (a
+ *   Per-System Control), so there is nothing to go back to;
+ * - "NOT_PERSON_SET": there is no row, or nobody set it (`assessedById` is
+ *   null, which includes an untouched row and one a Capability fulfilled), so
+ *   it already follows its sources.
+ */
+export type ResetToInheritedRefusal = "NOT_APPLICABLE" | "NO_SOURCE" | "NOT_PERSON_SET";
+
+/**
+ * Can the System's own Assessment of a Control be reset to inherited (F-IN.5,
+ * #129)? Null when it can, else the reason. Allowed whatever the sources'
+ * current statuses are (a source that gives no credit just leaves the Control
+ * Not Started), so it is the *existence* of a source that matters, never its
+ * status, and the source list comes from `inheritanceSourcesFor`, so a Provider
+ * source (#124) works without a change here. Who may do it is a separate rule
+ * (`isSystemOwnerOrAdmin`); the route and the UI both run this one.
+ */
+export function resetToInheritedRefusal(input: {
+  /** The Control applies to the System (it is not a stale row). */
+  applies: boolean;
+  sources: readonly InheritanceSource[];
+  own: OwnAssessment;
+}): ResetToInheritedRefusal | null {
+  if (!input.applies) return "NOT_APPLICABLE";
+  if (input.sources.length === 0) return "NO_SOURCE";
+  if (!input.own?.personSet) return "NOT_PERSON_SET";
+  return null;
+}
+
+const RESET_REFUSAL_MESSAGE: Record<ResetToInheritedRefusal, string> = {
+  NOT_APPLICABLE: "This Control no longer applies to this System; remove its stale Assessment instead",
+  NO_SOURCE: "This Control has no inheritance source for this System, so there is nothing to reset it to",
+  NOT_PERSON_SET: "This Assessment was not set by a person, so it already follows the Control's inheritance sources",
+};
+
+/** The 409 message for a refused reset. */
+export function resetToInheritedRefusalMessage(refusal: ResetToInheritedRefusal): string {
+  return RESET_REFUSAL_MESSAGE[refusal];
+}
+
+/**
  * The Change Event detail (F-IN.7) for a Control whose effective status moved
  * because a source changed, or null when it didn't. The one place the wording
  * lives.

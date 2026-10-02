@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ControlAssessmentStatus } from "@prisma/client";
 import {
+  describeEffectiveStatusNow,
   describeInheritedStatusChange,
   describeOrganizationImplementationChange,
   effectiveOverrideNote,
@@ -10,6 +11,8 @@ import {
   inheritanceSourcesFor,
   isInheritanceSource,
   resolveEffectiveStatus,
+  resetToInheritedRefusal,
+  resetToInheritedRefusalMessage,
   resolveImplementedByOrganization,
   sourceGivesCredit,
   type InheritanceSource,
@@ -195,5 +198,70 @@ describe("what the readers do with the effective status", () => {
     expect(isEffectivelyFulfilled(inherited, { strictComplianceRequired: true })).toBe(true);
     expect(isEffectivelyFulfilled("WAIVED", { strictComplianceRequired: true })).toBe(false);
     expect(isEffectivelyFulfilled("WAIVED", { strictComplianceRequired: false })).toBe(true);
+  });
+});
+
+describe("resetToInheritedRefusal (#129)", () => {
+  const person = (status: ControlAssessmentStatus): OwnAssessment => ({ status, personSet: true });
+  const nobody = (status: ControlAssessmentStatus): OwnAssessment => ({ status, personSet: false });
+
+  it.each(STATUSES)("allows resetting a person-set %s Assessment of a Control with a source, whatever the source's status", (status) => {
+    for (const sourceStatus of STATUSES) {
+      expect(resetToInheritedRefusal({ applies: true, sources: [organization(sourceStatus)], own: person(status) })).toBeNull();
+    }
+  });
+
+  it.each(STATUSES)("refuses an Assessment nobody set (%s): it already follows its sources", (status) => {
+    expect(resetToInheritedRefusal({ applies: true, sources: [organization("FULFILLED")], own: nobody(status) })).toBe("NOT_PERSON_SET");
+  });
+
+  it("refuses when there is no row at all", () => {
+    expect(resetToInheritedRefusal({ applies: true, sources: [organization("FULFILLED")], own: null })).toBe("NOT_PERSON_SET");
+  });
+
+  it.each(STATUSES)("refuses a person-set %s Assessment of a Control with no source (a Per-System Control)", (status) => {
+    expect(resetToInheritedRefusal({ applies: true, sources: [], own: person(status) })).toBe("NO_SOURCE");
+  });
+
+  it("refuses a stale row first: the Control no longer applies", () => {
+    expect(resetToInheritedRefusal({ applies: false, sources: [organization("FULFILLED")], own: person("FULFILLED") })).toBe("NOT_APPLICABLE");
+    expect(resetToInheritedRefusal({ applies: false, sources: [], own: null })).toBe("NOT_APPLICABLE");
+  });
+
+  it("checks the source before the Assessment", () => {
+    expect(resetToInheritedRefusal({ applies: true, sources: [], own: null })).toBe("NO_SOURCE");
+  });
+
+  it("goes by the sources `inheritanceSourcesFor` gives, never by the Control's applicability itself", () => {
+    const own = person("IN_PROGRESS");
+    const refusal = (applicability: "BOTH" | "PER_SYSTEM" | "ORGANIZATIONAL") =>
+      resetToInheritedRefusal({ applies: true, sources: inheritanceSourcesFor({ applicability }, "NOT_STARTED"), own });
+    expect(refusal("BOTH")).toBeNull();
+    expect(refusal("PER_SYSTEM")).toBe("NO_SOURCE");
+    expect(refusal("ORGANIZATIONAL")).toBe("NO_SOURCE");
+  });
+
+  it("has a message for every refusal", () => {
+    expect(resetToInheritedRefusalMessage("NOT_APPLICABLE")).toMatch(/no longer applies/);
+    expect(resetToInheritedRefusalMessage("NO_SOURCE")).toMatch(/no inheritance source/);
+    expect(resetToInheritedRefusalMessage("NOT_PERSON_SET")).toMatch(/not set by a person/);
+  });
+
+  it("returns the Control to what the sources give: a reset Assessment resolves as an untouched one", () => {
+    const sources = [organization("FULFILLED")];
+    expect(resolveEffectiveStatus(person("IN_PROGRESS"), sources).status).toBe("IN_PROGRESS");
+    const after = resolveEffectiveStatus(nobody("NOT_STARTED"), sources);
+    expect(after).toMatchObject({ status: "FULFILLED", source: { kind: "ORGANIZATION" } });
+    expect(describeEffectiveStatusNow(after)).toBe("now Fulfilled, inherited from the Organization");
+  });
+});
+
+describe("describeEffectiveStatusNow", () => {
+  it("names the source only when the status is inherited", () => {
+    expect(describeEffectiveStatusNow({ status: "FULFILLED", source: { kind: "ORGANIZATION", type: "FULL", status: "FULFILLED" } })).toBe(
+      "now Fulfilled, inherited from the Organization",
+    );
+    expect(describeEffectiveStatusNow({ status: "NOT_STARTED", source: { kind: "SYSTEM" } })).toBe("now Not Started");
+    expect(describeEffectiveStatusNow({ status: "IN_PROGRESS", source: { kind: "ORGANIZATION_DIRECT" } })).toBe("now In Progress");
   });
 });
