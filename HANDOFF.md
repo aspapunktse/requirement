@@ -11,7 +11,14 @@ This file is a snapshot of in-flight state, not a permanent doc. Update or trim 
 
 ## Next up: the queue (start here)
 
-**State as of 2026-10-01**
+**Where the last session stopped (2026-10-02). Do this first.**
+1. **PR #133 (#123, Providers and Control Offerings) is open** on branch `123-providers-and-control-offerings`. It is reviewed and browser-verified, and CI was green on it before this hand-off commit was added (which re-triggers CI). Run `gh pr view 133 --json state,mergeStateStatus` and `gh pr checks 133` once.
+   - If it is still open and CI is green: confirm its Vercel preview ran no `prisma migrate deploy` (the PR carries two migrations; the workflow doc has the commands), then `gh pr merge 133 --squash --delete-branch`, `git checkout main && git pull`, and watch the CI and CD runs of the merge commit. The CD deploy log must show `20261002100000_add_control_offering_changed_change_event` and `20261002110000_add_provider_and_control_offering` applied (30 migrations found).
+   - If it is already merged: check that CD run instead (`gh run list --workflow CD --limit 3`), then correct the `main` line below.
+2. **Then brief #124** (Provider dependencies and live Full inheritance). Its decisions are in the list below under "Decisions for #124", and the plan for its brief under "Notes for the #124 brief". No implementer is running, so `git checkout` is safe.
+3. Nothing else is in flight. The dev DB is in its seeded state (see below), with no Providers and no Offerings.
+
+**State as of 2026-10-02**
 - PRD 0001 milestones 1 and 2 are complete, closed and in production.
 - Every post-M2 follow-up has also shipped:
   - #91, #97 and #98 (owner rule and waiving);
@@ -20,9 +27,11 @@ This file is a snapshot of in-flight state, not a permanent doc. Update or trim 
   - #95 (GitHub Actions on their Node 24 majors);
   - #115 (CI, the CD deploy job and the Docker image on Node 24);
   - PR #106 (Vercel records production deploys as `main`).
-- `main` is at #129 (PR #132). There are no open PRs.
+- `main` is at #129 (PR #132, deployed: CD run 36994669254, "No pending migrations"). **PR #133 (#123) is open**; see "Where the last session stopped" above. Production has every migration up to `20261001120000_add_organization_implementation_changed_change_event` (28 in all).
 - The dev DB is in its seeded state:
-  - 10 Systems, 471 Control Assessments, 0 Change Events, and (since #120) 92 Organization Control Implementations, all Not Started: one per Organizational/Both Control.
+  - 10 Systems, 10 Users, 118 Controls, 471 Control Assessments, 0 Change Events, and (since #120) 92 Organization Control Implementations, all Not Started: one per Organizational/Both Control. No Control Owners, no Providers, no Control Offerings.
+  - ISO/IEC 27001:2022 figures since #122: Jira 56 of 117 (47.9%), pooled 463 of 1171 (39.5%). CATIA and Unily are the two Draft Systems with few Assessment rows ("needs assessment" 44 and 47).
+  - The dev DB already has the two #123 migrations applied (30 rows in `_prisma_migrations`).
   - Frameworks: ISO/IEC 27001:2022, which is the base and Published. GDPR 1 and Export Control (EAR/ITAR) 1 are Published but have no Requirements yet; they came from #88.
 
 **Milestone "PRD 0001 · M3 Inheritance" is open on GitHub and cut into issues.** The product owner approved the cut on 2026-10-01. Work them in this order, one at a time:
@@ -31,8 +40,8 @@ This file is a snapshot of in-flight state, not a permanent doc. Update or trim 
 3. ~~**#121: effective status**, Systems inherit Both Controls from the Organization (F-IN.5, F-IN.6, F-IN.7).~~ **Done** (PR #130, key pieces below).
 4. ~~**#122: count Organizational Requirements per System** (#89 decision 3a).~~ **Done** (PR #131, key pieces below).
    - ~~Then **#129: reset a Control Assessment to inherited** (F-IN.5 follow-up, product-owner decision of 2026-10-01).~~ **Done** (PR #132, key pieces below).
-5. ~~**#123: Providers and Control Offerings** (F-IN.2).~~ **Done** (key pieces below).
-6. **#124: Provider dependencies and live Full inheritance** (F-IN.3, F-IN.4, OQ-2). After #121 and #123. **Start here.**
+5. ~~**#123: Providers and Control Offerings** (F-IN.2).~~ **Done on its branch; PR #133 is open, not merged yet** (key pieces below).
+6. **#124: Provider dependencies and live Full inheritance** (F-IN.3, F-IN.4, OQ-2). After #121 and #123. **Start here, once PR #133 is merged and deployed.**
 7. **#125: Shared inheritance and customer responsibility** (F-IN.5 rule 3). After #124.
 8. **#126: retire Capability**, migrating each to a Provider System (F-IN.8, §9.5). After #124.
 
@@ -48,6 +57,19 @@ F-OUT.2 (the source of each Control on the System page) and F-CE.2 (Change Event
 - **A status change on an Organizational Control (#122) writes one System-less Change Event**, not one per System. Both Controls keep #121's per-System events.
 - **Going back to inheriting is #129.** A person-set Assessment overrides every source for good, so the System's owner or an Admin gets a "reset to inherited" action that returns it to untouched and records what was cleared in a Change Event. #121 has no such action.
 - **OQ-2 (#124):** the most favourable source wins, and every source is listed.
+- **Decisions for #124** (product owner, 2026-10-02; also a comment on #124):
+  - **What is visible about a Provider to someone who can't see it as a System:** its name, its Control Offerings, and the Provider's own Assessment status for each offered Control. Nothing else about it. A System's owner must be able to pick any Provider, and the dependent's page shows "Inherited from Provider X: Full" with that status.
+  - **A System can only depend on a System marked as a Provider** (409 otherwise), and never on itself. Mutual dependencies are allowed: there are no chains, so they are harmless.
+  - **A Provider can't be unmarked while any System depends on it**, the same way it can't while it has Offerings (#123).
+  - Already decided on 2026-10-01: a dependent reads the Provider's **own** Assessment status (`providerStatus` in #123's Offering rows); only a Fulfilled source gives credit (the `INHERITED_SOURCE_STATUSES` constant from #121); an Offering counts only while the Provider is Onboarded (otherwise "pending: Provider not Onboarded"); an Offering whose Control no longer applies to the Provider gives no credit.
+  - Shared Offerings are listed on the dependent but give no credit until #125.
+- **Notes for the #124 brief** (the supervisor's plan; nothing is briefed yet):
+  - Add a `PROVIDER` kind to `InheritanceSource` in `src/lib/effective-status.ts` and feed Provider sources into the same readers as #121: derived Requirement status, Compliance Percentage, the submission check, "needs assessment", the assessments API row, and both System-page components. #129's reset works from the source list, so it needs no change; ask for a test that a Provider source makes a reset possible on a Per-System Control.
+  - F-IN.7 events: a `"system"` `ASSESSMENT_STATUS_CHANGED` event on each dependent whose effective status moved, when the Provider's own Assessment status changes (the Assessment edit, answer and reset routes on the Provider), when the Provider becomes Onboarded, when an Offering is added, changed or removed, and when a dependency is declared or removed. Bulk queries; mirror `src/lib/organization-inheritance.ts`, including its advisory lock.
+  - Declaring and removing a dependency are `CLASSIFICATION_CHANGED` events on the dependent, like Framework Scope.
+  - A schema change is needed (a System-to-System dependency relation), so a migration. Read the Vercel settings back before pushing.
+  - The Provider's page should list the Systems depending on it, for its owner and an Admin.
+  - Ask the implementer for: the dev DB regression table (nothing moves until a dependency is declared), a demonstration on a `pg_dump` copy, and timing with 500 dependents on one Provider.
 - **Publishing a Framework isn't blocked by Controls without a Control Owner (#119).** The UI shows "No Control Owner" and a filter.
 - Accepted consequence of #126: each migrated Capability becomes an Onboarded Provider System owned by an Admin. Its other applicable Controls start Not Started, so it shows in that Admin's tasks and lowers the pooled percentage.
 
@@ -134,6 +156,8 @@ Facts checked on the dev DB while cutting M3:
 2. ~~**#116** (backfill Capability fulfilment) and **#117** (re-run it when a Control's Capability mappings change).~~ **Closed as superseded by #126.**
 
 **Open items for the product owner** (not blocking):
+- A background-task chip "Keep .env.production.local out of Docker builds" was offered in the 2026-10-01 session for the `.dockerignore` item below. It was not started, and it doesn't carry over to a new session.
+- Nothing renders Change Events yet (the "Recent updates" feed was never built). Whoever builds it must label the actions added in M3: `ORGANIZATION_IMPLEMENTATION_CHANGED` (System-less) and `CONTROL_OFFERING_CHANGED`.
 - `.dockerignore` doesn't exclude `.env.production.local`, so a local `docker build` copies the production credentials into the build stage. The final image has no env files, and CI never has that file, so the pushed image isn't affected. Found during #115; not fixed yet.
 - The Vercel project has a `VERCEL_TOKEN` environment variable set for Production and for Preview. The app doesn't read it (CD uses the GitHub secret of the same name), and on Preview it is available to every preview build. Seen while reading the settings back on 2026-10-01; removing it is the product owner's call.
 - ~~The 18 `DATA_*` Vercel environment variables were exposed to Preview.~~ **Fixed by the product owner on 2026-10-01**; read back through the API: all 18 target Production only.
