@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getApplicableControls, type SystemClassification } from "@/lib/control-assessments";
 import { diffApplicabilityOpsWithCapabilities, logAutoFulfilment } from "@/lib/capability-fulfillment";
 import { logChangeEvent } from "@/lib/change-events";
+import { recordProviderChange } from "@/lib/provider-inheritance";
 import { isSystemOwnerOrAdmin } from "@/lib/system-permissions";
 
 /**
@@ -62,6 +63,15 @@ export type ClassificationChanges = {
  * Controls show up as Not Started (F-AP.4).
  */
 export async function changeSystemClassification(
+  system: SystemClassification & { id: string; isProvider?: boolean },
+  changes: ClassificationChanges,
+  actorId: string,
+) {
+  // A Provider's Offerings can start or stop applying to it, which moves its dependents (#124, F-IN.7).
+  return recordProviderChange(system, () => applyClassificationChange(system, changes, actorId));
+}
+
+async function applyClassificationChange(
   system: SystemClassification & { id: string },
   changes: ClassificationChanges,
   actorId: string,

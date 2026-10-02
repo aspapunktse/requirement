@@ -7,6 +7,7 @@ import { getVisibleSystem } from "@/lib/system-visibility";
 import { assessmentEditAccess, canAnswerSelfAssessment } from "@/lib/system-permissions";
 import { checkWaiveGate, getApplicableControl } from "@/lib/control-assessments";
 import { logChangeEvent, SYSTEM_ACTOR } from "@/lib/change-events";
+import { runProviderAssessmentWrite } from "@/lib/provider-inheritance";
 
 const answerSchema = z.object({
   answer: z.enum(SelfAssessmentAnswer),
@@ -82,37 +83,46 @@ export async function PATCH(
     where: { systemId_controlId: { systemId: system.id, controlId } },
   });
 
-  const assessment = await prisma.controlAssessment.upsert({
-    where: { systemId_controlId: { systemId: system.id, controlId } },
-    create: {
-      systemId: system.id,
-      controlId,
-      status,
-      notes,
-      selfAssessmentAnswer: answer,
-      assessedById: auth.user.id,
-      assessedAt: new Date(),
-    },
-    update: {
-      status,
-      notes,
-      selfAssessmentAnswer: answer,
-      assessedById: auth.user.id,
-      assessedAt: new Date(),
-      // A manual answer marks this Assessment human-owned (see #16).
-      fulfilledByCapabilityId: null,
-    },
-    include: { assessedBy: true },
-  });
+  // A Provider's own status is what its dependents inherit from (#124, F-IN.7): see the
+  // Assessment edit route. For any other System this is the plain write it always was.
+  const assessment = await runProviderAssessmentWrite(system, controlId, async (db, locked) => {
+    const previous = locked
+      ? await db.controlAssessment.findUnique({ where: { systemId_controlId: { systemId: system.id, controlId } } })
+      : existing;
+    const saved = await db.controlAssessment.upsert({
+      where: { systemId_controlId: { systemId: system.id, controlId } },
+      create: {
+        systemId: system.id,
+        controlId,
+        status,
+        notes,
+        selfAssessmentAnswer: answer,
+        assessedById: auth.user.id,
+        assessedAt: new Date(),
+      },
+      update: {
+        status,
+        notes,
+        selfAssessmentAnswer: answer,
+        assessedById: auth.user.id,
+        assessedAt: new Date(),
+        // A manual answer marks this Assessment human-owned (see #16).
+        fulfilledByCapabilityId: null,
+      },
+      include: { assessedBy: true },
+    });
 
-  if ((existing?.status ?? "NOT_STARTED") !== status) {
-    await logChangeEvent(
-      system.id,
-      "ASSESSMENT_STATUS_CHANGED",
-      `${control.code} status changed from ${existing?.status ?? "NOT_STARTED"} to ${status} (Self-Assessment answer: ${answer})`,
-      auth.user.id,
-    );
-  }
+    if ((previous?.status ?? "NOT_STARTED") !== status) {
+      await logChangeEvent(
+        system.id,
+        "ASSESSMENT_STATUS_CHANGED",
+        `${control.code} status changed from ${previous?.status ?? "NOT_STARTED"} to ${status} (Self-Assessment answer: ${answer})`,
+        auth.user.id,
+        db,
+      );
+    }
+    return saved;
+  });
 
   if (answer === "NO") {
     const existingRisk = await prisma.risk.findFirst({

@@ -85,6 +85,10 @@ export function offeringValuesDiffer(a: OfferingValues, b: OfferingValues) {
 /** Why a System with Offerings can't stop being a Provider (the 409 text). */
 export const UNMARK_PROVIDER_REFUSAL = "Remove this Provider's Control Offerings before it stops being a Provider";
 
+/** Why a System that other Systems depend on can't stop being a Provider (the 409 text, #124). */
+export const UNMARK_PROVIDER_WITH_DEPENDENTS_REFUSAL =
+  "Other Systems still depend on this Provider: they must remove their dependency before it stops being a Provider";
+
 /** Why a System that isn't a Provider can't have Offerings (the 409 text). */
 export const NOT_A_PROVIDER_REFUSAL = "Mark this System as a Provider before adding Control Offerings";
 

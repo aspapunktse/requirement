@@ -22,6 +22,7 @@ import { PATCH as patchSystem } from "@/app/api/systems/[id]/route";
  *   declares the right Facet; `elsewhere` (a third Facet nobody declares) and
  *   `organizational` never do.
  * - Systems are Onboarded unless a test says otherwise, so every role can see them.
+ * - `depend(dependentId, providerId)` declares a dependency (#124) straight in the DB.
  */
 
 function createContext() {
@@ -126,11 +127,12 @@ export function setupProviderFixtures(label: string) {
       status?: "ONBOARDED" | "DRAFT";
       isProvider?: boolean;
       facets?: string[];
+      name?: string;
     } = {},
   ) {
     const system = await prisma.system.create({
       data: {
-        name: `Test ${label} System ${ctx.suffix}-${ctx.systemIds.length}`,
+        name: options.name ?? `Test ${label} System ${ctx.suffix}-${ctx.systemIds.length}`,
         ownerId: options.ownerId ?? ctx.users.owner,
         status: options.status ?? "ONBOARDED",
         isProvider: options.isProvider ?? false,
@@ -156,8 +158,13 @@ export function setupProviderFixtures(label: string) {
     return prisma.controlOffering.create({ data: { providerId, controlId, type, customerResponsibility } });
   }
 
+  /** A dependency written straight to the DB (the routes are what the dependency tests exercise). */
+  function depend(dependentId: string, providerId: string) {
+    return prisma.providerDependency.create({ data: { dependentId, providerId } });
+  }
+
   // Assigned onto the context object, not spread, so `frameworkId` (set in beforeAll) stays current.
-  return Object.assign(ctx, { makeSystem, assess, offer });
+  return Object.assign(ctx, { makeSystem, assess, offer, depend });
 }
 
 /** A request acting as `userId` (null = nobody signed in). */

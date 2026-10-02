@@ -12,13 +12,16 @@ import {
   offeringValuesDiffer,
   resultingOfferingValues,
   UNMARK_PROVIDER_REFUSAL,
+  UNMARK_PROVIDER_WITH_DEPENDENTS_REFUSAL,
 } from "@/lib/control-offering-rules";
+import { lockProvider, PROVIDER_TRANSACTION_TIMEOUT_MS, withProviderInheritanceEvents } from "@/lib/provider-inheritance";
 
 /**
  * Providers and their Control Offerings (PRD 0001 F-IN.2, ADR 0008, #123): the
  * data side. The rules (who may, what an Offering must contain, the Change Event
- * wording) are pure and live in `control-offering-rules.ts`. Nothing reads an
- * Offering to change any System's status yet (dependencies are #124).
+ * wording) are pure and live in `control-offering-rules.ts`. A Full Offering is
+ * inherited by the Systems depending on the Provider (#124): each add, change
+ * and removal records what it moved on them (`provider-inheritance.ts`).
  */
 
 /** The System as the Offering code needs it: its classification (for applicability) and id. */
@@ -27,10 +30,10 @@ type ProviderSystem = SystemClassification & { id: string };
 /**
  * One Offering as shown to everyone who can see the Provider. `applies` is
  * whether the Control still applies to the Provider (an Offering is kept when
- * it stops, and gets no credit once #124 lands). `providerStatus` is the
- * Provider's OWN Control Assessment status for the Control, Not Started when it
- * has no row: what dependents will read in #124, not the Provider's effective
- * status (product-owner decision: no chains through the Provider's own sources).
+ * it stops, and gives no credit, #124). `providerStatus` is the Provider's OWN
+ * Control Assessment status for the Control, Not Started when it has no row:
+ * what dependents read (#124), not the Provider's effective status
+ * (product-owner decision: no chains through the Provider's own sources).
  */
 export type ControlOfferingRow = {
   id: string;
@@ -121,18 +124,16 @@ export type OfferingResult<T> = { ok: true; value: T } | { ok: false; status: 40
 
 /**
  * One transaction per Provider at a time: marking, unmarking, adding and
- * removing Offerings all take this lock first, so an unmark can't slip in
- * between an Offering being checked and written (and the events stay in order).
+ * removing Offerings, declaring and removing dependencies all take the Provider
+ * lock first (`lockProvider`), so an unmark can't slip in between an Offering or
+ * a dependency being checked and written (and the events stay in order).
  */
-async function lockProvider(tx: Prisma.TransactionClient, providerId: string) {
-  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${providerId}))`;
-}
 
 /**
  * Marks or unmarks the System as a Provider. Already in that state: nothing is
  * written (`changed: false`, no event). Unmarking is refused (409) while the
- * System has Offerings. Otherwise one `CLASSIFICATION_CHANGED` event by the
- * acting User, in the same transaction.
+ * System has Offerings, and (#124) while any System depends on it. Otherwise one
+ * `CLASSIFICATION_CHANGED` event by the acting User, in the same transaction.
  */
 export async function setSystemProvider(
   systemId: string,
@@ -147,6 +148,9 @@ export async function setSystemProvider(
 
     if (!isProvider && (await tx.controlOffering.count({ where: { providerId: systemId } })) > 0) {
       return { ok: false, status: 409, error: UNMARK_PROVIDER_REFUSAL } as const;
+    }
+    if (!isProvider && (await tx.providerDependency.count({ where: { providerId: systemId } })) > 0) {
+      return { ok: false, status: 409, error: UNMARK_PROVIDER_WITH_DEPENDENTS_REFUSAL } as const;
     }
 
     await tx.system.update({ where: { id: systemId }, data: { isProvider } });
@@ -178,20 +182,23 @@ export async function createControlOffering(
 
     const control = await tx.control.findUnique({ where: { id: input.controlId }, select: { id: true, code: true } });
     if (!control) return { ok: false, status: 404, error: "Control not found" } as const;
-    if (!(await getApplicableControl(provider, control.id))) {
+    if (!(await getApplicableControl(provider, control.id, tx))) {
       return { ok: false, status: 409, error: "A Provider can only offer a Control that applies to it" } as const;
     }
     if (await tx.controlOffering.findUnique({ where: { providerId_controlId: { providerId: provider.id, controlId: control.id } }, select: { id: true } })) {
       return { ok: false, status: 409, error: "This Provider already offers that Control" } as const;
     }
 
-    const offering = await tx.controlOffering.create({
-      data: { providerId: provider.id, controlId: control.id, ...values },
-      select: { id: true },
+    // A Full Offering can give the Systems depending on the Provider credit (#124): record what it moves.
+    return withProviderInheritanceEvents(tx, { providerId: provider.id, controlIds: [control.id] }, async () => {
+      const offering = await tx.controlOffering.create({
+        data: { providerId: provider.id, controlId: control.id, ...values },
+        select: { id: true },
+      });
+      await logChangeEvent(provider.id, "CONTROL_OFFERING_CHANGED", describeOfferingAdded(control.code, values.type), actorId, tx);
+      return { ok: true, value: { offeringId: offering.id } } as const;
     });
-    await logChangeEvent(provider.id, "CONTROL_OFFERING_CHANGED", describeOfferingAdded(control.code, values.type), actorId, tx);
-    return { ok: true, value: { offeringId: offering.id } } as const;
-  });
+  }, { timeout: PROVIDER_TRANSACTION_TIMEOUT_MS });
 }
 
 /**
@@ -221,11 +228,13 @@ export async function updateControlOffering(
     if (refusal) return { ok: false, status: 400, error: refusal } as const;
     if (!offeringValuesDiffer(before, after)) return { ok: true, value: { changed: false } } as const;
 
-    await tx.controlOffering.update({ where: { id: offering.id }, data: after });
-    const detail = describeOfferingChanged(offering.control.code, before, after);
-    if (detail) await logChangeEvent(provider.id, "CONTROL_OFFERING_CHANGED", detail, actorId, tx);
-    return { ok: true, value: { changed: true } } as const;
-  });
+    return withProviderInheritanceEvents(tx, { providerId: provider.id, controlIds: [offering.controlId] }, async () => {
+      await tx.controlOffering.update({ where: { id: offering.id }, data: after });
+      const detail = describeOfferingChanged(offering.control.code, before, after);
+      if (detail) await logChangeEvent(provider.id, "CONTROL_OFFERING_CHANGED", detail, actorId, tx);
+      return { ok: true, value: { changed: true } } as const;
+    });
+  }, { timeout: PROVIDER_TRANSACTION_TIMEOUT_MS });
 }
 
 /** Removes an Offering (404 if it isn't this Provider's), with one `CONTROL_OFFERING_CHANGED` event recording what it was. */
@@ -238,8 +247,10 @@ export async function removeControlOffering(provider: ProviderSystem, offeringId
     });
     if (!offering) return { ok: false, status: 404, error: "Control Offering not found" } as const;
 
-    await tx.controlOffering.delete({ where: { id: offering.id } });
-    await logChangeEvent(provider.id, "CONTROL_OFFERING_CHANGED", describeOfferingRemoved(offering.control.code, offering.type), actorId, tx);
-    return { ok: true, value: null } as const;
-  });
+    return withProviderInheritanceEvents(tx, { providerId: provider.id, controlIds: [offering.controlId] }, async () => {
+      await tx.controlOffering.delete({ where: { id: offering.id } });
+      await logChangeEvent(provider.id, "CONTROL_OFFERING_CHANGED", describeOfferingRemoved(offering.control.code, offering.type), actorId, tx);
+      return { ok: true, value: null } as const;
+    });
+  }, { timeout: PROVIDER_TRANSACTION_TIMEOUT_MS });
 }

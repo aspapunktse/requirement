@@ -320,8 +320,12 @@ export function scopeForMappedControls(
  * if that includes the base Framework). Null when the Control is mapped to no
  * Published Framework, since then it applies to nothing whatever its scoping.
  */
-export async function scopeForControl(controlId: string): Promise<RecomputeScope | null> {
-  const frameworks = await prisma.framework.findMany({
+export async function scopeForControl(
+  controlId: string,
+  // Pass the transaction client when called inside an interactive transaction (a second connection there can starve the pool, #124).
+  db: Pick<Prisma.TransactionClient, "framework"> = prisma,
+): Promise<RecomputeScope | null> {
+  const frameworks = await db.framework.findMany({
     where: { status: "PUBLISHED", requirements: { some: { mappings: { some: { controlId } } } } },
     select: { id: true, isBase: true },
   });

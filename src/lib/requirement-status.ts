@@ -9,8 +9,9 @@ import {
   resolveImplementedByOrganization,
   type EffectiveStatus,
   type OwnAssessment,
+  type ProviderSource,
 } from "@/lib/effective-status";
-import { loadOrganizationStatuses, toOwnAssessment } from "@/lib/effective-status-data";
+import { loadOrganizationStatuses, loadProviderSources, toOwnAssessment } from "@/lib/effective-status-data";
 import {
   countDerivedStatuses,
   deriveRequirementStatus,
@@ -32,14 +33,17 @@ export * from "@/lib/requirement-status-rules";
  *   ONE Framework in a constant number of queries (the Framework and its
  *   Requirements with their mapped Controls, the Organization's implementation
  *   statuses of those Controls, then one query for the Systems' Control
- *   Assessments), never a query per System or per Requirement.
+ *   Assessments and the few that load the Systems' Provider sources, #124),
+ *   never a query per System or per Requirement.
  *   Whether a mapped Control counts for a System is decided in memory:
  *   `controlAppliesToSystem` (which mirrors `getApplicableControls`) for a
  *   Per-System or Both Control, and the Framework being in the System's
  *   effective scope for an Organizational one (#122, `controlCountsForSystem`).
  * - Each mapped Control that counts for the System is judged by its *effective*
  *   status: a Both Control the System hasn't assessed itself is Fulfilled while
- *   the Organization's implementation is (`resolveEffectiveStatus`, #121), and an
+ *   the Organization's implementation is (`resolveEffectiveStatus`, #121), a
+ *   Per-System or Both Control is Fulfilled while a Full Offering of a Provider
+ *   the System depends on is (#124), and an
  *   Organizational Control is whatever the Organization's implementation says
  *   (`resolveImplementedByOrganization`, #122). The stored Assessment status is
  *   never changed or copied.
@@ -237,11 +241,15 @@ export async function loadFrameworkDerivationData(frameworkId: string): Promise<
  * with no row counts as an untouched Not Started one. Each Control is judged by
  * its effective status (#121, #122), through `resolveEffectiveStatus` or, for an
  * Organizational Control, `resolveImplementedByOrganization`.
+ * `providerSourcesByControlId` holds the Offerings of the Providers the System
+ * depends on (`loadProviderSources`, #124), by Control id; a Control without
+ * an entry has no Provider source.
  */
 export function deriveRequirementRowsForSystem(
   data: FrameworkDerivationData,
   system: SystemClassification,
   ownAssessmentByControlId: ReadonlyMap<string, NonNullable<OwnAssessment>>,
+  providerSourcesByControlId: ReadonlyMap<string, ProviderSource[]> = new Map(),
 ): DerivedRequirementRow[] {
   // A Control appears under several Requirements: decide whether it counts once.
   const frameworkInScope = isFrameworkInEffectiveScope(data.framework, system.frameworkScopes);
@@ -272,7 +280,11 @@ export function deriveRequirementRowsForSystem(
             ? resolveImplementedByOrganization(data.organizationStatusByControlId.get(control.id))
             : resolveEffectiveStatus(
                 own ?? null,
-                inheritanceSourcesFor(control, data.organizationStatusByControlId.get(control.id)),
+                inheritanceSourcesFor(
+                  control,
+                  data.organizationStatusByControlId.get(control.id),
+                  providerSourcesByControlId.get(control.id),
+                ),
               ),
       };
     });
@@ -304,13 +316,16 @@ export async function deriveFrameworkStatusesForSystems(frameworkId: string, sys
   const data = await loadFrameworkDerivationData(frameworkId);
   if (!data) return null;
 
-  const assessments =
+  const systemIds = systems.map((s) => s.id);
+  const [assessments, providerSources] = await Promise.all([
     systems.length === 0 || data.controlIds.length === 0
       ? []
-      : await prisma.controlAssessment.findMany({
-          where: { systemId: { in: systems.map((s) => s.id) }, controlId: { in: data.controlIds } },
+      : prisma.controlAssessment.findMany({
+          where: { systemId: { in: systemIds }, controlId: { in: data.controlIds } },
           select: { systemId: true, controlId: true, status: true, assessedById: true },
-        });
+        }),
+    loadProviderSources(systemIds, data.controlIds),
+  ]);
   const assessmentsBySystem = new Map<string, Map<string, NonNullable<OwnAssessment>>>();
   for (const assessment of assessments) {
     const own = assessmentsBySystem.get(assessment.systemId) ?? new Map<string, NonNullable<OwnAssessment>>();
@@ -321,7 +336,12 @@ export async function deriveFrameworkStatusesForSystems(frameworkId: string, sys
   const bySystem = new Map<string, DerivedRequirementRow[]>(
     systems.map((system) => [
       system.id,
-      deriveRequirementRowsForSystem(data, system, assessmentsBySystem.get(system.id) ?? new Map()),
+      deriveRequirementRowsForSystem(
+        data,
+        system,
+        assessmentsBySystem.get(system.id) ?? new Map(),
+        providerSources.get(system.id) ?? new Map(),
+      ),
     ]),
   );
   return { framework: data.framework, bySystem };

@@ -10,7 +10,7 @@ import {
   resolveEffectiveStatus,
   sourceGivesCredit,
 } from "@/lib/effective-status";
-import { toOwnAssessment } from "@/lib/effective-status-data";
+import { loadProviderSources, toOwnAssessment } from "@/lib/effective-status-data";
 import {
   saveOrganizationImplementation,
   type getOrganizationControl,
@@ -30,7 +30,9 @@ import {
  * Change Event, written in the same transaction as the implementation, so a
  * System never shows a changed status without its event or the other way round.
  * Systems whose effective status stays the same (a person-set Assessment, an
- * own-Fulfilled one, a System the Control doesn't apply to) get none.
+ * own-Fulfilled one, a System the Control doesn't apply to, a System a Provider
+ * (#124) already made Fulfilled) get none: each System is resolved with its
+ * Provider sources too, under the Organization's old and new status.
  *
  * An Organizational Control is the other case (#122, product-owner decision): it
  * counts live on every System with the Framework in scope, so one status change
@@ -101,7 +103,7 @@ async function writeInheritedStatusEvents(
   before: ControlAssessmentStatus,
   after: ControlAssessmentStatus,
 ) {
-  const scope = await scopeForControl(controlId);
+  const scope = await scopeForControl(controlId, tx);
   if (!scope) return;
 
   const [control, systems, assessments] = await Promise.all([
@@ -135,15 +137,21 @@ async function writeInheritedStatusEvents(
     }),
   ]);
   const ownBySystemId = new Map(assessments.map((a) => [a.systemId, toOwnAssessment(a)]));
+  const providerSources = await loadProviderSources(
+    systems.map((system) => system.id),
+    [controlId],
+    tx,
+  );
 
   const events: Prisma.ChangeEventCreateManyInput[] = [];
   for (const system of systems) {
     if (!controlAppliesToSystem(control, system)) continue;
     const own = ownBySystemId.get(system.id) ?? null;
+    const providers = providerSources.get(system.id)?.get(controlId);
     const detail = describeInheritedStatusChange(
       control.code,
-      resolveEffectiveStatus(own, inheritanceSourcesFor(control, before)),
-      resolveEffectiveStatus(own, inheritanceSourcesFor(control, after)),
+      resolveEffectiveStatus(own, inheritanceSourcesFor(control, before, providers)),
+      resolveEffectiveStatus(own, inheritanceSourcesFor(control, after, providers)),
     );
     if (detail) events.push({ systemId: system.id, action: "ASSESSMENT_STATUS_CHANGED", detail, actorId: SYSTEM_ACTOR });
   }

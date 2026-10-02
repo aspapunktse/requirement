@@ -7,6 +7,7 @@ import {
   type SystemClassification,
 } from "@/lib/control-assessments";
 import { logChangeEvent, SYSTEM_ACTOR } from "@/lib/change-events";
+import { recordProviderChange } from "@/lib/provider-inheritance";
 
 export type CapabilityRef = { id: string; name: string };
 
@@ -206,9 +207,14 @@ async function getApplicableControlsForCapability(system: SystemClassification, 
  * that become applicable later, through `planNewAssessments`.
  */
 export async function applyCapabilityDeclared(
-  system: SystemClassification & { id: string },
+  system: SystemClassification & { id: string; isProvider?: boolean },
   capability: { id: string; name: string },
 ) {
+  // Auto-fulfilling a Provider's Controls changes the status its dependents read (#124, F-IN.7).
+  return recordProviderChange(system, () => declareCapability(system, capability));
+}
+
+async function declareCapability(system: SystemClassification & { id: string }, capability: { id: string; name: string }) {
   const controls = await getApplicableControlsForCapability(system, capability.id);
   if (controls.length === 0) return;
 
@@ -271,7 +277,12 @@ export async function applyCapabilityDeclared(
  * suffices), in which case the Assessment stays Fulfilled, re-attributed to
  * that surviving Capability (the first by name, then id: `pickCapability`).
  */
-export async function applyCapabilityRemoved(system: { id: string }, capabilityId: string) {
+export async function applyCapabilityRemoved(system: { id: string; isProvider?: boolean }, capabilityId: string) {
+  // Reverting a Provider's auto-fulfilled Controls changes the status its dependents read (#124, F-IN.7).
+  return recordProviderChange(system, () => removeCapability(system, capabilityId));
+}
+
+async function removeCapability(system: { id: string }, capabilityId: string) {
   const affected = await prisma.controlAssessment.findMany({
     where: { systemId: system.id, fulfilledByCapabilityId: capabilityId },
     include: { control: { include: { capabilities: true } } },
