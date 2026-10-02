@@ -20,7 +20,7 @@ This file is a snapshot of in-flight state, not a permanent doc. Update or trim 
   - #95 (GitHub Actions on their Node 24 majors);
   - #115 (CI, the CD deploy job and the Docker image on Node 24);
   - PR #106 (Vercel records production deploys as `main`).
-- `main` is at #122 (PR #131). There are no open PRs.
+- `main` is at #129 (PR #132). There are no open PRs.
 - The dev DB is in its seeded state:
   - 10 Systems, 471 Control Assessments, 0 Change Events, and (since #120) 92 Organization Control Implementations, all Not Started: one per Organizational/Both Control.
   - Frameworks: ISO/IEC 27001:2022, which is the base and Published. GDPR 1 and Export Control (EAR/ITAR) 1 are Published but have no Requirements yet; they came from #88.
@@ -30,7 +30,7 @@ This file is a snapshot of in-flight state, not a permanent doc. Update or trim 
 2. ~~**#120: Organization Control Implementation**, status and description per Organizational/Both Control (F-IN.1, §9.7).~~ **Done** (PR #128, key pieces below).
 3. ~~**#121: effective status**, Systems inherit Both Controls from the Organization (F-IN.5, F-IN.6, F-IN.7).~~ **Done** (PR #130, key pieces below).
 4. ~~**#122: count Organizational Requirements per System** (#89 decision 3a).~~ **Done** (PR #131, key pieces below).
-   - ~~Then **#129: reset a Control Assessment to inherited** (F-IN.5 follow-up, product-owner decision of 2026-10-01).~~ **Done** (key pieces below).
+   - ~~Then **#129: reset a Control Assessment to inherited** (F-IN.5 follow-up, product-owner decision of 2026-10-01).~~ **Done** (PR #132, key pieces below).
 5. **#123: Providers and Control Offerings** (F-IN.2). Blocked by nothing. After #129. **Start here.**
 6. **#124: Provider dependencies and live Full inheritance** (F-IN.3, F-IN.4, OQ-2). After #121 and #123.
 7. **#125: Shared inheritance and customer responsibility** (F-IN.5 rule 3). After #124.
