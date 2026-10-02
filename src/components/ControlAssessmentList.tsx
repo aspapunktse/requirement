@@ -6,9 +6,11 @@ import { StatusChip } from "@/components/ui/StatusChip";
 import { controlAssessmentStatusTone } from "@/lib/status-tones";
 import { canWaiveControl, isSystemOwnerOrAdmin, type AssessmentEditAccess } from "@/lib/system-permissions";
 import {
-  effectiveOverrideNote,
+  effectiveNote,
   effectiveSourceDetails,
   effectiveSourceLabel,
+  isInheritanceSource,
+  isSharedSource,
   resetToInheritedRefusal,
   resolveEffectiveStatus,
   type EffectiveStatus,
@@ -508,7 +510,7 @@ function ResetToInherited({
   async function handleReset() {
     const confirmed = window.confirm(
       `Reset ${control.code} to inherited? This clears this System's own status, evidence, notes and ` +
-        `Self-Assessment answer, so the Control goes back to what it inherits (${effectiveSourceDetails(effective).join("; ")}). ` +
+        `Self-Assessment answer, so the Control goes back to what it inherits (${effectiveSourceDetails({ sources: effective.sources.filter((source) => !isSharedSource(source)) }).join("; ")}). ` +
         "Its Assessment Queries and any Risks linked to it stay as they are, and what was cleared is kept in the System's Change Event log.",
     );
     if (!confirmed) return;
@@ -533,6 +535,31 @@ function ResetToInherited({
       <Button variant="outline" className="self-start px-3 py-0.5 text-xs" onClick={handleReset} disabled={busy}>
         Reset to inherited
       </Button>
+    </div>
+  );
+}
+
+/**
+ * What this System itself must do for the Shared Offerings of a Control (#125):
+ * each Provider's customer-responsibility text, next to the status field, so the
+ * owner knows what their half is. Nothing when the Control has no Shared Offering.
+ */
+function CustomerResponsibility({ control, effective }: { control: Control; effective: EffectiveStatus }) {
+  const shared = effective.sources.filter(isSharedSource);
+  if (shared.length === 0) return null;
+  return (
+    <div
+      role="note"
+      aria-label={`Customer responsibility for ${control.code}`}
+      className="flex flex-col gap-1 rounded border border-zinc-200 p-2 text-sm dark:border-zinc-800"
+    >
+      <span className="font-medium">Customer responsibility: this System&apos;s own half</span>
+      {shared.map((source) => (
+        <p key={source.provider.id}>
+          Provider &quot;{source.provider.name}&quot;: {source.customerResponsibility ?? "(no text recorded)"}
+        </p>
+      ))}
+      <span className="text-xs text-zinc-500">Set the status below to Fulfilled once this System has done it.</span>
     </div>
   );
 }
@@ -665,8 +692,9 @@ function ControlRow({
           {effective && !stale && (
             <p className="mt-1 text-xs text-zinc-500">
               {[`Source: ${effectiveSourceLabel(effective)}`, ...effectiveSourceDetails(effective)].join(" · ")}
-              {effectiveOverrideNote(effective) && `. ${effectiveOverrideNote(effective)}`}
-              {effective.source.kind !== "SYSTEM" &&
+              {effectiveNote(effective) && `. ${effectiveNote(effective)}`}
+              {isInheritanceSource(effective.source) &&
+                !isSharedSource(effective.source) &&
                 editAccess !== "none" &&
                 ". Saving a status below sets this System's own Assessment, which then overrides the inherited one."}
             </p>
@@ -694,6 +722,8 @@ function ControlRow({
       ) : (
         <div className="flex flex-col gap-2">
           {error && <p className="text-sm text-red-600">{error}</p>}
+
+          {effective && !stale && <CustomerResponsibility control={control} effective={effective} />}
 
           <label className="flex flex-col gap-1 text-sm">
             Status

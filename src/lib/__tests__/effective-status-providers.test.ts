@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ControlAssessmentStatus, ControlOfferingType } from "@prisma/client";
+import type { ControlAssessmentStatus } from "@prisma/client";
 import {
   CREDITED_OFFERING_TYPES,
   describeEffectiveStatusNow,
@@ -60,19 +60,22 @@ describe("sourceNoCreditReason: why a source gives no credit", () => {
     expect(sourceNoCreditReason(provider({ appliesToProvider: false }))).toBe("NO_LONGER_APPLIES");
   });
 
-  it("a Shared Offering gives no credit yet (#125), even if Fulfilled", () => {
-    expect(sourceNoCreditReason(provider({ type: "SHARED", customerResponsibility: "Manage keys" }))).toBe("SHARED");
-    expect(CREDITED_OFFERING_TYPES).toEqual(["FULL"]);
+  it("a Shared Offering gives credit only with the System's own half done too (#125); both types can give credit", () => {
+    const shared = provider({ type: "SHARED", customerResponsibility: "Manage keys" });
+    expect(sourceNoCreditReason(shared)).toBe("CUSTOMER_HALF_MISSING");
+    expect(sourceNoCreditReason(shared, false)).toBe("CUSTOMER_HALF_MISSING");
+    expect(sourceNoCreditReason(shared, true)).toBeNull();
+    expect(CREDITED_OFFERING_TYPES).toEqual(["FULL", "SHARED"]);
   });
 
-  it("names the first reason when several hold: pending, then no longer applies, then Shared, then not Fulfilled", () => {
+  it("names the first reason when several hold: pending, then no longer applies, then not Fulfilled, then the System's own half", () => {
     const all = provider({ type: "SHARED", status: "NOT_STARTED", providerOnboarded: false, appliesToProvider: false });
     const reasons: SourceNoCreditReason[] = [];
     reasons.push(sourceNoCreditReason(all)!);
     reasons.push(sourceNoCreditReason({ ...all, providerOnboarded: true })!);
     reasons.push(sourceNoCreditReason({ ...all, providerOnboarded: true, appliesToProvider: true })!);
-    reasons.push(sourceNoCreditReason({ ...all, providerOnboarded: true, appliesToProvider: true, type: "FULL" })!);
-    expect(reasons).toEqual(["PROVIDER_NOT_ONBOARDED", "NO_LONGER_APPLIES", "SHARED", "NOT_FULFILLED"]);
+    reasons.push(sourceNoCreditReason({ ...all, providerOnboarded: true, appliesToProvider: true, status: "FULFILLED" })!);
+    expect(reasons).toEqual(["PROVIDER_NOT_ONBOARDED", "NO_LONGER_APPLIES", "NOT_FULFILLED", "CUSTOMER_HALF_MISSING"]);
   });
 
   it("the Organization is judged by its status alone", () => {
@@ -100,7 +103,6 @@ describe("resolveEffectiveStatus with Provider sources", () => {
     ["not Fulfilled", provider({ status: "IN_PROGRESS" })],
     ["pending (not Onboarded)", provider({ providerOnboarded: false })],
     ["no longer applying", provider({ appliesToProvider: false })],
-    ["Shared", provider({ type: "SHARED" as ControlOfferingType, customerResponsibility: "x" })],
   ])("a %s Provider gives no credit: the own status stands and the source is still listed", (_label, source) => {
     for (const own of [null, untouched, { status: "IN_PROGRESS", personSet: false } as OwnAssessment]) {
       const result = resolveEffectiveStatus(own, [source]);
@@ -226,7 +228,7 @@ describe("the Provider wording", () => {
       'Provider "Landing Zone" (Full): Fulfilled (this Control no longer applies to the Provider, gives no credit)',
     ]);
     expect(lines(provider({ type: "SHARED", customerResponsibility: "The tenant manages its own keys" }))).toEqual([
-      'Provider "Landing Zone" (Shared): Fulfilled (a Shared Offering gives no credit yet; customer responsibility: The tenant manages its own keys)',
+      "Provider \"Landing Zone\" (Shared): Fulfilled (this System's own half is not Fulfilled; customer responsibility: The tenant manages its own keys)",
     ]);
   });
 
@@ -283,15 +285,30 @@ describe("reset to inherited with a Provider source (#129 and #124)", () => {
     expect(after).toBeNull();
   });
 
-  it("the existence of a source is enough: a pending, not-Fulfilled, no-longer-applying or Shared source too", () => {
+  it("the existence of a Full source is enough: a pending, not-Fulfilled or no-longer-applying one too", () => {
     for (const source of [
       provider({ providerOnboarded: false }),
       provider({ status: "NOT_STARTED" }),
       provider({ appliesToProvider: false }),
-      provider({ type: "SHARED", customerResponsibility: "x" }),
     ]) {
       expect(resetToInheritedRefusal({ applies: true, sources: [source], own })).toBeNull();
     }
+  });
+
+  it("a Shared source alone is not enough (D2 on #125), whatever its state", () => {
+    for (const source of [
+      provider({ type: "SHARED", customerResponsibility: "x" }),
+      provider({ type: "SHARED", customerResponsibility: "x", providerOnboarded: false }),
+      provider({ type: "SHARED", customerResponsibility: "x", status: "NOT_STARTED" }),
+    ]) {
+      expect(resetToInheritedRefusal({ applies: true, sources: [source], own })).toBe("NO_SOURCE");
+    }
+  });
+
+  it("a Full source next to a Shared one still allows it", () => {
+    const shared = provider({ type: "SHARED", customerResponsibility: "x", id: "s", name: "Shared" });
+    expect(resetToInheritedRefusal({ applies: true, sources: [shared, provider()], own })).toBeNull();
+    expect(resetToInheritedRefusal({ applies: true, sources: [organization("NOT_STARTED"), shared], own })).toBeNull();
   });
 
   it("still refuses when the Assessment is not person-set, or the Control no longer applies", () => {

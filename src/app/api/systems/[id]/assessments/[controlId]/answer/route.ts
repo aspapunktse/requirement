@@ -8,6 +8,8 @@ import { assessmentEditAccess, canAnswerSelfAssessment } from "@/lib/system-perm
 import { checkWaiveGate, getApplicableControl } from "@/lib/control-assessments";
 import { logChangeEvent, SYSTEM_ACTOR } from "@/lib/change-events";
 import { runProviderAssessmentWrite } from "@/lib/provider-inheritance";
+import { loadEffectiveStatus, toOwnAssessment } from "@/lib/effective-status-data";
+import { describeOwnEditEffect } from "@/lib/effective-status";
 
 const answerSchema = z.object({
   answer: z.enum(SelfAssessmentAnswer),
@@ -113,10 +115,12 @@ export async function PATCH(
     });
 
     if ((previous?.status ?? "NOT_STARTED") !== status) {
+      // What the Control effectively is, when that isn't the stored status (see the edit route, #125).
+      const effect = describeOwnEditEffect(status, await loadEffectiveStatus(system.id, control, toOwnAssessment(saved), db));
       await logChangeEvent(
         system.id,
         "ASSESSMENT_STATUS_CHANGED",
-        `${control.code} status changed from ${previous?.status ?? "NOT_STARTED"} to ${status} (Self-Assessment answer: ${answer})`,
+        `${control.code} status changed from ${previous?.status ?? "NOT_STARTED"} to ${status} (Self-Assessment answer: ${answer}${effect ? `; ${effect}` : ""})`,
         auth.user.id,
         db,
       );

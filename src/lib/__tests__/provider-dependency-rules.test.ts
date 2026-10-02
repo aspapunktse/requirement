@@ -71,8 +71,22 @@ describe("what removing a dependency stops", () => {
   });
 
   it("the confirmation names the Controls that stop being inherited, or says nothing changes", () => {
-    expect(describeDependencyRemovalConfirmation(row())).toBe(
+    // Full only: the wording is what it was before Shared Offerings could give credit.
+    const fullOnly = row({ offerings: [offering("A.1"), offering("A.2", { providerStatus: "IN_PROGRESS" })] });
+    expect(describeDependencyRemovalConfirmation(fullOnly)).toBe(
       'Remove the dependency on Provider "Landing Zone"? These Controls stop being inherited from it: A.1 (unless another source still gives them credit). Nothing is changed on this System\'s own Assessments.',
+    );
+    // A Shared Offering that counts is named too (#125): its Control is then judged by the System's own Assessment alone.
+    expect(describeDependencyRemovalConfirmation(row())).toBe(
+      'Remove the dependency on Provider "Landing Zone"? These Controls stop being inherited from it: A.1 (unless another source still gives them credit). Its Shared Offerings (A.3) stop counting: those Controls are then judged by this System\'s own Assessment alone. Nothing is changed on this System\'s own Assessments.',
+    );
+    const sharedOnly = row({ offerings: [offering("A.3", { type: "SHARED", customerResponsibility: "x", providerStatus: "NOT_STARTED" })] });
+    expect(describeDependencyRemovalConfirmation(sharedOnly)).toBe(
+      'Remove the dependency on Provider "Landing Zone"? Its Shared Offerings (A.3) stop counting: those Controls are then judged by this System\'s own Assessment alone. Nothing is changed on this System\'s own Assessments.',
+    );
+    // One that can't count (pending Provider, Control no longer applies) changes nothing.
+    expect(describeDependencyRemovalConfirmation(row({ onboarded: false, offerings: [offering("A.3", { type: "SHARED", customerResponsibility: "x" })] }))).toBe(
+      'Remove the dependency on Provider "Landing Zone"? It gives this System no credit right now, so no Control\'s status changes.',
     );
     expect(describeDependencyRemovalConfirmation(row({ onboarded: false }))).toBe(
       'Remove the dependency on Provider "Landing Zone"? It gives this System no credit right now, so no Control\'s status changes.',

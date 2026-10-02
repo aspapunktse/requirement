@@ -9,7 +9,8 @@ import { getSystemAssessmentRow, resetAssessmentToInherited } from "@/lib/contro
  * way back from a person-set Assessment, which overrides every inheritance
  * source for good, to whatever the sources give. The System's owner or an Admin
  * only (a Compliance Manager stays read-only). 409 when the Control no longer
- * applies, has no inheritance source for this System, or the Assessment isn't
+ * applies, has no Full inheritance source for this System (a Shared Offering
+ * doesn't count), or the Assessment isn't
  * person-set (see `resetToInheritedRefusal`). The cleared values go into a
  * Change Event (see `resetAssessmentToInherited`). Returns the row as
  * `GET /api/systems/[id]/assessments` shows it: `{ control, assessment, effective }`.

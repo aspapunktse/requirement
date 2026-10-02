@@ -748,13 +748,15 @@ describe("ControlAssessmentList: Provider sources (#124)", () => {
     expect(item.queryByText(/Saving a status below/)).not.toBeInTheDocument();
   });
 
-  it("lists a Shared Offering with its customer responsibility, without credit", async () => {
+  it("lists a Shared Offering with its customer responsibility: untouched, the System's own half is the one missing", async () => {
     stubFetch([rowOf(null, [provider({ type: "SHARED", customerResponsibility: "The tenant manages its own keys" })])]);
     renderList();
 
     const item = await itemOf();
     expect(item.getByText("Not Started", { selector: "span" })).toBeInTheDocument();
-    expect(item.getByText(/Provider "Landing Zone" \(Shared\): Fulfilled \(a Shared Offering gives no credit yet; customer responsibility: The tenant manages its own keys\)/)).toBeInTheDocument();
+    expect(
+      item.getByText(/Provider "Landing Zone" \(Shared\): Fulfilled \(this System's own half is not Fulfilled; customer responsibility: The tenant manages its own keys\)/),
+    ).toBeInTheDocument();
   });
 
   it("says in one line when the System's own person-set Assessment overrides a Provider's Fulfilled status", async () => {
@@ -791,5 +793,193 @@ describe("ControlAssessmentList: Provider sources (#124)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(await screen.findByText(/overrides Provider "Landing Zone"'s Fulfilled status/)).toBeInTheDocument();
+  });
+});
+
+describe("ControlAssessmentList: Shared Offerings (#125)", () => {
+  const TEXT = "The tenant manages its own keys";
+  const shared = (overrides: Partial<ProviderSource> = {}): ProviderSource => ({
+    kind: "PROVIDER",
+    type: "SHARED",
+    status: "FULFILLED",
+    provider: { id: "p1", name: "Landing Zone" },
+    providerOnboarded: true,
+    appliesToProvider: true,
+    customerResponsibility: TEXT,
+    ...overrides,
+  });
+  const full = (overrides: Partial<ProviderSource> = {}): ProviderSource =>
+    shared({ type: "FULL", customerResponsibility: null, provider: { id: "p2", name: "Zed Cloud" }, ...overrides });
+  const control = { id: "p1c", code: "A.8.24", title: "Use of cryptography", description: "d", category: "Technological", mandatory: true, question: null };
+  const assessmentOf = (status: string, assessedById: string | null) => ({
+    id: "pa1",
+    status,
+    evidence: null,
+    notes: null,
+    selfAssessmentAnswer: null,
+    assessedById,
+    queries: [],
+  });
+  const rowOf = (own: ReturnType<typeof assessmentOf> | null, sources: InheritanceSource[]) => ({
+    control,
+    assessment: own,
+    effective: resolveEffectiveStatus(own ? { status: own.status as never, personSet: own.assessedById !== null } : null, sources),
+  });
+
+  /** Serves `rows`; a PATCH answers with the saved Assessment, exactly as the API does (no `effective`). */
+  function stubFetch(rows: unknown[]) {
+    const fetchMock = vi.fn((_url: string, init?: RequestInit) => {
+      if (init?.method === "PATCH") {
+        const body = JSON.parse(init.body as string);
+        return Promise.resolve(new Response(JSON.stringify({ assessment: assessmentOf(body.status, "owner") }), { status: 200 }));
+      }
+      return Promise.resolve(new Response(JSON.stringify({ assessments: rows, staleAssessments: [] }), { status: 200 }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    return fetchMock;
+  }
+  const renderList = (props: Partial<React.ComponentProps<typeof ControlAssessmentList>> = {}) =>
+    render(<ControlAssessmentList systemId="s1" userRole="SYSTEM_OWNER" currentUserId="owner" systemOwnerId="owner" {...props} />);
+  const itemOf = async () => within((await screen.findByText("A.8.24 — Use of cryptography")).closest("li")!);
+  const save = async (status: string) => {
+    fireEvent.change(await screen.findByLabelText("Status for A.8.24"), { target: { value: status } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  };
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("shows each Shared Offering's customer responsibility next to the status field, so the owner knows their half", async () => {
+    stubFetch([rowOf(null, [shared(), shared({ provider: { id: "p3", name: "Alpha Cloud" }, customerResponsibility: "Rotate the keys yearly" })])]);
+    renderList();
+
+    const item = await itemOf();
+    const note = item.getByRole("note", { name: "Customer responsibility for A.8.24" });
+    expect(within(note).getByText(`Provider "Landing Zone": ${TEXT}`)).toBeInTheDocument();
+    expect(within(note).getByText('Provider "Alpha Cloud": Rotate the keys yearly')).toBeInTheDocument();
+    // It sits in the form, before the status field.
+    expect(note.compareDocumentPosition(item.getByLabelText("Status for A.8.24")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("shows no customer-responsibility block for a Control with no Shared Offering", async () => {
+    stubFetch([rowOf(null, [full()])]);
+    renderList();
+    expect((await itemOf()).queryByRole("note")).not.toBeInTheDocument();
+  });
+
+  it("untouched with a Fulfilled Shared Provider: Not Started, and the missing half is this System's own", async () => {
+    stubFetch([rowOf(null, [shared()])]);
+    renderList();
+
+    const item = await itemOf();
+    expect(item.getByText("Not Started", { selector: "span" })).toBeInTheDocument();
+    expect(
+      item.getByText(
+        /Source: System-specific · Provider "Landing Zone" \(Shared\): Fulfilled \(this System's own half is not Fulfilled; customer responsibility: The tenant manages its own keys\)/,
+      ),
+    ).toBeInTheDocument();
+    expect(item.queryByText(/waiting for/)).not.toBeInTheDocument();
+  });
+
+  it("own Fulfilled and the Provider's half done: Fulfilled, Inherited from Provider X: Shared, with no 'overrides' sentence", async () => {
+    stubFetch([rowOf(assessmentOf("FULFILLED", "owner"), [shared()])]);
+    renderList();
+
+    const item = await itemOf();
+    expect(item.getByText("Fulfilled", { selector: "span" })).toBeInTheDocument();
+    expect(item.getByText(/Source: Inherited from Provider Landing Zone: Shared · Provider "Landing Zone" \(Shared\): Fulfilled \(customer responsibility/)).toBeInTheDocument();
+    expect(item.queryByText(/Saving a status below sets this System's own Assessment/)).not.toBeInTheDocument();
+    expect(item.queryByText(/overrides/)).not.toBeInTheDocument();
+  });
+
+  it("own Fulfilled and the Provider's half missing: In Progress, and the page says which half is missing", async () => {
+    stubFetch([rowOf(assessmentOf("FULFILLED", "owner"), [shared({ status: "IN_PROGRESS" })])]);
+    renderList();
+
+    const item = await itemOf();
+    expect(item.getByText("In Progress", { selector: "span" })).toBeInTheDocument();
+    expect(
+      item.getByText(/Provider "Landing Zone" \(Shared\): In Progress \(the Provider's half is missing: the Provider has not Fulfilled it; customer responsibility/),
+    ).toBeInTheDocument();
+    expect(
+      item.getByText(/This System's own half is Fulfilled, but it is waiting for Provider "Landing Zone" to provide its half, so the Control is In Progress\./),
+    ).toBeInTheDocument();
+    expect(item.getByLabelText("Status for A.8.24")).toHaveValue("FULFILLED"); // the form still edits the own half
+  });
+
+  it.each([
+    ["is pending", shared({ providerOnboarded: false }), /the Provider's half is missing, pending: Provider not Onboarded/],
+    ["no longer applies", shared({ appliesToProvider: false }), /the Provider's half is missing: this Control no longer applies to the Provider/],
+  ])("the Provider's half that %s is named", async (_label, source, text) => {
+    stubFetch([rowOf(assessmentOf("FULFILLED", "owner"), [source])]);
+    renderList();
+
+    expect((await itemOf()).getByText(text)).toBeInTheDocument();
+  });
+
+  it("after the owner saves Fulfilled, the row is re-resolved from the sources the API sent: Fulfilled through the Shared Offering", async () => {
+    stubFetch([rowOf(null, [shared()])]);
+    renderList();
+    const item = await itemOf();
+    expect(item.getByText("Not Started", { selector: "span" })).toBeInTheDocument();
+
+    await save("FULFILLED");
+
+    await waitFor(() => expect(item.getByText("Fulfilled", { selector: "span" })).toBeInTheDocument());
+    expect(item.getByText(/Source: Inherited from Provider Landing Zone: Shared/)).toBeInTheDocument();
+  });
+
+  it("after the owner saves Fulfilled while the Provider's half is missing, the row is In Progress and waits for the Provider", async () => {
+    stubFetch([rowOf(null, [shared({ status: "NOT_STARTED" })])]);
+    renderList();
+    const item = await itemOf();
+
+    await save("FULFILLED");
+
+    await waitFor(() => expect(item.getByText("In Progress", { selector: "span" })).toBeInTheDocument());
+    expect(item.getByText(/waiting for Provider "Landing Zone" to provide its half/)).toBeInTheDocument();
+  });
+
+  it("after the owner saves In Progress over an own Fulfilled, it is In Progress with nothing overridden", async () => {
+    stubFetch([rowOf(assessmentOf("FULFILLED", "owner"), [shared()])]);
+    renderList();
+    const item = await itemOf();
+
+    await save("IN_PROGRESS");
+
+    await waitFor(() => expect(item.getByText(/this System's own half is not Fulfilled/)).toBeInTheDocument());
+    expect(item.getByText("In Progress", { selector: "span" })).toBeInTheDocument();
+    expect(item.queryByText(/overrides/)).not.toBeInTheDocument();
+  });
+
+  it("a Full source next to the Shared one still says the own Assessment overrides it, and offers the reset", async () => {
+    stubFetch([rowOf(assessmentOf("IN_PROGRESS", "owner"), [shared(), full()])]);
+    renderList();
+
+    const item = await itemOf();
+    expect(item.getByText(/This System's own Assessment \(In Progress\) overrides Provider "Zed Cloud"'s Fulfilled status\./)).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Reset to inherited" })).toBeInTheDocument();
+  });
+
+  it("doesn't offer Reset to inherited when only Shared Offerings cover the Control (D2)", async () => {
+    stubFetch([rowOf(assessmentOf("FULFILLED", "owner"), [shared(), shared({ provider: { id: "p3", name: "Alpha Cloud" } })])]);
+    renderList();
+
+    await itemOf();
+    expect(screen.queryByRole("button", { name: "Reset to inherited" })).not.toBeInTheDocument();
+  });
+
+  it("the reset confirmation names only the Full sources it goes back to", async () => {
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    stubFetch([rowOf(assessmentOf("IN_PROGRESS", "owner"), [shared(), full({ status: "NOT_STARTED" })])]);
+    renderList();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Reset to inherited" }));
+
+    const message = confirm.mock.calls[0][0] as string;
+    expect(message).toContain('Provider "Zed Cloud" (Full): Not Started (gives no credit)');
+    expect(message).not.toContain("Landing Zone");
+    confirm.mockRestore();
   });
 });

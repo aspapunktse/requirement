@@ -94,22 +94,57 @@ export function dependencyOfferingSource(row: Pick<ProviderDependencyRow, "provi
   };
 }
 
-/** The Offerings of the Provider that give the dependent credit right now, so removing the dependency stops them being inherited. */
+/**
+ * The Full Offerings of the Provider that give the dependent credit right now, so
+ * removing the dependency stops them being inherited. A Shared Offering is not
+ * here (`sharedOfferingsInPlay`): it gives credit only together with the
+ * dependent's own Assessment, which this row doesn't carry.
+ */
 export function creditedOfferings(row: ProviderDependencyRow): DependencyOffering[] {
-  return row.offerings.filter((offering) => inheritanceSourceGivesCredit(dependencyOfferingSource(row, offering)));
+  return row.offerings.filter(
+    (offering) => offering.type === "FULL" && inheritanceSourceGivesCredit(dependencyOfferingSource(row, offering)),
+  );
+}
+
+/**
+ * The Shared Offerings that count at all right now (#125): the Provider is
+ * Onboarded and the Control still applies to it. Removing the dependency ends
+ * their part in the Control's status either way: a Control this System has
+ * Fulfilled itself stops depending on the Provider's half.
+ */
+export function sharedOfferingsInPlay(row: ProviderDependencyRow): DependencyOffering[] {
+  return row.offerings.filter((offering) => offering.type === "SHARED" && row.onboarded && offering.appliesToProvider);
 }
 
 /**
  * The confirmation shown before removing a dependency: says which Controls stop
- * being inherited from the Provider (the ones it gives credit for right now).
- * Another source (the Organization, another Provider) may still give them credit,
- * and the System's own person-set Assessment is never touched.
+ * being inherited from the Provider (the Full ones it gives credit for right
+ * now) and which Shared Offerings stop counting. Another source (the
+ * Organization, another Provider) may still give them credit, and the System's
+ * own person-set Assessment is never touched.
  */
 export function describeDependencyRemovalConfirmation(row: ProviderDependencyRow): string {
   const credited = creditedOfferings(row);
+  const shared = sharedOfferingsInPlay(row);
   const head = `Remove the dependency on Provider "${row.name}"?`;
-  if (credited.length === 0) return `${head} It gives this System no credit right now, so no Control's status changes.`;
-  return `${head} These Controls stop being inherited from it: ${credited
-    .map((offering) => offering.control.code)
-    .join(", ")} (unless another source still gives them credit). Nothing is changed on this System's own Assessments.`;
+  if (credited.length === 0 && shared.length === 0) {
+    return `${head} It gives this System no credit right now, so no Control's status changes.`;
+  }
+  const parts = [head];
+  if (credited.length > 0) {
+    parts.push(
+      `These Controls stop being inherited from it: ${credited
+        .map((offering) => offering.control.code)
+        .join(", ")} (unless another source still gives them credit).`,
+    );
+  }
+  if (shared.length > 0) {
+    parts.push(
+      `Its Shared Offerings (${shared
+        .map((offering) => offering.control.code)
+        .join(", ")}) stop counting: those Controls are then judged by this System's own Assessment alone.`,
+    );
+  }
+  parts.push("Nothing is changed on this System's own Assessments.");
+  return parts.join(" ");
 }
