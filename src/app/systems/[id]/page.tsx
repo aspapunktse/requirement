@@ -10,6 +10,8 @@ import { canManageFrameworkScopes } from "@/lib/framework-scope";
 import { assessmentEditAccess, canSubmit } from "@/lib/system-permissions";
 import { canManageProvider } from "@/lib/control-offering-rules";
 import { listControlOfferings, listOfferableControls } from "@/lib/control-offerings";
+import { canManageProviderDependencies } from "@/lib/provider-dependency-rules";
+import { listDependents, listProviderChoices, listProviderDependencies } from "@/lib/provider-dependencies";
 import { getSystemFrameworkRequirements } from "@/lib/requirement-status";
 import { ControlAssessmentList } from "@/components/ControlAssessmentList";
 import { SystemFrameworkRequirementsView } from "@/components/SystemFrameworkRequirements";
@@ -20,6 +22,7 @@ import { MarkOnboardedButton } from "@/components/MarkOnboardedButton";
 import { SystemCapabilities } from "@/components/SystemCapabilities";
 import { SystemCatalogRelation } from "@/components/SystemCatalogRelation";
 import { SystemProvider } from "@/components/SystemProvider";
+import { SystemProviderDependencies } from "@/components/SystemProviderDependencies";
 import { DeploymentFacetsChanger } from "@/components/DeploymentFacetsChanger";
 import { ImpactLevelsChanger } from "@/components/ImpactLevelsChanger";
 import { StatusChip } from "@/components/ui/StatusChip";
@@ -40,10 +43,16 @@ export default async function SystemDetailPage({ params }: PageProps<"/systems/[
   }
 
   const canManageThisProvider = canManageProvider(user, system);
-  const [frameworkRequirements, offerings, offerable] = await Promise.all([
+  const canManageDependencies = canManageProviderDependencies(user, system);
+  const [frameworkRequirements, offerings, offerable, dependencies, providerChoices, dependents] = await Promise.all([
     getSystemFrameworkRequirements(system),
     listControlOfferings(system),
     canManageThisProvider ? listOfferableControls(system) : Promise.resolve([]),
+    listProviderDependencies(system, user),
+    // Any owner or Admin may pick any Provider, visible to them or not (name, id, Onboarded or pending only).
+    canManageDependencies ? listProviderChoices() : Promise.resolve([]),
+    // Who depends on this Provider is for its owner or an Admin.
+    system.isProvider && canManageThisProvider ? listDependents(system.id, user) : Promise.resolve([]),
   ]);
 
   return (
@@ -150,10 +159,21 @@ export default async function SystemDetailPage({ params }: PageProps<"/systems/[
         initialIsProvider={system.isProvider}
         initialOfferings={offerings}
         initialOfferable={offerable}
+        dependents={dependents}
+      />
+
+      <h2 className="mb-3 mt-8 text-xl">Provider dependencies</h2>
+      <SystemProviderDependencies
+        systemId={system.id}
+        canManage={canManageDependencies}
+        initialDependencies={dependencies}
+        choices={providerChoices}
       />
 
       <h2 className="mb-3 mt-8 text-xl">Controls</h2>
       <ControlAssessmentList
+        // Remounts (and so reloads) when a Provider dependency is declared or removed: what this System inherits changes.
+        key={dependencies.map((dependency) => dependency.providerId).join(",")}
         systemId={system.id}
         userRole={user.role}
         currentUserId={user.id}

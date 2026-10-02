@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getApplicableControls, type SystemClassification } from "@/lib/control-assessments";
 import { diffApplicabilityOpsWithCapabilities, logAutoFulfilment } from "@/lib/capability-fulfillment";
 import { logChangeEvent } from "@/lib/change-events";
+import { recordProviderChange } from "@/lib/provider-inheritance";
 import { isSystemOwnerOrAdmin } from "@/lib/system-permissions";
 
 /**
@@ -44,7 +45,7 @@ export function systemsInScopeOf(framework: { id: string; isBase: boolean }): Pr
   return framework.isBase ? {} : { frameworkScopes: { some: { id: framework.id } } };
 }
 
-type ScopeSystem = SystemClassification & { id: string };
+type ScopeSystem = SystemClassification & { id: string; isProvider?: boolean };
 
 /**
  * Declaring a Framework Scope can widen the applicable Control set (every
@@ -60,6 +61,11 @@ export async function applyFrameworkScopeDeclared(
   framework: { id: string; name: string },
   actorId: string,
 ) {
+  // A Provider's Offerings can start or stop applying to it, which moves its dependents (#124, F-IN.7).
+  return recordProviderChange(system, () => declareFrameworkScope(system, framework, actorId));
+}
+
+async function declareFrameworkScope(system: ScopeSystem, framework: { id: string; name: string }, actorId: string) {
   const newScopeIds = [...new Set([...system.frameworkScopes.map((f) => f.id), framework.id])];
 
   const [oldApplicable, newApplicable] = await Promise.all([
@@ -104,6 +110,11 @@ export async function applyFrameworkScopeRemoved(
   framework: { id: string; name: string },
   actorId: string,
 ) {
+  // See applyFrameworkScopeDeclared.
+  return recordProviderChange(system, () => removeFrameworkScope(system, framework, actorId));
+}
+
+async function removeFrameworkScope(system: ScopeSystem, framework: { id: string; name: string }, actorId: string) {
   const newScopeIds = system.frameworkScopes.map((f) => f.id).filter((id) => id !== framework.id);
 
   const [oldApplicable, newApplicable] = await Promise.all([

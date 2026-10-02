@@ -193,7 +193,8 @@ function FrameworkRequirements({ entry }: { entry: SystemFrameworkRequirements }
  * Each header also carries the Framework's Compliance Percentage for this System
  * (Met ÷ applicable Requirements, #90). Each Control that counts shows its
  * effective status and where it comes from: *System-specific*, *Inherited from
- * Organization* with the Organization's own status (#121), or *Implemented by the
+ * Organization* with the Organization's own status (#121), *Inherited from Provider
+ * X: Full* with every source listed and the Provider's own status (#124), or *Implemented by the
  * Organization* for an Organizational Control, which counts on every System with
  * the Framework in scope and has no Assessment of its own (#122). Read-only: the
  * data is derived live on the server.

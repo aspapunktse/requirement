@@ -62,7 +62,7 @@ type AssessmentQuery = {
 
 /**
  * `effective` is what the System is judged by (own status, or inherited from the
- * Organization, #121); null for a stale row, which no longer applies. The edit
+ * Organization, #121, or from a Provider it depends on, #124); null for a stale row, which no longer applies. The edit
  * form below it still edits the System's own `assessment`.
  */
 type AssessmentRow = {

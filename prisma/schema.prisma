@@ -126,29 +126,33 @@ model System {
   // ADR 0001.
   onboardedAt                DateTime?
 
-  assessments     ControlAssessment[]
-  risks           Risk[]
-  approvals       Approval[]
+  assessments          ControlAssessment[]
+  risks                Risk[]
+  approvals            Approval[]
   // Centrally-managed dependencies this System declares it consumes. Purely
   // declarative in this ticket — auto-fulfilling mapped Controls is #16.
-  capabilities    Capability[]
+  capabilities         Capability[]
   // Business Units that consume this System (a reporting/grouping dimension
   // only), and the Framework(s) this System declares in scope. The declared
   // Framework Scope drives which Controls apply (the base Framework is
   // always in scope on top of it); see ADR 0007, which retired Regulatory
   // Overlay in its favour. Neither is Draft-locked. See #55.
-  businessUnits   BusinessUnit[]
-  frameworkScopes Framework[]         @relation("SystemFrameworkScope")
+  businessUnits        BusinessUnit[]
+  frameworkScopes      Framework[]          @relation("SystemFrameworkScope")
   // A Provider is a System other Systems depend on and inherit Controls from
   // (ADR 0008, PRD 0001 F-IN.2, #123). The System's owner or an Admin marks
-  // or unmarks it; unmarking is refused while it has Offerings. Nothing reads
-  // this yet: dependencies are #124.
-  isProvider      Boolean             @default(false)
+  // or unmarks it; unmarking is refused while it has Offerings or any System
+  // depends on it (#124).
+  isProvider           Boolean              @default(false)
   // The Controls this Provider publishes for the Systems depending on it.
-  offerings       ControlOffering[]
+  offerings            ControlOffering[]
+  // The Providers this System declares it depends on, and the Systems that
+  // depend on this one (as a Provider). See ProviderDependency (#124).
+  providerDependencies ProviderDependency[] @relation("DependentSystem")
+  dependents           ProviderDependency[] @relation("ProviderSystem")
   // Curated log of System-lifecycle-relevant mutations, feeding the landing
   // page's "Recent updates" feed. See #58.
-  changeEvents    ChangeEvent[]
+  changeEvents         ChangeEvent[]
 }
 
 // An admin-curated deployment classification (e.g. On-Premises Datacenter,
@@ -445,6 +449,26 @@ model ControlOffering {
 
   @@unique([providerId, controlId])
   @@index([controlId])
+}
+
+// A System's declaration that it depends on a Provider and so inherits the
+// Provider's Full Control Offerings live (PRD 0001 F-IN.3, #124). At most one
+// per (dependent, Provider); the Provider must be a System marked as a Provider
+// and never the dependent itself (both enforced by the route, not the schema).
+// Mutual dependencies are allowed: there are no chains, so they are harmless.
+// Nothing is copied to the dependent: its effective status is derived live. A
+// declaration or removal is a CLASSIFICATION_CHANGED Change Event on the
+// dependent, like Framework Scope. Both ends cascade with their System.
+model ProviderDependency {
+  id          String   @id @default(cuid())
+  dependentId String
+  dependent   System   @relation("DependentSystem", fields: [dependentId], references: [id], onDelete: Cascade)
+  providerId  String
+  provider    System   @relation("ProviderSystem", fields: [providerId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@unique([dependentId, providerId])
+  @@index([providerId])
 }
 
 // Fulfillment status of a Control for a specific System.

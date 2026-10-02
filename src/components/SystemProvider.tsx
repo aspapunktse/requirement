@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import type { ControlOfferingType } from "@prisma/client";
 import { Button } from "@/components/ui/Button";
 import { StatusChip } from "@/components/ui/StatusChip";
@@ -12,6 +13,7 @@ import {
   controlOfferingRefusal,
 } from "@/lib/control-offering-rules";
 import type { ControlOfferingRow, OfferableControl } from "@/lib/control-offerings";
+import type { DependentRow } from "@/lib/provider-dependency-rules";
 
 const SELECT_CLASSES = "rounded border border-zinc-200 p-2 text-sm dark:border-zinc-800 dark:bg-transparent";
 const TEXTAREA_CLASSES = "rounded border border-zinc-200 p-2 text-sm dark:border-zinc-800 dark:bg-transparent";
@@ -23,9 +25,12 @@ const byCode = (a: { code: string }, b: { code: string }) => a.code.localeCompar
  * whether the System is a Provider and its Control Offerings, read by everyone
  * who can see the System. The System's owner or an Admin (`canManage`, computed
  * by the page with the same `canManageProvider` the API enforces) can mark or
- * unmark it, and add, edit and remove Offerings. The data comes from the server
- * page as props and is updated from each response; nothing is fetched on mount.
- * `offerable` is the Controls that apply to the Provider and aren't offered yet.
+ * unmark it, and add, edit and remove Offerings, and sees the Systems that depend
+ * on the Provider (#124): their names only, linked only when the viewer can open
+ * them. A Provider with Offerings or dependents can't be unmarked. The data comes
+ * from the server page as props and is updated from each response; nothing is
+ * fetched on mount. `offerable` is the Controls that apply to the Provider and
+ * aren't offered yet.
  */
 export function SystemProvider({
   systemId,
@@ -33,12 +38,15 @@ export function SystemProvider({
   initialIsProvider,
   initialOfferings,
   initialOfferable,
+  dependents = [],
 }: {
   systemId: string;
   canManage: boolean;
   initialIsProvider: boolean;
   initialOfferings: ControlOfferingRow[];
   initialOfferable: OfferableControl[];
+  /** The Systems depending on this Provider; only passed to its owner or an Admin. */
+  dependents?: DependentRow[];
 }) {
   const [isProvider, setIsProvider] = useState(initialIsProvider);
   const [offerings, setOfferings] = useState(initialOfferings);
@@ -99,6 +107,7 @@ export function SystemProvider({
   }
 
   const hasOfferings = offerings.length > 0;
+  const hasDependents = dependents.length > 0;
 
   return (
     <div className="flex flex-col gap-3 text-sm">
@@ -116,12 +125,17 @@ export function SystemProvider({
         <div className="flex flex-col gap-1">
           {isProvider ? (
             <>
-              <Button onClick={() => setProvider(false)} disabled={busy || hasOfferings}>
+              <Button onClick={() => setProvider(false)} disabled={busy || hasOfferings || hasDependents}>
                 Stop being a Provider
               </Button>
               {hasOfferings && (
                 <p className="text-xs text-zinc-500">
                   Remove its Control Offerings first: a System with Offerings stays a Provider.
+                </p>
+              )}
+              {hasDependents && (
+                <p className="text-xs text-zinc-500">
+                  Systems depend on it: a Provider stays a Provider until every System has removed its dependency.
                 </p>
               )}
             </>
@@ -131,6 +145,29 @@ export function SystemProvider({
             </Button>
           )}
         </div>
+      )}
+
+      {isProvider && canManage && (
+        <>
+          <h3 className="mt-2 text-base font-medium">Systems depending on this Provider</h3>
+          {hasDependents ? (
+            <ul className="flex flex-col gap-1">
+              {dependents.map((dependent) => (
+                <li key={dependent.id}>
+                  {dependent.canSee ? (
+                    <Link className="underline" href={`/systems/${dependent.id}`}>
+                      {dependent.name}
+                    </Link>
+                  ) : (
+                    dependent.name
+                  )}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-zinc-500">No System depends on this Provider yet.</p>
+          )}
+        </>
       )}
 
       {isProvider && (

@@ -7,6 +7,7 @@ import { getVisibleSystem } from "@/lib/system-visibility";
 import { assessmentEditAccess, canEditAssessment, isSystemOwnerOrAdmin, WAIVE_GATED_STATUSES } from "@/lib/system-permissions";
 import { checkWaiveGate, getControlForAssessmentEdit, removeStaleAssessment } from "@/lib/control-assessments";
 import { logChangeEvent } from "@/lib/change-events";
+import { runProviderAssessmentWrite } from "@/lib/provider-inheritance";
 
 const updateAssessmentSchema = z.object({
   status: z.enum(ControlAssessmentStatus),
@@ -80,39 +81,50 @@ export async function PATCH(
     }
   }
 
-  const assessment = await prisma.controlAssessment.upsert({
-    where: { systemId_controlId: { systemId: system.id, controlId } },
-    create: {
-      systemId: system.id,
-      controlId,
-      status,
-      evidence,
-      notes,
-      assessedById: auth.user.id,
-      assessedAt: new Date(),
-    },
-    update: {
-      status,
-      evidence,
-      notes,
-      assessedById: auth.user.id,
-      assessedAt: new Date(),
-      // Any manual edit marks this Assessment human-owned, immune to
-      // future automatic reversion if it was previously auto-fulfilled
-      // by a Capability (see #16).
-      fulfilledByCapabilityId: null,
-    },
-    include: { assessedBy: true },
-  });
+  // A Provider's own status is what the Systems depending on it inherit from (#124, F-IN.7):
+  // for a Provider the write, its event and the events on the dependents it moves are one
+  // transaction under the Provider lock (re-reading the previous status inside it). For
+  // any other System this is the plain write it always was.
+  const assessment = await runProviderAssessmentWrite(system, controlId, async (db, locked) => {
+    const previous = locked
+      ? await db.controlAssessment.findUnique({ where: { systemId_controlId: { systemId: system.id, controlId } } })
+      : existing;
+    const saved = await db.controlAssessment.upsert({
+      where: { systemId_controlId: { systemId: system.id, controlId } },
+      create: {
+        systemId: system.id,
+        controlId,
+        status,
+        evidence,
+        notes,
+        assessedById: auth.user.id,
+        assessedAt: new Date(),
+      },
+      update: {
+        status,
+        evidence,
+        notes,
+        assessedById: auth.user.id,
+        assessedAt: new Date(),
+        // Any manual edit marks this Assessment human-owned, immune to
+        // future automatic reversion if it was previously auto-fulfilled
+        // by a Capability (see #16).
+        fulfilledByCapabilityId: null,
+      },
+      include: { assessedBy: true },
+    });
 
-  if ((existing?.status ?? "NOT_STARTED") !== status) {
-    await logChangeEvent(
-      system.id,
-      "ASSESSMENT_STATUS_CHANGED",
-      `${control.code} status changed from ${existing?.status ?? "NOT_STARTED"} to ${status}`,
-      auth.user.id,
-    );
-  }
+    if ((previous?.status ?? "NOT_STARTED") !== status) {
+      await logChangeEvent(
+        system.id,
+        "ASSESSMENT_STATUS_CHANGED",
+        `${control.code} status changed from ${previous?.status ?? "NOT_STARTED"} to ${status}`,
+        auth.user.id,
+        db,
+      );
+    }
+    return saved;
+  });
 
   return NextResponse.json({ assessment });
 }
