@@ -1,6 +1,12 @@
-import type { ControlAssessmentStatus, Prisma } from "@prisma/client";
+import type { ControlApplicability, ControlAssessmentStatus, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import type { OwnAssessment, ProviderSource } from "@/lib/effective-status";
+import {
+  inheritanceSourcesFor,
+  resolveEffectiveStatus,
+  type EffectiveStatus,
+  type OwnAssessment,
+  type ProviderSource,
+} from "@/lib/effective-status";
 import { controlAppliesToSystem } from "@/lib/control-applicability";
 
 /**
@@ -143,4 +149,25 @@ export async function loadProviderSources(
     result.set(dependency.dependentId, bySystem);
   }
   return result;
+}
+
+/**
+ * The effective status of one Control for one System, from its sources as they are
+ * on `db` (#125): what the System's own edit logs next to the status it stored.
+ * Inside an interactive transaction pass its client (the whole read runs on it).
+ */
+export async function loadEffectiveStatus(
+  systemId: string,
+  control: { id: string; applicability: ControlApplicability },
+  own: OwnAssessment,
+  db: OrganizationDb & ProviderDb = prisma,
+): Promise<EffectiveStatus> {
+  const [organizationStatuses, providerSources] = await Promise.all([
+    control.applicability === "BOTH" ? loadOrganizationStatuses([control.id], db) : new Map<string, ControlAssessmentStatus>(),
+    loadProviderSources([systemId], [control.id], db),
+  ]);
+  return resolveEffectiveStatus(
+    own,
+    inheritanceSourcesFor(control, organizationStatuses.get(control.id), providerSources.get(systemId)?.get(control.id)),
+  );
 }

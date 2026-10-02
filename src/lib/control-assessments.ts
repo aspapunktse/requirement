@@ -488,7 +488,8 @@ export type ResetAssessmentResult = { ok: true } | { ok: false; status: 404 | 40
  * transaction. Authorisation is the caller's job (`isSystemOwnerOrAdmin`).
  * Refuses (nothing changes) when the Control doesn't exist (404), or when
  * `resetToInheritedRefusal` says so (409): the Control no longer applies, has no
- * inheritance source for this System, or the Assessment isn't person-set.
+ * Full inheritance source for this System (a Shared Offering doesn't count, D2 on
+ * #125), or the Assessment isn't person-set.
  *
  * The row is kept and only its own values are cleared: its Assessment Queries
  * and the Risks linked to it stay as they are, and an open Query doesn't block.

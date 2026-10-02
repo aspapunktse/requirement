@@ -8,7 +8,7 @@ import { StatusChip } from "@/components/ui/StatusChip";
 import { controlAssessmentStatusTone } from "@/lib/status-tones";
 import { CONTROL_ASSESSMENT_STATUS_LABEL } from "@/lib/requirement-status-rules";
 import { CONTROL_OFFERING_TYPE_LABEL } from "@/lib/control-offering-rules";
-import { PROVIDER_PENDING_TEXT } from "@/lib/effective-status";
+import { PROVIDER_PENDING_TEXT, SHARED_OFFERING_CREDIT_TEXT } from "@/lib/effective-status";
 import {
   describeDependencyRemovalConfirmation,
   type ProviderChoice,
@@ -20,12 +20,12 @@ const SELECT_CLASSES = "rounded border border-zinc-200 p-2 text-sm dark:border-z
 /**
  * The "Provider dependencies" section of the System page (PRD 0001 F-IN.3,
  * F-IN.4, ADR 0008, #124): the Providers this System depends on and so inherits
- * Full Offerings from, live. Each shows its name (a link only when the viewer can
+ * Full and Shared Offerings from, live. Each shows its name (a link only when the viewer can
  * open it as a System: a viewer who can't is told only its name, whether it is
  * Onboarded, its Offerings and its own status for each), *pending: Provider not
  * Onboarded* while it isn't (an Offering gives no credit until it is), and the
  * Offerings that match this System's applicable Controls. A Shared Offering is
- * listed with its customer responsibility and gives no credit yet.
+ * listed with its customer responsibility and what it needs to give credit.
  *
  * The System's owner or an Admin (`canManage`, computed by the page with the same
  * `canManageProviderDependencies` the API enforces) gets a picker of every
@@ -149,7 +149,7 @@ export function SystemProviderDependencies({
                       {offering.type === "SHARED" && (
                         <span className="text-xs text-zinc-500">
                           {offering.customerResponsibility && `Customer responsibility: ${offering.customerResponsibility}. `}
-                          A Shared Offering gives no credit yet.
+                          {SHARED_OFFERING_CREDIT_TEXT}
                         </span>
                       )}
                       {!offering.appliesToProvider && (

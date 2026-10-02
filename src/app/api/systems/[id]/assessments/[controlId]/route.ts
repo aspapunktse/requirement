@@ -8,6 +8,8 @@ import { assessmentEditAccess, canEditAssessment, isSystemOwnerOrAdmin, WAIVE_GA
 import { checkWaiveGate, getControlForAssessmentEdit, removeStaleAssessment } from "@/lib/control-assessments";
 import { logChangeEvent } from "@/lib/change-events";
 import { runProviderAssessmentWrite } from "@/lib/provider-inheritance";
+import { loadEffectiveStatus, toOwnAssessment } from "@/lib/effective-status-data";
+import { describeOwnEditEffect } from "@/lib/effective-status";
 
 const updateAssessmentSchema = z.object({
   status: z.enum(ControlAssessmentStatus),
@@ -115,10 +117,14 @@ export async function PATCH(
     });
 
     if ((previous?.status ?? "NOT_STARTED") !== status) {
+      // The stored status can differ from what the Control effectively is (a Fulfilled
+      // own half held at In Progress while a Shared Provider hasn't done its half, #125):
+      // say so in the same event. Read on `db`, so inside the Provider's transaction it is `tx`.
+      const effect = describeOwnEditEffect(status, await loadEffectiveStatus(system.id, control, toOwnAssessment(saved), db));
       await logChangeEvent(
         system.id,
         "ASSESSMENT_STATUS_CHANGED",
-        `${control.code} status changed from ${previous?.status ?? "NOT_STARTED"} to ${status}`,
+        `${control.code} status changed from ${previous?.status ?? "NOT_STARTED"} to ${status}${effect ? ` (${effect})` : ""}`,
         auth.user.id,
         db,
       );

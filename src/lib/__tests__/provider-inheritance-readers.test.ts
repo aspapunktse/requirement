@@ -136,7 +136,7 @@ describe("a Provider's Full Offering is inherited live", { timeout: 60_000 }, ()
     expect((await rowOf(systemId, f.controls.perSystem.id)).effective.status).toBe("FULFILLED");
   });
 
-  it("lists a Shared Offering with its customer responsibility and gives it no credit", async () => {
+  it("lists a Shared Offering with its customer responsibility and, with the owner's own half open, gives it no credit", async () => {
     const providerId = await f.makeSystem({ isProvider: true });
     await f.offer(providerId, f.controls.perSystem.id, "SHARED", "The tenant manages its own keys");
     await f.assess(providerId, f.controls.perSystem.id, "FULFILLED");

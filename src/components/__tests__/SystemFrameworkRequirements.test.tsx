@@ -356,7 +356,7 @@ describe("SystemFrameworkRequirementsView", () => {
       customerResponsibility: null,
       ...overrides,
     });
-    const controlOf = (id: string, code: string, sources: ProviderSource[], own: "NOT_STARTED" | "IN_PROGRESS" = "NOT_STARTED", personSet = false) => ({
+    const controlOf = (id: string, code: string, sources: ProviderSource[], own: "NOT_STARTED" | "IN_PROGRESS" | "FULFILLED" = "NOT_STARTED", personSet = false) => ({
       controlId: id,
       code,
       title: `Title ${code}`,
@@ -401,13 +401,50 @@ describe("SystemFrameworkRequirementsView", () => {
       const shared = listFor("P.3");
       expect(
         shared.getByText(
-          'System-specific · Provider "Landing Zone" (Shared): Fulfilled (a Shared Offering gives no credit yet; customer responsibility: Keys are yours)',
+          `System-specific · Provider "Landing Zone" (Shared): Fulfilled (this System's own half is not Fulfilled; customer responsibility: Keys are yours)`,
         ),
       ).toBeInTheDocument();
 
       expect(
         listFor("P.4").getByText(
           `System-specific · Provider "Landing Zone" (Full): Fulfilled This System's own Assessment (In Progress) overrides Provider "Landing Zone"'s Fulfilled status.`,
+        ),
+      ).toBeInTheDocument();
+    });
+
+    it("shows a Control Fulfilled through a Shared Offering, and one held at In Progress while the Provider's half is missing (#125)", async () => {
+      const user = userEvent.setup();
+      const sharedFramework: SystemFrameworkRequirements = {
+        ...iso,
+        counts: { MET: 1, PARTIALLY_MET: 0, NOT_MET: 1, NOT_APPLICABLE: 0, total: 2, applicable: 2 },
+        rows: [
+          row({
+            requirementId: "r5",
+            code: "P.5",
+            status: "MET",
+            controls: [controlOf("k5", "A.8.28", [provider({ type: "SHARED", customerResponsibility: "Keys are yours" })], "FULFILLED", true)],
+          }),
+          row({
+            requirementId: "r6",
+            code: "P.6",
+            controls: [controlOf("k6", "A.8.29", [provider({ type: "SHARED", status: "IN_PROGRESS", customerResponsibility: "Keys are yours" })], "FULFILLED", true)],
+          }),
+        ],
+      };
+      render(<SystemFrameworkRequirementsView frameworks={[sharedFramework]} />);
+      await user.click(toggle("ISO/IEC 27001:2022"));
+
+      const through = listFor("P.5");
+      expect(through.getByText("Fulfilled")).toBeInTheDocument();
+      expect(
+        through.getByText('Inherited from Provider Landing Zone: Shared · Provider "Landing Zone" (Shared): Fulfilled (customer responsibility: Keys are yours)'),
+      ).toBeInTheDocument();
+
+      const held = listFor("P.6");
+      expect(held.getByText("In Progress")).toBeInTheDocument();
+      expect(
+        held.getByText(
+          /System-specific · Provider "Landing Zone" \(Shared\): In Progress \(the Provider's half is missing: the Provider has not Fulfilled it; customer responsibility: Keys are yours\) This System's own half is Fulfilled, but it is waiting for Provider "Landing Zone" to provide its half, so the Control is In Progress\./,
         ),
       ).toBeInTheDocument();
     });

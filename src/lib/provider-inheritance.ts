@@ -13,7 +13,7 @@ import { loadOrganizationStatuses, loadProviderSources, toOwnAssessment } from "
 
 /**
  * Recording what a change to a Provider moved on the Systems that depend on it
- * (PRD 0001 F-IN.7, F-CE.2; issue #124).
+ * (PRD 0001 F-IN.7, F-CE.2; issues #124 and #125).
  *
  * Nothing is copied to a dependent, so there is nothing to update on one: its
  * effective status is derived live and already reflects the change. What this
@@ -28,6 +28,12 @@ import { loadOrganizationStatuses, loadProviderSources, toOwnAssessment } from "
  * or the other way round. It mirrors `organization-inheritance.ts`; the
  * Organization's fan-out resolves each System's Provider sources too, so it
  * never logs "now Fulfilled" on a System a Provider already made Fulfilled.
+ *
+ * A Shared Offering (#125) is recorded like a Full one: the same triggers move a
+ * dependent whose own Assessment is Fulfilled, in both directions (`describeInheritedStatusChange`
+ * words "now Fulfilled, inherited from ... (Shared)" and "now In Progress: waiting for ...").
+ * What the dependent's OWN edit does to its Control is not recorded here but in
+ * the edit route's own event.
  *
  * Triggers (each is one small call):
  * - the Provider's own Assessment status changes: the edit, answer and reset

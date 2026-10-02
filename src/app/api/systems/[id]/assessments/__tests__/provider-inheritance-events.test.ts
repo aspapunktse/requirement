@@ -139,7 +139,7 @@ describe("a Provider's own Assessment status changes (#124, F-IN.7)", { timeout:
     for (const id of s.all) expect(await movedEvents(id)).toEqual([]);
   });
 
-  it("logs nothing for a Shared Offering, which gives no credit yet", async () => {
+  it("logs nothing for a Shared Offering while no dependent has done its own half (#125 covers the ones that have)", async () => {
     const s = await scenario();
     await prisma.controlOffering.update({ where: { id: s.offering.id }, data: { type: "SHARED", customerResponsibility: "Keys" } });
     await edit(s.providerId, s.control.id, "FULFILLED");

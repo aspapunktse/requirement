@@ -4,7 +4,7 @@ import { useState } from "react";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { controlAssessmentStatusTone, requirementStatusTone } from "@/lib/status-tones";
 import { frameworkLabel } from "@/lib/framework-label";
-import { effectiveOverrideNote, effectiveSourceDetails, effectiveSourceLabel } from "@/lib/effective-status";
+import { effectiveNote, effectiveSourceDetails, effectiveSourceLabel } from "@/lib/effective-status";
 import {
   CONTROL_ASSESSMENT_STATUS_LABEL,
   DERIVED_STATUS_LABEL,
@@ -139,7 +139,7 @@ function FrameworkRequirements({ entry }: { entry: SystemFrameworkRequirements }
                           {applicable.map((control) => {
                             const status = control.effective?.status ?? control.assessmentStatus ?? "NOT_STARTED";
                             const details = control.effective ? effectiveSourceDetails(control.effective) : [];
-                            const override = control.effective ? effectiveOverrideNote(control.effective) : null;
+                            const override = control.effective ? effectiveNote(control.effective) : null;
                             return (
                               <li key={control.controlId} className="flex flex-col">
                                 <span className="flex flex-wrap items-center gap-2">

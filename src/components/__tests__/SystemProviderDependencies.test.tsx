@@ -123,9 +123,14 @@ describe("SystemProviderDependencies (#124)", () => {
       expect(itemOf("Landing Zone").queryByText(/pending/)).not.toBeInTheDocument();
     });
 
-    it("shows a Shared Offering's customer responsibility with a note that it gives no credit yet", () => {
+    it("shows a Shared Offering's customer responsibility with what it needs to give credit", () => {
       renderSection();
-      expect(screen.getByText(/Customer responsibility: The tenant manages its own keys\. A Shared Offering gives no credit yet\./)).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          /Customer responsibility: The tenant manages its own keys\. A Shared Offering gives credit only while the Provider's own status is Fulfilled and this System's own Assessment is Fulfilled too\./,
+        ),
+      ).toBeInTheDocument();
+      expect(screen.queryByText(/gives no credit yet/)).not.toBeInTheDocument();
     });
 
     it("marks an Offering whose Control no longer applies to the Provider", () => {
@@ -208,9 +213,9 @@ describe("SystemProviderDependencies (#124)", () => {
       expect(confirm).toHaveBeenCalledTimes(1);
       const message = confirm.mock.calls[0][0] as string;
       expect(message).toContain('Provider "Landing Zone"');
-      // Only the Fulfilled Full Offering that applies gives credit: not the Shared one, nor the one that no longer applies.
-      expect(message).toContain("A.5.15");
-      expect(message).not.toContain("A.8.24");
+      // Only the Fulfilled Full Offering that applies stops being inherited; the Shared one is named as no longer counting (#125).
+      expect(message).toContain("These Controls stop being inherited from it: A.5.15 (");
+      expect(message).toContain("Its Shared Offerings (A.8.24) stop counting");
       expect(message).not.toContain("A.7.8");
       expect(fetchMock).not.toHaveBeenCalled();
       expect(screen.getByRole("listitem", { name: "Provider Landing Zone" })).toBeInTheDocument();
