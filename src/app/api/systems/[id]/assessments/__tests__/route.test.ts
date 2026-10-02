@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
-import { mapControlsToBase } from "@/test/framework-fixtures";
+import { createFixtureFramework, mapControlsToBase, mapControlsToFramework } from "@/test/framework-fixtures";
 import { ACTING_USER_COOKIE } from "@/lib/acting-user";
 import { GET } from "../route";
 
@@ -53,8 +53,17 @@ describe("GET /api/systems/[id]/assessments", () => {
     matchingTypeId = matchingType.id;
     otherTypeId = otherType.id;
 
+    // The Organizational Control goes to a fixture Framework this System declares, not to the base: it counts
+    // on every System with its Framework in scope (#122), and the base is in every System's scope.
+    const organizationalFramework = await createFixtureFramework("Assessments Org");
     const system = await prisma.system.create({
-      data: { name: "Assessments Test System", deploymentFacets: { connect: [{ id: matchingTypeId }] }, ownerId, status: "DRAFT" },
+      data: {
+        name: "Assessments Test System",
+        deploymentFacets: { connect: [{ id: matchingTypeId }] },
+        frameworkScopes: { connect: { id: organizationalFramework.id } },
+        ownerId,
+        status: "DRAFT",
+      },
     });
     systemId = system.id;
 
@@ -98,7 +107,8 @@ describe("GET /api/systems/[id]/assessments", () => {
       },
     });
     controlIds.push(organizational.id, unscopedPerSystem.id, matchingScoped.id, otherScoped.id);
-    await mapControlsToBase(controlIds);
+    await mapControlsToFramework(organizationalFramework.id, [organizational.id]);
+    await mapControlsToBase(controlIds.slice(1));
   });
 
   afterAll(async () => {

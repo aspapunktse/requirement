@@ -1,10 +1,11 @@
 import type { ControlAssessmentStatus, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { SYSTEM_ACTOR } from "@/lib/change-events";
+import { SYSTEM_ACTOR, logChangeEvent } from "@/lib/change-events";
 import { controlAppliesToSystem } from "@/lib/control-assessments";
 import { scopeForControl } from "@/lib/applicability-recompute";
 import {
   describeInheritedStatusChange,
+  describeOrganizationImplementationChange,
   inheritanceSourcesFor,
   resolveEffectiveStatus,
   sourceGivesCredit,
@@ -18,8 +19,8 @@ import {
 } from "@/lib/organization-implementation";
 
 /**
- * Saving an Organization Control Implementation and telling the Systems that
- * inherit from it (PRD 0001 F-IN.7, F-CE.2; issue #121).
+ * Saving an Organization Control Implementation and recording what it moved
+ * (PRD 0001 F-IN.7, F-CE.2; issues #121 and #122).
  *
  * Nothing is copied to a System, so there is nothing to update on one: the
  * effective status is derived live and already reflects the new status. What
@@ -30,6 +31,13 @@ import {
  * System never shows a changed status without its event or the other way round.
  * Systems whose effective status stays the same (a person-set Assessment, an
  * own-Fulfilled one, a System the Control doesn't apply to) get none.
+ *
+ * An Organizational Control is the other case (#122, product-owner decision): it
+ * counts live on every System with the Framework in scope, so one status change
+ * would move them all. It writes ONE System-less ORGANIZATION_IMPLEMENTATION_CHANGED
+ * event, attributed to the User who made the edit (their direct edit, not a
+ * computed side effect), and nothing per System. Only a status change writes it,
+ * not a description-only or no-op edit.
  *
  * One transaction, not 50-System batches: the work is a handful of bulk
  * queries plus `createMany`, and the benchmark in HANDOFF.md shows 500 Systems
@@ -53,7 +61,9 @@ export async function saveOrganizationImplementationWithEvents(
 ): Promise<OrganizationControlRow> {
   return prisma.$transaction(
     async (tx) => {
-      if (control.applicability !== "BOTH") return saveOrganizationImplementation(tx, control, userId, edit);
+      if (control.applicability !== "BOTH" && control.applicability !== "ORGANIZATIONAL") {
+        return saveOrganizationImplementation(tx, control, userId, edit);
+      }
 
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${control.id}))`;
       const current = await tx.organizationControlImplementation.findUnique({
@@ -63,6 +73,11 @@ export async function saveOrganizationImplementationWithEvents(
       const before = current?.status ?? "NOT_STARTED";
       const saved = await saveOrganizationImplementation(tx, control, userId, edit);
       const after = saved.implementation.status;
+      if (control.applicability === "ORGANIZATIONAL") {
+        const detail = describeOrganizationImplementationChange(control.code, before, after);
+        if (detail) await logChangeEvent(null, "ORGANIZATION_IMPLEMENTATION_CHANGED", detail, userId, tx);
+        return saved;
+      }
       // Nothing can move unless the source went from giving credit to not, or back.
       if (sourceGivesCredit(before) !== sourceGivesCredit(after)) {
         await writeInheritedStatusEvents(tx, control.id, before, after);

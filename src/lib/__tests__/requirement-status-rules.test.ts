@@ -136,6 +136,16 @@ describe("deriveRequirementStatus: coverage", () => {
   it("an applicable Full mapping alongside a Partial one is covered", () => {
     expect(derive([applicable("FULFILLED", "FULL"), applicable("FULFILLED", "PARTIAL")]).status).toBe("MET");
   });
+
+  it("the ISO 7.5 shape (#122): a Full mapping to an Organizational Control that now counts, a Partial one to a per-System Control", () => {
+    const organizational = (status: ControlAssessmentStatus | null) => applicable(status, "FULL");
+    // Both fulfilled: Met (it used to be Partially Met while the Organizational Control didn't count).
+    expect(derive([organizational("FULFILLED"), applicable("FULFILLED", "PARTIAL")])).toEqual({ status: "MET", basis: "CONTROLS" });
+    // Either one open: Partially Met by the Controls.
+    expect(derive([organizational("FULFILLED"), applicable("IN_PROGRESS", "PARTIAL")]).status).toBe("PARTIALLY_MET");
+    expect(derive([organizational("NOT_STARTED"), applicable("FULFILLED", "PARTIAL")]).status).toBe("PARTIALLY_MET");
+    expect(derive([organizational("NOT_STARTED"), applicable("NOT_STARTED", "PARTIAL")]).status).toBe("NOT_MET");
+  });
 });
 
 describe("deriveRequirementStatus: accepted gap", () => {

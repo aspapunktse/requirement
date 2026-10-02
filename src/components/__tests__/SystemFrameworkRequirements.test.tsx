@@ -6,7 +6,7 @@ import {
   type DerivedRequirementRow,
   type SystemFrameworkRequirements,
 } from "../SystemFrameworkRequirements";
-import { resolveEffectiveStatus } from "@/lib/effective-status";
+import { resolveEffectiveStatus, resolveImplementedByOrganization } from "@/lib/effective-status";
 
 /** A System-specific Control status, as the server sends it for a Control with no inheritance source. */
 const own = (status: "NOT_STARTED" | "IN_PROGRESS" | "FULFILLED") => resolveEffectiveStatus({ status, personSet: true }, []);
@@ -81,7 +81,7 @@ describe("SystemFrameworkRequirementsView", () => {
     expect(screen.getByText("This System has no Published Framework in scope.")).toBeInTheDocument();
   });
 
-  it("shows each Framework's Compliance Percentage (Met ÷ applicable) in its header, and the Organizational note once (#90)", () => {
+  it("shows each Framework's Compliance Percentage (Met ÷ applicable) in its header, with no 'Organizational Requirements aren't counted yet' note any more (#90, #122)", () => {
     render(<SystemFrameworkRequirementsView frameworks={[iso, empty]} />);
     // iso: Met 1 of 3 applicable (Partially Met counts as not Met; 2 Not Applicable are left out): 33.3%.
     const figure = within(screen.getByLabelText("Compliance for ISO/IEC 27001:2022"));
@@ -89,7 +89,7 @@ describe("SystemFrameworkRequirementsView", () => {
     expect(figure.getByText(/1 of 3 applicable Requirements met/)).toBeInTheDocument();
     // A Framework with no Requirements has no figure, only its "no Requirements yet" line.
     expect(screen.queryByLabelText("Compliance for GDPR:1")).not.toBeInTheDocument();
-    expect(screen.getAllByText(/Organizational Requirements aren't counted yet/)).toHaveLength(1);
+    expect(screen.queryByText(/aren't counted yet/)).not.toBeInTheDocument();
   });
 
   it("shows an em dash when no Requirement is applicable", () => {
@@ -215,6 +215,69 @@ describe("SystemFrameworkRequirementsView", () => {
     expect(within(screen.getByRole("listitem", { name: "Requirement Z.1" })).getByText(/counts as Not Met/)).toBeInTheDocument();
     expect(within(screen.getByRole("listitem", { name: "Requirement Z.2" })).getByText(/accepted gap/)).toBeInTheDocument();
     expect(within(screen.getByRole("listitem", { name: "Requirement Z.3" })).getByText(/only Partial coverage/)).toBeInTheDocument();
+  });
+
+  describe("Organizational Controls behind a Requirement (#122)", () => {
+    const orgControl = (status: "NOT_STARTED" | "FULFILLED" | "WAIVED") => ({
+      controlId: `o-${status}`,
+      code: `ORG-${status}`,
+      title: `Policy ${status}`,
+      coverage: "FULL" as const,
+      applicable: true,
+      assessmentStatus: null,
+      effective: resolveImplementedByOrganization(status),
+    });
+    const framework: SystemFrameworkRequirements = {
+      ...iso,
+      counts: { MET: 1, PARTIALLY_MET: 0, NOT_MET: 1, NOT_APPLICABLE: 0, total: 2, applicable: 2 },
+      rows: [
+        row({ requirementId: "o1", code: "5.2", section: "5 Leadership", status: "MET", controls: [orgControl("FULFILLED")] }),
+        row({
+          requirementId: "o2",
+          code: "5.3",
+          section: "5 Leadership",
+          status: "NOT_MET",
+          controls: [
+            orgControl("NOT_STARTED"),
+            { controlId: "p1", code: "CTL-9", title: "Scoped elsewhere", coverage: "PARTIAL", applicable: false, assessmentStatus: null, effective: null },
+          ],
+        }),
+      ],
+    };
+
+    it("lists them with their status and 'Implemented by the Organization', and not as a Control that does not apply", async () => {
+      const user = userEvent.setup();
+      render(<SystemFrameworkRequirementsView frameworks={[framework]} />);
+      await user.click(toggle("ISO/IEC 27001:2022"));
+
+      const met = within(screen.getByRole("listitem", { name: "Requirement 5.2" }));
+      const metControls = within(met.getByRole("list", { name: "Applicable Controls for 5.2" }));
+      expect(metControls.getByText("ORG-FULFILLED")).toBeInTheDocument();
+      expect(metControls.getByText("Fulfilled")).toBeInTheDocument();
+      expect(metControls.getByText("Implemented by the Organization")).toBeInTheDocument();
+      expect(met.queryByText(/Mapped but not applicable|None of the mapped Controls apply/)).not.toBeInTheDocument();
+
+      const notMet = within(screen.getByRole("listitem", { name: "Requirement 5.3" }));
+      const controls = within(notMet.getByRole("list", { name: "Applicable Controls for 5.3" }));
+      expect(controls.getByText("Not Started")).toBeInTheDocument();
+      expect(controls.getByText("Implemented by the Organization")).toBeInTheDocument();
+      // Only the per-System Control that really does not apply stays in the muted line.
+      expect(notMet.getByText(/Mapped but not applicable to this System/)).toHaveTextContent("CTL-9");
+      expect(notMet.getByText(/Mapped but not applicable to this System/)).not.toHaveTextContent("ORG-NOT_STARTED");
+    });
+
+    it("shows a Waived Organization status as Waived", async () => {
+      const user = userEvent.setup();
+      const waived: SystemFrameworkRequirements = {
+        ...framework,
+        rows: [row({ requirementId: "o3", code: "5.4", section: "5 Leadership", status: "MET", controls: [orgControl("WAIVED")] })],
+      };
+      render(<SystemFrameworkRequirementsView frameworks={[waived]} />);
+      await user.click(toggle("ISO/IEC 27001:2022"));
+      const controls = within(screen.getByRole("list", { name: "Applicable Controls for 5.4" }));
+      expect(controls.getByText("Waived")).toBeInTheDocument();
+      expect(controls.getByText("Implemented by the Organization")).toBeInTheDocument();
+    });
   });
 
   describe("the source of each applicable Control (#121)", () => {

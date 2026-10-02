@@ -2,12 +2,15 @@ import { describe, expect, it } from "vitest";
 import type { ControlAssessmentStatus } from "@prisma/client";
 import {
   describeInheritedStatusChange,
+  describeOrganizationImplementationChange,
   effectiveOverrideNote,
   effectiveSourceDetails,
   effectiveSourceLabel,
   INHERITED_SOURCE_STATUSES,
   inheritanceSourcesFor,
+  isInheritanceSource,
   resolveEffectiveStatus,
+  resolveImplementedByOrganization,
   sourceGivesCredit,
   type InheritanceSource,
   type OwnAssessment,
@@ -97,7 +100,7 @@ describe("inheritanceSourcesFor", () => {
     expect(inheritanceSourcesFor({ applicability: "BOTH" }, "FULFILLED")).toEqual([organization("FULFILLED")]);
   });
 
-  it("gives a Per-System Control no source, and an Organizational one none either (that is #122)", () => {
+  it("gives a Per-System Control no source, and an Organizational one none either (it is implemented, not inherited, #122)", () => {
     expect(inheritanceSourcesFor({ applicability: "PER_SYSTEM" }, "FULFILLED")).toEqual([]);
     expect(inheritanceSourcesFor({ applicability: "ORGANIZATIONAL" }, "FULFILLED")).toEqual([]);
   });
@@ -140,6 +143,49 @@ describe("the wording", () => {
         resolveEffectiveStatus(own, [organization("FULFILLED")]),
       ),
     ).toBeNull();
+  });
+});
+
+describe("resolveImplementedByOrganization (an Organizational Control, #122)", () => {
+  it("is the Organization's status as it is, Not Started while nothing is recorded", () => {
+    expect(resolveImplementedByOrganization(undefined).status).toBe("NOT_STARTED");
+    for (const status of STATUSES) expect(resolveImplementedByOrganization(status).status).toBe(status);
+  });
+
+  it("has no per-System Assessment to override, so nothing is inherited over and no source is listed", () => {
+    const result = resolveImplementedByOrganization("FULFILLED");
+    expect(result.source).toEqual({ kind: "ORGANIZATION_DIRECT" });
+    expect(isInheritanceSource(result.source)).toBe(false);
+    expect(result.sources).toEqual([]);
+    expect(result.overridesInherited).toBe(false);
+    expect(effectiveSourceLabel(result)).toBe("Implemented by the Organization");
+    expect(effectiveSourceDetails(result)).toEqual([]);
+    expect(effectiveOverrideNote(result)).toBeNull();
+  });
+
+  it("is judged like any Assessment status: Waived and Not Applicable count except on a strict Framework (product-owner decision on #122)", () => {
+    for (const status of ["WAIVED", "NOT_APPLICABLE"] as const) {
+      expect(isEffectivelyFulfilled(resolveImplementedByOrganization(status).status, { strictComplianceRequired: false })).toBe(true);
+      expect(isEffectivelyFulfilled(resolveImplementedByOrganization(status).status, { strictComplianceRequired: true })).toBe(false);
+    }
+    // ...which the Both rule deliberately does not do: a Waived Organization gives a Both Control no credit.
+    expect(resolveEffectiveStatus(null, [organization("WAIVED")]).status).toBe("NOT_STARTED");
+    for (const status of ["NOT_STARTED", "IN_PROGRESS"] as const) {
+      expect(isEffectivelyFulfilled(resolveImplementedByOrganization(status).status, { strictComplianceRequired: false })).toBe(false);
+    }
+    expect(isEffectivelyFulfilled(resolveImplementedByOrganization("FULFILLED").status, { strictComplianceRequired: true })).toBe(true);
+  });
+});
+
+describe("describeOrganizationImplementationChange (the System-less Change Event, #122)", () => {
+  it("says what changed to what, and is null when the status did not change", () => {
+    expect(describeOrganizationImplementationChange("A.5.1", "NOT_STARTED", "FULFILLED")).toBe(
+      "A.5.1 Organization Control Implementation changed from Not Started to Fulfilled",
+    );
+    expect(describeOrganizationImplementationChange("A.5.1", "FULFILLED", "NOT_APPLICABLE")).toBe(
+      "A.5.1 Organization Control Implementation changed from Fulfilled to Not Applicable",
+    );
+    for (const status of STATUSES) expect(describeOrganizationImplementationChange("A.5.1", status, status)).toBeNull();
   });
 });
 

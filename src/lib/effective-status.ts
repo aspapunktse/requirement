@@ -15,6 +15,11 @@
 // Shared sources (#125) plug in as more `InheritanceSource` kinds and a longer
 // `sources` list; callers pass the list in and read `status`/`source`/`sources`
 // back, so they don't change.
+//
+// An Organizational Control is the other case (#122): it has no per-System
+// Assessment at all, so nothing is inherited and nothing is overridden. Its
+// status for a System simply *is* the Organization's implementation status, and
+// `resolveImplementedByOrganization` says so with its own source kind.
 
 import type { ControlApplicability, ControlAssessmentStatus } from "@prisma/client";
 import { CONTROL_ASSESSMENT_STATUS_LABEL } from "@/lib/requirement-status-rules";
@@ -52,8 +57,17 @@ export type OwnAssessment = {
   personSet: boolean;
 } | null;
 
-/** What decided the effective status: the System's own Assessment, or an inheritance source. */
-export type EffectiveSource = { kind: "SYSTEM" } | InheritanceSource;
+/**
+ * What decided the effective status: the System's own Assessment, an inheritance
+ * source, or (an Organizational Control, #122) the Organization implementing the
+ * Control directly, with no per-System Assessment to fall back on.
+ */
+export type EffectiveSource = { kind: "SYSTEM" } | InheritanceSource | { kind: "ORGANIZATION_DIRECT" };
+
+/** Is this source an inheritance source (not the System's own Assessment, nor the Organization's direct implementation)? */
+export function isInheritanceSource(source: EffectiveSource): source is InheritanceSource {
+  return source.kind !== "SYSTEM" && source.kind !== "ORGANIZATION_DIRECT";
+}
 
 export type EffectiveStatus = {
   status: ControlAssessmentStatus;
@@ -98,11 +112,31 @@ export function resolveEffectiveStatus(own: OwnAssessment, sources: InheritanceS
 }
 
 /**
+ * The effective status of an Organizational Control for a System (#122): the
+ * Organization Control Implementation's status, Not Started while it has no
+ * recorded implementation (the missing-row rule of #120). The Control has no
+ * per-System Assessment, so there is no own status to resolve and nothing is
+ * inherited over anything; the status is returned as it is, and the caller
+ * judges it like any Assessment status (`isEffectivelyFulfilled`: Waived and
+ * Not Applicable count, except on a strict Framework). This is deliberately not
+ * the Both rule of `resolveEffectiveStatus`, where only a Fulfilled source gives credit.
+ */
+export function resolveImplementedByOrganization(organizationStatus: ControlAssessmentStatus | undefined): EffectiveStatus {
+  return {
+    status: organizationStatus ?? "NOT_STARTED",
+    source: { kind: "ORGANIZATION_DIRECT" },
+    sources: [],
+    overridesInherited: false,
+  };
+}
+
+/**
  * The inheritance sources of a Control, given what the Organization recorded for
  * it. Only a Both Control is inherited (F-IN.6): it always has an Organization
  * source, Not Started while it has no recorded implementation (the missing-row
- * rule of #120). A Per-System Control has no source, and an Organizational one
- * isn't assessed per System yet (#122).
+ * rule of #120). A Per-System Control has no source. An Organizational Control
+ * has none either: it is implemented by the Organization directly, not inherited
+ * (`resolveImplementedByOrganization`).
  */
 export function inheritanceSourcesFor(
   control: { applicability: ControlApplicability },
@@ -118,9 +152,10 @@ const SOURCE_KIND_LABEL: Record<InheritanceSource["kind"], string> = {
 
 /** "System-specific" or "Inherited from Organization": the source wording of the System page (F-OUT.2). */
 export function effectiveSourceLabel(effective: Pick<EffectiveStatus, "source">): string {
-  return effective.source.kind === "SYSTEM"
-    ? "System-specific"
-    : `Inherited from ${SOURCE_KIND_LABEL[effective.source.kind]}`;
+  const { source } = effective;
+  if (source.kind === "SYSTEM") return "System-specific";
+  if (source.kind === "ORGANIZATION_DIRECT") return "Implemented by the Organization";
+  return `Inherited from ${SOURCE_KIND_LABEL[source.kind]}`;
 }
 
 /** One line per source with its own status, e.g. "Organization: Waived (gives no credit)". */
@@ -154,11 +189,26 @@ export function describeInheritedStatusChange(
 ): string | null {
   if (before.status === after.status) return null;
   const afterLabel = CONTROL_ASSESSMENT_STATUS_LABEL[after.status];
-  if (after.source.kind !== "SYSTEM") {
+  if (isInheritanceSource(after.source)) {
     return `${controlCode} is now ${afterLabel}, inherited from the ${SOURCE_KIND_LABEL[after.source.kind]}`;
   }
-  if (before.source.kind !== "SYSTEM") {
+  if (isInheritanceSource(before.source)) {
     return `${controlCode} is no longer inherited from the ${SOURCE_KIND_LABEL[before.source.kind]} (now ${afterLabel})`;
   }
   return `${controlCode} is now ${afterLabel}`;
+}
+
+/**
+ * The System-less Change Event detail (F-CE.1, F-CE.2; #122) for a change of an
+ * Organizational Control's implementation status, or null when the status
+ * didn't change (a description-only or no-op edit writes no event). The one
+ * place the wording lives.
+ */
+export function describeOrganizationImplementationChange(
+  controlCode: string,
+  before: ControlAssessmentStatus,
+  after: ControlAssessmentStatus,
+): string | null {
+  if (before === after) return null;
+  return `${controlCode} Organization Control Implementation changed from ${CONTROL_ASSESSMENT_STATUS_LABEL[before]} to ${CONTROL_ASSESSMENT_STATUS_LABEL[after]}`;
 }

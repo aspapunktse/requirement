@@ -509,11 +509,16 @@ function ControlRow({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
+  // Reset the form when the Assessment changes (a save, a reload). Done during
+  // render, not in an effect: an effect also ran once after mount and could
+  // overwrite a status the user had already picked.
+  const [syncedAssessment, setSyncedAssessment] = useState(assessment);
+  if (assessment !== syncedAssessment) {
+    setSyncedAssessment(assessment);
     setStatus(assessment?.status ?? "NOT_STARTED");
     setEvidence(assessment?.evidence ?? "");
     setNotes(assessment?.notes ?? "");
-  }, [assessment]);
+  }
 
   const waiveOnly = editAccess === "waive-only";
   const currentStatus = assessment?.status ?? "NOT_STARTED";

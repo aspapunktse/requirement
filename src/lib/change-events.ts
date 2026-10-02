@@ -16,8 +16,9 @@ type ChangeEventClient = Pick<Prisma.TransactionClient, "changeEvent">;
  * Records a change for the landing page's "Recent updates" feed. See #58.
  *
  * `systemId` is null for System-less events about the requirement database
- * itself (CONTROL_MAPPING_CHANGED, FRAMEWORK_PUBLISHED), which belong to no
- * System. Pass a transaction client as `client` to write the event atomically
+ * itself (CONTROL_MAPPING_CHANGED, FRAMEWORK_PUBLISHED) or about the
+ * Organization's own Control implementations
+ * (ORGANIZATION_IMPLEMENTATION_CHANGED, #122), which belong to no System. Pass a transaction client as `client` to write the event atomically
  * with the change it records.
  */
 export function logChangeEvent(

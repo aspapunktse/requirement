@@ -49,9 +49,9 @@ describe("BusinessRiskOwnerDashboard compliance copy (#90)", () => {
     expect(await screen.findByText("66.7%")).toBeInTheDocument();
     expect(screen.getByText(/6\/9 applicable Requirements met, pooled across Systems/)).toBeInTheDocument();
     expect(screen.getByText(/ISO\/IEC 27001:2022 \(base Framework: the headline figure when no Framework is selected\)/)).toBeInTheDocument();
-    // The old Control-based wording is gone, and the Organizational note is shown.
+    // The old Control-based wording is gone, and so is the "Organizational Requirements aren't counted yet" note (#122).
     expect(screen.queryByText(/mandatory Controls resolved/)).not.toBeInTheDocument();
-    expect(screen.getByText(/Organizational Requirements aren't counted yet/)).toBeInTheDocument();
+    expect(screen.queryByText(/aren't counted yet/)).not.toBeInTheDocument();
   });
 
   it("lists each System's own figure with its Met and applicable counts, an em dash when nothing applies", async () => {

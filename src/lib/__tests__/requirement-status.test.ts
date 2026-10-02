@@ -18,7 +18,10 @@ import { mapControlsToFramework } from "@/test/framework-fixtures";
  * a Published non-base Framework whose Requirements are mapped to Deployment
  * Facet-scoped (or Organizational) fixture Controls, put in the scope of the
  * fixture Systems. Nothing touches the seeded base Framework or its mappings,
- * and every assertion is by fixture id.
+ * and every assertion is by fixture id. The Organizational fixture Control has no
+ * implementation row, so it reads as Not Started; since #122 it counts on every
+ * System with the fixture Framework in scope (the cases for its other statuses
+ * are in `organizational-requirements.test.ts`).
  */
 describe("derived Requirement status", () => {
   const suffix = `${process.pid}-${Date.now()}`;
@@ -160,15 +163,17 @@ describe("derived Requirement status", () => {
     expect(status("r5")).toBe("PARTIALLY_MET"); // accepted gap: never Met
     expect(rows.get(requirementIds.r5)!.basis).toBe("ACCEPTED_GAP");
     expect(status("r4")).toBe("NOT_MET"); // no mapped Controls: the flagged default
-    expect(status("r6")).toBe("NOT_APPLICABLE"); // Organizational Control never applies per System
+    expect(status("r6")).toBe("NOT_MET"); // Organizational Control counts on every System in scope (#122), Not Started here
     expect(status("r7")).toBe("NOT_APPLICABLE"); // threshold Control: System has no Confidentiality level
   });
 
   it("on a System without the facet: Requirements mapped only to facet-scoped Controls are Not Applicable", async () => {
     const rows = await rowsFor("without");
-    for (const key of ["r1", "r2", "r3", "r5", "r6", "r7"] as const) {
+    for (const key of ["r1", "r2", "r3", "r5", "r7"] as const) {
       expect(rows.get(requirementIds[key])!.status, key).toBe("NOT_APPLICABLE");
     }
+    // The Organizational Control has no Deployment Facet to miss: it counts here too (#122).
+    expect(rows.get(requirementIds.r6)!.status).toBe("NOT_MET");
     // Controls are listed (mapped) but none applies, and the stray Assessment is not consulted.
     const r1 = rows.get(requirementIds.r1)!;
     expect(r1.controls).toHaveLength(1);
@@ -199,7 +204,9 @@ describe("derived Requirement status", () => {
   });
 
   it("agrees with getApplicableControls on which mapped Controls apply (the in-memory rules can't drift)", async () => {
-    const fixtureControlIds = Object.values(controlIds);
+    // The Organizational Control is left out on purpose: it is never assessed per System, so
+    // getApplicableControls excludes it, while the derivation counts it (checked separately below).
+    const fixtureControlIds = Object.values(controlIds).filter((id) => id !== controlIds.org);
     for (const key of Object.keys(systemIds) as (keyof typeof systemIds)[]) {
       const system = await classification(systemIds[key]);
       const expected = (await getApplicableControls(system))
@@ -207,10 +214,12 @@ describe("derived Requirement status", () => {
         .filter((id) => fixtureControlIds.includes(id))
         .sort();
       const rows = (await deriveFrameworkStatusesForSystems(frameworkId, [system]))!.bySystem.get(system.id)!;
-      const actual = [
+      const counted = [
         ...new Set(rows.flatMap((row) => row.controls.filter((c) => c.applicable).map((c) => c.controlId))),
-      ].sort();
-      expect(actual, key).toEqual(expected);
+      ];
+      expect(counted.filter((id) => id !== controlIds.org).sort(), key).toEqual(expected);
+      // ...and the Organizational Control counts exactly where the Framework is in scope.
+      expect(counted.includes(controlIds.org), key).toBe(key !== "noScope");
     }
   });
 
@@ -221,8 +230,8 @@ describe("derived Requirement status", () => {
     expect([...result.bySystem.keys()].sort()).toEqual(Object.values(systemIds).sort());
 
     const perSystem = (key: keyof typeof systemIds) => countRowStatuses(result.bySystem.get(systemIds[key])!);
-    // "with": R1 Met; R2, R3, R5 Partially Met; R4 Not Met; R6, R7 Not Applicable.
-    expect(perSystem("with")).toMatchObject({ MET: 1, PARTIALLY_MET: 3, NOT_MET: 1, NOT_APPLICABLE: 2, total: 7, applicable: 5 });
+    // "with": R1 Met; R2, R3, R5 Partially Met; R4, R6 Not Met; R7 Not Applicable.
+    expect(perSystem("with")).toMatchObject({ MET: 1, PARTIALLY_MET: 3, NOT_MET: 2, NOT_APPLICABLE: 1, total: 7, applicable: 6 });
 
     const pooled = Object.keys(systemIds)
       .map((key) => perSystem(key as keyof typeof systemIds))
@@ -264,7 +273,7 @@ describe("derived Requirement status", () => {
     expect(fixture).toBeDefined();
     expect(fixture.framework.isBase).toBe(false);
     expect(fixture.rows).toHaveLength(7);
-    expect(fixture.counts).toMatchObject({ MET: 1, PARTIALLY_MET: 3, NOT_MET: 1, NOT_APPLICABLE: 2, total: 7 });
+    expect(fixture.counts).toMatchObject({ MET: 1, PARTIALLY_MET: 3, NOT_MET: 2, NOT_APPLICABLE: 1, total: 7 });
     // The base Framework is always in scope.
     expect(view.some((entry) => entry.framework.isBase)).toBe(true);
     // A Draft Framework in the declared scope is inert: not shown.

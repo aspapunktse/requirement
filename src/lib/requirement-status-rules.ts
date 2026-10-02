@@ -2,8 +2,10 @@
 // components. PRD 0001 F-AS.3 and OQ-1; issue #89; CONTEXT.md -> Requirement.
 //
 // A Requirement is never assessed directly. For one System its status is
-// derived, live and never stored, from the Control Assessments of the Controls
-// mapped to it that apply to that System. The DB-backed loaders (bulk and
+// derived, live and never stored, from the effective statuses of the Controls
+// mapped to it that count for that System: the System's Control Assessments of
+// its Per-System and Both Controls, and the Organization's implementation of an
+// Organizational Control (#122). The DB-backed loaders (bulk and
 // per-System) are in `requirement-status.ts`; everything decision-shaped lives
 // here so there is exactly one place to change a rule.
 
@@ -45,13 +47,14 @@ export const NO_MAPPED_CONTROLS_STATUS: DerivedRequirementStatus = "NOT_MET";
 /**
  * JUDGEMENT CALL (flagged in issue #89's hand-back): is "covered" judged over
  * all of a Requirement's mappings (literal reading of the issue: at least one
- * FULL mapping exists) or only over the mappings whose Control applies to this
+ * FULL mapping exists) or only over the mappings whose Control counts for this
  * System? With `true` (the conservative default) a FULL mapping to a Control
- * that doesn't apply to the System, e.g. an Organizational Control, doesn't make
- * the Requirement covered *there*, so ISO clause 7.5 (FULL to an Organizational
- * Control, PARTIAL to an applicable Annex A Control) is at best Partially Met
- * until M3's inheritance brings the Organizational Control in. Set to `false`
- * for the literal reading (that Requirement would be Met once A.5.37 is Fulfilled).
+ * that doesn't count for the System, e.g. a Per-System Control scoped to a
+ * Deployment Facet the System doesn't declare, doesn't make the Requirement
+ * covered *there*. Since #122 an Organizational Control counts for every System
+ * that has the Framework in scope, so ISO clause 7.5 (FULL to an Organizational
+ * Control, PARTIAL to A.5.37) is covered on every System and becomes Met once
+ * both Controls are fulfilled. Set to `false` for the literal reading.
  */
 export const COVERAGE_JUDGED_OVER_APPLICABLE_MAPPINGS = true;
 
@@ -76,9 +79,13 @@ export function isEffectivelyFulfilled(
 /** One Control Mapping of a Requirement, as seen from one System. */
 export type MappedControlForDerivation = {
   coverage: MappingCoverage;
-  /** Does this mapped Control apply to the System (Framework gate, Deployment Facets, Impact Levels)? */
+  /**
+   * Does this mapped Control count for the System? A Per-System or Both Control
+   * does when it applies to it (Framework gate, Deployment Facets, Impact
+   * Levels); an Organizational Control does while the Framework is in scope (#122).
+   */
   applicable: boolean;
-  /** The Control's effective status for the System (#121); null (no row yet) counts as NOT_STARTED. Ignored when not applicable. */
+  /** The Control's effective status for the System (#121, #122); null (no row yet) counts as NOT_STARTED. Ignored when not applicable. */
   status: ControlAssessmentStatus | null;
 };
 
@@ -86,13 +93,17 @@ export type MappedControlForDerivation = {
 export type DerivationBasis =
   /** The Requirement has no Control Mappings at all (see NO_MAPPED_CONTROLS_STATUS). */
   | "NO_MAPPED_CONTROLS"
-  /** It has mappings, but none of the mapped Controls apply to this System (OQ-1). */
+  /**
+   * It has mappings, but none of the mapped Controls counts for this System (OQ-1):
+   * every one is a Per-System or Both Control that doesn't apply to it (Deployment
+   * Facet or Impact Level), or the Framework isn't in the System's scope.
+   */
   | "NO_APPLICABLE_CONTROLS"
-  /** Decided by how many applicable mapped Controls are effectively Fulfilled. */
+  /** Decided by how many of the mapped Controls that count for the System are effectively Fulfilled. */
   | "CONTROLS"
-  /** Every applicable Control is Fulfilled but the Requirement is an accepted gap, so never Met. */
+  /** Every Control that counts is Fulfilled but the Requirement is an accepted gap, so never Met. */
   | "ACCEPTED_GAP"
-  /** Every applicable Control is Fulfilled but none of the applicable mappings gives Full coverage. */
+  /** Every Control that counts is Fulfilled but none of those mappings gives Full coverage. */
   | "PARTIAL_COVERAGE";
 
 export type DerivedRequirement = { status: DerivedRequirementStatus; basis: DerivationBasis };
@@ -101,9 +112,11 @@ export type DerivedRequirement = { status: DerivedRequirementStatus; basis: Deri
  * The derivation for one Requirement and one System (PRD 0001 F-AS.3, OQ-1):
  *
  * - No mapped Controls at all: NO_MAPPED_CONTROLS_STATUS (Not Met by default).
- * - Mappings exist but none apply to the System: **Not Applicable** (left out
- *   of the Compliance Percentage denominator).
- * - Otherwise, over the applicable mapped Controls:
+ * - Mappings exist but none counts for the System: **Not Applicable** (left out
+ *   of the Compliance Percentage denominator). An Organizational Control counts
+ *   for every System with the Framework in scope (#122), so a Requirement
+ *   mapped to one is never Not Applicable there.
+ * - Otherwise, over the mapped Controls that count (`applicable` here):
  *   - none effectively Fulfilled: **Not Met**;
  *   - some but not all: **Partially Met**;
  *   - all: **Met**, but only if the Requirement is covered, and never if it is
@@ -111,8 +124,8 @@ export type DerivedRequirement = { status: DerivedRequirementStatus; basis: Deri
  *     covered, is **Partially Met** (acceptance is a library-level judgment,
  *     not evidence that the System meets the Requirement).
  *
- * "Covered" is judged over the mappings that apply to this System by default: at
- * least one applicable mapping must give Full coverage (see
+ * "Covered" is judged over the mappings that count for this System by default: at
+ * least one of them must give Full coverage (see
  * COVERAGE_JUDGED_OVER_APPLICABLE_MAPPINGS; flagged in the #89 hand-back). An accepted gap is
  * a Coverage Gap, so it is only one while the Requirement has no Full mapping at
  * all; a stale acceptance on a Requirement that has gained a Full mapping is ignored,
@@ -196,16 +209,6 @@ export function compliancePercentage(counts: Pick<DerivedStatusCounts, "MET" | "
 export function formatCompliancePercentage(percentage: number | null): string {
   return percentage === null ? "—" : `${percentage}%`;
 }
-
-/**
- * Shown wherever a Compliance Percentage is (product-owner decision 3a on #89):
- * until Organization Control Implementation (M3), a Requirement satisfied only by
- * Organizational Controls (ISO/IEC 27001 clauses 4-10 and the Annex A Requirements
- * mapped only to Organizational Controls) is Not Applicable per System, so it is
- * left out of the percentage.
- */
-export const ORGANIZATIONAL_REQUIREMENTS_NOTE =
-  "Organizational Requirements aren't counted yet: Requirements met only by Organizational Controls (for example ISO/IEC 27001 clauses 4–10) are Not Applicable per System until Organization Control Implementation arrives.";
 
 export type DerivedStatusFilter = "ALL" | DerivedRequirementStatus;
 

@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
 import { ACTING_USER_COOKIE } from "@/lib/acting-user";
 import { SYSTEM_ACTOR } from "@/lib/change-events";
-import { mapControlsToBase } from "@/test/framework-fixtures";
+import { createFixtureFramework, mapControlsToBase, mapControlsToFramework } from "@/test/framework-fixtures";
 import { PATCH } from "../route";
 
 /**
@@ -11,6 +11,11 @@ import { PATCH } from "../route";
  * per System whose effective status for the Control changed, and none for the others. Fixture
  * Controls are scoped to a fixture Deployment Facet, so only fixture Systems are ever involved, and
  * nothing here touches a seeded Control's implementation.
+ *
+ * An Organizational Control (#122) writes ONE System-less ORGANIZATION_IMPLEMENTATION_CHANGED event
+ * per status change, by the editor, and nothing per System. Its fixture Control is mapped to a
+ * fixture Framework no System declares (an Organizational Control mapped to the base would count on
+ * every other test file's Systems).
  */
 describe("PATCH /api/organization/controls/[controlId]: Change Events for inheriting Systems (#121)", () => {
   const suffix = `${process.pid}-${Date.now()}`;
@@ -84,7 +89,8 @@ describe("PATCH /api/organization/controls/[controlId]: Change Events for inheri
         data: { code: `TEST-ORGEV-UNMAPPED-${suffix}`, title: "Test OrgEvents Unmapped", description: "d", category: "Test", applicability: "BOTH", question: "Does it?" },
       })
     ).id;
-    await mapControlsToBase([bothId, organizationalId]);
+    await mapControlsToBase([bothId]);
+    await mapControlsToFramework((await createFixtureFramework("OrgEvents Org")).id, [organizationalId]);
 
     const makeSystem = async (key: keyof typeof system, facet = facetId) => {
       system[key] = (
@@ -113,6 +119,7 @@ describe("PATCH /api/organization/controls/[controlId]: Change Events for inheri
   afterAll(async () => {
     const systemIds = Object.values(system);
     await prisma.changeEvent.deleteMany({ where: { systemId: { in: systemIds } } });
+    await prisma.changeEvent.deleteMany({ where: { systemId: null, detail: { contains: `-${suffix}` } } });
     await prisma.controlAssessment.deleteMany({ where: { systemId: { in: systemIds } } });
     await prisma.system.deleteMany({ where: { id: { in: systemIds } } });
     await prisma.control.deleteMany({ where: { id: { in: [bothId, organizationalId, unmappedBothId] } } });
@@ -200,12 +207,81 @@ describe("PATCH /api/organization/controls/[controlId]: Change Events for inheri
     expect((await prisma.organizationControlImplementation.findUniqueOrThrow({ where: { controlId: bothId } })).status).toBe("NOT_STARTED");
   });
 
-  it("writes no System event for an Organizational Control", async () => {
-    const before = (await events()).length;
-    const response = await patch(organizationalId, adminId, { status: "FULFILLED" });
-    expect(response.status).toBe(200);
-    expect(await events()).toHaveLength(before);
-    expect(await prisma.changeEvent.count({ where: { detail: { contains: "TEST-ORGEV-ORG" } } })).toBe(0);
+  describe("an Organizational Control (#122)", () => {
+    const organizationEvents = (controlId = organizationalId) =>
+      prisma.changeEvent.findMany({
+        where: { action: "ORGANIZATION_IMPLEMENTATION_CHANGED", detail: { contains: codeOf(controlId) } },
+        orderBy: { createdAt: "asc" },
+      });
+    const codes = new Map<string, string>();
+    const codeOf = (controlId: string) => codes.get(controlId) ?? "";
+
+    beforeAll(async () => {
+      for (const id of [organizationalId, bothId, unmappedBothId]) {
+        codes.set(id, (await prisma.control.findUniqueOrThrow({ where: { id }, select: { code: true } })).code);
+      }
+    });
+
+    it("writes one System-less event, by the editor, and no System event", async () => {
+      const before = (await events()).length;
+      const response = await patch(organizationalId, adminId, { status: "FULFILLED" });
+      expect(response.status).toBe(200);
+
+      expect(await events()).toHaveLength(before);
+      expect(await prisma.changeEvent.count({ where: { actorId: SYSTEM_ACTOR, detail: { contains: codeOf(organizationalId) } } })).toBe(0);
+      const logged = await organizationEvents();
+      expect(logged).toHaveLength(1);
+      expect(logged[0]).toMatchObject({
+        systemId: null,
+        actorId: adminId,
+        detail: `${codeOf(organizationalId)} Organization Control Implementation changed from Not Started to Fulfilled`,
+      });
+    });
+
+    it("writes one event per status change, saying where it came from and went", async () => {
+      await patch(organizationalId, adminId, { status: "WAIVED", description: "Accepted risk" });
+      await patch(organizationalId, adminId, { status: "NOT_STARTED" });
+      const details = (await organizationEvents()).map((e) => e.detail.replace(`${codeOf(organizationalId)} `, ""));
+      expect(details).toEqual([
+        "Organization Control Implementation changed from Not Started to Fulfilled",
+        "Organization Control Implementation changed from Fulfilled to Waived",
+        "Organization Control Implementation changed from Waived to Not Started",
+      ]);
+    });
+
+    it("writes nothing for a description-only edit, a no-op Save, or a refused edit", async () => {
+      await patch(organizationalId, adminId, { status: "NOT_APPLICABLE", description: "Out of scope" });
+      const before = (await organizationEvents()).length;
+
+      expect((await patch(organizationalId, adminId, { description: "Out of scope, reviewed" })).status).toBe(200);
+      expect((await patch(organizationalId, adminId, { status: "NOT_APPLICABLE" })).status).toBe(200);
+      expect((await patch(organizationalId, viewerId, { status: "FULFILLED" })).status).toBe(403);
+      expect((await patch(organizationalId, adminId, { status: "WAIVED", description: " " })).status).toBe(400); // a reason is required
+
+      expect(await organizationEvents()).toHaveLength(before);
+    });
+
+    it("attributes the event to whoever made the change", async () => {
+      await patch(organizationalId, adminId, { status: "NOT_STARTED" });
+      await prisma.control.update({ where: { id: organizationalId }, data: { ownerId } });
+      try {
+        // A Control Owner, whatever their role, may edit.
+        expect((await patch(organizationalId, ownerId, { status: "IN_PROGRESS" })).status).toBe(200);
+        const last = (await organizationEvents()).at(-1)!;
+        expect(last).toMatchObject({ actorId: ownerId, systemId: null });
+        expect(last.detail).toMatch(/from Not Started to In Progress$/);
+      } finally {
+        await prisma.control.update({ where: { id: organizationalId }, data: { ownerId: null } });
+      }
+    });
+
+    it("writes no System-less event for a Both Control (it keeps the per-System events of #121)", async () => {
+      await setStatus("NOT_STARTED");
+      await setStatus("FULFILLED");
+      expect(await prisma.changeEvent.count({ where: { action: "ORGANIZATION_IMPLEMENTATION_CHANGED", detail: { contains: codeOf(bothId) } } })).toBe(0);
+      expect(await prisma.changeEvent.count({ where: { systemId: null, detail: { contains: codeOf(bothId) } } })).toBe(0);
+      expect((await events()).length).toBeGreaterThan(0);
+    });
   });
 
   it("writes no event for a Both Control that applies to no System", async () => {
