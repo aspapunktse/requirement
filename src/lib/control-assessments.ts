@@ -263,8 +263,14 @@ async function assessmentRowsFor(
  * it doesn't exist or isn't scoped to one of this System's declared
  * Deployment Facets/applicability.
  */
-export async function getApplicableControl(system: SystemClassification, controlId: string) {
-  const control = await prisma.control.findFirst({
+export async function getApplicableControl(
+  system: SystemClassification,
+  controlId: string,
+  // Inside an interactive transaction pass its client: a query on the global client there needs a second
+  // connection, and under a small pool that starves every transaction waiting on a lock (#124).
+  db: Pick<Prisma.TransactionClient, "control"> = prisma,
+) {
+  const control = await db.control.findFirst({
     where: {
       id: controlId,
       applicability: { in: [...APPLICABLE_APPLICABILITIES] },

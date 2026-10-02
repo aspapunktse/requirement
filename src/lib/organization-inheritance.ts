@@ -103,7 +103,7 @@ async function writeInheritedStatusEvents(
   before: ControlAssessmentStatus,
   after: ControlAssessmentStatus,
 ) {
-  const scope = await scopeForControl(controlId);
+  const scope = await scopeForControl(controlId, tx);
   if (!scope) return;
 
   const [control, systems, assessments] = await Promise.all([

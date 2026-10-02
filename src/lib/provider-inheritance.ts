@@ -23,8 +23,8 @@ import { loadOrganizationStatuses, loadProviderSources, toOwnAssessment } from "
  * ASSESSMENT_STATUS_CHANGED event on each dependent whose effective status for a
  * Control actually moved: none on the others (a person-set Assessment, a
  * Control the dependent doesn't take, another source that already gave credit).
- * The events are written in the same transaction as the change, in bulk
- * (`createMany`), so a dependent never shows a changed status without its event
+ * The events are written in the same transaction as the change (except for the
+ * optional triggers, see `recordProviderChange`), in bulk (`createMany`), so a dependent never shows a changed status without its event
  * or the other way round. It mirrors `organization-inheritance.ts`; the
  * Organization's fan-out resolves each System's Provider sources too, so it
  * never logs "now Fulfilled" on a System a Provider already made Fulfilled.
@@ -49,7 +49,16 @@ import { loadOrganizationStatuses, loadProviderSources, toOwnAssessment } from "
  * everything that changes one Control's inheritance (Organization status,
  * Provider status, a reset), so concurrent edits see each other's result and
  * the events aren't doubled. What is not: edits of different Providers, and of
- * Controls no one inherits, which never wait for each other.
+ * Controls no one inherits, which never wait for each other; and the optional
+ * triggers of `recordProviderChange`, which take no lock (below).
+ *
+ * CONNECTIONS. Inside an interactive transaction every query must use `tx`: a
+ * query on the global client needs a second connection, and with a small pool
+ * (CI's is 3, serverless ones are small) transactions waiting on an advisory
+ * lock hold every connection, so the one holding the lock can never get its
+ * second and all wait until Prisma times out. Nothing here, and nothing the
+ * callers run inside these transactions, may touch the global client; the test
+ * run uses CI's pool size so a regression fails locally too.
  */
 
 /** Generous: one Provider can have every System as a dependent (PRD scale target: 500). */
@@ -145,41 +154,34 @@ async function resolveAll(tx: Tx, { systems, controls }: ResolutionContext): Pro
   return resolved;
 }
 
-/**
- * Runs `change` (which must use `tx`) and writes one `"system"` ASSESSMENT_STATUS_CHANGED
- * event on each dependent of the Provider whose effective status for a Control
- * differs before and after it. Takes the Provider lock and then the Control locks
- * (see LOCKS in the module comment); call it as the first thing in the
- * transaction, or after having taken the Provider lock yourself. A change that
- * can't move anyone (no dependents, or no Controls to look at) just runs.
- * Returns what `change` returns.
- */
-export async function withProviderInheritanceEvents<T>(
-  tx: Tx,
-  scope: ProviderChangeScope,
-  change: () => Promise<T>,
-): Promise<T> {
-  await lockProvider(tx, scope.providerId);
+type Ids = { controlIds: string[]; dependentIds: string[] };
+
+/** The Controls and dependents a change can move (`scope`'s, or the Provider's Offerings and dependents), or null when there is nothing to look at. */
+async function resolveIds(db: Tx, scope: ProviderChangeScope): Promise<Ids | null> {
   const [controlIds, dependentIds] = await Promise.all([
     scope.controlIds ??
-      tx.controlOffering.findMany({ where: { providerId: scope.providerId }, select: { controlId: true } }).then((rows) => rows.map((r) => r.controlId)),
+      db.controlOffering.findMany({ where: { providerId: scope.providerId }, select: { controlId: true } }).then((rows) => rows.map((r) => r.controlId)),
     scope.dependentIds ??
-      tx.providerDependency.findMany({ where: { providerId: scope.providerId }, select: { dependentId: true } }).then((rows) => rows.map((r) => r.dependentId)),
+      db.providerDependency.findMany({ where: { providerId: scope.providerId }, select: { dependentId: true } }).then((rows) => rows.map((r) => r.dependentId)),
   ]);
-  if (controlIds.length === 0 || dependentIds.length === 0) return change();
+  return controlIds.length === 0 || dependentIds.length === 0 ? null : { controlIds, dependentIds };
+}
 
-  await lockControls(tx, controlIds);
+async function loadContext(db: Tx, { controlIds, dependentIds }: Ids): Promise<ResolutionContext> {
   const [systems, controls] = await Promise.all([
-    tx.system.findMany({ where: { id: { in: dependentIds } }, select: SYSTEM_SELECT }),
-    tx.control.findMany({ where: { id: { in: controlIds } }, select: CONTROL_SELECT }),
+    db.system.findMany({ where: { id: { in: dependentIds } }, select: SYSTEM_SELECT }),
+    db.control.findMany({ where: { id: { in: controlIds } }, select: CONTROL_SELECT }),
   ]);
-  const context: ResolutionContext = { systems, controls };
+  return { systems, controls };
+}
 
-  const before = await resolveAll(tx, context);
+/** Resolves before, runs `change`, resolves after and bulk-writes the events, all on `db`. */
+async function recordAround<T>(db: Tx, context: ResolutionContext, change: () => Promise<T>): Promise<T> {
+  const before = await resolveAll(db, context);
   const result = await change();
-  const after = await resolveAll(tx, context);
+  const after = await resolveAll(db, context);
 
-  const codeByControlId = new Map(controls.map((control) => [control.id, control.code]));
+  const codeByControlId = new Map(context.controls.map((control) => [control.id, control.code]));
   const events: Prisma.ChangeEventCreateManyInput[] = [];
   for (const [key, effective] of after) {
     const previous = before.get(key);
@@ -189,9 +191,30 @@ export async function withProviderInheritanceEvents<T>(
     if (detail) events.push({ systemId, action: "ASSESSMENT_STATUS_CHANGED", detail, actorId: SYSTEM_ACTOR });
   }
   for (let i = 0; i < events.length; i += EVENT_INSERT_CHUNK) {
-    await tx.changeEvent.createMany({ data: events.slice(i, i + EVENT_INSERT_CHUNK) });
+    await db.changeEvent.createMany({ data: events.slice(i, i + EVENT_INSERT_CHUNK) });
   }
   return result;
+}
+
+/**
+ * Runs `change` (which must use `tx`) and writes one `"system"` ASSESSMENT_STATUS_CHANGED
+ * event on each dependent of the Provider whose effective status for a Control
+ * differs before and after it. Takes the Provider lock and then the Control locks
+ * (see LOCKS in the module comment); call it as the first thing in the
+ * transaction, or after having taken the Provider lock yourself. A change that
+ * can't move anyone (no dependents, or no Controls to look at) just runs.
+ * Everything runs on `tx`. Returns what `change` returns.
+ */
+export async function withProviderInheritanceEvents<T>(
+  tx: Tx,
+  scope: ProviderChangeScope,
+  change: () => Promise<T>,
+): Promise<T> {
+  await lockProvider(tx, scope.providerId);
+  const ids = await resolveIds(tx, scope);
+  if (!ids) return change();
+  await lockControls(tx, ids.controlIds);
+  return recordAround(tx, await loadContext(tx, ids), change);
 }
 
 /**
@@ -209,21 +232,24 @@ async function hasCreditedDependents(tx: Tx, providerId: string, controlId: stri
 /**
  * Records what a change to a System that is a Provider moved on the Systems
  * depending on it, for changes that run their own transactions (Capability
- * declare and remove, a classification or Framework Scope change): runs `change`
- * under the Provider lock and writes the `"system"` events after it, resolving
- * every Control the Provider offers before and after. A System that is not a
- * Provider just runs `change`.
+ * declare and remove, a classification or Framework Scope change): resolves every
+ * Control the Provider offers before, runs `change`, resolves after and writes
+ * the `"system"` events. A System that is not a Provider just runs `change`.
  *
- * Unlike the other triggers this is NOT atomic with the change: `change` commits
- * on its own connection, then the events are written, so a crash in between
- * leaves the change without its events. The change is the one that matters and
- * is never lost; they are the reason these triggers are optional in #124.
+ * Unlike the other triggers this is NOT atomic with the change, and it is NOT
+ * serialised: it holds no transaction and takes no lock, so nothing is held open
+ * while `change` runs on other connections (that would starve a small pool, see
+ * CONNECTIONS above). `change` commits on its own, then the events are written,
+ * so a crash in between leaves the change without its events, and two such
+ * changes on one Provider at once can each see the other's result and log an
+ * event twice or not at all. The change is the one that matters and is never lost;
+ * the product owner accepted this on 2026-10-02 (decision 3a on #124).
  */
 export async function recordProviderChange<T>(system: { id: string; isProvider?: boolean }, change: () => Promise<T>): Promise<T> {
   if (!system.isProvider) return change();
-  return prisma.$transaction((tx) => withProviderInheritanceEvents(tx, { providerId: system.id }, change), {
-    timeout: PROVIDER_TRANSACTION_TIMEOUT_MS,
-  });
+  const ids = await resolveIds(prisma, { providerId: system.id });
+  if (!ids) return change();
+  return recordAround(prisma, await loadContext(prisma, ids), change);
 }
 
 /**

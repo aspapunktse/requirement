@@ -405,6 +405,36 @@ describe("the optional triggers (#124, F-IN.7)", { timeout: 60_000 }, () => {
     await patchSystemClassification(providerId, f.users.owner, { deploymentFacetIds: [f.facets.live, f.facets.stale] });
     expect((await movedEvents(dependent)).map((e) => e.detail).pop()).toBe(inheritedNow(f.controls.stale.code, name));
   });
+
+  // The pool is CI's size (vitest.config.ts: 3 connections). These changes hold no transaction and no lock while they
+  // run on their own connections, so any number of them, mixed with the lock-holding transactions, must finish.
+  it("several Capability and classification changes on one Provider at once all complete (no pool starvation, no lock held across them)", async () => {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const providerId = await f.makeSystem({ isProvider: true });
+      await f.offer(providerId, f.controls.perSystem.id);
+      await f.offer(providerId, f.controls.stale.id);
+      await f.assess(providerId, f.controls.perSystem.id, "NOT_STARTED", null);
+      await f.assess(providerId, f.controls.stale.id, "FULFILLED");
+      const dependents = [await f.makeSystem(), await f.makeSystem()];
+      for (const id of dependents) await f.depend(id, providerId);
+
+      const [declared, , , , edited, offered] = await Promise.all([
+        declareCapability(requestAs(`/api/systems/${providerId}/capabilities`, f.users.owner, "POST", { capabilityId }), sysCtx(providerId)),
+        patchSystemClassification(providerId, f.users.owner, { deploymentFacetIds: [f.facets.live] }),
+        patchSystemClassification(providerId, f.users.owner, { deploymentFacetIds: [f.facets.live, f.facets.stale] }),
+        patchSystemClassification(providerId, f.users.owner, { deploymentFacetIds: [f.facets.live] }),
+        edit(providerId, f.controls.perSystem.id, "IN_PROGRESS"),
+        offerVia(providerId, { controlId: f.controls.both.id, type: "FULL" }),
+      ]);
+
+      expect([declared.status, edited.status, offered.status]).toEqual([201, 200, 201]);
+      // Whatever order they ran in, the dependents' events only ever say a Control became or stopped being inherited from this Provider.
+      for (const id of dependents) {
+        for (const event of await movedEvents(id)) expect(event.detail).toMatch(/is now Fulfilled, inherited from Provider|is no longer inherited from Provider/);
+      }
+      await prisma.controlAssessment.updateMany({ where: { fulfilledByCapabilityId: capabilityId }, data: { fulfilledByCapabilityId: null } });
+    }
+  });
 });
 
 describe("concurrent changes (#124)", { timeout: 90_000 }, () => {

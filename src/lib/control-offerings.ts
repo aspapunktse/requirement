@@ -182,7 +182,7 @@ export async function createControlOffering(
 
     const control = await tx.control.findUnique({ where: { id: input.controlId }, select: { id: true, code: true } });
     if (!control) return { ok: false, status: 404, error: "Control not found" } as const;
-    if (!(await getApplicableControl(provider, control.id))) {
+    if (!(await getApplicableControl(provider, control.id, tx))) {
       return { ok: false, status: 409, error: "A Provider can only offer a Control that applies to it" } as const;
     }
     if (await tx.controlOffering.findUnique({ where: { providerId_controlId: { providerId: provider.id, controlId: control.id } }, select: { id: true } })) {
