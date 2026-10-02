@@ -1,9 +1,16 @@
-import type { ControlAssessmentStatus, ImpactLevel, Prisma, UserRole } from "@prisma/client";
+import type { ControlAssessmentStatus, ImpactLevel, Prisma, SelfAssessmentAnswer, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { QUERY_INCLUDE } from "@/lib/assessment-queries";
 import { ROLES_ALLOWED_TO_WAIVE, waiveRefusal } from "@/lib/system-permissions";
 import { CONTROL_ASSESSMENT_STATUS_LABEL } from "@/lib/requirement-status-rules";
-import { inheritanceSourcesFor, resolveEffectiveStatus } from "@/lib/effective-status";
+import {
+  describeEffectiveStatusNow,
+  inheritanceSourcesFor,
+  resetToInheritedRefusal,
+  resetToInheritedRefusalMessage,
+  resolveEffectiveStatus,
+  type EffectiveStatus,
+} from "@/lib/effective-status";
 import { loadOrganizationStatuses, toOwnAssessment } from "@/lib/effective-status-data";
 import { logChangeEvent } from "@/lib/change-events";
 
@@ -52,6 +59,21 @@ export type WaiveGateResult = { ok: true } | { ok: false; status: 403 | 400; err
  * kept in place as stale (see getStaleAssessments).
  */
 export const UNTOUCHED_ASSESSMENT_WHERE = { status: "NOT_STARTED", assessedById: null } as const;
+
+/**
+ * The values of an untouched row (#129): what a reset to inherited writes, so
+ * the row satisfies `UNTOUCHED_ASSESSMENT_WHERE` again and a recompute treats
+ * it as nobody's work. Everything a person or a Capability filled in is cleared.
+ */
+export const UNTOUCHED_ASSESSMENT_DATA = {
+  status: "NOT_STARTED",
+  assessedById: null,
+  assessedAt: null,
+  evidence: null,
+  notes: null,
+  selfAssessmentAnswer: null,
+  fulfilledByCapabilityId: null,
+} as const;
 
 /**
  * Diff an old vs new applicable-Control set for a System into the two
@@ -273,13 +295,29 @@ export async function getApplicableControls(
  * the System is judged by, including what it inherits from the Organization.
  */
 export async function getSystemAssessments(system: SystemClassification & { id: string }) {
-  const [controls, assessments] = await Promise.all([
-    getApplicableControls(system),
-    prisma.controlAssessment.findMany({
-      where: { systemId: system.id },
-      include: { assessedBy: true, queries: { include: QUERY_INCLUDE, orderBy: { createdAt: "asc" } } },
-    }),
-  ]);
+  return assessmentRowsFor(system.id, await getApplicableControls(system));
+}
+
+/**
+ * One row of `getSystemAssessments`, exactly as it shows there, or null when the
+ * Control doesn't apply to the System. What a reset to inherited returns (#129),
+ * so the UI can replace the row without refetching the list.
+ */
+export async function getSystemAssessmentRow(system: SystemClassification & { id: string }, controlId: string) {
+  const controls = await getApplicableControls(system, { controlIds: [controlId] });
+  const [row] = await assessmentRowsFor(system.id, controls, controlId);
+  return row ?? null;
+}
+
+async function assessmentRowsFor(
+  systemId: string,
+  controls: Awaited<ReturnType<typeof getApplicableControls>>,
+  onlyControlId?: string,
+) {
+  const assessments = await prisma.controlAssessment.findMany({
+    where: { systemId, ...(onlyControlId !== undefined && { controlId: onlyControlId }) },
+    include: { assessedBy: true, queries: { include: QUERY_INCLUDE, orderBy: { createdAt: "asc" } } },
+  });
 
   const assessmentByControlId = new Map(assessments.map((a) => [a.controlId, a]));
   const organizationStatuses = await loadOrganizationStatuses(
@@ -404,6 +442,18 @@ function truncateForAudit(text: string) {
   return text.length > REMOVED_ASSESSMENT_TEXT_LIMIT ? `${text.slice(0, REMOVED_ASSESSMENT_TEXT_LIMIT)}…` : text;
 }
 
+/** "was In Progress", then the evidence and notes if there are any: the part of a Change Event detail that removal and reset share. */
+function describeClearedAssessment(assessment: {
+  status: ControlAssessmentStatus;
+  evidence: string | null;
+  notes: string | null;
+}) {
+  const parts = [`was ${CONTROL_ASSESSMENT_STATUS_LABEL[assessment.status]}`];
+  if (assessment.evidence?.trim()) parts.push(`evidence: "${truncateForAudit(assessment.evidence)}"`);
+  if (assessment.notes?.trim()) parts.push(`notes: "${truncateForAudit(assessment.notes)}"`);
+  return parts;
+}
+
 /**
  * The Change Event detail for a removed stale Assessment (#109). The row is
  * deleted, so this is the only place its last status, evidence and notes
@@ -415,13 +465,38 @@ export function describeRemovedAssessment(
   assessment: { status: ControlAssessmentStatus; evidence: string | null; notes: string | null },
   resolvedQueryCount: number,
 ) {
-  const parts = [`was ${CONTROL_ASSESSMENT_STATUS_LABEL[assessment.status]}`];
-  if (assessment.evidence?.trim()) parts.push(`evidence: "${truncateForAudit(assessment.evidence)}"`);
-  if (assessment.notes?.trim()) parts.push(`notes: "${truncateForAudit(assessment.notes)}"`);
+  const parts = describeClearedAssessment(assessment);
   if (resolvedQueryCount > 0) {
     parts.push(`${resolvedQueryCount} resolved ${resolvedQueryCount === 1 ? "Query" : "Queries"} removed with it`);
   }
   return `Stale Assessment for ${controlCode} removed (${parts.join("; ")})`;
+}
+
+const SELF_ASSESSMENT_ANSWER_LABEL: Record<SelfAssessmentAnswer, string> = { YES: "Yes", NO: "No", NA: "N/A" };
+
+/**
+ * The Change Event detail for an Assessment reset to inherited (#129), e.g.
+ * `Assessment for A.5.15 reset to inherited (was In Progress; evidence: "..."; notes: "...");
+ * now Fulfilled, inherited from the Organization`. The row is kept but its
+ * values are cleared, so this is where they survive (long texts are truncated;
+ * the Self-Assessment answer is listed too). `now` is what the Control is
+ * effectively once reset.
+ */
+export function describeResetAssessment(
+  controlCode: string,
+  assessment: {
+    status: ControlAssessmentStatus;
+    evidence: string | null;
+    notes: string | null;
+    selfAssessmentAnswer: SelfAssessmentAnswer | null;
+  },
+  now: Pick<EffectiveStatus, "status" | "source">,
+) {
+  const parts = describeClearedAssessment(assessment);
+  if (assessment.selfAssessmentAnswer) {
+    parts.push(`Self-Assessment answer: ${SELF_ASSESSMENT_ANSWER_LABEL[assessment.selfAssessmentAnswer]}`);
+  }
+  return `Assessment for ${controlCode} reset to inherited (${parts.join("; ")}); ${describeEffectiveStatusNow(now)}`;
 }
 
 export type RemoveStaleAssessmentResult = { ok: true } | { ok: false; status: 404 | 409; error: string };
@@ -468,6 +543,67 @@ export async function removeStaleAssessment(
       system.id,
       "ASSESSMENT_REMOVED",
       describeRemovedAssessment(assessment.control.code, assessment, assessment.queries.length),
+      actorId,
+      tx,
+    );
+    return { ok: true };
+  });
+}
+
+export type ResetAssessmentResult = { ok: true } | { ok: false; status: 404 | 409; error: string };
+
+/**
+ * Returns the System's own person-set Assessment of `controlId` to untouched, so
+ * the Control's effective status is again whatever its inheritance sources give
+ * (#129, F-IN.5), and records what was cleared in a Change Event, in one
+ * transaction. Authorisation is the caller's job (`isSystemOwnerOrAdmin`).
+ * Refuses (nothing changes) when the Control doesn't exist (404), or when
+ * `resetToInheritedRefusal` says so (409): the Control no longer applies, has no
+ * inheritance source for this System, or the Assessment isn't person-set.
+ *
+ * The row is kept and only its own values are cleared: its Assessment Queries
+ * and the Risks linked to it stay as they are, and an open Query doesn't block.
+ * The sources are read inside the transaction under the Control's advisory lock,
+ * the one `saveOrganizationImplementationWithEvents` takes, so a reset never
+ * interleaves with a change of the Organization's status. The update itself is
+ * conditional on the row still being person-set, so two resets can't both log.
+ */
+export async function resetAssessmentToInherited(
+  system: SystemClassification & { id: string },
+  controlId: string,
+  actorId: string,
+): Promise<ResetAssessmentResult> {
+  const control = await prisma.control.findUnique({ where: { id: controlId } });
+  if (!control) return { ok: false, status: 404, error: "Control not found" };
+  const applies = (await getApplicableControl(system, controlId)) !== null;
+
+  return prisma.$transaction(async (tx): Promise<ResetAssessmentResult> => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${controlId}))`;
+    const assessment = await tx.controlAssessment.findUnique({
+      where: { systemId_controlId: { systemId: system.id, controlId } },
+    });
+    const sources = inheritanceSourcesFor(control, (await loadOrganizationStatuses([controlId], tx)).get(controlId));
+    const refusal = resetToInheritedRefusal({
+      applies,
+      sources,
+      own: assessment ? toOwnAssessment(assessment) : null,
+    });
+    const refused = (reason: NonNullable<typeof refusal>) =>
+      ({ ok: false, status: 409, error: resetToInheritedRefusalMessage(reason) }) as const;
+    if (refusal) return refused(refusal);
+    if (!assessment) return refused("NOT_PERSON_SET");
+
+    const { count } = await tx.controlAssessment.updateMany({
+      where: { id: assessment.id, assessedById: { not: null } },
+      data: UNTOUCHED_ASSESSMENT_DATA,
+    });
+    if (count === 0) return refused("NOT_PERSON_SET");
+
+    const now = resolveEffectiveStatus({ status: UNTOUCHED_ASSESSMENT_DATA.status, personSet: false }, sources);
+    await logChangeEvent(
+      system.id,
+      "ASSESSMENT_STATUS_CHANGED",
+      describeResetAssessment(control.code, assessment, now),
       actorId,
       tx,
     );
