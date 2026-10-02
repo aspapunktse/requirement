@@ -16,10 +16,8 @@ This file is a snapshot of in-flight state, not a permanent doc. Update or trim 
    - If it is still open and CI is green: confirm its Vercel preview ran no `prisma migrate deploy` (the PR carries one migration; the workflow doc has the commands), then `gh pr merge <n> --squash --delete-branch`, `git checkout main && git pull`, and watch the CI and CD runs of the merge commit. The CD deploy log must show `20261002120000_add_provider_dependency` applied (31 migrations found).
    - If it is already merged: check that CD run instead (`gh run list --workflow CD --limit 3`), then correct the `main` line below.
 2. **Then brief #125** (Shared inheritance and customer responsibility). The #124 note below says where it plugs in: `CREDITED_OFFERING_TYPES` and the `SHARED` branch of `sourceNoCreditReason` in `src/lib/effective-status.ts`. Its decision is in the list below ("Shared inheritance (#125)"). No implementer is running, so `git checkout` is safe.
-3. **Open with the product owner** (asked on 2026-10-02, not answered yet; #124 was built with the defaults):
-   - The Provider's page lists the Systems depending on it for its owner or an Admin, **by name only**, linked only when the viewer can see that System. The alternative is to list only the dependents the viewer can already see, plus a count.
-   - **A catalog recompute writes no events on dependents.** When a Framework publish, a Control Mapping change or a Control scoping edit makes an offered Control stop or start applying to a Provider, its dependents' effective status moves live but no `"system"` event is logged on them. Every other trigger logs. The Capability, classification and Framework Scope triggers on a Provider do log, but not atomically with the change (a crash in between loses the events, never the change).
-4. Nothing else is in flight. The dev DB is in its seeded state (see below), with no Providers, no Offerings and no dependencies.
+3. Nothing else is in flight. The dev DB is in its seeded state (see below), with no Providers, no Offerings and no dependencies.
+4. **Possible follow-up, not opened as an issue:** the older interactive transactions (the frameworks, controls and mappings routes, `assessment-queries.ts`) have not been audited for queries on the global Prisma client. PR #134's first CI run failed on exactly that in the Offering write (see the #124 note). The test run now uses a pool of 3, so a path that a test exercises concurrently would show it.
 
 **State as of 2026-10-02**
 - PRD 0001 milestones 1 and 2 are complete, closed and in production.
@@ -60,6 +58,10 @@ F-OUT.2 (the source of each Control on the System page) and F-CE.2 (Change Event
 - **A status change on an Organizational Control (#122) writes one System-less Change Event**, not one per System. Both Controls keep #121's per-System events.
 - **Going back to inheriting is #129.** A person-set Assessment overrides every source for good, so the System's owner or an Admin gets a "reset to inherited" action that returns it to untouched and records what was cleared in a Change Event. #121 has no such action.
 - **OQ-2 (#124):** the most favourable source wins, and every source is listed.
+- **Decisions on #124 after it was built** (product owner, 2026-10-02; also a comment on #124):
+  - The Provider's page lists the Systems depending on it **by name only**, for its owner or an Admin, linked only when the viewer can see that System.
+  - **A catalog recompute writes no events on dependents: accepted for now.** When a Framework publish, a Control Mapping change or a Control scoping edit makes an offered Control stop or start applying to a Provider, the dependents' effective status moves live and nothing is logged on them.
+  - **The Capability, classification and Framework Scope triggers on a Provider are not atomic and not serialised: accepted.** Their dependents' events are written after the change commits, with no lock (#126 retires the Capability paths).
 - **Decisions for #124** (product owner, 2026-10-02; also a comment on #124):
   - **What is visible about a Provider to someone who can't see it as a System:** its name, its Control Offerings, and the Provider's own Assessment status for each offered Control. Nothing else about it. A System's owner must be able to pick any Provider, and the dependent's page shows "Inherited from Provider X: Full" with that status.
   - **A System can only depend on a System marked as a Provider** (409 otherwise), and never on itself. Mutual dependencies are allowed: there are no chains, so they are harmless.
