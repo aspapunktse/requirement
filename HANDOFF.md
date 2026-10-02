@@ -12,12 +12,13 @@ This file is a snapshot of in-flight state, not a permanent doc. Update or trim 
 ## Next up: the queue (start here)
 
 **Where the last session stopped (2026-10-02). Do this first.**
-1. **The PR for #124 (Provider dependencies and live Full inheritance) is open** from branch `124-provider-dependencies` (`gh pr list` gives its number). It is reviewed and browser-verified. Run `gh pr checks <n>` once.
-   - If it is still open and CI is green: confirm its Vercel preview ran no `prisma migrate deploy` (the PR carries one migration; the workflow doc has the commands), then `gh pr merge <n> --squash --delete-branch`, `git checkout main && git pull`, and watch the CI and CD runs of the merge commit. The CD deploy log must show `20261002120000_add_provider_dependency` applied (31 migrations found).
+1. **The PR for #125 (Shared inheritance and customer responsibility) is open** from branch `125-shared-inheritance` (`gh pr list` gives its number). It is reviewed and browser-verified. It has no migration. Run `gh pr checks <n>` once.
+   - If it is still open and CI is green: `gh pr merge <n> --squash --delete-branch`, `git checkout main && git pull`, and watch the CI and CD runs of the merge commit (the deploy log should say "No pending migrations to apply", 31 found).
    - If it is already merged: check that CD run instead (`gh run list --workflow CD --limit 3`), then correct the `main` line below.
-2. **Then brief #125** (Shared inheritance and customer responsibility). The #124 note below says where it plugs in: `CREDITED_OFFERING_TYPES` and the `SHARED` branch of `sourceNoCreditReason` in `src/lib/effective-status.ts`. Its decision is in the list below ("Shared inheritance (#125)"). No implementer is running, so `git checkout` is safe.
+2. **Then brief #126** (retire Capability, migrating each to a Provider System). It is the last M3 issue and carries a data migration, so rehearse it on a `pg_dump` and read the Vercel settings back before pushing. The "For #126" lines of the #124 and #125 notes below say what it builds on. Close the GitHub milestone when #126 is closed. No implementer is running, so `git checkout` is safe.
 3. Nothing else is in flight. The dev DB is in its seeded state (see below), with no Providers, no Offerings and no dependencies.
 4. **Possible follow-up, not opened as an issue:** the older interactive transactions (the frameworks, controls and mappings routes, `assessment-queries.ts`) have not been audited for queries on the global Prisma client. PR #134's first CI run failed on exactly that in the Offering write (see the #124 note). The test run now uses a pool of 3, so a path that a test exercises concurrently would show it.
+5. **Small polish seen in the browser, not done:** on a Control with a Shared Offering, the Assessment form keeps saying "Set the status below to Fulfilled once this System has done it." after the System's own half is Fulfilled.
 
 **State as of 2026-10-02**
 - PRD 0001 milestones 1 and 2 are complete, closed and in production.
@@ -28,7 +29,7 @@ This file is a snapshot of in-flight state, not a permanent doc. Update or trim 
   - #95 (GitHub Actions on their Node 24 majors);
   - #115 (CI, the CD deploy job and the Docker image on Node 24);
   - PR #106 (Vercel records production deploys as `main`).
-- `main` is at #123 (PR #133, deployed: CD run 37000102878, which applied `20261002100000_add_control_offering_changed_change_event` and `20261002110000_add_provider_and_control_offering`). **The PR for #124 is open**; see "Where the last session stopped" above. Production has every migration up to `20261002110000_add_provider_and_control_offering` (30 in all).
+- `main` is at #124 (PR #134, deployed: CD run 37037625598, which applied `20261002120000_add_provider_dependency`). **The PR for #125 is open**; see "Where the last session stopped" above. Production has every migration up to `20261002120000_add_provider_dependency` (31 in all).
 - The dev DB is in its seeded state:
   - 10 Systems, 10 Users, 118 Controls, 471 Control Assessments, 0 Change Events, and (since #120) 92 Organization Control Implementations, all Not Started: one per Organizational/Both Control. No Control Owners, no Providers, no Control Offerings, no Provider dependencies.
   - ISO/IEC 27001:2022 figures since #122: Jira 56 of 117 (47.9%), pooled 463 of 1171 (39.5%). CATIA and Unily are the two Draft Systems with few Assessment rows ("needs assessment" 44 and 47).
@@ -42,9 +43,9 @@ This file is a snapshot of in-flight state, not a permanent doc. Update or trim 
 4. ~~**#122: count Organizational Requirements per System** (#89 decision 3a).~~ **Done** (PR #131, key pieces below).
    - ~~Then **#129: reset a Control Assessment to inherited** (F-IN.5 follow-up, product-owner decision of 2026-10-01).~~ **Done** (PR #132, key pieces below).
 5. ~~**#123: Providers and Control Offerings** (F-IN.2).~~ **Done** (PR #133, key pieces below).
-6. ~~**#124: Provider dependencies and live Full inheritance** (F-IN.3, F-IN.4, OQ-2). After #121 and #123.~~ **Done on its branch `124-provider-dependencies`; its PR is open, not merged yet** (key pieces below).
-7. ~~**#125: Shared inheritance and customer responsibility** (F-IN.5 rule 3). After #124.~~ **Done on its branch `125-shared-inheritance`; not merged yet** (key pieces below).
-8. **#126: retire Capability**, migrating each to a Provider System (F-IN.8, §9.5). After #124.
+6. ~~**#124: Provider dependencies and live Full inheritance** (F-IN.3, F-IN.4, OQ-2). After #121 and #123.~~ **Done** (PR #134, key pieces below).
+7. ~~**#125: Shared inheritance and customer responsibility** (F-IN.5 rule 3). After #124.~~ **Done on its branch `125-shared-inheritance`; its PR is open, not merged yet** (key pieces below).
+8. **#126: retire Capability**, migrating each to a Provider System (F-IN.8, §9.5). After #124. **Start here, once the #125 PR is merged and deployed.**
 
 F-OUT.2 (the source of each Control on the System page) and F-CE.2 (Change Events) are spread over #121, #122, #124 and #125 instead of having their own issue. Close the GitHub milestone when #126 is closed.
 
