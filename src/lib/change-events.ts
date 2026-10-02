@@ -3,8 +3,8 @@ import type { ChangeEventAction, Prisma } from "@prisma/client";
 
 /**
  * actorId sentinel for a transition the backend computed as a side effect of
- * a different, human-initiated action (Capability auto-fulfillment, a Risk
- * auto-opened by a "No" Self-Assessment answer) rather than a direct edit to
+ * a different, human-initiated action (a Provider's status moving a dependent's
+ * effective status, a Risk auto-opened by a "No" Self-Assessment answer) rather than a direct edit to
  * that specific row. See #58.
  */
 export const SYSTEM_ACTOR = "system";

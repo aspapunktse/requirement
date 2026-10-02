@@ -37,7 +37,7 @@ import { loadOrganizationStatuses, loadProviderSources, toOwnAssessment } from "
  *
  * Triggers (each is one small call):
  * - the Provider's own Assessment status changes: the edit, answer and reset
- *   routes (`runProviderAssessmentWrite`), Capability auto-fulfilment;
+ *   routes (`runProviderAssessmentWrite`);
  * - the Provider becomes Onboarded (the onboard route);
  * - an Offering is added, changed or removed (`control-offerings.ts`);
  * - a dependency is declared or removed (`provider-dependencies.ts`), scoped to
@@ -237,8 +237,8 @@ async function hasCreditedDependents(tx: Tx, providerId: string, controlId: stri
 
 /**
  * Records what a change to a System that is a Provider moved on the Systems
- * depending on it, for changes that run their own transactions (Capability
- * declare and remove, a classification or Framework Scope change): resolves every
+ * depending on it, for changes that run their own transactions (a
+ * classification or Framework Scope change): resolves every
  * Control the Provider offers before, runs `change`, resolves after and writes
  * the `"system"` events. A System that is not a Provider just runs `change`.
  *

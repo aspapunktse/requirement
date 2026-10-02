@@ -11,7 +11,6 @@ const baseControl = {
   intent: null,
   examples: [] as string[],
   deploymentFacets: [] as { id: string; name: string }[],
-  capabilities: [] as { id: string; name: string }[],
   originFramework: null as { id: string; name: string; version: string } | null,
   owner: null as { id: string; name: string } | null,
   mappings: [] as {
@@ -46,7 +45,6 @@ let controls = [
   },
 ];
 const deploymentFacets = [{ id: "st1", name: "On-Premises Datacenter" }];
-const capabilities = [{ id: "c1", name: "Active Directory" }];
 // What GET /api/users returns (the component keeps only id and name).
 let users = [
   { id: "u1", name: "Ada Admin", email: "ada@example.com", role: "ADMIN" },
@@ -66,9 +64,6 @@ function mockFetch() {
     }
     if (url.endsWith("/api/deployment-facets") && method === "GET") {
       return Promise.resolve(new Response(JSON.stringify({ deploymentFacets }), { status: 200 }));
-    }
-    if (url.endsWith("/api/capabilities") && method === "GET") {
-      return Promise.resolve(new Response(JSON.stringify({ capabilities }), { status: 200 }));
     }
     if (url.endsWith("/api/users") && method === "GET") {
       return Promise.resolve(
@@ -166,7 +161,6 @@ describe("ControlLibraryManager", () => {
       );
       expect(patchCall).toBeTruthy();
       expect(JSON.parse(patchCall![1].body)).toEqual({
-        capabilityIds: [],
         deploymentFacetIds: ["st1"],
         minConfidentialityImpactLevel: null,
         minIntegrityImpactLevel: null,
@@ -245,7 +239,7 @@ describe("ControlLibraryManager", () => {
       await user.selectOptions(picker, "u2");
       await user.click(screen.getByRole("button", { name: "Save" }));
 
-      await waitFor(() => expect(patchBody("r2")).toEqual({ capabilityIds: [], ownerId: "u2" }));
+      await waitFor(() => expect(patchBody("r2")).toEqual({ ownerId: "u2" }));
     });
 
     it("pre-selects the current Control Owner and clears it with No Control Owner", async () => {
@@ -260,7 +254,7 @@ describe("ControlLibraryManager", () => {
       await user.selectOptions(picker, "");
       await user.click(screen.getByRole("button", { name: "Save" }));
 
-      await waitFor(() => expect(patchBody("r2")).toEqual({ capabilityIds: [], ownerId: null }));
+      await waitFor(() => expect(patchBody("r2")).toEqual({ ownerId: null }));
     });
 
     it("does not send ownerId when the Control Owner was not touched", async () => {
@@ -271,7 +265,8 @@ describe("ControlLibraryManager", () => {
       await user.selectOptions(await screen.findByLabelText("Control"), "r2");
       await user.click(screen.getByRole("button", { name: "Save" }));
 
-      await waitFor(() => expect(patchBody("r2")).toEqual({ capabilityIds: [] }));
+      // An Organizational Control with its owner untouched has nothing to save: no request, since the API refuses an empty edit.
+      expect(patchBody("r2")).toBeUndefined();
     });
 
     it("keeps the picker usable, and never clears an owner, when the User list could not be loaded", async () => {
@@ -289,7 +284,7 @@ describe("ControlLibraryManager", () => {
       expect(picker).toHaveValue("u1");
 
       await user.click(screen.getByRole("button", { name: "Save" }));
-      await waitFor(() => expect(patchBody("r2")).toEqual({ capabilityIds: [] }));
+      expect(patchBody("r2")).toBeUndefined();
     });
   });
 

@@ -1,7 +1,6 @@
 import type { Prisma, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { getApplicableControls, type SystemClassification } from "@/lib/control-assessments";
-import { diffApplicabilityOpsWithCapabilities, logAutoFulfilment } from "@/lib/capability-fulfillment";
+import { diffApplicabilityOps, getApplicableControls, type SystemClassification } from "@/lib/control-assessments";
 import { logChangeEvent } from "@/lib/change-events";
 import { recordProviderChange } from "@/lib/provider-inheritance";
 import { isSystemOwnerOrAdmin } from "@/lib/system-permissions";
@@ -52,9 +51,7 @@ type ScopeSystem = SystemClassification & { id: string; isProvider?: boolean };
  * Control mapped to a Requirement of the Framework, if it's Published). Syncs
  * Assessment rows the same way a classification change does — see
  * diffApplicabilityOps — with the scope row, the deletes and the creates in
- * one transaction. A newly applicable Control a declared Capability covers is
- * created FULFILLED (#110, `diffApplicabilityOpsWithCapabilities`). Declaring a Framework that's already in scope is a no-op
- * diff.
+ * one transaction. Declaring a Framework that's already in scope is a no-op diff.
  */
 export async function applyFrameworkScopeDeclared(
   system: ScopeSystem,
@@ -73,11 +70,7 @@ async function declareFrameworkScope(system: ScopeSystem, framework: { id: strin
     getApplicableControls({ ...system, frameworkScopes: newScopeIds.map((id) => ({ id })) }),
   ]);
 
-  const { added, deleteOp, createOp, plan } = await diffApplicabilityOpsWithCapabilities(
-    system.id,
-    oldApplicable,
-    newApplicable,
-  );
+  const { added, deleteOp, createOp } = diffApplicabilityOps(system.id, oldApplicable, newApplicable);
   const [, removed] = await prisma.$transaction([
     prisma.system.update({
       where: { id: system.id },
@@ -93,7 +86,6 @@ async function declareFrameworkScope(system: ScopeSystem, framework: { id: strin
     `Framework Scope "${framework.name}" added (+${added}/-${removed.count} Control Assessment(s))`,
     actorId,
   );
-  await logAutoFulfilment(system.id, plan);
 
   return { added, removed: removed.count };
 }
@@ -122,11 +114,7 @@ async function removeFrameworkScope(system: ScopeSystem, framework: { id: string
     getApplicableControls({ ...system, frameworkScopes: newScopeIds.map((id) => ({ id })) }),
   ]);
 
-  const { added, deleteOp, createOp, plan } = await diffApplicabilityOpsWithCapabilities(
-    system.id,
-    oldApplicable,
-    newApplicable,
-  );
+  const { added, deleteOp, createOp } = diffApplicabilityOps(system.id, oldApplicable, newApplicable);
   const [, removed] = await prisma.$transaction([
     prisma.system.update({
       where: { id: system.id },
@@ -142,7 +130,6 @@ async function removeFrameworkScope(system: ScopeSystem, framework: { id: string
     `Framework Scope "${framework.name}" removed (+${added}/-${removed.count} Control Assessment(s))`,
     actorId,
   );
-  await logAutoFulfilment(system.id, plan);
 
   return { added, removed: removed.count };
 }

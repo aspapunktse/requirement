@@ -80,23 +80,17 @@ async function roleOwnView(user: { id: string; name: string; role: UserRole }): 
       };
 
     case "ADMIN": {
-      const [controls, facets, capabilities] = await Promise.all([
-        prisma.control.count(),
-        prisma.deploymentFacet.count(),
-        prisma.capability.count(),
-      ]);
+      const [controls, facets] = await Promise.all([prisma.control.count(), prisma.deploymentFacet.count()]);
 
       return {
         lede: "Manage the catalogs every System's onboarding is assessed against.",
         stats: [
           { label: "Controls", value: controls },
           { label: "Deployment facets", value: facets },
-          { label: "Capabilities", value: capabilities },
         ],
         tiles: [
           { title: "Controls", description: "Manage the Control Library.", href: "/admin/controls" },
           { title: "Deployment Facets", description: "Manage deployment classifications.", href: "/admin/deployment-facets" },
-          { title: "Capabilities", description: "Manage centrally-provided dependencies.", href: "/admin/capabilities" },
           ORGANIZATION_CONTROLS_TILE,
         ],
       };

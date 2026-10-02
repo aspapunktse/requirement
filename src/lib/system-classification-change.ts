@@ -1,7 +1,6 @@
 import type { ImpactLevel, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { getApplicableControls, type SystemClassification } from "@/lib/control-assessments";
-import { diffApplicabilityOpsWithCapabilities, logAutoFulfilment } from "@/lib/capability-fulfillment";
+import { diffApplicabilityOps, getApplicableControls, type SystemClassification } from "@/lib/control-assessments";
 import { logChangeEvent } from "@/lib/change-events";
 import { recordProviderChange } from "@/lib/provider-inheritance";
 import { isSystemOwnerOrAdmin } from "@/lib/system-permissions";
@@ -14,7 +13,7 @@ import { isSystemOwnerOrAdmin } from "@/lib/system-permissions";
  *
  * There is no lifecycle check: classification can change at any stage
  * (ADR 0006 removed the Draft-only lock that #51/ADR 0003 had put on it,
- * along with the matching locks on Capabilities and Framework Scope). A System lives for years after onboarding and what
+ * along with the matching locks on Framework Scope). A System lives for years after onboarding and what
  * applies to it keeps changing, so the change is recorded and the recompute
  * runs; it never touches the System's status or its Approval history.
  */
@@ -36,8 +35,7 @@ export type ClassificationChanges = {
  * Change a System's classification (at any lifecycle stage, ADR 0006) — any combination of Deployment
  * Facets and/or Impact Level axes in one call — and recompute its
  * Control Assessment set to match: create rows for newly-applicable Controls
- * (NOT_STARTED, or FULFILLED when a Capability the System declares covers the
- * Control, #110), and remove rows for no-longer-applicable ones —
+ * (NOT_STARTED), and remove rows for no-longer-applicable ones —
  * but only if untouched (still NOT_STARTED and never manually edited, i.e.
  * assessedById is null). A Control Assessment a human has already
  * worked on is left in place even though it's no longer applicable; it
@@ -99,11 +97,7 @@ async function applyClassificationChange(
     getApplicableControls(newClassification),
   ]);
 
-  const { added, deleteOp, createOp, plan } = await diffApplicabilityOpsWithCapabilities(
-    system.id,
-    oldApplicable,
-    newApplicable,
-  );
+  const { added, deleteOp, createOp } = diffApplicabilityOps(system.id, oldApplicable, newApplicable);
 
   const [, removed] = await prisma.$transaction([
     prisma.system.update({
@@ -133,7 +127,6 @@ async function applyClassificationChange(
     `Classification changed (+${added}/-${removed.count} Control Assessment(s))`,
     actorId,
   );
-  await logAutoFulfilment(system.id, plan);
 
   return { added, removed: removed.count };
 }

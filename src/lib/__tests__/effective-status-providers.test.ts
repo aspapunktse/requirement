@@ -120,7 +120,7 @@ describe("resolveEffectiveStatus with Provider sources", () => {
     expect(result.overridesInherited).toBe(status !== "FULFILLED");
   });
 
-  it("an own Fulfilled that a Capability set (not person-set) stays Fulfilled with no credited source", () => {
+  it("an own Fulfilled that nobody set (not person-set) stays Fulfilled with no credited source", () => {
     expect(resolveEffectiveStatus({ status: "FULFILLED", personSet: false }, [provider({ status: "NOT_STARTED" })]).status).toBe("FULFILLED");
   });
 

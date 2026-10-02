@@ -28,7 +28,7 @@ describe("PATCH /api/organization/controls/[controlId]: Change Events for inheri
   let bothCode: string;
   let organizationalId: string;
   let unmappedBothId: string;
-  const system = {} as Record<"untouched" | "noRow" | "personSet" | "ownFulfilled" | "capability" | "otherFacet", string>;
+  const system = {} as Record<"untouched" | "noRow" | "personSet" | "ownFulfilled" | "nobodySet" | "otherFacet", string>;
   const expectedChanged = () => [system.untouched, system.noRow].sort();
 
   const patch = (controlId: string, userId: string, body: unknown) =>
@@ -103,15 +103,15 @@ describe("PATCH /api/organization/controls/[controlId]: Change Events for inheri
     await makeSystem("noRow");
     await makeSystem("personSet");
     await makeSystem("ownFulfilled");
-    await makeSystem("capability");
+    await makeSystem("nobodySet");
     await makeSystem("otherFacet", otherFacetId);
     await prisma.controlAssessment.createMany({
       data: [
         { systemId: system.untouched, controlId: bothId },
         { systemId: system.personSet, controlId: bothId, status: "IN_PROGRESS", assessedById: ownerId, assessedAt: new Date() },
         { systemId: system.ownFulfilled, controlId: bothId, status: "FULFILLED", assessedById: ownerId, assessedAt: new Date() },
-        // Fulfilled by a Capability: no person set it, but its own status is Fulfilled already.
-        { systemId: system.capability, controlId: bothId, status: "FULFILLED" },
+        // Fulfilled, but no person set it (a migration left it so): its own status is Fulfilled already.
+        { systemId: system.nobodySet, controlId: bothId, status: "FULFILLED" },
       ],
     });
   });
@@ -134,7 +134,7 @@ describe("PATCH /api/organization/controls/[controlId]: Change Events for inheri
     await setStatus("FULFILLED");
 
     const logged = await events();
-    // The untouched row and the Control with no row at all change; a person-set, an own-Fulfilled and a Capability-Fulfilled
+    // The untouched row and the Control with no row at all change; a person-set, an own-Fulfilled and a nobody-set Fulfilled
     // Assessment and a System the Control does not apply to do not.
     expect(logged.map((e) => e.systemId).sort()).toEqual(expectedChanged());
     for (const event of logged) {

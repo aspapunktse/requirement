@@ -167,7 +167,7 @@ describe("a Shared Offering: the System page's row (F-OUT.2)", { timeout: 60_000
     expect((await rowOf(systemId, control)).effective.status).toBe(PROVIDER_HALF_MISSING_STATUS);
   });
 
-  it("an own Fulfilled that a Capability set is the customer's half too (D3)", async () => {
+  it("an own Fulfilled that nobody set is the customer's half too (D3)", async () => {
     const providerId = await makeSharedProvider({ status: "FULFILLED" });
     const systemId = await f.makeSystem();
     await f.assess(systemId, f.controls.perSystem.id, "FULFILLED", null); // assessedById null: not a person
@@ -257,10 +257,10 @@ describe("derived Requirement status and the Compliance Percentage", { timeout: 
     const waived = await f.makeSystem();
     await f.assess(waived, control, "WAIVED");
     await f.depend(waived, ready);
-    const capability = await f.makeSystem();
-    await f.assess(capability, control, "FULFILLED", null);
-    await f.depend(capability, ready);
-    const ids = [bothHalves, providerBehind, ownOpen, fullAndShared, waived, capability];
+    const nobodySet = await f.makeSystem();
+    await f.assess(nobodySet, control, "FULFILLED", null);
+    await f.depend(nobodySet, ready);
+    const ids = [bothHalves, providerBehind, ownOpen, fullAndShared, waived, nobodySet];
     const systems = await Promise.all(ids.map(classification));
 
     const bulk = await deriveFrameworkStatusesForSystems(f.frameworkId, systems);
@@ -274,7 +274,7 @@ describe("derived Requirement status and the Compliance Percentage", { timeout: 
       expect((await rowOf(system.id, control)).effective).toEqual(derivedControl.effective);
     }
     const statuses = ids.map((id) => bulk!.bySystem.get(id)!.find((row) => row.requirementId === requirementId)!.status);
-    // both halves; Provider behind (D1); own half open; Full credit; Waived counts (lenient Framework); Capability's own Fulfilled.
+    // both halves; Provider behind (D1); own half open; Full credit; Waived counts (lenient Framework); an own Fulfilled nobody set.
     expect(statuses).toEqual(["MET", "NOT_MET", "NOT_MET", "MET", "MET", "MET"]);
   });
 });

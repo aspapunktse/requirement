@@ -85,7 +85,6 @@ describe("GET /api/controls", () => {
       intent: null,
       examples: [],
       deploymentFacets: [],
-      capabilities: [],
     });
   });
 

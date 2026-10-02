@@ -91,7 +91,7 @@ describe("resolveEffectiveStatus", () => {
     });
   });
 
-  it("an Assessment fulfilled by a Capability (Fulfilled, not person-set) stays Fulfilled when the Organization drops back", () => {
+  it("an Assessment Fulfilled but not person-set stays Fulfilled when the Organization drops back", () => {
     const own: OwnAssessment = { status: "FULFILLED", personSet: false };
     expect(resolveEffectiveStatus(own, [organization("NOT_STARTED")]).status).toBe("FULFILLED");
   });

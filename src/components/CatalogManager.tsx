@@ -13,7 +13,7 @@ type CatalogManagerProps = {
   resourceKey: string;
   /** Singular, human-readable name of one entry, e.g. "Deployment Facet". */
   itemLabel: string;
-  /** Plural form, e.g. "Capabilities". Defaults to `${itemLabel}s`. */
+  /** Plural form, e.g. "Categories". Defaults to `${itemLabel}s`. */
   itemLabelPlural?: string;
 };
 
@@ -25,7 +25,7 @@ async function fetchItems(resourcePath: string, resourceKey: string): Promise<Ca
 
 /**
  * A simple admin CRUD screen (list, create, edit) for one of the small
- * name+description catalogs (System Type, Capability, ...).
+ * name+description catalogs (Deployment Facet, Business Unit, ...).
  */
 export function CatalogManager({
   resourcePath,

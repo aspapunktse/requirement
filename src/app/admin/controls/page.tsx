@@ -13,7 +13,7 @@ export default async function ControlLibraryPage() {
     return (
       <p className="p-6 text-zinc-600 dark:text-zinc-400">
         Only Compliance Managers and Admins can author Controls and map them to Deployment
-        Facets, Impact Levels, and Capabilities.
+        Facets and Impact Levels.
       </p>
     );
   }

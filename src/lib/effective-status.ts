@@ -69,8 +69,8 @@ const CUSTOMER_HALF_STATUSES: ControlAssessmentStatus[] = ["FULFILLED"];
 
 /**
  * Is the System's own half of a Shared Offering done? Looks at the own status and
- * nothing else, so an Assessment a Capability auto-fulfilled counts as much as a
- * person-set one (product-owner decision D3 on #125; #126 retires Capability).
+ * nothing else, so an Assessment nobody set but that is Fulfilled counts as much as a
+ * person-set one (product-owner decision D3 on #125).
  * The one place that says it, for every Shared source of a Control.
  */
 export function customerHalfIsDone(own: OwnAssessment): boolean {
@@ -188,7 +188,7 @@ function plainSource(source: InheritanceSource): InheritanceSource {
 /** The System's own Control Assessment; null (no row) is an untouched Not Started one. */
 export type OwnAssessment = {
   status: ControlAssessmentStatus;
-  /** A person set it (`assessedById` is not null). A Capability's auto-fulfilment is not a person. */
+  /** A person set it (`assessedById` is not null). */
   personSet: boolean;
 } | null;
 
@@ -224,7 +224,7 @@ export type EffectiveStatus = {
  * | person-set, not Fulfilled              | any                                          | own status (Waived, Not Applicable, In Progress, Not Started) |
  * | not person-set                         | a Full source gives credit                   | Fulfilled, inherited from it       |
  * | not Fulfilled (untouched, no row)      | none gives credit, Shared or not             | own status: the customer's half is not done |
- * | Fulfilled (person-set or a Capability's) | no Shared source, or a Full source gives credit | Fulfilled, System-specific      |
+ * | Fulfilled (person-set or not)            | no Shared source, or a Full source gives credit | Fulfilled, System-specific      |
  * | Fulfilled                              | a Shared source's Provider half is satisfied | Fulfilled, inherited from it (Shared) |
  * | Fulfilled                              | Shared source(s), none satisfied, no Full credit | In Progress (D1, `PROVIDER_HALF_MISSING_STATUS`) |
  *
@@ -498,7 +498,7 @@ export function describeOwnEditEffect(storedStatus: ControlAssessmentStatus, eff
  *   depends on no Provider offering it, or one only a Shared Offering covers.
  *   There is nothing to go back to;
  * - "NOT_PERSON_SET": there is no row, or nobody set it (`assessedById` is
- *   null, which includes an untouched row and one a Capability fulfilled), so
+ *   null, which includes an untouched row and one a migration left Fulfilled), so
  *   it already follows its sources.
  */
 export type ResetToInheritedRefusal = "NOT_APPLICABLE" | "NO_SOURCE" | "NOT_PERSON_SET";
