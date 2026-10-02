@@ -8,6 +8,8 @@ import { canChangeSystemClassification } from "@/lib/system-classification-chang
 import { canManageBusinessUnits } from "@/lib/business-units";
 import { canManageFrameworkScopes } from "@/lib/framework-scope";
 import { assessmentEditAccess, canSubmit } from "@/lib/system-permissions";
+import { canManageProvider } from "@/lib/control-offering-rules";
+import { listControlOfferings, listOfferableControls } from "@/lib/control-offerings";
 import { getSystemFrameworkRequirements } from "@/lib/requirement-status";
 import { ControlAssessmentList } from "@/components/ControlAssessmentList";
 import { SystemFrameworkRequirementsView } from "@/components/SystemFrameworkRequirements";
@@ -17,6 +19,7 @@ import { ApprovalPanel } from "@/components/ApprovalPanel";
 import { MarkOnboardedButton } from "@/components/MarkOnboardedButton";
 import { SystemCapabilities } from "@/components/SystemCapabilities";
 import { SystemCatalogRelation } from "@/components/SystemCatalogRelation";
+import { SystemProvider } from "@/components/SystemProvider";
 import { DeploymentFacetsChanger } from "@/components/DeploymentFacetsChanger";
 import { ImpactLevelsChanger } from "@/components/ImpactLevelsChanger";
 import { StatusChip } from "@/components/ui/StatusChip";
@@ -36,13 +39,19 @@ export default async function SystemDetailPage({ params }: PageProps<"/systems/[
     return <p className="p-6 text-zinc-600 dark:text-zinc-400">System not found.</p>;
   }
 
-  const frameworkRequirements = await getSystemFrameworkRequirements(system);
+  const canManageThisProvider = canManageProvider(user, system);
+  const [frameworkRequirements, offerings, offerable] = await Promise.all([
+    getSystemFrameworkRequirements(system),
+    listControlOfferings(system),
+    canManageThisProvider ? listOfferableControls(system) : Promise.resolve([]),
+  ]);
 
   return (
     <div className="mx-auto max-w-2xl p-6">
       <h1 className="mb-1 text-2xl">{system.name}</h1>
       <p className="mb-4 flex items-center gap-2 text-sm text-zinc-500">
         <StatusChip tone={onboardingStatusTone(system.status)}>{system.status}</StatusChip>
+        {system.isProvider && <StatusChip tone="accent">Provider</StatusChip>}
         <span>
           {system.deploymentFacets.map((facet) => facet.name).join(" + ")} · owned by{" "}
           {system.owner.name}
@@ -132,6 +141,15 @@ export default async function SystemDetailPage({ params }: PageProps<"/systems/[
         idField="frameworkId"
         itemLabel="Framework"
         emptyLabel="This System isn't in scope for any Framework yet."
+      />
+
+      <h2 className="mb-3 mt-8 text-xl">Provider</h2>
+      <SystemProvider
+        systemId={system.id}
+        canManage={canManageThisProvider}
+        initialIsProvider={system.isProvider}
+        initialOfferings={offerings}
+        initialOfferable={offerable}
       />
 
       <h2 className="mb-3 mt-8 text-xl">Controls</h2>

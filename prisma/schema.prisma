@@ -139,6 +139,13 @@ model System {
   // Overlay in its favour. Neither is Draft-locked. See #55.
   businessUnits   BusinessUnit[]
   frameworkScopes Framework[]         @relation("SystemFrameworkScope")
+  // A Provider is a System other Systems depend on and inherit Controls from
+  // (ADR 0008, PRD 0001 F-IN.2, #123). The System's owner or an Admin marks
+  // or unmarks it; unmarking is refused while it has Offerings. Nothing reads
+  // this yet: dependencies are #124.
+  isProvider      Boolean             @default(false)
+  // The Controls this Provider publishes for the Systems depending on it.
+  offerings       ControlOffering[]
   // Curated log of System-lifecycle-relevant mutations, feeding the landing
   // page's "Recent updates" feed. See #58.
   changeEvents    ChangeEvent[]
@@ -377,6 +384,9 @@ model Control {
   // Not Started and the first edit creates it.
   organizationImplementation    OrganizationControlImplementation?
 
+  // Offerings by Providers of this Control (#123). Deleting the Control removes them.
+  offerings                     ControlOffering[]
+
   @@index([ownerId])
 }
 
@@ -402,6 +412,39 @@ model OrganizationControlImplementation {
   updatedAt   DateTime                @updatedAt
 
   @@index([updatedById])
+}
+
+// How a Provider's Control Offering is inherited (ADR 0008, F-IN.2): Full covers
+// the Control entirely; Shared still leaves the customer responsibility to the
+// depending System (credit for it is #125).
+enum ControlOfferingType {
+  FULL
+  SHARED
+}
+
+// A Provider's statement that it implements one Control for the Systems
+// depending on it (PRD 0001 F-IN.2, #123). At most one per Provider and
+// Control. The Provider can only offer a Control that applies to it, so it has
+// a Control Assessment for it, which is the status dependents will read (#124).
+// If the Control later stops applying to the Provider the Offering is kept (it
+// is never deleted by a recompute) and reported as no longer applying. Shared
+// needs a customer-responsibility text (`controlOfferingRefusal`); Full stores
+// null. Nothing consumes Offerings yet (#124). Each add, change and removal is
+// a CONTROL_OFFERING_CHANGED Change Event on the Provider.
+model ControlOffering {
+  id                     String              @id @default(cuid())
+  providerId             String
+  provider               System              @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  controlId              String
+  control                Control             @relation(fields: [controlId], references: [id], onDelete: Cascade)
+  type                   ControlOfferingType
+  // What the depending System must still do itself. Required for Shared, null for Full.
+  customerResponsibility String?
+  createdAt              DateTime            @default(now())
+  updatedAt              DateTime            @updatedAt
+
+  @@unique([providerId, controlId])
+  @@index([controlId])
 }
 
 // Fulfillment status of a Control for a specific System.
@@ -544,13 +587,19 @@ enum ChangeEventAction {
   // on every System with the Framework in scope. (A Both Control's status change writes
   // per-System ASSESSMENT_STATUS_CHANGED events instead, #121.)
   ORGANIZATION_IMPLEMENTATION_CHANGED
+  // The Provider's owner or an Admin added, changed or removed one of the Provider's
+  // Control Offerings (PRD 0001 F-IN.2, F-CE.2, #123). System-scoped to the Provider,
+  // actor the User who made the change. (Marking or unmarking a System as a Provider is
+  // a CLASSIFICATION_CHANGED event.)
+  CONTROL_OFFERING_CHANGED
 }
 
 // A curated, System-lifecycle-relevant mutation record — feeds the landing
 // page's "Recent updates" feed (see #58). Usually System-scoped; the
 // System-less actions (systemId null) record evidence-bearing changes to the
 // requirement database and to the Organization's own Control implementations
-// (PRD 0001 F-CE.1, F-CE.2). Deliberately not a full audit
+// (PRD 0001 F-CE.1, F-CE.2); a Provider's Control Offerings are System-scoped to the
+// Provider (CONTROL_OFFERING_CHANGED, #123). Deliberately not a full audit
 // trail: pure catalog-admin CRUD (Control/DeploymentFacet/Capability/
 // BusinessUnit/Framework create/edit/delete) is out of
 // scope, since this exists for role-relevant "what changed on this System"
