@@ -584,7 +584,7 @@ describe("ControlAssessmentList: reset to inherited (#129)", () => {
     expect(message).toContain("A.5.15");
     expect(message).toMatch(/clears this System's own status, evidence, notes and Self-Assessment answer/);
     expect(message).toMatch(/Organization: Fulfilled/);
-    expect(message).toMatch(/questions and any Risks linked to it stay/);
+    expect(message).toMatch(/Assessment Queries and any Risks linked to it stay/);
     expect(message).toMatch(/Change Event log/);
     expect(fetchMock.mock.calls.some(([, init]) => init?.method === "POST")).toBe(false);
     expect(screen.getByLabelText("Status for A.5.15")).toHaveValue("IN_PROGRESS");

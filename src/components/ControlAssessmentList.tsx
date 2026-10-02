@@ -509,7 +509,7 @@ function ResetToInherited({
     const confirmed = window.confirm(
       `Reset ${control.code} to inherited? This clears this System's own status, evidence, notes and ` +
         `Self-Assessment answer, so the Control goes back to what it inherits (${effectiveSourceDetails(effective).join("; ")}). ` +
-        "Its questions and any Risks linked to it stay as they are, and what was cleared is kept in the System's Change Event log.",
+        "Its Assessment Queries and any Risks linked to it stay as they are, and what was cleared is kept in the System's Change Event log.",
     );
     if (!confirmed) return;
     setError(null);
