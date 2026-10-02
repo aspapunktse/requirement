@@ -12,11 +12,14 @@ This file is a snapshot of in-flight state, not a permanent doc. Update or trim 
 ## Next up: the queue (start here)
 
 **Where the last session stopped (2026-10-02). Do this first.**
-1. **PR #133 (#123, Providers and Control Offerings) is open** on branch `123-providers-and-control-offerings`. It is reviewed and browser-verified, and CI was green on it before this hand-off commit was added (which re-triggers CI). Run `gh pr view 133 --json state,mergeStateStatus` and `gh pr checks 133` once.
-   - If it is still open and CI is green: confirm its Vercel preview ran no `prisma migrate deploy` (the PR carries two migrations; the workflow doc has the commands), then `gh pr merge 133 --squash --delete-branch`, `git checkout main && git pull`, and watch the CI and CD runs of the merge commit. The CD deploy log must show `20261002100000_add_control_offering_changed_change_event` and `20261002110000_add_provider_and_control_offering` applied (30 migrations found).
+1. **The PR for #124 (Provider dependencies and live Full inheritance) is open** from branch `124-provider-dependencies` (`gh pr list` gives its number). It is reviewed and browser-verified. Run `gh pr checks <n>` once.
+   - If it is still open and CI is green: confirm its Vercel preview ran no `prisma migrate deploy` (the PR carries one migration; the workflow doc has the commands), then `gh pr merge <n> --squash --delete-branch`, `git checkout main && git pull`, and watch the CI and CD runs of the merge commit. The CD deploy log must show `20261002120000_add_provider_dependency` applied (31 migrations found).
    - If it is already merged: check that CD run instead (`gh run list --workflow CD --limit 3`), then correct the `main` line below.
-2. **Then brief #124** (Provider dependencies and live Full inheritance). Its decisions are in the list below under "Decisions for #124", and the plan for its brief under "Notes for the #124 brief". No implementer is running, so `git checkout` is safe.
-3. Nothing else is in flight. The dev DB is in its seeded state (see below), with no Providers and no Offerings.
+2. **Then brief #125** (Shared inheritance and customer responsibility). The #124 note below says where it plugs in: `CREDITED_OFFERING_TYPES` and the `SHARED` branch of `sourceNoCreditReason` in `src/lib/effective-status.ts`. Its decision is in the list below ("Shared inheritance (#125)"). No implementer is running, so `git checkout` is safe.
+3. **Open with the product owner** (asked on 2026-10-02, not answered yet; #124 was built with the defaults):
+   - The Provider's page lists the Systems depending on it for its owner or an Admin, **by name only**, linked only when the viewer can see that System. The alternative is to list only the dependents the viewer can already see, plus a count.
+   - **A catalog recompute writes no events on dependents.** When a Framework publish, a Control Mapping change or a Control scoping edit makes an offered Control stop or start applying to a Provider, its dependents' effective status moves live but no `"system"` event is logged on them. Every other trigger logs. The Capability, classification and Framework Scope triggers on a Provider do log, but not atomically with the change (a crash in between loses the events, never the change).
+4. Nothing else is in flight. The dev DB is in its seeded state (see below), with no Providers, no Offerings and no dependencies.
 
 **State as of 2026-10-02**
 - PRD 0001 milestones 1 and 2 are complete, closed and in production.
@@ -27,11 +30,11 @@ This file is a snapshot of in-flight state, not a permanent doc. Update or trim 
   - #95 (GitHub Actions on their Node 24 majors);
   - #115 (CI, the CD deploy job and the Docker image on Node 24);
   - PR #106 (Vercel records production deploys as `main`).
-- `main` is at #129 (PR #132, deployed: CD run 36994669254, "No pending migrations"). **PR #133 (#123) is open**; see "Where the last session stopped" above. Production has every migration up to `20261001120000_add_organization_implementation_changed_change_event` (28 in all).
+- `main` is at #123 (PR #133, deployed: CD run 37000102878, which applied `20261002100000_add_control_offering_changed_change_event` and `20261002110000_add_provider_and_control_offering`). **The PR for #124 is open**; see "Where the last session stopped" above. Production has every migration up to `20261002110000_add_provider_and_control_offering` (30 in all).
 - The dev DB is in its seeded state:
-  - 10 Systems, 10 Users, 118 Controls, 471 Control Assessments, 0 Change Events, and (since #120) 92 Organization Control Implementations, all Not Started: one per Organizational/Both Control. No Control Owners, no Providers, no Control Offerings.
+  - 10 Systems, 10 Users, 118 Controls, 471 Control Assessments, 0 Change Events, and (since #120) 92 Organization Control Implementations, all Not Started: one per Organizational/Both Control. No Control Owners, no Providers, no Control Offerings, no Provider dependencies.
   - ISO/IEC 27001:2022 figures since #122: Jira 56 of 117 (47.9%), pooled 463 of 1171 (39.5%). CATIA and Unily are the two Draft Systems with few Assessment rows ("needs assessment" 44 and 47).
-  - The dev DB already has the two #123 migrations applied (30 rows in `_prisma_migrations`).
+  - The dev DB already has the #124 migration applied (31 rows in `_prisma_migrations`).
   - Frameworks: ISO/IEC 27001:2022, which is the base and Published. GDPR 1 and Export Control (EAR/ITAR) 1 are Published but have no Requirements yet; they came from #88.
 
 **Milestone "PRD 0001 · M3 Inheritance" is open on GitHub and cut into issues.** The product owner approved the cut on 2026-10-01. Work them in this order, one at a time:
@@ -40,9 +43,9 @@ This file is a snapshot of in-flight state, not a permanent doc. Update or trim 
 3. ~~**#121: effective status**, Systems inherit Both Controls from the Organization (F-IN.5, F-IN.6, F-IN.7).~~ **Done** (PR #130, key pieces below).
 4. ~~**#122: count Organizational Requirements per System** (#89 decision 3a).~~ **Done** (PR #131, key pieces below).
    - ~~Then **#129: reset a Control Assessment to inherited** (F-IN.5 follow-up, product-owner decision of 2026-10-01).~~ **Done** (PR #132, key pieces below).
-5. ~~**#123: Providers and Control Offerings** (F-IN.2).~~ **Done on its branch; PR #133 is open, not merged yet** (key pieces below).
-6. ~~**#124: Provider dependencies and live Full inheritance** (F-IN.3, F-IN.4, OQ-2). After #121 and #123.~~ **Done on its branch `124-provider-dependencies`; no PR yet** (key pieces below).
-7. **#125: Shared inheritance and customer responsibility** (F-IN.5 rule 3). After #124.
+5. ~~**#123: Providers and Control Offerings** (F-IN.2).~~ **Done** (PR #133, key pieces below).
+6. ~~**#124: Provider dependencies and live Full inheritance** (F-IN.3, F-IN.4, OQ-2). After #121 and #123.~~ **Done on its branch `124-provider-dependencies`; its PR is open, not merged yet** (key pieces below).
+7. **#125: Shared inheritance and customer responsibility** (F-IN.5 rule 3). After #124. **Start here, once the #124 PR is merged and deployed.**
 8. **#126: retire Capability**, migrating each to a Provider System (F-IN.8, §9.5). After #124.
 
 F-OUT.2 (the source of each Control on the System page) and F-CE.2 (Change Events) are spread over #121, #122, #124 and #125 instead of having their own issue. Close the GitHub milestone when #126 is closed.
