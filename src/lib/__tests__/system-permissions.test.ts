@@ -14,7 +14,8 @@ import { canManageBusinessUnits } from "../business-units";
 import { canManageFrameworkScopes } from "../framework-scope";
 import { canMarkOnboarded } from "../onboarding";
 import { canLogRisk } from "../risks";
-import { canManageCapabilities } from "../system-capabilities";
+import { canManageProvider } from "../control-offering-rules";
+import { canManageProviderDependencies } from "../provider-dependency-rules";
 import { canChangeSystemClassification } from "../system-classification-change";
 
 const system = { ownerId: "owner" };
@@ -183,7 +184,8 @@ describe("owner actions share one owner rule (#91)", () => {
   type Helper = (user: { id: string; role: UserRole }, system: { ownerId: string; status: string }) => boolean;
   const ownerActions: [string, Helper][] = [
     ["change classification", canChangeSystemClassification],
-    ["manage Capabilities", canManageCapabilities],
+    ["manage Provider dependencies", canManageProviderDependencies],
+    ["manage a Provider", canManageProvider],
     ["manage Business Units", canManageBusinessUnits],
     ["manage Framework Scope", canManageFrameworkScopes],
     ["log a Risk", canLogRisk],
@@ -224,10 +226,11 @@ describe("owner actions share one owner rule (#91)", () => {
     }
   });
 
-  it("has no lifecycle lock on classification, Capabilities, Framework Scope or Business Units (ADR 0006, #86)", () => {
+  it("has no lifecycle lock on classification, Provider dependencies, Framework Scope or Business Units (ADR 0006, #86)", () => {
     const helpers = [
       canChangeSystemClassification,
-      canManageCapabilities,
+      canManageProviderDependencies,
+      canManageProvider,
       canManageFrameworkScopes,
       canManageBusinessUnits,
     ];

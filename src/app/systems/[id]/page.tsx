@@ -3,7 +3,6 @@ import { canWriteSystems, getVisibleSystem } from "@/lib/system-visibility";
 import { canLogRisk, ROLES_ALLOWED_TO_MANAGE_RISK_STATUS } from "@/lib/risks";
 import { ROLES_ALLOWED_TO_APPROVE } from "@/lib/approvals";
 import { canMarkOnboarded } from "@/lib/onboarding";
-import { canManageCapabilities } from "@/lib/system-capabilities";
 import { canChangeSystemClassification } from "@/lib/system-classification-change";
 import { canManageBusinessUnits } from "@/lib/business-units";
 import { canManageFrameworkScopes } from "@/lib/framework-scope";
@@ -19,7 +18,6 @@ import { SubmitForReviewButton } from "@/components/SubmitForReviewButton";
 import { RiskList } from "@/components/RiskList";
 import { ApprovalPanel } from "@/components/ApprovalPanel";
 import { MarkOnboardedButton } from "@/components/MarkOnboardedButton";
-import { SystemCapabilities } from "@/components/SystemCapabilities";
 import { SystemCatalogRelation } from "@/components/SystemCatalogRelation";
 import { SystemProvider } from "@/components/SystemProvider";
 import { SystemProviderDependencies } from "@/components/SystemProviderDependencies";
@@ -122,9 +120,6 @@ export default async function SystemDetailPage({ params }: PageProps<"/systems/[
       {system.status === "APPROVED" && canMarkOnboarded(user, system) && (
         <MarkOnboardedButton systemId={system.id} />
       )}
-
-      <h2 className="mb-3 mt-8 text-xl">Capabilities</h2>
-      <SystemCapabilities systemId={system.id} canManage={canManageCapabilities(user, system)} />
 
       <h2 className="mb-3 mt-8 text-xl">Business Units</h2>
       <SystemCatalogRelation

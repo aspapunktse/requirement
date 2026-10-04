@@ -22,7 +22,7 @@ export type AttentionSystem =
  * ADR 0006): `needs-assessment`, with the number of applicable mandatory
  * Controls that have no touched Assessment. The submission check guarantees
  * there are none when a System leaves Draft, so a non-zero count means a
- * later change (classification, Framework Scope, a removed Capability) made
+ * later change (classification, Framework Scope, a Provider dependency) made
  * Controls newly applicable; the System's status is never touched by that
  * (F-AP.4). A non-Draft System also gets `stale` when it carries stale
  * Assessments (product-owner decision on #86), so it can have both reasons;

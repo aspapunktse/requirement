@@ -8,15 +8,15 @@ import { getSystemsNeedingAttention } from "@/lib/dashboard";
 import { getStaleAssessments, getUnaddressedMandatoryControls } from "@/lib/control-assessments";
 import { mapControlsToBase, mapControlsToFramework } from "@/test/framework-fixtures";
 import { PATCH as patchSystem } from "../[id]/route";
-import { POST as declareCapability } from "../[id]/capabilities/route";
-import { DELETE as removeCapability } from "../[id]/capabilities/[capabilityId]/route";
+import { POST as declareProviderDependency } from "../[id]/dependencies/route";
+import { DELETE as removeProviderDependency } from "../[id]/dependencies/[providerId]/route";
 import { POST as declareFrameworkScope } from "../[id]/framework-scopes/route";
 import { DELETE as removeFrameworkScope } from "../[id]/framework-scopes/[frameworkId]/route";
 import { PATCH as patchAssessment } from "../[id]/assessments/[controlId]/route";
 
 /**
  * Continuous compliance (ADR 0006, #86): Deployment Facets, Impact Levels,
- * Capabilities and Framework Scope can all be changed by
+ * Provider dependencies and Framework Scope can all be changed by
  * the System's owner or an Admin at any lifecycle stage. Every change
  * recomputes the Assessments (newly applicable -> Not Started, untouched
  * no-longer-applicable -> removed, touched -> stale) and never changes the
@@ -49,14 +49,14 @@ describe("Continuous compliance: classification and scope change at any lifecycl
   const controlIds: string[] = [];
   let facetA: string;
   let facetB: string;
-  let capabilityId: string;
+  let providerId: string;
   let frameworkId: string;
   // A second fixture Published Framework every System declares up front, with one Requirement per Control of the
-  // Facet / Impact / Capability mechanisms; `frameworkId` (declared by the Framework Scope mechanism) has the rest.
+  // Facet / Impact / Provider mechanisms; `frameworkId` (declared by the Framework Scope mechanism) has the rest.
   // Together they are the Requirement-based compliance figures (#90) `complianceOf` reads.
   let complianceFrameworkId: string;
   // One newly applicable Control per mechanism.
-  const control = {} as Record<"facet" | "impact" | "scope" | "capability", string>;
+  const control = {} as Record<"facet" | "impact" | "scope" | "provider", string>;
 
   async function makeControl(
     key: keyof typeof control,
@@ -95,7 +95,6 @@ describe("Continuous compliance: classification and scope change at any lifecycl
     }
     facetA = (await prisma.deploymentFacet.create({ data: { name: `Test CC Facet A ${SUFFIX}` } })).id;
     facetB = (await prisma.deploymentFacet.create({ data: { name: `Test CC Facet B ${SUFFIX}` } })).id;
-    capabilityId = (await prisma.capability.create({ data: { name: `Test CC Capability ${SUFFIX}` } })).id;
     frameworkId = (
       await prisma.framework.create({ data: { name: `Test CC Framework ${SUFFIX}`, version: "1", status: "PUBLISHED" } })
     ).id;
@@ -110,15 +109,33 @@ describe("Continuous compliance: classification and scope change at any lifecycl
     await makeControl("facet", {}, [facetB]);
     await makeControl("impact", { minConfidentialityImpactLevel: "HIGH" });
     await makeControl("scope", {});
-    await makeControl("capability", { capabilities: { connect: [{ id: capabilityId }] } });
-    await mapControlsToBase([control.facet, control.impact, control.capability]);
+    await makeControl("provider", {});
+    await mapControlsToBase([control.facet, control.impact, control.provider]);
     // Every fixture Control is also mapped to a fixture Framework, so compliance can be read for those Frameworks alone
     // (`complianceOf`), unaffected by other Controls that come and go while other test files run. The compliance
     // Framework's Requirements are one per Control, so each newly applicable Control is one more applicable Requirement.
-    await mapControlsToFramework(frameworkId, [control.scope, control.facet, control.impact, control.capability]);
-    for (const id of [control.facet, control.impact, control.capability]) {
+    await mapControlsToFramework(frameworkId, [control.scope, control.facet, control.impact, control.provider]);
+    for (const id of [control.facet, control.impact, control.provider]) {
       await mapControlsToFramework(complianceFrameworkId, [id]);
     }
+    // An Onboarded Provider (owned by the Admin, so it is not in the owner's "My tasks" scan) offering the
+    // provider Control in Full, Fulfilled: a System that depends on it inherits that Control live.
+    providerId = (
+      await prisma.system.create({
+        data: {
+          name: `Test CC Provider ${SUFFIX}`,
+          ownerId: users.admin,
+          status: "ONBOARDED",
+          isProvider: true,
+          deploymentFacets: { connect: { id: facetA } },
+        },
+      })
+    ).id;
+    systemIds.push(providerId);
+    await prisma.controlAssessment.create({
+      data: { systemId: providerId, controlId: control.provider, status: "FULFILLED" },
+    });
+    await prisma.controlOffering.create({ data: { providerId, controlId: control.provider, type: "FULL" } });
   });
 
   afterEach(async () => {
@@ -136,7 +153,6 @@ describe("Continuous compliance: classification and scope change at any lifecycl
     await prisma.system.deleteMany({ where: { id: { in: systemIds } } });
     await prisma.control.deleteMany({ where: { id: { in: controlIds } } });
     await prisma.framework.deleteMany({ where: { id: { in: [frameworkId, complianceFrameworkId] } } });
-    await prisma.capability.deleteMany({ where: { id: capabilityId } });
     await prisma.deploymentFacet.deleteMany({ where: { id: { in: [facetA, facetB] } } });
     await prisma.user.deleteMany({ where: { id: { in: Object.values(users) } } });
   });
@@ -176,12 +192,12 @@ describe("Continuous compliance: classification and scope change at any lifecycl
   async function snapshot(systemId: string) {
     const system = await prisma.system.findUniqueOrThrow({
       where: { id: systemId },
-      include: { deploymentFacets: true, capabilities: true, frameworkScopes: true },
+      include: { deploymentFacets: true, providerDependencies: true, frameworkScopes: true },
     });
     return {
       ...(await lifecycle(systemId)),
       facets: system.deploymentFacets.map((f) => f.id).sort(),
-      capabilities: system.capabilities.map((c) => c.id).sort(),
+      providerDependencies: system.providerDependencies.map((d) => d.providerId).sort(),
       scopes: system.frameworkScopes.map((f) => f.id).sort(),
       impact: [system.confidentialityImpactLevel, system.integrityImpactLevel, system.availabilityImpactLevel],
       assessments: (await prisma.controlAssessment.findMany({ where: { systemId }, orderBy: { controlId: "asc" } })).map(
@@ -296,48 +312,45 @@ describe("Continuous compliance: classification and scope change at any lifecycl
       },
     );
 
-    it("lets the owner declare and remove a Capability: auto-fulfilment and its reversal work, and never touch the status", async () => {
+    it("lets the owner declare and an Admin remove a Provider dependency: the Provider's Offering counts live and stops with it, and the status is never touched", async () => {
       const systemId = await makeSystem(status);
       const lifecycleBefore = await lifecycle(systemId);
       const complianceBefore = await complianceOf(systemId);
+      const own = { where: { systemId_controlId: { systemId, controlId: control.provider } } };
 
-      const declared = await declareCapability(
-        req(`/api/systems/${systemId}/capabilities`, "POST", users.owner, { capabilityId }),
+      const declared = await declareProviderDependency(
+        req(`/api/systems/${systemId}/dependencies`, "POST", users.owner, { providerId }),
         ctx(systemId),
       );
       expect(declared.status).toBe(201);
-      const fulfilled = await prisma.controlAssessment.findUniqueOrThrow({
-        where: { systemId_controlId: { systemId, controlId: control.capability } },
-      });
-      expect(fulfilled).toMatchObject({ status: "FULFILLED", fulfilledByCapabilityId: capabilityId });
+      // Nothing is copied into the System: it inherits the Fulfilled Control live.
+      expect(await prisma.controlAssessment.findUnique(own)).toBeNull();
       expect(await lifecycle(systemId)).toEqual(lifecycleBefore);
-      // The Capability's Control was already applicable (and unresolved), so its Requirement was already counted and
-      // Not Met; auto-fulfilment makes it Met.
+      // The Provider's Control was already applicable (and unresolved), so its Requirement was already counted and
+      // Not Met; the inherited credit makes it Met.
       expect(await complianceOf(systemId)).toEqual({
         met: complianceBefore.met + 1,
         applicable: complianceBefore.applicable,
       });
-      expect(await isTask(systemId, control.capability)).toBe(false);
+      expect(await isTask(systemId, control.provider)).toBe(false);
 
-      const removed = await removeCapability(
-        req(`/api/systems/${systemId}/capabilities/${capabilityId}`, "DELETE", users.admin),
-        { params: Promise.resolve({ id: systemId, capabilityId }) },
+      const removed = await removeProviderDependency(
+        req(`/api/systems/${systemId}/dependencies/${providerId}`, "DELETE", users.admin),
+        { params: Promise.resolve({ id: systemId, providerId }) },
       );
       expect(removed.status).toBe(200);
-      const reverted = await prisma.controlAssessment.findUniqueOrThrow({
-        where: { systemId_controlId: { systemId, controlId: control.capability } },
-      });
-      expect(reverted).toMatchObject({ status: "NOT_STARTED", fulfilledByCapabilityId: null });
+      expect(await prisma.controlAssessment.findUnique(own)).toBeNull();
       expect(await lifecycle(systemId)).toEqual(lifecycleBefore);
-      // The reverted Control is an open mandatory Control again, so it's a task for the owner.
-      expect(await isTask(systemId, control.capability)).toBe(true);
+      expect(await complianceOf(systemId)).toEqual(complianceBefore);
+      // The Control is an open mandatory Control again, so it is a task for the owner.
+      expect(await isTask(systemId, control.provider)).toBe(true);
     });
 
-    it("refuses a non-owner declaring a Capability (403, or 404 when they can't see the System), changing nothing", async () => {
+    it("refuses a non-owner declaring a Provider dependency (403, or 404 when they can't see the System), changing nothing", async () => {
       const systemId = await makeSystem(status);
       const before = await snapshot(systemId);
-      const response = await declareCapability(
-        req(`/api/systems/${systemId}/capabilities`, "POST", users.otherOwner, { capabilityId }),
+      const response = await declareProviderDependency(
+        req(`/api/systems/${systemId}/dependencies`, "POST", users.otherOwner, { providerId }),
         ctx(systemId),
       );
       expect(response.status).toBe(expectedRefusal("otherOwner"));

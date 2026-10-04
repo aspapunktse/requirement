@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import type { ControlAssessmentStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { runProviderAssessmentWrite } from "@/lib/provider-inheritance";
@@ -11,7 +11,6 @@ import { POST as addOffering } from "../../offerings/route";
 import { DELETE as removeOffering, PATCH as changeOffering } from "../../offerings/[offeringId]/route";
 import { DELETE as removeDependency } from "../../dependencies/[providerId]/route";
 import { POST as declareDependency } from "../../dependencies/route";
-import { POST as declareCapability } from "../../capabilities/route";
 import { PATCH as editOrganization } from "@/app/api/organization/controls/[controlId]/route";
 
 /**
@@ -360,35 +359,6 @@ describe("a dependency is declared or removed (#124, F-IN.7)", { timeout: 60_000
 });
 
 describe("the optional triggers (#124, F-IN.7)", { timeout: 60_000 }, () => {
-  let capabilityId = "";
-  beforeAll(async () => {
-    capabilityId = (
-      await prisma.capability.create({
-        data: { name: `Test PrvEvents Capability ${f.suffix}`, controls: { connect: [{ id: f.controls.perSystem.id }] } },
-      })
-    ).id;
-  });
-  afterAll(async () => {
-    await prisma.controlAssessment.updateMany({ where: { fulfilledByCapabilityId: capabilityId }, data: { fulfilledByCapabilityId: null } });
-    await prisma.capability.deleteMany({ where: { id: capabilityId } });
-  });
-
-  it("a Capability the Provider declares auto-fulfils the Control: its dependents are told", async () => {
-    const providerId = await f.makeSystem({ isProvider: true, name: `Test PrvEvents Cap Provider ${f.suffix}` });
-    await f.offer(providerId, f.controls.perSystem.id);
-    await f.assess(providerId, f.controls.perSystem.id, "NOT_STARTED", null); // untouched, so the Capability may fulfil it
-    const dependent = await f.makeSystem();
-    await f.depend(dependent, providerId);
-
-    const response = await declareCapability(requestAs(`/api/systems/${providerId}/capabilities`, f.users.owner, "POST", { capabilityId }), sysCtx(providerId));
-
-    expect(response.status).toBe(201);
-    expect((await prisma.controlAssessment.findUniqueOrThrow({ where: { systemId_controlId: { systemId: providerId, controlId: f.controls.perSystem.id } } })).status).toBe("FULFILLED");
-    expect((await movedEvents(dependent)).map((e) => e.detail)).toEqual([
-      inheritedNow(f.controls.perSystem.code, `Test PrvEvents Cap Provider ${f.suffix}`),
-    ]);
-  });
-
   it("a Provider's classification change that makes an offered Control stop applying takes the credit away, and logs it", async () => {
     const name = `Test PrvEvents Reclass ${f.suffix}`;
     const providerId = await f.makeSystem({ isProvider: true, name });
@@ -408,7 +378,7 @@ describe("the optional triggers (#124, F-IN.7)", { timeout: 60_000 }, () => {
 
   // The pool is CI's size (vitest.config.ts: 3 connections). These changes hold no transaction and no lock while they
   // run on their own connections, so any number of them, mixed with the lock-holding transactions, must finish.
-  it("several Capability and classification changes on one Provider at once all complete (no pool starvation, no lock held across them)", async () => {
+  it("several classification changes on one Provider at once, mixed with an edit and an Offering, all complete (no pool starvation, no lock held across them)", async () => {
     for (let attempt = 0; attempt < 3; attempt++) {
       const providerId = await f.makeSystem({ isProvider: true });
       await f.offer(providerId, f.controls.perSystem.id);
@@ -418,8 +388,7 @@ describe("the optional triggers (#124, F-IN.7)", { timeout: 60_000 }, () => {
       const dependents = [await f.makeSystem(), await f.makeSystem()];
       for (const id of dependents) await f.depend(id, providerId);
 
-      const [declared, , , , edited, offered] = await Promise.all([
-        declareCapability(requestAs(`/api/systems/${providerId}/capabilities`, f.users.owner, "POST", { capabilityId }), sysCtx(providerId)),
+      const [, , , edited, offered] = await Promise.all([
         patchSystemClassification(providerId, f.users.owner, { deploymentFacetIds: [f.facets.live] }),
         patchSystemClassification(providerId, f.users.owner, { deploymentFacetIds: [f.facets.live, f.facets.stale] }),
         patchSystemClassification(providerId, f.users.owner, { deploymentFacetIds: [f.facets.live] }),
@@ -427,12 +396,11 @@ describe("the optional triggers (#124, F-IN.7)", { timeout: 60_000 }, () => {
         offerVia(providerId, { controlId: f.controls.both.id, type: "FULL" }),
       ]);
 
-      expect([declared.status, edited.status, offered.status]).toEqual([201, 200, 201]);
+      expect([edited.status, offered.status]).toEqual([200, 201]);
       // Whatever order they ran in, the dependents' events only ever say a Control became or stopped being inherited from this Provider.
       for (const id of dependents) {
         for (const event of await movedEvents(id)) expect(event.detail).toMatch(/is now Fulfilled, inherited from Provider|is no longer inherited from Provider/);
       }
-      await prisma.controlAssessment.updateMany({ where: { fulfilledByCapabilityId: capabilityId }, data: { fulfilledByCapabilityId: null } });
     }
   });
 });

@@ -28,7 +28,6 @@ describe("/api/controls/[id]", () => {
   let organizationalControlId: string;
   let systemTypeAId: string;
   let systemTypeBId: string;
-  let capabilityId: string;
   let frameworkAId: string;
   let frameworkBId: string;
   let requirementAId: string;
@@ -57,11 +56,6 @@ describe("/api/controls/[id]", () => {
     systemTypeAId = systemTypeA.id;
     systemTypeBId = systemTypeB.id;
 
-    const capability = await prisma.capability.create({
-      data: { name: `Test Capability ${Date.now()}` },
-    });
-    capabilityId = capability.id;
-
     const frameworkA = await prisma.framework.create({ data: { name: `Test Framework A ${Date.now()}`, version: "1" } });
     const frameworkB = await prisma.framework.create({ data: { name: `Test Framework B ${Date.now()}`, version: "2" } });
     frameworkAId = frameworkA.id;
@@ -81,7 +75,6 @@ describe("/api/controls/[id]", () => {
   afterAll(async () => {
     await prisma.user.deleteMany({ where: { email: { in: [ADMIN_EMAIL, VIEWER_EMAIL] } } });
     await prisma.deploymentFacet.deleteMany({ where: { id: { in: [systemTypeAId, systemTypeBId] } } });
-    await prisma.capability.deleteMany({ where: { id: capabilityId } });
     await prisma.framework.deleteMany({ where: { id: { in: [frameworkAId, frameworkBId] } } });
   });
 
@@ -157,20 +150,6 @@ describe("/api/controls/[id]", () => {
     expect(getBody.control.deploymentFacets).toHaveLength(2);
   });
 
-  it("PATCH lets an admin map Capabilities to a control", async () => {
-    const response = await PATCH(
-      requestAs(perSystemControlId, adminId, {
-        method: "PATCH",
-        body: JSON.stringify({ capabilityIds: [capabilityId] }),
-      }),
-      ctxFor(perSystemControlId),
-    );
-    const body = await response.json();
-
-    expect(response.status).toBe(200);
-    expect(body.control.capabilities).toMatchObject([{ id: capabilityId }]);
-  });
-
   it("PATCH clears a mapping when given an empty array (applies regardless of facet)", async () => {
     await PATCH(
       requestAs(perSystemControlId, adminId, {
@@ -216,7 +195,7 @@ describe("/api/controls/[id]", () => {
     const response = await PATCH(
       requestAs("does-not-exist", adminId, {
         method: "PATCH",
-        body: JSON.stringify({ capabilityIds: [] }),
+        body: JSON.stringify({ title: "x" }),
       }),
       ctxFor("does-not-exist"),
     );

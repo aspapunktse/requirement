@@ -7,14 +7,20 @@
  * Not wired into `prisma db seed` — run on demand:
  *   npx tsx prisma/seed-demo-systems.ts
  *
- * Idempotent: re-running deletes and recreates the 10 named Systems (their
- * Assessments/Risks/Approvals cascade with them) without touching anything
+ * Idempotent: re-running deletes and recreates the 10 named Systems and the
+ * "Entra ID SSO" Provider (their Assessments, Risks, Approvals, Offerings,
+ * dependencies and Change Events cascade with them) without touching anything
  * else (Control Library, other Systems/Users).
  */
 import type { ImpactLevel } from "@prisma/client";
 import { prisma } from "../src/lib/prisma";
 import { getApplicableControls, type SystemClassification } from "../src/lib/control-assessments";
-import { applyCapabilityDeclared } from "../src/lib/capability-fulfillment";
+import { SYSTEM_ACTOR } from "../src/lib/change-events";
+
+// The Provider System the retired "Entra ID SSO" Capability became (#126), shaped exactly as that
+// migration creates it, so a freshly seeded database matches a migrated one.
+const SSO_PROVIDER_NAME = "Entra ID SSO";
+const SSO_CONTROL_CODES = ["A.5.15", "A.5.16", "A.5.17", "A.8.5"];
 
 const DEMO_SYSTEM_NAMES = [
   "Jira",
@@ -27,6 +33,7 @@ const DEMO_SYSTEM_NAMES = [
   "GitHub",
   "Entra ID",
   "Unily",
+  SSO_PROVIDER_NAME,
 ];
 
 async function main() {
@@ -94,21 +101,6 @@ async function main() {
 
   // The base Framework, created by the main seed (prisma/seed.ts).
   const isoFramework = await prisma.framework.findFirstOrThrow({ where: { isBase: true } });
-
-  // Corporate SSO capability, auto-fulfilling the identity/access-control
-  // Controls a System inherits by declaring it — see CONTEXT.md's
-  // Capability entry (deliberately distinct from the Entra ID *System* below,
-  // even though it's the same real-world product, per that glossary note).
-  const ssoCapability = await prisma.capability.upsert({
-    where: { name: "Entra ID SSO" },
-    update: {},
-    create: { name: "Entra ID SSO" },
-  });
-  const ssoControlCodes = ["A.5.15", "A.5.16", "A.5.17", "A.8.5"];
-  await prisma.capability.update({
-    where: { id: ssoCapability.id },
-    data: { controls: { connect: ssoControlCodes.map((code) => ({ code })) } },
-  });
 
   // Scope one PER_SYSTEM Control to the On-Premises Datacenter facet
   // only, so it can be used below to demonstrate a stale ControlAssessment
@@ -272,7 +264,7 @@ async function main() {
     },
   });
 
-  // --- 3. Microsoft 365 (Onboarded, declares Entra ID SSO capability) -----
+  // --- 3. Microsoft 365 (Onboarded, depends on the Entra ID SSO Provider) --
   const m365Class = classification(["SaaS"], ["GDPR"], { c: "HIGH", i: "HIGH", a: "CRITICAL" });
   const m365 = await prisma.system.create({
     data: {
@@ -290,11 +282,9 @@ async function main() {
         connect: businessUnitNames.map((name) => ({ id: businessUnits[name].id })),
       },
       frameworkScopes: { connect: [{ id: isoFramework.id }, ...m365Class.frameworkScopes] },
-      capabilities: { connect: [{ id: ssoCapability.id }] },
     },
   });
   await fulfillMost({ id: m365.id, ...m365Class });
-  await applyCapabilityDeclared({ id: m365.id, ...m365Class }, ssoCapability);
   await prisma.approval.create({
     data: { systemId: m365.id, approverId: reviewer.id, decision: "APPROVED", comment: "Org-wide baseline." },
   });
@@ -485,7 +475,7 @@ async function main() {
   });
   await fulfillMost({ id: serviceNow.id, ...serviceNowClass });
 
-  // --- 8. GitHub (Onboarded, declares Entra ID SSO capability) ------------
+  // --- 8. GitHub (Onboarded, depends on the Entra ID SSO Provider) --------
   const githubClass = classification(["SaaS"], [], { c: "HIGH", i: "HIGH", a: "MODERATE" });
   const github = await prisma.system.create({
     data: {
@@ -501,11 +491,9 @@ async function main() {
       availabilityImpactLevel: githubClass.availabilityImpactLevel,
       businessUnits: { connect: [{ id: businessUnits.Engineering.id }] },
       frameworkScopes: { connect: [{ id: isoFramework.id }] },
-      capabilities: { connect: [{ id: ssoCapability.id }] },
     },
   });
   await fulfillMost({ id: github.id, ...githubClass });
-  await applyCapabilityDeclared({ id: github.id, ...githubClass }, ssoCapability);
   await prisma.approval.create({
     data: { systemId: github.id, approverId: reviewer.id, decision: "APPROVED" },
   });
@@ -523,7 +511,8 @@ async function main() {
 
   // --- 9. Entra ID (Onboarded) ----------------------------------------------
   // The identity platform itself, tracked as a System distinct from the
-  // "Entra ID SSO" Capability other Systems declare — see CONTEXT.md.
+  // "Entra ID SSO" Provider other Systems depend on (the same real-world
+  // product, which is how the Capability it replaced was named).
   const entraClass = classification(["SaaS"], [], { c: "CRITICAL", i: "CRITICAL", a: "CRITICAL" });
   const entra = await prisma.system.create({
     data: {
@@ -578,6 +567,78 @@ async function main() {
     { id: unily.id, ...classification(["SaaS"]) },
     9,
   );
+
+  // --- 11. Entra ID SSO (Provider: what the Entra ID SSO Capability became, #126) -----
+  // Onboarded, owned by the Admin, classified as the union of the Systems that depend on it (so
+  // every Control that applies to one of them applies to it too), offering the four identity and
+  // access-control Controls Full, each backed by a Fulfilled Assessment nobody set ("migrated from
+  // Capability — verify"). Its other applicable Controls start Not Started.
+  const admin = await prisma.user.findFirstOrThrow({
+    where: { role: "ADMIN" },
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+  });
+  const dependents = [
+    { system: m365, classification: m365Class, declaredScopes: [{ id: isoFramework.id }, ...m365Class.frameworkScopes] },
+    { system: github, classification: githubClass, declaredScopes: [{ id: isoFramework.id }] },
+  ];
+  const IMPACT_ORDER: ImpactLevel[] = ["LOW", "MODERATE", "HIGH", "CRITICAL"];
+  const highest = (levels: (ImpactLevel | null)[]) =>
+    IMPACT_ORDER.reduce<ImpactLevel | null>((best, level) => (levels.includes(level) ? level : best), null);
+  const unionOf = (lists: { id: string }[][]) => [...new Set(lists.flat().map((x) => x.id))].map((id) => ({ id }));
+  const ssoScopes = unionOf(dependents.map((d) => d.declaredScopes));
+  const ssoClass: SystemClassification = {
+    deploymentFacets: unionOf(dependents.map((d) => d.classification.deploymentFacets)),
+    frameworkScopes: ssoScopes,
+    confidentialityImpactLevel: highest(dependents.map((d) => d.classification.confidentialityImpactLevel)),
+    integrityImpactLevel: highest(dependents.map((d) => d.classification.integrityImpactLevel)),
+    availabilityImpactLevel: highest(dependents.map((d) => d.classification.availabilityImpactLevel)),
+  };
+  const ssoProvider = await prisma.system.create({
+    data: {
+      name: SSO_PROVIDER_NAME,
+      description: `Migrated from the retired Capability "${SSO_PROVIDER_NAME}".`,
+      ownerId: admin.id,
+      status: "ONBOARDED",
+      onboardedAt: new Date(),
+      isProvider: true,
+      deploymentFacets: { connect: ssoClass.deploymentFacets },
+      frameworkScopes: { connect: ssoScopes },
+      confidentialityImpactLevel: ssoClass.confidentialityImpactLevel,
+      integrityImpactLevel: ssoClass.integrityImpactLevel,
+      availabilityImpactLevel: ssoClass.availabilityImpactLevel,
+    },
+  });
+  const ssoApplicable = await getApplicableControls(ssoClass);
+  const offered = new Set(ssoApplicable.filter((control) => SSO_CONTROL_CODES.includes(control.code)).map((c) => c.id));
+  const migratedAt = new Date();
+  await prisma.controlAssessment.createMany({
+    data: ssoApplicable.map((control) =>
+      offered.has(control.id)
+        ? {
+            systemId: ssoProvider.id,
+            controlId: control.id,
+            status: "FULFILLED" as const,
+            notes: `migrated from Capability "${SSO_PROVIDER_NAME}" — verify`,
+            assessedAt: migratedAt,
+          }
+        : { systemId: ssoProvider.id, controlId: control.id },
+    ),
+  });
+  await prisma.controlOffering.createMany({
+    data: [...offered].map((controlId) => ({ providerId: ssoProvider.id, controlId, type: "FULL" as const })),
+  });
+  await prisma.providerDependency.createMany({
+    data: dependents.map(({ system }) => ({ dependentId: system.id, providerId: ssoProvider.id })),
+  });
+  // The "system" event the migration writes on each System that declared the Capability.
+  await prisma.changeEvent.createMany({
+    data: dependents.map(({ system }) => ({
+      systemId: system.id,
+      action: "CLASSIFICATION_CHANGED" as const,
+      detail: `Capability "${SSO_PROVIDER_NAME}" migrated to a dependency on Provider "${SSO_PROVIDER_NAME}"`,
+      actorId: SYSTEM_ACTOR,
+    })),
+  });
 
   console.log("Demo Systems seeded:", DEMO_SYSTEM_NAMES.join(", "));
   console.log("Owners:", [owner, priya, marcus, elena].map((u) => u.email).join(", "));

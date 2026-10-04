@@ -37,7 +37,7 @@ export const UNTOUCHED_ASSESSMENT_WHERE = { status: "NOT_STARTED", assessedById:
 /**
  * The values of an untouched row (#129): what a reset to inherited writes, so
  * the row satisfies `UNTOUCHED_ASSESSMENT_WHERE` again and a recompute treats
- * it as nobody's work. Everything a person or a Capability filled in is cleared.
+ * it as nobody's work. Everything a person filled in is cleared.
  */
 export const UNTOUCHED_ASSESSMENT_DATA = {
   status: "NOT_STARTED",
@@ -46,7 +46,6 @@ export const UNTOUCHED_ASSESSMENT_DATA = {
   evidence: null,
   notes: null,
   selfAssessmentAnswer: null,
-  fulfilledByCapabilityId: null,
 } as const;
 
 /**
@@ -61,20 +60,12 @@ export const UNTOUCHED_ASSESSMENT_DATA = {
  * running them) so a caller can combine them with its own classification
  * update in one atomic `prisma.$transaction`. Shared by every
  * classification-changing mutation (Deployment Facets, Framework Scope,
- * ...) — see ADR 0003 and ADR 0007.
- *
- * The created rows are NOT_STARTED unless the caller passes `newRows`: the
- * ready-made create data for exactly the newly applicable Controls, which is how
- * Capability auto-fulfilment (#110, `planNewAssessments` in
- * `capability-fulfillment.ts`) makes a Control a declared Capability covers
- * come out FULFILLED in the same createMany. Use
- * `diffApplicabilityOpsWithCapabilities` there rather than building rows by hand.
+ * ...) — see ADR 0003 and ADR 0007. The created rows are NOT_STARTED.
  */
 export function diffApplicabilityOps(
   systemId: string,
   oldApplicable: { id: string }[],
   newApplicable: { id: string }[],
-  newRows?: Prisma.ControlAssessmentCreateManyInput[],
 ) {
   const { newlyApplicableIds, noLongerApplicableIds } = diffApplicability(oldApplicable, newApplicable);
 
@@ -88,7 +79,7 @@ export function diffApplicabilityOps(
       },
     }),
     createOp: prisma.controlAssessment.createMany({
-      data: newRows ?? newlyApplicableIds.map((controlId) => ({ systemId, controlId })),
+      data: newlyApplicableIds.map((controlId) => ({ systemId, controlId })),
       skipDuplicates: true,
     }),
   };

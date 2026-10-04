@@ -184,7 +184,6 @@ describe("POST /api/systems/[id]/assessments/[controlId]/reset (#129)", { timeou
           evidence: null,
           notes: null,
           selfAssessmentAnswer: null,
-          fulfilledByCapabilityId: null,
         });
         // The row satisfies the one definition of untouched, and it is the row we started with.
         expect(await prisma.controlAssessment.count({ where: { id: row!.id, ...UNTOUCHED_ASSESSMENT_WHERE } })).toBe(1);
@@ -463,10 +462,10 @@ describe("POST /api/systems/[id]/assessments/[controlId]/reset (#129)", { timeou
       expect((await reset(systemId, control.both.id, users.owner)).status).toBe(409);
       expect(await snapshot(systemId)).toEqual(before);
 
-      // A row nobody set that is not Not Started (a Capability's auto-fulfilment, or seed data).
+      // A row nobody set that is not Not Started (left Fulfilled by a migration, or seed data).
       await prisma.controlAssessment.update({
         where: { systemId_controlId: { systemId, controlId: control.both.id } },
-        data: { status: "FULFILLED", evidence: "Inherited via a Capability" },
+        data: { status: "FULFILLED", evidence: "Left Fulfilled by a migration" },
       });
       before = await snapshot(systemId);
       expect((await reset(systemId, control.both.id, users.owner)).status).toBe(409);

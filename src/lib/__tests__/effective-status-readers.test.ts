@@ -117,9 +117,9 @@ describe("effective status in the readers", () => {
         { systemId: system.untouched, controlId: control.perSystem.id },
       ],
     });
-    // Fulfilled by a Capability: Fulfilled, but no person set it.
-    await makeSystem("capability");
-    await prisma.controlAssessment.create({ data: { systemId: system.capability, controlId: control.both1.id, status: "FULFILLED" } });
+    // Fulfilled, but no person set it.
+    await makeSystem("nobodySet");
+    await prisma.controlAssessment.create({ data: { systemId: system.nobodySet, controlId: control.both1.id, status: "FULFILLED" } });
     // One System per status a person can set on both1 (and both2, so the two-Control Requirement is covered).
     for (const status of PERSON_SET_STATUSES) {
       await makeSystem(`person-${status}`);
@@ -168,7 +168,7 @@ describe("effective status in the readers", () => {
         expect(row.effective.sources).toEqual([{ kind: "ORGANIZATION", type: "FULL", status: "FULFILLED", givesCredit: true }]);
       }
       // The stored row is the System's own, untouched by inheritance.
-      expect(withRow.assessment).toMatchObject({ status: "NOT_STARTED", assessedById: null, fulfilledByCapabilityId: null });
+      expect(withRow.assessment).toMatchObject({ status: "NOT_STARTED", assessedById: null });
 
       await setBoth("IN_PROGRESS");
       expect((await effectiveOf(system.untouched, control.both1.id)).effective.status).toBe("NOT_STARTED");
@@ -210,9 +210,9 @@ describe("effective status in the readers", () => {
       expect(row.effective.sources).toEqual([]);
     });
 
-    it("an Assessment a Capability fulfilled stays Fulfilled when the Organization is not", async () => {
+    it("a Fulfilled Assessment nobody set stays Fulfilled when the Organization is not", async () => {
       await setBoth("NOT_STARTED");
-      expect((await effectiveOf(system.capability, control.both1.id)).effective.status).toBe("FULFILLED");
+      expect((await effectiveOf(system.nobodySet, control.both1.id)).effective.status).toBe("FULFILLED");
     });
 
     it("inheritance writes nothing: the rows and their statuses are the same before and after", async () => {
@@ -286,7 +286,7 @@ describe("effective status in the readers", () => {
     it("the bulk path and the single-System path agree, effective statuses included", async () => {
       await setOrganization(control.both1.id, "FULFILLED");
       await setOrganization(control.both2.id, "WAIVED");
-      const ids = [system.untouched, system.capability, ...Object.values(personSetSystem)];
+      const ids = [system.untouched, system.nobodySet, ...Object.values(personSetSystem)];
       const systems = await Promise.all(ids.map(classification));
 
       const bulk = await deriveFrameworkStatusesForSystems(lenientId, systems);

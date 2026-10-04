@@ -2,13 +2,6 @@ import type { ImpactLevel, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getApplicableControls, UNTOUCHED_ASSESSMENT_WHERE, type SystemClassification } from "@/lib/control-assessments";
 import { SYSTEM_ACTOR } from "@/lib/change-events";
-import {
-  autoFulfilmentEvents,
-  loadControlCapabilities,
-  planNewAssessments,
-  type CapabilityRef,
-  type NewAssessmentPlan,
-} from "@/lib/capability-fulfillment";
 import { systemsInScopeOf } from "@/lib/framework-scope";
 
 /**
@@ -23,9 +16,7 @@ import { systemsInScopeOf } from "@/lib/framework-scope";
  * the recompute compares each affected System's *current Assessment rows* with
  * its freshly computed applicable set, restricted to the Controls the change
  * touched (`controlIds`):
- * - applicable and no row: a Not Started row is created, or a Fulfilled one when a
- *   Capability the System declares covers the Control (#110: the same rules as
- *   declaring that Capability, `planNewAssessments`, in the same `createMany`);
+ * - applicable and no row: a Not Started row is created;
  * - a row for a Control that no longer applies: removed if untouched (the same
  *   definition `diffApplicabilityOps` uses, UNTOUCHED_ASSESSMENT_WHERE), else
  *   kept in place as stale;
@@ -36,10 +27,8 @@ import { systemsInScopeOf } from "@/lib/framework-scope";
  * of up to WRITE_BATCH Systems shares one). Systems whose set didn't change get
  * no event and no write. Only Assessment rows
  * are written: `System.status`, `onboardedAt` and Approvals are never touched
- * (F-AP.4). Only newly created rows are ever fulfilled: an existing row (touched
- * or not) is never updated by a recompute, so human work can't be overwritten.
- * Each Capability that fulfilled something also gets a `"system"`
- * ASSESSMENT_STATUS_CHANGED event, in the same transaction.
+ * (F-AP.4). A newly applicable Control starts Not Started; what a System inherits
+ * from the Organization or its Providers is resolved live, never copied in.
  */
 
 export type RecomputeScope = {
@@ -60,10 +49,8 @@ export type RecomputeSummary = {
   systems: number;
   /** Systems whose applicable set (or Assessment rows) changed; each got a Change Event. */
   changed: number;
-  /** Assessments created, across all Systems (Not Started, or Fulfilled by a declared Capability). */
+  /** Not Started Assessments created, across all Systems. */
   added: number;
-  /** Of `added`, the ones created Fulfilled because a Capability the System declares covers the Control (#110). */
-  fulfilled: number;
   /** Untouched Assessments removed, across all Systems. */
   removed: number;
   /** Touched Assessments kept in place because their Control stopped applying. */
@@ -80,12 +67,6 @@ const CLASSIFICATION_SELECT = {
 } satisfies Prisma.SystemSelect;
 
 type ClassifiedSystem = SystemClassification & { id: string };
-
-/** `CLASSIFICATION_SELECT` plus the Capabilities the System declares, for auto-fulfilment (#110). */
-const RECOMPUTE_SELECT = {
-  ...CLASSIFICATION_SELECT,
-  capabilities: { select: { id: true, name: true } },
-} satisfies Prisma.SystemSelect;
 
 /** How many classification groups (or write batches) are worked on at once; the rest queue on Prisma's pool. */
 const CONCURRENCY = 16;
@@ -167,9 +148,9 @@ export async function finishRecompute(
 ): Promise<RecomputeSummary | null> {
   if (!pending) return null;
   const { scope, before } = pending;
-  const summary: RecomputeSummary = { systems: 0, changed: 0, added: 0, fulfilled: 0, removed: 0, stale: 0 };
+  const summary: RecomputeSummary = { systems: 0, changed: 0, added: 0, removed: 0, stale: 0 };
 
-  const systems = await prisma.system.findMany({ where: scope.systemsWhere, select: RECOMPUTE_SELECT });
+  const systems = await prisma.system.findMany({ where: scope.systemsWhere, select: CLASSIFICATION_SELECT });
   summary.systems = systems.length;
   if (systems.length === 0) return summary;
 
@@ -182,13 +163,6 @@ export async function finishRecompute(
   ]);
   const rowsBySystem = new Map<string, typeof rows>();
   for (const row of rows) rowsBySystem.set(row.systemId, [...(rowsBySystem.get(row.systemId) ?? []), row]);
-
-  // Capability auto-fulfilment (#110): the Systems' declared Capabilities came with them above; the
-  // Control -> Capability mappings of every Control about to be created are loaded here, once for the
-  // whole run (and not at all when no affected System declares a Capability), never per System.
-  const createdControlIds = new Set<string>();
-  const declaredBySystem = new Map<string, CapabilityRef[]>(systems.map((s) => [s.id, s.capabilities]));
-  const anyDeclared = systems.some((s) => s.capabilities.length > 0);
 
   // Plan every System first (pure, in memory), then write the ones that changed.
   const plans: SystemPlan[] = [];
@@ -208,15 +182,8 @@ export async function finishRecompute(
     const setChanged = was ? [...now].some((c) => !was.has(c)) || [...was].some((c) => !now.has(c)) : false;
 
     if (toCreate.length > 0 || toDelete.length > 0 || setChanged) {
-      if ((declaredBySystem.get(system.id)?.length ?? 0) > 0) for (const c of toCreate) createdControlIds.add(c);
-      plans.push({ systemId: system.id, toCreate, toDelete, stale, creation: null });
+      plans.push({ systemId: system.id, toCreate, toDelete, stale });
     }
-  }
-
-  const controlCapabilities = anyDeclared ? await loadControlCapabilities([...createdControlIds]) : new Map();
-  const now = new Date();
-  for (const p of plans) {
-    p.creation = planNewAssessments(p.systemId, p.toCreate, declaredBySystem.get(p.systemId) ?? [], controlCapabilities, now);
   }
 
   // Written in batches of WRITE_BATCH Systems, one transaction per batch: a System's deletes, creates
@@ -228,7 +195,7 @@ export async function finishRecompute(
   for (let i = 0; i < plans.length; i += WRITE_BATCH) batches.push(plans.slice(i, i + WRITE_BATCH));
   await inChunks(batches, async (batch) => {
     const deletes = batch.filter((p) => p.toDelete.length > 0);
-    const creates = batch.flatMap((p) => p.creation?.rows ?? []);
+    const creates = batch.flatMap((p) => p.toCreate.map((controlId) => ({ systemId: p.systemId, controlId })));
     await prisma.$transaction([
       ...(deletes.length > 0
         ? [
@@ -244,24 +211,20 @@ export async function finishRecompute(
         ? [prisma.controlAssessment.createMany({ data: creates, skipDuplicates: true })]
         : []),
       prisma.changeEvent.createMany({
-        data: batch.flatMap((p) => [
-          {
-            systemId: p.systemId,
-            action: "APPLICABILITY_RECOMPUTED" as const,
-            detail:
-              `Applicability recomputed, ${trigger} (+${p.toCreate.length}/-${p.toDelete.length} Control Assessment(s)` +
-              `${p.stale > 0 ? `, ${p.stale} kept as stale` : ""})`,
-            actorId: SYSTEM_ACTOR,
-          },
-          ...(p.creation ? autoFulfilmentEvents(p.systemId, p.creation) : []),
-        ]),
+        data: batch.map((p) => ({
+          systemId: p.systemId,
+          action: "APPLICABILITY_RECOMPUTED" as const,
+          detail:
+            `Applicability recomputed, ${trigger} (+${p.toCreate.length}/-${p.toDelete.length} Control Assessment(s)` +
+            `${p.stale > 0 ? `, ${p.stale} kept as stale` : ""})`,
+          actorId: SYSTEM_ACTOR,
+        })),
       }),
     ]);
   });
   for (const p of plans) {
     summary.changed += 1;
     summary.added += p.toCreate.length;
-    summary.fulfilled += p.creation?.rows.filter((row) => row.status === "FULFILLED").length ?? 0;
     summary.removed += p.toDelete.length;
     summary.stale += p.stale;
   }
@@ -269,14 +232,7 @@ export async function finishRecompute(
   return summary;
 }
 
-type SystemPlan = {
-  systemId: string;
-  toCreate: string[];
-  toDelete: string[];
-  stale: number;
-  /** The rows to insert for `toCreate` (some Fulfilled by a declared Capability) and their events; set after planning. */
-  creation: NewAssessmentPlan | null;
-};
+type SystemPlan = { systemId: string; toCreate: string[]; toDelete: string[]; stale: number };
 
 // --- Scope builders: which Systems and Controls does each trigger affect? ---
 

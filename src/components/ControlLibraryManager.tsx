@@ -33,7 +33,6 @@ type ControlSummary = {
   intent: string | null;
   examples: string[];
   deploymentFacets: Catalog[];
-  capabilities: Catalog[];
   mappings: ControlMappingRow[];
   // The Control Owner (F-CL.3): the one User who maintains the Control's Organization Control
   // Implementation; null while unassigned.
@@ -92,13 +91,11 @@ type OwnerFilter = "ALL" | "UNASSIGNED";
 export function ControlLibraryManager() {
   const [controls, setControls] = useState<ControlSummary[]>([]);
   const [deploymentFacets, setDeploymentFacets] = useState<Catalog[]>([]);
-  const [capabilities, setCapabilities] = useState<Catalog[]>([]);
   const [users, setUsers] = useState<ControlOwner[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState("");
   const [selectedDeploymentFacetIds, setSelectedDeploymentFacetIds] = useState<Set<string>>(new Set());
-  const [selectedCapabilityIds, setSelectedCapabilityIds] = useState<Set<string>>(new Set());
   // The Control Owner picked in the form; "" is "No Control Owner".
   const [selectedOwnerId, setSelectedOwnerId] = useState("");
   const [impactLevels, setImpactLevels] = useState<{
@@ -113,21 +110,18 @@ export function ControlLibraryManager() {
   const [ownerFilter, setOwnerFilter] = useState<OwnerFilter>("ALL");
 
   async function loadAll() {
-    const [controlsRes, deploymentFacetsRes, capabilitiesRes, usersRes] = await Promise.all([
+    const [controlsRes, deploymentFacetsRes, usersRes] = await Promise.all([
       fetch("/api/controls"),
       fetch("/api/deployment-facets"),
-      fetch("/api/capabilities"),
       fetch("/api/users"),
     ]);
     const controlsBody = await controlsRes.json();
     const deploymentFacetsBody = await deploymentFacetsRes.json();
-    const capabilitiesBody = await capabilitiesRes.json();
     // The Control Owner picker's Users; a refusal (no `users`) leaves the picker empty.
     const usersBody = await usersRes.json();
     return {
       controls: (controlsBody.controls ?? []) as ControlSummary[],
       deploymentFacets: (deploymentFacetsBody.deploymentFacets ?? []) as Catalog[],
-      capabilities: (capabilitiesBody.capabilities ?? []) as Catalog[],
       users: ((usersBody.users ?? []) as ControlOwner[]).map(({ id, name }) => ({ id, name })),
     };
   }
@@ -139,7 +133,6 @@ export function ControlLibraryManager() {
       if (cancelled) return;
       setControls(data.controls);
       setDeploymentFacets(data.deploymentFacets);
-      setCapabilities(data.capabilities);
       setUsers(data.users);
       setLoading(false);
     });
@@ -162,7 +155,6 @@ export function ControlLibraryManager() {
     setSelectedId(id);
     const control = controls.find((r) => r.id === id);
     setSelectedDeploymentFacetIds(new Set(control?.deploymentFacets.map((t) => t.id) ?? []));
-    setSelectedCapabilityIds(new Set(control?.capabilities.map((c) => c.id) ?? []));
     setSelectedOwnerId(control?.owner?.id ?? "");
     setImpactLevels({
       minConfidentialityImpactLevel: control?.minConfidentialityImpactLevel ?? null,
@@ -188,14 +180,11 @@ export function ControlLibraryManager() {
 
     const body: {
       deploymentFacetIds?: string[];
-      capabilityIds?: string[];
       ownerId?: string | null;
       minConfidentialityImpactLevel?: ImpactLevel | null;
       minIntegrityImpactLevel?: ImpactLevel | null;
       minAvailabilityImpactLevel?: ImpactLevel | null;
-    } = {
-      capabilityIds: Array.from(selectedCapabilityIds),
-    };
+    } = {};
     // Only when it changed, so a Save cannot clear an owner the picker never offered (e.g. the User list failed to load).
     if (selectedOwnerId !== (selected.owner?.id ?? "")) {
       body.ownerId = selectedOwnerId === "" ? null : selectedOwnerId;
@@ -206,6 +195,8 @@ export function ControlLibraryManager() {
       body.minIntegrityImpactLevel = impactLevels.minIntegrityImpactLevel;
       body.minAvailabilityImpactLevel = impactLevels.minAvailabilityImpactLevel;
     }
+    // An Organizational Control with its owner unchanged has nothing to save, and the API refuses an empty edit.
+    if (Object.keys(body).length === 0) return;
 
     const response = await fetch(`/api/controls/${selected.id}`, {
       method: "PATCH",
@@ -464,20 +455,6 @@ export function ControlLibraryManager() {
               </fieldset>
             </>
           )}
-
-          <fieldset className="flex flex-col gap-2">
-            <legend className="text-sm font-semibold">Fulfilling Capabilities</legend>
-            {capabilities.map((capability) => (
-              <label key={capability.id} className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={selectedCapabilityIds.has(capability.id)}
-                  onChange={() => setSelectedCapabilityIds((prev) => toggle(prev, capability.id))}
-                />
-                {capability.name}
-              </label>
-            ))}
-          </fieldset>
 
           <Button variant="secondary" onClick={handleSave}>
             Save

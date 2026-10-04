@@ -4,8 +4,8 @@ import type { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { ACTING_USER_COOKIE } from "@/lib/acting-user";
 import { PATCH as patchSystem } from "../systems/[id]/route";
-import { POST as declareCapability } from "../systems/[id]/capabilities/route";
-import { DELETE as removeCapability } from "../systems/[id]/capabilities/[capabilityId]/route";
+import { POST as declareProviderDependency } from "../systems/[id]/dependencies/route";
+import { DELETE as removeProviderDependency } from "../systems/[id]/dependencies/[providerId]/route";
 import { POST as declareBusinessUnit } from "../systems/[id]/business-units/route";
 import { DELETE as removeBusinessUnit } from "../systems/[id]/business-units/[businessUnitId]/route";
 import { POST as declareFrameworkScope } from "../systems/[id]/framework-scopes/route";
@@ -47,7 +47,7 @@ describe("The System's owner is ownerId, whatever the role (#91)", () => {
   const systemIds: string[] = [];
   let facetA: string;
   let facetB: string;
-  let capabilityId: string;
+  let providerId: string;
   let businessUnitId: string;
   let frameworkId: string;
 
@@ -70,7 +70,7 @@ describe("The System's owner is ownerId, whatever the role (#91)", () => {
       where: { id: systemId },
       include: {
         deploymentFacets: true,
-        capabilities: true,
+        providerDependencies: true,
         businessUnits: true,
         frameworkScopes: true,
       },
@@ -79,7 +79,7 @@ describe("The System's owner is ownerId, whatever the role (#91)", () => {
       status: system.status,
       onboardedAt: system.onboardedAt,
       facets: system.deploymentFacets.map((f) => f.id).sort(),
-      capabilities: system.capabilities.map((c) => c.id).sort(),
+      providerDependencies: system.providerDependencies.map((d) => d.providerId).sort(),
       businessUnits: system.businessUnits.map((b) => b.id).sort(),
       frameworkScopes: system.frameworkScopes.map((f) => f.id).sort(),
       risks: await prisma.risk.count({ where: { systemId } }),
@@ -107,19 +107,19 @@ describe("The System's owner is ownerId, whatever the role (#91)", () => {
         }),
     },
     {
-      name: "declare a Capability",
+      name: "declare a Provider dependency",
       ok: 201,
       run: (id, u) =>
-        declareCapability(req(`/api/systems/${id}/capabilities`, "POST", u, { capabilityId }), {
+        declareProviderDependency(req(`/api/systems/${id}/dependencies`, "POST", u, { providerId }), {
           params: Promise.resolve({ id }),
         }),
     },
     {
-      name: "remove a Capability",
+      name: "remove a Provider dependency",
       ok: 200,
       run: (id, u) =>
-        removeCapability(req(`/api/systems/${id}/capabilities/${capabilityId}`, "DELETE", u), {
-          params: Promise.resolve({ id, capabilityId }),
+        removeProviderDependency(req(`/api/systems/${id}/dependencies/${providerId}`, "DELETE", u), {
+          params: Promise.resolve({ id, providerId }),
         }),
     },
     {
@@ -215,7 +215,18 @@ describe("The System's owner is ownerId, whatever the role (#91)", () => {
     }
     facetA = (await prisma.deploymentFacet.create({ data: { name: `Test OwnerRule Facet A ${SUFFIX}` } })).id;
     facetB = (await prisma.deploymentFacet.create({ data: { name: `Test OwnerRule Facet B ${SUFFIX}` } })).id;
-    capabilityId = (await prisma.capability.create({ data: { name: `Test OwnerRule Capability ${SUFFIX}` } })).id;
+    // A Provider System every dependency action targets (a Provider is visible by id to any owner).
+    providerId = (
+      await prisma.system.create({
+        data: {
+          name: `Test OwnerRule Provider ${SUFFIX}`,
+          ownerId: users.ADMIN,
+          status: "ONBOARDED",
+          isProvider: true,
+        },
+      })
+    ).id;
+    systemIds.push(providerId);
     businessUnitId = (await prisma.businessUnit.create({ data: { name: `Test OwnerRule BU ${SUFFIX}` } })).id;
     frameworkId = (
       await prisma.framework.create({
@@ -231,13 +242,12 @@ describe("The System's owner is ownerId, whatever the role (#91)", () => {
     await prisma.system.deleteMany({ where: { id: { in: systemIds } } });
     await prisma.framework.deleteMany({ where: { id: frameworkId } });
     await prisma.businessUnit.deleteMany({ where: { id: businessUnitId } });
-    await prisma.capability.deleteMany({ where: { id: capabilityId } });
     await prisma.deploymentFacet.deleteMany({ where: { id: { in: [facetA, facetB] } } });
     await prisma.user.deleteMany({ where: { id: { in: Object.values(users) } } });
   });
 
   it.each(OWNING_ROLES)(
-    "lets an owning %s do every owner action: classification, capabilities, business units, framework scope, log a Risk, onboard",
+    "lets an owning %s do every owner action: classification, Provider dependencies, business units, framework scope, log a Risk, onboard",
     async (role) => {
       const systemId = await makeSystem(role);
       await expectAllOwnerActionsAllowed(systemId, role);
@@ -280,10 +290,10 @@ describe("The System's owner is ownerId, whatever the role (#91)", () => {
   });
 
   it.each(["APPROVED", "ONBOARDED"] as const)(
-    "lets the owner and an ADMIN change classification, Capabilities and Framework Scope on a %s System, leaving its status alone (no Draft lock, ADR 0006 / #86)",
+    "lets the owner and an ADMIN change classification, Provider dependencies and Framework Scope on a %s System, leaving its status alone (no Draft lock, ADR 0006 / #86)",
     async (status) => {
       const classificationActions = actions().filter((a) =>
-        /classification|Capability|Framework Scope/.test(a.name),
+        /classification|Provider dependency|Framework Scope/.test(a.name),
       );
       expect(classificationActions).toHaveLength(5);
       for (const userKey of ["SYSTEM_OWNER", "ADMIN"]) {

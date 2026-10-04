@@ -72,7 +72,7 @@ describe("the Provider's half of an Offering", () => {
 describe("the System's own half (D3)", () => {
   it("is done when the own status is Fulfilled, whoever set it", () => {
     expect(customerHalfIsDone(person("FULFILLED"))).toBe(true);
-    expect(customerHalfIsDone(nobody("FULFILLED"))).toBe(true); // a Capability's auto-fulfilment
+    expect(customerHalfIsDone(nobody("FULFILLED"))).toBe(true); // Fulfilled but nobody set it
   });
 
   it.each(STATUSES.filter((status) => status !== "FULFILLED"))("is not done for own %s", (status) => {
@@ -145,11 +145,11 @@ describe("resolveEffectiveStatus with Shared sources: the decision table", () =>
     ["untouched, only Shared sources, satisfied: the owner's half is open", nobody("NOT_STARTED"), [SATISFIED], "NOT_STARTED", "SYSTEM", false],
     ["no row, only Shared sources, satisfied", null, [SATISFIED], "NOT_STARTED", "SYSTEM", false],
     ["untouched, only Shared sources, not satisfied", nobody("NOT_STARTED"), [PROVIDER_IN_PROGRESS], "NOT_STARTED", "SYSTEM", false],
-    // D3: a Capability's auto-fulfilment is the customer's half.
-    ["Capability-fulfilled, Shared satisfied (D3)", nobody("FULFILLED"), [SATISFIED], "FULFILLED", "Landing Zone/SHARED", false],
-    ["Capability-fulfilled, Shared not satisfied (D1, D3)", nobody("FULFILLED"), [PROVIDER_IN_PROGRESS], PROVIDER_HALF_MISSING_STATUS, "SYSTEM", false],
-    ["Capability-fulfilled, a Full source gives credit", nobody("FULFILLED"), [PROVIDER_IN_PROGRESS, provider({ name: "Zed" })], "FULFILLED", "Zed/FULL", false],
-    ["Capability-fulfilled, no sources", nobody("FULFILLED"), [], "FULFILLED", "SYSTEM", false],
+    // D3: a Fulfilled own Assessment nobody set is the customer's half.
+    ["nobody-set Fulfilled, Shared satisfied (D3)", nobody("FULFILLED"), [SATISFIED], "FULFILLED", "Landing Zone/SHARED", false],
+    ["nobody-set Fulfilled, Shared not satisfied (D1, D3)", nobody("FULFILLED"), [PROVIDER_IN_PROGRESS], PROVIDER_HALF_MISSING_STATUS, "SYSTEM", false],
+    ["nobody-set Fulfilled, a Full source gives credit", nobody("FULFILLED"), [PROVIDER_IN_PROGRESS, provider({ name: "Zed" })], "FULFILLED", "Zed/FULL", false],
+    ["nobody-set Fulfilled, no sources", nobody("FULFILLED"), [], "FULFILLED", "SYSTEM", false],
   ];
 
   it.each(table)("%s", (_label, own, sources, status, source, overridesInherited) => {

@@ -129,9 +129,6 @@ model System {
   assessments          ControlAssessment[]
   risks                Risk[]
   approvals            Approval[]
-  // Centrally-managed dependencies this System declares it consumes. Purely
-  // declarative in this ticket — auto-fulfilling mapped Controls is #16.
-  capabilities         Capability[]
   // Business Units that consume this System (a reporting/grouping dimension
   // only), and the Framework(s) this System declares in scope. The declared
   // Framework Scope drives which Controls apply (the base Framework is
@@ -170,25 +167,6 @@ model DeploymentFacet {
   // all applies regardless of facet (see Control.deploymentFacets).
   controls Control[]
   systems  System[]
-}
-
-// An admin-curated, centrally-provided dependency (e.g. Active Directory,
-// a central IAM/SSO platform, a central KMS) a System can declare it
-// consumes. Standalone catalog concept — not a reference to any actual
-// onboarded System, even if the same real-world thing is also tracked
-// as a System elsewhere.
-model Capability {
-  id          String   @id @default(cuid())
-  name        String   @unique
-  description String?
-  createdAt   DateTime @default(now())
-
-  // Controls this Capability auto-fulfills when a System declares it.
-  controls                 Control[]
-  // Systems that have declared this Capability as consumed.
-  systems                  System[]
-  // ControlAssessments currently auto-fulfilled by this Capability.
-  autoFulfilledAssessments ControlAssessment[]
 }
 
 // An admin-curated organizational consumer (e.g. Finance, HR) that a System
@@ -365,9 +343,6 @@ model Control {
   minConfidentialityImpactLevel ImpactLevel?
   minIntegrityImpactLevel       ImpactLevel?
   minAvailabilityImpactLevel    ImpactLevel?
-  // Capabilities that, if a System declares one, auto-fulfill this
-  // Control. May be empty, one, or several (any one suffices).
-  capabilities                  Capability[]
   // Which Requirements this Control satisfies, and how fully. The only way
   // a Control is tied to a Framework — there is no direct Framework tag
   // (ADR 0005, was `frameworks` before #72).
@@ -489,14 +464,6 @@ model ControlAssessment {
   assessedBy              User?                   @relation("AssessedBy", fields: [assessedById], references: [id])
   assessedAt              DateTime?
   updatedAt               DateTime                @updatedAt
-  // Set when this Assessment was auto-fulfilled by a declared Capability
-  // (see #16) rather than by a human. Non-null means "eligible for
-  // automatic reversion if that Capability is un-declared" — any manual
-  // edit to this Assessment clears it, which is what makes the row immune
-  // to future automatic reversion and marks it as human-owned going forward.
-  fulfilledByCapabilityId String?
-  fulfilledByCapability   Capability?             @relation(fields: [fulfilledByCapabilityId], references: [id])
-
   // Risks auto-opened by answering "No" to this Control's Self-
   // Assessment Question.
   originatedRisks Risk[]
@@ -624,14 +591,13 @@ enum ChangeEventAction {
 // requirement database and to the Organization's own Control implementations
 // (PRD 0001 F-CE.1, F-CE.2); a Provider's Control Offerings are System-scoped to the
 // Provider (CONTROL_OFFERING_CHANGED, #123). Deliberately not a full audit
-// trail: pure catalog-admin CRUD (Control/DeploymentFacet/Capability/
-// BusinessUnit/Framework create/edit/delete) is out of
-// scope, since this exists for role-relevant "what changed on this System"
+// trail: pure catalog-admin CRUD (Control/DeploymentFacet/BusinessUnit/
+// Framework create/edit/delete) is out of scope, since this exists for role-relevant "what changed on this System"
 // visibility, not compliance auditing. `actorId` is either a User id, or the
 // literal string "system" for a transition the backend computed as a side
-// effect of a different, human-initiated action (e.g. Capability
-// auto-fulfillment, or a Risk auto-opened by a "No" Self-Assessment answer)
-// rather than a direct edit to that specific row — deliberately not a User
+// effect of a different, human-initiated action (e.g. a Provider's
+// status moving its dependents', or a Risk auto-opened by a "No" Self-Assessment
+// answer) rather than a direct edit to that specific row — deliberately not a User
 // relation, since "system" never matches a real User id.
 model ChangeEvent {
   id        String            @id @default(cuid())

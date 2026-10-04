@@ -5,7 +5,6 @@ import { createFixtureFramework, mapControlsToBase, mapControlsToFramework } fro
 import { ACTING_USER_COOKIE } from "@/lib/acting-user";
 import { getUnaddressedMandatoryControls } from "@/lib/control-assessments";
 import { PATCH as patchAssessment } from "../../assessments/[controlId]/route";
-import { POST as declareCapability } from "../../capabilities/route";
 import { POST } from "../route";
 
 /**
@@ -72,7 +71,7 @@ describe("POST /api/systems/[id]/submit", () => {
   let optionalControlId: string;
   let organizationalControlId: string;
   let organizationalFrameworkId: string;
-  let capabilityId: string;
+  let providerId: string | null = null;
 
   beforeAll(async () => {
     const owner = await prisma.user.upsert({
@@ -140,11 +139,6 @@ describe("POST /api/systems/[id]/submit", () => {
     organizationalFrameworkId = organizationalFramework.id;
     await mapControlsToFramework(organizationalFramework.id, [organizationalControlId]);
 
-    const capability = await prisma.capability.create({
-      data: { name: `Submit Test Capability ${suffix}`, controls: { connect: [{ id: mandatory.id }] } },
-    });
-    capabilityId = capability.id;
-
     const system = await prisma.system.create({
       data: {
         name: "Submit Test System",
@@ -160,7 +154,6 @@ describe("POST /api/systems/[id]/submit", () => {
   afterAll(async () => {
     await prisma.controlAssessment.deleteMany({ where: { systemId } });
     await prisma.system.deleteMany({ where: { id: systemId } });
-    await prisma.capability.deleteMany({ where: { id: capabilityId } });
     await prisma.control.deleteMany({
       where: { id: { in: [mandatoryControlId, optionalControlId, organizationalControlId] } },
     });
@@ -170,10 +163,10 @@ describe("POST /api/systems/[id]/submit", () => {
 
   afterEach(async () => {
     await prisma.controlAssessment.deleteMany({ where: { systemId } });
-    await prisma.system.update({
-      where: { id: systemId },
-      data: { status: "DRAFT", capabilities: { disconnect: { id: capabilityId } } },
-    }).catch(() => {});
+    await prisma.system.update({ where: { id: systemId }, data: { status: "DRAFT" } });
+    // A Provider made by a test goes with its Assessments, Offerings and dependencies.
+    if (providerId) await prisma.system.deleteMany({ where: { id: providerId } });
+    providerId = null;
   });
 
   it("rejects an unauthenticated request", async () => {
@@ -255,31 +248,31 @@ describe("POST /api/systems/[id]/submit", () => {
     expect(response.status).toBe(200);
   });
 
-  it("counts a mandatory Control auto-fulfilled via a declared Capability as addressed", async () => {
-    const declareResponse = await declareCapability(
-      requestWith(`http://localhost/api/systems/${systemId}/capabilities`, "POST", ownerId, {
-        capabilityId,
-      }),
-      { params: Promise.resolve({ id: systemId }) },
-    );
-    expect(declareResponse.status).toBe(201);
-
-    const autoFulfilled = await prisma.controlAssessment.findUnique({
-      where: { systemId_controlId: { systemId, controlId: mandatoryControlId } },
+  it("counts a mandatory Control a Provider's Full Offering makes Fulfilled as addressed, copying nothing into the System", async () => {
+    const provider = await prisma.system.create({
+      data: {
+        name: `Test Submit Provider ${Date.now()}`,
+        ownerId,
+        status: "ONBOARDED",
+        isProvider: true,
+        deploymentFacets: { connect: [{ id: systemTypeId }] },
+      },
     });
-    expect(autoFulfilled).toMatchObject({ status: "FULFILLED", fulfilledByCapabilityId: capabilityId });
-
-    const autoFulfillEvent = await prisma.changeEvent.findFirst({
-      where: { systemId, action: "ASSESSMENT_STATUS_CHANGED", actorId: "system" },
-      orderBy: { createdAt: "desc" },
+    providerId = provider.id;
+    await prisma.controlAssessment.create({
+      data: { systemId: provider.id, controlId: mandatoryControlId, status: "FULFILLED" },
     });
-    expect(autoFulfillEvent?.detail).toContain("auto-fulfilled");
+    await prisma.controlOffering.create({ data: { providerId: provider.id, controlId: mandatoryControlId, type: "FULL" } });
+    await prisma.providerDependency.create({ data: { dependentId: systemId, providerId: provider.id } });
 
     await fulfillAllMandatoryControls(systemId, [systemTypeId]);
 
+    expect(
+      await prisma.controlAssessment.findUnique({
+        where: { systemId_controlId: { systemId, controlId: mandatoryControlId } },
+      }),
+    ).toBeNull();
     const response = await POST(requestAs(systemId, ownerId), ctxFor(systemId));
     expect(response.status).toBe(200);
-    // afterEach disconnects the Capability directly, so cleanup doesn't
-    // depend on the route.
   });
 });

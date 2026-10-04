@@ -34,7 +34,6 @@ const updateControlSchema = z
     intent: z.string().nullable().optional(),
     examples: z.array(z.string()).optional(),
     deploymentFacetIds: z.array(z.string()).optional(),
-    capabilityIds: z.array(z.string()).optional(),
     minConfidentialityImpactLevel: impactLevelSchema.optional(),
     minIntegrityImpactLevel: impactLevelSchema.optional(),
     minAvailabilityImpactLevel: impactLevelSchema.optional(),
@@ -54,7 +53,7 @@ const sameIds = (a: string[], b: string[]) => new Set(a).size === new Set(b).siz
  * present in the body) every System that has in scope a Published Framework the Control is mapped
  * to is recomputed for this Control (F-AP.3, #87): Not Started Assessments appear where it now
  * applies, untouched ones go where it no longer does, touched ones are kept as stale.
- * `mandatory`, Capabilities, the Control Owner and text edits don't change applicability, so they
+ * `mandatory`, the Control Owner and text edits don't change applicability, so they
  * recompute nothing. Assigning or clearing the Control Owner (F-CL.3, #119) is catalog curation, so
  * it writes no Change Event (F-CE.1); an unknown User id is a 400 and changes nothing.
  */
@@ -85,7 +84,6 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/contro
     intent,
     examples,
     deploymentFacetIds,
-    capabilityIds,
     minConfidentialityImpactLevel,
     minIntegrityImpactLevel,
     minAvailabilityImpactLevel,
@@ -137,9 +135,6 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/contro
         ...(deploymentFacetIds !== undefined && {
           deploymentFacets: { set: deploymentFacetIds.map((facetId) => ({ id: facetId })) },
         }),
-        ...(capabilityIds !== undefined && {
-          capabilities: { set: capabilityIds.map((capabilityId) => ({ id: capabilityId })) },
-        }),
         ...(minConfidentialityImpactLevel !== undefined && { minConfidentialityImpactLevel }),
         ...(minIntegrityImpactLevel !== undefined && { minIntegrityImpactLevel }),
         ...(minAvailabilityImpactLevel !== undefined && { minAvailabilityImpactLevel }),
@@ -152,7 +147,7 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/contro
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
       return NextResponse.json(
-        { error: "One or more Deployment Facet or Capability ids do not exist" },
+        { error: "One or more Deployment Facet ids do not exist" },
         { status: 400 },
       );
     }

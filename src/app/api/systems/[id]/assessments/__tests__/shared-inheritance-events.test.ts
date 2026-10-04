@@ -73,8 +73,8 @@ async function scenario(options: { providerStatus?: "ONBOARDED" | "DRAFT"; type?
 
   const ownDone = await f.makeSystem();
   await f.assess(ownDone, control.id, "FULFILLED");
-  const capabilityDone = await f.makeSystem();
-  await f.assess(capabilityDone, control.id, "FULFILLED", null); // a Capability's auto-fulfilment: the customer's half (D3)
+  const nobodyDone = await f.makeSystem();
+  await f.assess(nobodyDone, control.id, "FULFILLED", null); // Fulfilled but nobody set it: still the customer's half (D3)
   const ownOpen = await f.makeSystem(); // untouched: the owner's half is open, so the Provider's changes can't move it
   const ownInProgress = await f.makeSystem();
   await f.assess(ownInProgress, control.id, "IN_PROGRESS");
@@ -90,10 +90,10 @@ async function scenario(options: { providerStatus?: "ONBOARDED" | "DRAFT"; type?
   const stranger = await f.makeSystem(); // depends on nobody
   await f.assess(stranger, control.id, "FULFILLED");
 
-  for (const dependent of [ownDone, capabilityDone, ownOpen, ownInProgress, waived, coveredByFull, doesNotTake]) await f.depend(dependent, providerId);
+  for (const dependent of [ownDone, nobodyDone, ownOpen, ownInProgress, waived, coveredByFull, doesNotTake]) await f.depend(dependent, providerId);
   await f.depend(coveredByFull, fullProvider);
 
-  const listens = [ownDone, capabilityDone];
+  const listens = [ownDone, nobodyDone];
   const silent = [ownOpen, ownInProgress, waived, coveredByFull, doesNotTake, stranger];
   return { providerId, name, control, offering, ownOpen, listens, silent, all: [...listens, ...silent, fullProvider] };
 }
