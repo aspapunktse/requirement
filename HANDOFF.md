@@ -11,18 +11,16 @@ This file is a snapshot of in-flight state, not a permanent doc. Update or trim 
 
 ## Next up: the queue (start here)
 
-**Where the last session stopped (2026-10-02). Do this first.**
-1. **The PR for #126 (retire Capability) is open** from branch `126-retire-capability` (`gh pr list` gives its number). It is reviewed and browser-verified. **It carries a data migration, `20261002130000_retire_capability`, that can abort in production** (only when Capabilities exist and there is no Admin).
-   - **Do not merge it until the product owner has run the read-only pre-check against production and it says the migration would complete** (asked on 2026-10-02). The command, from the PR's branch: `npx dotenv -e .env.production.local -- npx tsx scripts/check-capability-migration.ts`. It only reads; it exits 1 when the migration would abort. The supervisor must not run it: production is the product owner's.
-   - Then run `gh pr checks <n>` once. If CI is green, confirm the PR's Vercel preview ran no `prisma migrate deploy` (the workflow doc has the commands), `gh pr merge <n> --squash --delete-branch`, `git checkout main && git pull`, and watch the CI and CD runs of the merge commit. The CD deploy log must show `20261002130000_retire_capability` applied (32 migrations found) and its NOTICE line, if the log prints it. If the deploy aborts, the #126 note below has the recovery steps.
-   - If it is already merged: check that CD run instead (`gh run list --workflow CD --limit 3`), then correct the `main` line below.
-2. **Then close the GitHub milestone "PRD 0001 · M3 Inheritance"** (all nine issues are then closed) and tell the product owner M3 is complete. Nothing is queued after it: ask what comes next (PRD 0001's next milestone needs cutting into issues).
-3. Nothing else is in flight. The dev DB is in its new seeded state (see below).
+**Where the last session stopped (2026-10-04). Do this first.**
+1. **Milestone "PRD 0001 · M3 Inheritance" is complete, in production and closed on GitHub** (2026-10-04). #126 (PR #136) was merged by the product owner after they ran the production pre-check (it said the migration would complete; recorded on PR #136). CD run 37222499029 applied `20261002130000_retire_capability` (32 migrations found).
+2. **Nothing is queued.** Ask the product owner what comes next. PRD 0001's next milestone needs cutting into issues (the workflow doc says how).
+3. Nothing else is in flight. The dev DB is in its seeded state (see below).
 4. **Possible follow-up, not opened as an issue:** the older interactive transactions (the frameworks, controls and mappings routes, `assessment-queries.ts`) have not been audited for queries on the global Prisma client. PR #134's first CI run failed on exactly that in the Offering write (see the #124 note). The test run now uses a pool of 3, so a path that a test exercises concurrently would show it.
 5. **Small polish seen in the browser, not done:** on a Control with a Shared Offering, the Assessment form keeps saying "Set the status below to Fulfilled once this System has done it." after the System's own half is Fulfilled.
+6. **Merging is the product owner's.** On 2026-10-04 the permission classifier refused the supervisor's `gh pr merge` as a production deploy (CD deploys every merge to `main`). Prepare the PR, check CI and the preview, then ask the product owner to merge; watch CI and CD after they do.
 
-**State as of 2026-10-02**
-- PRD 0001 milestones 1 and 2 are complete, closed and in production.
+**State as of 2026-10-04**
+- PRD 0001 milestones 1, 2 and 3 are complete, closed and in production.
 - Every post-M2 follow-up has also shipped:
   - #91, #97 and #98 (owner rule and waiving);
   - #109 (remove a stale Assessment);
@@ -30,7 +28,7 @@ This file is a snapshot of in-flight state, not a permanent doc. Update or trim 
   - #95 (GitHub Actions on their Node 24 majors);
   - #115 (CI, the CD deploy job and the Docker image on Node 24);
   - PR #106 (Vercel records production deploys as `main`).
-- `main` is at #125 (PR #135, deployed: CD run 37044103564, "No pending migrations to apply"). **The PR for #126 is open**; see "Where the last session stopped" above. Production has every migration up to `20261002120000_add_provider_dependency` (31 in all).
+- `main` is at #126 (PR #136, deployed: CD run 37222499029, which applied `20261002130000_retire_capability`). Production has every migration up to `20261002130000_retire_capability` (32 in all).
 - The dev DB is in its seeded state, which changed with #126:
   - 11 Systems (one is the Provider "Entra ID SSO", migrated from the Capability), 10 Users, 118 Controls, 527 Control Assessments, 2 Change Events (the migration's `"system"` events on GitHub and Microsoft 365), 4 Control Offerings, 2 Provider dependencies, and 92 Organization Control Implementations, all Not Started. No Control Owners.
   - ISO/IEC 27001:2022 figures: Jira 56 of 117 (47.9%), CATIA 9 of 117, Unily 6 of 117 ("needs assessment" 44 and 47), the Provider "Entra ID SSO" 4 of 117 ("needs assessment" 52), pooled 467 of 1288 (36.3%; it was 463 of 1171 before the Provider existed).
@@ -38,7 +36,7 @@ This file is a snapshot of in-flight state, not a permanent doc. Update or trim 
   - Frameworks: ISO/IEC 27001:2022, which is the base and Published. GDPR 1 and Export Control (EAR/ITAR) 1 are Published but have no Requirements yet; they came from #88.
   - When cleaning up after a browser check, compare with these counts. The two Change Events are seeded state: do not delete them.
 
-**Milestone "PRD 0001 · M3 Inheritance" is open on GitHub and cut into issues.** The product owner approved the cut on 2026-10-01. Work them in this order, one at a time:
+**Milestone "PRD 0001 · M3 Inheritance" is complete and closed on GitHub (2026-10-04).** The product owner approved the cut on 2026-10-01. The issues, in the order they were worked:
 1. ~~**#119: Control Owner**, one User per Control (F-CL.3).~~ **Done** (PR #127, key pieces below).
 2. ~~**#120: Organization Control Implementation**, status and description per Organizational/Both Control (F-IN.1, §9.7).~~ **Done** (PR #128, key pieces below).
 3. ~~**#121: effective status**, Systems inherit Both Controls from the Organization (F-IN.5, F-IN.6, F-IN.7).~~ **Done** (PR #130, key pieces below).
@@ -47,9 +45,9 @@ This file is a snapshot of in-flight state, not a permanent doc. Update or trim 
 5. ~~**#123: Providers and Control Offerings** (F-IN.2).~~ **Done** (PR #133, key pieces below).
 6. ~~**#124: Provider dependencies and live Full inheritance** (F-IN.3, F-IN.4, OQ-2). After #121 and #123.~~ **Done** (PR #134, key pieces below).
 7. ~~**#125: Shared inheritance and customer responsibility** (F-IN.5 rule 3). After #124.~~ **Done** (PR #135, key pieces below).
-8. ~~**#126: retire Capability**, migrating each to a Provider System (F-IN.8, §9.5). After #124.~~ **Done on its branch `126-retire-capability`; its PR is open, not merged yet** (key pieces below). Run `scripts/check-capability-migration.ts` against production first (see the #126 note).
+8. ~~**#126: retire Capability**, migrating each to a Provider System (F-IN.8, §9.5). After #124.~~ **Done** (PR #136, key pieces below).
 
-F-OUT.2 (the source of each Control on the System page) and F-CE.2 (Change Events) are spread over #121, #122, #124 and #125 instead of having their own issue. Close the GitHub milestone when #126 is closed.
+F-OUT.2 (the source of each Control on the System page) and F-CE.2 (Change Events) are spread over #121, #122, #124 and #125 instead of having their own issue. The GitHub milestone was closed on 2026-10-04, after #126 shipped.
 
 **Product-owner decisions of 2026-10-01 that shape M3** (each is also in the issue it belongs to):
 - **#116 and #117 are closed as superseded by #126.** Live inheritance gives both results without a backfill or a re-run. On the dev DB the backfill would have changed 0 rows.
