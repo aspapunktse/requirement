@@ -128,7 +128,7 @@ Run only one implementer at a time (see above).
   - If typecheck complains about stale `.next/dev/types`, delete that folder.
 - **Encoding:** every written file must be valid UTF-8. A PowerShell write once produced Latin-1 bytes, which Vitest and `tsc` accepted but Turbopack rejected with a 500. Use the Write/Edit tools or Git Bash, and check with `iconv`.
 - **Don't** start a dev server or use the browser; the supervisor verifies.
-- **Docs in the same change:** update `README.md`'s Project status (a `CLAUDE.md` rule) and `HANDOFF.md`'s "Next up" (mark the issue done, with a short key-pieces note). Touch `CONTEXT.md` only for genuine glossary changes, and flag them.
+- **Docs in the same change:** update `README.md`'s Project status (an `AGENTS.md` rule) and `HANDOFF.md`'s "Next up" (mark the issue done, with a short key-pieces note). Touch `CONTEXT.md` only for genuine glossary changes, and flag them.
 - **When unsure:** make the conservative choice (deny rather than allow; preserve data rather than drop it) and **flag it** in the report for the product owner.
 - **Report back concisely:** branch + commits; what changed; migration evidence; test/typecheck/lint numbers; judgement calls and open questions.
 
