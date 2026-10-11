@@ -19,8 +19,8 @@ How implementation work on this repo is run. The product owner set this up on 20
 
 ## Order of work
 
-- Work issues **one at a time**, in dependency order. Dependencies are GitHub's native "blocked by" links on each issue, and the "Next up" list in `HANDOFF.md` gives the current queue.
-- Never run two implementers in parallel. They share one Postgres, the dev DB, which the tests also use, and parallel migrations or fixtures collide.
+- Work issues in dependency order. Dependencies are GitHub's native "blocked by" links on each issue, and the "Next up" list in `HANDOFF.md` gives the current queue.
+- Up to two issues may be in progress at once, each with its own implementer, worktree and database. See "Parallel implementers" below for which issues qualify. Review, merge and the production watch stay one at a time.
 - When the product owner asks for a milestone to be "cut into issues":
   1. Read the PRD section and the relevant code (read-only).
   2. Draft vertical, independently shippable issues. Each gets: a "Part of PRD 0001 · Mx" line, **Why**, **Scope**, **Acceptance criteria**, "Blocked by: #n", and the CI-not-seeded test rule.
@@ -29,16 +29,65 @@ How implementation work on this repo is run. The product owner set this up on 20
   5. Add native dependencies: `gh api --method POST repos/aspapunktse/requirement/issues/<child>/dependencies/blocked_by -F issue_id=<blocker database id>`.
   6. Close the GitHub milestone once all of its issues are closed.
 
+## Parallel implementers: one worktree and one database each
+
+Every implementer works in its own git worktree against its own Postgres database, also when only one is running. The main checkout `C:\dev\requirement` stays on `main` and belongs to the supervisor. The dev DB `requirement` only ever receives migrations that have been merged to `main`, and no implementer connects to it.
+
+### Which issues may run together
+
+- At most **two** implementers at a time. The supervisor's review is the bottleneck, and the full test suite flakes under load.
+- No "blocked by" link between the issues, direct or through another open issue.
+- At most **one** in-flight issue carries a migration. Two branches each name their migration to sort after the latest one on `main` and can't see each other's.
+- The issues don't rework the same files. Compare their Scope sections before briefing; two issues that restructure the same module run in sequence.
+- When in doubt, run them in sequence.
+
+### Set up (supervisor, before briefing)
+
+For issue `<n>` on branch `<n>-<slug>`:
+
+1. **Check the dev DB** is at `main`'s state: in the main checkout, `git pull` and `npx prisma migrate status` reports nothing pending, and the row counts match the seeded state in `HANDOFF.md`.
+2. **Worktree:** `git worktree add ../requirement-wt/<n>-<slug> -b <n>-<slug> origin/main`. Worktrees live in `C:\dev\requirement-wt\`, outside OneDrive like the main checkout.
+3. **Database**, a copy of the dev DB: `docker exec requirement-db sh -c "createdb -U app requirement_<n> && pg_dump -U app requirement | psql -U app -q -d requirement_<n>"`.
+4. **`.env`** in the worktree: the main checkout's `.env` with the database name changed to `requirement_<n>`. Never copy `.env.production.local` into a worktree.
+5. **Dependencies:** `npm ci` in the worktree, which also runs `prisma generate`. Each worktree has its own `node_modules` and `.next`, so a dev server running elsewhere no longer locks Prisma's query engine for the implementer.
+
+Give the implementer the worktree path and the database name in the brief.
+
+### While implementers run
+
+- An implementer stays inside its worktree and its own databases. Scratch DBs for drift and fresh-path proofs are named `requirement_<n>_<purpose>`, so two implementers never pick the same name.
+- An implementer may drop and recreate `requirement_<n>` whenever it likes. "Never reset the dev DB" still holds, and now also means "never connect to it".
+- The supervisor doesn't edit files in a worktree whose implementer is running. Follow-ups go to that implementer as messages.
+- The supervisor may `git pull` in the main checkout at any time; no implementer has work there.
+
+### Review and verify
+
+- Review in the worktree: `git -C ../requirement-wt/<n>-<slug> log`, `diff --stat main...HEAD`, `status`.
+- The browser check runs **from the worktree, against `requirement_<n>`**: a launch configuration whose command is `npm --prefix C:/dev/requirement-wt/<n>-<slug> run dev`. Run one dev server at a time, on port 3000, and stop the main checkout's first.
+- Test data made during the check doesn't need cleaning up, because the database is dropped at tear-down. The dev DB stays in its seeded state.
+
+### Merge, one at a time
+
+- Merges stay serial, and the next one waits for the previous merge's CD run (step 6 of the loop).
+- After each merge, in the main checkout: `git pull`, stop the dev server, `npm ci` if the lockfile changed, `npx prisma migrate deploy`. This is the only way a migration reaches the dev DB.
+- Then bring the other in-flight branch up to date. Tell its implementer to `git merge origin/main`, run `npx prisma migrate deploy` against its database, resolve conflicts (`README.md`'s Project status is the usual one) and re-run the tests it touched.
+- If the "one migration in flight" rule was broken and the second branch also carries a migration: rename its migration directory to sort after the one just merged, recreate `requirement_<n>` from the dev DB, and repeat the drift and fresh-path proofs.
+
+### Tear down (after the merge)
+
+- `git worktree remove ../requirement-wt/<n>-<slug>` and `git branch -D <n>-<slug>` (a squash merge leaves the branch unmerged in git's eyes).
+- `docker exec requirement-db dropdb -U app requirement_<n>`, and the same for any `requirement_<n>_*` scratch DB. `docker exec requirement-db psql -U app -l` lists what's left.
+
 ## Per-issue loop
 
 1. **Prepare.**
-   - `git checkout main && git pull`.
-   - Stop the supervisor's preview dev server (`preview_stop`). A running `next dev` locks Prisma's query-engine DLL, and `prisma generate` then fails with EPERM.
+   - `git pull` in the main checkout, which is always on `main`.
+   - Set up the issue's worktree and database (see "Set up" above).
    - Read the issue and the code it names, so the brief can carry facts, not guesses.
    - Read-only checks that decide policy (e.g. "do any rows hit this edge case?") are worth running yourself before briefing, so the product owner is asked only when it matters.
 2. **Brief the implementer.** It starts cold, so the brief must be self-contained. Use the template below.
 3. **Review the hand-back.**
-   - Read the report critically. Check `git log`, `git diff --stat main...HEAD` and `git status`.
+   - Read the report critically. In the issue's worktree, check `git log`, `git diff --stat main...HEAD` and `git status`.
    - **Read any migration SQL in full.**
    - Check `npx prisma migrate status`.
    - Grep for leftovers the issue said to remove.
@@ -46,13 +95,12 @@ How implementation work on this repo is run. The product owner set this up on 20
    - Send follow-ups to the **same** agent (SendMessage with its id), which keeps its context. Once a branch is pushed, fixes must be new commits, not amends.
    - Bring the branch up to date with `main` (`git merge main`) before verifying, so you test what will actually land.
 4. **Verify in the browser.**
-   - If the checkout has switched branches since the dev server last ran, run `rm -rf .next` first (see the stale-`.next` gotcha).
-   - `preview_start` with name `next-dev`.
+   - Stop any running dev server, then start one from the issue's worktree (see "Review and verify" above). It uses the issue's database, not the dev DB.
    - Hit a route once before screenshotting it. Turbopack compiles each route on its first request, so the page may briefly show "Compiling…".
    - Sign in as the relevant role with the header role switcher.
    - Exercise the change and read the console and network logs. HMR websocket errors from the preview pane are noise.
    - Prefer creating your own test data **through the app's API** (`fetch` from the page with the acting-user cookie set), e.g. a `Test #<n> …` System owned by the role you need. Changing seeded rows directly in SQL (e.g. reassigning a seeded System's owner) is blocked by the permission classifier; don't work around it.
-   - If you create test data, remove it afterwards and leave the dev DB as you found it. Deleting a test System cascades to its Assessments and Change Events. Delete any Change Events your test wrote on seeded Systems, and compare row counts before and after.
+   - Test data you create lives in the issue's database and goes when that is dropped. Nothing needs cleaning up in the dev DB, because the check never touches it.
    - Restart the dev server after any migration, because it caches the old Prisma client.
    - **Recipe for inheritance features** (used for #121, #122, #129, #123 and #124). Never change a seeded Control's Organization Control Implementation or a seeded System: it moves the seeded figures and writes Change Events on seeded Systems. Build throwaway data through the API instead, with `fetch` from the page:
      1. as the Compliance Manager: a `Test #<n> Framework` (`POST /api/frameworks`), one Requirement, a `TEST-<n>-…` Control (`POST /api/controls`), a Full mapping, then publish;
@@ -64,10 +112,10 @@ How implementation work on this repo is run. The product owner set this up on 20
    - A script run with the browser's JavaScript tool loses its return value if it navigates at the end, so set up the data in one call and navigate in the next. Stub `window.confirm` (capture the message, return true) before clicking an action that confirms. The first request to a route compiles it and can take several seconds, so wait before judging a save.
 5. **PR and merge.**
    - `git push -u origin <branch>`.
-   - `gh pr create` with a body of: Closes #n / Part of …; Summary; migration notes and a **production heads-up** if it has one; Test plan with checked boxes. End with `🤖 Generated with [Claude Code](https://claude.com/claude-code)`.
+   - `gh pr create` with a body of: Closes #n / Part of …; Summary, including the key pieces and judgement calls from the implementer's report; migration notes and a **production heads-up** if it has one; Test plan with checked boxes. End with `🤖 Generated with [Claude Code](https://claude.com/claude-code)`.
    - **Don't poll PR CI** (the session harness forbids `gh pr checks --watch` and similar loops). Tell the product owner the PR is waiting, and check once (`gh pr checks <n>`) when they say "continue".
    - If the PR carries a migration, confirm its Vercel preview build ran **no** `prisma migrate deploy` (see the gotcha "Previews must never migrate or reach production"). To check: find the branch's deployment id in `MSYS_NO_PATHCONV=1 npx vercel api "/v6/deployments?projectId=prj_whCroO48Sq1pZZa0yLpdDUI8she3&limit=6"` (match `meta.githubCommitRef`), then read its build log with `MSYS_NO_PATHCONV=1 npx vercel api "/v3/deployments/<id>/events?builds=1&limit=-1"`. The log should contain the `Running "if [ "$VERCEL_ENV" = "production" ] …"` line and no "migrations found", "Applying migration" or datasource line.
-   - When GitHub CI is green: `gh pr merge <n> --squash --delete-branch`. Then update `main`: use `git checkout main && git pull` only if no implementer is running. Otherwise use `git fetch origin main:main` and **don't switch branches** (see "Shared checkout" below).
+   - When GitHub CI is green: `gh pr merge <n> --squash --delete-branch`. Then follow "Merge, one at a time" and "Tear down" above.
    - A failing **Vercel** check alone doesn't block a merge when GitHub CI is green. Find out why first (`vercel api /v13/deployments/<id>`), and leave a PR comment saying why it's safe.
 6. **Watch production.**
    - CD runs `prisma migrate deploy` against **production** on every merge to `main`. Watch the run in the background: find the CI run for the merge commit and `gh run watch` it, then do the same for the CD run. Report the result, including the "Applying migration" / "No pending migrations" lines from the deploy log.
@@ -79,17 +127,18 @@ How implementation work on this repo is run. The product owner set this up on 20
 
 - Put policy and product questions **in the chat reply as plain text**: numbered questions, lettered options, and a marked recommendation, so the product owner can answer like "1a, 2b". Don't use the AskUserQuestion tool; its prompts weren't visible to the product owner.
 - Keep work going on anything a question doesn't block. Brief the implementer with your recommended default, kept in one named constant, and relay the answer with SendMessage when it arrives.
-- Record every decision as a comment on the relevant issue, and in `HANDOFF.md`.
+- Record every decision as a comment on the relevant issue. A decision that changes how later work is done also goes into this document, `CONTEXT.md` or an ADR, whichever it belongs to.
 - Vercel project settings and other production configuration are the product owner's to change. The permission classifier blocks the supervisor from changing them. Give exact dashboard steps, then read the settings back through the API to confirm.
 
-### Shared checkout
+### What goes in `HANDOFF.md`
 
-The supervisor and the implementer work in **the same** `C:\dev\requirement` working tree. While an implementer is running:
-- never `git checkout` or switch branches (it moves the implementer's uncommitted work);
-- merge PRs with `gh pr merge` alone, and update local `main` with `git fetch origin main:main`;
-- do any side edit (e.g. reverting a temporary commit on another PR's branch) in a separate worktree: `git worktree add <scratchpad>/wt -B wt origin/<branch>`, then push and `git worktree remove` it.
+`HANDOFF.md` is read first in every fresh session and edited for every issue, so it is kept short and is the supervisor's file.
 
-Run only one implementer at a time (see above).
+- It holds **current state and the queue**: what is in flight, the "Next up" list, the dev DB's seeded state, and conventions or gotchas that still apply.
+- Per-issue history doesn't go in it. What was built, the migration evidence, test numbers and judgement calls go in the **PR description**; product-owner decisions go on the **issue**. Both stay findable from the issue number.
+- Implementers **don't edit** `HANDOFF.md`. With two branches open, two edits to the same list are the most likely merge conflict.
+- The supervisor updates it in the issue's worktree as the last commit before pushing, after the branch has merged `main`: mark the issue done in "Next up" with one line and the PR number, and change any current-state fact the issue altered (e.g. the seeded row counts).
+- A convention or gotcha that outlives the issue goes into this document's gotchas, not into a per-issue note.
 
 ## Implementer brief template (rules every brief must carry)
 
@@ -100,21 +149,21 @@ Run only one implementer at a time (see above).
   - the relevant PRD section, and the `HANDOFF.md` conventions/gotchas.
 - **Supervisor context:** the files, functions and data facts you already checked; decisions already made; what's out of scope.
 - **Branch and git:**
-  - Branch `<issue>-<slug>` from an up-to-date `main`.
+  - Work only in the worktree `C:\dev\requirement-wt\<issue>-<slug>`, already on branch `<issue>-<slug>`, and only against the database `requirement_<issue>` its `.env` points at. Never touch the main checkout or the `requirement` database.
   - Commits reference `#<issue>` and end with the `Co-Authored-By:` trailer the session's attribution instructions specify.
   - Don't push, open a PR, merge or close the issue.
   - Leave `.claude/` untracked.
 - **Migrations:**
   - Hand-write the SQL. The directory timestamp must **sort after the latest existing migration**, not the wall clock: `prisma migrate dev` names by clock time and can sort *before* an earlier hand-named migration.
   - If `prisma migrate dev` hangs, kill it and check `_prisma_migrations` for a stray row.
-  - **Never reset the dev DB.**
+  - **Never connect to the dev DB** (`requirement`). Your own `requirement_<issue>` may be dropped and recreated.
   - Record before/after row counts.
   - Prove there's no drift with `npx prisma migrate diff --from-migrations prisma/migrations --to-schema-datamodel prisma/schema.prisma --shadow-database-url <scratch db> --exit-code`.
   - Prove the fresh path: on a second scratch DB, `migrate deploy` + `prisma db seed` gives the same shape.
-  - Rehearse data migrations on a `pg_dump` of the dev DB.
+  - Rehearse data migrations on `requirement_<issue>`, which starts as a copy of the dev DB.
   - Data migrations must be **data-driven and robust for production**: select rows by stable properties with a fallback, never hard-coded ids or display names alone (names are editable in the UI); make them idempotent where possible (`ON CONFLICT DO NOTHING`); and make them a no-op on an empty DB.
-  - Scratch DBs live in the `requirement-db` container (user `app`, password from `.env`'s `DATABASE_URL`). Drop them afterwards.
-  - If an already-applied migration file is edited before merge, update its `checksum` in the dev DB's `_prisma_migrations` to the sha256 of the file with CRLF normalised to LF.
+  - Scratch DBs live in the `requirement-db` container (user `app`, password from `.env`'s `DATABASE_URL`). Name them `requirement_<issue>_<purpose>` and drop them afterwards.
+  - If an already-applied migration file is edited before merge, update its `checksum` in `requirement_<issue>`'s `_prisma_migrations` to the sha256 of the file with CRLF normalised to LF.
 - **Tests:**
   - **CI's test DB is migrated but NOT seeded.** Tests must create their own fixtures (unique `Test …` names/codes) and clean up, and never depend on seeded data.
   - A test that needs a base Framework uses the existing one or creates a temporary one. It never flips or deletes the seeded base, and never leaves a second base behind.
@@ -123,14 +172,14 @@ Run only one implementer at a time (see above).
   - Assert "no DB change" on refused writes.
 - **Verification before hand-back:**
   - `npm run typecheck` and `npm run lint`: check exit codes unpiped. Piping to `tail` hides failures. No new warnings.
-  - Simulate CI: on a scratch DB with `migrate deploy` only, run the full `npx vitest run`. Also run the touched files against the seeded dev DB.
+  - Simulate CI: on a scratch DB with `migrate deploy` only, run the full `npx vitest run`. Also run the touched files against `requirement_<issue>`, which holds the seeded data.
   - The full suite takes about 5 minutes and can flake under load. Re-run a failing file alone; only failures that reproduce in isolation are real.
   - If typecheck complains about stale `.next/dev/types`, delete that folder.
 - **Encoding:** every written file must be valid UTF-8. A PowerShell write once produced Latin-1 bytes, which Vitest and `tsc` accepted but Turbopack rejected with a 500. Use the Write/Edit tools or Git Bash, and check with `iconv`.
 - **Don't** start a dev server or use the browser; the supervisor verifies.
-- **Docs in the same change:** update `README.md`'s Project status (an `AGENTS.md` rule) and `HANDOFF.md`'s "Next up" (mark the issue done, with a short key-pieces note). Touch `CONTEXT.md` only for genuine glossary changes, and flag them.
+- **Docs in the same change:** update `README.md`'s Project status (an `AGENTS.md` rule). Don't edit `HANDOFF.md`; the supervisor does. Touch `CONTEXT.md` only for genuine glossary changes, and flag them.
 - **When unsure:** make the conservative choice (deny rather than allow; preserve data rather than drop it) and **flag it** in the report for the product owner.
-- **Report back concisely:** branch + commits; what changed; migration evidence; test/typecheck/lint numbers; judgement calls and open questions.
+- **Report back concisely:** branch + commits; what changed; migration evidence; test/typecheck/lint numbers; judgement calls and open questions. The supervisor builds the PR description from this report, and it is the lasting record of the issue.
 
 ## Known environment gotchas
 
@@ -146,7 +195,7 @@ Run only one implementer at a time (see above).
 
   Changing Vercel settings is the product owner's job; the permission classifier treats it as a production deploy. The 18 `DATA_*` variables hold production credentials the app doesn't read. They were exposed to Preview until the product owner limited them to Production on 2026-10-01.
 - **Keep the checkout out of OneDrive.** The repo lives at `C:\dev\requirement`. It used to sit in a OneDrive-synced folder, which made first compiles take tens of seconds, caused transient 404/500 responses and made sync fight the tooling over file locks. It was moved on 2026-09-29. Don't clone or move it back under a synced folder.
-- **Tests share the dev DB.** Killed runs leak `Test …` fixtures into it, so clean them up occasionally.
+- **Tests run against whatever `.env` points at.** In a worktree that is the issue's own database, so leaked `Test …` fixtures go when it is dropped. A test run in the main checkout still hits the dev DB and can leak fixtures into it.
 - **A stale `.next` cache can make API routes return a Next.js HTML 404.** After many branch switches in the shared checkout, `PATCH /api/systems/[id]/assessments/[controlId]` returned the HTML "This page could not be found" for every call, although the route file was unchanged and the handler never reached its first query. Stopping the dev server, running `rm -rf .next` and starting it again fixed it. Check for this before suspecting the code. Deleting only `.next/dev/types` (the typecheck fix above) and then starting the dev server caused the same HTML 404 on 2026-10-02, so before a browser check delete the whole `.next` folder, not part of it.
 - **Inside an interactive transaction, every query must use the transaction client.** `prisma.$transaction(async (tx) => ...)` holds one connection; a query on the global `prisma` client inside it needs a second. CI's pool is 3 connections, so when other transactions hold the rest while waiting on an advisory lock, the one holding the lock never gets its second connection and all of them fail after Prisma's 10 s pool timeout (`P2024`). This failed PR #134's first CI run and passed locally, where the pool is bigger. Since then `vitest.config.ts` runs the tests with `connection_limit=3` unless `DATABASE_URL` sets one. In review, check that helpers called inside a transaction take the client as a parameter and are given `tx`.
 - **Lint baseline: 6 warnings, 0 errors** (since #126; it was 7 since #122, and 8 before). Five are `react-hooks/set-state-in-effect` in components that fetch in an effect (#63) and one is the font warning in `src/app/layout.tsx`. A new warning is a regression.
