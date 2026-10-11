@@ -43,7 +43,9 @@ Every implementer works in its own git worktree against its own Postgres databas
 
 ### Set up (supervisor, before briefing)
 
-For issue `<n>` on branch `<n>-<slug>`:
+For issue `<n>` on branch `<n>-<slug>`, run `npm run implementer:create -- <n> <slug>` in the main checkout (`scripts/implementer-env.ts`). It takes about ten minutes, nearly all of it `npm ci`, and prints the worktree path, branch and database name. It refuses to start if the checkout is not on `main`, if a migration is pending, or if the worktree, branch or database already exists. Check the seeded row counts yourself first; the script does not.
+
+What it does, which can also be done by hand:
 
 1. **Check the dev DB** is at `main`'s state: in the main checkout, `git pull` and `npx prisma migrate status` reports nothing pending, and the row counts match the seeded state in `HANDOFF.md`.
 2. **Worktree:** `git worktree add ../requirement-wt/<n>-<slug> -b <n>-<slug> origin/main`. Worktrees live in `C:\dev\requirement-wt\`, outside OneDrive like the main checkout.
@@ -75,8 +77,10 @@ Give the implementer the worktree path and the database name in the brief.
 
 ### Tear down (after the merge)
 
-- `git worktree remove ../requirement-wt/<n>-<slug>` and `git branch -D <n>-<slug>` (a squash merge leaves the branch unmerged in git's eyes).
-- `docker exec requirement-db dropdb -U app requirement_<n>`, and the same for any `requirement_<n>_*` scratch DB. `docker exec requirement-db psql -U app -l` lists what's left.
+Run `npm run implementer:destroy -- <n> <slug>` in the main checkout. It does the following:
+
+- `git worktree remove ../requirement-wt/<n>-<slug>` and `git branch -D <n>-<slug>` (a squash merge leaves the branch unmerged in git's eyes). It stops if the worktree has uncommitted changes; add `--force` to discard them.
+- `dropdb` for `requirement_<n>` and every `requirement_<n>_*` scratch DB. `docker exec requirement-db psql -U app -l` lists what's left.
 
 ## Per-issue loop
 
