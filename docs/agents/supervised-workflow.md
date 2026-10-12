@@ -9,7 +9,7 @@ How implementation work on this repo is run. The product owner set this up on 20
   - brief a sub-agent;
   - review what comes back;
   - verify in the browser;
-  - open the PR, wait for CI, merge, and watch the production deploy;
+  - open the PR, wait for CI, ask the product owner to merge, and watch the production deploy;
   - keep `HANDOFF.md` current;
   - bring policy questions to the product owner.
 
@@ -119,7 +119,7 @@ Run `npm run implementer:destroy -- <n> <slug>` in the main checkout. It does th
    - `gh pr create` with a body of: Closes #n / Part of …; Summary, including the key pieces and judgement calls from the implementer's report; migration notes and a **production heads-up** if it has one; Test plan with checked boxes. End with `🤖 Generated with [Claude Code](https://claude.com/claude-code)`.
    - **Don't poll PR CI** (the session harness forbids `gh pr checks --watch` and similar loops). Tell the product owner the PR is waiting, and check once (`gh pr checks <n>`) when they say "continue".
    - If the PR carries a migration, confirm its Vercel preview build ran **no** `prisma migrate deploy` (see the gotcha "Previews must never migrate or reach production"). To check: find the branch's deployment id in `MSYS_NO_PATHCONV=1 npx vercel api "/v6/deployments?projectId=prj_whCroO48Sq1pZZa0yLpdDUI8she3&limit=6"` (match `meta.githubCommitRef`), then read its build log with `MSYS_NO_PATHCONV=1 npx vercel api "/v3/deployments/<id>/events?builds=1&limit=-1"`. The log should contain the `Running "if [ "$VERCEL_ENV" = "production" ] …"` line and no "migrations found", "Applying migration" or datasource line.
-   - When GitHub CI is green: `gh pr merge <n> --squash --delete-branch`. Then follow "Merge, one at a time" and "Tear down" above.
+   - When GitHub CI is green: **ask the product owner to merge** (squash, and delete the branch). The supervisor doesn't run `gh pr merge`; see the gotcha "Merging is the product owner's". When they say it is merged, confirm it once with `gh pr view <n> --json state,mergedAt` before watching anything. Then follow "Merge, one at a time" and "Tear down" above.
    - A failing **Vercel** check alone doesn't block a merge when GitHub CI is green. Find out why first (`vercel api /v13/deployments/<id>`), and leave a PR comment saying why it's safe.
 6. **Watch production.**
    - CD runs `prisma migrate deploy` against **production** on every merge to `main`. Watch the run in the background: find the CI run for the merge commit and `gh run watch` it, then do the same for the CD run. Report the result, including the "Applying migration" / "No pending migrations" lines from the deploy log.
