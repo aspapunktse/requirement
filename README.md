@@ -15,7 +15,7 @@ PRD 0001 is delivered in five milestones. Three are in production; two are cut i
 | 1. Model split | In production |
 | 2. Applicability & continuous compliance | In production |
 | 3. Inheritance | In production |
-| 4. Content & SoA | Not started (issues #144–#146, #148–#151) |
+| 4. Content & SoA | In progress: the import loader (#144) is built; issues #145, #146, #148–#151 are not started |
 | 5. Internal audit | Not started (issues #147, #152–#158) |
 
 The queue and what to do next are in [`HANDOFF.md`](HANDOFF.md). The per-issue record of how everything up to milestone 3 was built (routes, migrations, rules, test files) is in [`docs/implementation-history.md`](docs/implementation-history.md).
@@ -25,6 +25,7 @@ The queue and what to do next are in [`HANDOFF.md`](HANDOFF.md). The per-issue r
 - **Onboarding lifecycle:** create a System, assess it against the Control Library, log Risks, submit for review, a Reviewer approves or rejects (Rejected returns to Draft), mark Onboarded.
 - **Roles:** a dev-only auth stub with a role switcher and server-enforced authorization for seven roles: Admin, Risk Owner, System Owner, Reviewer, Viewer, Business Risk Owner and Compliance Manager. Seeing a System never implies writing to it; owner actions belong to the System's owner or an Admin.
 - **Requirement database:** Frameworks (versioned, Draft or Published) own their Requirements, which are linked to Controls by Control Mappings with Full or Partial Coverage. ISO/IEC 27001:2022 is the base Framework, with Annex A and clauses 4–10.
+- **Framework import:** `npm run frameworks:load` loads Framework files (Requirements, Control Mappings, Supplementary Controls) as a Draft, idempotently; a Published Framework is only touched with `--allow-published`. The format is in [`prisma/seed-data/frameworks/README.md`](prisma/seed-data/frameworks/README.md).
 - **Framework authoring and coverage:** a Compliance Manager authors Requirements and mappings and publishes a Framework. The Framework Coverage view shows covered Requirements, Coverage Gaps and accepted gaps, and a Supplementary Control can be created straight from a gap.
 - **Control Library:** 118 Controls with Deployment Facet and Impact Level scoping, a Self-Assessment Question each (Yes fulfils, No opens a linked Risk, N/A is gated) and a Control Owner.
 - **Applicability:** a Control applies to a System when it is mapped to a Published Framework in the System's Framework Scope and passes the Control's Deployment Facet and Impact Level scoping.
@@ -39,7 +40,7 @@ The queue and what to do next are in [`HANDOFF.md`](HANDOFF.md). The per-issue r
 
 ### Not built yet
 
-- **Milestone 4:** the Framework import format and loader, the Cybersäkerhetslagen and CSA CCM 4 content, the Statement of Applicability, CSV export, and Framework version lineage.
+- **Milestone 4:** the Cybersäkerhetslagen and CSA CCM 4 content, the Statement of Applicability, CSV export, and Framework version lineage.
 - **Milestone 5:** the Internal Auditor role, Internal Audits, Check-ups and Nonconformity findings.
 - **The GDPR and Export Control (EAR/ITAR) Frameworks** are Published but have no Requirements.
 - **Other open issues:** #46 (Control content versioning and notifications; needs re-scoping against the PRD), #61 (a per-System audit trail; deferred) and #63 (a lint cleanup of effect-based data fetching).
@@ -93,6 +94,7 @@ App runs at http://localhost:3000, health check at `/api/health`.
 | `npm run prisma:migrate` | Create/apply a local migration |
 | `npm run prisma:studio` | Browse the database |
 | `npm run vercel:env:pull` | Pull a linked Vercel project's production env vars into `.env.production.local` |
+| `npm run frameworks:load -- [--allow-published] [file.json …]` | Load Framework import files as Draft Frameworks (all of `prisma/seed-data/frameworks/` with no file) |
 | `npm run prisma:seed:prod` | Run the seed script against `.env.production.local` (see below) |
 | `npm run implementer:create -- <issue> <slug>` | Create an implementer's git worktree and its own copy of the dev DB (see [`docs/agents/supervised-workflow.md`](docs/agents/supervised-workflow.md)) |
 | `npm run implementer:destroy -- <issue> <slug>` | Remove that worktree and branch and drop its databases |
