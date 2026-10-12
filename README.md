@@ -98,6 +98,8 @@ App runs at http://localhost:3000, health check at `/api/health`.
 | `npm run prisma:studio` | Browse the database |
 | `npm run vercel:env:pull` | Pull a linked Vercel project's production env vars into `.env.production.local` |
 | `npm run prisma:seed:prod` | Run the seed script against `.env.production.local` (see below) |
+| `npm run implementer:create -- <issue> <slug>` | Create an implementer's git worktree and its own copy of the dev DB (see [`docs/agents/supervised-workflow.md`](docs/agents/supervised-workflow.md)) |
+| `npm run implementer:destroy -- <issue> <slug>` | Remove that worktree and branch and drop its databases |
 
 ## Seeding a Vercel deployment
 

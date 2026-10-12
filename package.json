@@ -17,7 +17,9 @@
     "prisma:studio": "prisma studio",
     "postinstall": "prisma generate",
     "vercel:env:pull": "npx vercel env pull .env.production.local --environment=production",
-    "prisma:seed:prod": "dotenv -e .env.production.local -- prisma db seed"
+    "prisma:seed:prod": "dotenv -e .env.production.local -- prisma db seed",
+    "implementer:create": "tsx scripts/implementer-env.ts create",
+    "implementer:destroy": "tsx scripts/implementer-env.ts destroy"
   },
   "dependencies": {
     "@prisma/client": "6.19.3",
