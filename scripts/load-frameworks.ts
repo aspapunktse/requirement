@@ -33,7 +33,7 @@ function usage(message?: string): never {
 async function loadFile(file: string, allowPublished: boolean): Promise<LoadResult> {
   let raw: unknown;
   try {
-    raw = JSON.parse(readFileSync(file, "utf-8").replace(/^﻿/, ""));
+    raw = JSON.parse(readFileSync(file, "utf-8").replace(/^\uFEFF/, ""));
   } catch (error) {
     return { status: "invalid", problems: [`couldn't read the file as JSON: ${error instanceof Error ? error.message : String(error)}`] };
   }

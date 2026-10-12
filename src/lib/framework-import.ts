@@ -21,7 +21,10 @@ import {
  *
  * - A new Framework is created as Draft; an existing Draft is updated in place.
  *   Loading into a Draft writes no Change Events and triggers no recompute (a
- *   Draft is inert, ADR 0007).
+ *   Draft is inert, ADR 0007), with one exception: changing the Deployment
+ *   Facets or Impact Level thresholds of an existing Supplementary Control that
+ *   is also mapped to a Published Framework recomputes the Systems it reaches,
+ *   as editing a Control does.
  * - A Published Framework is refused unless `allowPublished` is set. With the
  *   flag it is updated through the same paths as the UI: each Control Mapping
  *   added, removed or changed in Coverage is logged with `logMappingChange`, a
@@ -395,11 +398,14 @@ export async function loadFramework(db: Db, data: FrameworkImport, options: Load
     }
     const narrowing = await prepareRecompute(scopeForMappedControls(existing, [...beforeIds]), { snapshot: true });
     if (narrowing) pendings.push(narrowing);
-    for (const write of controlWrites) {
-      if (write.existing && write.scopingChanged) {
-        const scoped = await prepareRecompute(await scopeForControl(write.existing.id, db), { snapshot: true });
-        if (scoped) pendings.push(scoped);
-      }
+  }
+  // A scoping change moves applicability wherever the Control is mapped to a Published Framework, even
+  // when its own Framework is a Draft (like PATCH /api/controls/[id]). `scopeForControl` is null when it
+  // is mapped to no Published Framework, so an ordinary Draft load still recomputes nothing.
+  for (const write of controlWrites) {
+    if (write.existing && write.scopingChanged) {
+      const scoped = await prepareRecompute(await scopeForControl(write.existing.id, db), { snapshot: true });
+      if (scoped) pendings.push(scoped);
     }
   }
 
@@ -535,6 +541,8 @@ export async function loadFramework(db: Db, data: FrameworkImport, options: Load
     const added = [...afterWriteControlCodes].map((code) => written.controlIdByCode.get(code)).filter((id): id is string => !!id);
     const additions = await prepareRecompute(scopeForMappedControls(existing, added), { snapshot: false });
     if (additions) pendings.push(additions);
+  }
+  if (pendings.length > 0) {
     let total: RecomputeSummary | null = null;
     for (const pending of pendings) total = addSummaries(total, await finishRecompute(pending, trigger));
     summary.recompute = total;

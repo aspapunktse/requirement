@@ -651,6 +651,46 @@ describe("loadFramework (#144)", { timeout: 60_000 }, () => {
     });
   });
 
+  describe("a Draft Framework's Supplementary Control that a Published Framework also maps", () => {
+    it("recomputes when the file changes its scoping, and a plain Draft load still writes no events", async () => {
+      const draft = freshName();
+      const published = freshName();
+      const supCode = `${CODE_PREFIX}-X1`;
+      const scoped = (extra: Loose = {}) =>
+        supplementary("X1", { applicability: "PER_SYSTEM", question: "Done?", deploymentFacets: [facetName], ...extra });
+      await loaded(fileFor(draft, { supplementaryControls: [scoped()], requirements: [requirement("R-1", [map(supCode)])] }));
+      await loaded(fileFor(published, { requirements: [requirement("R-1")] }));
+      await publishDirectly(published);
+      const control = await prisma.control.findUniqueOrThrow({ where: { code: supCode } });
+      const publishedRow = (await frameworkRow(published))!;
+      const publishedRequirement = await prisma.requirement.findFirstOrThrow({ where: { frameworkId: publishedRow.id } });
+      await prisma.controlMapping.create({ data: { requirementId: publishedRequirement.id, controlId: control.id, coverage: "FULL" } });
+      const system = await systemInScopeOf(published);
+      await prisma.controlAssessment.create({ data: { systemId: system.id, controlId: control.id } });
+
+      // An unchanged Draft load recomputes nothing and writes no events.
+      const unchanged = await loaded(
+        fileFor(draft, { supplementaryControls: [scoped()], requirements: [requirement("R-1", [map(supCode)])] }),
+      );
+      expect(unchanged).toMatchObject({ changed: false, recompute: null });
+
+      // The threshold stops the Control applying to the System: its untouched Assessment goes.
+      const summary = await loaded(
+        fileFor(draft, {
+          supplementaryControls: [scoped({ minConfidentialityImpactLevel: "CRITICAL" })],
+          requirements: [requirement("R-1", [map(supCode)])],
+        }),
+      );
+
+      expect(summary.supplementaryControls.updated).toBe(1);
+      expect(summary.changeEvents).toBe(0);
+      expect(summary.recompute).toMatchObject({ changed: 1, removed: 1 });
+      expect(await prisma.controlAssessment.count({ where: { systemId: system.id, controlId: control.id } })).toBe(0);
+      expect(await prisma.changeEvent.count({ where: { systemId: system.id, action: "APPLICABILITY_RECOMPUTED" } })).toBe(1);
+      expect(await frameworkEvents(draft)).toEqual([]);
+    });
+  });
+
   describe("the base Framework", () => {
     it("is refused without the flag, with no DB change", async () => {
       const base = await getBaseFramework();
