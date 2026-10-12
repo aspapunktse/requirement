@@ -11,15 +11,38 @@ This file holds current state and the queue, and nothing else. The rule is in th
 
 ## Next up: the queue (start here)
 
-**Where the last session stopped (2026-10-04). Do this first.**
-1. **Milestone "PRD 0001 · M3 Inheritance" is complete, in production and closed on GitHub** (2026-10-04).
-2. **Nothing is queued.** Ask the product owner what comes next. PRD 0001's next milestone needs cutting into issues (the workflow doc says how).
+**Where the last session stopped (2026-10-12). Do this first.**
+1. **The rest of PRD 0001 is cut into issues** (2026-10-12): milestones "PRD 0001 · M4 Content & SoA" (#144–#146, #148–#151) and "PRD 0001 · M5 Internal audit" (#147, #152–#158). None is started. Dependencies are native "blocked by" links, also listed below.
+2. **Start with the issues that have no blocker:** #144, #145, #146 and #147. The product owner hasn't said which milestone goes first; ask if it matters, otherwise M4 first.
 3. Nothing is in flight. The dev DB is in its seeded state (see below).
 
-**State as of 2026-10-04**
-- PRD 0001 milestones 1, 2 and 3 are complete, closed and in production, and so is every follow-up to them.
+**The queue**
+
+PRD 0001 · M4 Content & SoA:
+1. #144 Framework import format and idempotent loader.
+2. #145 Statement of Applicability view.
+3. #146 Framework version lineage in the Framework list.
+4. #150 Statement of Applicability: exclusion justifications. Blocked by #145.
+5. #151 CSV export of the Framework Coverage view and the Statement of Applicability. Blocked by #145.
+6. #148 Cybersäkerhetslagen content as a Framework import file. Blocked by #144. **`ready-for-human`**: the product owner attaches the source documents first, then relabels it `ready-for-agent`.
+7. #149 CSA CCM 4 content as a Framework import file. Blocked by #144. **`ready-for-human`**, for the same reason.
+
+PRD 0001 · M5 Internal audit:
+1. #147 Add the Internal Auditor role.
+2. #152 Create a draft Internal Audit. Blocked by #147.
+3. #153 Select an Internal Audit's Systems by filter. Blocked by #152.
+4. #154 Check-up questions and launching an Internal Audit. Blocked by #152.
+5. #155 Answer a Check-up from My tasks. Blocked by #154.
+6. #156 Evaluate a Check-up. Blocked by #155.
+7. #157 Nonconformity side effects: Risk and status set-back. Blocked by #156.
+8. #158 Withdraw Check-ups and close an Internal Audit. Blocked by #156.
+
+Not cut into issues: the PRD's two "could" features, F-OUT.6 (PDF export of the SoA) and F-IMP.4 (UI upload of Framework files, other Frameworks as data).
+
+**State as of 2026-10-12**
+- PRD 0001 milestones 1, 2 and 3 are complete, closed and in production, and so is every follow-up to them. Milestones 4 and 5 are cut into issues and not started.
 - The last code change on `main` is #126 (PR #136), deployed by CD run 37222499029. Production has every migration up to `20261002130000_retire_capability` (32 in all).
-- Open issues:
+- Other open issues:
   - #46 needs re-scoping against the PRD before anyone picks it up.
   - #61 is deferred.
   - #63 is independent lint cleanup.
