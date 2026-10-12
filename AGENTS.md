@@ -33,3 +33,5 @@ That document names Claude Code's tools (the Agent tool, `SendMessage`, `AskUser
 ## Keep README.md current
 
 Whenever a change lands that affects what's described in `README.md` — a feature ships, an issue closes, the project status changes, a deferred item gets picked up, setup/scripts/stack change — update `README.md` in the same piece of work rather than leaving it to drift. In particular, keep the "Project status" section an accurate snapshot of what's actually implemented, not a point-in-time note that goes stale. Don't treat this as optional cleanup; treat a change as incomplete until README reflects it.
+
+**Keep it short.** `README.md` says what the app does today, in a line or two per capability. It is not a log: no per-issue write-ups, routes, migration names, test file lists or measured figures. That detail goes in the pull request description, and product-owner decisions go on the issue. When an issue changes a capability, edit its existing line rather than adding a paragraph. [`docs/implementation-history.md`](docs/implementation-history.md) holds the old per-issue record up to PRD 0001 milestone 3 and is frozen; don't add to it.
