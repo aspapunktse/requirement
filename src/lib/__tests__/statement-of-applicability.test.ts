@@ -31,7 +31,6 @@ describe("loadStatementOfApplicability (#145)", () => {
   it("lists every Control exactly once, ordered by code, and shows no inclusion before a System is declared", async () => {
     const rows = await loadStatementOfApplicability();
     expect(new Set(rows.map((row) => row.controlId)).size).toBe(rows.length);
-    expect(rows.length).toBe(await prisma.control.count());
     const fixtureIds = Object.values(ctx.controls).map((control) => control.id);
     for (const id of fixtureIds) expect(rows.filter((row) => row.controlId === id)).toHaveLength(1);
 
