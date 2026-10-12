@@ -2,6 +2,8 @@
 
 How the engineering skills should consume this repo's domain documentation when exploring the codebase.
 
+This repo's glossary is `CONTEXT.md`, not `GLOSSARY.md`: where a skill says `GLOSSARY.md` (or `GLOSSARY-MAP.md`), read and write `CONTEXT.md` (or `CONTEXT-MAP.md`) instead. Don't create a `GLOSSARY.md`.
+
 ## Before exploring, read these
 
 - **`CONTEXT.md`** at the repo root, or
