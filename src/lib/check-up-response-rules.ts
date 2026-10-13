@@ -36,11 +36,12 @@ export function checkUpRecipientId(checkUp: {
 
 /**
  * Roles that can never answer a Check-up, even as its recorded recipient: the Internal Auditor
- * would be answering its own audit (independence). Product-owner question on #155.
+ * would be answering its own audit (independence). Product-owner decision 14a of 2026-10-13 (comment on #155).
  */
 export const ROLES_NEVER_ANSWERING_CHECK_UPS: UserRole[] = ["INTERNAL_AUDITOR"];
 
 /**
+ * Product-owner decisions 13a and 15a of 2026-10-13 (comment on #155).
  * May `user` answer a Check-up whose recipient is `recipientId`? Only the recipient, whatever
  * their role (an Admin who isn't the recipient may not answer on their behalf), except the
  * Internal Auditor. A Compliance Manager recorded as a System's owner may answer: an answer is an
