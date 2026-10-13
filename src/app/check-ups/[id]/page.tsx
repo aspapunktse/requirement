@@ -1,0 +1,146 @@
+import Link from "next/link";
+import { getActingUser } from "@/lib/acting-user";
+import { checkUpAccess, getCheckUpDetail } from "@/lib/check-up-responses";
+import { CHECK_UP_ANSWER_LABEL, checkUpResponseRefusal, safeHttpUrl } from "@/lib/check-up-response-rules";
+import { canReadInternalAudits, INTERNAL_AUDIT_STATUS_LABEL } from "@/lib/internal-audit-rules";
+import { StatusChip } from "@/components/ui/StatusChip";
+import { CheckUpResponseForm } from "@/components/CheckUpResponseForm";
+
+/**
+ * One Check-up (PRD 0001 F-IA.4, F-IA.5, #155): the Control, the target, the audit's title and due
+ * date and the questions. Its recipient (whoever owns the target now) answers here, and changes
+ * the answer until the Check-up can no longer be changed; the roles that read Internal Audits see
+ * the same page read-only, with the response. Anyone else sees nothing, and not whether the
+ * Check-up exists. The recipient needs no right to read Internal Audits: this page shows their
+ * Check-up, not the audit.
+ */
+export default async function CheckUpPage({ params }: PageProps<"/check-ups/[id]">) {
+  const { id } = await params;
+  const user = await getActingUser();
+
+  if (!user) {
+    return <p className="p-6 text-zinc-600 dark:text-zinc-400">Pick a user to act as first.</p>;
+  }
+
+  const checkUp = await getCheckUpDetail(id);
+  const access = checkUp ? checkUpAccess(user, checkUp) : null;
+  if (!checkUp || !access?.canRead) {
+    return <p className="p-6 text-zinc-600 dark:text-zinc-400">This Check-up is not available to you.</p>;
+  }
+
+  const isRecipient = checkUp.recipient?.id === user.id;
+  const lockedReason = checkUpResponseRefusal({ auditStatus: checkUp.audit.status });
+  const changedLater = checkUp.response !== null && checkUp.response.updatedAt !== checkUp.response.respondedAt;
+
+  return (
+    <div className="mx-auto max-w-4xl p-6">
+      <p className="mb-2 flex gap-4 text-sm">
+        {isRecipient && (
+          <Link className="underline" href="/check-ups">
+            Your Check-ups
+          </Link>
+        )}
+        {canReadInternalAudits(user) && (
+          <Link className="underline" href={`/internal-audits/${checkUp.audit.id}`}>
+            {checkUp.audit.title}
+          </Link>
+        )}
+      </p>
+
+      <h1 className="mb-2 text-2xl">
+        {checkUp.control.code} {checkUp.control.title}
+      </h1>
+      <div className="mb-4 flex flex-wrap items-center gap-3 text-sm text-zinc-500">
+        {checkUp.answered ? (
+          <StatusChip tone="success">Answered</StatusChip>
+        ) : checkUp.overdue ? (
+          <StatusChip tone="danger">Overdue</StatusChip>
+        ) : (
+          <StatusChip tone="accent">{checkUp.open ? "Open" : "Not answered"}</StatusChip>
+        )}
+        <span>Target: {checkUp.target.kind === "system" ? checkUp.target.name : "Organization"}</span>
+        <span>
+          Audit: {checkUp.audit.title} ({INTERNAL_AUDIT_STATUS_LABEL[checkUp.audit.status].toLowerCase()})
+        </span>
+        <span>Due {checkUp.audit.dueDate}</span>
+        <span>Recipient: {checkUp.recipient ? checkUp.recipient.name : "No Control Owner"}</span>
+      </div>
+
+      {!checkUp.recipient && (
+        <p className="mb-4 text-sm text-zinc-500">
+          This Check-up has no recipient: its Control has no Control Owner. Nobody can answer it until one is assigned.
+        </p>
+      )}
+      {lockedReason && <p className="mb-4 text-sm text-zinc-500">{lockedReason}.</p>}
+      {isRecipient && !access.canAnswer && !lockedReason && (
+        <p className="mb-4 text-sm text-zinc-500">An Internal Auditor can&apos;t answer a Check-up: the role is read-only.</p>
+      )}
+
+      <section className="mb-6">
+        <h2 className="mb-2 text-lg">{access.canAnswer ? (checkUp.response ? "Your response" : "Answer the questions") : checkUp.response ? "Response" : "Questions"}</h2>
+        {checkUp.response && (
+          <p className="mb-2 text-sm text-zinc-500">
+            Submitted by {checkUp.response.respondedBy.name} on {checkUp.response.respondedAt.slice(0, 10)}
+            {changedLater ? `, last changed by ${checkUp.response.lastChangedBy.name} on ${checkUp.response.updatedAt.slice(0, 10)}` : ""}.
+            {access.canAnswer ? " You can change it until the Internal Auditor evaluates it. Submitting changes no status anywhere." : ""}
+          </p>
+        )}
+        {!checkUp.response && !access.canAnswer && <p className="mb-2 text-sm text-zinc-500">Not answered yet.</p>}
+
+        {access.canAnswer ? (
+          <CheckUpResponseForm
+            checkUpId={checkUp.id}
+            questions={checkUp.questions}
+            initialEvidenceLinks={checkUp.response?.evidenceLinks ?? []}
+            changing={checkUp.response !== null}
+          />
+        ) : (
+          <ol className="flex flex-col gap-3 text-sm">
+            {checkUp.questions.map((question) => (
+              <li key={question.id} className="rounded border border-zinc-200 p-3 dark:border-zinc-800">
+                <p className="font-medium">
+                  {question.position}. {question.text}
+                </p>
+                {question.answer && (
+                  <>
+                    <p>
+                      <span className="text-zinc-500">Answer: </span>
+                      {CHECK_UP_ANSWER_LABEL[question.answer.answer]}
+                    </p>
+                    {question.answer.description && (
+                      <p className="whitespace-pre-wrap">
+                        <span className="text-zinc-500">Description: </span>
+                        {question.answer.description}
+                      </p>
+                    )}
+                  </>
+                )}
+              </li>
+            ))}
+          </ol>
+        )}
+      </section>
+
+      {checkUp.response && !access.canAnswer && (
+        <section>
+          <h2 className="mb-1 text-lg">Evidence links</h2>
+          {checkUp.response.evidenceLinks.length === 0 ? (
+            <p className="text-sm text-zinc-500">No evidence links.</p>
+          ) : (
+            <ul className="list-disc pl-6 text-sm">
+              {checkUp.response.evidenceLinks.map((link) =>
+                safeHttpUrl(link) ? (
+                  <li key={link}>
+                    <a className="underline" href={link} target="_blank" rel="noopener noreferrer">
+                      {link}
+                    </a>
+                  </li>
+                ) : null,
+              )}
+            </ul>
+          )}
+        </section>
+      )}
+    </div>
+  );
+}
