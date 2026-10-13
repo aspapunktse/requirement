@@ -105,6 +105,7 @@ model User {
   acceptedGaps                       Requirement[]                       @relation("GapAcceptedBy")
   ownedControls                      Control[]                           @relation("ControlOwner")
   internalAuditsCreated              InternalAudit[]                     @relation("InternalAuditCreator")
+  internalAuditsLaunched             InternalAudit[]                     @relation("InternalAuditLauncher")
   organizationImplementationsUpdated OrganizationControlImplementation[] @relation("OrganizationImplementationUpdatedBy")
 }
 
@@ -154,6 +155,8 @@ model System {
   // depend on this one (as a Provider). See ProviderDependency (#124).
   providerDependencies ProviderDependency[]  @relation("DependentSystem")
   internalAudits       InternalAuditSystem[]
+  // Check-ups that target this System (#154). Restrict: a System with Check-ups can't be deleted.
+  checkUps             CheckUp[]
   dependents           ProviderDependency[]  @relation("ProviderSystem")
   // Curated log of System-lifecycle-relevant mutations, feeding the landing
   // page's "Recent updates" feed. See #58.
@@ -344,6 +347,8 @@ model Control {
 
   assessments    ControlAssessment[]
   internalAudits InternalAuditControl[]
+  // Check-ups generated for this Control (#154). Restrict: a Control with Check-ups can't be deleted.
+  checkUps       CheckUp[]
 
   // Deployment Facets this Control is scoped to. Empty means "applies
   // regardless of facet" (how the Annex A seed ships). Must stay empty for
@@ -662,19 +667,29 @@ model InternalAudit {
   createdBy           User                @relation("InternalAuditCreator", fields: [createdById], references: [id], onDelete: Restrict)
   createdAt           DateTime            @default(now())
   updatedAt           DateTime            @updatedAt
+  // Set together with status LAUNCHED (#154): when the audit was launched and by whom. Null while
+  // a draft. Restrict, like the creator: who launched an audit is part of the record.
+  launchedAt          DateTime?
+  launchedById        String?
+  launchedBy          User?               @relation("InternalAuditLauncher", fields: [launchedById], references: [id], onDelete: Restrict)
 
   controls InternalAuditControl[]
   systems  InternalAuditSystem[]
+  checkUps CheckUp[]
 
   @@index([createdById])
+  @@index([launchedById])
 }
 
 // A target Control of an Internal Audit. An explicit join model, not an implicit many-to-many:
-// #154 hangs the per-Control questions off this audit-Control pair.
+// the draft's questions (#154) hang off this audit-Control pair.
 // Cascade on the Control: for a DRAFT the pair holds no evidence, so deleting the Control just
-// takes it off the plan (the audit stays, even if that leaves it invalid until edited). #154 and
-// #158 must revisit this once a launched audit's Check-ups exist: a launched audit's Controls
-// must not silently disappear.
+// takes it off the plan (the audit stays, even if that leaves it invalid until edited). Once the
+// audit is launched its Check-ups point at this row with Restrict (see CheckUp), so a Control
+// that has Check-ups can't be deleted. Postgres can't make a rule depend on the audit's status,
+// so a launched audit's Control that produced no Check-up at all (it applied nowhere) can still
+// be deleted with the Control, and then leaves the audit's list. Accepted for now (product-owner
+// decision 10a of 2026-10-13, comment on #154).
 model InternalAuditControl {
   id              String        @id @default(cuid())
   internalAuditId String
@@ -683,8 +698,28 @@ model InternalAuditControl {
   control         Control       @relation(fields: [controlId], references: [id], onDelete: Cascade)
   createdAt       DateTime      @default(now())
 
+  // The draft's questions for this Control, in order. Kept after launch as the plan's record; each
+  // Check-up carries its own copy.
+  questions InternalAuditQuestion[]
+  // The Check-ups generated for this audit-Control pair (#154).
+  checkUps  CheckUp[]
+
   @@unique([internalAuditId, controlId])
   @@index([controlId])
+}
+
+// One question the Internal Auditor wrote (or took over from the Control's Self-Assessment
+// Question) for a target Control of a draft (#154), in `position` order. The draft's own copy:
+// it does not follow later edits to the Control. Launch copies the list into each Check-up.
+model InternalAuditQuestion {
+  id                     String               @id @default(cuid())
+  internalAuditControlId String
+  internalAuditControl   InternalAuditControl @relation(fields: [internalAuditControlId], references: [id], onDelete: Cascade)
+  position               Int
+  text                   String
+  createdAt              DateTime             @default(now())
+
+  @@unique([internalAuditControlId, position])
 }
 
 // A System picked for an Internal Audit: the resolved System, never a filter (#153 resolves a
@@ -700,4 +735,52 @@ model InternalAuditSystem {
 
   @@unique([internalAuditId, systemId])
   @@index([systemId])
+}
+
+// A request generated when an Internal Audit is launched (PRD 0001 F-IA.3, #154): the audit asks
+// the current recipient to answer the questions about one Control for one target. The target is
+// the System's Control Assessment when `systemId` is set, or the Control's Organization Control
+// Implementation when it is null. The recipient is NOT stored: it is the System's owner, or the
+// Control's Control Owner, *now* (#155), so a Check-up follows a change of owner. The due date is
+// the audit's: a launched audit can't be edited, so reading it from there can't drift. Answers,
+// evaluation and withdrawal arrive with #155, #156 and #158.
+// Everything here is Restrict: a launched audit is evidence, so a Control, a System or the audit
+// itself can't be deleted from under its Check-ups (product-owner decision 9a of 2026-10-13, comment on #154).
+// (internalAuditId, controlId) must be a target
+// pair of the audit, which the composite relation to InternalAuditControl enforces.
+// At most one Check-up per audit, Control and target: the unique below covers System targets (NULLs
+// are distinct in a Postgres unique index), and a partial unique index covering `systemId IS NULL`
+// is written by hand in the migration ("CheckUp_organization_target_key"); Prisma's schema language
+// can't express it, and `migrate diff` ignores partial indexes.
+model CheckUp {
+  id                   String               @id @default(cuid())
+  internalAuditId      String
+  internalAudit        InternalAudit        @relation(fields: [internalAuditId], references: [id], onDelete: Restrict)
+  controlId            String
+  control              Control              @relation(fields: [controlId], references: [id], onDelete: Restrict)
+  internalAuditControl InternalAuditControl @relation(fields: [internalAuditId, controlId], references: [internalAuditId, controlId], onDelete: Restrict)
+  // The target System, or null for the Organization-level Check-up.
+  systemId             String?
+  system               System?              @relation(fields: [systemId], references: [id], onDelete: Restrict)
+  createdAt            DateTime             @default(now())
+
+  // The Check-up's own copy of the questions, taken at launch.
+  questions CheckUpQuestion[]
+
+  @@unique([internalAuditId, controlId, systemId])
+  @@index([controlId])
+  @@index([systemId])
+}
+
+// A question of a Check-up, copied at launch from the draft's list so that editing a Control (its
+// Self-Assessment Question or anything else) afterwards doesn't change what was asked.
+model CheckUpQuestion {
+  id        String   @id @default(cuid())
+  checkUpId String
+  checkUp   CheckUp  @relation(fields: [checkUpId], references: [id], onDelete: Cascade)
+  position  Int
+  text      String
+  createdAt DateTime @default(now())
+
+  @@unique([checkUpId, position])
 }

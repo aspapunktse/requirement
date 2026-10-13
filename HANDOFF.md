@@ -31,8 +31,8 @@ PRD 0001 · M5 Internal audit:
 1. #147 Add the Internal Auditor role. **Done: PR #168.**
 2. #152 Create a draft Internal Audit. **Done: PR #171.**
 3. #153 Select an Internal Audit's Systems by filter. Unblocked (#152 is done).
-4. #154 Check-up questions and launching an Internal Audit. Unblocked (#152 is done).
-5. #155 Answer a Check-up from My tasks. Blocked by #154.
+4. #154 Check-up questions and launching an Internal Audit. **Done: PR #172.**
+5. #155 Answer a Check-up from My tasks. Unblocked (#154 is done).
 6. #156 Evaluate a Check-up. Blocked by #155.
 7. #157 Nonconformity side effects: Risk and status set-back. Blocked by #156.
 8. #158 Withdraw Check-ups and close an Internal Audit. Blocked by #156.
@@ -42,7 +42,7 @@ Not cut into issues: the PRD's two "could" features, F-OUT.6 (PDF export of the 
 
 **State as of 2026-10-12**
 - PRD 0001 milestones 1, 2 and 3 are complete, closed and in production, and so is every follow-up to them. Milestones 4 and 5 are cut into issues and not started.
-- The last code change on `main` is #126 (PR #136), deployed by CD run 37222499029. Production has every migration up to `20261013120000_add_internal_audit` (35 in all).
+- The last code change on `main` is #126 (PR #136), deployed by CD run 37222499029. Production has every migration up to `20261013130000_add_check_ups` (36 in all).
 - Other open issues:
   - #46 needs re-scoping against the PRD before anyone picks it up.
   - #61 is deferred.
@@ -52,6 +52,7 @@ Not cut into issues: the PRD's two "could" features, F-OUT.6 (PDF export of the 
 
 - **Audit the older interactive transactions.** The frameworks, controls and mappings routes and `assessment-queries.ts` have not been checked for queries on the global Prisma client inside a transaction (the gotcha in the workflow doc; it failed PR #134's first CI run). The test run uses a pool of 3, so a path that a test exercises concurrently would show it.
 - **Bulk loaders that can throw under a concurrent catalog edit.** A `findMany` that nests a required relation (Control → mappings → requirement) runs as several statements, and a Requirement deleted between them makes Prisma throw "Inconsistent query result". The Statement of Applicability loader was fixed in #150 (one REPEATABLE READ snapshot). The same shape is in `requirement-status.ts`, `effective-status-data.ts`, `organization-inheritance.ts`, `provider-inheritance.ts`, `control-assessments.ts` and `frameworks.ts`; none has been seen to fail.
+- **A target Control of a launched Internal Audit that produced no Check-up can still be deleted** (it applied to none of the picked Systems), and then leaves the audit's Control list. Controls and Systems that have Check-ups can't be deleted. The product owner accepted the gap for now on 2026-10-13 (comment on #154); closing it means refusing to delete any Control that is a target of an audit.
 - **A catalog recompute writes no Change Events on a Provider's dependents.** When a Framework publish, a Control Mapping change or a Control scoping edit makes an offered Control stop or start applying to a Provider, the dependents' effective status moves live and nothing is logged on them. The product owner accepted this for now on 2026-10-02 (comment on #124).
 - **Nothing renders Change Events yet** (the "Recent updates" feed was never built). Whoever builds it must give every `ChangeEventAction` a label, including the ones added since without one (`APPLICABILITY_RECOMPUTED`, `ASSESSMENT_REMOVED`, `ORGANIZATION_IMPLEMENTATION_CHANGED`, `CONTROL_OFFERING_CHANGED`), and decide how to show System-less events next to per-System ones.
 - **Small polish seen in the browser:** on a Control with a Shared Offering, the Assessment form keeps saying "Set the status below to Fulfilled once this System has done it." after the System's own half is Fulfilled.
@@ -94,7 +95,7 @@ The dev DB is in its seeded state. When cleaning up after a browser check, compa
 
 - 11 Systems (one is the Provider "Entra ID SSO"), 11 Users (the seed adds the Internal Auditor; run `npx prisma db seed` after pulling #147), 118 Controls, 527 Control Assessments, 2 Change Events, 4 Control Offerings, 2 Provider dependencies, and 92 Organization Control Implementations, all Not Started. No Control Owners.
 - The two Change Events are seeded state (the `"system"` events on GitHub and Microsoft 365 from the Capability migration): do not delete them.
-- 35 rows in `_prisma_migrations`.
+- 36 rows in `_prisma_migrations`.
 - Controls by applicability: 61 Organizational, 31 Both, 26 Per-System. All mandatory.
 - Frameworks: ISO/IEC 27001:2022, which is the base and Published. GDPR 1 and Export Control (EAR/ITAR) 1 are Published but have no Requirements yet.
 - ISO/IEC 27001:2022 figures: Jira 56 of 117 (47.9%), CATIA 9 of 117, Unily 6 of 117 ("needs assessment" 44 and 47), the Provider "Entra ID SSO" 4 of 117 ("needs assessment" 52), pooled 467 of 1288 (36.3%).

@@ -161,10 +161,13 @@ describe("roleView: owner tasks for any role (#98)", () => {
       try {
         const view = await roleView(auditor);
         // The count spans every auditor's drafts and other test files add and remove their own
-        // meanwhile, so assert only that ours (two drafts; the launched one doesn't count) are in it.
+        // meanwhile, so assert only that ours (two drafts, one launched) are in it.
         const drafts = view.stats.find((s) => s.label === "Draft Internal Audits")?.value as number;
         expect(drafts).toBeGreaterThanOrEqual(2);
-        expect(view.tiles.find((t) => t.title === "Internal Audits")?.foot).toMatch(/^[0-9]+ drafts$/);
+        expect(view.tiles.find((t) => t.title === "Internal Audits")?.foot).toMatch(/^[0-9]+ drafts?, [0-9]+ launched$/);
+        // ...and the launched one is counted on the tile, apart from the drafts.
+        const launched = Number(view.tiles.find((t) => t.title === "Internal Audits")?.foot?.match(/, ([0-9]+) launched$/)?.[1]);
+        expect(launched).toBeGreaterThanOrEqual(1);
       } finally {
         await prisma.internalAudit.deleteMany({ where: { createdById: auditor.id } });
       }
