@@ -10,7 +10,8 @@ import {
 import { getInternalAudit } from "@/lib/internal-audits";
 import { getLaunchPreview, listCheckUps } from "@/lib/check-ups";
 import { checkUpProgress } from "@/lib/check-up-response-rules";
-import { internalAuditStatusTone } from "@/lib/status-tones";
+import { CHECK_UP_OUTCOME_LABEL, canEvaluateCheckUps } from "@/lib/check-up-evaluation-rules";
+import { checkUpOutcomeTone, internalAuditStatusTone } from "@/lib/status-tones";
 import { buttonClassName } from "@/components/ui/Button";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { DeleteInternalAuditButton } from "@/components/DeleteInternalAuditButton";
@@ -23,7 +24,9 @@ import { LaunchInternalAuditPanel } from "@/components/LaunchInternalAuditPanel"
  * Control's questions, delete it and launch it, with a preview of what launching creates and
  * what blocks it. Once launched it is read-only and lists the Check-ups it generated, with
  * their current recipient (derived on every read: it follows a change of owner), with the audit's
- * progress (sent, answered, overdue; #155) and each Check-up's state, linked to its response.
+ * progress (sent, answered, evaluated, overdue; #155, #156) and each Check-up's state, linked to its
+ * response and, for an Internal Auditor, to the evaluation form, with a shortcut to the next answered
+ * Check-up that still awaits one.
  */
 export default async function InternalAuditPage({ params }: PageProps<"/internal-audits/[id]">) {
   const { id } = await params;
@@ -47,6 +50,7 @@ export default async function InternalAuditPage({ params }: PageProps<"/internal
   const isDraft = audit.status === "DRAFT";
   const [preview, checkUps] = await Promise.all([isDraft ? getLaunchPreview(audit.id) : null, isDraft ? [] : listCheckUps(audit.id)]);
   const progress = checkUpProgress(checkUps);
+  const nextToEvaluate = canEvaluateCheckUps(user) && audit.status === "LAUNCHED" ? checkUps.find((c) => c.answered && !c.evaluated) : undefined;
   const notes = internalAuditNotes({
     includeOrganization: audit.includeOrganization,
     systemCount: audit.systems.length,
@@ -157,8 +161,18 @@ export default async function InternalAuditPage({ params }: PageProps<"/internal
         <section className="mb-6">
           <h2 className="mb-1 text-lg">Check-ups ({checkUps.length} sent)</h2>
           <p className="mb-2 text-sm text-zinc-500" data-testid="check-up-progress">
-            {progress.sent} sent, {progress.answered} answered, {progress.overdue} overdue
+            {progress.sent} sent, {progress.answered} answered, {progress.evaluated} evaluated, {progress.overdue} overdue
           </p>
+          {progress.awaitingEvaluation > 0 && (
+            <p className="mb-2 text-sm text-zinc-500" data-testid="check-up-awaiting-evaluation">
+              {progress.awaitingEvaluation} awaiting evaluation.{" "}
+              {nextToEvaluate && (
+                <Link className="underline" href={`/check-ups/${nextToEvaluate.id}`}>
+                  Evaluate the next one
+                </Link>
+              )}
+            </p>
+          )}
           {checkUps.length === 0 ? (
             <p className="text-sm text-zinc-500">No Check-ups.</p>
           ) : (
@@ -169,6 +183,7 @@ export default async function InternalAuditPage({ params }: PageProps<"/internal
                   <th className="py-2 pr-4 font-medium">Target</th>
                   <th className="py-2 pr-4 font-medium">Recipient</th>
                   <th className="py-2 pr-4 font-medium">Response</th>
+                  <th className="py-2 pr-4 font-medium">Evaluation</th>
                   <th className="py-2 font-medium">Questions</th>
                 </tr>
               </thead>
@@ -198,6 +213,22 @@ export default async function InternalAuditPage({ params }: PageProps<"/internal
                         </p>
                       )}
                       {checkUp.overdue && <StatusChip tone="danger">Overdue</StatusChip>}
+                    </td>
+                    <td className="py-2 pr-4">
+                      {checkUp.evaluation ? (
+                        <>
+                          <StatusChip tone={checkUpOutcomeTone(checkUp.evaluation.outcome)}>{CHECK_UP_OUTCOME_LABEL[checkUp.evaluation.outcome]}</StatusChip>
+                          <p className="text-zinc-500">
+                            {checkUp.evaluation.evaluatedByName}, {checkUp.evaluation.evaluatedAt.slice(0, 10)}
+                          </p>
+                        </>
+                      ) : checkUp.answered ? (
+                        <Link className="underline" href={`/check-ups/${checkUp.id}`}>
+                          Awaiting evaluation
+                        </Link>
+                      ) : (
+                        <span className="text-zinc-500">-</span>
+                      )}
                     </td>
                     <td className="py-2">
                       <details>

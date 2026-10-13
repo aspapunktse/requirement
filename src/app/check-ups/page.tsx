@@ -1,12 +1,15 @@
 import Link from "next/link";
 import { getActingUser } from "@/lib/acting-user";
 import { listMyCheckUps } from "@/lib/check-up-tasks";
+import { CHECK_UP_OUTCOME_LABEL } from "@/lib/check-up-evaluation-rules";
+import { checkUpOutcomeTone } from "@/lib/status-tones";
 import { StatusChip } from "@/components/ui/StatusChip";
 
 /**
  * "Your Check-ups" (PRD 0001 F-IA.4, #155): every Check-up addressed to the acting user, that is,
  * whose target they own now. Open ones are also in "My tasks" on /home; the answered ones are here
- * so a response can be found and changed until it is evaluated. Everyone sees only their own.
+ * so a response can be found and changed until it is evaluated; an evaluated one shows its outcome
+ * (#156). Everyone sees only their own.
  */
 export default async function MyCheckUpsPage() {
   const user = await getActingUser();
@@ -27,7 +30,9 @@ export default async function MyCheckUpsPage() {
         <ul className="flex flex-col gap-2">
           {checkUps.map((checkUp) => (
             <li key={checkUp.id} className="flex flex-wrap items-center gap-3 rounded border border-zinc-200 p-3 text-sm dark:border-zinc-800">
-              {checkUp.answered ? (
+              {checkUp.outcome ? (
+                <StatusChip tone={checkUpOutcomeTone(checkUp.outcome)}>{CHECK_UP_OUTCOME_LABEL[checkUp.outcome]}</StatusChip>
+              ) : checkUp.answered ? (
                 <StatusChip tone="success">Answered</StatusChip>
               ) : checkUp.overdue ? (
                 <StatusChip tone="danger">Overdue</StatusChip>
