@@ -8,14 +8,20 @@ import {
   internalAuditNotes,
 } from "@/lib/internal-audit-rules";
 import { getInternalAudit } from "@/lib/internal-audits";
+import { getLaunchPreview, listCheckUps } from "@/lib/check-ups";
 import { internalAuditStatusTone } from "@/lib/status-tones";
 import { buttonClassName } from "@/components/ui/Button";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { DeleteInternalAuditButton } from "@/components/DeleteInternalAuditButton";
+import { DraftQuestionsEditor } from "@/components/DraftQuestionsEditor";
+import { LaunchInternalAuditPanel } from "@/components/LaunchInternalAuditPanel";
 
 /**
- * One Internal Audit (PRD 0001 F-IA.1, #152): everything on it, with notes where a half of it
- * would audit nothing. Edit and delete are offered to an Internal Auditor while it is a draft.
+ * One Internal Audit (PRD 0001 F-IA.1-F-IA.3, #152, #154): everything on it, with notes where a half
+ * of it would audit nothing. While it is a draft, an Internal Auditor can edit it, write each
+ * Control's questions, delete it and launch it, with a preview of what launching creates and
+ * what blocks it. Once launched it is read-only and lists the Check-ups it generated, with
+ * their current recipient (derived on every read: it follows a change of owner).
  */
 export default async function InternalAuditPage({ params }: PageProps<"/internal-audits/[id]">) {
   const { id } = await params;
@@ -36,6 +42,8 @@ export default async function InternalAuditPage({ params }: PageProps<"/internal
   }
 
   const canEdit = canWriteInternalAudits(user) && internalAuditEditRefusal(audit.status) === null;
+  const isDraft = audit.status === "DRAFT";
+  const [preview, checkUps] = await Promise.all([isDraft ? getLaunchPreview(audit.id) : null, isDraft ? [] : listCheckUps(audit.id)]);
   const notes = internalAuditNotes({
     includeOrganization: audit.includeOrganization,
     systemCount: audit.systems.length,
@@ -69,8 +77,18 @@ export default async function InternalAuditPage({ params }: PageProps<"/internal
         )}
       </div>
 
-      {audit.status === "DRAFT" && (
+      {isDraft && (
         <p className="mb-4 text-sm text-zinc-500">This is a draft: nothing has been sent to anyone, and no Check-up exists.</p>
+      )}
+      {audit.launchedAt && (
+        <p className="mb-4 text-sm text-zinc-500">
+          Launched {audit.launchedAt.slice(0, 10)}
+          {audit.launchedBy ? ` by ${audit.launchedBy.name}` : ""}. Its Controls, Systems and questions can no longer be changed.
+        </p>
+      )}
+
+      {(isDraft || audit.status === "LAUNCHED") && (
+        <LaunchInternalAuditPanel internalAuditId={audit.id} title={audit.title} preview={preview} canLaunch={canEdit} />
       )}
 
       {notes.length > 0 && (
@@ -100,6 +118,86 @@ export default async function InternalAuditPage({ params }: PageProps<"/internal
           </ul>
         )}
       </section>
+
+      {isDraft && audit.controls.length > 0 && (
+        <section className="mb-6">
+          <h2 className="mb-1 text-lg">Questions</h2>
+          <p className="mb-2 text-sm text-zinc-500">
+            Each Check-up carries a copy of its Control&apos;s questions. A Control starts with its Self-Assessment Question as it was
+            when the Control was added to this draft (later edits to the Control don&apos;t change it); a Control without one needs a question
+            written before launch.
+          </p>
+          <ul className="flex flex-col gap-4">
+            {audit.controls.map((control) => (
+              <li key={control.id}>
+                <h3 className="mb-1 text-sm font-medium">
+                  {control.code} {control.title}
+                </h3>
+                {canEdit ? (
+                  <DraftQuestionsEditor internalAuditId={audit.id} control={control} initialQuestions={control.questions} />
+                ) : control.questions.length === 0 ? (
+                  <p className="text-sm text-zinc-500">No question yet.</p>
+                ) : (
+                  <ol className="list-decimal pl-6 text-sm">
+                    {control.questions.map((question, index) => (
+                      <li key={index}>{question}</li>
+                    ))}
+                  </ol>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {!isDraft && (
+        <section className="mb-6">
+          <h2 className="mb-1 text-lg">Check-ups ({checkUps.length} sent)</h2>
+          {checkUps.length === 0 ? (
+            <p className="text-sm text-zinc-500">No Check-ups.</p>
+          ) : (
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-zinc-200 dark:border-zinc-800">
+                  <th className="py-2 pr-4 font-medium">Control</th>
+                  <th className="py-2 pr-4 font-medium">Target</th>
+                  <th className="py-2 pr-4 font-medium">Recipient</th>
+                  <th className="py-2 font-medium">Questions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {checkUps.map((checkUp) => (
+                  <tr key={checkUp.id} className="border-b border-zinc-100 align-top dark:border-zinc-900">
+                    <td className="py-2 pr-4">
+                      <span className="font-medium">{checkUp.control.code}</span> {checkUp.control.title}
+                    </td>
+                    <td className="py-2 pr-4">
+                      {checkUp.target.kind === "system" ? (
+                        <Link className="underline" href={`/systems/${checkUp.target.id}`}>
+                          {checkUp.target.name}
+                        </Link>
+                      ) : (
+                        "Organization"
+                      )}
+                    </td>
+                    <td className="py-2 pr-4">{checkUp.recipient ? checkUp.recipient.name : <span className="text-zinc-500">No Control Owner</span>}</td>
+                    <td className="py-2">
+                      <details>
+                        <summary className="cursor-pointer">{checkUp.questions.length === 1 ? "1 question" : `${checkUp.questions.length} questions`}</summary>
+                        <ol className="list-decimal pl-5">
+                          {checkUp.questions.map((question, index) => (
+                            <li key={index}>{question}</li>
+                          ))}
+                        </ol>
+                      </details>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </section>
+      )}
 
       <section className="mb-6">
         <h2 className="mb-1 text-lg">Systems ({audit.systems.length})</h2>

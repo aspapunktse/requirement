@@ -157,10 +157,11 @@ async function roleOwnView(user: { id: string; name: string; role: UserRole }): 
     }
 
     case "INTERNAL_AUDITOR": {
-      const [systems, frameworks, draftAudits] = await Promise.all([
+      const [systems, frameworks, draftAudits, launchedAudits] = await Promise.all([
         prisma.system.count(),
         prisma.framework.count({ where: visibleFrameworksWhere(user) }),
         prisma.internalAudit.count({ where: { status: "DRAFT" } }),
+        prisma.internalAudit.count({ where: { status: "LAUNCHED" } }),
       ]);
 
       return {
@@ -174,9 +175,9 @@ async function roleOwnView(user: { id: string; name: string; role: UserRole }): 
         tiles: [
           {
             title: "Internal Audits",
-            description: "Plan an audit as a draft: pick the Controls, the Systems and whether the Organization is included.",
+            description: "Plan an audit as a draft, write its questions and launch it to send the Check-ups.",
             href: "/internal-audits",
-            foot: draftAudits === 1 ? "1 draft" : `${draftAudits} drafts`,
+            foot: `${draftAudits === 1 ? "1 draft" : `${draftAudits} drafts`}, ${launchedAudits} launched`,
           },
           { title: "Browse Systems", description: "Every System across every status, read-only.", href: "/systems" },
           ORGANIZATION_CONTROLS_TILE,
