@@ -100,6 +100,7 @@ export async function createCheckUpScenario(
     organizationControls,
     bothControls,
     extraSystemIds,
+    frameworkId: framework.id,
     systemId: system.id,
     systemName,
     auditId,
