@@ -22,12 +22,13 @@ describe("CheckUpResponseForm (#155)", () => {
 
   it("PUTs an answer for every question with the description and the evidence links", async () => {
     vi.stubGlobal("fetch", mockFetch(201, {}));
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     render(<CheckUpResponseForm checkUpId="cu1" questions={questions} initialEvidenceLinks={[]} changing={false} />);
 
     await user.click(screen.getByLabelText("Yes for question 1"));
     await user.click(screen.getByLabelText("N/A for question 2"));
-    await user.type(screen.getByLabelText("Description for question 2 (required)"), "Not applicable to this System");
+    await user.click(screen.getByLabelText("Description for question 2 (required)"));
+    await user.paste("Not applicable to this System");
     await user.type(screen.getByLabelText("Evidence links"), "https://example.com/a\nhttps://example.com/b");
     await user.click(screen.getByRole("button", { name: "Submit response" }));
 
@@ -46,7 +47,7 @@ describe("CheckUpResponseForm (#155)", () => {
 
   it("sends nothing while a question is unanswered, a No has no description or a link isn't http(s)", async () => {
     vi.stubGlobal("fetch", mockFetch(201, {}));
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     render(<CheckUpResponseForm checkUpId="cu1" questions={questions} initialEvidenceLinks={[]} changing={false} />);
 
     await user.click(screen.getByRole("button", { name: "Submit response" }));
@@ -55,7 +56,8 @@ describe("CheckUpResponseForm (#155)", () => {
 
     await user.click(screen.getByLabelText("Yes for question 1"));
     await user.click(screen.getByLabelText("No for question 2"));
-    await user.type(screen.getByLabelText("Evidence links"), "javascript:alert(1)");
+    await user.click(screen.getByLabelText("Evidence links"));
+    await user.paste("javascript:alert(1)");
     await user.click(screen.getByRole("button", { name: "Submit response" }));
     expect(screen.getByRole("alert")).toHaveTextContent("a description is required for No");
     expect(screen.getByRole("alert")).toHaveTextContent("is not an http(s) URL");
@@ -64,7 +66,7 @@ describe("CheckUpResponseForm (#155)", () => {
 
   it("starts from the current response so it can be changed, and shows the server's refusal", async () => {
     vi.stubGlobal("fetch", mockFetch(403, { error: "Only the recipient of a Check-up can answer it" }));
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     render(
       <CheckUpResponseForm
         checkUpId="cu1"
