@@ -25,9 +25,11 @@ import { CONTROL_ASSESSMENT_STATUS_LABEL } from "@/lib/requirement-status-rules"
  * - **Inclusion justification** is generated from the Control's mappings into
  *   Published Frameworks. A Draft Framework's mapping never appears in it for
  *   anyone, and never makes a Control included.
- * - **Exclusion justification** is authored by a Compliance Manager (#150). Until
- *   then it is always null here, and an excluded Control is flagged
- *   "justification missing".
+ * - **Exclusion justification** is authored by a Compliance Manager or an Admin
+ *   (#150) and stored on the Control. It is the row's reason only while the Control
+ *   is excluded; for an included Control the row carries null (the stored text is
+ *   kept, and shown again if the Control is excluded again). An excluded Control
+ *   without one is flagged "justification missing".
  * - **Implementation status**: an Organizational Control shows the Organization
  *   Control Implementation's status; a Per-System Control a rollup of its
  *   effective status across the Systems it applies to; a Both Control both.
@@ -58,6 +60,8 @@ export type SoaControl = ControlImpactThresholds & {
   applicability: ControlApplicability;
   deploymentFacets: { id: string }[];
   mappings: SoaMapping[];
+  /** The stored exclusion justification (#150); null when none. */
+  soaExclusionJustification: string | null;
 };
 
 export type SoaSystem = SystemClassification & { id: string };
@@ -81,7 +85,7 @@ export type StatementOfApplicabilityRow = {
   appliesToSystemCount: number;
   /** Generated; empty for an excluded Control. */
   inclusionJustification: string;
-  /** The authored text of an excluded Control; always null until #150 stores it. */
+  /** The authored text of an excluded Control; null for an included Control (its stored text is kept, not shown) and when none is stored. */
   exclusionJustification: string | null;
   /** An excluded Control without an exclusion justification. */
   justificationMissing: boolean;
@@ -159,8 +163,8 @@ export function deriveStatementOfApplicability(inputs: StatementInputs): Stateme
       }
 
       const included = appliesToOrganization || rollup.total > 0;
-      // Authored by a Compliance Manager in #150; nothing stores it yet.
-      const exclusionJustification = null as string | null;
+      // Shown only while excluded; an included Control's stored text is kept but not presented as its reason.
+      const exclusionJustification = included ? null : (control.soaExclusionJustification?.trim() || null);
       return {
         controlId: control.id,
         code: control.code,
@@ -184,6 +188,33 @@ export type InclusionFilter = "ALL" | "INCLUDED" | "EXCLUDED";
 export function countByInclusion(rows: Pick<StatementOfApplicabilityRow, "included">[]) {
   const included = rows.filter((row) => row.included).length;
   return { all: rows.length, included, excluded: rows.length - included };
+}
+
+/** The longest exclusion justification the route accepts. */
+export const EXCLUSION_JUSTIFICATION_MAX_LENGTH = 2000;
+
+/** Trimmed; blank or null is "cleared" (null). */
+export function normalizeExclusionJustification(text: string | null | undefined): string | null {
+  const trimmed = text?.trim();
+  return trimmed ? trimmed : null;
+}
+
+/**
+ * Product-owner decision (2026-10-13, comment on #150): an exclusion justification
+ * can't be added or changed while the Control is included, only cleared; a kept one
+ * stays and is shown again if the Control is excluded again. This is the one place
+ * the rule lives. Returns the refusal message, or null when the write is allowed.
+ */
+export function exclusionJustificationWriteRefusal(included: boolean, newText: string | null): string | null {
+  if (included && newText !== null) {
+    return "This Control is included, so it needs no exclusion justification; one can only be written while it is excluded";
+  }
+  return null;
+}
+
+/** How many excluded Controls have no exclusion justification. */
+export function countJustificationsMissing(rows: Pick<StatementOfApplicabilityRow, "justificationMissing">[]) {
+  return rows.filter((row) => row.justificationMissing).length;
 }
 
 /** "2 Fulfilled, 1 In Progress" for a rollup; "No Systems" when none. Zero counts are left out. */

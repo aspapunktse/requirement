@@ -22,8 +22,8 @@ PRD 0001 · M4 Content & SoA:
 1. #144 Framework import format and idempotent loader. **Done: PR #163.**
 2. #145 Statement of Applicability view. **Done: PR #162.**
 3. #146 Framework version lineage in the Framework list. **Done: PR #164.**
-4. #150 Statement of Applicability: exclusion justifications. Blocked by #145.
-5. #151 CSV export of the Framework Coverage view and the Statement of Applicability. Blocked by #145.
+4. #150 Statement of Applicability: exclusion justifications. **Done: PR #165.**
+5. #151 CSV export of the Framework Coverage view and the Statement of Applicability. Unblocked (#145 is done).
 6. #148 Cybersäkerhetslagen content as a Framework import file. Blocked by #144. **`ready-for-human`**: the product owner attaches the source documents first, then relabels it `ready-for-agent`.
 7. #149 CSA CCM 4 content as a Framework import file. Blocked by #144. **`ready-for-human`**, for the same reason.
 
@@ -41,7 +41,7 @@ Not cut into issues: the PRD's two "could" features, F-OUT.6 (PDF export of the 
 
 **State as of 2026-10-12**
 - PRD 0001 milestones 1, 2 and 3 are complete, closed and in production, and so is every follow-up to them. Milestones 4 and 5 are cut into issues and not started.
-- The last code change on `main` is #126 (PR #136), deployed by CD run 37222499029. Production has every migration up to `20261002130000_retire_capability` (32 in all).
+- The last code change on `main` is #126 (PR #136), deployed by CD run 37222499029. Production has every migration up to `20261013100000_add_soa_exclusion_justification` (33 in all).
 - Other open issues:
   - #46 needs re-scoping against the PRD before anyone picks it up.
   - #61 is deferred.
@@ -50,6 +50,7 @@ Not cut into issues: the PRD's two "could" features, F-OUT.6 (PDF export of the 
 ### Open follow-ups (none is an issue yet)
 
 - **Audit the older interactive transactions.** The frameworks, controls and mappings routes and `assessment-queries.ts` have not been checked for queries on the global Prisma client inside a transaction (the gotcha in the workflow doc; it failed PR #134's first CI run). The test run uses a pool of 3, so a path that a test exercises concurrently would show it.
+- **Bulk loaders that can throw under a concurrent catalog edit.** A `findMany` that nests a required relation (Control → mappings → requirement) runs as several statements, and a Requirement deleted between them makes Prisma throw "Inconsistent query result". The Statement of Applicability loader was fixed in #150 (one REPEATABLE READ snapshot). The same shape is in `requirement-status.ts`, `effective-status-data.ts`, `organization-inheritance.ts`, `provider-inheritance.ts`, `control-assessments.ts` and `frameworks.ts`; none has been seen to fail.
 - **A catalog recompute writes no Change Events on a Provider's dependents.** When a Framework publish, a Control Mapping change or a Control scoping edit makes an offered Control stop or start applying to a Provider, the dependents' effective status moves live and nothing is logged on them. The product owner accepted this for now on 2026-10-02 (comment on #124).
 - **Nothing renders Change Events yet** (the "Recent updates" feed was never built). Whoever builds it must give every `ChangeEventAction` a label, including the ones added since without one (`APPLICABILITY_RECOMPUTED`, `ASSESSMENT_REMOVED`, `ORGANIZATION_IMPLEMENTATION_CHANGED`, `CONTROL_OFFERING_CHANGED`), and decide how to show System-less events next to per-System ones.
 - **Small polish seen in the browser:** on a Control with a Shared Offering, the Assessment form keeps saying "Set the status below to Fulfilled once this System has done it." after the System's own half is Fulfilled.
@@ -92,7 +93,7 @@ The dev DB is in its seeded state. When cleaning up after a browser check, compa
 
 - 11 Systems (one is the Provider "Entra ID SSO"), 10 Users, 118 Controls, 527 Control Assessments, 2 Change Events, 4 Control Offerings, 2 Provider dependencies, and 92 Organization Control Implementations, all Not Started. No Control Owners.
 - The two Change Events are seeded state (the `"system"` events on GitHub and Microsoft 365 from the Capability migration): do not delete them.
-- 32 rows in `_prisma_migrations`.
+- 33 rows in `_prisma_migrations`.
 - Controls by applicability: 61 Organizational, 31 Both, 26 Per-System. All mandatory.
 - Frameworks: ISO/IEC 27001:2022, which is the base and Published. GDPR 1 and Export Control (EAR/ITAR) 1 are Published but have no Requirements yet.
 - ISO/IEC 27001:2022 figures: Jira 56 of 117 (47.9%), CATIA 9 of 117, Unily 6 of 117 ("needs assessment" 44 and 47), the Provider "Entra ID SSO" 4 of 117 ("needs assessment" 52), pooled 467 of 1288 (36.3%).
