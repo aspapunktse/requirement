@@ -31,10 +31,9 @@ export function canEvaluateCheckUps(user: { role: UserRole }): boolean {
 
 /**
  * Why a Check-up can't be evaluated (now), or null if it can. All of them are 409, checked in
- * this order: it is already evaluated (an evaluation is final: it is never changed or replaced,
- * because a Nonconformity fires side effects, #157, that a later change would have to undo; the
- * alternative, changeable until the audit closes, is a product-owner decision), its audit isn't
- * launched, or it hasn't been answered.
+ * this order: it is already evaluated (an evaluation is final: it is never changed or replaced.
+ * Product-owner decision 18a of 2026-10-13, comment on #156; a Nonconformity fires side effects,
+ * #157, that a later change would have to undo), its audit isn't launched, or it hasn't been answered.
  */
 export function checkUpEvaluationRefusal(checkUp: {
   auditStatus: InternalAuditStatus;
@@ -49,7 +48,10 @@ export function checkUpEvaluationRefusal(checkUp: {
   return null;
 }
 
-/** A finding without a reason is no use to the recipient: only a Conforming outcome may go without a comment. */
+/**
+ * A finding without a reason is no use to the recipient: only a Conforming outcome may go without a
+ * comment. Product-owner decision 19a of 2026-10-13 (comment on #156).
+ */
 export function commentRequired(outcome: CheckUpOutcome): boolean {
   return outcome !== "CONFORMING";
 }

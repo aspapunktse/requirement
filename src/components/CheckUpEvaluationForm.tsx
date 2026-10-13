@@ -30,7 +30,14 @@ export function CheckUpEvaluationForm({ checkUpId }: { checkUpId: string }) {
   async function submit() {
     const found = validateEvaluation({ outcome, comment }).problems;
     setProblems(found);
-    if (found.length > 0) return;
+    if (found.length > 0 || outcome === "") return;
+    // An evaluation is final (decision 18a, comment on #156), so ask first; validation has passed.
+    if (
+      !window.confirm(
+        `Record this Check-up as ${CHECK_UP_OUTCOME_LABEL[outcome]}? An evaluation is final: it can't be changed, and the recipient can no longer change the response.`,
+      )
+    )
+      return;
     setBusy(true);
     try {
       const response = await fetch(`/api/check-ups/${checkUpId}/evaluation`, {

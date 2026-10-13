@@ -12,7 +12,12 @@ function mockFetch(status: number, body: unknown) {
 const calls = () => (fetch as ReturnType<typeof vi.fn>).mock.calls as unknown as [string, RequestInit][];
 
 describe("CheckUpEvaluationForm (#156)", () => {
-  beforeEach(() => refresh.mockClear());
+  let confirm: ReturnType<typeof vi.fn>;
+  beforeEach(() => {
+    refresh.mockClear();
+    confirm = vi.fn(() => true);
+    vi.stubGlobal("confirm", confirm);
+  });
   afterEach(() => vi.unstubAllGlobals());
 
   it("POSTs the outcome and the comment, and says the evaluation is final", async () => {
@@ -26,10 +31,25 @@ describe("CheckUpEvaluationForm (#156)", () => {
     await user.click(screen.getByRole("button", { name: "Record evaluation" }));
 
     await waitFor(() => expect(refresh).toHaveBeenCalled());
+    expect(confirm).toHaveBeenCalledWith(
+      "Record this Check-up as Nonconformity? An evaluation is final: it can't be changed, and the recipient can no longer change the response.",
+    );
     const [url, init] = calls()[0];
     expect(url).toBe("/api/check-ups/cu1/evaluation");
     expect(init.method).toBe("POST");
     expect(JSON.parse(init.body as string)).toEqual({ outcome: "NONCONFORMITY", comment: "No evidence of operation" });
+  });
+
+  it("sends nothing when the confirmation is cancelled", async () => {
+    vi.stubGlobal("fetch", mockFetch(201, {}));
+    confirm.mockReturnValue(false);
+    const user = userEvent.setup({ delay: null });
+    render(<CheckUpEvaluationForm checkUpId="cu1" />);
+    await user.click(screen.getByLabelText("Conforming"));
+    await user.click(screen.getByRole("button", { name: "Record evaluation" }));
+    expect(confirm).toHaveBeenCalledTimes(1);
+    expect(fetch).not.toHaveBeenCalled();
+    expect(refresh).not.toHaveBeenCalled();
   });
 
   it("accepts Conforming without a comment", async () => {
@@ -55,6 +75,8 @@ describe("CheckUpEvaluationForm (#156)", () => {
     await waitFor(() => expect(screen.getByRole("alert").textContent).toMatch(/comment is required for Observation/));
     expect(fetch).not.toHaveBeenCalled();
     expect(refresh).not.toHaveBeenCalled();
+    // Validation comes first: the dialog only appears for a submission that would be accepted.
+    expect(confirm).not.toHaveBeenCalled();
   });
 
   it("shows the server's refusal and does not refresh", async () => {

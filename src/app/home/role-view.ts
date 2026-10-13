@@ -187,7 +187,8 @@ async function roleOwnView(user: { id: string; name: string; role: UserRole }): 
           { label: "Systems", value: systems },
           { label: "Frameworks", value: frameworks },
           { label: "Draft Internal Audits", value: draftAudits },
-          // Answered Check-ups to evaluate (#156): a count, not a task row per Check-up. Each audit's page links the next one.
+          // Answered Check-ups to evaluate (#156): a count, not a task row per Check-up; each audit's page
+          // links the next one. Product-owner decision 20a of 2026-10-13 (comment on #156).
           { label: "Check-ups awaiting evaluation", value: awaitingEvaluation },
         ],
         tasks: [],
