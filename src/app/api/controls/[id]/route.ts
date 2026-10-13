@@ -4,6 +4,7 @@ import { ImpactLevel, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { authenticate, authorize } from "@/lib/api-authz";
 import { ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE } from "@/lib/catalog";
+import { canBeControlOwner, CONTROL_OWNER_REFUSAL } from "@/lib/system-permissions";
 import { controlIncludeFor, redactDraftOrigin } from "@/lib/frameworks";
 import { isScopedOrganizationalControl, ORGANIZATIONAL_SCOPING_ERROR } from "@/lib/control-schema";
 import { finishRecompute, prepareRecompute, scopeForControl } from "@/lib/applicability-recompute";
@@ -91,9 +92,12 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/contro
     ownerId,
   } = parsed.data;
   if (ownerId) {
-    const owner = await prisma.user.findUnique({ where: { id: ownerId }, select: { id: true } });
+    const owner = await prisma.user.findUnique({ where: { id: ownerId }, select: { id: true, role: true } });
     if (!owner) {
       return NextResponse.json({ error: "Control Owner not found: no User has that id" }, { status: 400 });
+    }
+    if (!canBeControlOwner(owner)) {
+      return NextResponse.json({ error: CONTROL_OWNER_REFUSAL }, { status: 400 });
     }
   }
   if (

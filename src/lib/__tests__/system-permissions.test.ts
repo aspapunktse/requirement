@@ -3,6 +3,7 @@ import type { ControlAssessmentStatus, SelfAssessmentAnswer, UserRole } from "@p
 import {
   assessmentEditAccess,
   canAnswerSelfAssessment,
+  canBeControlOwner,
   canCreateSystem,
   canEditAssessment,
   canSubmit,
@@ -162,6 +163,12 @@ describe("a RISK_OWNER who owns the System keeps every other owner action (#97)"
 
   it("can still submit for review", () => {
     expect(canSubmit(owningRiskOwner, system)).toBe(true);
+  });
+});
+
+describe("canBeControlOwner (#147)", () => {
+  it("refuses an INTERNAL_AUDITOR and nobody else", () => {
+    expect(ALL_ROLES.filter((role) => !canBeControlOwner({ role }))).toEqual(["INTERNAL_AUDITOR"]);
   });
 });
 

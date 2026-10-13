@@ -179,6 +179,40 @@ describe("Control Owner (#119)", () => {
     });
   });
 
+  describe("an Internal Auditor can't be a Control Owner (#147, decision of 2026-10-13)", () => {
+    async function makeAuditor() {
+      const auditor = await prisma.user.create({
+        data: { email: email(`ia-${extraUserIds.length}`), name: "Test Owner IA", role: "INTERNAL_AUDITOR" },
+      });
+      extraUserIds.push(auditor.id);
+      return auditor.id;
+    }
+
+    it.each(["complianceManager", "admin"])("refuses %s assigning one (400) and changes nothing", async (who) => {
+      const auditorId = await makeAuditor();
+      const response = await patchOwner(controlId, users[who], auditorId);
+      expect(response.status).toBe(400);
+      expect((await response.json()).error).toBe("An Internal Auditor can't be a Control Owner: the role is read-only");
+      expect(await ownerIdOf(controlId)).toBeNull();
+    });
+
+    it("keeps the existing Control Owner when an auditor is refused, together with other fields", async () => {
+      const auditorId = await makeAuditor();
+      await patchOwner(controlId, users.admin, users.reviewer);
+      const response = await PATCH(req(controlId, users.admin, { title: "Not saved", ownerId: auditorId }), ctxFor(controlId));
+      expect(response.status).toBe(400);
+      expect(await ownerIdOf(controlId)).toBe(users.reviewer);
+      expect((await prisma.control.findUniqueOrThrow({ where: { id: controlId } })).title).not.toBe("Not saved");
+    });
+
+    it("still clears an owner and assigns a non-auditor", async () => {
+      await patchOwner(controlId, users.admin, users.reviewer);
+      expect((await patchOwner(controlId, users.admin, null)).status).toBe(200);
+      expect((await patchOwner(controlId, users.admin, users.viewer)).status).toBe(200);
+      expect(await ownerIdOf(controlId)).toBe(users.viewer);
+    });
+  });
+
   describe("validation", () => {
     it("rejects a User id that doesn't exist (400) and changes nothing", async () => {
       await patchOwner(controlId, users.admin, spareId);

@@ -54,6 +54,18 @@ export function isReadOnlySystemRole(user: { role: UserRole }) {
  */
 export const STRICTLY_READ_ONLY_ROLES: UserRole[] = ["INTERNAL_AUDITOR"];
 
+/**
+ * Product-owner decision of 2026-10-13 (comment on #147): a strictly read-only
+ * role can't be assigned as a Control Owner, since it could never act on the
+ * Control. The one rule behind every write path and the Control Library's picker.
+ */
+export function canBeControlOwner(user: { role: UserRole }) {
+  return !STRICTLY_READ_ONLY_ROLES.includes(user.role);
+}
+
+/** The 400 text when a strictly read-only role is picked as Control Owner. */
+export const CONTROL_OWNER_REFUSAL = "An Internal Auditor can't be a Control Owner: the role is read-only";
+
 /** Statuses that only go through the waive gate (mirrors `checkWaiveGate`). */
 export const WAIVE_GATED_STATUSES: ControlAssessmentStatus[] = ["WAIVED", "NOT_APPLICABLE"];
 
