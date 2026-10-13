@@ -1,8 +1,14 @@
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { OwnAssessment } from "@/lib/effective-status";
-import { loadOrganizationStatuses, loadProviderSources, toOwnAssessment } from "@/lib/effective-status-data";
+import {
+  loadOrganizationStatuses,
+  loadProviderSources,
+  toOwnAssessment,
+} from "@/lib/effective-status-data";
 import {
   deriveStatementOfApplicability,
+  type StatementInputs,
   type StatementOfApplicabilityRow,
 } from "@/lib/statement-of-applicability-rules";
 
@@ -23,70 +29,112 @@ export * from "@/lib/statement-of-applicability-rules";
  * rows hold nothing a user may not see: only Published mappings feed the
  * justification, and no Draft Framework's name is read out anywhere.
  */
-export async function loadStatementOfApplicability(): Promise<StatementOfApplicabilityRow[]> {
-  const [controls, systems] = await Promise.all([
-    prisma.control.findMany({
-      select: {
-        id: true,
-        code: true,
-        title: true,
-        applicability: true,
-        soaExclusionJustification: true,
-        minConfidentialityImpactLevel: true,
-        minIntegrityImpactLevel: true,
-        minAvailabilityImpactLevel: true,
-        deploymentFacets: { select: { id: true } },
-        mappings: {
-          select: {
-            requirement: {
-              select: {
-                code: true,
-                framework: { select: { id: true, name: true, version: true, status: true, isBase: true } },
+export async function loadStatementOfApplicability(): Promise<
+  StatementOfApplicabilityRow[]
+> {
+  // One REPEATABLE READ snapshot for every read: Prisma runs a nested include as several
+  // statements, and a Requirement deleted between them (a curator, the import loader)
+  // would otherwise leave a mapping whose required Requirement is gone and throw.
+  // Read-only, so there is nothing to retry. Sequential: a transaction has one connection.
+  const inputs = await prisma.$transaction(readInputs, {
+    isolationLevel: "RepeatableRead",
+  });
+  return deriveStatementOfApplicability(inputs);
+}
+
+async function readInputs(
+  tx: Prisma.TransactionClient,
+): Promise<StatementInputs> {
+  const controls = await tx.control.findMany({
+    select: {
+      id: true,
+      code: true,
+      title: true,
+      applicability: true,
+      soaExclusionJustification: true,
+      minConfidentialityImpactLevel: true,
+      minIntegrityImpactLevel: true,
+      minAvailabilityImpactLevel: true,
+      deploymentFacets: { select: { id: true } },
+      mappings: {
+        select: {
+          requirement: {
+            select: {
+              code: true,
+              framework: {
+                select: {
+                  id: true,
+                  name: true,
+                  version: true,
+                  status: true,
+                  isBase: true,
+                },
               },
             },
           },
         },
       },
-    }),
-    prisma.system.findMany({
-      select: {
-        id: true,
-        confidentialityImpactLevel: true,
-        integrityImpactLevel: true,
-        availabilityImpactLevel: true,
-        deploymentFacets: { select: { id: true } },
-        frameworkScopes: { select: { id: true } },
-      },
-    }),
-  ]);
+    },
+  });
+  const systems = await tx.system.findMany({
+    select: {
+      id: true,
+      confidentialityImpactLevel: true,
+      integrityImpactLevel: true,
+      availabilityImpactLevel: true,
+      deploymentFacets: { select: { id: true } },
+      frameworkScopes: { select: { id: true } },
+    },
+  });
 
   const controlIds = controls.map((control) => control.id);
-  const systemControlIds = controls.filter((control) => control.applicability !== "ORGANIZATIONAL").map((control) => control.id);
+  const systemControlIds = controls
+    .filter((control) => control.applicability !== "ORGANIZATIONAL")
+    .map((control) => control.id);
   const systemIds = systems.map((system) => system.id);
 
-  const [organizationStatusByControlId, assessments, providerSourcesBySystemId] = await Promise.all([
-    loadOrganizationStatuses(controlIds),
+  const organizationStatusByControlId = await loadOrganizationStatuses(
+    controlIds,
+    tx,
+  );
+  const assessments =
     systemIds.length === 0 || systemControlIds.length === 0
       ? []
-      : prisma.controlAssessment.findMany({
-          where: { systemId: { in: systemIds }, controlId: { in: systemControlIds } },
-          select: { systemId: true, controlId: true, status: true, assessedById: true },
-        }),
-    loadProviderSources(systemIds, systemControlIds),
-  ]);
+      : await tx.controlAssessment.findMany({
+          where: {
+            systemId: { in: systemIds },
+            controlId: { in: systemControlIds },
+          },
+          select: {
+            systemId: true,
+            controlId: true,
+            status: true,
+            assessedById: true,
+          },
+        });
+  const providerSourcesBySystemId = await loadProviderSources(
+    systemIds,
+    systemControlIds,
+    tx,
+  );
 
-  const ownAssessmentsBySystemId = new Map<string, Map<string, NonNullable<OwnAssessment>>>();
+  const ownAssessmentsBySystemId = new Map<
+    string,
+    Map<string, NonNullable<OwnAssessment>>
+  >();
   for (const assessment of assessments) {
-    const own = ownAssessmentsBySystemId.get(assessment.systemId) ?? new Map<string, NonNullable<OwnAssessment>>();
+    const own =
+      ownAssessmentsBySystemId.get(assessment.systemId) ??
+      new Map<string, NonNullable<OwnAssessment>>();
     own.set(assessment.controlId, toOwnAssessment(assessment));
     ownAssessmentsBySystemId.set(assessment.systemId, own);
   }
 
-  return deriveStatementOfApplicability({
+  return {
     controls,
     systems,
     organizationStatusByControlId,
     ownAssessmentsBySystemId,
     providerSourcesBySystemId,
-  });
+  };
 }
