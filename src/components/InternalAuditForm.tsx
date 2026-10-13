@@ -4,8 +4,9 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { ChoicePicker } from "@/components/ChoicePicker";
+import { SystemFilterPanel } from "@/components/SystemFilterPanel";
 import { dueDateRefusal, validateInternalAudit } from "@/lib/internal-audit-rules";
-import type { ControlChoice, InternalAuditDetail, SystemChoice } from "@/lib/internal-audits";
+import type { ControlChoice, InternalAuditDetail, SystemChoice, SystemFilterMatch, SystemFilterOptions } from "@/lib/internal-audits";
 
 const INPUT_CLASSES = "rounded border border-zinc-200 p-2 dark:border-zinc-800 dark:bg-transparent";
 
@@ -13,15 +14,18 @@ const INPUT_CLASSES = "rounded border border-zinc-200 p-2 dark:border-zinc-800 d
  * Creates a draft Internal Audit, or edits one when `initial` is given (PRD 0001 F-IA.1,
  * #152). The Controls and Systems come from the server page as props. The form checks the
  * same rules as the API (`validateInternalAudit`, and `dueDateRefusal` for a new or changed
- * due date) and lists what is missing; the API still enforces them.
+ * due date) and lists what is missing; the API still enforces them. The "Select Systems by filter"
+ * panel (#153) adds matching Systems to the picked set; only the Systems are saved.
  */
 export function InternalAuditForm({
   controls,
   systems,
+  filterOptions,
   initial,
 }: {
   controls: ControlChoice[];
   systems: SystemChoice[];
+  filterOptions: SystemFilterOptions;
   initial?: InternalAuditDetail;
 }) {
   const router = useRouter();
@@ -31,8 +35,20 @@ export function InternalAuditForm({
   const [includeOrganization, setIncludeOrganization] = useState(initial?.includeOrganization ?? false);
   const [controlIds, setControlIds] = useState<string[]>(initial?.controls.map((control) => control.id) ?? []);
   const [systemIds, setSystemIds] = useState<string[]>(initial?.systems.map((system) => system.id) ?? []);
+  // Systems the filter found that the page didn't load (created since), so they can be shown as picked.
+  const [foundSystems, setFoundSystems] = useState<SystemChoice[]>([]);
   const [problems, setProblems] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
+
+  /** Adds the filter's matches to the picked Systems: never twice, and none are removed. */
+  function addFiltered(matches: SystemFilterMatch[]) {
+    const known = new Set([...systems, ...foundSystems].map((system) => system.id));
+    setFoundSystems((found) => [
+      ...found,
+      ...matches.filter((match) => !known.has(match.id)).map(({ id, name, vendor, status }) => ({ id, name, vendor, status })),
+    ]);
+    setSystemIds((current) => [...current, ...matches.map((match) => match.id).filter((id) => !current.includes(id))]);
+  }
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -102,10 +118,12 @@ export function InternalAuditForm({
         onChange={setControlIds}
       />
 
+      <SystemFilterPanel options={filterOptions} pickedIds={systemIds} onAdd={addFiltered} />
+
       <ChoicePicker
         legend="Systems"
         searchLabel="Search Systems by name or vendor"
-        items={systems.map((system) => ({ id: system.id, label: system.name, detail: system.vendor ?? undefined }))}
+        items={[...systems, ...foundSystems].map((system) => ({ id: system.id, label: system.name, detail: system.vendor ?? undefined }))}
         selected={systemIds}
         onChange={setSystemIds}
       />
