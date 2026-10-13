@@ -7,6 +7,7 @@ import { scopedSystemsWhere, getAssignedScope } from "@/lib/business-risk-owner"
 import { getActionableQueries } from "@/lib/assessment-queries";
 import { getOwnerTasks, mergeTaskRows } from "@/lib/owner-tasks";
 import { getControlOwnerTasks } from "@/lib/control-owner-tasks";
+import { getCheckUpTasks, MY_CHECK_UPS_HREF } from "@/lib/check-up-tasks";
 import { riskSeverityTone } from "@/lib/status-tones";
 import { RISK_INCLUDE } from "@/lib/risks";
 import { visibleFrameworksWhere } from "@/lib/frameworks";
@@ -40,6 +41,13 @@ const CONTROL_LIBRARY_TILE: NavTile = {
   href: "/controls",
 };
 
+/** Anyone with a Check-up addressed to them can reach the answered ones too (#155); shown only to those who have one. */
+const MY_CHECK_UPS_TILE: NavTile = {
+  title: "Your Check-ups",
+  description: "The Check-ups addressed to you, open and answered. An answer can be changed until the Internal Auditor evaluates it.",
+  href: MY_CHECK_UPS_HREF,
+};
+
 export type RoleView = {
   lede: string;
   stats: { label: string; value: number | string }[];
@@ -61,18 +69,25 @@ export type RoleView = {
  * any role but the strictly read-only INTERNAL_AUDITOR (who may not edit the
  * implementation), a COMPLIANCE_MANAGER included (owning a Control is not owning a
  * System). They follow the System owner rows and come before the role's own.
+ *
+ * Open Check-ups (#155) addressed to the user, as the owner of the System or the Control Owner
+ * of an Organization-level target, are rows too, for any role but the Internal Auditor (who may
+ * not answer its own audit's Check-ups), after the Control Owner rows. A user with any Check-up,
+ * answered ones included, also gets the "Your Check-ups" tile.
  */
 export async function roleView(user: { id: string; name: string; role: UserRole }): Promise<RoleView> {
-  const [view, owner, controlRows] = await Promise.all([
+  const [view, owner, controlRows, checkUps] = await Promise.all([
     roleOwnView(user)
       .then((own) => withControlLibraryTile(own, user))
       .then(withStatementOfApplicabilityTile)
       .then((view) => withInternalAuditsReadTile(user, view)),
     getOwnerTasks(user),
     getControlOwnerTasks(user),
+    getCheckUpTasks(user),
   ]);
   const isSystemOwnerRole = user.role === "SYSTEM_OWNER";
-  if (!isSystemOwnerRole && owner.ownedCount === 0 && controlRows.length === 0) return view;
+  if (checkUps.total > 0) view.tiles = [...view.tiles, MY_CHECK_UPS_TILE];
+  if (!isSystemOwnerRole && owner.ownedCount === 0 && controlRows.length === 0 && checkUps.rows.length === 0) return view;
 
   const stats = [...view.stats];
   if (isSystemOwnerRole) {
@@ -90,7 +105,7 @@ export async function roleView(user: { id: string; name: string; role: UserRole 
     }
   }
 
-  return { ...view, stats, tasks: mergeTaskRows([...owner.rows, ...controlRows], view.tasks ?? []) };
+  return { ...view, stats, tasks: mergeTaskRows([...owner.rows, ...controlRows, ...checkUps.rows], view.tasks ?? []) };
 }
 
 /** Admin and Compliance Manager already have the editor tile; everyone else gets the read-only page. */

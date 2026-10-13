@@ -2,6 +2,7 @@ import type { ControlApplicability, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { InternalAuditError } from "@/lib/internal-audits";
 import { internalAuditEditRefusal, formatCalendarDate } from "@/lib/internal-audit-rules";
+import { checkUpRecipientId, isCheckUpOverdue } from "@/lib/check-up-response-rules";
 import {
   launchSummaryText,
   planLaunch,
@@ -222,20 +223,34 @@ export type CheckUpRow = {
   /** Who owns the target *now*: the System's owner, or the Control Owner; null if the Control has none. */
   recipient: { id: string; name: string } | null;
   questions: string[];
+  /** Whether the recipient has answered (#155), and who submitted it and when. */
+  answered: boolean;
+  response: { respondedAt: string; respondedByName: string } | null;
+  /** Open and after the audit's due date (#155). */
+  overdue: boolean;
 };
 
 /**
  * The Check-ups of an Internal Audit, by Control code and then target (Systems by name, the
  * Organization last). The recipient is derived on every read, never stored, so it follows a change
- * of System owner or Control Owner (#155).
+ * of System owner or Control Owner (#155). Each row says whether it is answered and whether it is
+ * overdue as of `now`.
  */
-export async function listCheckUps(internalAuditId: string): Promise<CheckUpRow[]> {
+export async function listCheckUps(internalAuditId: string, now = new Date()): Promise<CheckUpRow[]> {
   return prisma.$transaction(async (tx) => {
     const checkUps = await tx.checkUp.findMany({
       where: { internalAuditId },
-      select: { id: true, controlId: true, systemId: true, questions: { orderBy: { position: "asc" }, select: { text: true } } },
+      select: {
+        id: true,
+        controlId: true,
+        systemId: true,
+        questions: { orderBy: { position: "asc" }, select: { text: true } },
+        response: { select: { respondedAt: true, respondedBy: { select: { name: true } } } },
+      },
     });
     if (checkUps.length === 0) return [];
+    const audit = await tx.internalAudit.findUnique({ where: { id: internalAuditId }, select: { status: true, dueDate: true } });
+    if (!audit) return [];
     const [controls, systems] = await Promise.all([
       tx.control.findMany({
         where: { id: { in: [...new Set(checkUps.map((c) => c.controlId))] } },
@@ -258,13 +273,20 @@ export async function listCheckUps(internalAuditId: string): Promise<CheckUpRow[
       .map((checkUp): CheckUpRow => {
         const { ownerId, ...control } = controlById.get(checkUp.controlId)!;
         const system = checkUp.systemId ? systemById.get(checkUp.systemId)! : null;
-        const recipientId = system ? system.ownerId : ownerId;
+        const recipientId = checkUpRecipientId({ system, control: { ownerId } });
+        const answered = checkUp.response !== null;
         return {
           id: checkUp.id,
           control,
           target: system ? { kind: "system", id: system.id, name: system.name } : { kind: "organization" },
           recipient: recipientId ? (ownerById.get(recipientId) ?? null) : null,
           questions: checkUp.questions.map((q) => q.text),
+          answered,
+          response: checkUp.response && {
+            respondedAt: checkUp.response.respondedAt.toISOString(),
+            respondedByName: checkUp.response.respondedBy.name,
+          },
+          overdue: isCheckUpOverdue({ auditStatus: audit.status, answered, dueDate: audit.dueDate }, now),
         };
       })
       .sort(
