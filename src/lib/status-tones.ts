@@ -83,3 +83,17 @@ export function internalAuditStatusTone(status: string): ChipTone {
       return "neutral";
   }
 }
+
+/** Tone for a Check-up's evaluation outcome (#156): Conforming positive, Observation a warning, Nonconformity negative. */
+export function checkUpOutcomeTone(outcome: string): ChipTone {
+  switch (outcome) {
+    case "CONFORMING":
+      return "success";
+    case "OBSERVATION":
+      return "warn";
+    case "NONCONFORMITY":
+      return "danger";
+    default:
+      return "neutral";
+  }
+}

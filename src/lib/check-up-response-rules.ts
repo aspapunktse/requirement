@@ -86,24 +86,38 @@ export function isCheckUpOverdue(
 }
 
 /**
- * Why a Check-up's response can't be created or changed, or null if it can. Today only a Check-up
- * of an audit that isn't launched is refused (a closed audit is read-only, #158). #156 adds the
- * rule that an evaluated Check-up's response can no longer be changed: it extends this function
- * and the callers don't change.
+ * Why a Check-up's response can't be created or changed, or null if it can: its audit isn't
+ * launched (a closed audit is read-only, #158), or it has been evaluated (#156: the auditor judged
+ * this response, so it is frozen; an evaluation is final, so it never unlocks).
  */
-export function checkUpResponseRefusal(checkUp: { auditStatus: InternalAuditStatus }): string | null {
+export function checkUpResponseRefusal(checkUp: { auditStatus: InternalAuditStatus; evaluated: boolean }): string | null {
+  if (checkUp.evaluated) return "This Check-up has been evaluated, so its response can no longer be changed";
   if (checkUp.auditStatus === "LAUNCHED") return null;
   return `This Check-up can't be answered: its Internal Audit is ${INTERNAL_AUDIT_STATUS_LABEL[checkUp.auditStatus].toLowerCase()}`;
 }
 
-/** Sent, answered, open and overdue Check-ups of one audit, for its page. */
-export type CheckUpProgress = { sent: number; answered: number; open: number; overdue: number };
+/**
+ * Sent, answered, evaluated, awaiting-evaluation, open and overdue Check-ups of one audit, for its
+ * page. "Answered" is every Check-up with a response, evaluated ones included; "evaluated" is the
+ * subset the auditor has judged, and "awaiting evaluation" is answered minus evaluated.
+ */
+export type CheckUpProgress = {
+  sent: number;
+  answered: number;
+  evaluated: number;
+  awaitingEvaluation: number;
+  open: number;
+  overdue: number;
+};
 
-export function checkUpProgress(checkUps: { answered: boolean; overdue: boolean }[]): CheckUpProgress {
+export function checkUpProgress(checkUps: { answered: boolean; evaluated: boolean; overdue: boolean }[]): CheckUpProgress {
   const answered = checkUps.filter((c) => c.answered).length;
+  const evaluated = checkUps.filter((c) => c.answered && c.evaluated).length;
   return {
     sent: checkUps.length,
     answered,
+    evaluated,
+    awaitingEvaluation: answered - evaluated,
     open: checkUps.length - answered,
     overdue: checkUps.filter((c) => c.overdue).length,
   };
