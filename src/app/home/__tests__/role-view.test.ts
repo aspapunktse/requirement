@@ -133,19 +133,52 @@ describe("roleView: owner tasks for any role (#98)", () => {
   });
 
   describe("INTERNAL_AUDITOR (#147)", () => {
-    it("has a disabled Internal Audits tile (no link yet), the read tiles and an empty My tasks", async () => {
+    it("has a live Internal Audits tile counting draft audits, the read tiles and an empty My tasks (#152)", async () => {
       const auditor = await makeUser("auditor", "INTERNAL_AUDITOR");
       const view = await roleView(auditor);
       expect(view.tasks).toEqual([]);
-      expect(labels(view)).toEqual(["Systems", "Frameworks"]);
+      expect(labels(view)).toEqual(["Systems", "Frameworks", "Draft Internal Audits"]);
       expect(view.tiles.map((t) => t.title)).toEqual([
         "Internal Audits",
         "Browse Systems",
         "Organization Controls",
         "Statement of Applicability",
       ]);
-      expect(view.tiles.find((t) => t.title === "Internal Audits")).toMatchObject({ disabled: true });
-      expect(view.tiles.filter((t) => t.title !== "Internal Audits").every((t) => !t.disabled)).toBe(true);
+      expect(view.tiles.find((t) => t.title === "Internal Audits")).toMatchObject({ href: "/internal-audits" });
+      expect(view.tiles.every((t) => !t.disabled)).toBe(true);
+    });
+
+    it("counts the draft Internal Audits in the stat and on the tile", async () => {
+      const auditor = await makeUser("auditor-drafts", "INTERNAL_AUDITOR");
+      const dueDate = new Date("2030-01-01T00:00:00Z");
+      await prisma.internalAudit.createMany({
+        data: [0, 1].map((n) => ({ title: `Test 152 home draft ${n} ${suffix}`, dueDate, createdById: auditor.id })),
+      });
+      await prisma.internalAudit.create({
+        data: { title: `Test 152 home launched ${suffix}`, dueDate, createdById: auditor.id, status: "LAUNCHED" },
+      });
+      try {
+        const view = await roleView(auditor);
+        // The count spans every auditor's drafts and other test files add and remove their own
+        // meanwhile, so assert only that ours (two drafts; the launched one doesn't count) are in it.
+        const drafts = view.stats.find((s) => s.label === "Draft Internal Audits")?.value as number;
+        expect(drafts).toBeGreaterThanOrEqual(2);
+        expect(view.tiles.find((t) => t.title === "Internal Audits")?.foot).toMatch(/^[0-9]+ drafts$/);
+      } finally {
+        await prisma.internalAudit.deleteMany({ where: { createdById: auditor.id } });
+      }
+    });
+
+    it.each(["ADMIN", "COMPLIANCE_MANAGER", "RISK_OWNER"] as const)("gives the %s a read-only Internal Audits tile", async (role) => {
+      const reader = await makeUser(`audits-tile-${role}`, role);
+      const tiles = (await roleView(reader)).tiles.filter((t) => t.href === "/internal-audits");
+      expect(tiles).toHaveLength(1);
+      expect(tiles[0].description).toMatch(/Read-only/);
+    });
+
+    it.each(["SYSTEM_OWNER", "REVIEWER", "BUSINESS_RISK_OWNER", "VIEWER"] as const)("gives the %s no Internal Audits tile", async (role) => {
+      const other = await makeUser(`no-audits-tile-${role}`, role);
+      expect((await roleView(other)).tiles.filter((t) => t.href === "/internal-audits")).toEqual([]);
     });
 
     it("gives no owner tasks even when recorded as a System owner, and no Control Owner tasks for a Control it owns", async () => {
@@ -164,7 +197,7 @@ describe("roleView: owner tasks for any role (#98)", () => {
       try {
         const view = await roleView(auditor);
         expect(view.tasks).toEqual([]);
-        expect(labels(view)).toEqual(["Systems", "Frameworks"]);
+        expect(labels(view)).toEqual(["Systems", "Frameworks", "Draft Internal Audits"]);
       } finally {
         await prisma.control.delete({ where: { id: owned.id } });
       }

@@ -104,6 +104,7 @@ model User {
   queryMessages                      QueryMessage[]
   acceptedGaps                       Requirement[]                       @relation("GapAcceptedBy")
   ownedControls                      Control[]                           @relation("ControlOwner")
+  internalAuditsCreated              InternalAudit[]                     @relation("InternalAuditCreator")
   organizationImplementationsUpdated OrganizationControlImplementation[] @relation("OrganizationImplementationUpdatedBy")
 }
 
@@ -141,18 +142,19 @@ model System {
   // always in scope on top of it); see ADR 0007, which retired Regulatory
   // Overlay in its favour. Neither is Draft-locked. See #55.
   businessUnits        BusinessUnit[]
-  frameworkScopes      Framework[]          @relation("SystemFrameworkScope")
+  frameworkScopes      Framework[]           @relation("SystemFrameworkScope")
   // A Provider is a System other Systems depend on and inherit Controls from
   // (ADR 0008, PRD 0001 F-IN.2, #123). The System's owner or an Admin marks
   // or unmarks it; unmarking is refused while it has Offerings or any System
   // depends on it (#124).
-  isProvider           Boolean              @default(false)
+  isProvider           Boolean               @default(false)
   // The Controls this Provider publishes for the Systems depending on it.
   offerings            ControlOffering[]
   // The Providers this System declares it depends on, and the Systems that
   // depend on this one (as a Provider). See ProviderDependency (#124).
-  providerDependencies ProviderDependency[] @relation("DependentSystem")
-  dependents           ProviderDependency[] @relation("ProviderSystem")
+  providerDependencies ProviderDependency[]  @relation("DependentSystem")
+  internalAudits       InternalAuditSystem[]
+  dependents           ProviderDependency[]  @relation("ProviderSystem")
   // Curated log of System-lifecycle-relevant mutations, feeding the landing
   // page's "Recent updates" feed. See #58.
   changeEvents         ChangeEvent[]
@@ -323,24 +325,25 @@ enum ControlApplicability {
 
 // A reusable control definition (security, legal, compliance, operational, etc.)
 model Control {
-  id            String               @id @default(cuid())
-  code          String               @unique // e.g. SEC-001
-  title         String
-  description   String
-  category      String // e.g. Security, Privacy, Legal, Operational
-  mandatory     Boolean              @default(true)
-  applicability ControlApplicability
-  question      String? // self-assessment question; null for ORGANIZATIONAL-only controls
-  intent        String? // why the question matters, shown alongside it
-  examples      String[] // example ways to satisfy the control
-  createdAt     DateTime             @default(now())
+  id                        String               @id @default(cuid())
+  code                      String               @unique // e.g. SEC-001
+  title                     String
+  description               String
+  category                  String // e.g. Security, Privacy, Legal, Operational
+  mandatory                 Boolean              @default(true)
+  applicability             ControlApplicability
+  question                  String? // self-assessment question; null for ORGANIZATIONAL-only controls
+  intent                    String? // why the question matters, shown alongside it
+  examples                  String[] // example ways to satisfy the control
+  createdAt                 DateTime             @default(now())
   // The exclusion justification the Statement of Applicability shows while the Control is
   // excluded (F-OUT.4, #150). Authored by a Compliance Manager or an Admin; null means none.
   // Kept when the Control becomes included (inclusion is derived, never stored) and shown
   // again if it is excluded again. Each change is a SOA_JUSTIFICATION_CHANGED Change Event.
   soaExclusionJustification String?
 
-  assessments ControlAssessment[]
+  assessments    ControlAssessment[]
+  internalAudits InternalAuditControl[]
 
   // Deployment Facets this Control is scoped to. Empty means "applies
   // regardless of facet" (how the Annex A seed ships). Must stay empty for
@@ -375,7 +378,7 @@ model Control {
   organizationImplementation    OrganizationControlImplementation?
 
   // Offerings by Providers of this Control (#123). Deleting the Control removes them.
-  offerings                     ControlOffering[]
+  offerings ControlOffering[]
 
   @@index([ownerId])
 }
@@ -459,29 +462,29 @@ model ProviderDependency {
 
 // Fulfillment status of a Control for a specific System.
 model ControlAssessment {
-  id                      String                  @id @default(cuid())
-  systemId                String
-  system                  System                  @relation(fields: [systemId], references: [id], onDelete: Cascade)
-  controlId               String
-  control                 Control                 @relation(fields: [controlId], references: [id])
-  status                  ControlAssessmentStatus @default(NOT_STARTED)
-  evidence                String? // link or note to supporting evidence
-  notes                   String?
+  id                   String                  @id @default(cuid())
+  systemId             String
+  system               System                  @relation(fields: [systemId], references: [id], onDelete: Cascade)
+  controlId            String
+  control              Control                 @relation(fields: [controlId], references: [id])
+  status               ControlAssessmentStatus @default(NOT_STARTED)
+  evidence             String? // link or note to supporting evidence
+  notes                String?
   // The System Owner's Yes/No/N/A answer to the Control's Self-
   // Assessment Question, if it's been answered. Distinct from `status`:
   // both are shown, and manual status edits don't touch this field.
-  selfAssessmentAnswer    SelfAssessmentAnswer?
-  assessedById            String?
-  assessedBy              User?                   @relation("AssessedBy", fields: [assessedById], references: [id])
-  assessedAt              DateTime?
-  updatedAt               DateTime                @updatedAt
+  selfAssessmentAnswer SelfAssessmentAnswer?
+  assessedById         String?
+  assessedBy           User?                   @relation("AssessedBy", fields: [assessedById], references: [id])
+  assessedAt           DateTime?
+  updatedAt            DateTime                @updatedAt
   // Risks auto-opened by answering "No" to this Control's Self-
   // Assessment Question.
-  originatedRisks Risk[]
+  originatedRisks      Risk[]
   // Assessment Queries raised against this Assessment specifically (see
   // #56) — a lightweight, non-blocking question/reply thread, distinct from
   // both the Self-Assessment Question above and Approval.comment.
-  queries         AssessmentQuery[]
+  queries              AssessmentQuery[]
 
   @@unique([systemId, controlId])
 }
@@ -628,4 +631,73 @@ model ChangeEvent {
 
   @@index([systemId, createdAt])
   @@index([createdAt])
+}
+
+// Where an Internal Audit is in its life (PRD 0001 F-IA.1). DRAFT is the only state any code
+// can reach yet: launching (#154) and closing (#158) move an audit on. The values are added now
+// because Postgres can't use an enum value in the migration that adds it, so a later issue
+// would otherwise need a migration of its own just to add one.
+enum InternalAuditStatus {
+  DRAFT
+  LAUNCHED
+  CLOSED
+}
+
+// An Internal Audit (PRD 0001 F-IA.1, #152): an Internal Auditor's plan to verify some Controls
+// across some Systems and/or the Organization's own implementations. A draft sends nothing and
+// owns no Check-up; it can be edited and deleted until launch (#154). Drafting writes no
+// Change Event: F-CE.1 logs Check-ups being evaluated, not an audit being planned.
+model InternalAudit {
+  id                  String              @id @default(cuid())
+  title               String
+  scopeDescription    String              @default("")
+  // A calendar date (UTC), the due date every Check-up of the audit will carry.
+  dueDate             DateTime            @db.Date
+  // Whether the Organization Control Implementations of the target Controls are audited too.
+  includeOrganization Boolean             @default(false)
+  status              InternalAuditStatus @default(DRAFT)
+  // The Internal Auditor who created it. Restrict: the audit's authorship is part of the
+  // record, so a User with audits can't be deleted from under them (no silent SetNull).
+  createdById         String
+  createdBy           User                @relation("InternalAuditCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+
+  controls InternalAuditControl[]
+  systems  InternalAuditSystem[]
+
+  @@index([createdById])
+}
+
+// A target Control of an Internal Audit. An explicit join model, not an implicit many-to-many:
+// #154 hangs the per-Control questions off this audit-Control pair.
+// Cascade on the Control: for a DRAFT the pair holds no evidence, so deleting the Control just
+// takes it off the plan (the audit stays, even if that leaves it invalid until edited). #154 and
+// #158 must revisit this once a launched audit's Check-ups exist: a launched audit's Controls
+// must not silently disappear.
+model InternalAuditControl {
+  id              String        @id @default(cuid())
+  internalAuditId String
+  internalAudit   InternalAudit @relation(fields: [internalAuditId], references: [id], onDelete: Cascade)
+  controlId       String
+  control         Control       @relation(fields: [controlId], references: [id], onDelete: Cascade)
+  createdAt       DateTime      @default(now())
+
+  @@unique([internalAuditId, controlId])
+  @@index([controlId])
+}
+
+// A System picked for an Internal Audit: the resolved System, never a filter (#153 resolves a
+// filter to rows here). Same explicit-join and Cascade-for-a-draft reasoning, and the same
+// caveat for launched audits, as InternalAuditControl.
+model InternalAuditSystem {
+  id              String        @id @default(cuid())
+  internalAuditId String
+  internalAudit   InternalAudit @relation(fields: [internalAuditId], references: [id], onDelete: Cascade)
+  systemId        String
+  system          System        @relation(fields: [systemId], references: [id], onDelete: Cascade)
+  createdAt       DateTime      @default(now())
+
+  @@unique([internalAuditId, systemId])
+  @@index([systemId])
 }
