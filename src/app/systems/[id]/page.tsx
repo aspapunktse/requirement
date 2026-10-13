@@ -1,6 +1,7 @@
 import { getActingUser } from "@/lib/acting-user";
 import { canWriteSystems, getVisibleSystem } from "@/lib/system-visibility";
 import { canLogRisk, ROLES_ALLOWED_TO_MANAGE_RISK_STATUS } from "@/lib/risks";
+import { canReadInternalAudits } from "@/lib/internal-audit-rules";
 import { ROLES_ALLOWED_TO_APPROVE } from "@/lib/approvals";
 import { canMarkOnboarded } from "@/lib/onboarding";
 import { canChangeSystemClassification } from "@/lib/system-classification-change";
@@ -185,6 +186,7 @@ export default async function SystemDetailPage({ params }: PageProps<"/systems/[
         systemId={system.id}
         canLog={canLogRisk(user, system)}
         canManageStatus={ROLES_ALLOWED_TO_MANAGE_RISK_STATUS.includes(user.role)}
+        canOpenCheckUp={canReadInternalAudits(user)}
       />
 
       <h2 className="mb-3 mt-8 text-xl">Approval</h2>

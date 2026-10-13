@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { LogRiskForm } from "@/components/LogRiskForm";
 import { Button } from "@/components/ui/Button";
@@ -9,7 +10,7 @@ import { riskStatusTone } from "@/lib/status-tones";
 type RiskStatus = "OPEN" | "MITIGATED" | "ACCEPTED" | "TRANSFERRED" | "CLOSED";
 type RiskSeverity = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
 
-type Risk = {
+export type Risk = {
   id: string;
   title: string;
   description: string;
@@ -17,43 +18,59 @@ type Risk = {
   likelihood: RiskSeverity;
   status: RiskStatus;
   mitigationPlan: string | null;
+  ownerId?: string | null;
+  owner?: { id: string; name: string } | null;
   controlAssessment: {
     id: string;
     control: { id: string; code: string; title: string };
   } | null;
+  /** The Check-up whose Nonconformity opened this Risk (#157), if one did. */
+  checkUp?: { id: string } | null;
 };
 
 const STATUSES: RiskStatus[] = ["OPEN", "MITIGATED", "ACCEPTED", "TRANSFERRED", "CLOSED"];
 
-function RiskRow({
+/**
+ * One Risk with, for those who may manage it, the status / mitigation plan form. `patchUrl` is where
+ * the form saves (a System's Risk route, or `/api/risks/[id]` for an Organization Risk, #157); with
+ * `owners` the form also assigns the Risk's owner. The link to the Check-up that opened it is shown
+ * only when `canOpenCheckUp`: not everyone who sees a Risk may read the audit (#157).
+ */
+export function RiskRow({
   risk,
-  systemId,
+  patchUrl,
   canManageStatus,
+  canOpenCheckUp = false,
+  owners,
   onUpdated,
 }: {
   risk: Risk;
-  systemId: string;
+  patchUrl: string;
   canManageStatus: boolean;
+  canOpenCheckUp?: boolean;
+  owners?: { id: string; name: string }[];
   onUpdated: (risk: Risk) => void;
 }) {
   const [status, setStatus] = useState<RiskStatus>(risk.status);
   const [mitigationPlan, setMitigationPlan] = useState(risk.mitigationPlan ?? "");
+  const [ownerId, setOwnerId] = useState(risk.ownerId ?? "");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     setStatus(risk.status);
     setMitigationPlan(risk.mitigationPlan ?? "");
+    setOwnerId(risk.ownerId ?? "");
   }, [risk]);
 
   async function handleSave() {
     setError(null);
     setSaving(true);
     try {
-      const response = await fetch(`/api/systems/${systemId}/risks/${risk.id}`, {
+      const response = await fetch(patchUrl, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status, mitigationPlan: mitigationPlan || null }),
+        body: JSON.stringify({ status, mitigationPlan: mitigationPlan || null, ...(owners && { ownerId: ownerId || null }) }),
       });
 
       if (!response.ok) {
@@ -85,6 +102,20 @@ function RiskRow({
           {risk.controlAssessment.control.title}
         </p>
       )}
+      {risk.checkUp && (
+        <p className="text-xs text-zinc-500">
+          Opened by an Internal Audit Nonconformity
+          {canOpenCheckUp && (
+            <>
+              {": "}
+              <Link className="underline" href={`/check-ups/${risk.checkUp.id}`}>
+                see the finding
+              </Link>
+            </>
+          )}
+        </p>
+      )}
+      {risk.owner && <p className="text-xs text-zinc-500">Owner: {risk.owner.name}</p>}
       {risk.mitigationPlan && (
         <p className="text-xs text-zinc-500">Mitigation plan: {risk.mitigationPlan}</p>
       )}
@@ -109,6 +140,25 @@ function RiskRow({
             </select>
           </label>
 
+          {owners && (
+            <label className="flex flex-col gap-1 text-sm">
+              Owner
+              <select
+                aria-label={`Owner for ${risk.title}`}
+                className="rounded border border-zinc-200 p-2 dark:border-zinc-800 dark:bg-transparent"
+                value={ownerId}
+                onChange={(event) => setOwnerId(event.target.value)}
+              >
+                <option value="">Unassigned</option>
+                {owners.map((owner) => (
+                  <option key={owner.id} value={owner.id}>
+                    {owner.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+
           <label className="flex flex-col gap-1 text-sm">
             {status === "MITIGATED" ? "Mitigation Plan (required)" : "Mitigation Plan (optional)"}
             <textarea
@@ -132,10 +182,12 @@ export function RiskList({
   systemId,
   canLog,
   canManageStatus,
+  canOpenCheckUp = false,
 }: {
   systemId: string;
   canLog: boolean;
   canManageStatus: boolean;
+  canOpenCheckUp?: boolean;
 }) {
   const [risks, setRisks] = useState<Risk[] | null>(null);
 
@@ -174,8 +226,9 @@ export function RiskList({
             <RiskRow
               key={risk.id}
               risk={risk}
-              systemId={systemId}
+              patchUrl={`/api/systems/${systemId}/risks/${risk.id}`}
               canManageStatus={canManageStatus}
+              canOpenCheckUp={canOpenCheckUp}
               onUpdated={(updated) =>
                 setRisks((prev) => (prev ?? []).map((r) => (r.id === updated.id ? updated : r)))
               }

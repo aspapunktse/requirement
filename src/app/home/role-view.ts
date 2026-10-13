@@ -10,7 +10,14 @@ import { getControlOwnerTasks } from "@/lib/control-owner-tasks";
 import { getCheckUpTasks, MY_CHECK_UPS_HREF } from "@/lib/check-up-tasks";
 import { countAwaitingEvaluation } from "@/lib/check-up-evaluations";
 import { riskSeverityTone } from "@/lib/status-tones";
-import { ORGANIZATION_RISK_LABEL, riskHref, RISK_INCLUDE, SYSTEM_RISK_WHERE } from "@/lib/risks";
+import {
+  canReadOrganizationRisks,
+  ORGANIZATION_RISK_LABEL,
+  ORGANIZATION_RISKS_HREF,
+  riskHref,
+  RISK_INCLUDE,
+  SYSTEM_RISK_WHERE,
+} from "@/lib/risks";
 import { visibleFrameworksWhere } from "@/lib/frameworks";
 import { canReadInternalAudits } from "@/lib/internal-audit-rules";
 
@@ -40,6 +47,13 @@ const CONTROL_LIBRARY_TILE: NavTile = {
   title: "Control Library",
   description: "Every Control: what it applies to and the Requirements it satisfies. Read-only.",
   href: "/controls",
+};
+
+/** The Risks that belong to no System (#157): managed by the Risk Owner and the Admin, read by the Internal Auditor. */
+const ORGANIZATION_RISKS_TILE: NavTile = {
+  title: "Organization Risks",
+  description: "Risks that belong to no System, opened by an Internal Audit's Nonconformity on the Organization.",
+  href: ORGANIZATION_RISKS_HREF,
 };
 
 /** Anyone with a Check-up addressed to them can reach the answered ones too (#155); shown only to those who have one. */
@@ -81,6 +95,7 @@ export async function roleView(user: { id: string; name: string; role: UserRole 
     roleOwnView(user)
       .then((own) => withControlLibraryTile(own, user))
       .then(withStatementOfApplicabilityTile)
+      .then((view) => withOrganizationRisksTile(user, view))
       .then((view) => withInternalAuditsReadTile(user, view)),
     getOwnerTasks(user),
     getControlOwnerTasks(user),
@@ -117,6 +132,11 @@ function withControlLibraryTile(view: RoleView, user: { role: UserRole }): RoleV
 
 function withStatementOfApplicabilityTile(view: RoleView): RoleView {
   return { ...view, tiles: [...view.tiles, STATEMENT_OF_APPLICABILITY_TILE] };
+}
+
+function withOrganizationRisksTile(user: { role: UserRole }, view: RoleView): RoleView {
+  if (!canReadOrganizationRisks(user)) return view;
+  return { ...view, tiles: [...view.tiles, ORGANIZATION_RISKS_TILE] };
 }
 
 function withInternalAuditsReadTile(user: { role: UserRole }, view: RoleView): RoleView {

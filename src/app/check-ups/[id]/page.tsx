@@ -4,7 +4,8 @@ import { checkUpAccess, getCheckUpDetail } from "@/lib/check-up-responses";
 import { CHECK_UP_ANSWER_LABEL, checkUpResponseRefusal, safeHttpUrl } from "@/lib/check-up-response-rules";
 import { CHECK_UP_OUTCOME_LABEL } from "@/lib/check-up-evaluation-rules";
 import { canReadInternalAudits, INTERNAL_AUDIT_STATUS_LABEL } from "@/lib/internal-audit-rules";
-import { checkUpOutcomeTone } from "@/lib/status-tones";
+import { canReadOrganizationRisks, ORGANIZATION_RISKS_HREF } from "@/lib/risks";
+import { checkUpOutcomeTone, riskStatusTone } from "@/lib/status-tones";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { CheckUpResponseForm } from "@/components/CheckUpResponseForm";
 import { CheckUpEvaluationForm } from "@/components/CheckUpEvaluationForm";
@@ -16,6 +17,8 @@ import { CheckUpEvaluationForm } from "@/components/CheckUpEvaluationForm";
  * the same page read-only, with the response. An Internal Auditor evaluates an answered Check-up
  * here, beneath the response (#156); once evaluated, everyone who can read the Check-up sees the
  * outcome, the comment, who evaluated and when, and the response is read-only for its recipient too.
+ * A Nonconformity's Risk (#157) is shown beneath it to the roles that read Internal Audits, with what
+ * the evaluation did to the target (set back, or why not), linked to where the Risk is managed.
  * Anyone else sees nothing, and not whether the
  * Check-up exists. The recipient needs no right to read Internal Audits: this page shows their
  * Check-up, not the audit.
@@ -172,6 +175,28 @@ export default async function CheckUpPage({ params }: PageProps<"/check-ups/[id]
         </section>
       ) : (
         checkUp.answered && <p className="text-sm text-zinc-500">Not evaluated yet.</p>
+      )}
+
+      {checkUp.risk && access.canReadRisk && (
+        <section aria-label="Risk opened" className="mt-6">
+          <h2 className="mb-1 text-lg">Risk opened</h2>
+          <p className="mb-1 flex flex-wrap items-center gap-2 text-sm">
+            <span className="font-medium">{checkUp.risk.title}</span>
+            <StatusChip tone={riskStatusTone(checkUp.risk.status)}>{checkUp.risk.status}</StatusChip>
+            {checkUp.risk.systemId ? (
+              <Link className="underline" href={`/systems/${checkUp.risk.systemId}`}>
+                On {checkUp.target.kind === "system" ? checkUp.target.name : "the System"}
+              </Link>
+            ) : canReadOrganizationRisks(user) ? (
+              <Link className="underline" href={ORGANIZATION_RISKS_HREF}>
+                Organization Risks
+              </Link>
+            ) : (
+              <span className="text-zinc-500">Organization Risk (belongs to no System)</span>
+            )}
+          </p>
+          <p className="whitespace-pre-wrap text-sm text-zinc-600 dark:text-zinc-400">{checkUp.risk.description}</p>
+        </section>
       )}
     </div>
   );
