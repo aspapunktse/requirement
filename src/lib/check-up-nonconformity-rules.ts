@@ -17,8 +17,12 @@ export type SetBackOutcome =
   | { kind: "SET_BACK" }
   /** The stored status isn't Fulfilled: left exactly as it is. */
   | { kind: "NOT_FULFILLED"; status: ControlAssessmentStatus }
-  /** A System's own status isn't Fulfilled but it is effectively Fulfilled through `source` (e.g. "Inherited from Organization"): not changed. */
-  | { kind: "INHERITED_ONLY"; status: ControlAssessmentStatus; source: string };
+  /**
+   * A System's stored status isn't Fulfilled (or it has no row) but it is effectively Fulfilled through `source`
+   * (e.g. "Inherited from Organization"): the System got its own person-set In Progress status, overriding it
+   * (product-owner decision 21b of 2026-10-13, comment on #157). `status` is what was stored before.
+   */
+  | { kind: "INHERITED_OVERRIDDEN"; status: ControlAssessmentStatus; source: string };
 
 /** The longest part of the auditor's comment copied into the Risk (the comment itself stays whole on the evaluation). */
 export const RISK_COMMENT_COPY_LIMIT = 600;
@@ -26,6 +30,11 @@ export const RISK_COMMENT_COPY_LIMIT = 600;
 /** The note appended to the target's notes or description when it is set back. */
 export function setBackNote(auditTitle: string, finding: string): string {
   return `Set back from Fulfilled to In Progress by an Internal Audit Nonconformity (audit "${auditTitle}"): ${finding}`;
+}
+
+/** The note written on a System whose inherited Fulfilled status is overridden with its own In Progress. */
+export function overrideNote(auditTitle: string, finding: string, source: string): string {
+  return `Set to In Progress by an Internal Audit Nonconformity (audit "${auditTitle}"): ${finding}. The Fulfilled status was inherited (${source}); this System's own status now overrides it.`;
 }
 
 /** The sentence about the target that closes the Risk's description. */
@@ -36,8 +45,8 @@ export function setBackSentence(outcome: SetBackOutcome, target: "System" | "Org
       return `The ${owner} status was Fulfilled and has been set back to In Progress.`;
     case "NOT_FULFILLED":
       return `Not changed: the ${owner} stored status is ${CONTROL_ASSESSMENT_STATUS_LABEL[outcome.status]}, not Fulfilled.`;
-    case "INHERITED_ONLY":
-      return `Not changed: this System's status is inherited (${outcome.source}); its own status is ${CONTROL_ASSESSMENT_STATUS_LABEL[outcome.status]}, so there was nothing to set back.`;
+    case "INHERITED_OVERRIDDEN":
+      return `This System's Fulfilled status was inherited (${outcome.source}; its own status was ${CONTROL_ASSESSMENT_STATUS_LABEL[outcome.status]}). It has been overridden with an In Progress status of the System's own.`;
   }
 }
 

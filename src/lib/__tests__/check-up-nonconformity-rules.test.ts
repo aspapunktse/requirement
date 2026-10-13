@@ -27,9 +27,9 @@ describe("Nonconformity wording and rules (#157)", () => {
     expect(organization.description).toContain("Not changed: the Organization's stored status is Waived, not Fulfilled.");
   });
 
-  it("says why an inherited-only System was not changed", () => {
-    expect(setBackSentence({ kind: "INHERITED_ONLY", status: "NOT_STARTED", source: "Inherited from Organization" }, "System")).toBe(
-      "Not changed: this System's status is inherited (Inherited from Organization); its own status is Not Started, so there was nothing to set back.",
+  it("says that an inherited Fulfilled status was overridden", () => {
+    expect(setBackSentence({ kind: "INHERITED_OVERRIDDEN", status: "NOT_STARTED", source: "Inherited from Organization" }, "System")).toBe(
+      "This System's Fulfilled status was inherited (Inherited from Organization; its own status was Not Started). It has been overridden with an In Progress status of the System's own.",
     );
   });
 

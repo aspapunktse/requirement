@@ -5,7 +5,7 @@ import { loadEffectiveStatus, toOwnAssessment } from "@/lib/effective-status-dat
 import { getOrganizationControl } from "@/lib/organization-implementation";
 import { saveOrganizationImplementationIn } from "@/lib/organization-inheritance";
 import { runProviderAssessmentWriteIn } from "@/lib/provider-inheritance";
-import { checkUpFindingPath, nonconformityRiskText, setBackNote, type SetBackOutcome } from "@/lib/check-up-nonconformity-rules";
+import { checkUpFindingPath, nonconformityRiskText, overrideNote, setBackNote, type SetBackOutcome } from "@/lib/check-up-nonconformity-rules";
 
 /**
  * What a Nonconformity does (PRD 0001 F-IA.7, F-CE.2, #157), inside the evaluation's transaction and
@@ -15,9 +15,18 @@ import { checkUpFindingPath, nonconformityRiskText, setBackNote, type SetBackOut
  *
  * 1. opens one Risk linked to the Check-up, whatever the target's status: on the System for a
  *    System-level Check-up, with no System for an Organization-level one;
- * 2. sets the target back to In Progress when, and only when, its STORED status is Fulfilled:
- *    a System's own Control Assessment, or the Control's Organization Control Implementation.
- *    Anything else is left exactly as it is, and the Risk's description says what was (not) done.
+ * 2. sets the target to In Progress, as follows (cases):
+ *    - a System's stored Assessment is Fulfilled: set back, notes appended, kept person-set;
+ *    - a System with no row, or a row nobody set that is not Fulfilled, that is effectively Fulfilled only
+ *      through an Organization or Full Provider source (product-owner decision 21b of 2026-10-13, comment
+ *      on #157): its own person-set In Progress is written (row created if missing), overriding the source.
+ *      A person-set non-Fulfilled row can't be here (the System's own status wins in `resolveEffectiveStatus`),
+ *      and a Shared source gives credit only when the own row is Fulfilled, the first case;
+ *    - the Organization Control Implementation is Fulfilled: set back, the existing save path and events;
+ *    - anything else (not Fulfilled and not effectively Fulfilled) is left exactly as it is.
+ *    The Risk's description says what was done. A Provider's dependents read its OWN stored status, so
+ *    overriding an inherited-only Provider row (stored not Fulfilled) never moves them; they are handled by
+ *    the same `runProviderAssessmentWriteIn` path regardless.
  *
  * Conforming and Observation never reach here.
  *
@@ -27,7 +36,8 @@ import { checkUpFindingPath, nonconformityRiskText, setBackNote, type SetBackOut
  * Organization or Full Provider source, which is exactly what a finding must not allow. So the
  * set-back of a System's Assessment keeps the row person-set: an existing `assessedById` is left
  * as it is, and a null one becomes the evaluating Internal Auditor (a real person whose finding
- * this is; they cannot be deleted, their evaluation keeps them Restrict). Nothing else about
+ * this is; they cannot be deleted, their evaluation keeps them Restrict; product-owner decision 23a of
+ * 2026-10-13, comment on #157; "reset to inherited" stays allowed on such a row, 22a). Nothing else about
  * "person set" needs to change: `toOwnAssessment`, `UNTOUCHED_ASSESSMENT_WHERE` and
  * `resetToInheritedRefusal` all read `assessedById`, so a set-back row is a person-set In Progress
  * row in each of them. The Change Events stay attributed to `SYSTEM_ACTOR`.
@@ -113,7 +123,34 @@ async function setBackSystemAssessment(
       const status = row?.status ?? "NOT_STARTED";
       const effective = await loadEffectiveStatus(system.id, control, row ? toOwnAssessment(row) : null, db);
       if (effective.status === "FULFILLED" && effective.source.kind !== "SYSTEM") {
-        return { kind: "INHERITED_ONLY", status, source: effectiveSourceLabel(effective) };
+        // Fulfilled only through a source (decision 21b): write the System's own In Progress, person-set. Only a
+        // row nobody set, or no row, can be here: a person-set non-Fulfilled status always wins over a source.
+        const source = effectiveSourceLabel(effective);
+        const now = new Date();
+        await db.controlAssessment.upsert({
+          where: { systemId_controlId: { systemId: system.id, controlId: control.id } },
+          create: {
+            systemId: system.id,
+            controlId: control.id,
+            status: "IN_PROGRESS",
+            notes: overrideNote(auditTitle, finding, source),
+            assessedById: actorId,
+            assessedAt: now,
+          },
+          update: {
+            status: "IN_PROGRESS",
+            notes: appendNote(row?.notes ?? null, overrideNote(auditTitle, finding, source)),
+            ...(row?.assessedById == null && { assessedById: actorId, assessedAt: now }),
+          },
+        });
+        await logChangeEvent(
+          system.id,
+          "ASSESSMENT_STATUS_CHANGED",
+          `${control.code} status was inherited (${source}) and is now this System's own IN_PROGRESS because of an Internal Audit Nonconformity (${finding})`,
+          SYSTEM_ACTOR,
+          db,
+        );
+        return { kind: "INHERITED_OVERRIDDEN", status, source };
       }
       return { kind: "NOT_FULFILLED", status };
     }

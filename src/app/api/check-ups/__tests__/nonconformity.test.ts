@@ -18,7 +18,7 @@ import { mapControlsToFramework } from "@/test/framework-fixtures";
 describe("Nonconformity side effects (#157)", () => {
   let s: Awaited<ReturnType<typeof createCheckUpScenario>>;
   const auditor = () => ({ id: s.roleUser.INTERNAL_AUDITOR, role: "INTERNAL_AUDITOR" as const });
-  const [BOTH_ORG, BOTH_OWN_NULL, BOTH_OWN_PERSON, BOTH_INHERITED, BOTH_PROVIDER] = [0, 1, 2, 3, 4];
+  const [BOTH_ORG, BOTH_OWN_NULL, BOTH_OWN_PERSON, BOTH_INHERITED, BOTH_PROVIDER, BOTH_UNTOUCHED, BOTH_PERSON_NOT_FULFILLED] = [0, 1, 2, 3, 4, 5, 6];
   const created: { offerings: string[]; dependencies: string[] } = { offerings: [], dependencies: [] };
 
   /** Answers the Check-up as its recipient and evaluates it as the Internal Auditor. */
@@ -53,7 +53,7 @@ describe("Nonconformity side effects (#157)", () => {
   const systemEvents = (systemId: string, extra: object = {}) => prisma.changeEvent.findMany({ where: { systemId, ...extra }, orderBy: { createdAt: "asc" } });
 
   beforeAll(async () => {
-    s = await createCheckUpScenario("157", { systemControls: 12, organizationControls: 8, bothControls: 5, extraSystems: 3 });
+    s = await createCheckUpScenario("157", { systemControls: 12, organizationControls: 8, bothControls: 7, extraSystems: 3 });
   });
 
   afterEach(() => {
@@ -70,8 +70,8 @@ describe("Nonconformity side effects (#157)", () => {
   });
 
   it("launched what the tests below expect", () => {
-    expect(s.checkUps.filter((c) => c.target.kind === "organization")).toHaveLength(13);
-    expect(s.checkUps.filter((c) => c.target.kind === "system")).toHaveLength(17);
+    expect(s.checkUps.filter((c) => c.target.kind === "organization")).toHaveLength(15);
+    expect(s.checkUps.filter((c) => c.target.kind === "system")).toHaveLength(19);
   });
 
   describe("a System-level Nonconformity", () => {
@@ -167,7 +167,7 @@ describe("Nonconformity side effects (#157)", () => {
       expect(stored).not.toMatchObject({ status: "NOT_STARTED", assessedById: null });
     });
 
-    it("does nothing to a System that is Fulfilled only through inheritance, and says so in the Risk", async () => {
+    it("overrides a status that is Fulfilled only through the Organization with the System's own In Progress (no row)", async () => {
       const bothControl = both(BOTH_INHERITED);
       await setImplementation(bothControl.id, "FULFILLED");
       expect(await row(s.systemId, bothControl.id)).toBeNull();
@@ -175,14 +175,51 @@ describe("Nonconformity side effects (#157)", () => {
 
       const checkUp = await evaluate(bothControl.code, false, "NONCONFORMITY");
 
-      // Nothing written, no event, and the System stays effectively Fulfilled (the issue's wording: the stored status decides).
-      expect(await row(s.systemId, bothControl.id)).toBeNull();
-      expect((await effective(s.systemId, bothControl.id)).status).toBe("FULFILLED");
-      expect(await systemEvents(s.systemId, { action: "ASSESSMENT_STATUS_CHANGED", detail: { contains: bothControl.code } })).toEqual([]);
+      // Decision 21b: a person-set In Progress row is created, attributed to the auditor, and overrides the source.
+      const stored = await row(s.systemId, bothControl.id);
+      expect(stored).toMatchObject({ status: "IN_PROGRESS", assessedById: s.roleUser.INTERNAL_AUDITOR });
+      expect(stored!.notes).toContain(`/check-ups/${checkUp.id}`);
+      expect(await effective(s.systemId, bothControl.id)).toMatchObject({ status: "IN_PROGRESS", source: { kind: "SYSTEM" }, overridesInherited: true });
+      const events = await systemEvents(s.systemId, { action: "ASSESSMENT_STATUS_CHANGED", actorId: SYSTEM_ACTOR, detail: { contains: bothControl.code } });
+      expect(events).toHaveLength(1);
+      expect(events[0].detail).toContain("was inherited (Inherited from Organization)");
+      expect(events[0].detail).not.toContain("changed from FULFILLED");
       const risk = await riskOf(checkUp.id);
       expect(risk).toMatchObject({ systemId: s.systemId });
-      expect(risk!.description).toContain("inherited");
-      expect(risk!.description).toContain("nothing to set back");
+      expect(risk!.description).toContain("was inherited");
+      expect(risk!.description).toContain("overridden with an In Progress status");
+    });
+
+    it("overrides an untouched Not Started row that a Full Provider makes effectively Fulfilled, keeping an existing assessor and notes", async () => {
+      const bothControl = both(BOTH_UNTOUCHED);
+      const provider = s.extraSystemIds[1];
+      await prisma.system.update({ where: { id: provider }, data: { isProvider: true, status: "ONBOARDED" } });
+      const offering = await prisma.controlOffering.create({ data: { providerId: provider, controlId: bothControl.id, type: "FULL" } });
+      const dependency = await prisma.providerDependency.create({ data: { dependentId: s.systemId, providerId: provider } });
+      created.offerings.push(offering.id);
+      created.dependencies.push(dependency.id);
+      await setAssessment(provider, bothControl.id, "FULFILLED", s.systemOwner);
+      // Untouched: Not Started, nobody set it, with a note someone left.
+      await prisma.controlAssessment.create({ data: { systemId: s.systemId, controlId: bothControl.id, status: "NOT_STARTED", notes: "Left note" } });
+      expect(await effective(s.systemId, bothControl.id)).toMatchObject({ status: "FULFILLED", source: { kind: "PROVIDER" } });
+
+      const checkUp = await evaluate(bothControl.code, false, "NONCONFORMITY");
+
+      expect(await row(s.systemId, bothControl.id)).toMatchObject({ status: "IN_PROGRESS", assessedById: s.roleUser.INTERNAL_AUDITOR });
+      expect((await row(s.systemId, bothControl.id))!.notes).toContain("Left note");
+      expect(await effective(s.systemId, bothControl.id)).toMatchObject({ status: "IN_PROGRESS", source: { kind: "SYSTEM" } });
+      // The Provider's own row is untouched: its dependents read it, not the dependent's.
+      expect((await row(provider, bothControl.id))!.status).toBe("FULFILLED");
+      expect((await riskOf(checkUp.id))!.description).toContain('Inherited from Provider');
+    });
+
+    it("leaves a person-set non-Fulfilled row alone: it already wins over the source, so it is not effectively Fulfilled", async () => {
+      const bothControl = both(BOTH_PERSON_NOT_FULFILLED);
+      await setImplementation(bothControl.id, "FULFILLED");
+      await setAssessment(s.systemId, bothControl.id, "IN_PROGRESS", s.systemOwner, "Mine");
+      const before = await row(s.systemId, bothControl.id);
+      await evaluate(bothControl.code, false, "NONCONFORMITY");
+      expect(await row(s.systemId, bothControl.id)).toEqual(before);
     });
   });
 
