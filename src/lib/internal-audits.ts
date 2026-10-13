@@ -8,6 +8,7 @@ import {
   parseCalendarDate,
   validateInternalAudit,
 } from "@/lib/internal-audit-rules";
+import { matchesSystemFilter, type SystemFilter } from "@/lib/internal-audit-system-filter";
 
 /**
  * Reading and writing Internal Audits (PRD 0001 F-IA.1, #152). Who may call these is
@@ -154,6 +155,69 @@ export async function listAuditChoices(): Promise<{ controls: ControlChoice[]; s
     }),
   ]);
   return { controls: controls.sort(byCode), systems };
+}
+
+export type SystemFilterOptions = {
+  /** Published Frameworks only: a Draft Framework is not visible to the Internal Auditor, so it is never offered. */
+  frameworks: { id: string; name: string; version: string }[];
+  deploymentFacets: { id: string; name: string }[];
+  businessUnits: { id: string; name: string }[];
+};
+
+/** The choices for the "Select Systems by filter" panel. */
+export async function listSystemFilterOptions(): Promise<SystemFilterOptions> {
+  const [frameworks, deploymentFacets, businessUnits] = await Promise.all([
+    prisma.framework.findMany({
+      where: { status: "PUBLISHED" },
+      orderBy: [{ name: "asc" }, { version: "asc" }],
+      select: { id: true, name: true, version: true },
+    }),
+    prisma.deploymentFacet.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
+    prisma.businessUnit.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
+  ]);
+  return { frameworks, deploymentFacets, businessUnits };
+}
+
+export type SystemFilterMatch = SystemChoice & { deploymentFacets: string[]; businessUnits: string[] };
+
+/**
+ * The Systems (any status) matching `filter`, by name, resolved now. Nothing is stored: the form adds
+ * the result to the draft's picked Systems, and the audit keeps only those. Loads every System once and
+ * applies the pure rule (`matchesSystemFilter`), so there is no second, database-side definition to keep
+ * in step. A Framework that doesn't exist or is a Draft is refused with the same 400, so the response
+ * doesn't reveal a Draft Framework.
+ */
+export async function resolveSystemFilter(filter: SystemFilter): Promise<SystemFilterMatch[]> {
+  const framework = filter.frameworkId
+    ? await prisma.framework.findFirst({
+        where: { id: filter.frameworkId, status: "PUBLISHED" },
+        select: { id: true, status: true, isBase: true },
+      })
+    : null;
+  if (filter.frameworkId && !framework) throw new InternalAuditError(400, "That Framework doesn't exist");
+
+  const systems = await prisma.system.findMany({
+    orderBy: [{ name: "asc" }, { id: "asc" }],
+    select: {
+      id: true,
+      name: true,
+      vendor: true,
+      status: true,
+      deploymentFacets: { select: { id: true, name: true } },
+      businessUnits: { select: { id: true, name: true } },
+      frameworkScopes: { select: { id: true } },
+    },
+  });
+  return systems
+    .filter((system) => matchesSystemFilter(filter, system, framework))
+    .map((system) => ({
+      id: system.id,
+      name: system.name,
+      vendor: system.vendor,
+      status: system.status,
+      deploymentFacets: system.deploymentFacets.map((facet) => facet.name),
+      businessUnits: system.businessUnits.map((unit) => unit.name),
+    }));
 }
 
 export type InternalAuditInput = {

@@ -30,7 +30,7 @@ PRD 0001 · M4 Content & SoA:
 PRD 0001 · M5 Internal audit:
 1. #147 Add the Internal Auditor role. **Done: PR #168.**
 2. #152 Create a draft Internal Audit. **Done: PR #171.**
-3. #153 Select an Internal Audit's Systems by filter. Unblocked (#152 is done).
+3. #153 Select an Internal Audit's Systems by filter. **Done: PR #173.**
 4. #154 Check-up questions and launching an Internal Audit. **Done: PR #172.**
 5. #155 Answer a Check-up from My tasks. Unblocked (#154 is done).
 6. #156 Evaluate a Check-up. Blocked by #155.
