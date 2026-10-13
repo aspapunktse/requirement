@@ -66,6 +66,13 @@ export type SoaControl = ControlImpactThresholds & {
 
 export type SoaSystem = SystemClassification & { id: string };
 
+/** How the page and the CSV export name a Control's applicability. */
+export const APPLICABILITY_LABEL: Record<ControlApplicability, string> = {
+  ORGANIZATIONAL: "Organizational",
+  PER_SYSTEM: "Per-System",
+  BOTH: "Both",
+};
+
 const STATUSES = Object.keys(CONTROL_ASSESSMENT_STATUS_LABEL) as ControlAssessmentStatus[];
 
 /** How many Systems the Control applies to, and how many of them are in each effective status. */

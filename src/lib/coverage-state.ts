@@ -57,6 +57,24 @@ export function summarizeCoverage(states: CoverageState[]): CoverageSummary {
   return summary;
 }
 
+/**
+ * The Requirements grouped by section, as the Coverage view shows them: sections
+ * and the codes within a section in numeric-aware order. The CSV export uses the
+ * same grouping so the file reads in the page's order.
+ */
+export function groupBySection<T extends { section: string; code: string }>(requirements: T[]): { section: string; items: T[] }[] {
+  const groups = new Map<string, T[]>();
+  for (const requirement of requirements) {
+    groups.set(requirement.section, [...(groups.get(requirement.section) ?? []), requirement]);
+  }
+  return [...groups.entries()]
+    .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
+    .map(([section, items]) => ({
+      section,
+      items: [...items].sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true })),
+    }));
+}
+
 export type CoverageFilter = "ALL" | "GAPS" | "ACCEPTED";
 
 /** "Gaps only" is exactly the open gaps (what the header's `gaps` counts); accepted gaps have their own filter. */

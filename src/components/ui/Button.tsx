@@ -14,6 +14,11 @@ const VARIANT_CLASSES: Record<Variant, string> = {
     "border border-zinc-300 dark:border-zinc-700 bg-transparent text-ems-ink-2 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 disabled:opacity-50",
 };
 
+/** The classes of a Button, for a link that should look like one. */
+export function buttonClassName(variant: Variant = "outline", extra = ""): string {
+  return `self-start rounded-[var(--ems-radius-2)] px-3 py-1 text-sm font-medium transition-colors ${VARIANT_CLASSES[variant]} ${extra}`;
+}
+
 export function Button({
   variant = "outline",
   className = "",
@@ -23,7 +28,7 @@ export function Button({
   return (
     <button
       type={type}
-      className={`self-start rounded-[var(--ems-radius-2)] px-3 py-1 text-sm font-medium transition-colors ${VARIANT_CLASSES[variant]} ${className}`}
+      className={buttonClassName(variant, className)}
       {...props}
     />
   );

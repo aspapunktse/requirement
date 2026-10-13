@@ -1,11 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Button } from "@/components/ui/Button";
+import { Button, buttonClassName } from "@/components/ui/Button";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { controlAssessmentStatusTone } from "@/lib/status-tones";
 import { CONTROL_ASSESSMENT_STATUS_LABEL } from "@/lib/requirement-status-rules";
 import {
+  APPLICABILITY_LABEL,
   countByInclusion,
   countJustificationsMissing,
   EXCLUSION_JUSTIFICATION_MAX_LENGTH,
@@ -13,12 +14,6 @@ import {
   type InclusionFilter,
   type StatementOfApplicabilityRow,
 } from "@/lib/statement-of-applicability-rules";
-
-const APPLICABILITY_LABEL: Record<StatementOfApplicabilityRow["applicability"], string> = {
-  ORGANIZATIONAL: "Organizational",
-  PER_SYSTEM: "Per-System",
-  BOTH: "Both",
-};
 
 /**
  * The Statement of Applicability table (PRD 0001 F-OUT.4, #145): one row per
@@ -70,6 +65,9 @@ export function StatementOfApplicability({
           </button>
         ))}
         <p className="ml-auto text-sm text-zinc-500">{`Exclusion justifications missing: ${missing}`}</p>
+        <a href="/api/statement-of-applicability/export" download className={buttonClassName("outline")}>
+          Download CSV
+        </a>
       </div>
 
       <div className="overflow-x-auto rounded border border-zinc-200 dark:border-zinc-800">

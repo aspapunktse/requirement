@@ -250,3 +250,12 @@ describe("FrameworkCoverageView", () => {
     // Many typed fields: slow under full-suite worker contention, so above the 5s default.
   }, 20000);
 });
+
+describe("FrameworkCoverageView CSV download (#151)", () => {
+  it.each([false, true])("links to the Framework's Coverage export (canCurate %s)", (canCurate) => {
+    renderView(canCurate);
+    const link = screen.getByRole("link", { name: "Download CSV" });
+    expect(link).toHaveAttribute("href", "/api/frameworks/f1/coverage/export");
+    expect(link).toHaveAttribute("download");
+  });
+});
