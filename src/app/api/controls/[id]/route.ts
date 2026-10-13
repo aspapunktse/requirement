@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { authenticate, authorize } from "@/lib/api-authz";
 import { ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE } from "@/lib/catalog";
 import { controlIncludeFor, redactDraftOrigin } from "@/lib/frameworks";
+import { isScopedOrganizationalControl, ORGANIZATIONAL_SCOPING_ERROR } from "@/lib/control-schema";
 import { finishRecompute, prepareRecompute, scopeForControl } from "@/lib/applicability-recompute";
 
 const impactLevelSchema = z.nativeEnum(ImpactLevel).nullable();
@@ -96,19 +97,14 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/contro
     }
   }
   if (
-    control.applicability === "ORGANIZATIONAL" &&
-    ((deploymentFacetIds !== undefined && deploymentFacetIds.length > 0) ||
-      minConfidentialityImpactLevel != null ||
-      minIntegrityImpactLevel != null ||
-      minAvailabilityImpactLevel != null)
+    isScopedOrganizationalControl(control.applicability, {
+      deploymentFacetCount: deploymentFacetIds?.length,
+      minConfidentialityImpactLevel,
+      minIntegrityImpactLevel,
+      minAvailabilityImpactLevel,
+    })
   ) {
-    return NextResponse.json(
-      {
-        error:
-          "ORGANIZATIONAL controls cannot be scoped to Deployment Facets or Impact Level",
-      },
-      { status: 400 },
-    );
+    return NextResponse.json({ error: ORGANIZATIONAL_SCOPING_ERROR }, { status: 400 });
   }
 
   const scopingChanged =

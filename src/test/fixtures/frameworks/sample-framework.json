@@ -1,0 +1,46 @@
+{
+  "framework": {
+    "name": "Sample Framework",
+    "version": "1.0",
+    "description": "A small sample for trying out the Framework loader. Not real content.",
+    "supersedes": null,
+    "licensing": "PARAPHRASE_ONLY",
+    "strictComplianceRequired": false
+  },
+  "supplementaryControls": [
+    {
+      "code": "SUP-SAMPLE-01",
+      "title": "Sample incident reporting procedure",
+      "description": "A documented procedure for reporting incidents to the authority on time",
+      "category": "Sample",
+      "mandatory": true,
+      "applicability": "ORGANIZATIONAL",
+      "question": null,
+      "intent": null,
+      "examples": ["A runbook naming who notifies the authority and by when"]
+    }
+  ],
+  "requirements": [
+    {
+      "code": "S-1",
+      "section": "Governance",
+      "title": "Information security policy",
+      "text": "The organization keeps an approved information security policy and reviews it regularly.",
+      "mappings": [{ "control": "A.5.1", "coverage": "FULL", "rationale": "The ISO policy Control covers this Requirement in full." }]
+    },
+    {
+      "code": "S-2",
+      "section": "Governance",
+      "title": "Roles and responsibilities",
+      "text": "Responsibilities for information security are assigned and communicated.",
+      "mappings": [{ "control": "A.5.2", "coverage": "PARTIAL", "rationale": "Covers roles but not the reporting lines." }]
+    },
+    {
+      "code": "S-3",
+      "section": "Incident handling",
+      "title": "Incident reporting",
+      "text": "Significant incidents are reported to the authority within the required time.",
+      "mappings": [{ "control": "SUP-SAMPLE-01", "coverage": "FULL" }]
+    }
+  ]
+}

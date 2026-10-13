@@ -4,7 +4,12 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { authenticate, authorize } from "@/lib/api-authz";
 import { ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE } from "@/lib/catalog";
-import { BASE_FRAMEWORK_ERRORS, checkBaseFrameworkInvariant, visibleFrameworksWhere } from "@/lib/frameworks";
+import {
+  BASE_FRAMEWORK_ERRORS,
+  checkBaseFrameworkInvariant,
+  visibleFrameworksWhere,
+  wouldCreateSupersedesCycle,
+} from "@/lib/frameworks";
 
 const updateFrameworkSchema = z
   .object({
@@ -22,23 +27,6 @@ const updateFrameworkSchema = z
   .refine((data) => Object.values(data).some((value) => value !== undefined), {
     message: "Provide at least one field to update",
   });
-
-/** True if pointing `id` at `supersedesId` would close a loop in the supersedes chain. */
-async function wouldCreateSupersedesCycle(id: string, supersedesId: string): Promise<boolean> {
-  const seen = new Set<string>();
-  let cursor: string | null = supersedesId;
-  while (cursor) {
-    if (cursor === id) return true;
-    if (seen.has(cursor)) return false;
-    seen.add(cursor);
-    const next: { supersedesId: string | null } | null = await prisma.framework.findUnique({
-      where: { id: cursor },
-      select: { supersedesId: true },
-    });
-    cursor = next?.supersedesId ?? null;
-  }
-  return false;
-}
 
 /** A Framework with its Requirement count; a Draft is a 404 for anyone who can't see Drafts. */
 export async function GET(request: NextRequest, ctx: RouteContext<"/api/frameworks/[id]">) {

@@ -77,6 +77,30 @@ export const requirementInclude = {
   },
 } satisfies Prisma.RequirementInclude;
 
+/**
+ * True if pointing `id` at `supersedesId` would close a loop in the supersedes
+ * chain. `db` is the client to read with (a transaction client inside one).
+ */
+export async function wouldCreateSupersedesCycle(
+  id: string,
+  supersedesId: string,
+  db: Pick<Prisma.TransactionClient, "framework"> = prisma,
+): Promise<boolean> {
+  const seen = new Set<string>();
+  let cursor: string | null = supersedesId;
+  while (cursor) {
+    if (cursor === id) return true;
+    if (seen.has(cursor)) return false;
+    seen.add(cursor);
+    const next: { supersedesId: string | null } | null = await db.framework.findUnique({
+      where: { id: cursor },
+      select: { supersedesId: true },
+    });
+    cursor = next?.supersedesId ?? null;
+  }
+  return false;
+}
+
 export type BaseFrameworkViolation = "BASE_EXISTS" | "LAST_BASE";
 
 /**
