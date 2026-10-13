@@ -2,7 +2,9 @@ import Link from "next/link";
 import { getActingUser } from "@/lib/acting-user";
 import { prisma } from "@/lib/prisma";
 import { frameworkLabel } from "@/lib/framework-label";
-import { visibleFrameworksWhere } from "@/lib/frameworks";
+import { canSeeDraftFrameworks, visibleFrameworksWhere } from "@/lib/frameworks";
+import { buildLineages } from "@/lib/framework-lineage";
+import { FrameworkLineage } from "@/components/FrameworkLineage";
 import { loadCoverageSummaries } from "@/lib/framework-coverage";
 import { CoverageCounts } from "@/components/CoverageCounts";
 import { StatusChip } from "@/components/ui/StatusChip";
@@ -21,6 +23,12 @@ export default async function FrameworksOverviewPage() {
     orderBy: [{ name: "asc" }, { version: "asc" }],
   });
   const summaries = await loadCoverageSummaries(frameworks.map((framework) => framework.id));
+  // The lineage follows supersedes links through Drafts this user can't see before filtering them out (#146);
+  // only the filtered result is rendered, so a hidden Draft's name and version never leave the server.
+  const lineages = buildLineages(
+    await prisma.framework.findMany({ select: { id: true, name: true, version: true, status: true, supersedesId: true } }),
+    canSeeDraftFrameworks(user),
+  );
 
   return (
     <div className="mx-auto max-w-3xl p-6">
@@ -51,6 +59,11 @@ export default async function FrameworksOverviewPage() {
               <div className="mt-1">
                 <CoverageCounts summary={summaries[framework.id]} />
               </div>
+              {lineages.has(framework.id) && (
+                <div className="mt-1">
+                  <FrameworkLineage paths={lineages.get(framework.id)!} />
+                </div>
+              )}
             </li>
           ))}
         </ul>

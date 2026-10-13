@@ -7,6 +7,8 @@ import { StatusChip } from "@/components/ui/StatusChip";
 import { CoverageCounts } from "@/components/CoverageCounts";
 import type { CoverageSummary } from "@/lib/coverage-state";
 import { frameworkLabel } from "@/lib/framework-label";
+import { buildLineages } from "@/lib/framework-lineage";
+import { FrameworkLineage } from "@/components/FrameworkLineage";
 
 export type FrameworkRow = {
   id: string;
@@ -72,6 +74,8 @@ export function FrameworkManager({ initialFrameworks }: { initialFrameworks: Fra
   const [error, setError] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
   const [newDraft, setNewDraft] = useState<Draft>(EMPTY_DRAFT);
+  // Only Compliance Managers and Admins reach this component, and they see Drafts, so every Framework is in `items`.
+  const lineages = buildLineages(items, true);
 
   function draftFor(item: FrameworkRow): Draft {
     return (
@@ -215,6 +219,11 @@ export function FrameworkManager({ initialFrameworks }: { initialFrameworks: Fra
               {item.coverage && (
                 <div className="mb-2">
                   <CoverageCounts summary={item.coverage} />
+                </div>
+              )}
+              {lineages.has(item.id) && (
+                <div className="mb-2">
+                  <FrameworkLineage paths={lineages.get(item.id)!} />
                 </div>
               )}
               <div className="flex gap-2">
