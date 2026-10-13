@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
+import { frameworkLabel } from "@/lib/framework-label";
 import {
   isEmptyFilter,
   ONBOARDING_STATUS_LABEL,
@@ -83,7 +84,7 @@ export function SystemFilterPanel({
             <option value="">Any</option>
             {options.frameworks.map((framework) => (
               <option key={framework.id} value={framework.id}>
-                {framework.name} {framework.version}
+                {frameworkLabel(framework)}
               </option>
             ))}
           </select>

@@ -210,7 +210,7 @@ describe("InternalAuditForm (#152)", () => {
     it("offers the four criteria from the page's options", () => {
       render(<InternalAuditForm controls={controls} systems={systems} filterOptions={filterOptions} />);
 
-      expect(screen.getByRole("option", { name: "NIS2 2022" })).toBeInTheDocument();
+      expect(screen.getByRole("option", { name: "NIS2:2022" })).toBeInTheDocument();
       expect(screen.getByRole("option", { name: "Cloud SaaS" })).toBeInTheDocument();
       expect(screen.getByRole("option", { name: "Finance" })).toBeInTheDocument();
       expect(screen.getByRole("option", { name: "In Review" })).toBeInTheDocument();
@@ -293,7 +293,7 @@ describe("InternalAuditForm (#152)", () => {
 
       await user.click(screen.getByRole("button", { name: "Show matching Systems" }));
       await screen.findByRole("status");
-      await user.selectOptions(screen.getByLabelText("Framework"), "NIS2 2022");
+      await user.selectOptions(screen.getByLabelText("Framework"), "NIS2:2022");
 
       expect(screen.queryByRole("status")).not.toBeInTheDocument();
       expect(screen.queryByRole("button", { name: /^Add / })).not.toBeInTheDocument();
