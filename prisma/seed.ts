@@ -52,6 +52,11 @@ async function main() {
       name: "Default Compliance Manager",
       role: "COMPLIANCE_MANAGER" as const,
     },
+    {
+      email: "internal-auditor@example.com",
+      name: "Default Internal Auditor",
+      role: "INTERNAL_AUDITOR" as const,
+    },
   ];
 
   for (const user of users) {
