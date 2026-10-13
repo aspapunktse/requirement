@@ -80,6 +80,8 @@ describe("Check-up pages (#155)", () => {
 
   afterAll(async () => {
     const audits = await prisma.internalAudit.findMany({ where: { createdById: users.INTERNAL_AUDITOR }, select: { id: true } });
+    // The System-less Change Event of the evaluation test (#156) names this run through the audit title and Control code.
+    await prisma.changeEvent.deleteMany({ where: { systemId: null, action: "CHECK_UP_EVALUATED", detail: { contains: SUFFIX } } });
     await prisma.checkUp.deleteMany({ where: { internalAuditId: { in: audits.map((a) => a.id) } } });
     await prisma.internalAudit.deleteMany({ where: { id: { in: audits.map((a) => a.id) } } });
     await prisma.system.deleteMany({ where: { name: { endsWith: SUFFIX } } });
