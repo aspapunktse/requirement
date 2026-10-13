@@ -79,7 +79,8 @@ Give the implementer the worktree path and the database name in the brief.
 
 Run `npm run implementer:destroy -- <n> <slug>` in the main checkout. It does the following:
 
-- `git worktree remove ../requirement-wt/<n>-<slug>` and `git branch -D <n>-<slug>` (a squash merge leaves the branch unmerged in git's eyes). It stops if the worktree has uncommitted changes; add `--force` to discard them.
+- `git worktree remove ../requirement-wt/<n>-<slug>` and `git branch -D <n>-<slug>` (a squash merge leaves the branch unmerged in git's eyes). It stops, with nothing removed, if the worktree has uncommitted changes; add `--force` to discard them.
+- Deletes whatever `git worktree remove` left in that folder (on Windows it usually can't delete all of it, typically the `.next` cache), then `git worktree prune`. A folder that was already unregistered by an earlier failed run is cleaned up the same way. If a running process still holds the folder, the branch and databases are removed anyway and the script exits non-zero naming the folder: stop the process and run it again.
 - `dropdb` for `requirement_<n>` and every `requirement_<n>_*` scratch DB. `docker exec requirement-db psql -U app -l` lists what's left.
 
 ## Per-issue loop

@@ -13,14 +13,15 @@
  *          from the dev DB, a `.env` pointing at it, then `npm ci`.
  * destroy: removes the worktree and the branch, and drops requirement_<issue>
  *          and every requirement_<issue>_* scratch DB. `--force` also discards
- *          uncommitted changes in the worktree.
+ *          uncommitted changes in the worktree. Files git leaves behind in the
+ *          worktree folder (usual on Windows) are deleted too.
  *
  * The dev DB itself is only ever read (pg_dump). Postgres runs in the
  * `requirement-db` container (docker-compose.yml), so the database commands go
  * through `docker exec`.
  */
 import { execFileSync, execSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 const DB_CONTAINER = "requirement-db";
@@ -109,15 +110,51 @@ function create(issue: string, branch: string) {
   console.log(`\nReady for the brief:\n  worktree: ${worktree}\n  branch:   ${branch}\n  database: ${database}`);
 }
 
+/** Whether git has `directory` registered as a worktree, whatever is on disk there. */
+function isRegisteredWorktree(directory: string) {
+  // git prints forward slashes on Windows, where paths are also case-insensitive.
+  const normalise = (value: string) => {
+    const resolved = path.resolve(value);
+    return process.platform === "win32" ? resolved.toLowerCase() : resolved;
+  };
+  return capture("git", ["worktree", "list", "--porcelain"])
+    .split(/\r?\n/)
+    .some((line) => line.startsWith("worktree ") && normalise(line.slice("worktree ".length)) === normalise(directory));
+}
+
 function destroy(issue: string, branch: string, force: boolean) {
   const dev = readDevDatabase();
   const worktree = path.join(WORKTREES_DIR, branch);
 
-  if (existsSync(worktree)) {
-    run("git", ["worktree", "remove", ...(force ? ["--force"] : []), worktree]);
-  } else {
-    run("git", ["worktree", "prune"]);
+  if (isRegisteredWorktree(worktree)) {
+    try {
+      run("git", ["worktree", "remove", ...(force ? ["--force"] : []), worktree]);
+    } catch {
+      // git checks for uncommitted changes before it touches anything, and a
+      // refusal leaves the worktree registered. On Windows it also exits
+      // non-zero after unregistering, when it can't delete the whole folder.
+      if (isRegisteredWorktree(worktree)) fail(`git did not remove ${worktree}; nothing else was removed.`);
+      console.warn("git unregistered the worktree but left files behind; deleting them.");
+    }
   }
+
+  let leftover = false;
+  if (existsSync(worktree)) {
+    const relative = path.relative(WORKTREES_DIR, worktree);
+    if (relative === "" || relative.startsWith("..") || path.isAbsolute(relative)) {
+      fail(`${worktree} is outside ${WORKTREES_DIR}; not deleting it.`);
+    }
+    console.log(`> rm -rf ${worktree}`);
+    try {
+      rmSync(worktree, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+    } catch (error) {
+      // Usually a process still running in the folder; the rest can go anyway.
+      leftover = true;
+      console.warn(`could not delete ${worktree}: ${error instanceof Error ? error.message : error}`);
+    }
+  }
+  run("git", ["worktree", "prune"]);
+
   if (capture("git", ["branch", "--list", branch]) !== "") run("git", ["branch", "-D", branch]);
 
   // `_` is a LIKE wildcard, so the prefix match is redone exactly below.
@@ -130,6 +167,7 @@ function destroy(issue: string, branch: string, force: boolean) {
   }
 
   console.log(`\nRemoved ${branch}; dropped ${databases.length > 0 ? databases.join(", ") : "no databases"}.`);
+  if (leftover) fail(`${worktree} is still on disk. Close whatever is using it and run this again.`);
 }
 
 const { action, issue, branch, force } = parseArgs();
