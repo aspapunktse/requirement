@@ -48,9 +48,9 @@ export async function listMyCheckUps(user: { id: string; role: UserRole }, now =
     { isolationLevel: "RepeatableRead" },
   );
   return rows
-    .map((row): MyCheckUp & { due: Date } => {
+    .map((row) => {
       const state = { auditStatus: row.internalAudit.status, answered: row.response !== null, dueDate: row.internalAudit.dueDate };
-      return {
+      const checkUp: MyCheckUp = {
         id: row.id,
         control: row.control,
         systemName: row.system?.name ?? null,
@@ -63,18 +63,18 @@ export async function listMyCheckUps(user: { id: string; role: UserRole }, now =
         answered: state.answered,
         open: isCheckUpOpen(state),
         overdue: isCheckUpOverdue(state, now),
-        due: row.internalAudit.dueDate,
       };
+      return { checkUp, due: row.internalAudit.dueDate.getTime() };
     })
     .sort(
       (a, b) =>
-        Number(b.open) - Number(a.open) ||
-        a.due.getTime() - b.due.getTime() ||
-        a.control.code.localeCompare(b.control.code, "en", { numeric: true }) ||
-        Number(a.systemName === null) - Number(b.systemName === null) ||
-        (a.systemName ?? "").localeCompare(b.systemName ?? "", "en"),
+        Number(b.checkUp.open) - Number(a.checkUp.open) ||
+        a.due - b.due ||
+        a.checkUp.control.code.localeCompare(b.checkUp.control.code, "en", { numeric: true }) ||
+        Number(a.checkUp.systemName === null) - Number(b.checkUp.systemName === null) ||
+        (a.checkUp.systemName ?? "").localeCompare(b.checkUp.systemName ?? "", "en"),
     )
-    .map(({ due: _due, ...checkUp }) => checkUp);
+    .map(({ checkUp }) => checkUp);
 }
 
 /** The "My tasks" row of one open Check-up. Overdue is the danger tone; the due date is in the subtitle. */
