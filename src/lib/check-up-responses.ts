@@ -1,8 +1,9 @@
-import { Prisma, type CheckUpAnswer, type InternalAuditStatus, type UserRole } from "@prisma/client";
+import { Prisma, type CheckUpAnswer, type CheckUpOutcome, type InternalAuditStatus, type UserRole } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { formatCalendarDate } from "@/lib/internal-audit-rules";
+import { canEvaluateCheckUps, checkUpEvaluationRefusal } from "@/lib/check-up-evaluation-rules";
 import {
   canAnswerCheckUp,
   canReadCheckUp,
@@ -23,11 +24,33 @@ import {
  * status, no Risk, no Change Event.
  *
  * Every read a write depends on uses the transaction client (see the supervised-workflow
- * gotchas), and both functions run in a REPEATABLE READ snapshot, so a Check-up read together with
- * its owners, questions and answers is one consistent picture.
+ * gotchas). The read runs in a REPEATABLE READ snapshot, so a Check-up read together with its
+ * owners, questions and answers is one consistent picture. The write runs READ COMMITTED behind a
+ * row lock on the Check-up (`lockCheckUp`), which is what keeps it from interleaving with an
+ * evaluation (#156); see there for why not a snapshot.
  */
 
 const SNAPSHOT = { isolationLevel: "RepeatableRead" } as const;
+
+/**
+ * Locks the Check-up row (`SELECT ... FOR UPDATE`) for the rest of the transaction and says
+ * whether it exists. Changing a response and evaluating it both take this lock *first* and read
+ * what they depend on (is it evaluated? what is the response?) only afterwards, so they run one
+ * after the other: either the evaluation judges the response as it stands and the later change is
+ * refused (409, it reads the evaluation), or the change lands first and that is what the
+ * evaluation judges. Never an evaluation of a response that then changed.
+ *
+ * Both transactions must be READ COMMITTED (the default). A REPEATABLE READ snapshot is taken at
+ * the first statement, i.e. before the lock wait ends, so it would not see the other
+ * transaction's commit and would re-check stale data. Under READ COMMITTED every statement after
+ * the lock sees the other side's committed work. A second concurrent evaluation waits for the lock
+ * and then finds the first one: exactly one succeeds (the unique index on `checkUpId` is the
+ * backstop).
+ */
+export async function lockCheckUp(tx: Prisma.TransactionClient, checkUpId: string): Promise<boolean> {
+  const rows = await tx.$queryRaw<{ id: string }[]>`SELECT "id" FROM "CheckUp" WHERE "id" = ${checkUpId} FOR UPDATE`;
+  return rows.length > 0;
+}
 
 /** A refusal with the HTTP status the route answers with. */
 export class CheckUpResponseError extends Error {
@@ -56,7 +79,15 @@ export type CheckUpDetail = {
     /** Only values that pass the http(s) check: a stored value that doesn't is dropped, never linked. */
     evidenceLinks: string[];
   } | null;
+  /** The Internal Auditor's evaluation (#156); once it exists the response is frozen. Null until then. */
+  evaluation: {
+    outcome: CheckUpOutcome;
+    comment: string;
+    evaluatedBy: { id: string; name: string };
+    evaluatedAt: string;
+  } | null;
   answered: boolean;
+  evaluated: boolean;
   open: boolean;
   overdue: boolean;
 };
@@ -80,6 +111,9 @@ export async function getCheckUpDetail(id: string, now = new Date()): Promise<Ch
             respondedBy: { select: { id: true, name: true } },
             lastChangedBy: { select: { id: true, name: true } },
           },
+        },
+        evaluation: {
+          select: { outcome: true, comment: true, evaluatedAt: true, evaluatedBy: { select: { id: true, name: true } } },
         },
       },
     });
@@ -112,25 +146,43 @@ export async function getCheckUpDetail(id: string, now = new Date()): Promise<Ch
           return safe ? [safe] : [];
         }),
       },
+      evaluation: checkUp.evaluation && {
+        outcome: checkUp.evaluation.outcome,
+        comment: checkUp.evaluation.comment,
+        evaluatedBy: checkUp.evaluation.evaluatedBy,
+        evaluatedAt: checkUp.evaluation.evaluatedAt.toISOString(),
+      },
       answered,
+      evaluated: checkUp.evaluation !== null,
       open: isCheckUpOpen(state),
       overdue: isCheckUpOverdue(state, now),
     };
   }, SNAPSHOT);
 }
 
-/** What `user` may do with a Check-up: read it, and answer (create or change the response) it. */
-export function checkUpAccess(user: { id: string; role: UserRole }, checkUp: Pick<CheckUpDetail, "recipient" | "audit">) {
+/**
+ * What `user` may do with a Check-up: read it, answer it (create or change the response) and
+ * evaluate it (#156). Whether the Check-up can be answered or evaluated *now* is part of the answer,
+ * so the page and the routes show exactly what the write would accept.
+ */
+export function checkUpAccess(
+  user: { id: string; role: UserRole },
+  checkUp: Pick<CheckUpDetail, "recipient" | "audit" | "answered" | "evaluated">,
+) {
   const recipientId = checkUp.recipient?.id ?? null;
   return {
     canRead: canReadCheckUp(user, recipientId),
-    canAnswer: canAnswerCheckUp(user, recipientId) && checkUpResponseRefusal({ auditStatus: checkUp.audit.status }) === null,
+    canAnswer:
+      canAnswerCheckUp(user, recipientId) && checkUpResponseRefusal({ auditStatus: checkUp.audit.status, evaluated: checkUp.evaluated }) === null,
+    canEvaluate:
+      canEvaluateCheckUps(user) &&
+      checkUpEvaluationRefusal({ auditStatus: checkUp.audit.status, answered: checkUp.answered, evaluated: checkUp.evaluated }) === null,
   };
 }
 
 /**
  * Creates `checkUpId`'s response, or replaces it if one exists (a submitted response can be
- * changed until the Check-up is evaluated, #156). Throws `CheckUpResponseError`: 404 if there is no
+ * changed until the Check-up is evaluated, #156). Takes the Check-up's row lock first (`lockCheckUp`). Throws `CheckUpResponseError`: 404 if there is no
  * such Check-up, 403 unless `user` is its recipient *now* (an Admin who isn't the recipient is
  * refused too; so is an Internal Auditor, and so is everyone when the Control has no Control
  * Owner), 409 if `checkUpResponseRefusal` says the response is locked, 400 if the submission is
@@ -144,6 +196,7 @@ export async function submitCheckUpResponse(
   now = new Date(),
 ): Promise<{ created: boolean }> {
   return prisma.$transaction(async (tx) => {
+    if (!(await lockCheckUp(tx, checkUpId))) throw new CheckUpResponseError(404, "Check-up not found");
     const checkUp = await tx.checkUp.findUnique({
       where: { id: checkUpId },
       select: {
@@ -152,6 +205,7 @@ export async function submitCheckUpResponse(
         system: { select: { ownerId: true } },
         questions: { select: { id: true, position: true } },
         response: { select: { id: true } },
+        evaluation: { select: { id: true } },
       },
     });
     if (!checkUp) throw new CheckUpResponseError(404, "Check-up not found");
@@ -160,7 +214,7 @@ export async function submitCheckUpResponse(
     if (!canAnswerCheckUp(user, recipientId)) {
       throw new CheckUpResponseError(403, "Only the recipient of a Check-up can answer it");
     }
-    const refusal = checkUpResponseRefusal({ auditStatus: checkUp.internalAudit.status });
+    const refusal = checkUpResponseRefusal({ auditStatus: checkUp.internalAudit.status, evaluated: checkUp.evaluation !== null });
     if (refusal) throw new CheckUpResponseError(409, refusal);
 
     // `null` is a body of the wrong shape; the refusals above come first, so a non-recipient learns nothing from it.
@@ -189,7 +243,7 @@ export async function submitCheckUpResponse(
       },
     });
     return { created: true };
-  }, SNAPSHOT);
+  });
 }
 
 /**

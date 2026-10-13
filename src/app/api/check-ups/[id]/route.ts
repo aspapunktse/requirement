@@ -18,5 +18,5 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/check-up
 
   const access = checkUpAccess(auth.user, checkUp);
   if (!access.canRead) return NextResponse.json({ error: "You can't read this Check-up" }, { status: 403 });
-  return NextResponse.json({ checkUp, canAnswer: access.canAnswer });
+  return NextResponse.json({ checkUp, canAnswer: access.canAnswer, canEvaluate: access.canEvaluate });
 }

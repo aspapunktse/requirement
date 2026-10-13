@@ -1,4 +1,4 @@
-import type { InternalAuditStatus, UserRole } from "@prisma/client";
+import type { CheckUpOutcome, InternalAuditStatus, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { TaskRow } from "@/components/ui/TaskTable";
 import { formatCalendarDate } from "@/lib/internal-audit-rules";
@@ -23,6 +23,8 @@ export type MyCheckUp = {
   systemName: string | null;
   audit: { title: string; status: InternalAuditStatus; dueDate: string; launchedAt: Date | null };
   answered: boolean;
+  /** How an Internal Auditor evaluated it (#156), or null if they haven't. */
+  outcome: CheckUpOutcome | null;
   open: boolean;
   overdue: boolean;
 };
@@ -43,6 +45,7 @@ export async function listMyCheckUps(user: { id: string; role: UserRole }, now =
           system: { select: { name: true } },
           internalAudit: { select: { title: true, status: true, dueDate: true, launchedAt: true } },
           response: { select: { id: true } },
+          evaluation: { select: { outcome: true } },
         },
       }),
     { isolationLevel: "RepeatableRead" },
@@ -61,6 +64,7 @@ export async function listMyCheckUps(user: { id: string; role: UserRole }, now =
           launchedAt: row.internalAudit.launchedAt,
         },
         answered: state.answered,
+        outcome: row.evaluation?.outcome ?? null,
         open: isCheckUpOpen(state),
         overdue: isCheckUpOverdue(state, now),
       };
