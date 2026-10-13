@@ -21,7 +21,7 @@ This file holds current state and the queue, and nothing else. The rule is in th
 PRD 0001 · M4 Content & SoA:
 1. #144 Framework import format and idempotent loader. **Done: PR #163.**
 2. #145 Statement of Applicability view. **Done: PR #162.**
-3. #146 Framework version lineage in the Framework list.
+3. #146 Framework version lineage in the Framework list. **Done: PR #164.**
 4. #150 Statement of Applicability: exclusion justifications. Blocked by #145.
 5. #151 CSV export of the Framework Coverage view and the Statement of Applicability. Blocked by #145.
 6. #148 Cybersäkerhetslagen content as a Framework import file. Blocked by #144. **`ready-for-human`**: the product owner attaches the source documents first, then relabels it `ready-for-agent`.
