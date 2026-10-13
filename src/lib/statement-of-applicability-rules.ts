@@ -35,8 +35,8 @@ import { CONTROL_ASSESSMENT_STATUS_LABEL } from "@/lib/requirement-status-rules"
  */
 
 /**
- * OPEN PRODUCT QUESTION (flagged in #145): when does a Control apply to the
- * Organization? Recommended default (`true`): an Organizational or Both Control
+ * When does a Control apply to the Organization? The product owner decided on
+ * 2026-10-13 (comment on #145) to keep `true`: an Organizational or Both Control
  * applies to the Organization only if it is mapped to at least one Requirement of
  * a Published Framework, the same condition that lets a Control apply to Systems.
  * Set to `false` for the alternative: every Organizational and Both Control
