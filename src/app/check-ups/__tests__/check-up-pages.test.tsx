@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { launchInternalAudit } from "@/lib/check-ups";
+import { evaluateCheckUp } from "@/lib/check-up-evaluations";
 import { createFixtureFramework, mapControlsToFramework } from "@/test/framework-fixtures";
 
 const acting = vi.hoisted(() => ({ userId: null as string | null }));
@@ -79,6 +80,8 @@ describe("Check-up pages (#155)", () => {
 
   afterAll(async () => {
     const audits = await prisma.internalAudit.findMany({ where: { createdById: users.INTERNAL_AUDITOR }, select: { id: true } });
+    // The System-less Change Event of the evaluation test (#156) names this run through the audit title and Control code.
+    await prisma.changeEvent.deleteMany({ where: { systemId: null, action: "CHECK_UP_EVALUATED", detail: { contains: SUFFIX } } });
     await prisma.checkUp.deleteMany({ where: { internalAuditId: { in: audits.map((a) => a.id) } } });
     await prisma.internalAudit.deleteMany({ where: { id: { in: audits.map((a) => a.id) } } });
     await prisma.system.deleteMany({ where: { name: { endsWith: SUFFIX } } });
@@ -142,9 +145,64 @@ describe("Check-up pages (#155)", () => {
   it("shows the audit's progress and links every Check-up row to its response", async () => {
     acting.userId = users.INTERNAL_AUDITOR;
     const html = renderToStaticMarkup(await InternalAuditPage({ params: Promise.resolve({ id: auditId }) } as never));
-    expect(html).toContain("2 sent, 1 answered, 0 overdue");
+    expect(html).toContain("2 sent, 1 answered, 0 evaluated, 0 overdue");
     expect(html).toContain(`/check-ups/${answeredId}`);
     expect(html).toContain("Answered: read the response");
     expect(html).toContain("Not answered");
+  });
+
+  describe("evaluating (#156)", () => {
+    const auditPage = async (userId: string) => {
+      acting.userId = userId;
+      return renderToStaticMarkup(await InternalAuditPage({ params: Promise.resolve({ id: auditId }) } as never));
+    };
+
+    it("offers an Internal Auditor the evaluation form on an answered Check-up only, and nobody else", async () => {
+      const html = await checkUpPage(users.INTERNAL_AUDITOR, answeredId);
+      expect(html).toContain("Evaluate this Check-up");
+      expect(html).toContain("Record evaluation");
+      expect(html).toContain("evaluation is final");
+      expect(await checkUpPage(users.INTERNAL_AUDITOR, openId)).not.toContain("Record evaluation");
+      for (const userId of [users.ADMIN, recipientId]) {
+        const other = await checkUpPage(userId, answeredId);
+        expect(other).not.toContain("Record evaluation");
+      }
+      expect(await checkUpPage(users.ADMIN, answeredId)).toContain("Not evaluated yet");
+    });
+
+    it("tells the audit page how many await evaluation, and links the next one for an Internal Auditor only", async () => {
+      const auditor = await auditPage(users.INTERNAL_AUDITOR);
+      expect(auditor).toContain("1 awaiting evaluation");
+      expect(auditor).toContain("Evaluate the next one");
+      expect(auditor).toContain("Awaiting evaluation</a>");
+      const admin = await auditPage(users.ADMIN);
+      expect(admin).toContain("1 awaiting evaluation");
+      expect(admin).not.toContain("Evaluate the next one");
+    });
+
+    it("shows an evaluated Check-up's outcome and comment to everyone who can read it, with the response frozen", async () => {
+      await evaluateCheckUp(answeredId, { id: users.INTERNAL_AUDITOR, role: "INTERNAL_AUDITOR" }, { outcome: "NONCONFORMITY", comment: "Only tested in staging" });
+
+      for (const userId of [recipientId, users.INTERNAL_AUDITOR, users.ADMIN]) {
+        const html = await checkUpPage(userId, answeredId);
+        expect(html).toContain("Nonconformity");
+        expect(html).toContain("Only tested in staging");
+        expect(html).toContain("Test 155 page INTERNAL_AUDITOR");
+        expect(html).toContain("Tested only in staging");
+        expect(html).not.toContain("Save changes");
+        expect(html).not.toContain("Record evaluation");
+        expect(html).toContain("can no longer be changed");
+      }
+      expect(await checkUpPage(users.VIEWER, answeredId)).toContain("not available to you");
+    });
+
+    it("shows the outcome in the recipient's list and the audit page, which counts it as evaluated", async () => {
+      const mine = await render(recipientId, () => MyCheckUpsPage());
+      expect(mine).toContain("Nonconformity");
+      const html = await auditPage(users.INTERNAL_AUDITOR);
+      expect(html).toContain("2 sent, 1 answered, 1 evaluated, 0 overdue");
+      expect(html).toContain("Nonconformity");
+      expect(html).not.toContain("awaiting evaluation");
+    });
   });
 });

@@ -137,7 +137,7 @@ describe("roleView: owner tasks for any role (#98)", () => {
       const auditor = await makeUser("auditor", "INTERNAL_AUDITOR");
       const view = await roleView(auditor);
       expect(view.tasks).toEqual([]);
-      expect(labels(view)).toEqual(["Systems", "Frameworks", "Draft Internal Audits"]);
+      expect(labels(view)).toEqual(["Systems", "Frameworks", "Draft Internal Audits", "Check-ups awaiting evaluation"]);
       expect(view.tiles.map((t) => t.title)).toEqual([
         "Internal Audits",
         "Browse Systems",
@@ -201,7 +201,7 @@ describe("roleView: owner tasks for any role (#98)", () => {
       try {
         const view = await roleView(auditor);
         expect(view.tasks).toEqual([]);
-        expect(labels(view)).toEqual(["Systems", "Frameworks", "Draft Internal Audits"]);
+        expect(labels(view)).toEqual(["Systems", "Frameworks", "Draft Internal Audits", "Check-ups awaiting evaluation"]);
       } finally {
         await prisma.control.delete({ where: { id: owned.id } });
       }

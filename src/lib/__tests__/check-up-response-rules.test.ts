@@ -88,22 +88,28 @@ describe("open and overdue", () => {
 
 describe("checkUpResponseRefusal", () => {
   it("allows a launched audit and refuses a draft or closed one", () => {
-    expect(checkUpResponseRefusal({ auditStatus: "LAUNCHED" })).toBeNull();
-    expect(checkUpResponseRefusal({ auditStatus: "CLOSED" })).toMatch(/closed/);
-    expect(checkUpResponseRefusal({ auditStatus: "DRAFT" })).toMatch(/draft/);
+    expect(checkUpResponseRefusal({ auditStatus: "LAUNCHED", evaluated: false })).toBeNull();
+    expect(checkUpResponseRefusal({ auditStatus: "CLOSED", evaluated: false })).toMatch(/closed/);
+    expect(checkUpResponseRefusal({ auditStatus: "DRAFT", evaluated: false })).toMatch(/draft/);
+  });
+
+  it("refuses an evaluated Check-up's response, whatever the audit's state (#156)", () => {
+    expect(checkUpResponseRefusal({ auditStatus: "LAUNCHED", evaluated: true })).toMatch(/evaluated/);
+    expect(checkUpResponseRefusal({ auditStatus: "CLOSED", evaluated: true })).toMatch(/evaluated/);
   });
 });
 
 describe("checkUpProgress", () => {
-  it("counts sent, answered, open and overdue", () => {
-    expect(checkUpProgress([])).toEqual({ sent: 0, answered: 0, open: 0, overdue: 0 });
+  it("counts sent, answered, evaluated, awaiting evaluation, open and overdue", () => {
+    expect(checkUpProgress([])).toEqual({ sent: 0, answered: 0, evaluated: 0, awaitingEvaluation: 0, open: 0, overdue: 0 });
     expect(
       checkUpProgress([
-        { answered: true, overdue: false },
-        { answered: false, overdue: true },
-        { answered: false, overdue: false },
+        { answered: true, evaluated: true, overdue: false },
+        { answered: true, evaluated: false, overdue: false },
+        { answered: false, evaluated: false, overdue: true },
+        { answered: false, evaluated: false, overdue: false },
       ]),
-    ).toEqual({ sent: 3, answered: 1, open: 2, overdue: 1 });
+    ).toEqual({ sent: 4, answered: 2, evaluated: 1, awaitingEvaluation: 1, open: 2, overdue: 1 });
   });
 });
 

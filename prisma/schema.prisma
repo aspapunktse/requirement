@@ -108,6 +108,7 @@ model User {
   internalAuditsLaunched             InternalAudit[]                     @relation("InternalAuditLauncher")
   checkUpResponsesGiven              CheckUpResponse[]                   @relation("CheckUpResponder")
   checkUpResponsesChanged            CheckUpResponse[]                   @relation("CheckUpResponseChanger")
+  checkUpsEvaluated                  CheckUpEvaluation[]                 @relation("CheckUpEvaluator")
   organizationImplementationsUpdated OrganizationControlImplementation[] @relation("OrganizationImplementationUpdatedBy")
 }
 
@@ -609,6 +610,11 @@ enum ChangeEventAction {
   // #150). One event per change, actor the User who made it, the Control code and the old
   // and new text in the detail.
   SOA_JUSTIFICATION_CHANGED
+  // System-less: an Internal Auditor evaluated an answered Check-up as Conforming, Observation or
+  // Nonconformity (PRD 0001 F-IA.6, F-CE.1, #156). One event per evaluation, actor the Internal
+  // Auditor; the detail names the Internal Audit, the Control, the target (a System or the
+  // Organization) and the outcome. System-less even for a System-level Check-up.
+  CHECK_UP_EVALUATED
 }
 
 // A curated, System-lifecycle-relevant mutation record — feeds the landing
@@ -778,7 +784,9 @@ model CheckUp {
   // The Check-up's own copy of the questions, taken at launch.
   questions CheckUpQuestion[]
   // Present once the recipient has answered (#155); its existence is what "answered" means.
-  response  CheckUpResponse?
+  response   CheckUpResponse?
+  // Present once an Internal Auditor has evaluated it (#156); its existence is what "evaluated" means.
+  evaluation CheckUpEvaluation?
 
   @@unique([internalAuditId, controlId, systemId])
   @@index([controlId])
@@ -826,6 +834,35 @@ model CheckUpResponse {
 
   @@index([respondedById])
   @@index([lastChangedById])
+}
+
+// How an Internal Auditor judged an answered Check-up (PRD 0001 F-IA.6, #156).
+enum CheckUpOutcome {
+  // The answer is borne out.
+  CONFORMING
+  // A weakness worth noting that is not a failure of the Control.
+  OBSERVATION
+  // The Control does not work as claimed. (A follow-up, #157, acts on it; today it only records it.)
+  NONCONFORMITY
+}
+
+// An Internal Auditor's evaluation of a Check-up (PRD 0001 F-IA.6, #156): one per Check-up at most,
+// and its existence is what makes the Check-up "evaluated". It is final: once recorded it is never
+// changed, and it locks the Check-up's response. Beside CheckUpResponse, not on it, so #157 can
+// link a Risk to it and #158 can test "neither evaluated nor withdrawn" with two existence checks.
+// Who evaluated is part of the audit evidence, so the User is Restrict like the response's users.
+model CheckUpEvaluation {
+  id            String         @id @default(cuid())
+  checkUpId     String         @unique
+  checkUp       CheckUp        @relation(fields: [checkUpId], references: [id], onDelete: Cascade)
+  outcome       CheckUpOutcome
+  // Required for an Observation and a Nonconformity (application rule), optional for Conforming.
+  comment       String         @default("")
+  evaluatedById String
+  evaluatedBy   User           @relation("CheckUpEvaluator", fields: [evaluatedById], references: [id], onDelete: Restrict)
+  evaluatedAt   DateTime       @default(now())
+
+  @@index([evaluatedById])
 }
 
 // The answer to one question of a Check-up: Yes / No / N/A with a free-text description.

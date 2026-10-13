@@ -8,6 +8,7 @@ import { getActionableQueries } from "@/lib/assessment-queries";
 import { getOwnerTasks, mergeTaskRows } from "@/lib/owner-tasks";
 import { getControlOwnerTasks } from "@/lib/control-owner-tasks";
 import { getCheckUpTasks, MY_CHECK_UPS_HREF } from "@/lib/check-up-tasks";
+import { countAwaitingEvaluation } from "@/lib/check-up-evaluations";
 import { riskSeverityTone } from "@/lib/status-tones";
 import { RISK_INCLUDE } from "@/lib/risks";
 import { visibleFrameworksWhere } from "@/lib/frameworks";
@@ -172,11 +173,12 @@ async function roleOwnView(user: { id: string; name: string; role: UserRole }): 
     }
 
     case "INTERNAL_AUDITOR": {
-      const [systems, frameworks, draftAudits, launchedAudits] = await Promise.all([
+      const [systems, frameworks, draftAudits, launchedAudits, awaitingEvaluation] = await Promise.all([
         prisma.system.count(),
         prisma.framework.count({ where: visibleFrameworksWhere(user) }),
         prisma.internalAudit.count({ where: { status: "DRAFT" } }),
         prisma.internalAudit.count({ where: { status: "LAUNCHED" } }),
+        countAwaitingEvaluation(),
       ]);
 
       return {
@@ -185,6 +187,9 @@ async function roleOwnView(user: { id: string; name: string; role: UserRole }): 
           { label: "Systems", value: systems },
           { label: "Frameworks", value: frameworks },
           { label: "Draft Internal Audits", value: draftAudits },
+          // Answered Check-ups to evaluate (#156): a count, not a task row per Check-up; each audit's page
+          // links the next one. Product-owner decision 20a of 2026-10-13 (comment on #156).
+          { label: "Check-ups awaiting evaluation", value: awaitingEvaluation },
         ],
         tasks: [],
         tiles: [

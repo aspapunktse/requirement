@@ -1,4 +1,4 @@
-import type { ControlApplicability, Prisma } from "@prisma/client";
+import type { CheckUpOutcome, ControlApplicability, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { InternalAuditError } from "@/lib/internal-audits";
 import { internalAuditEditRefusal, formatCalendarDate } from "@/lib/internal-audit-rules";
@@ -226,6 +226,9 @@ export type CheckUpRow = {
   /** Whether the recipient has answered (#155), and who submitted it and when. */
   answered: boolean;
   response: { respondedAt: string; respondedByName: string } | null;
+  /** Whether an Internal Auditor has evaluated it (#156), and how, by whom and when. */
+  evaluated: boolean;
+  evaluation: { outcome: CheckUpOutcome; evaluatedByName: string; evaluatedAt: string } | null;
   /** Open and after the audit's due date (#155). */
   overdue: boolean;
 };
@@ -246,6 +249,7 @@ export async function listCheckUps(internalAuditId: string, now = new Date()): P
         systemId: true,
         questions: { orderBy: { position: "asc" }, select: { text: true } },
         response: { select: { respondedAt: true, respondedBy: { select: { name: true } } } },
+        evaluation: { select: { outcome: true, evaluatedAt: true, evaluatedBy: { select: { name: true } } } },
       },
     });
     if (checkUps.length === 0) return [];
@@ -285,6 +289,12 @@ export async function listCheckUps(internalAuditId: string, now = new Date()): P
           response: checkUp.response && {
             respondedAt: checkUp.response.respondedAt.toISOString(),
             respondedByName: checkUp.response.respondedBy.name,
+          },
+          evaluated: checkUp.evaluation !== null,
+          evaluation: checkUp.evaluation && {
+            outcome: checkUp.evaluation.outcome,
+            evaluatedByName: checkUp.evaluation.evaluatedBy.name,
+            evaluatedAt: checkUp.evaluation.evaluatedAt.toISOString(),
           },
           overdue: isCheckUpOverdue({ auditStatus: audit.status, answered, dueDate: audit.dueDate }, now),
         };

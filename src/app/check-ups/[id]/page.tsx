@@ -2,15 +2,21 @@ import Link from "next/link";
 import { getActingUser } from "@/lib/acting-user";
 import { checkUpAccess, getCheckUpDetail } from "@/lib/check-up-responses";
 import { CHECK_UP_ANSWER_LABEL, checkUpResponseRefusal, safeHttpUrl } from "@/lib/check-up-response-rules";
+import { CHECK_UP_OUTCOME_LABEL } from "@/lib/check-up-evaluation-rules";
 import { canReadInternalAudits, INTERNAL_AUDIT_STATUS_LABEL } from "@/lib/internal-audit-rules";
+import { checkUpOutcomeTone } from "@/lib/status-tones";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { CheckUpResponseForm } from "@/components/CheckUpResponseForm";
+import { CheckUpEvaluationForm } from "@/components/CheckUpEvaluationForm";
 
 /**
  * One Check-up (PRD 0001 F-IA.4, F-IA.5, #155): the Control, the target, the audit's title and due
  * date and the questions. Its recipient (whoever owns the target now) answers here, and changes
  * the answer until the Check-up can no longer be changed; the roles that read Internal Audits see
- * the same page read-only, with the response. Anyone else sees nothing, and not whether the
+ * the same page read-only, with the response. An Internal Auditor evaluates an answered Check-up
+ * here, beneath the response (#156); once evaluated, everyone who can read the Check-up sees the
+ * outcome, the comment, who evaluated and when, and the response is read-only for its recipient too.
+ * Anyone else sees nothing, and not whether the
  * Check-up exists. The recipient needs no right to read Internal Audits: this page shows their
  * Check-up, not the audit.
  */
@@ -29,7 +35,7 @@ export default async function CheckUpPage({ params }: PageProps<"/check-ups/[id]
   }
 
   const isRecipient = checkUp.recipient?.id === user.id;
-  const lockedReason = checkUpResponseRefusal({ auditStatus: checkUp.audit.status });
+  const lockedReason = checkUpResponseRefusal({ auditStatus: checkUp.audit.status, evaluated: checkUp.evaluated });
   const changedLater = checkUp.response !== null && checkUp.response.updatedAt !== checkUp.response.respondedAt;
 
   return (
@@ -51,7 +57,9 @@ export default async function CheckUpPage({ params }: PageProps<"/check-ups/[id]
         {checkUp.control.code} {checkUp.control.title}
       </h1>
       <div className="mb-4 flex flex-wrap items-center gap-3 text-sm text-zinc-500">
-        {checkUp.answered ? (
+        {checkUp.evaluation ? (
+          <StatusChip tone={checkUpOutcomeTone(checkUp.evaluation.outcome)}>{CHECK_UP_OUTCOME_LABEL[checkUp.evaluation.outcome]}</StatusChip>
+        ) : checkUp.answered ? (
           <StatusChip tone="success">Answered</StatusChip>
         ) : checkUp.overdue ? (
           <StatusChip tone="danger">Overdue</StatusChip>
@@ -122,7 +130,7 @@ export default async function CheckUpPage({ params }: PageProps<"/check-ups/[id]
       </section>
 
       {checkUp.response && !access.canAnswer && (
-        <section>
+        <section className="mb-6">
           <h2 className="mb-1 text-lg">Evidence links</h2>
           {checkUp.response.evidenceLinks.length === 0 ? (
             <p className="text-sm text-zinc-500">No evidence links.</p>
@@ -140,6 +148,30 @@ export default async function CheckUpPage({ params }: PageProps<"/check-ups/[id]
             </ul>
           )}
         </section>
+      )}
+
+      {checkUp.evaluation ? (
+        <section aria-label="Evaluation">
+          <h2 className="mb-1 text-lg">Evaluation</h2>
+          <p className="mb-1 flex items-center gap-2 text-sm">
+            <StatusChip tone={checkUpOutcomeTone(checkUp.evaluation.outcome)}>{CHECK_UP_OUTCOME_LABEL[checkUp.evaluation.outcome]}</StatusChip>
+            <span className="text-zinc-500">
+              Evaluated by {checkUp.evaluation.evaluatedBy.name} on {checkUp.evaluation.evaluatedAt.slice(0, 10)}. An evaluation is final.
+            </span>
+          </p>
+          {checkUp.evaluation.comment ? (
+            <p className="whitespace-pre-wrap text-sm">{checkUp.evaluation.comment}</p>
+          ) : (
+            <p className="text-sm text-zinc-500">No comment.</p>
+          )}
+        </section>
+      ) : access.canEvaluate ? (
+        <section aria-label="Evaluate this Check-up">
+          <h2 className="mb-2 text-lg">Evaluate this Check-up</h2>
+          <CheckUpEvaluationForm checkUpId={checkUp.id} />
+        </section>
+      ) : (
+        checkUp.answered && <p className="text-sm text-zinc-500">Not evaluated yet.</p>
       )}
     </div>
   );
