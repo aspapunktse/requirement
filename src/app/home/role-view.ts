@@ -10,6 +10,7 @@ import { getControlOwnerTasks } from "@/lib/control-owner-tasks";
 import { riskSeverityTone } from "@/lib/status-tones";
 import { RISK_INCLUDE } from "@/lib/risks";
 import { visibleFrameworksWhere } from "@/lib/frameworks";
+import { canReadInternalAudits } from "@/lib/internal-audit-rules";
 
 /** Compliance Manager, Admin and Internal Auditor shortcut to the Organization's Control implementations (#120, #147). */
 const ORGANIZATION_CONTROLS_TILE: NavTile = {
@@ -23,6 +24,13 @@ const STATEMENT_OF_APPLICABILITY_TILE: NavTile = {
   title: "Statement of Applicability",
   description: "Every Control: included or excluded, why, and how far it is implemented.",
   href: "/statement-of-applicability",
+};
+
+/** The roles that read Internal Audits without running them (#152); the Internal Auditor's own tile is in its case. */
+const INTERNAL_AUDITS_READ_TILE: NavTile = {
+  title: "Internal Audits",
+  description: "Read-only: the audits the Internal Auditors plan and run.",
+  href: "/internal-audits",
 };
 
 /** The read-only Control Library (#169), for the roles that don't have the editor tile. */
@@ -56,7 +64,10 @@ export type RoleView = {
  */
 export async function roleView(user: { id: string; name: string; role: UserRole }): Promise<RoleView> {
   const [view, owner, controlRows] = await Promise.all([
-    roleOwnView(user).then((own) => withControlLibraryTile(own, user)).then(withStatementOfApplicabilityTile),
+    roleOwnView(user)
+      .then((own) => withControlLibraryTile(own, user))
+      .then(withStatementOfApplicabilityTile)
+      .then((view) => withInternalAuditsReadTile(user, view)),
     getOwnerTasks(user),
     getControlOwnerTasks(user),
   ]);
@@ -90,6 +101,11 @@ function withControlLibraryTile(view: RoleView, user: { role: UserRole }): RoleV
 
 function withStatementOfApplicabilityTile(view: RoleView): RoleView {
   return { ...view, tiles: [...view.tiles, STATEMENT_OF_APPLICABILITY_TILE] };
+}
+
+function withInternalAuditsReadTile(user: { role: UserRole }, view: RoleView): RoleView {
+  if (user.role === "INTERNAL_AUDITOR" || !canReadInternalAudits(user)) return view;
+  return { ...view, tiles: [...view.tiles, INTERNAL_AUDITS_READ_TILE] };
 }
 
 async function roleOwnView(user: { id: string; name: string; role: UserRole }): Promise<RoleView> {
@@ -141,9 +157,10 @@ async function roleOwnView(user: { id: string; name: string; role: UserRole }): 
     }
 
     case "INTERNAL_AUDITOR": {
-      const [systems, frameworks] = await Promise.all([
+      const [systems, frameworks, draftAudits] = await Promise.all([
         prisma.system.count(),
         prisma.framework.count({ where: visibleFrameworksWhere(user) }),
+        prisma.internalAudit.count({ where: { status: "DRAFT" } }),
       ]);
 
       return {
@@ -151,15 +168,15 @@ async function roleOwnView(user: { id: string; name: string; role: UserRole }): 
         stats: [
           { label: "Systems", value: systems },
           { label: "Frameworks", value: frameworks },
+          { label: "Draft Internal Audits", value: draftAudits },
         ],
         tasks: [],
         tiles: [
           {
             title: "Internal Audits",
-            description: "Your audits will be listed here. Nothing to show yet.",
+            description: "Plan an audit as a draft: pick the Controls, the Systems and whether the Organization is included.",
             href: "/internal-audits",
-            foot: "Coming soon",
-            disabled: true,
+            foot: draftAudits === 1 ? "1 draft" : `${draftAudits} drafts`,
           },
           { title: "Browse Systems", description: "Every System across every status, read-only.", href: "/systems" },
           ORGANIZATION_CONTROLS_TILE,

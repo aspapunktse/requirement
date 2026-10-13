@@ -72,3 +72,14 @@ export function requirementStatusTone(status: "MET" | "PARTIALLY_MET" | "NOT_MET
       return "neutral";
   }
 }
+
+export function internalAuditStatusTone(status: string): ChipTone {
+  switch (status) {
+    case "LAUNCHED":
+      return "accent";
+    case "CLOSED":
+      return "success";
+    default:
+      return "neutral";
+  }
+}
