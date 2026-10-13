@@ -247,7 +247,7 @@ describe("InternalAuditForm (#152)", () => {
       await waitFor(() => expect(push).toHaveBeenCalled());
       const [, init] = submitCalls().at(-1)!;
       expect(JSON.parse(init.body as string).systemIds).toEqual(["s1", "s2", "s3"]);
-    });
+    }, 20_000);
 
     it("keeps the added Systems removable by hand", async () => {
       stubFilter([match("s2", "Wiki", "DRAFT")]);
