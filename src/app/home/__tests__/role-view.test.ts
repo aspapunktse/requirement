@@ -83,7 +83,7 @@ describe("roleView: owner tasks for any role (#98)", () => {
     // Role stats kept; one owner stat added; "Open questions" not repeated.
     expect(labels(view)).toEqual(["Awaiting review", "Open questions", "Your Systems needing attention"]);
     expect(view.stats.find((s) => s.label === "Your Systems needing attention")?.value).toBe(1);
-    expect(view.tiles.map((t) => t.title)).toEqual(["Browse Systems", "Statement of Applicability"]);
+    expect(view.tiles.map((t) => t.title)).toEqual(["Browse Systems", "Control Library", "Statement of Applicability"]);
   });
 
   it("creates the My tasks list for an owning VIEWER, who has none today", async () => {
@@ -142,6 +142,7 @@ describe("roleView: owner tasks for any role (#98)", () => {
         "Internal Audits",
         "Browse Systems",
         "Organization Controls",
+        "Control Library",
         "Statement of Applicability",
       ]);
       expect(view.tiles.find((t) => t.title === "Internal Audits")).toMatchObject({ disabled: true });
@@ -187,7 +188,7 @@ describe("roleView: owner tasks for any role (#98)", () => {
         { label: "Needing attention", value: 1 },
         { label: "Open questions", value: 1 },
       ]);
-      expect(view.tiles.map((t) => t.title)).toEqual(["Create a System", "Browse your Systems", "Statement of Applicability"]);
+      expect(view.tiles.map((t) => t.title)).toEqual(["Create a System", "Browse your Systems", "Control Library", "Statement of Applicability"]);
     });
 
     it("still shows an empty My tasks and zeroed stats while owning nothing", async () => {
@@ -198,6 +199,24 @@ describe("roleView: owner tasks for any role (#98)", () => {
         { label: "Needing attention", value: 0 },
         { label: "Open questions", value: 0 },
       ]);
+    });
+  });
+
+  describe("the Control Library tile (#169)", () => {
+    it.each(["SYSTEM_OWNER", "RISK_OWNER", "REVIEWER", "VIEWER", "BUSINESS_RISK_OWNER", "INTERNAL_AUDITOR"] as UserRole[])(
+      "links the %s to the read-only page",
+      async (role) => {
+        const user = await makeUser(`cl-tile-${role}`, role);
+        const tiles = (await roleView(user)).tiles.filter((t) => t.title === "Control Library");
+        expect(tiles).toHaveLength(1);
+        expect(tiles[0].href).toBe("/controls");
+      },
+    );
+
+    it.each(["ADMIN", "COMPLIANCE_MANAGER"] as UserRole[])("keeps the %s's editor tile and adds no second one", async (role) => {
+      const user = await makeUser(`cl-tile-${role}`, role);
+      const tiles = (await roleView(user)).tiles.filter((t) => t.href === "/controls" || t.href === "/admin/controls");
+      expect(tiles.map((t) => t.href)).toEqual(["/admin/controls"]);
     });
   });
 
