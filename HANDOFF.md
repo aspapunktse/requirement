@@ -28,8 +28,8 @@ PRD 0001 · M4 Content & SoA:
 7. #149 CSA CCM 4 content as a Framework import file. Blocked by #144. **`ready-for-human`**, for the same reason.
 
 PRD 0001 · M5 Internal audit:
-1. #147 Add the Internal Auditor role.
-2. #152 Create a draft Internal Audit. Blocked by #147.
+1. #147 Add the Internal Auditor role. **Done: PR #168.**
+2. #152 Create a draft Internal Audit. Unblocked (#147 is done).
 3. #153 Select an Internal Audit's Systems by filter. Blocked by #152.
 4. #154 Check-up questions and launching an Internal Audit. Blocked by #152.
 5. #155 Answer a Check-up from My tasks. Blocked by #154.
@@ -41,7 +41,7 @@ Not cut into issues: the PRD's two "could" features, F-OUT.6 (PDF export of the 
 
 **State as of 2026-10-12**
 - PRD 0001 milestones 1, 2 and 3 are complete, closed and in production, and so is every follow-up to them. Milestones 4 and 5 are cut into issues and not started.
-- The last code change on `main` is #126 (PR #136), deployed by CD run 37222499029. Production has every migration up to `20261013100000_add_soa_exclusion_justification` (33 in all).
+- The last code change on `main` is #126 (PR #136), deployed by CD run 37222499029. Production has every migration up to `20261013110000_add_internal_auditor_role` (34 in all).
 - Other open issues:
   - #46 needs re-scoping against the PRD before anyone picks it up.
   - #61 is deferred.
@@ -91,9 +91,9 @@ Before M2: #91, unify the owner rule and restrict System creation (PR #96). Foll
 
 The dev DB is in its seeded state. When cleaning up after a browser check, compare with these counts.
 
-- 11 Systems (one is the Provider "Entra ID SSO"), 10 Users, 118 Controls, 527 Control Assessments, 2 Change Events, 4 Control Offerings, 2 Provider dependencies, and 92 Organization Control Implementations, all Not Started. No Control Owners.
+- 11 Systems (one is the Provider "Entra ID SSO"), 11 Users (the seed adds the Internal Auditor; run `npx prisma db seed` after pulling #147), 118 Controls, 527 Control Assessments, 2 Change Events, 4 Control Offerings, 2 Provider dependencies, and 92 Organization Control Implementations, all Not Started. No Control Owners.
 - The two Change Events are seeded state (the `"system"` events on GitHub and Microsoft 365 from the Capability migration): do not delete them.
-- 33 rows in `_prisma_migrations`.
+- 34 rows in `_prisma_migrations`.
 - Controls by applicability: 61 Organizational, 31 Both, 26 Per-System. All mandatory.
 - Frameworks: ISO/IEC 27001:2022, which is the base and Published. GDPR 1 and Export Control (EAR/ITAR) 1 are Published but have no Requirements yet.
 - ISO/IEC 27001:2022 figures: Jira 56 of 117 (47.9%), CATIA 9 of 117, Unily 6 of 117 ("needs assessment" 44 and 47), the Provider "Entra ID SSO" 4 of 117 ("needs assessment" 52), pooled 467 of 1288 (36.3%).
