@@ -71,7 +71,7 @@ Give the implementer the worktree path and the database name in the brief.
 ### Merge, one at a time
 
 - Merges stay serial, and the next one waits for the previous merge's CD run (step 6 of the loop).
-- After each merge, in the main checkout: `git pull`, stop the dev server, `npm ci` if the lockfile changed, `npx prisma migrate deploy`. This is the only way a migration reaches the dev DB.
+- After each merge, in the main checkout: `git pull`, stop the dev server, `npm ci` if the lockfile changed, `npx prisma migrate deploy`. This is the only way a migration reaches the dev DB. If the merge changed `prisma/schema.prisma`, also run `npx prisma generate`, and `npx prisma db seed` if it changed the seed: the main checkout's Prisma client is otherwise the one generated at the last `npm ci`, and the seed fails on a new enum value (#147).
 - Then bring the other in-flight branch up to date. Tell its implementer to `git merge origin/main`, run `npx prisma migrate deploy` against its database, resolve conflicts (`README.md`'s Project status is the usual one) and re-run the tests it touched.
 - If the "one migration in flight" rule was broken and the second branch also carries a migration: rename its migration directory to sort after the one just merged, recreate `requirement_<n>` from the dev DB, and repeat the drift and fresh-path proofs.
 

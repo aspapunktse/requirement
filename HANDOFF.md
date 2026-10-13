@@ -36,7 +36,7 @@ PRD 0001 · M5 Internal audit:
 6. #156 Evaluate a Check-up. Blocked by #155.
 7. #157 Nonconformity side effects: Risk and status set-back. Blocked by #156.
 8. #158 Withdraw Check-ups and close an Internal Audit. Blocked by #156.
-9. #169 Read-only Control Library page for every role. Follow-up to #147, no blocker.
+9. #169 Read-only Control Library page for every role. **Done: PR #170.**
 
 Not cut into issues: the PRD's two "could" features, F-OUT.6 (PDF export of the SoA) and F-IMP.4 (UI upload of Framework files, other Frameworks as data).
 
