@@ -12,7 +12,7 @@ import { GET } from "../route";
  */
 
 const SUFFIX = `${process.pid}-${Date.now()}`;
-const ROLES: UserRole[] = ["ADMIN", "COMPLIANCE_MANAGER", "SYSTEM_OWNER", "RISK_OWNER", "REVIEWER", "BUSINESS_RISK_OWNER", "VIEWER"];
+const ROLES: UserRole[] = ["ADMIN", "COMPLIANCE_MANAGER", "SYSTEM_OWNER", "RISK_OWNER", "REVIEWER", "BUSINESS_RISK_OWNER", "VIEWER", "INTERNAL_AUDITOR"];
 
 function get(userId: string | null) {
   const headers = new Headers();

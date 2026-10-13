@@ -16,7 +16,7 @@ import { PUT } from "../route";
 
 const SUFFIX = `${process.pid}-${Date.now()}`;
 const ALLOWED: UserRole[] = ["ADMIN", "COMPLIANCE_MANAGER"];
-const DENIED: UserRole[] = ["SYSTEM_OWNER", "RISK_OWNER", "REVIEWER", "BUSINESS_RISK_OWNER", "VIEWER"];
+const DENIED: UserRole[] = ["SYSTEM_OWNER", "RISK_OWNER", "REVIEWER", "BUSINESS_RISK_OWNER", "VIEWER", "INTERNAL_AUDITOR"];
 const CODE_PREFIX = `TEST-150-${SUFFIX}`;
 
 describe("PUT /api/statement-of-applicability/[controlId]/exclusion-justification (#150)", () => {

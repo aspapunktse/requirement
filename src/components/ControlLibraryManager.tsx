@@ -5,6 +5,8 @@ import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { NEW_CONTROL_DRAFT, NewControlFields, newControlBody } from "@/components/NewControlFields";
+import { canBeControlOwner } from "@/lib/system-permissions";
+import type { UserRole } from "@prisma/client";
 import { frameworkLabel, satisfiesEntries, satisfiesLabel, type ControlMappingForLabel } from "@/lib/framework-label";
 
 type Catalog = { id: string; name: string };
@@ -122,7 +124,10 @@ export function ControlLibraryManager() {
     return {
       controls: (controlsBody.controls ?? []) as ControlSummary[],
       deploymentFacets: (deploymentFacetsBody.deploymentFacets ?? []) as Catalog[],
-      users: ((usersBody.users ?? []) as ControlOwner[]).map(({ id, name }) => ({ id, name })),
+      users: ((usersBody.users ?? []) as (ControlOwner & { role?: UserRole })[])
+        // An Internal Auditor can't be a Control Owner (#147), so the picker doesn't offer one.
+        .filter((user) => !user.role || canBeControlOwner({ role: user.role }))
+        .map(({ id, name }) => ({ id, name })),
     };
   }
 

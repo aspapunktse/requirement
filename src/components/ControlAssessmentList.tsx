@@ -24,7 +24,8 @@ type UserRole =
   | "REVIEWER"
   | "VIEWER"
   | "BUSINESS_RISK_OWNER"
-  | "COMPLIANCE_MANAGER";
+  | "COMPLIANCE_MANAGER"
+  | "INTERNAL_AUDITOR";
 
 type SelfAssessmentAnswer = "YES" | "NO" | "NA";
 

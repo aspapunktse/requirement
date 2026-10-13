@@ -76,6 +76,12 @@ enum UserRole {
   // Separate from ADMIN, who keeps users, roles, and the remaining catalogs.
   // See #71 and PRD 0001 §5.
   COMPLIANCE_MANAGER
+  // Independent of what it audits (ISO 27001 clause 9.2): reads every System,
+  // Control, Framework, Assessment, Risk and Organization Control
+  // Implementation, and writes nothing outside its own Internal Audits and
+  // Check-ups (which come later). Strictly read-only elsewhere, even as the
+  // recorded owner of a System or Control. See #147 and PRD 0001 §5.
+  INTERNAL_AUDITOR
 }
 
 model User {

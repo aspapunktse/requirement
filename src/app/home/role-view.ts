@@ -9,8 +9,9 @@ import { getOwnerTasks, mergeTaskRows } from "@/lib/owner-tasks";
 import { getControlOwnerTasks } from "@/lib/control-owner-tasks";
 import { riskSeverityTone } from "@/lib/status-tones";
 import { RISK_INCLUDE } from "@/lib/risks";
+import { visibleFrameworksWhere } from "@/lib/frameworks";
 
-/** Compliance Manager and Admin shortcut to the Organization's Control implementations (#120). */
+/** Compliance Manager, Admin and Internal Auditor shortcut to the Organization's Control implementations (#120, #147). */
 const ORGANIZATION_CONTROLS_TILE: NavTile = {
   title: "Organization Controls",
   description: "How the Organization implements its Organizational and Both Controls.",
@@ -37,12 +38,13 @@ export type RoleView = {
  * (#98). Ownership is `ownerId` alone, whatever the role, so a REVIEWER or
  * VIEWER who owns a System also sees its rejected / stale / needs-assessment
  * rows and the Queries awaiting their reply. A user who owns nothing sees
- * exactly the role view. A COMPLIANCE_MANAGER never gets System owner tasks, and a
- * SYSTEM_OWNER always gets the section, even while it's empty.
+ * exactly the role view. A COMPLIANCE_MANAGER or INTERNAL_AUDITOR never gets System
+ * owner tasks, and a SYSTEM_OWNER always gets the section, even while it's empty.
  *
  * Control Owner tasks (#120) are separate: one row per Control the user owns
  * whose Organization Control Implementation is Not Started or In Progress, for
- * any role, a COMPLIANCE_MANAGER included (owning a Control is not owning a
+ * any role but the strictly read-only INTERNAL_AUDITOR (who may not edit the
+ * implementation), a COMPLIANCE_MANAGER included (owning a Control is not owning a
  * System). They follow the System owner rows and come before the role's own.
  */
 export async function roleView(user: { id: string; name: string; role: UserRole }): Promise<RoleView> {
@@ -121,6 +123,33 @@ async function roleOwnView(user: { id: string; name: string; role: UserRole }): 
           { title: "Frameworks", description: "Manage the Framework catalog.", href: "/admin/frameworks" },
           ORGANIZATION_CONTROLS_TILE,
           { title: "Browse Systems", description: "Every System across every status, read-only.", href: "/systems" },
+        ],
+      };
+    }
+
+    case "INTERNAL_AUDITOR": {
+      const [systems, frameworks] = await Promise.all([
+        prisma.system.count(),
+        prisma.framework.count({ where: visibleFrameworksWhere(user) }),
+      ]);
+
+      return {
+        lede: "Read everything and change nothing outside your own audits: every System, Control, Framework and Risk, with the Organization's implementation of each Control.",
+        stats: [
+          { label: "Systems", value: systems },
+          { label: "Frameworks", value: frameworks },
+        ],
+        tasks: [],
+        tiles: [
+          {
+            title: "Internal Audits",
+            description: "Your audits will be listed here. Nothing to show yet.",
+            href: "/internal-audits",
+            foot: "Coming soon",
+            disabled: true,
+          },
+          { title: "Browse Systems", description: "Every System across every status, read-only.", href: "/systems" },
+          ORGANIZATION_CONTROLS_TILE,
         ],
       };
     }

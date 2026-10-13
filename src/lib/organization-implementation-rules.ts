@@ -1,4 +1,5 @@
 import type { ControlApplicability, ControlAssessmentStatus, UserRole } from "@prisma/client";
+import { STRICTLY_READ_ONLY_ROLES } from "@/lib/system-permissions";
 
 /**
  * Who may edit an Organization Control Implementation, and what an edit must
@@ -24,9 +25,11 @@ export const ROLES_ALLOWED_TO_EDIT_ANY_ORGANIZATION_IMPLEMENTATION: UserRole[] =
  * May `user` edit the Organization Control Implementation of `control`: its
  * Control Owner (`ownerId` alone, whatever their role, a Viewer included), a
  * Compliance Manager or an Admin. Anyone not named is refused, including roles
- * added in future (allow-list, not deny-list).
+ * added in future (allow-list, not deny-list). A strictly read-only role (the
+ * Internal Auditor, #147) is refused even as the recorded Control Owner.
  */
 export function canEditOrganizationImplementation(user: Actor, control: { ownerId: string | null }) {
+  if (STRICTLY_READ_ONLY_ROLES.includes(user.role)) return false;
   if (ROLES_ALLOWED_TO_EDIT_ANY_ORGANIZATION_IMPLEMENTATION.includes(user.role)) return true;
   return control.ownerId !== null && control.ownerId === user.id;
 }

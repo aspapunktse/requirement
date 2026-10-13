@@ -4,6 +4,7 @@ import type { TaskRow } from "@/components/ui/TaskTable";
 import { getSystemsNeedingAttention } from "@/lib/dashboard";
 import { getActionableQueries } from "@/lib/assessment-queries";
 import { attentionReasonTone } from "@/lib/status-tones";
+import { isReadOnlySystemRole } from "@/lib/system-permissions";
 
 export type OwnerTasks = {
   /** How many Systems the user owns (`ownerId === user.id`). 0 means there is nothing owner-side to show. */
@@ -26,8 +27,8 @@ const NO_OWNER_TASKS: OwnerTasks = { ownedCount: 0, rows: [], needingAttentionCo
  * role's own tasks. An ADMIN's "admin rights over every System" is not
  * ownership: only Systems whose `ownerId` is the user count.
  *
- * A COMPLIANCE_MANAGER is strictly read-only on Systems (#71), so they get
- * nothing even when recorded as an owner.
+ * A COMPLIANCE_MANAGER (#71) or INTERNAL_AUDITOR (#147) is strictly read-only
+ * on Systems, so they get nothing even when recorded as an owner.
  *
  * Query semantics: `getActionableQueries` checks ownership before role (see
  * `isQueryActionableBy`), so for Systems the user owns it returns the
@@ -36,7 +37,7 @@ const NO_OWNER_TASKS: OwnerTasks = { ownedCount: 0, rows: [], needingAttentionCo
  * RISK_OWNER) only applies to Systems they don't own.
  */
 export async function getOwnerTasks(user: { id: string; role: UserRole }): Promise<OwnerTasks> {
-  if (user.role === "COMPLIANCE_MANAGER") return NO_OWNER_TASKS;
+  if (isReadOnlySystemRole(user)) return NO_OWNER_TASKS;
 
   const ownedSystemIds = (
     await prisma.system.findMany({ where: { ownerId: user.id }, select: { id: true } })

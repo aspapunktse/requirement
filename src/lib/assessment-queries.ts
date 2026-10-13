@@ -1,6 +1,7 @@
 import type { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { logChangeEvent } from "@/lib/change-events";
+import { isReadOnlySystemRole } from "@/lib/system-permissions";
 
 /**
  * Who can raise an Assessment Query, or resolve one — the same set for both.
@@ -13,6 +14,7 @@ export const ROLES_ALLOWED_TO_MANAGE_QUERIES: UserRole[] = ["REVIEWER", "RISK_OW
 
 /** Can `user` reply to (add a message on) an Assessment Query for `system`? */
 export function canReplyToQuery(user: { id: string; role: UserRole }, system: { ownerId: string }) {
+  if (isReadOnlySystemRole(user)) return false;
   return system.ownerId === user.id || ROLES_ALLOWED_TO_MANAGE_QUERIES.includes(user.role);
 }
 
@@ -129,6 +131,8 @@ export function isQueryActionableBy(
   user: { id: string; role: UserRole },
 ) {
   if (query.resolved) return false;
+  // A read-only System role can never act on a Query, even one on a System recorded as its own (#147).
+  if (isReadOnlySystemRole(user)) return false;
   const awaitingOwner = isAwaitingOwner(query, system);
   if (system.ownerId === user.id) return awaitingOwner;
   if (ROLES_ALLOWED_TO_MANAGE_QUERIES.includes(user.role)) return !awaitingOwner;

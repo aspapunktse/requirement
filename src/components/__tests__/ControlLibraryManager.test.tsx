@@ -242,6 +242,20 @@ describe("ControlLibraryManager", () => {
       await waitFor(() => expect(patchBody("r2")).toEqual({ ownerId: "u2" }));
     });
 
+    it("does not offer an Internal Auditor in the picker (#147)", async () => {
+      users = [...users, { id: "u3", name: "Ivy Auditor", email: "ivy@example.com", role: "INTERNAL_AUDITOR" }];
+      const user = userEvent.setup();
+      render(<ControlLibraryManager />);
+
+      await user.selectOptions(await screen.findByLabelText("Control"), "r2");
+      const picker = screen.getByLabelText("Control Owner");
+      expect(within(picker).getAllByRole("option").map((o) => o.textContent)).toEqual([
+        "No Control Owner",
+        "Ada Admin",
+        "Vera Viewer",
+      ]);
+    });
+
     it("pre-selects the current Control Owner and clears it with No Control Owner", async () => {
       controls[1] = { ...controls[1], owner: { id: "u1", name: "Ada Admin" } };
       const user = userEvent.setup();

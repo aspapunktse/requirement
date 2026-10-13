@@ -24,9 +24,10 @@ const ROLES: Record<string, UserRole> = {
   reviewer: "REVIEWER",
   viewer: "VIEWER",
   businessRiskOwner: "BUSINESS_RISK_OWNER",
+  internalAuditor: "INTERNAL_AUDITOR",
 };
 // Everyone except the two roles that may edit any Control's implementation.
-const OTHER_ROLES = ["riskOwner", "systemOwner", "reviewer", "viewer", "businessRiskOwner"];
+const OTHER_ROLES = ["riskOwner", "systemOwner", "reviewer", "viewer", "businessRiskOwner", "internalAuditor"];
 
 function req(controlId: string, userId: string | null, body: unknown) {
   const headers = new Headers({ "Content-Type": "application/json" });
@@ -109,7 +110,7 @@ describe("PATCH /api/organization/controls/[controlId] (#120)", () => {
   });
 
   describe("who may edit", () => {
-    it.each(Object.keys(ROLES))("lets a %s who is the Control Owner set status and description", async (who) => {
+    it.each(Object.keys(ROLES).filter((who) => who !== "internalAuditor"))("lets a %s who is the Control Owner set status and description", async (who) => {
       await ownerOf(controlId, users[who]);
       const response = await patch(controlId, users[who], { status: "IN_PROGRESS", description: "Policy drafted" });
       expect(response.status).toBe(200);
@@ -120,6 +121,13 @@ describe("PATCH /api/organization/controls/[controlId] (#120)", () => {
         implementation: { status: "IN_PROGRESS", description: "Policy drafted", updatedBy: { id: users[who] } },
       });
       expect(await rowOf(controlId)).toMatchObject({ status: "IN_PROGRESS", description: "Policy drafted", updatedById: users[who] });
+    });
+
+    it("refuses an internalAuditor even as the Control Owner (403) and changes nothing: strictly read-only (#147)", async () => {
+      await ownerOf(controlId, users.internalAuditor);
+      const response = await patch(controlId, users.internalAuditor, { status: "FULFILLED", description: "Done" });
+      expect(response.status).toBe(403);
+      expect(await rowOf(controlId)).toBeNull();
     });
 
     it.each(["complianceManager", "admin"])("lets a %s edit a Control owned by someone else", async (who) => {

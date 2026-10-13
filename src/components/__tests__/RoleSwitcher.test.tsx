@@ -64,6 +64,32 @@ describe("RoleSwitcher", () => {
     expect(screen.getByRole("option", { name: /Rita Risk/ })).toBeInTheDocument();
   });
 
+  it("lists the Internal Auditor with its role label and can pick it (#147)", async () => {
+    const auditor = { id: "u4", name: "Ivy Auditor", email: "ivy@example.com", role: "INTERNAL_AUDITOR" };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: string | URL | Request, init?: RequestInit) => {
+        const url = typeof input === "string" ? input : input.toString();
+        if (url.includes("/api/users")) {
+          return Promise.resolve(new Response(JSON.stringify({ users: [...users, auditor] }), { status: 200 }));
+        }
+        if (url.includes("/api/session/acting-user") && init?.method === "POST") {
+          return Promise.resolve(new Response(JSON.stringify({ user: auditor }), { status: 200 }));
+        }
+        return Promise.resolve(new Response(JSON.stringify({ user: users[0] }), { status: 200 }));
+      }),
+    );
+    const user = userEvent.setup();
+    render(<RoleSwitcher />);
+
+    await user.click(await screen.findByRole("button", { name: /Acting as/ }));
+    const option = screen.getByRole("option", { name: /Ivy Auditor/ });
+    expect(option).toHaveTextContent("INTERNAL AUDITOR");
+
+    await user.click(option);
+    await waitFor(() => expect(postedUserId()).toBe("u4"));
+  });
+
   it("posts the clicked user and redirects to /home", async () => {
     const user = userEvent.setup();
     render(<RoleSwitcher />);

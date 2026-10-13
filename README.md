@@ -8,7 +8,7 @@ The app is being developed into a governance, risk and compliance (GRC) tool. Th
 
 ## Project status
 
-PRD 0001 is delivered in five milestones. Three are in production; two are cut into issues and not started.
+PRD 0001 is delivered in five milestones. Three are in production; two are cut into issues and in progress or not started.
 
 | Milestone | Status |
 | --- | --- |
@@ -16,14 +16,14 @@ PRD 0001 is delivered in five milestones. Three are in production; two are cut i
 | 2. Applicability & continuous compliance | In production |
 | 3. Inheritance | In production |
 | 4. Content & SoA | In progress: the Statement of Applicability view (#145) with its exclusion justifications (#150), the Framework import loader (#144), Framework version lineage (#146) and CSV export (#151) are built; issues #148 and #149 remain |
-| 5. Internal audit | Not started (issues #147, #152–#158) |
+| 5. Internal audit | In progress: the read-only Internal Auditor role (#147) is built; issues #152–#158 remain |
 
 The queue and what to do next are in [`HANDOFF.md`](HANDOFF.md). The per-issue record of how everything up to milestone 3 was built (routes, migrations, rules, test files) is in [`docs/implementation-history.md`](docs/implementation-history.md).
 
 ### What works today
 
 - **Onboarding lifecycle:** create a System, assess it against the Control Library, log Risks, submit for review, a Reviewer approves or rejects (Rejected returns to Draft), mark Onboarded.
-- **Roles:** a dev-only auth stub with a role switcher and server-enforced authorization for seven roles: Admin, Risk Owner, System Owner, Reviewer, Viewer, Business Risk Owner and Compliance Manager. Seeing a System never implies writing to it; owner actions belong to the System's owner or an Admin.
+- **Roles:** a dev-only auth stub with a role switcher and server-enforced authorization for eight roles: Admin, Risk Owner, System Owner, Reviewer, Viewer, Business Risk Owner, Compliance Manager and Internal Auditor. Seeing a System never implies writing to it; owner actions belong to the System's owner or an Admin. The Internal Auditor reads everything and writes nothing, even as a System's or Control's recorded owner.
 - **Requirement database:** Frameworks (versioned, Draft or Published) own their Requirements, which are linked to Controls by Control Mappings with Full or Partial Coverage. ISO/IEC 27001:2022 is the base Framework, with Annex A and clauses 4–10.
 - **Framework import:** `npm run frameworks:load` loads Framework files (Requirements, Control Mappings, Supplementary Controls) as a Draft, idempotently; a Published Framework is only touched with `--allow-published`. The format is in [`prisma/seed-data/frameworks/README.md`](prisma/seed-data/frameworks/README.md).
 - **Framework authoring and coverage:** a Compliance Manager authors Requirements and mappings and publishes a Framework. The Framework Coverage view shows covered Requirements, Coverage Gaps and accepted gaps, and a Supplementary Control can be created straight from a gap. Its Download CSV exports the whole view. Both Framework lists show each Framework's version lineage; a Draft is hidden from users who can't see Drafts.
@@ -42,7 +42,7 @@ The queue and what to do next are in [`HANDOFF.md`](HANDOFF.md). The per-issue r
 ### Not built yet
 
 - **Milestone 4:** the Cybersäkerhetslagen and CSA CCM 4 content.
-- **Milestone 5:** the Internal Auditor role, Internal Audits, Check-ups and Nonconformity findings.
+- **Milestone 5:** Internal Audits, Check-ups and Nonconformity findings (the Internal Auditor's `/home` has a placeholder for the audits).
 - **The GDPR and Export Control (EAR/ITAR) Frameworks** are Published but have no Requirements.
 - **Other open issues:** #46 (Control content versioning and notifications; needs re-scoping against the PRD), #61 (a per-System audit trail; deferred) and #63 (a lint cleanup of effect-based data fetching).
 

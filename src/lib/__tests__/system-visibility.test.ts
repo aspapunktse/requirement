@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { canWriteSystems, visibleSystemsWhere } from "../system-visibility";
 
 describe("visibleSystemsWhere", () => {
-  it.each(["ADMIN", "RISK_OWNER", "REVIEWER", "COMPLIANCE_MANAGER"] as const)(
+  it.each(["ADMIN", "RISK_OWNER", "REVIEWER", "COMPLIANCE_MANAGER", "INTERNAL_AUDITOR"] as const)(
     "returns an unrestricted clause for %s",
     async (role) => {
       expect(await visibleSystemsWhere({ id: "u1", role })).toEqual({});
@@ -81,6 +81,10 @@ describe("visibleSystemsWhere", () => {
 describe("canWriteSystems", () => {
   it("is false for COMPLIANCE_MANAGER, which reads every System but never changes one (#71)", () => {
     expect(canWriteSystems({ role: "COMPLIANCE_MANAGER" })).toBe(false);
+  });
+
+  it("is false for INTERNAL_AUDITOR, which reads every System but never changes one (#147)", () => {
+    expect(canWriteSystems({ role: "INTERNAL_AUDITOR" })).toBe(false);
   });
 
   it.each(["ADMIN", "RISK_OWNER", "SYSTEM_OWNER", "REVIEWER", "VIEWER", "BUSINESS_RISK_OWNER"] as const)(
