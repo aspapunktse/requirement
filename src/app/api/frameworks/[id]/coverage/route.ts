@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { authenticate } from "@/lib/api-authz";
-import { visibleFrameworksWhere } from "@/lib/frameworks";
+import { findVisibleFramework } from "@/lib/frameworks";
 import { loadFrameworkCoverage } from "@/lib/framework-coverage";
 
 /**
@@ -15,10 +14,7 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/framewor
   if ("response" in auth) return auth.response;
 
   const { id } = await ctx.params;
-  const framework = await prisma.framework.findFirst({
-    where: { id, ...visibleFrameworksWhere(auth.user) },
-    select: { id: true, name: true, version: true, status: true, isBase: true },
-  });
+  const framework = await findVisibleFramework(auth.user, id);
   if (!framework) {
     return NextResponse.json({ error: "Framework not found" }, { status: 404 });
   }

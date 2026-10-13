@@ -20,6 +20,18 @@ export function visibleFrameworksWhere(user: { role: UserRole }): Prisma.Framewo
 }
 
 /**
+ * The Framework with this id if the user may see it, otherwise null (a Draft is
+ * "not found" for anyone who can't see Drafts). The one visibility check of the
+ * Coverage view's JSON route and its CSV export.
+ */
+export function findVisibleFramework(user: { role: UserRole }, id: string) {
+  return prisma.framework.findFirst({
+    where: { id, ...visibleFrameworksWhere(user) },
+    select: { id: true, name: true, version: true, status: true, isBase: true },
+  });
+}
+
+/**
  * Prisma `include` for a Control plus everything the admin UI and API show
  * about it. Its Control Mappings feed both the "Satisfies" line and the
  * reverse view (every Requirement mapped to the Control); mappings into Draft

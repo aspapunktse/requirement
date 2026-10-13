@@ -176,3 +176,13 @@ describe("StatementOfApplicability exclusion justifications (#150)", () => {
     expect(screen.getByText("Exclusion justifications missing: 1")).toBeInTheDocument();
   });
 });
+
+describe("StatementOfApplicability CSV download (#151)", () => {
+  it.each([false, true])("links to the export, whatever the filter (canEdit %s)", async (canEdit) => {
+    render(<StatementOfApplicability rows={rows} canEdit={canEdit} />);
+    await userEvent.click(screen.getByRole("button", { name: /^Excluded/ }));
+    const link = screen.getByRole("link", { name: "Download CSV" });
+    expect(link).toHaveAttribute("href", "/api/statement-of-applicability/export");
+    expect(link).toHaveAttribute("download");
+  });
+});
