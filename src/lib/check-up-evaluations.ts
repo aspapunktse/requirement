@@ -56,7 +56,7 @@ export async function evaluateCheckUp(
   checkUpId: string,
   user: { id: string; role: UserRole },
   input: EvaluationInput | null,
-  now = new Date(),
+  now?: Date,
 ): Promise<{ evaluationId: string }> {
   if (!canEvaluateCheckUps(user)) throw new CheckUpResponseError(403, "Only an Internal Auditor can evaluate a Check-up");
 
@@ -103,10 +103,10 @@ async function record(
   },
   evaluation: ValidEvaluation,
   actorId: string,
-  now: Date,
+  now: Date | undefined,
 ): Promise<{ evaluationId: string }> {
   const created = await tx.checkUpEvaluation.create({
-    data: { checkUpId, outcome: evaluation.outcome, comment: evaluation.comment, evaluatedById: actorId, evaluatedAt: now },
+    data: { checkUpId, outcome: evaluation.outcome, comment: evaluation.comment, evaluatedById: actorId, evaluatedAt: now ?? new Date() },
     select: { id: true },
   });
   // System-less even for a System-level Check-up: it is evidence about the audit, not a change to the System.
