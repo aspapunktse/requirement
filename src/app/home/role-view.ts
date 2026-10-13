@@ -33,6 +33,13 @@ const INTERNAL_AUDITS_READ_TILE: NavTile = {
   href: "/internal-audits",
 };
 
+/** The read-only Control Library (#169), for the roles that don't have the editor tile. */
+const CONTROL_LIBRARY_TILE: NavTile = {
+  title: "Control Library",
+  description: "Every Control: what it applies to and the Requirements it satisfies. Read-only.",
+  href: "/controls",
+};
+
 export type RoleView = {
   lede: string;
   stats: { label: string; value: number | string }[];
@@ -57,7 +64,10 @@ export type RoleView = {
  */
 export async function roleView(user: { id: string; name: string; role: UserRole }): Promise<RoleView> {
   const [view, owner, controlRows] = await Promise.all([
-    roleOwnView(user).then(withStatementOfApplicabilityTile).then((view) => withInternalAuditsReadTile(user, view)),
+    roleOwnView(user)
+      .then((own) => withControlLibraryTile(own, user))
+      .then(withStatementOfApplicabilityTile)
+      .then((view) => withInternalAuditsReadTile(user, view)),
     getOwnerTasks(user),
     getControlOwnerTasks(user),
   ]);
@@ -81,6 +91,12 @@ export async function roleView(user: { id: string; name: string; role: UserRole 
   }
 
   return { ...view, stats, tasks: mergeTaskRows([...owner.rows, ...controlRows], view.tasks ?? []) };
+}
+
+/** Admin and Compliance Manager already have the editor tile; everyone else gets the read-only page. */
+function withControlLibraryTile(view: RoleView, user: { role: UserRole }): RoleView {
+  if (user.role === "ADMIN" || user.role === "COMPLIANCE_MANAGER") return view;
+  return { ...view, tiles: [...view.tiles, CONTROL_LIBRARY_TILE] };
 }
 
 function withStatementOfApplicabilityTile(view: RoleView): RoleView {

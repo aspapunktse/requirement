@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getActingUser } from "@/lib/acting-user";
 import { ControlLibraryManager } from "@/components/ControlLibraryManager";
 import { ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE } from "@/lib/catalog";
@@ -13,7 +14,11 @@ export default async function ControlLibraryPage() {
     return (
       <p className="p-6 text-zinc-600 dark:text-zinc-400">
         Only Compliance Managers and Admins can author Controls and map them to Deployment
-        Facets and Impact Levels.
+        Facets and Impact Levels.{" "}
+        <Link href="/controls" className="text-ems-blue hover:underline">
+          Read the Control Library
+        </Link>
+        .
       </p>
     );
   }
