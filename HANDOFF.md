@@ -23,7 +23,7 @@ PRD 0001 · M4 Content & SoA:
 2. #145 Statement of Applicability view. **Done: PR #162.**
 3. #146 Framework version lineage in the Framework list. **Done: PR #164.**
 4. #150 Statement of Applicability: exclusion justifications. **Done: PR #165.**
-5. #151 CSV export of the Framework Coverage view and the Statement of Applicability. Unblocked (#145 is done).
+5. #151 CSV export of the Framework Coverage view and the Statement of Applicability. **Done: PR #167.**
 6. #148 Cybersäkerhetslagen content as a Framework import file. Blocked by #144. **`ready-for-human`**: the product owner attaches the source documents first, then relabels it `ready-for-agent`.
 7. #149 CSA CCM 4 content as a Framework import file. Blocked by #144. **`ready-for-human`**, for the same reason.
 

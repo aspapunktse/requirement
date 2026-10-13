@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Button } from "@/components/ui/Button";
+import { Button, buttonClassName } from "@/components/ui/Button";
 import { StatusChip, type ChipTone } from "@/components/ui/StatusChip";
 import { NEW_CONTROL_DRAFT, NewControlFields, newControlBody, type NewControlDraft } from "@/components/NewControlFields";
 import {
   COVERAGE_STATE_LABEL,
+  groupBySection,
   matchesCoverageFilter,
   type CoverageFilter,
   type CoverageState,
@@ -20,19 +21,6 @@ export type { CoverageRequirement };
 const STATE_TONE: Record<CoverageState, ChipTone> = { COVERED: "success", GAP: "danger", ACCEPTED_GAP: "warn" };
 
 type Action = { requirementId: string; kind: "accept" | "create" };
-
-function groupBySection(requirements: CoverageRequirement[]) {
-  const groups = new Map<string, CoverageRequirement[]>();
-  for (const requirement of requirements) {
-    groups.set(requirement.section, [...(groups.get(requirement.section) ?? []), requirement]);
-  }
-  return [...groups.entries()]
-    .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
-    .map(([section, items]) => ({
-      section,
-      items: items.sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true })),
-    }));
-}
 
 async function errorMessage(response: Response, fallback: string): Promise<string> {
   try {
@@ -159,19 +147,28 @@ export function FrameworkCoverageView({
         Coverage Gap. An accepted gap counts as resolved.
       </p>
 
-      <label className="flex items-center gap-2 text-sm">
-        Show
-        <select
-          aria-label="Coverage filter"
-          className="rounded border border-zinc-200 p-1 text-sm dark:border-zinc-800 dark:bg-transparent"
-          value={filter}
-          onChange={(event) => setFilter(event.target.value as CoverageFilter)}
+      <div className="flex flex-wrap items-center gap-4">
+        <label className="flex items-center gap-2 text-sm">
+          Show
+          <select
+            aria-label="Coverage filter"
+            className="rounded border border-zinc-200 p-1 text-sm dark:border-zinc-800 dark:bg-transparent"
+            value={filter}
+            onChange={(event) => setFilter(event.target.value as CoverageFilter)}
+          >
+            <option value="ALL">All Requirements</option>
+            <option value="GAPS">Gaps only</option>
+            <option value="ACCEPTED">Accepted gaps only</option>
+          </select>
+        </label>
+        <a
+          href={`/api/frameworks/${framework.id}/coverage/export`}
+          download
+          className={buttonClassName("outline", "ml-auto")}
         >
-          <option value="ALL">All Requirements</option>
-          <option value="GAPS">Gaps only</option>
-          <option value="ACCEPTED">Accepted gaps only</option>
-        </select>
-      </label>
+          Download CSV
+        </a>
+      </div>
 
       {error && (
         <p role="alert" className="text-sm text-red-600">
