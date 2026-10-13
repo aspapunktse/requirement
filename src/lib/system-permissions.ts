@@ -22,12 +22,37 @@ import type { ControlAssessmentStatus, SelfAssessmentAnswer, UserRole } from "@p
  *   the creator becomes the System's owner.
  *
  * "The System's owner" is `system.ownerId`, whatever the owner's role — a
- * RISK_OWNER who owns the System is simply its owner. The one exception is
- * COMPLIANCE_MANAGER, which is strictly read-only on Systems (#71).
+ * RISK_OWNER who owns the System is simply its owner. The exceptions are the
+ * read-only System roles (`READ_ONLY_SYSTEM_ROLES`): COMPLIANCE_MANAGER (#71)
+ * and INTERNAL_AUDITOR (#147) never write to a System, even as its recorded
+ * owner. That is the one place the guarantee lives: every owner rule below
+ * and in the `canX` helpers goes through `isSystemOwnerOrAdmin`.
  */
 
 type Actor = { id: string; role: UserRole };
 type OwnedSystem = { ownerId: string };
+
+/**
+ * Roles that see Systems purely to read them: they may never create or change
+ * a System, its lifecycle, classification, Control Assessments, Risks or
+ * Assessment Queries, not even as the System's recorded owner. The
+ * COMPLIANCE_MANAGER reads them to curate applicability and coverage (#71);
+ * the INTERNAL_AUDITOR to audit them, independently of what it audits (#147).
+ */
+export const READ_ONLY_SYSTEM_ROLES: UserRole[] = ["COMPLIANCE_MANAGER", "INTERNAL_AUDITOR"];
+
+/** Is `user` a role that may only read Systems (see READ_ONLY_SYSTEM_ROLES)? */
+export function isReadOnlySystemRole(user: { role: UserRole }) {
+  return READ_ONLY_SYSTEM_ROLES.includes(user.role);
+}
+
+/**
+ * Roles that never write anywhere outside their own work, so being recorded as
+ * a Control's Control Owner (#119) gives them no right to edit its Organization
+ * Control Implementation (#120). The COMPLIANCE_MANAGER is not here: it curates
+ * the requirement database, so it may edit any implementation.
+ */
+export const STRICTLY_READ_ONLY_ROLES: UserRole[] = ["INTERNAL_AUDITOR"];
 
 /** Statuses that only go through the waive gate (mirrors `checkWaiveGate`). */
 export const WAIVE_GATED_STATUSES: ControlAssessmentStatus[] = ["WAIVED", "NOT_APPLICABLE"];
@@ -47,13 +72,13 @@ export function canCreateSystem(user: { role: UserRole }) {
 }
 
 /**
- * The System's owner, or an ADMIN (a COMPLIANCE_MANAGER is never either).
+ * The System's owner, or an ADMIN (a read-only System role is never either).
  * "Owner" means `ownerId` alone, whatever the user's role (#91): the one rule
  * every owner action goes through.
  */
 export function isSystemOwnerOrAdmin(user: Actor, system: OwnedSystem) {
   if (user.role === "ADMIN") return true;
-  if (user.role === "COMPLIANCE_MANAGER") return false;
+  if (isReadOnlySystemRole(user)) return false;
   return system.ownerId === user.id;
 }
 

@@ -17,7 +17,7 @@ describe("GET /api/users", () => {
   const adminEmail = "test-users-route-admin@example.com";
   const businessRiskOwnerEmail = "test-users-route-bro@example.com";
   const complianceManagerEmail = "test-users-route-cm@example.com";
-  const refusedRoles = ["VIEWER", "REVIEWER", "RISK_OWNER", "SYSTEM_OWNER", "BUSINESS_RISK_OWNER"] as const;
+  const refusedRoles = ["VIEWER", "REVIEWER", "RISK_OWNER", "SYSTEM_OWNER", "BUSINESS_RISK_OWNER", "INTERNAL_AUDITOR"] as const;
   const refusedEmail = (role: string) => `test-users-route-${role.toLowerCase().replace(/_/g, "-")}@example.com`;
   let adminId: string;
   let complianceManagerId: string;

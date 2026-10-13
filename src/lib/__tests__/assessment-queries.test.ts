@@ -23,6 +23,11 @@ describe("canReplyToQuery", () => {
   it("forbids a SYSTEM_OWNER who doesn't own this System", () => {
     expect(canReplyToQuery({ id: "other", role: "SYSTEM_OWNER" }, { ownerId: "owner-1" })).toBe(false);
   });
+
+  it.each(["INTERNAL_AUDITOR", "COMPLIANCE_MANAGER"] as const)("forbids a %s, also as the recorded owner (#147)", (role) => {
+    expect(canReplyToQuery({ id: "owner-1", role }, { ownerId: "owner-1" })).toBe(false);
+    expect(canReplyToQuery({ id: "other", role }, { ownerId: "owner-1" })).toBe(false);
+  });
 });
 
 describe("isAwaitingOwner / isQueryActionableBy", () => {
@@ -54,6 +59,15 @@ describe("isAwaitingOwner / isQueryActionableBy", () => {
     const resolved = { resolved: true, lastMessageAuthorId: "owner-1" };
     expect(isQueryActionableBy(resolved, system, { id: "owner-1", role: "SYSTEM_OWNER" })).toBe(false);
     expect(isQueryActionableBy(resolved, system, { id: "any", role: "REVIEWER" })).toBe(false);
+  });
+
+  it("is never actionable by an INTERNAL_AUDITOR, also as the recorded owner (#147)", () => {
+    const awaitingOwner = { resolved: false, lastMessageAuthorId: "reviewer-1" };
+    const awaitingReviewer = { resolved: false, lastMessageAuthorId: "owner-1" };
+    for (const query of [awaitingOwner, awaitingReviewer]) {
+      expect(isQueryActionableBy(query, system, { id: "owner-1", role: "INTERNAL_AUDITOR" })).toBe(false);
+      expect(isQueryActionableBy(query, system, { id: "any", role: "INTERNAL_AUDITOR" })).toBe(false);
+    }
   });
 
   it("is never actionable by a VIEWER or an unrelated SYSTEM_OWNER", () => {

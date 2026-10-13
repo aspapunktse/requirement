@@ -14,6 +14,7 @@ const users = [
   { id: "u1", name: "Ada Admin", email: "ada@example.com", role: "ADMIN" },
   { id: "u2", name: "Vic Viewer", email: "vic@example.com", role: "VIEWER" },
   { id: "u3", name: "Rita Risk", email: "rita@example.com", role: "RISK_OWNER" },
+  { id: "u4", name: "Ivy Auditor", email: "ivy@example.com", role: "INTERNAL_AUDITOR" },
 ];
 
 function postedUserId() {
@@ -62,6 +63,18 @@ describe("RoleSwitcher", () => {
     expect(screen.getByRole("option", { name: /Ada Admin/ })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("option", { name: /Vic Viewer/ })).toHaveAttribute("aria-selected", "false");
     expect(screen.getByRole("option", { name: /Rita Risk/ })).toBeInTheDocument();
+  });
+
+  it("lists the Internal Auditor with its role label and can pick it (#147)", async () => {
+    const user = userEvent.setup();
+    render(<RoleSwitcher />);
+
+    await user.click(await screen.findByRole("button", { name: /Acting as/ }));
+    const option = screen.getByRole("option", { name: /Ivy Auditor/ });
+    expect(option).toHaveTextContent("INTERNAL AUDITOR");
+
+    await user.click(option);
+    await waitFor(() => expect(postedUserId()).toBe("u4"));
   });
 
   it("posts the clicked user and redirects to /home", async () => {

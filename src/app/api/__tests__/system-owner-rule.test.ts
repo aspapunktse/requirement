@@ -204,6 +204,7 @@ describe("The System's owner is ownerId, whatever the role (#91)", () => {
       ["VIEWER", "VIEWER"],
       ["BUSINESS_RISK_OWNER", "BUSINESS_RISK_OWNER"],
       ["COMPLIANCE_MANAGER", "COMPLIANCE_MANAGER"],
+      ["INTERNAL_AUDITOR", "INTERNAL_AUDITOR"],
       ["ADMIN", "ADMIN"],
       ["otherSystemOwner", "SYSTEM_OWNER"],
     ];
@@ -259,7 +260,7 @@ describe("The System's owner is ownerId, whatever the role (#91)", () => {
     await expectAllOwnerActionsAllowed(systemId, "ADMIN");
   });
 
-  it.each(["REVIEWER", "RISK_OWNER", "COMPLIANCE_MANAGER"] as const)(
+  it.each(["REVIEWER", "RISK_OWNER", "COMPLIANCE_MANAGER", "INTERNAL_AUDITOR"] as const)(
     "refuses a %s who doesn't own a Draft System they can see (a RISK_OWNER may still log a Risk on any System)",
     async (role) => {
       const systemId = await makeSystem("otherSystemOwner");
@@ -286,6 +287,14 @@ describe("The System's owner is ownerId, whatever the role (#91)", () => {
     await expectAllRefused(draft, "COMPLIANCE_MANAGER", "COMPLIANCE_MANAGER", 403);
     const approved = await makeSystem("COMPLIANCE_MANAGER", "APPROVED");
     await expectAllRefused(approved, "COMPLIANCE_MANAGER", "COMPLIANCE_MANAGER", 403);
+    expect((await prisma.system.findUniqueOrThrow({ where: { id: approved } })).status).toBe("APPROVED");
+  });
+
+  it("refuses an INTERNAL_AUDITOR even when recorded as the System's owner (read-only, #147)", async () => {
+    const draft = await makeSystem("INTERNAL_AUDITOR", "DRAFT");
+    await expectAllRefused(draft, "INTERNAL_AUDITOR", "INTERNAL_AUDITOR", 403);
+    const approved = await makeSystem("INTERNAL_AUDITOR", "APPROVED");
+    await expectAllRefused(approved, "INTERNAL_AUDITOR", "INTERNAL_AUDITOR", 403);
     expect((await prisma.system.findUniqueOrThrow({ where: { id: approved } })).status).toBe("APPROVED");
   });
 

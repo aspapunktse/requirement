@@ -46,7 +46,7 @@ const controls: OrganizationControlRow[] = [
 const rowOf = (code: string) => screen.getByText(code).closest("tr") as HTMLElement;
 
 function renderAs(
-  user: { id: string; role: "ADMIN" | "COMPLIANCE_MANAGER" | "VIEWER" | "SYSTEM_OWNER" },
+  user: { id: string; role: "ADMIN" | "COMPLIANCE_MANAGER" | "VIEWER" | "SYSTEM_OWNER" | "INTERNAL_AUDITOR" },
   props: { initialMine?: boolean } = {},
 ) {
   return render(<OrganizationControlImplementations controls={controls} user={user} {...props} />);
@@ -99,6 +99,12 @@ describe("OrganizationControlImplementations (#120)", () => {
   it.each(["COMPLIANCE_MANAGER", "ADMIN"] as const)("lets a %s edit every Control", (role) => {
     renderAs({ id: "u-any", role });
     expect(screen.getAllByRole("button", { name: /^Edit / })).toHaveLength(3);
+  });
+
+  it("shows an Internal Auditor every row and no way to edit, also on a Control it is recorded as the owner of (#147)", () => {
+    renderAs({ id: "u-owner", role: "INTERNAL_AUDITOR" });
+    expect(screen.getByText("A.5.1")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Edit/ })).not.toBeInTheDocument();
   });
 
   it("does not let a System Owner who owns no Control edit anything", () => {

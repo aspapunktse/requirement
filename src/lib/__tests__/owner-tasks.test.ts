@@ -80,7 +80,7 @@ describe("getOwnerTasks", () => {
     });
     controlId = control.id;
 
-    for (const role of [...OWNING_ROLES, "COMPLIANCE_MANAGER" as const]) {
+    for (const role of [...OWNING_ROLES, "COMPLIANCE_MANAGER" as const, "INTERNAL_AUDITOR" as const]) {
       const user = await makeUser(role, role);
       // A rejected Draft is the cheapest "needs attention" System: no Controls involved.
       const system = await makeSystem(user.id, `rejected ${role}`);
@@ -137,6 +137,11 @@ describe("getOwnerTasks", () => {
 
   it("gives a COMPLIANCE_MANAGER nothing, even though they are recorded as a System's owner", async () => {
     const tasks = await getOwnerTasks({ id: userIds["COMPLIANCE_MANAGER"], role: "COMPLIANCE_MANAGER" });
+    expect(tasks).toEqual({ ownedCount: 0, rows: [], needingAttentionCount: 0, openQuestionCount: 0 });
+  });
+
+  it("gives an INTERNAL_AUDITOR nothing, even though they are recorded as a System's owner (#147)", async () => {
+    const tasks = await getOwnerTasks({ id: userIds["INTERNAL_AUDITOR"], role: "INTERNAL_AUDITOR" });
     expect(tasks).toEqual({ ownedCount: 0, rows: [], needingAttentionCount: 0, openQuestionCount: 0 });
   });
 

@@ -84,6 +84,29 @@ describe("ControlAssessmentList", () => {
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
   });
 
+  it.each(["auditor", "owner"] as const)(
+    "shows an Internal Auditor (recorded owner id %s) Assessments and Queries with no way to change them (#147)",
+    async (systemOwnerId) => {
+      // The System page passes readOnly and no edit access for a read-only System role.
+      render(
+        <ControlAssessmentList
+          systemId="s1"
+          userRole="INTERNAL_AUDITOR"
+          currentUserId="auditor"
+          systemOwnerId={systemOwnerId}
+          readOnly
+          assessmentEditAccess="none"
+        />,
+      );
+
+      expect(await screen.findByText("A.5.1 — Policies for information security")).toBeInTheDocument();
+      expect(screen.getByText("Which version?")).toBeInTheDocument();
+      expect(screen.queryByLabelText("Status for A.5.1")).not.toBeInTheDocument();
+      expect(screen.queryByRole("button")).not.toBeInTheDocument();
+      expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+    },
+  );
+
   it("with no Assessment edit access hides the edit form and answers but keeps query actions (#78)", async () => {
     render(
       <ControlAssessmentList
@@ -294,6 +317,7 @@ describe("ControlAssessmentList removing a stale Assessment (#109)", () => {
     ["a Reviewer", "REVIEWER", "reviewer", "owner", false],
     ["a Risk Owner who doesn't own the System", "RISK_OWNER", "ro", "owner", false],
     ["a Compliance Manager, even as the recorded owner", "COMPLIANCE_MANAGER", "cm", "cm", false],
+    ["an Internal Auditor, even as the recorded owner", "INTERNAL_AUDITOR", "ia", "ia", false],
     ["an owner on a read-only page", "SYSTEM_OWNER", "owner", "owner", true],
   ] as const)("hides Remove from %s", async (_label, role, userId, ownerId, readOnly) => {
     stubFetch([staleRow()]);
@@ -563,6 +587,7 @@ describe("ControlAssessmentList: reset to inherited (#129)", () => {
     ["a Risk Owner who doesn't own the System (waive-only)", { userRole: "RISK_OWNER", currentUserId: "ro", assessmentEditAccess: "waive-only" }],
     ["a Risk Owner who doesn't own the System, even given full access", { userRole: "RISK_OWNER", currentUserId: "ro" }],
     ["a Compliance Manager, even as the recorded owner", { userRole: "COMPLIANCE_MANAGER", currentUserId: "owner" }],
+    ["an Internal Auditor, even as the recorded owner", { userRole: "INTERNAL_AUDITOR", currentUserId: "owner" }],
     ["an owner on a read-only page", { readOnly: true }],
   ] as const)("hides it from %s", async (_label, props) => {
     stubFetch([rowOf(personSet, [organization("FULFILLED")])]);

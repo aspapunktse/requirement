@@ -1,9 +1,10 @@
-import type { ControlAssessmentStatus } from "@prisma/client";
+import type { ControlAssessmentStatus, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { TaskRow } from "@/components/ui/TaskTable";
 import { CONTROL_ASSESSMENT_STATUS_LABEL } from "@/lib/requirement-status-rules";
 import { controlAssessmentStatusTone } from "@/lib/status-tones";
 import { ORGANIZATION_IMPLEMENTED_APPLICABILITIES } from "@/lib/organization-implementation-rules";
+import { STRICTLY_READ_ONLY_ROLES } from "@/lib/system-permissions";
 
 /** Where a Control Owner's task rows lead: the Organization's Controls, narrowed to the ones they own. */
 export const CONTROL_OWNER_TASKS_HREF = "/organization/controls?mine=1";
@@ -18,9 +19,12 @@ export const OPEN_IMPLEMENTATION_STATUSES: ControlAssessmentStatus[] = ["NOT_STA
  * row counts as Not Started. Keyed on `ownerId` alone, whatever the user's role,
  * a Compliance Manager included: this is not System ownership, so the rule that a
  * Compliance Manager gets no System owner tasks (#71, #98) does not apply. A
- * Per-System Control has no implementation, so it never produces a task.
+ * Per-System Control has no implementation, so it never produces a task. A
+ * strictly read-only role (the Internal Auditor, #147) gets none either: it may
+ * not edit the implementation, so a task would lead nowhere.
  */
-export async function getControlOwnerTasks(user: { id: string }): Promise<TaskRow[]> {
+export async function getControlOwnerTasks(user: { id: string; role?: UserRole }): Promise<TaskRow[]> {
+  if (user.role && STRICTLY_READ_ONLY_ROLES.includes(user.role)) return [];
   const controls = await prisma.control.findMany({
     where: {
       ownerId: user.id,

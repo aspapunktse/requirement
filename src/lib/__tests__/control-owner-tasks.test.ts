@@ -151,6 +151,12 @@ describe("Control Owner tasks (#120)", () => {
       expect(view.stats.map((s) => s.label)).not.toContain("Your Systems needing attention");
     });
 
+    it("gives an Internal Auditor no Control rows: it may not edit the implementation, so a task would lead nowhere (#147)", async () => {
+      const auditor = await makeUser("INTERNAL_AUDITOR");
+      await makeControl(auditor.id, "NOT_STARTED");
+      expect(await getControlOwnerTasks(auditor)).toEqual([]);
+    });
+
     it("creates My tasks for a Viewer who owns a Control, with nothing else in it", async () => {
       const viewer = await makeUser("VIEWER");
       await makeControl(viewer.id, "IN_PROGRESS");

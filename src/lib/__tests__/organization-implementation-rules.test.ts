@@ -15,6 +15,7 @@ const ALL_ROLES: UserRole[] = [
   "REVIEWER",
   "BUSINESS_RISK_OWNER",
   "VIEWER",
+  "INTERNAL_AUDITOR",
 ];
 const ALL_STATUSES: ControlAssessmentStatus[] = ["NOT_STARTED", "IN_PROGRESS", "FULFILLED", "NOT_APPLICABLE", "WAIVED"];
 
@@ -22,13 +23,19 @@ describe("canEditOrganizationImplementation (#120)", () => {
   const userId = "user-1";
   const ownedBy = (ownerId: string | null) => ({ ownerId });
 
-  it.each(ALL_ROLES)("lets a %s edit a Control they own, whatever their role", (role) => {
+  it.each(ALL_ROLES.filter((role) => role !== "INTERNAL_AUDITOR"))("lets a %s edit a Control they own, whatever their role", (role) => {
     expect(canEditOrganizationImplementation({ id: userId, role }, ownedBy(userId))).toBe(true);
   });
 
   it.each(["ADMIN", "COMPLIANCE_MANAGER"] as UserRole[])("lets a %s edit any Control, owned by someone else or unowned", (role) => {
     expect(canEditOrganizationImplementation({ id: userId, role }, ownedBy("someone-else"))).toBe(true);
     expect(canEditOrganizationImplementation({ id: userId, role }, ownedBy(null))).toBe(true);
+  });
+
+  it("refuses an INTERNAL_AUDITOR even as the Control Owner: strictly read-only (#147)", () => {
+    expect(canEditOrganizationImplementation({ id: userId, role: "INTERNAL_AUDITOR" }, ownedBy(userId))).toBe(false);
+    expect(canEditOrganizationImplementation({ id: userId, role: "INTERNAL_AUDITOR" }, ownedBy("someone-else"))).toBe(false);
+    expect(canEditOrganizationImplementation({ id: userId, role: "INTERNAL_AUDITOR" }, ownedBy(null))).toBe(false);
   });
 
   it.each(ALL_ROLES.filter((role) => role !== "ADMIN" && role !== "COMPLIANCE_MANAGER"))(

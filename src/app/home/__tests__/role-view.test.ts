@@ -132,6 +132,45 @@ describe("roleView: owner tasks for any role (#98)", () => {
     expect(labels(view)).toEqual(["Controls", "Frameworks"]);
   });
 
+  describe("INTERNAL_AUDITOR (#147)", () => {
+    it("has a disabled Internal Audits tile (no link yet), the read tiles and an empty My tasks", async () => {
+      const auditor = await makeUser("auditor", "INTERNAL_AUDITOR");
+      const view = await roleView(auditor);
+      expect(view.tasks).toEqual([]);
+      expect(labels(view)).toEqual(["Systems", "Frameworks"]);
+      expect(view.tiles.map((t) => t.title)).toEqual([
+        "Internal Audits",
+        "Browse Systems",
+        "Organization Controls",
+        "Statement of Applicability",
+      ]);
+      expect(view.tiles.find((t) => t.title === "Internal Audits")).toMatchObject({ disabled: true });
+      expect(view.tiles.filter((t) => t.title !== "Internal Audits").every((t) => !t.disabled)).toBe(true);
+    });
+
+    it("gives no owner tasks even when recorded as a System owner, and no Control Owner tasks for a Control it owns", async () => {
+      const auditor = await makeUser("auditor-owner", "INTERNAL_AUDITOR");
+      await ownedSystemWithQuery(auditor.id, "auditor-owned");
+      const owned = await prisma.control.create({
+        data: {
+          code: `TEST-HOME-IA-${suffix}`,
+          title: `Test home IA Control ${suffix}`,
+          description: "desc",
+          category: "Security",
+          applicability: "ORGANIZATIONAL",
+          ownerId: auditor.id,
+        },
+      });
+      try {
+        const view = await roleView(auditor);
+        expect(view.tasks).toEqual([]);
+        expect(labels(view)).toEqual(["Systems", "Frameworks"]);
+      } finally {
+        await prisma.control.delete({ where: { id: owned.id } });
+      }
+    });
+  });
+
   describe("SYSTEM_OWNER is unchanged", () => {
     it("shows the owner rows and the two owner stats, each row once", async () => {
       const owner = await makeUser("system-owner", "SYSTEM_OWNER");
@@ -171,6 +210,7 @@ describe("roleView: owner tasks for any role (#98)", () => {
       "REVIEWER",
       "BUSINESS_RISK_OWNER",
       "VIEWER",
+      "INTERNAL_AUDITOR",
     ];
 
     it.each(ALL_ROLES)("is on the %s's home", async (role) => {

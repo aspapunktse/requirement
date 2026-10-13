@@ -7,6 +7,7 @@ import {
   canEditAssessment,
   canSubmit,
   canWaiveControl,
+  isReadOnlySystemRole,
   isSystemOwnerOrAdmin,
   waiveRefusal,
 } from "../system-permissions";
@@ -27,10 +28,11 @@ const ALL_ROLES: UserRole[] = [
   "VIEWER",
   "BUSINESS_RISK_OWNER",
   "COMPLIANCE_MANAGER",
+  "INTERNAL_AUDITOR",
 ];
 const ALL_STATUSES: ControlAssessmentStatus[] = ["NOT_STARTED", "IN_PROGRESS", "FULFILLED", "NOT_APPLICABLE", "WAIVED"];
 const ALL_ANSWERS: SelfAssessmentAnswer[] = ["YES", "NO", "NA"];
-const NON_OWNER_NO_ACCESS_ROLES = ["SYSTEM_OWNER", "REVIEWER", "VIEWER", "BUSINESS_RISK_OWNER", "COMPLIANCE_MANAGER"] as const;
+const NON_OWNER_NO_ACCESS_ROLES = ["SYSTEM_OWNER", "REVIEWER", "VIEWER", "BUSINESS_RISK_OWNER", "COMPLIANCE_MANAGER", "INTERNAL_AUDITOR"] as const;
 
 describe("isSystemOwnerOrAdmin / canSubmit", () => {
   it("allows an ADMIN on any System", () => {
@@ -38,7 +40,7 @@ describe("isSystemOwnerOrAdmin / canSubmit", () => {
     expect(canSubmit({ id: "a", role: "ADMIN" }, system)).toBe(true);
   });
 
-  it.each(ALL_ROLES.filter((role) => role !== "ADMIN" && role !== "COMPLIANCE_MANAGER"))(
+  it.each(ALL_ROLES.filter((role) => role !== "ADMIN" && !isReadOnlySystemRole({ role })))(
     "allows the System's owner whatever their role (%s), and nobody else of that role",
     (role) => {
       expect(canSubmit({ id: "owner", role }, system)).toBe(true);
@@ -49,6 +51,11 @@ describe("isSystemOwnerOrAdmin / canSubmit", () => {
   it("never allows a COMPLIANCE_MANAGER, even as the recorded owner (#71)", () => {
     expect(canSubmit({ id: "owner", role: "COMPLIANCE_MANAGER" }, system)).toBe(false);
     expect(canSubmit({ id: "cm", role: "COMPLIANCE_MANAGER" }, system)).toBe(false);
+  });
+
+  it("never allows an INTERNAL_AUDITOR, even as the recorded owner (#147)", () => {
+    expect(canSubmit({ id: "owner", role: "INTERNAL_AUDITOR" }, system)).toBe(false);
+    expect(canSubmit({ id: "ia", role: "INTERNAL_AUDITOR" }, system)).toBe(false);
   });
 });
 
@@ -163,7 +170,7 @@ describe("canCreateSystem (#91)", () => {
     expect(canCreateSystem({ role })).toBe(true);
   });
 
-  it.each(["REVIEWER", "VIEWER", "BUSINESS_RISK_OWNER", "COMPLIANCE_MANAGER"] as const)("refuses a %s", (role) => {
+  it.each(["REVIEWER", "VIEWER", "BUSINESS_RISK_OWNER", "COMPLIANCE_MANAGER", "INTERNAL_AUDITOR"] as const)("refuses a %s", (role) => {
     expect(canCreateSystem({ role })).toBe(false);
   });
 
@@ -193,7 +200,7 @@ describe("owner actions share one owner rule (#91)", () => {
   ];
 
   describe.each(ownerActions)("%s", (_name, can) => {
-    it.each(ALL_ROLES.filter((role) => role !== "COMPLIANCE_MANAGER"))(
+    it.each(ALL_ROLES.filter((role) => !isReadOnlySystemRole({ role })))(
       "allows the owner whatever their role (%s)",
       (role) => {
         expect(can({ id: "owner", role }, draft)).toBe(true);
@@ -204,10 +211,13 @@ describe("owner actions share one owner rule (#91)", () => {
       expect(can({ id: "a", role: "ADMIN" }, draft)).toBe(true);
     });
 
-    it("never allows a COMPLIANCE_MANAGER, even as the recorded owner", () => {
-      expect(can({ id: "owner", role: "COMPLIANCE_MANAGER" }, draft)).toBe(false);
-      expect(can({ id: "cm", role: "COMPLIANCE_MANAGER" }, draft)).toBe(false);
-    });
+    it.each(["COMPLIANCE_MANAGER", "INTERNAL_AUDITOR"] as const)(
+      "never allows a %s, even as the recorded owner",
+      (role) => {
+        expect(can({ id: "owner", role }, draft)).toBe(false);
+        expect(can({ id: "other", role }, draft)).toBe(false);
+      },
+    );
   });
 
   it.each(["SYSTEM_OWNER", "REVIEWER", "VIEWER", "BUSINESS_RISK_OWNER"] as const)(
