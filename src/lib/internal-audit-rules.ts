@@ -11,15 +11,16 @@ import { hasOrganizationImplementation } from "@/lib/organization-implementation
 /**
  * Roles that create, edit and delete an Internal Audit. Only the Internal Auditor:
  * an Admin or Compliance Manager would be auditing their own work (ISO 27001 clause
- * 9.2), so they are refused too. Any Internal Auditor may edit or delete any draft,
- * not only the one who created it: audits are a small team's shared work.
+ * 9.2), so they are refused too. Product-owner decision of 2026-10-13 (comment on
+ * #152): any Internal Auditor may edit or delete any draft, not only its creator.
  */
 export const ROLES_ALLOWED_TO_WRITE_INTERNAL_AUDITS: UserRole[] = ["INTERNAL_AUDITOR"];
 
 /**
- * Roles that may read the list and an audit. Debatable (flagged on #152): Admin,
- * Compliance Manager and Risk Owner see audits to follow them. A System Owner meets
- * an audit only through the Check-ups sent to them (#155), so sees nothing here yet.
+ * Roles that may read the list and an audit. Product-owner decision of 2026-10-13
+ * (comment on #152): the Internal Auditor, Admin, Compliance Manager and Risk Owner.
+ * A System Owner meets an audit only through the Check-ups sent to them (#155), so
+ * sees nothing here yet.
  */
 export const ROLES_ALLOWED_TO_READ_INTERNAL_AUDITS: UserRole[] = [
   ...ROLES_ALLOWED_TO_WRITE_INTERNAL_AUDITS,
@@ -69,8 +70,9 @@ export function formatCalendarDate(date: Date): string {
 
 /**
  * Why `dueDate` ("YYYY-MM-DD") isn't acceptable as an audit's due date, or null if it is:
- * not a real date, or before today (UTC; today itself is fine). Applied when an audit is
- * created and when its due date is changed, and reusable by launch (#154).
+ * not a real date, or before today (UTC; today itself is fine). Product-owner decision of
+ * 2026-10-13 (comment on #152): refused when an audit is created and when its due date is
+ * changed. Reusable by launch (#154).
  */
 export function dueDateRefusal(dueDate: string, now: Date = new Date()): string | null {
   const parsed = parseCalendarDate(dueDate);

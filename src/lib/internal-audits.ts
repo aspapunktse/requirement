@@ -44,6 +44,10 @@ export type InternalAuditDetail = {
 export type ControlChoice = { id: string; code: string; title: string; applicability: ControlApplicability };
 export type SystemChoice = { id: string; name: string; vendor: string | null; status: OnboardingStatus };
 
+// Control codes sort numerically (A.5.2 before A.5.10), as elsewhere in the app (the Statement of Applicability).
+const codeCollator = new Intl.Collator("en", { numeric: true });
+const byCode = (a: { code: string }, b: { code: string }) => codeCollator.compare(a.code, b.code);
+
 /** A refusal with the HTTP status the route answers with. */
 export class InternalAuditError extends Error {
   constructor(
@@ -103,7 +107,6 @@ export async function getInternalAudit(id: string): Promise<InternalAuditDetail 
     const [controls, systems] = await Promise.all([
       tx.control.findMany({
         where: { id: { in: controlRows.map((row) => row.controlId) } },
-        orderBy: { code: "asc" },
         select: { id: true, code: true, title: true, applicability: true },
       }),
       tx.system.findMany({
@@ -122,7 +125,7 @@ export async function getInternalAudit(id: string): Promise<InternalAuditDetail 
       createdBy: audit.createdBy,
       createdAt: audit.createdAt.toISOString(),
       updatedAt: audit.updatedAt.toISOString(),
-      controls,
+      controls: controls.sort(byCode),
       systems,
     };
   }, SNAPSHOT);
@@ -132,7 +135,6 @@ export async function getInternalAudit(id: string): Promise<InternalAuditDetail 
 export async function listAuditChoices(): Promise<{ controls: ControlChoice[]; systems: SystemChoice[] }> {
   const [controls, systems] = await Promise.all([
     prisma.control.findMany({
-      orderBy: { code: "asc" },
       select: { id: true, code: true, title: true, applicability: true },
     }),
     prisma.system.findMany({
@@ -140,7 +142,7 @@ export async function listAuditChoices(): Promise<{ controls: ControlChoice[]; s
       select: { id: true, name: true, vendor: true, status: true },
     }),
   ]);
-  return { controls, systems };
+  return { controls: controls.sort(byCode), systems };
 }
 
 export type InternalAuditInput = {

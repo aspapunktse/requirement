@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { listAuditChoices } from "@/lib/internal-audits";
 import { requestAs } from "@/test/provider-fixtures";
 import { GET as listAudits, POST as createAudit } from "../route";
 import { GET as getAudit, PATCH as patchAudit, DELETE as deleteAudit } from "../[id]/route";
@@ -394,6 +395,25 @@ describe("/api/internal-audits (#152)", () => {
       expect(rename.status).toBe(400);
       const repair = await patchAudit(as("INTERNAL_AUDITOR", "PATCH", `/api/internal-audits/${draft.id}`, { controlIds: [controlB.id] }), ctx(draft.id));
       expect(repair.status).toBe(200);
+    });
+  });
+
+  describe("Control order", () => {
+    it("lists an audit's Controls with codes in numeric order, not text order", async () => {
+      const c2 = await makeControl("2", "PER_SYSTEM");
+      const c10 = await makeControl("10", "PER_SYSTEM");
+      const draft = await createDraft({ title: "Test 152 Order", controlIds: [c10.id, c2.id] });
+      const response = await getAudit(as("ADMIN", "GET", `/api/internal-audits/${draft.id}`), ctx(draft.id));
+      const codes = (await response.json()).internalAudit.controls.map((c: { code: string }) => c.code);
+      expect(codes).toEqual([c2.code, c10.code]);
+    });
+
+    it("offers the picker's Controls in numeric order too", async () => {
+      const c2 = await makeControl("2P", "PER_SYSTEM");
+      const c10 = await makeControl("10P", "PER_SYSTEM");
+      const { controls } = await listAuditChoices();
+      const codes = controls.map((c) => c.code).filter((code) => [c2.code, c10.code].includes(code));
+      expect(codes).toEqual([c2.code, c10.code]);
     });
   });
 
