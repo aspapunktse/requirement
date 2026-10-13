@@ -697,8 +697,8 @@ model InternalAuditControl {
   control         Control       @relation(fields: [controlId], references: [id], onDelete: Cascade)
   createdAt       DateTime      @default(now())
 
-  // The draft's questions for this Control, in order (empty once launched: each Check-up then
-  // carries its own copy).
+  // The draft's questions for this Control, in order. Kept after launch as the plan's record; each
+  // Check-up carries its own copy.
   questions InternalAuditQuestion[]
   // The Check-ups generated for this audit-Control pair (#154).
   checkUps  CheckUp[]

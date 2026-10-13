@@ -142,7 +142,9 @@ describe("InternalAuditForm (#152)", () => {
       createdBy: { id: "u1", name: "Auditor" },
       createdAt: "2026-10-13T00:00:00.000Z",
       updatedAt: "2026-10-13T00:00:00.000Z",
-      controls: [controls[0]],
+      launchedAt: null,
+      launchedBy: null,
+      controls: [{ ...controls[0], questions: [] }],
       systems: [{ id: "s1", name: "Payroll", status: "ONBOARDED" }],
     };
 

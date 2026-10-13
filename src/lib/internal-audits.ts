@@ -1,5 +1,6 @@
 import type { ControlApplicability, InternalAuditStatus, OnboardingStatus, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { defaultQuestionsFor } from "@/lib/check-up-rules";
 import {
   dueDateRefusal,
   formatCalendarDate,
@@ -37,7 +38,11 @@ export type InternalAuditDetail = {
   createdBy: { id: string; name: string };
   createdAt: string;
   updatedAt: string;
-  controls: { id: string; code: string; title: string; applicability: ControlApplicability }[];
+  /** Set once launched (#154). */
+  launchedAt: string | null;
+  launchedBy: { id: string; name: string } | null;
+  /** `questions`: the draft's questions for the Control, in order (empty once launched: each Check-up has its own copy). */
+  controls: { id: string; code: string; title: string; applicability: ControlApplicability; questions: string[] }[];
   systems: { id: string; name: string; status: OnboardingStatus }[];
 };
 
@@ -97,11 +102,14 @@ export async function getInternalAudit(id: string): Promise<InternalAuditDetail 
   return prisma.$transaction(async (tx) => {
     const audit = await tx.internalAudit.findUnique({
       where: { id },
-      include: { createdBy: { select: { id: true, name: true } } },
+      include: { createdBy: { select: { id: true, name: true } }, launchedBy: { select: { id: true, name: true } } },
     });
     if (!audit) return null;
     const [controlRows, systemRows] = await Promise.all([
-      tx.internalAuditControl.findMany({ where: { internalAuditId: id }, select: { controlId: true } }),
+      tx.internalAuditControl.findMany({
+        where: { internalAuditId: id },
+        select: { controlId: true, questions: { orderBy: { position: "asc" }, select: { text: true } } },
+      }),
       tx.internalAuditSystem.findMany({ where: { internalAuditId: id }, select: { systemId: true } }),
     ]);
     const [controls, systems] = await Promise.all([
@@ -115,6 +123,7 @@ export async function getInternalAudit(id: string): Promise<InternalAuditDetail 
         select: { id: true, name: true, status: true },
       }),
     ]);
+    const questionsByControlId = new Map(controlRows.map((row) => [row.controlId, row.questions.map((q) => q.text)]));
     return {
       id: audit.id,
       title: audit.title,
@@ -125,7 +134,9 @@ export async function getInternalAudit(id: string): Promise<InternalAuditDetail 
       createdBy: audit.createdBy,
       createdAt: audit.createdAt.toISOString(),
       updatedAt: audit.updatedAt.toISOString(),
-      controls: controls.sort(byCode),
+      launchedAt: audit.launchedAt?.toISOString() ?? null,
+      launchedBy: audit.launchedBy,
+      controls: controls.sort(byCode).map((control) => ({ ...control, questions: questionsByControlId.get(control.id) ?? [] })),
       systems,
     };
   }, SNAPSHOT);
@@ -155,6 +166,30 @@ export type InternalAuditInput = {
 };
 
 const unique = (ids: string[]) => [...new Set(ids)];
+
+/**
+ * Gives each of `controlIds`, newly a target of draft `internalAuditId`, its starting question
+ * list: the Control's Self-Assessment Question as it is now (#154). It is a copy, taken once: the
+ * draft's question does not follow later edits to the Control. A Control without a question
+ * starts with none, and must be given one before launch.
+ */
+async function seedDefaultQuestions(tx: Prisma.TransactionClient, internalAuditId: string, controlIds: string[]) {
+  if (controlIds.length === 0) return;
+  const [rows, controls] = await Promise.all([
+    tx.internalAuditControl.findMany({ where: { internalAuditId, controlId: { in: controlIds } }, select: { id: true, controlId: true } }),
+    tx.control.findMany({ where: { id: { in: controlIds } }, select: { id: true, question: true } }),
+  ]);
+  const questionByControlId = new Map(controls.map((control) => [control.id, control.question]));
+  await tx.internalAuditQuestion.createMany({
+    data: rows.flatMap((row) =>
+      defaultQuestionsFor(questionByControlId.get(row.controlId)).map((text, index) => ({
+        internalAuditControlId: row.id,
+        position: index + 1,
+        text,
+      })),
+    ),
+  });
+}
 
 async function requireExisting(tx: Prisma.TransactionClient, controlIds: string[], systemIds: string[]) {
   const [controls, systems] = await Promise.all([
@@ -201,6 +236,7 @@ export async function createInternalAudit(input: InternalAuditInput, createdById
       },
       select: { id: true },
     });
+    await seedDefaultQuestions(tx, audit.id, draft.controlIds);
     return audit.id;
   });
 }
@@ -247,9 +283,11 @@ export async function updateInternalAudit(id: string, input: InternalAuditInput,
 
     const keptControls = new Set(current.controls.map((row) => row.controlId));
     await tx.internalAuditControl.deleteMany({ where: { internalAuditId: id, controlId: { notIn: draft.controlIds } } });
+    const newControlIds = draft.controlIds.filter((controlId) => !keptControls.has(controlId));
     await tx.internalAuditControl.createMany({
-      data: draft.controlIds.filter((controlId) => !keptControls.has(controlId)).map((controlId) => ({ internalAuditId: id, controlId })),
+      data: newControlIds.map((controlId) => ({ internalAuditId: id, controlId })),
     });
+    await seedDefaultQuestions(tx, id, newControlIds);
     const keptSystems = new Set(current.systems.map((row) => row.systemId));
     await tx.internalAuditSystem.deleteMany({ where: { internalAuditId: id, systemId: { notIn: draft.systemIds } } });
     await tx.internalAuditSystem.createMany({

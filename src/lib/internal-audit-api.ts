@@ -17,13 +17,16 @@ export const internalAuditBodySchema = z.object({
   systemIds: z.array(z.string()).optional(),
 });
 
-/** Answers an `InternalAuditError` (or a Control / System deleted mid-write) as JSON; rethrows anything else. */
+/** Answers an `InternalAuditError` (or a Control / System deleted mid-write, or a concurrent write) as JSON; rethrows anything else. */
 export function internalAuditErrorResponse(error: unknown): NextResponse {
   if (error instanceof InternalAuditError) {
     return NextResponse.json({ error: error.message, problems: error.problems }, { status: error.status });
   }
   if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2003") {
     return NextResponse.json({ error: "A picked Control or System no longer exists" }, { status: 400 });
+  }
+  if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2034") {
+    return NextResponse.json({ error: "The Internal Audit changed at the same moment; try again" }, { status: 409 });
   }
   throw error;
 }
