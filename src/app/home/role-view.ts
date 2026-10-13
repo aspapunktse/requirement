@@ -17,6 +17,13 @@ const ORGANIZATION_CONTROLS_TILE: NavTile = {
   href: "/organization/controls",
 };
 
+/** Every role can read the Statement of Applicability (#145). */
+const STATEMENT_OF_APPLICABILITY_TILE: NavTile = {
+  title: "Statement of Applicability",
+  description: "Every Control: included or excluded, why, and how far it is implemented.",
+  href: "/statement-of-applicability",
+};
+
 export type RoleView = {
   lede: string;
   stats: { label: string; value: number | string }[];
@@ -40,7 +47,7 @@ export type RoleView = {
  */
 export async function roleView(user: { id: string; name: string; role: UserRole }): Promise<RoleView> {
   const [view, owner, controlRows] = await Promise.all([
-    roleOwnView(user),
+    roleOwnView(user).then(withStatementOfApplicabilityTile),
     getOwnerTasks(user),
     getControlOwnerTasks(user),
   ]);
@@ -64,6 +71,10 @@ export async function roleView(user: { id: string; name: string; role: UserRole 
   }
 
   return { ...view, stats, tasks: mergeTaskRows([...owner.rows, ...controlRows], view.tasks ?? []) };
+}
+
+function withStatementOfApplicabilityTile(view: RoleView): RoleView {
+  return { ...view, tiles: [...view.tiles, STATEMENT_OF_APPLICABILITY_TILE] };
 }
 
 async function roleOwnView(user: { id: string; name: string; role: UserRole }): Promise<RoleView> {

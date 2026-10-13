@@ -83,7 +83,7 @@ describe("roleView: owner tasks for any role (#98)", () => {
     // Role stats kept; one owner stat added; "Open questions" not repeated.
     expect(labels(view)).toEqual(["Awaiting review", "Open questions", "Your Systems needing attention"]);
     expect(view.stats.find((s) => s.label === "Your Systems needing attention")?.value).toBe(1);
-    expect(view.tiles.map((t) => t.title)).toEqual(["Browse Systems"]);
+    expect(view.tiles.map((t) => t.title)).toEqual(["Browse Systems", "Statement of Applicability"]);
   });
 
   it("creates the My tasks list for an owning VIEWER, who has none today", async () => {
@@ -148,7 +148,7 @@ describe("roleView: owner tasks for any role (#98)", () => {
         { label: "Needing attention", value: 1 },
         { label: "Open questions", value: 1 },
       ]);
-      expect(view.tiles.map((t) => t.title)).toEqual(["Create a System", "Browse your Systems"]);
+      expect(view.tiles.map((t) => t.title)).toEqual(["Create a System", "Browse your Systems", "Statement of Applicability"]);
     });
 
     it("still shows an empty My tasks and zeroed stats while owning nothing", async () => {
@@ -159,6 +159,25 @@ describe("roleView: owner tasks for any role (#98)", () => {
         { label: "Needing attention", value: 0 },
         { label: "Open questions", value: 0 },
       ]);
+    });
+  });
+
+  describe("the Statement of Applicability tile (#145)", () => {
+    const ALL_ROLES: UserRole[] = [
+      "ADMIN",
+      "COMPLIANCE_MANAGER",
+      "SYSTEM_OWNER",
+      "RISK_OWNER",
+      "REVIEWER",
+      "BUSINESS_RISK_OWNER",
+      "VIEWER",
+    ];
+
+    it.each(ALL_ROLES)("is on the %s's home", async (role) => {
+      const user = await makeUser(`soa-tile-${role}`, role);
+      const tiles = (await roleView(user)).tiles.filter((t) => t.href === "/statement-of-applicability");
+      expect(tiles).toHaveLength(1);
+      expect(tiles[0].title).toBe("Statement of Applicability");
     });
   });
 });
