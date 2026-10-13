@@ -9,6 +9,7 @@ import {
 } from "@/lib/internal-audit-rules";
 import { getInternalAudit } from "@/lib/internal-audits";
 import { getLaunchPreview, listCheckUps } from "@/lib/check-ups";
+import { checkUpProgress } from "@/lib/check-up-response-rules";
 import { internalAuditStatusTone } from "@/lib/status-tones";
 import { buttonClassName } from "@/components/ui/Button";
 import { StatusChip } from "@/components/ui/StatusChip";
@@ -21,7 +22,8 @@ import { LaunchInternalAuditPanel } from "@/components/LaunchInternalAuditPanel"
  * of it would audit nothing. While it is a draft, an Internal Auditor can edit it, write each
  * Control's questions, delete it and launch it, with a preview of what launching creates and
  * what blocks it. Once launched it is read-only and lists the Check-ups it generated, with
- * their current recipient (derived on every read: it follows a change of owner).
+ * their current recipient (derived on every read: it follows a change of owner), with the audit's
+ * progress (sent, answered, overdue; #155) and each Check-up's state, linked to its response.
  */
 export default async function InternalAuditPage({ params }: PageProps<"/internal-audits/[id]">) {
   const { id } = await params;
@@ -44,6 +46,7 @@ export default async function InternalAuditPage({ params }: PageProps<"/internal
   const canEdit = canWriteInternalAudits(user) && internalAuditEditRefusal(audit.status) === null;
   const isDraft = audit.status === "DRAFT";
   const [preview, checkUps] = await Promise.all([isDraft ? getLaunchPreview(audit.id) : null, isDraft ? [] : listCheckUps(audit.id)]);
+  const progress = checkUpProgress(checkUps);
   const notes = internalAuditNotes({
     includeOrganization: audit.includeOrganization,
     systemCount: audit.systems.length,
@@ -153,6 +156,9 @@ export default async function InternalAuditPage({ params }: PageProps<"/internal
       {!isDraft && (
         <section className="mb-6">
           <h2 className="mb-1 text-lg">Check-ups ({checkUps.length} sent)</h2>
+          <p className="mb-2 text-sm text-zinc-500" data-testid="check-up-progress">
+            {progress.sent} sent, {progress.answered} answered, {progress.overdue} overdue
+          </p>
           {checkUps.length === 0 ? (
             <p className="text-sm text-zinc-500">No Check-ups.</p>
           ) : (
@@ -162,6 +168,7 @@ export default async function InternalAuditPage({ params }: PageProps<"/internal
                   <th className="py-2 pr-4 font-medium">Control</th>
                   <th className="py-2 pr-4 font-medium">Target</th>
                   <th className="py-2 pr-4 font-medium">Recipient</th>
+                  <th className="py-2 pr-4 font-medium">Response</th>
                   <th className="py-2 font-medium">Questions</th>
                 </tr>
               </thead>
@@ -181,6 +188,17 @@ export default async function InternalAuditPage({ params }: PageProps<"/internal
                       )}
                     </td>
                     <td className="py-2 pr-4">{checkUp.recipient ? checkUp.recipient.name : <span className="text-zinc-500">No Control Owner</span>}</td>
+                    <td className="py-2 pr-4">
+                      <Link className="underline" href={`/check-ups/${checkUp.id}`}>
+                        {checkUp.answered ? "Answered: read the response" : "Not answered"}
+                      </Link>
+                      {checkUp.response && (
+                        <p className="text-zinc-500">
+                          {checkUp.response.respondedByName}, {checkUp.response.respondedAt.slice(0, 10)}
+                        </p>
+                      )}
+                      {checkUp.overdue && <StatusChip tone="danger">Overdue</StatusChip>}
+                    </td>
                     <td className="py-2">
                       <details>
                         <summary className="cursor-pointer">{checkUp.questions.length === 1 ? "1 question" : `${checkUp.questions.length} questions`}</summary>
