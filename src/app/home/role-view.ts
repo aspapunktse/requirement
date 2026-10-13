@@ -10,7 +10,7 @@ import { getControlOwnerTasks } from "@/lib/control-owner-tasks";
 import { getCheckUpTasks, MY_CHECK_UPS_HREF } from "@/lib/check-up-tasks";
 import { countAwaitingEvaluation } from "@/lib/check-up-evaluations";
 import { riskSeverityTone } from "@/lib/status-tones";
-import { RISK_INCLUDE } from "@/lib/risks";
+import { ORGANIZATION_RISK_LABEL, riskHref, RISK_INCLUDE, SYSTEM_RISK_WHERE } from "@/lib/risks";
 import { visibleFrameworksWhere } from "@/lib/frameworks";
 import { canReadInternalAudits } from "@/lib/internal-audit-rules";
 
@@ -267,7 +267,8 @@ async function roleOwnView(user: { id: string; name: string; role: UserRole }): 
       const scope = await getAssignedScope(user.id);
       const [openRisks, openQueries] = await Promise.all([
         prisma.risk.findMany({
-          where: { status: "OPEN", system: scopedSystemsWhere(scope) },
+          // Never an Organization Risk (#157): the scoped views are per System.
+          where: { status: "OPEN", ...SYSTEM_RISK_WHERE, system: scopedSystemsWhere(scope) },
           include: { ...RISK_INCLUDE, system: { select: { id: true, name: true } } },
           orderBy: { createdAt: "desc" },
         }),
@@ -315,11 +316,11 @@ function riskAndQueryTasks(
       id: risk.id,
       kind: "Risk",
       title: risk.title,
-      subtitle: risk.system.name,
+      subtitle: risk.system?.name ?? ORGANIZATION_RISK_LABEL,
       tone: riskSeverityTone(risk.severity),
       status: risk.severity,
       updatedAt: risk.updatedAt,
-      href: `/systems/${risk.system.id}`,
+      href: riskHref(risk),
     })),
     ...openQueries.map((query): TaskRow => ({
       id: query.id,

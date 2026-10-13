@@ -51,7 +51,7 @@ import {
 type OrganizationControl = NonNullable<Awaited<ReturnType<typeof getOrganizationControl>>>;
 
 /** Generous: a Both Control can apply to every System (PRD scale target: 500). */
-const TRANSACTION_TIMEOUT_MS = 30_000;
+export const ORGANIZATION_TRANSACTION_TIMEOUT_MS = 30_000;
 
 const EVENT_INSERT_CHUNK = 1000;
 
@@ -62,32 +62,54 @@ export async function saveOrganizationImplementationWithEvents(
   edit: ImplementationEdit,
 ): Promise<OrganizationControlRow> {
   return prisma.$transaction(
-    async (tx) => {
-      if (control.applicability !== "BOTH" && control.applicability !== "ORGANIZATIONAL") {
-        return saveOrganizationImplementation(tx, control, userId, edit);
-      }
-
-      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${control.id}))`;
-      const current = await tx.organizationControlImplementation.findUnique({
-        where: { controlId: control.id },
-        select: { status: true },
-      });
-      const before = current?.status ?? "NOT_STARTED";
-      const saved = await saveOrganizationImplementation(tx, control, userId, edit);
-      const after = saved.implementation.status;
-      if (control.applicability === "ORGANIZATIONAL") {
-        const detail = describeOrganizationImplementationChange(control.code, before, after);
-        if (detail) await logChangeEvent(null, "ORGANIZATION_IMPLEMENTATION_CHANGED", detail, userId, tx);
-        return saved;
-      }
-      // Nothing can move unless the source went from giving credit to not, or back.
-      if (sourceGivesCredit(before) !== sourceGivesCredit(after)) {
-        await writeInheritedStatusEvents(tx, control.id, before, after);
-      }
-      return saved;
-    },
-    { timeout: TRANSACTION_TIMEOUT_MS },
+    (tx) => saveOrganizationImplementationIn(tx, control, edit, { userId, eventActorId: userId }),
+    { timeout: ORGANIZATION_TRANSACTION_TIMEOUT_MS },
   );
+}
+
+/**
+ * Who an implementation change is attributed to. `userId` is the person who edited it (null when
+ * none did: an Internal Audit's Nonconformity, #157, whose set-back leaves "last updated by" as
+ * it was); `eventActorId` is the actor of the System-less ORGANIZATION_IMPLEMENTATION_CHANGED
+ * event of an Organizational Control (a User id, or `SYSTEM_ACTOR`). The per-System events a Both
+ * Control writes are `SYSTEM_ACTOR`'s either way: they are computed side effects.
+ */
+export type ImplementationActor = { userId: string | null; eventActorId: string };
+
+/**
+ * The body of `saveOrganizationImplementationWithEvents` on the caller's transaction client, so
+ * the evaluation of a Check-up (#157) can set an implementation back in its own transaction with
+ * exactly the effects of a person's edit. Takes the Control's advisory lock itself (re-entrant in
+ * one transaction); everything runs on `tx`.
+ */
+export async function saveOrganizationImplementationIn(
+  tx: Prisma.TransactionClient,
+  control: OrganizationControl,
+  edit: ImplementationEdit,
+  actor: ImplementationActor,
+): Promise<OrganizationControlRow> {
+  if (control.applicability !== "BOTH" && control.applicability !== "ORGANIZATIONAL") {
+    return saveOrganizationImplementation(tx, control, actor.userId, edit);
+  }
+
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${control.id}))`;
+  const current = await tx.organizationControlImplementation.findUnique({
+    where: { controlId: control.id },
+    select: { status: true },
+  });
+  const before = current?.status ?? "NOT_STARTED";
+  const saved = await saveOrganizationImplementation(tx, control, actor.userId, edit);
+  const after = saved.implementation.status;
+  if (control.applicability === "ORGANIZATIONAL") {
+    const detail = describeOrganizationImplementationChange(control.code, before, after);
+    if (detail) await logChangeEvent(null, "ORGANIZATION_IMPLEMENTATION_CHANGED", detail, actor.eventActorId, tx);
+    return saved;
+  }
+  // Nothing can move unless the source went from giving credit to not, or back.
+  if (sourceGivesCredit(before) !== sourceGivesCredit(after)) {
+    await writeInheritedStatusEvents(tx, control.id, before, after);
+  }
+  return saved;
 }
 
 /**

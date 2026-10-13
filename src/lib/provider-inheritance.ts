@@ -283,12 +283,26 @@ export async function runProviderAssessmentWrite<T>(
   write: (db: Tx | typeof prisma, locked: boolean) => Promise<T>,
 ): Promise<T> {
   if (!system.isProvider) return write(prisma, false);
-  return prisma.$transaction(
-    async (tx) => {
-      await lockProvider(tx, system.id);
-      if (!(await hasCreditedDependents(tx, system.id, controlId))) return write(tx, true);
-      return withProviderInheritanceEvents(tx, { providerId: system.id, controlIds: [controlId] }, () => write(tx, true));
-    },
-    { timeout: PROVIDER_TRANSACTION_TIMEOUT_MS },
-  );
+  return prisma.$transaction((tx) => runProviderAssessmentWriteIn(tx, system, controlId, (db) => write(db, true)), {
+    timeout: PROVIDER_TRANSACTION_TIMEOUT_MS,
+  });
+}
+
+/**
+ * `runProviderAssessmentWrite` inside a transaction the caller already holds (an Internal Audit's
+ * Nonconformity setting a System's Assessment back, #157): the same Provider lock, the same
+ * credited-dependents pre-check and the same events on the dependents, all on `tx`. A System that
+ * is not a Provider just runs `write(tx)`. Lock order: the Provider, then the Control (see LOCKS);
+ * the caller may already hold other locks, but must not take any of these two in the other order.
+ */
+export async function runProviderAssessmentWriteIn<T>(
+  tx: Tx,
+  system: { id: string; isProvider: boolean },
+  controlId: string,
+  write: (db: Tx) => Promise<T>,
+): Promise<T> {
+  if (!system.isProvider) return write(tx);
+  await lockProvider(tx, system.id);
+  if (!(await hasCreditedDependents(tx, system.id, controlId))) return write(tx);
+  return withProviderInheritanceEvents(tx, { providerId: system.id, controlIds: [controlId] }, () => write(tx));
 }

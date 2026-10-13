@@ -11,6 +11,8 @@ import {
   type ValidEvaluation,
 } from "@/lib/check-up-evaluation-rules";
 import { CheckUpResponseError, lockCheckUp } from "@/lib/check-up-responses";
+import { applyNonconformity } from "@/lib/check-up-nonconformity";
+import { ORGANIZATION_TRANSACTION_TIMEOUT_MS } from "@/lib/organization-inheritance";
 
 /**
  * An Internal Auditor's evaluation of an answered Check-up (PRD 0001 F-IA.6, F-CE.1, #156).
@@ -18,8 +20,11 @@ import { CheckUpResponseError, lockCheckUp } from "@/lib/check-up-responses";
  * One transaction writes the evaluation and exactly one System-less CHECK_UP_EVALUATED Change
  * Event, actor the auditor. It takes the Check-up's row lock first (`lockCheckUp`) and checks every
  * precondition after it, so it can't interleave with the recipient changing the response or with a
- * second evaluation; every read uses the transaction client. A Nonconformity has no side effect
- * yet: #157 adds them at `onEvaluated` below, in the same transaction.
+ * second evaluation; every read uses the transaction client. A Nonconformity opens a Risk and sets
+ * a Fulfilled target back (`applyNonconformity`, #157) at `onEvaluated` below, in the same
+ * transaction: if a side effect fails the evaluation, its Change Event and the Risk all roll back.
+ * The transaction has the generous timeout of an Organization implementation change, since an
+ * Organization-level set-back can write an event for every inheriting System.
  */
 
 /** What an evaluation hands to the side effects of an outcome (#157), inside its transaction. */
@@ -32,18 +37,24 @@ export type EvaluatedCheckUp = {
   systemId: string | null;
   controlId: string;
   actorId: string;
+  /** The auditor's comment (required for a Nonconformity). */
+  comment: string;
 };
 
 /**
- * EXTENSION POINT for #157 (a Nonconformity opens a Risk linked to the Check-up and sets a
- * Fulfilled target back to In Progress) and for anything else an outcome triggers. It runs inside
+ * What an outcome triggers (#157): a Nonconformity opens a Risk linked to the Check-up and sets a
+ * Fulfilled target back to In Progress; Conforming and Observation do nothing. It runs inside
  * the evaluation's transaction, after the evaluation and its Change Event are written, with the
- * transaction client: whatever it writes commits or rolls back with the evaluation. It does
- * nothing today.
+ * transaction client: whatever it writes commits or rolls back with the evaluation.
+ * Exported as the seam tests use to make a side effect fail (`vi.spyOn`).
  */
-async function onEvaluated(evaluated: EvaluatedCheckUp): Promise<void> {
-  void evaluated;
-}
+export const sideEffects = {
+  async onEvaluated(evaluated: EvaluatedCheckUp): Promise<void> {
+    if (evaluated.outcome === "NONCONFORMITY") {
+      await applyNonconformity({ tx: evaluated.tx, checkUpId: evaluated.checkUpId, comment: evaluated.comment, actorId: evaluated.actorId });
+    }
+  },
+};
 
 /**
  * Evaluates `checkUpId` as `input.outcome` with `input.comment`. Throws `CheckUpResponseError`:
@@ -88,7 +99,7 @@ export async function evaluateCheckUp(
     const { evaluation, problems } = validateEvaluation(input);
     if (!evaluation) throw new CheckUpResponseError(400, problems.join("; "), problems);
     return record(tx, checkUpId, checkUp, evaluation, user.id, now);
-  });
+  }, { timeout: ORGANIZATION_TRANSACTION_TIMEOUT_MS });
 }
 
 async function record(
@@ -122,7 +133,7 @@ async function record(
     actorId,
     tx,
   );
-  await onEvaluated({
+  await sideEffects.onEvaluated({
     tx,
     checkUpId,
     evaluationId: created.id,
@@ -130,6 +141,7 @@ async function record(
     systemId: checkUp.systemId,
     controlId: checkUp.controlId,
     actorId,
+    comment: evaluation.comment,
   });
   return { evaluationId: created.id };
 }

@@ -302,7 +302,7 @@ describe("dashboard", () => {
       const openRisks = await getAllOpenRisks();
       const found = openRisks.find((r) => r.id === openRisk.id);
       expect(found).toBeDefined();
-      expect(found?.system.name).toBe(system.name);
+      expect(found?.system?.name).toBe(system.name);
       expect(openRisks.every((r) => r.status === "OPEN")).toBe(true);
     });
   });
