@@ -14,7 +14,6 @@ const users = [
   { id: "u1", name: "Ada Admin", email: "ada@example.com", role: "ADMIN" },
   { id: "u2", name: "Vic Viewer", email: "vic@example.com", role: "VIEWER" },
   { id: "u3", name: "Rita Risk", email: "rita@example.com", role: "RISK_OWNER" },
-  { id: "u4", name: "Ivy Auditor", email: "ivy@example.com", role: "INTERNAL_AUDITOR" },
 ];
 
 function postedUserId() {
@@ -66,6 +65,20 @@ describe("RoleSwitcher", () => {
   });
 
   it("lists the Internal Auditor with its role label and can pick it (#147)", async () => {
+    const auditor = { id: "u4", name: "Ivy Auditor", email: "ivy@example.com", role: "INTERNAL_AUDITOR" };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: string | URL | Request, init?: RequestInit) => {
+        const url = typeof input === "string" ? input : input.toString();
+        if (url.includes("/api/users")) {
+          return Promise.resolve(new Response(JSON.stringify({ users: [...users, auditor] }), { status: 200 }));
+        }
+        if (url.includes("/api/session/acting-user") && init?.method === "POST") {
+          return Promise.resolve(new Response(JSON.stringify({ user: auditor }), { status: 200 }));
+        }
+        return Promise.resolve(new Response(JSON.stringify({ user: users[0] }), { status: 200 }));
+      }),
+    );
     const user = userEvent.setup();
     render(<RoleSwitcher />);
 
