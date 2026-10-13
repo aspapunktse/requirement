@@ -106,6 +106,8 @@ model User {
   ownedControls                      Control[]                           @relation("ControlOwner")
   internalAuditsCreated              InternalAudit[]                     @relation("InternalAuditCreator")
   internalAuditsLaunched             InternalAudit[]                     @relation("InternalAuditLauncher")
+  checkUpResponsesGiven              CheckUpResponse[]                   @relation("CheckUpResponder")
+  checkUpResponsesChanged            CheckUpResponse[]                   @relation("CheckUpResponseChanger")
   organizationImplementationsUpdated OrganizationControlImplementation[] @relation("OrganizationImplementationUpdatedBy")
 }
 
@@ -648,6 +650,15 @@ enum InternalAuditStatus {
   CLOSED
 }
 
+// A Check-up's answer to one question (PRD 0001 F-IA.4, #155). Its own enum, not
+// SelfAssessmentAnswer, even though the values match today: a Check-up answer is an account given
+// to an auditor, and the two can diverge.
+enum CheckUpAnswer {
+  YES
+  NO
+  NA
+}
+
 // An Internal Audit (PRD 0001 F-IA.1, #152): an Internal Auditor's plan to verify some Controls
 // across some Systems and/or the Organization's own implementations. A draft sends nothing and
 // owns no Check-up; it can be edited and deleted until launch (#154). Drafting writes no
@@ -766,6 +777,8 @@ model CheckUp {
 
   // The Check-up's own copy of the questions, taken at launch.
   questions CheckUpQuestion[]
+  // Present once the recipient has answered (#155); its existence is what "answered" means.
+  response  CheckUpResponse?
 
   @@unique([internalAuditId, controlId, systemId])
   @@index([controlId])
@@ -782,5 +795,48 @@ model CheckUpQuestion {
   text      String
   createdAt DateTime @default(now())
 
+  answer CheckUpResponseAnswer?
+
   @@unique([checkUpId, position])
+}
+
+// The recipient's response to a Check-up (PRD 0001 F-IA.4, #155): one per Check-up, and its
+// existence is what makes the Check-up "answered". It holds who answered and when, who last changed
+// it, and the evidence links of the response as a whole (links only, no upload). The answers
+// themselves are CheckUpResponseAnswer rows, one per question. Evaluation (#156) and withdrawal
+// (#158) will add their own tables or columns beside this one; nothing here changes for them.
+// Both users are Restrict: who answered is part of the audit evidence, so a User with responses
+// can't be deleted from under them.
+model CheckUpResponse {
+  id              String   @id @default(cuid())
+  checkUpId       String   @unique
+  checkUp         CheckUp  @relation(fields: [checkUpId], references: [id], onDelete: Cascade)
+  // Who first submitted it and when.
+  respondedById   String
+  respondedBy     User     @relation("CheckUpResponder", fields: [respondedById], references: [id], onDelete: Restrict)
+  respondedAt     DateTime @default(now())
+  // Who changed it last (the submitter again on the first submission) and when.
+  lastChangedById String
+  lastChangedBy   User     @relation("CheckUpResponseChanger", fields: [lastChangedById], references: [id], onDelete: Restrict)
+  updatedAt       DateTime @updatedAt
+  // Absolute http(s) URLs, validated on write and again on read before they become links.
+  evidenceLinks   String[] @default([])
+
+  answers CheckUpResponseAnswer[]
+
+  @@index([respondedById])
+  @@index([lastChangedById])
+}
+
+// The answer to one question of a Check-up: Yes / No / N/A with a free-text description.
+model CheckUpResponseAnswer {
+  id          String          @id @default(cuid())
+  responseId  String
+  response    CheckUpResponse @relation(fields: [responseId], references: [id], onDelete: Cascade)
+  questionId  String          @unique
+  question    CheckUpQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  answer      CheckUpAnswer
+  description String          @default("")
+
+  @@index([responseId])
 }
