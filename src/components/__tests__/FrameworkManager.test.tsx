@@ -142,3 +142,33 @@ describe("FrameworkManager", () => {
     expect(retire[1]).toBeEnabled();
   });
 });
+
+describe("FrameworkManager: version lineage (#146)", () => {
+  const v = (id: string, version: string, supersedesId: string | null, status: "DRAFT" | "PUBLISHED" = "PUBLISHED"): FrameworkRow => ({
+    ...iso,
+    id,
+    version,
+    supersedesId,
+    status,
+    isBase: false,
+  });
+
+  it("shows a three-version chain in order on every member, marking the current one and the Draft", () => {
+    const items = [v("f3", "2030", "f2"), v("f1", "2013", null), v("f2", "2022", "f1", "DRAFT")];
+    render(<FrameworkManager initialFrameworks={items} />);
+
+    const lines = screen.getAllByText(/Version lineage:/);
+    expect(lines).toHaveLength(3);
+    for (const line of lines) {
+      expect(line.textContent).toBe(
+        "Version lineage: ISO/IEC 27001:2013 → ISO/IEC 27001:2022 (Draft) → ISO/IEC 27001:2030",
+      );
+    }
+    expect(document.querySelectorAll('[aria-current="true"]')).toHaveLength(3);
+  });
+
+  it("shows no lineage for Frameworks that supersede nothing and are superseded by nothing", () => {
+    render(<FrameworkManager initialFrameworks={[iso, nis2]} />);
+    expect(screen.queryByText(/Version lineage:/)).not.toBeInTheDocument();
+  });
+});
