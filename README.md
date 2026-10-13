@@ -15,7 +15,7 @@ PRD 0001 is delivered in five milestones. Three are in production; two are cut i
 | 1. Model split | In production |
 | 2. Applicability & continuous compliance | In production |
 | 3. Inheritance | In production |
-| 4. Content & SoA | In progress: the Statement of Applicability view (#145) and the Framework import loader (#144) are built; issues #146, #148–#151 remain |
+| 4. Content & SoA | In progress: the Statement of Applicability view (#145), its exclusion justifications (#150) and the Framework import loader (#144) are built; issues #146, #148, #149 and #151 remain |
 | 5. Internal audit | Not started (issues #147, #152–#158) |
 
 The queue and what to do next are in [`HANDOFF.md`](HANDOFF.md). The per-issue record of how everything up to milestone 3 was built (routes, migrations, rules, test files) is in [`docs/implementation-history.md`](docs/implementation-history.md).
@@ -32,7 +32,7 @@ The queue and what to do next are in [`HANDOFF.md`](HANDOFF.md). The per-issue r
 - **Continuous compliance:** classification, Framework Scope and Provider dependencies can change at any lifecycle stage. Those changes, and catalog changes (a Framework published, a mapping or a Control's scoping edited), recompute the System's Control Assessments without touching its onboarding status. Assessments someone worked on are kept as stale and can be removed.
 - **Inheritance:** the Organization records its own implementation of each Organizational and Both Control. A System can be a Provider with Full or Shared Control Offerings, and other Systems depend on it. A Control's effective status is resolved live from the System's own Assessment and its sources, never copied, and an Assessment can be reset to inherited.
 - **Compliance figures:** each Requirement's status per System (Met, Partially Met, Not Met, Not Applicable) is derived from the effective status of its mapped Controls. The Compliance Percentage is Met ÷ applicable Requirements for one Framework, pooled across Systems.
-- **Statement of Applicability:** a read-only page for every role listing every Control with whether it is included (applies to the Organization or to at least one System, derived live, never stored), a justification generated from its Published Framework mappings, and its implementation status (the Organization's, or a rollup of effective status across Systems). Excluded Controls are flagged "justification missing"; authoring that is #150.
+- **Statement of Applicability:** a page every role reads, listing every Control with whether it is included (applies to the Organization or to at least one System, derived live, never stored), a justification generated from its Published Framework mappings, and its implementation status (the Organization's, or a rollup of effective status across Systems). A Compliance Manager or an Admin writes, edits and clears the exclusion justification of an excluded Control inline (a Change Event per change); excluded Controls without one are flagged "justification missing" and counted.
 - **Views:** a role-differentiated `/home` with "My tasks", the System page (Controls with effective status and source, Requirements by Framework), the Business Risk Owner's scoped dashboard and System Portfolio, and the Organization Control Implementations page.
 - **Assessment Queries:** non-blocking question threads on one Control Assessment.
 - **Change Events:** a curated log of compliance-relevant changes. Nothing shows it in the UI yet.
@@ -41,7 +41,7 @@ The queue and what to do next are in [`HANDOFF.md`](HANDOFF.md). The per-issue r
 
 ### Not built yet
 
-- **Milestone 4:** the Cybersäkerhetslagen and CSA CCM 4 content, the exclusion justifications of the Statement of Applicability, CSV export, and Framework version lineage.
+- **Milestone 4:** the Cybersäkerhetslagen and CSA CCM 4 content, CSV export of the Statement of Applicability, and Framework version lineage.
 - **Milestone 5:** the Internal Auditor role, Internal Audits, Check-ups and Nonconformity findings.
 - **The GDPR and Export Control (EAR/ITAR) Frameworks** are Published but have no Requirements.
 - **Other open issues:** #46 (Control content versioning and notifications; needs re-scoping against the PRD), #61 (a per-System audit trail; deferred) and #63 (a lint cleanup of effect-based data fetching).

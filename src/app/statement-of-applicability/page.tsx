@@ -1,11 +1,13 @@
 import { getActingUser } from "@/lib/acting-user";
+import { ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE } from "@/lib/catalog";
 import { loadStatementOfApplicability } from "@/lib/statement-of-applicability";
 import { StatementOfApplicability } from "@/components/StatementOfApplicability";
 
 /**
  * The Statement of Applicability (PRD 0001 F-OUT.4, #145): every Control in the
  * Control Library with whether it is included, why, and how far it is implemented.
- * Read-only, derived live, readable by every signed-in role. The rows are loaded
+ * Derived live and readable by every signed-in role; a Compliance Manager or an Admin
+ * can also write the exclusion justifications (#150). The rows are loaded
  * here and passed down as props.
  */
 export default async function StatementOfApplicabilityPage() {
@@ -24,7 +26,7 @@ export default async function StatementOfApplicabilityPage() {
         Every Control in the Control Library: included when it applies to the Organization or to at least one System,
         excluded otherwise. Derived live from the Frameworks, Systems and implementation statuses; nothing is stored.
       </p>
-      <StatementOfApplicability rows={rows} />
+      <StatementOfApplicability rows={rows} canEdit={ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE.includes(user.role)} />
     </div>
   );
 }

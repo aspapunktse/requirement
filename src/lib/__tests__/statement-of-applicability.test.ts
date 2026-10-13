@@ -103,6 +103,13 @@ describe("loadStatementOfApplicability (#145)", () => {
     expect(both.systemRollup).toMatchObject({ total: systemCount, counts: { FULFILLED: systemCount } });
   });
 
+  it("reads the stored exclusion justification of an excluded Control", async () => {
+    const id = ctx.controls.elsewhere.id;
+    expect(await rowOf(id)).toMatchObject({ included: false, exclusionJustification: null, justificationMissing: true });
+    await prisma.control.update({ where: { id }, data: { soaExclusionJustification: "Test 150 reason" } });
+    expect(await rowOf(id)).toMatchObject({ included: false, exclusionJustification: "Test 150 reason", justificationMissing: false });
+  });
+
   it("leaves a Draft Framework's mapping out of the justification and never lets it include a Control", async () => {
     const draft = await prisma.framework.create({
       data: { name: `Test SOA Secret Draft ${ctx.suffix}`, version: "9", status: "DRAFT" },

@@ -4,6 +4,9 @@ import type { ProviderSource } from "@/lib/effective-status";
 import {
   controlAppliesToOrganization,
   countByInclusion,
+  countJustificationsMissing,
+  exclusionJustificationWriteRefusal,
+  normalizeExclusionJustification,
   deriveStatementOfApplicability,
   describeRollup,
   inclusionJustification,
@@ -38,6 +41,7 @@ function control(
     minIntegrityImpactLevel: null,
     minAvailabilityImpactLevel: null,
     mappings,
+    soaExclusionJustification: null,
     ...extra,
   };
 }
@@ -214,5 +218,58 @@ describe("countByInclusion and describeRollup", () => {
     expect(
       describeRollup({ total: 0, counts: { NOT_STARTED: 0, IN_PROGRESS: 0, FULFILLED: 0, NOT_APPLICABLE: 0, WAIVED: 0 } }),
     ).toBe("No Systems");
+  });
+});
+
+describe("exclusion justification (#150)", () => {
+  const perSystem = (justification: string | null) =>
+    control("c", "PER_SYSTEM", [mapping(ISO, "A.1")], { soaExclusionJustification: justification });
+
+  it("shows the stored text of an excluded Control and does not flag it missing", () => {
+    const [row] = deriveStatementOfApplicability({ ...noInputs, controls: [perSystem("  Out of scope: no software development  ")] });
+    expect(row).toMatchObject({ included: false, exclusionJustification: "Out of scope: no software development", justificationMissing: false });
+  });
+
+  it("flags an excluded Control whose stored text is null or blank", () => {
+    for (const stored of [null, "", "   "]) {
+      const [row] = deriveStatementOfApplicability({ ...noInputs, controls: [perSystem(stored)] });
+      expect(row).toMatchObject({ exclusionJustification: null, justificationMissing: true });
+    }
+  });
+
+  it("keeps the text when the Control becomes included, does not present it as the reason, and shows it again when excluded again", () => {
+    const c = perSystem("Kept reason");
+    const excluded = () => deriveStatementOfApplicability({ ...noInputs, controls: [c] })[0];
+    const included = deriveStatementOfApplicability({ ...noInputs, controls: [c], systems: [system("s1")] })[0];
+
+    expect(excluded().exclusionJustification).toBe("Kept reason");
+    expect(included).toMatchObject({ included: true, exclusionJustification: null, justificationMissing: false });
+    expect(included.inclusionJustification).toBe("ISO/IEC 27001:2022 A.1");
+    // The System is gone again: the same stored text is back.
+    expect(excluded()).toMatchObject({ included: false, exclusionJustification: "Kept reason", justificationMissing: false });
+  });
+
+  it("counts the excluded Controls with a justification missing, and the count drops when one is written", () => {
+    const controls = (written: string | null) => [
+      control("a", "PER_SYSTEM", [], { soaExclusionJustification: written }),
+      control("b", "PER_SYSTEM", [], { soaExclusionJustification: "Has one" }),
+      control("c", "ORGANIZATIONAL", [mapping(ISO, "A.2")]),
+    ];
+    expect(countJustificationsMissing(deriveStatementOfApplicability({ ...noInputs, controls: controls(null) }))).toBe(1);
+    expect(countJustificationsMissing(deriveStatementOfApplicability({ ...noInputs, controls: controls("Now written") }))).toBe(0);
+  });
+
+  it("normalizes: trims, and blank or null means cleared", () => {
+    expect(normalizeExclusionJustification("  x  ")).toBe("x");
+    expect(normalizeExclusionJustification("   ")).toBeNull();
+    expect(normalizeExclusionJustification("")).toBeNull();
+    expect(normalizeExclusionJustification(null)).toBeNull();
+  });
+
+  it("refuses to write text for an included Control but allows clearing it and writing for an excluded one", () => {
+    expect(exclusionJustificationWriteRefusal(true, "text")).toMatch(/included/);
+    expect(exclusionJustificationWriteRefusal(true, null)).toBeNull();
+    expect(exclusionJustificationWriteRefusal(false, "text")).toBeNull();
+    expect(exclusionJustificationWriteRefusal(false, null)).toBeNull();
   });
 });

@@ -1,6 +1,6 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { StatementOfApplicabilityRow } from "@/lib/statement-of-applicability-rules";
 import { StatementOfApplicability } from "../StatementOfApplicability";
 
@@ -94,5 +94,85 @@ describe("StatementOfApplicability", () => {
 
     await user.click(screen.getByRole("button", { name: "All (3)" }));
     expect(screen.getByText("A.8.30")).toBeInTheDocument();
+  });
+});
+
+describe("StatementOfApplicability exclusion justifications (#150)", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  const jsonResponse = (body: unknown, status = 200) =>
+    Promise.resolve({ ok: status < 400, status, json: () => Promise.resolve(body) } as Response);
+
+  it("shows the count of excluded Controls with a justification missing", () => {
+    render(<StatementOfApplicability rows={rows} />);
+    expect(screen.getByText("Exclusion justifications missing: 1")).toBeInTheDocument();
+  });
+
+  it("shows the stored text of an excluded Control, and no edit controls without canEdit", () => {
+    const written = rows.map((row) => (row.code === "A.8.30" ? { ...row, exclusionJustification: "No development here", justificationMissing: false } : row));
+    render(<StatementOfApplicability rows={written} />);
+    expect(within(rowOf("A.8.30")).getByText("No development here")).toBeInTheDocument();
+    expect(screen.getByText("Exclusion justifications missing: 0")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /justification of/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+  });
+
+  it("lets an editor write one, PUTs it, and the missing count goes down", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn(() =>
+      jsonResponse({ controlId: "c3", exclusionJustification: "No development here", justificationMissing: false }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    render(<StatementOfApplicability rows={rows} canEdit />);
+
+    // Included Controls get no edit control.
+    expect(screen.getAllByRole("button", { name: /Edit justification of/ })).toHaveLength(1);
+    await user.click(screen.getByRole("button", { name: "Edit justification of A.8.30" }));
+    await user.type(screen.getByRole("textbox", { name: "Exclusion justification of A.8.30" }), "No development here");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/statement-of-applicability/c3/exclusion-justification",
+      expect.objectContaining({ method: "PUT", body: JSON.stringify({ justification: "No development here" }) }),
+    );
+    expect(await within(rowOf("A.8.30")).findByText("No development here")).toBeInTheDocument();
+    expect(screen.getByText("Exclusion justifications missing: 0")).toBeInTheDocument();
+    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+  });
+
+  it("clears a stored justification, and the count goes up again", async () => {
+    const user = userEvent.setup();
+    const written = rows.map((row) => (row.code === "A.8.30" ? { ...row, exclusionJustification: "Old reason", justificationMissing: false } : row));
+    const fetchMock = vi.fn(() => jsonResponse({ controlId: "c3", exclusionJustification: null, justificationMissing: true }));
+    vi.stubGlobal("fetch", fetchMock);
+    render(<StatementOfApplicability rows={written} canEdit />);
+
+    await user.click(screen.getByRole("button", { name: "Edit justification of A.8.30" }));
+    await user.click(screen.getByRole("button", { name: "Clear" }));
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/statement-of-applicability/c3/exclusion-justification",
+      expect.objectContaining({ method: "PUT", body: JSON.stringify({ justification: null }) }),
+    );
+    expect(await within(rowOf("A.8.30")).findByText("Justification missing")).toBeInTheDocument();
+    expect(screen.getByText("Exclusion justifications missing: 1")).toBeInTheDocument();
+  });
+
+  it("cancels without calling the server, and shows the server's error when a save fails", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn(() => jsonResponse({ error: "Forbidden" }, 403));
+    vi.stubGlobal("fetch", fetchMock);
+    render(<StatementOfApplicability rows={rows} canEdit />);
+
+    await user.click(screen.getByRole("button", { name: "Edit justification of A.8.30" }));
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Edit justification of A.8.30" }));
+    await user.type(screen.getByRole("textbox"), "x");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(await screen.findByText("Forbidden")).toBeInTheDocument();
+    expect(screen.getByText("Exclusion justifications missing: 1")).toBeInTheDocument();
   });
 });

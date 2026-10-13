@@ -31,6 +31,7 @@ export async function loadStatementOfApplicability(): Promise<StatementOfApplica
         code: true,
         title: true,
         applicability: true,
+        soaExclusionJustification: true,
         minConfidentialityImpactLevel: true,
         minIntegrityImpactLevel: true,
         minAvailabilityImpactLevel: true,

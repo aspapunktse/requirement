@@ -328,6 +328,11 @@ model Control {
   intent        String? // why the question matters, shown alongside it
   examples      String[] // example ways to satisfy the control
   createdAt     DateTime             @default(now())
+  // The exclusion justification the Statement of Applicability shows while the Control is
+  // excluded (F-OUT.4, #150). Authored by a Compliance Manager or an Admin; null means none.
+  // Kept when the Control becomes included (inclusion is derived, never stored) and shown
+  // again if it is excluded again. Each change is a SOA_JUSTIFICATION_CHANGED Change Event.
+  soaExclusionJustification String?
 
   assessments ControlAssessment[]
 
@@ -583,6 +588,11 @@ enum ChangeEventAction {
   // actor the User who made the change. (Marking or unmarking a System as a Provider is
   // a CLASSIFICATION_CHANGED event.)
   CONTROL_OFFERING_CHANGED
+  // System-less: a Compliance Manager or an Admin added, changed or cleared the exclusion
+  // justification of a Control on the Statement of Applicability (PRD 0001 F-OUT.4, F-CE.1,
+  // #150). One event per change, actor the User who made it, the Control code and the old
+  // and new text in the detail.
+  SOA_JUSTIFICATION_CHANGED
 }
 
 // A curated, System-lifecycle-relevant mutation record — feeds the landing
