@@ -127,8 +127,31 @@ describe("planLaunch", () => {
     ]);
     expect(plan.organizationCheckUpCount).toBe(2);
     expect(plan.systemCheckUpCount).toBe(2);
-    // The Organizational Control doesn't apply to the System.
-    expect(plan.skipped).toEqual([{ controlId: "c-A.5.1", systemId: "s-S1" }]);
+    // The Organizational Control is never paired with a System: not skipped either.
+    expect(plan.skipped).toEqual([]);
+  });
+
+  it("counts as skipped only a Per-System or Both Control that doesn't apply, never an Organizational one", () => {
+    const needsCloud = control("A.8.1", { deploymentFacets: [{ id: "cloud" }] });
+    const plan = planLaunch(
+      inputs({
+        audit: { title: "Audit", dueDate: "2026-11-01", includeOrganization: true },
+        controls: [control("A.5.1", { applicability: "ORGANIZATIONAL" }), needsCloud],
+        systems: [system("Cloudy", { deploymentFacets: [{ id: "cloud" }] }), system("OnPrem")],
+      }),
+      NOW,
+    );
+    expect(plan.blockers).toEqual([]);
+    expect(plan.systemCheckUpCount).toBe(1);
+    expect(plan.skipped).toEqual([{ controlId: "c-A.8.1", systemId: "s-OnPrem" }]);
+    expect(plan.organizationCheckUpCount).toBe(1);
+  });
+
+  it("refuses an audit of only Organizational Controls over Systems, without the Organization, as generating nothing", () => {
+    const plan = planLaunch(inputs({ controls: [control("A.5.1", { applicability: "ORGANIZATIONAL" })], systems: [system("S1")] }), NOW);
+    expect(plan.checkUps).toEqual([]);
+    expect(plan.skipped).toEqual([]);
+    expect(plan.blockers.map((b) => b.kind)).toEqual(["nothing-to-generate"]);
   });
 
   it("generates no Organization-level Check-up when the Organization is not included", () => {
@@ -190,7 +213,7 @@ describe("planLaunch", () => {
       NOW,
     );
     expect(plan.checkUps).toEqual([]);
-    expect(plan.skipped).toHaveLength(2);
+    expect(plan.skipped).toEqual([{ controlId: "c-A.8.1", systemId: "s-OnPrem" }]);
     expect(plan.blockers.map((b) => b.kind)).toEqual(["nothing-to-generate"]);
   });
 });

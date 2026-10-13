@@ -688,7 +688,8 @@ model InternalAudit {
 // audit is launched its Check-ups point at this row with Restrict (see CheckUp), so a Control
 // that has Check-ups can't be deleted. Postgres can't make a rule depend on the audit's status,
 // so a launched audit's Control that produced no Check-up at all (it applied nowhere) can still
-// be deleted with the Control, and then leaves the audit's list.
+// be deleted with the Control, and then leaves the audit's list. Accepted for now (product-owner
+// decision 10a of 2026-10-13, comment on #154).
 model InternalAuditControl {
   id              String        @id @default(cuid())
   internalAuditId String
@@ -744,7 +745,8 @@ model InternalAuditSystem {
 // the audit's: a launched audit can't be edited, so reading it from there can't drift. Answers,
 // evaluation and withdrawal arrive with #155, #156 and #158.
 // Everything here is Restrict: a launched audit is evidence, so a Control, a System or the audit
-// itself can't be deleted from under its Check-ups. (internalAuditId, controlId) must be a target
+// itself can't be deleted from under its Check-ups (product-owner decision 9a of 2026-10-13, comment on #154).
+// (internalAuditId, controlId) must be a target
 // pair of the audit, which the composite relation to InternalAuditControl enforces.
 // At most one Check-up per audit, Control and target: the unique below covers System targets (NULLs
 // are distinct in a Postgres unique index), and a partial unique index covering `systemId IS NULL`

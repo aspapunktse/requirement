@@ -17,7 +17,7 @@ import {
  * (PRD 0001 F-IA.2, F-IA.3, #154). Who may call these is decided by the routes and pages; the
  * draft-only rule and every launch rule are applied here, inside the write's transaction.
  *
- * Launching writes no Change Event: F-CE.1 lists a Check-up being evaluated (#156), not an audit
+ * Launching writes no Change Event (product-owner decision 12a of 2026-10-13, comment on #154): F-CE.1 lists a Check-up being evaluated (#156), not an audit
  * being launched. Nothing is notified: a Check-up exists, and the recipient is shown on the audit
  * page; recipients meet it in "My tasks" from #155.
  *

@@ -6,7 +6,7 @@ import { hasOrganizationImplementation } from "@/lib/organization-implementation
 /**
  * Check-up questions and the launch of an Internal Audit (PRD 0001 F-IA.2, F-IA.3, #154).
  * Pure and Prisma-free: the same `planLaunch` computes the launch preview on a draft's page
- * and drives the launch itself, so the two can't disagree. Nothing here writes a Change Event:
+ * and drives the launch itself, so the two can't disagree. Nothing here writes a Change Event (product-owner decision 12a of 2026-10-13, comment on #154):
  * F-CE.1 lists a Check-up being evaluated (#156), not an audit being launched.
  */
 
@@ -96,7 +96,9 @@ function codesOf(controls: LaunchControl[]): string {
  *
  * - A System-level Check-up per selected System and target Control where the Control applies to
  *   the System (`controlAppliesToSystem`); otherwise the pair is skipped and counted. An
- *   Organizational Control never applies to a System, so it only gets an Organization-level one.
+ *   Organizational Control is never paired with Systems, so it gets neither a System-level Check-up nor
+ *   a skipped entry, only an Organization-level one. "Skipped" counts only a Per-System or Both target
+ *   Control that doesn't apply to a picked System (product-owner decision 11a of 2026-10-13, comment on #154).
  * - When the Organization is included: an Organization-level Check-up per target Control that has
  *   an Organization Control Implementation (Organizational or Both). Each of those Controls needs a
  *   Control Owner (product-owner decision of 2026-10-12), or the launch is blocked.
@@ -149,7 +151,9 @@ export function planLaunch(inputs: LaunchInputs, now: Date = new Date()): Launch
 
   for (const control of controls) {
     const questions = questionsOf(control);
-    for (const system of systems) {
+    // An Organizational Control is never paired with Systems: no System-level Check-up and no skipped
+    // entry (product-owner decision 11a of 2026-10-13, comment on #154).
+    for (const system of control.applicability === "ORGANIZATIONAL" ? [] : systems) {
       if (controlAppliesToSystem(control, system)) {
         checkUps.push({ controlId: control.id, systemId: system.id, questions });
         systemCheckUpCount += 1;
