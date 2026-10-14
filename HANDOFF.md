@@ -13,7 +13,7 @@ This file holds current state and the queue, and nothing else. The rule is in th
 
 **Where the last session stopped (2026-10-14). Do this first.**
 1. **PRD 0001 · M5 Internal audit is complete** with #158 (PR #177). Close the GitHub milestone once #158 is closed.
-2. **M4 waits on the product owner:** #148 and #149 are `ready-for-human` until the source documents are attached. Nothing else in PRD 0001 is cut into issues.
+2. **M4:** #149 is done (PR #178). After its CD run, the CSA CCM 4.1.1 file still has to be loaded into production with `npm run frameworks:load`: CD and the seed don't run the loader, and running it against production is the product owner's call. #148 waits on the product owner (`ready-for-human`) until the source documents are attached. Nothing else in PRD 0001 is cut into issues.
 3. Nothing is in flight. The dev DB is in its seeded state (see below).
 
 **The queue**
@@ -25,7 +25,7 @@ PRD 0001 · M4 Content & SoA:
 4. #150 Statement of Applicability: exclusion justifications. **Done: PR #165.**
 5. #151 CSV export of the Framework Coverage view and the Statement of Applicability. **Done: PR #167.**
 6. #148 Cybersäkerhetslagen content as a Framework import file. Blocked by #144. **`ready-for-human`**: the product owner attaches the source documents first, then relabels it `ready-for-agent`.
-7. #149 CSA CCM 4 content as a Framework import file. Blocked by #144. **`ready-for-human`**, for the same reason.
+7. #149 CSA CCM 4.1.1 content as a Framework import file. **Done: PR #178.**
 
 PRD 0001 · M5 Internal audit:
 1. #147 Add the Internal Auditor role. **Done: PR #168.**
@@ -41,7 +41,7 @@ PRD 0001 · M5 Internal audit:
 Not cut into issues: the PRD's two "could" features, F-OUT.6 (PDF export of the SoA) and F-IMP.4 (UI upload of Framework files, other Frameworks as data).
 
 **State as of 2026-10-14**
-- PRD 0001 milestones 1, 2 and 3 are complete, closed and in production. Milestone 5 is complete with #158. Milestone 4 has #148 and #149 left.
+- PRD 0001 milestones 1, 2 and 3 are complete, closed and in production. Milestone 5 is complete with #158. Milestone 4 has #148 left.
 - Production has every migration up to `20261014100000_add_check_up_withdrawals_and_audit_closing` (40 in all) once PR #177 is deployed.
 - Other open issues:
   - #46 needs re-scoping against the PRD before anyone picks it up.
@@ -56,6 +56,7 @@ Not cut into issues: the PRD's two "could" features, F-OUT.6 (PDF export of the 
 - **A catalog recompute writes no Change Events on a Provider's dependents.** When a Framework publish, a Control Mapping change or a Control scoping edit makes an offered Control stop or start applying to a Provider, the dependents' effective status moves live and nothing is logged on them. The product owner accepted this for now on 2026-10-02 (comment on #124).
 - **Nothing renders Change Events yet** (the "Recent updates" feed was never built). Whoever builds it must give every `ChangeEventAction` a label, including the ones added since without one (`APPLICABILITY_RECOMPUTED`, `ASSESSMENT_REMOVED`, `ORGANIZATION_IMPLEMENTATION_CHANGED`, `CONTROL_OFFERING_CHANGED`), and decide how to show System-less events next to per-System ones.
 - **Small polish seen in the browser:** on a Control with a Shared Offering, the Assessment form keeps saying "Set the status below to Fulfilled once this System has done it." after the System's own half is Fulfilled.
+- **CSA CCM 4.1.1 leaves 94 Coverage Gaps** (9 unmapped, 85 Partial only) and adds six `CCM-SUP-*` Supplementary Controls for both cloud facets. Resolving the gaps and publishing is the Compliance Manager's work in the UI. CSA's licence allows only non-commercial use of the CCM; whether that covers this product is the product owner's call (noted on PR #178).
 - **The GDPR and Export Control (EAR/ITAR) Frameworks are empty.** A curator should give them Requirements, map Controls to them and decide their licensing (follow-up from PR #102).
 - **`.dockerignore` doesn't exclude `.env.production.local`**, so a local `docker build` copies the production credentials into the build stage. The final image has no env files and CI never has that file, so the pushed image isn't affected. Found during #115; not fixed.
 - **The Vercel project has a `VERCEL_TOKEN` environment variable** set for Production and for Preview. The app doesn't read it (CD uses the GitHub secret of the same name), and on Preview it is available to every preview build. Removing it is the product owner's call.
@@ -97,7 +98,7 @@ The dev DB is in its seeded state. When cleaning up after a browser check, compa
 - The two Change Events are seeded state (the `"system"` events on GitHub and Microsoft 365 from the Capability migration): do not delete them.
 - 40 rows in `_prisma_migrations`.
 - Controls by applicability: 61 Organizational, 31 Both, 26 Per-System. All mandatory.
-- Frameworks: ISO/IEC 27001:2022, which is the base and Published. GDPR 1 and Export Control (EAR/ITAR) 1 are Published but have no Requirements yet.
+- Frameworks: ISO/IEC 27001:2022, which is the base and Published. GDPR 1 and Export Control (EAR/ITAR) 1 are Published but have no Requirements yet. The seed doesn't load `prisma/seed-data/frameworks/`, so CSA CCM 4.1.1 is absent until `npm run frameworks:load` is run.
 - ISO/IEC 27001:2022 figures: Jira 56 of 117 (47.9%), CATIA 9 of 117, Unily 6 of 117 ("needs assessment" 44 and 47), the Provider "Entra ID SSO" 4 of 117 ("needs assessment" 52), pooled 467 of 1288 (36.3%).
 
 ## Conventions and gotchas
