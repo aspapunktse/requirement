@@ -1,0 +1,3058 @@
+{
+  "framework": {
+    "name": "CSA CCM",
+    "version": "4.1.1",
+    "description": "Cloud Security Alliance Cloud Controls Matrix v4.1.1: 207 control specifications in 17 domains for cloud service providers and customers. Requirement text is paraphrased; the control IDs and titles follow the CCM.",
+    "licensing": "PARAPHRASE_ONLY",
+    "strictComplianceRequired": false
+  },
+  "supplementaryControls": [
+    {
+      "code": "CCM-SUP-01",
+      "title": "Tenant segmentation and isolation",
+      "description": "Design and operate the service so each customer's (tenant's) access and data are segmented and segregated from other tenants, with cross-tenant access restricted and monitored",
+      "category": "CCM cloud provider obligations",
+      "mandatory": true,
+      "applicability": "PER_SYSTEM",
+      "question": "Is each customer's environment and data separated from other customers' in the service, with any cross-tenant access restricted and monitored?",
+      "intent": "In shared platforms a flaw in tenant isolation exposes one customer's data to another, which network segregation alone does not prevent.",
+      "examples": [
+        "Per-tenant data partitioning or encryption keys",
+        "Isolation tests in the release process",
+        "Alerting on cross-tenant access attempts"
+      ],
+      "deploymentFacets": [
+        "Cloud IaaS/PaaS",
+        "SaaS"
+      ]
+    },
+    {
+      "code": "CCM-SUP-02",
+      "title": "Shared security responsibility model",
+      "description": "Document which party (provider, customer, subprocessor) owns each security control for the service, give customers guidance on it, and review it at planned intervals",
+      "category": "CCM cloud provider obligations",
+      "mandatory": true,
+      "applicability": "PER_SYSTEM",
+      "question": "Is the split of security responsibilities between us, our customers and our suppliers documented for this service, shared with customers and reviewed?",
+      "intent": "Cloud customers and providers each operate part of the controls; unclear ownership leaves controls that nobody runs.",
+      "examples": [
+        "Shared responsibility matrix published to customers",
+        "Control ownership recorded for each cloud supplier",
+        "Annual review of the matrix"
+      ],
+      "deploymentFacets": [
+        "Cloud IaaS/PaaS",
+        "SaaS"
+      ]
+    },
+    {
+      "code": "CCM-SUP-03",
+      "title": "Customer-managed encryption keys",
+      "description": "Offer customers the ability to manage the encryption keys that protect their own data in the service",
+      "category": "CCM cloud provider obligations",
+      "mandatory": true,
+      "applicability": "PER_SYSTEM",
+      "question": "Can customers manage (supply, rotate or revoke) the encryption keys that protect their data in this service?",
+      "intent": "Customers who hold their own keys keep control of access to their data, even when the provider hosts it.",
+      "examples": [
+        "Bring-your-own-key or customer-held key option",
+        "Customer-controlled key rotation and revocation",
+        "Integration with the customer's key management service"
+      ],
+      "deploymentFacets": [
+        "Cloud IaaS/PaaS",
+        "SaaS"
+      ]
+    },
+    {
+      "code": "CCM-SUP-04",
+      "title": "Customer data portability and exit",
+      "description": "Give customers programmatic access to retrieve their data and agree in contract how data is returned, retained and deleted when the service ends",
+      "category": "CCM cloud provider obligations",
+      "mandatory": true,
+      "applicability": "PER_SYSTEM",
+      "question": "Can customers retrieve their data programmatically, and do the agreements state the format, retention period, scope and deletion on termination?",
+      "intent": "Customers need to move data in and out of the service and leave it without losing control of their data.",
+      "examples": [
+        "Export API or bulk export in an open format",
+        "Contract clause on data return and deletion after termination",
+        "Documented exit procedure"
+      ],
+      "deploymentFacets": [
+        "Cloud IaaS/PaaS",
+        "SaaS"
+      ]
+    },
+    {
+      "code": "CCM-SUP-05",
+      "title": "Data location transparency",
+      "description": "Record and keep current the physical locations where customer data is stored, processed and backed up",
+      "category": "CCM cloud provider obligations",
+      "mandatory": true,
+      "applicability": "PER_SYSTEM",
+      "question": "Are the physical locations where data of this service is stored, processed and backed up documented and kept up to date?",
+      "intent": "Location determines which laws and authorities apply to the data, so customers and the organisation need to know where it is.",
+      "examples": [
+        "Register of regions and sites used",
+        "Region selection recorded at onboarding",
+        "Change notice to customers when a region changes"
+      ],
+      "deploymentFacets": [
+        "Cloud IaaS/PaaS",
+        "SaaS"
+      ]
+    },
+    {
+      "code": "CCM-SUP-06",
+      "title": "Customer authorisation of provider access and changes",
+      "description": "Limit provider changes that directly affect a customer's environment to explicitly authorised requests, and involve the customer in granting agreed high-risk privileged access to it",
+      "category": "CCM cloud provider obligations",
+      "mandatory": true,
+      "applicability": "PER_SYSTEM",
+      "question": "Are changes to a customer's environment and provider staff's high-risk privileged access to it limited to what the customer has authorised?",
+      "intent": "A provider can reach into customer environments; customers need a say over when and how that happens.",
+      "examples": [
+        "Contract clause limiting changes to authorised requests",
+        "Customer approval step for privileged support access",
+        "Access records available to the customer"
+      ],
+      "deploymentFacets": [
+        "Cloud IaaS/PaaS",
+        "SaaS"
+      ]
+    }
+  ],
+  "requirements": [
+    {
+      "code": "A&A-01",
+      "section": "Audit & Assurance",
+      "title": "Audit and Assurance Policy and Procedures",
+      "text": "Audit and assurance should be governed by approved and communicated policies, procedures and standards, revisited yearly or after a material change.",
+      "mappings": [
+        {
+          "control": "ISMS-9.2",
+          "coverage": "FULL"
+        },
+        {
+          "control": "A.5.35",
+          "coverage": "PARTIAL",
+          "rationale": "Covers independent review of security, but does not require a dedicated audit and assurance policy"
+        }
+      ]
+    },
+    {
+      "code": "A&A-02",
+      "section": "Audit & Assurance",
+      "title": "Independent Assessments",
+      "text": "Have independent parties carry out audit and assurance assessments against recognised standards, at least once a year.",
+      "mappings": [
+        {
+          "control": "A.5.35",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "A&A-03",
+      "section": "Audit & Assurance",
+      "title": "Risk Based Planning Assessment",
+      "text": "Plan independent assessments on the basis of risk, and also run them when major changes or newly emerging risks call for it.",
+      "mappings": [
+        {
+          "control": "ISMS-9.2",
+          "coverage": "FULL"
+        },
+        {
+          "control": "A.5.35",
+          "coverage": "PARTIAL",
+          "rationale": "Reviews are planned at intervals, but triggering them by emerging risks is not explicit"
+        }
+      ]
+    },
+    {
+      "code": "A&A-04",
+      "section": "Audit & Assurance",
+      "title": "Requirements Compliance",
+      "text": "Confirm that the audit scope accounts for every applicable standard, law, contractual duty and statutory rule.",
+      "mappings": [
+        {
+          "control": "A.5.36",
+          "coverage": "PARTIAL",
+          "rationale": "Checks compliance with policies and standards; legal and contractual audit scope is not explicit"
+        },
+        {
+          "control": "A.5.31",
+          "coverage": "PARTIAL",
+          "rationale": "Identifies legal and contractual requirements but does not require verifying audit coverage of them"
+        }
+      ]
+    },
+    {
+      "code": "A&A-05",
+      "section": "Audit & Assurance",
+      "title": "Audit Management Process",
+      "text": "An audit management process aligned with auditing standards should cover audit planning, risk analysis, control assessment, conclusions, remediation schedules and report production, and include a look back at earlier reports and evidence.",
+      "mappings": [
+        {
+          "control": "ISMS-9.2",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "A&A-06",
+      "section": "Audit & Assurance",
+      "title": "Remediation",
+      "text": "Keep a risk-driven corrective action plan for audit findings, and report remediation progress to stakeholders on a regular basis.",
+      "mappings": [
+        {
+          "control": "ISMS-10.2",
+          "coverage": "FULL"
+        },
+        {
+          "control": "ISMS-9.3",
+          "coverage": "PARTIAL",
+          "rationale": "Management review reports on audit results, but stakeholder reporting of remediation status is not explicit"
+        }
+      ]
+    },
+    {
+      "code": "AIS-01",
+      "section": "Application & Interface Security",
+      "title": "Application and Interface Security Policy and Procedures",
+      "text": "Application security should be governed by approved policies and procedures that are communicated and put into practice, and revisited yearly or after a material change.",
+      "mappings": [
+        {
+          "control": "A.8.25",
+          "coverage": "PARTIAL",
+          "rationale": "Covers rules for secure development, not a general application security policy"
+        },
+        {
+          "control": "A.8.26",
+          "coverage": "PARTIAL",
+          "rationale": "Covers application security requirements, not the surrounding policy and review cycle"
+        }
+      ]
+    },
+    {
+      "code": "AIS-02",
+      "section": "Application & Interface Security",
+      "title": "Application Security Baseline Requirements",
+      "text": "Define and keep up to date the baseline security requirements that applications must meet.",
+      "mappings": [
+        {
+          "control": "A.8.26",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "AIS-03",
+      "section": "Application & Interface Security",
+      "title": "Application Security Metrics",
+      "text": "Set technical and operational application security metrics that tie to business goals, security needs and compliance duties, and put them into use.",
+      "mappings": [
+        {
+          "control": "ISMS-9.1",
+          "coverage": "PARTIAL",
+          "rationale": "Requires measuring ISMS performance generally, not application-specific metrics"
+        }
+      ]
+    },
+    {
+      "code": "AIS-04",
+      "section": "Application & Interface Security",
+      "title": "Secure Application Development Lifecycle",
+      "text": "Run a secure software development lifecycle spanning requirements, planning, design, build, test, deployment and operation of applications.",
+      "mappings": [
+        {
+          "control": "A.8.25",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "AIS-05",
+      "section": "Application & Interface Security",
+      "title": "Application Security Testing",
+      "text": "Adopt an application testing strategy, with acceptance criteria for new systems, upgrades and releases, that gives security assurance without blocking delivery. Automate it where this is practical.",
+      "mappings": [
+        {
+          "control": "A.8.29",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "AIS-06",
+      "section": "Application & Interface Security",
+      "title": "Secure Application Deployment",
+      "text": "Provide standardised, compliant and secure ways to deploy applications, automating them wherever possible.",
+      "mappings": [
+        {
+          "control": "A.8.32",
+          "coverage": "PARTIAL",
+          "rationale": "Change control covers deployments, but a standardised and automated secure deployment capability is not required"
+        },
+        {
+          "control": "A.8.19",
+          "coverage": "PARTIAL",
+          "rationale": "Covers controlled installation of software, not deployment strategy or automation"
+        }
+      ]
+    },
+    {
+      "code": "AIS-07",
+      "section": "Application & Interface Security",
+      "title": "Application Vulnerability Remediation",
+      "text": "Operate a process for fixing application security vulnerabilities, with automated fixing where it can be done.",
+      "mappings": [
+        {
+          "control": "A.8.8",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "AIS-08",
+      "section": "Application & Interface Security",
+      "title": "API Security",
+      "text": "Put processes, procedures and technical safeguards in place to secure APIs, and revisit them for improvement every year or after significant change.",
+      "mappings": [
+        {
+          "control": "A.8.26",
+          "coverage": "PARTIAL",
+          "rationale": "Covers security of application services on public networks, but APIs are not addressed explicitly"
+        },
+        {
+          "control": "A.8.20",
+          "coverage": "PARTIAL",
+          "rationale": "Covers network and service security generally, not API-specific safeguards"
+        }
+      ]
+    },
+    {
+      "code": "BCR-01",
+      "section": "Business Continuity Management and Operational Resilience",
+      "title": "Business Continuity Management Policy and Procedures",
+      "text": "Business continuity and operational resilience should be governed by approved and communicated policies and procedures, revisited yearly or after a material change.",
+      "mappings": [
+        {
+          "control": "A.5.30",
+          "coverage": "PARTIAL",
+          "rationale": "Covers ICT readiness for continuity, not an overall business continuity policy"
+        },
+        {
+          "control": "A.5.29",
+          "coverage": "PARTIAL",
+          "rationale": "Covers security during disruption, not a business continuity management policy"
+        }
+      ]
+    },
+    {
+      "code": "BCR-02",
+      "section": "Business Continuity Management and Operational Resilience",
+      "title": "Risk Assessment and Impact Analysis",
+      "text": "Assess how disruptions and risks would affect the business, and use the result as criteria for continuity and resilience strategies. Refresh the assessment yearly or after significant change.",
+      "mappings": [
+        {
+          "control": "A.5.30",
+          "coverage": "PARTIAL",
+          "rationale": "ICT readiness is based on continuity objectives, but a formal impact analysis and its annual refresh are not explicit"
+        },
+        {
+          "control": "A.5.29",
+          "coverage": "PARTIAL",
+          "rationale": "Addresses security during disruption, not the impact analysis"
+        }
+      ]
+    },
+    {
+      "code": "BCR-03",
+      "section": "Business Continuity Management and Operational Resilience",
+      "title": "Business Continuity Strategy",
+      "text": "Define strategies that lessen the effect of business disruptions and improve the ability to withstand and recover from them.",
+      "mappings": [
+        {
+          "control": "A.5.30",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "BCR-04",
+      "section": "Business Continuity Management and Operational Resilience",
+      "title": "Business Continuity Planning",
+      "text": "Maintain an approved and communicated business continuity plan that follows from the chosen resilience strategies and capabilities.",
+      "mappings": [
+        {
+          "control": "A.5.30",
+          "coverage": "FULL"
+        },
+        {
+          "control": "A.5.29",
+          "coverage": "PARTIAL",
+          "rationale": "Covers security during disruption, not the whole business continuity plan"
+        }
+      ]
+    },
+    {
+      "code": "BCR-05",
+      "section": "Business Continuity Management and Operational Resilience",
+      "title": "Documentation",
+      "text": "Gather the documentation, from inside and outside the organisation, that supports continuity and resilience plans, make it available to authorised stakeholders and review it yearly or after significant change.",
+      "mappings": [
+        {
+          "control": "A.5.30",
+          "coverage": "PARTIAL",
+          "rationale": "Plans must be documented, but collecting external documentation and the review cycle are not explicit"
+        },
+        {
+          "control": "A.5.37",
+          "coverage": "PARTIAL",
+          "rationale": "Operating procedures are documented and available, but continuity documentation is not specifically addressed"
+        }
+      ]
+    },
+    {
+      "code": "BCR-06",
+      "section": "Business Continuity Management and Operational Resilience",
+      "title": "Business Continuity Exercises",
+      "text": "Exercise and test continuity and resilience plans yearly or after significant change.",
+      "mappings": [
+        {
+          "control": "A.5.30",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "BCR-07",
+      "section": "Business Continuity Management and Operational Resilience",
+      "title": "Communication",
+      "text": "Open and sustain lines of communication to all relevant stakeholders while continuity and resilience procedures are carried out.",
+      "mappings": [
+        {
+          "control": "A.5.29",
+          "coverage": "PARTIAL",
+          "rationale": "Covers security during disruption, but stakeholder communication channels are not explicit"
+        }
+      ]
+    },
+    {
+      "code": "BCR-08",
+      "section": "Business Continuity Management and Operational Resilience",
+      "title": "Backup",
+      "text": "Back up regularly, safeguard the confidentiality, integrity and availability of the backups, and prove that data can be restored from them.",
+      "mappings": [
+        {
+          "control": "A.8.13",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "BCR-09",
+      "section": "Business Continuity Management and Operational Resilience",
+      "title": "Disaster Response Plan",
+      "text": "Maintain an approved disaster response plan for recovering from natural and human-made disasters, updated yearly or after significant change.",
+      "mappings": [
+        {
+          "control": "A.5.30",
+          "coverage": "PARTIAL",
+          "rationale": "Covers ICT continuity, but disaster-specific response planning is not explicit"
+        },
+        {
+          "control": "A.7.5",
+          "coverage": "PARTIAL",
+          "rationale": "Covers protection against physical and environmental threats, not disaster recovery planning"
+        }
+      ]
+    },
+    {
+      "code": "BCR-10",
+      "section": "Business Continuity Management and Operational Resilience",
+      "title": "Response Plan Exercise",
+      "text": "Rehearse the disaster response plan each year or after significant change, involving local emergency authorities where possible.",
+      "mappings": [
+        {
+          "control": "A.5.30",
+          "coverage": "PARTIAL",
+          "rationale": "ICT readiness must be tested, but the disaster plan exercise and authority participation are not explicit"
+        },
+        {
+          "control": "A.5.5",
+          "coverage": "PARTIAL",
+          "rationale": "Covers contact with authorities, not joint exercises"
+        }
+      ]
+    },
+    {
+      "code": "BCR-11",
+      "section": "Business Continuity Management and Operational Resilience",
+      "title": "Equipment Redundancy",
+      "text": "Back business-critical equipment with redundant units, both on site and geographically separated by a sensible distance, following industry norms.",
+      "mappings": [
+        {
+          "control": "A.8.14",
+          "coverage": "PARTIAL",
+          "rationale": "Requires redundancy of processing facilities, but not geographic dispersion"
+        }
+      ]
+    },
+    {
+      "code": "CCC-01",
+      "section": "Change Control and Configuration Management",
+      "title": "Change Management Policy and Procedures",
+      "text": "Policies and procedures governing the risk of changing assets the organisation owns, controls or uses should be approved, communicated and revisited yearly or after a material change.",
+      "mappings": [
+        {
+          "control": "A.8.32",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "CCC-02",
+      "section": "Change Control and Configuration Management",
+      "title": "Quality Testing",
+      "text": "Operate a defined process for change control, approval and testing that rests on baselines, test steps and release standards.",
+      "mappings": [
+        {
+          "control": "A.8.32",
+          "coverage": "FULL"
+        },
+        {
+          "control": "A.8.9",
+          "coverage": "PARTIAL",
+          "rationale": "Covers configuration baselines, not release standards and testing"
+        }
+      ]
+    },
+    {
+      "code": "CCC-03",
+      "section": "Change Control and Configuration Management",
+      "title": "Change Management Technology",
+      "text": "Use a change management procedure to control the risks of changes to assets that the organisation owns, controls or uses.",
+      "mappings": [
+        {
+          "control": "A.8.32",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "CCC-04",
+      "section": "Change Control and Configuration Management",
+      "title": "Unauthorized Change Protection",
+      "text": "Enforce a procedure that authorises adding, removing, updating and managing organisational assets.",
+      "mappings": [
+        {
+          "control": "A.8.32",
+          "coverage": "FULL"
+        },
+        {
+          "control": "A.8.19",
+          "coverage": "PARTIAL",
+          "rationale": "Covers control of software installation only, not all asset changes"
+        }
+      ]
+    },
+    {
+      "code": "CCC-05",
+      "section": "Change Control and Configuration Management",
+      "title": "Change Agreements",
+      "text": "Contractually limit changes that directly affect customer-owned environments (tenants) to requests the customer has explicitly authorised within agreed service levels.",
+      "mappings": [
+        {
+          "control": "CCM-SUP-06",
+          "coverage": "FULL"
+        },
+        {
+          "control": "A.5.20",
+          "coverage": "PARTIAL",
+          "rationale": "Covers security terms in supplier agreements, not limiting provider changes to authorised requests"
+        }
+      ]
+    },
+    {
+      "code": "CCC-06",
+      "section": "Change Control and Configuration Management",
+      "title": "Change Management Baseline",
+      "text": "Define and apply change and configuration baselines for all authorised changes to organisational assets, reviewing them yearly or after significant change.",
+      "mappings": [
+        {
+          "control": "A.8.9",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "CCC-07",
+      "section": "Change Control and Configuration Management",
+      "title": "Detection of Baseline Deviation",
+      "text": "Detect changes that depart from the established baseline and notify the responsible people in advance of harm.",
+      "mappings": [
+        {
+          "control": "A.8.9",
+          "coverage": "PARTIAL",
+          "rationale": "Configurations must be monitored, but proactive notification of deviations is not explicit"
+        },
+        {
+          "control": "A.8.16",
+          "coverage": "PARTIAL",
+          "rationale": "Covers monitoring for anomalous behaviour, not configuration drift"
+        }
+      ]
+    },
+    {
+      "code": "CCC-08",
+      "section": "Change Control and Configuration Management",
+      "title": "Exception Management",
+      "text": "Handle exceptions, emergencies included, to the change and configuration process through a defined procedure that is in line with the policy exception process.",
+      "mappings": [
+        {
+          "control": "A.8.32",
+          "coverage": "PARTIAL",
+          "rationale": "Change management is covered, but an exception and emergency change procedure is not explicit"
+        },
+        {
+          "control": "A.5.36",
+          "coverage": "PARTIAL",
+          "rationale": "Covers compliance with policies, not exceptions to them"
+        }
+      ]
+    },
+    {
+      "code": "CCC-09",
+      "section": "Change Control and Configuration Management",
+      "title": "Change Restoration",
+      "text": "Define a process that reverts changes to the last known good state when errors or security concerns arise.",
+      "mappings": [
+        {
+          "control": "A.8.32",
+          "coverage": "PARTIAL",
+          "rationale": "Change control is covered, but rollback to a known good state is not required"
+        }
+      ]
+    },
+    {
+      "code": "CEK-01",
+      "section": "Cryptography, Encryption & Key Management",
+      "title": "Encryption and Key Management Policy and Procedures",
+      "text": "Cryptography, encryption and key management should be governed by an approved policy and procedure set that is communicated to staff and revisited yearly or after a material change.",
+      "mappings": [
+        {
+          "control": "A.8.24",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "CEK-02",
+      "section": "Cryptography, Encryption & Key Management",
+      "title": "CEK Roles and Responsibilities",
+      "text": "Assign roles and responsibilities for cryptography, encryption and key management.",
+      "mappings": [
+        {
+          "control": "A.5.2",
+          "coverage": "PARTIAL",
+          "rationale": "Roles must be defined generally, but not cryptography-specific ones"
+        },
+        {
+          "control": "A.8.24",
+          "coverage": "PARTIAL",
+          "rationale": "Covers key management rules but not explicit role assignment"
+        }
+      ]
+    },
+    {
+      "code": "CEK-03",
+      "section": "Cryptography, Encryption & Key Management",
+      "title": "Data Protection",
+      "text": "Protect data while stored, in transit and, where relevant, in use, using cryptographic libraries certified to recognised standards.",
+      "mappings": [
+        {
+          "control": "A.8.24",
+          "coverage": "PARTIAL",
+          "rationale": "Covers effective use of cryptography, but certified libraries and protection of data in use are not explicit"
+        }
+      ]
+    },
+    {
+      "code": "CEK-04",
+      "section": "Cryptography, Encryption & Key Management",
+      "title": "Encryption Algorithm",
+      "text": "Pick industry-standard encryption algorithms suited to how the data is classified and what risks surround it.",
+      "mappings": [
+        {
+          "control": "A.8.24",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "CEK-05",
+      "section": "Cryptography, Encryption & Key Management",
+      "title": "Encryption Change Management",
+      "text": "Changes to cryptographic, encryption and key management technology, whether prompted inside or outside the organisation, need a standard routine for review, approval, rollout and communication.",
+      "mappings": [
+        {
+          "control": "A.8.32",
+          "coverage": "PARTIAL",
+          "rationale": "Generic change management; cryptography-specific change handling is not explicit"
+        },
+        {
+          "control": "A.8.24",
+          "coverage": "PARTIAL",
+          "rationale": "Covers cryptography rules but not their change process"
+        }
+      ]
+    },
+    {
+      "code": "CEK-06",
+      "section": "Cryptography, Encryption & Key Management",
+      "title": "Encryption Change Cost Benefit Analysis",
+      "text": "Before adopting changes to cryptographic systems and their policies, weigh the downstream effects, remaining risk, cost and benefit.",
+      "mappings": [
+        {
+          "control": "ISMS-6.1.2",
+          "coverage": "PARTIAL",
+          "rationale": "Risk assessment is covered generally, not cost-benefit analysis of cryptographic changes"
+        },
+        {
+          "control": "A.8.32",
+          "coverage": "PARTIAL",
+          "rationale": "Change management covers impact analysis but not cryptography-specific cost-benefit"
+        }
+      ]
+    },
+    {
+      "code": "CEK-07",
+      "section": "Cryptography, Encryption & Key Management",
+      "title": "Encryption Risk Management",
+      "text": "Run a risk programme for encryption and key management covering assessment, treatment, context, monitoring and feedback.",
+      "mappings": [
+        {
+          "control": "ISMS-6.1.2",
+          "coverage": "PARTIAL",
+          "rationale": "Generic information security risk assessment, not a cryptography-specific programme"
+        },
+        {
+          "control": "A.8.24",
+          "coverage": "PARTIAL",
+          "rationale": "Covers cryptography rules but not a dedicated risk programme"
+        }
+      ]
+    },
+    {
+      "code": "CEK-08",
+      "section": "Cryptography, Encryption & Key Management",
+      "title": "Service Customer Key Management Capability",
+      "text": "Providers must let their customers manage the encryption keys that protect the customers' own data.",
+      "mappings": [
+        {
+          "control": "CCM-SUP-03",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "CEK-09",
+      "section": "Cryptography, Encryption & Key Management",
+      "title": "Encryption and Key Management Audit",
+      "text": "Subject encryption and key management systems, policies and processes to audit. The more risk a system carries, the more often (continuous is best, yearly the minimum), and also after any security event.",
+      "mappings": [
+        {
+          "control": "A.5.35",
+          "coverage": "PARTIAL",
+          "rationale": "Independent review is covered generally, not risk-proportionate cryptography audits"
+        },
+        {
+          "control": "A.8.24",
+          "coverage": "PARTIAL",
+          "rationale": "Covers the cryptography rules but not auditing them"
+        }
+      ]
+    },
+    {
+      "code": "CEK-10",
+      "section": "Cryptography, Encryption & Key Management",
+      "title": "Key Generation",
+      "text": "Keys must be generated with recognised cryptographic libraries, and the strength of the algorithm and the random number generator in use must be stated.",
+      "mappings": [
+        {
+          "control": "A.8.24",
+          "coverage": "PARTIAL",
+          "rationale": "Key management is covered generally; key generation requirements are not explicit"
+        }
+      ]
+    },
+    {
+      "code": "CEK-11",
+      "section": "Cryptography, Encryption & Key Management",
+      "title": "Key Purpose",
+      "text": "Provision secret and private keys for one purpose only.",
+      "mappings": [
+        {
+          "control": "A.8.24",
+          "coverage": "PARTIAL",
+          "rationale": "Key management is covered generally; single-purpose keys are not explicit"
+        }
+      ]
+    },
+    {
+      "code": "CEK-12",
+      "section": "Cryptography, Encryption & Key Management",
+      "title": "Key Rotation",
+      "text": "Rotate keys according to a calculated cryptoperiod that considers disclosure risk and legal and regulatory demands.",
+      "mappings": [
+        {
+          "control": "A.8.24",
+          "coverage": "PARTIAL",
+          "rationale": "Key lifecycle is covered generally; rotation by cryptoperiod is not explicit"
+        }
+      ]
+    },
+    {
+      "code": "CEK-13",
+      "section": "Cryptography, Encryption & Key Management",
+      "title": "Key Revocation",
+      "text": "Have a way to revoke and remove keys before their cryptoperiod ends, if a key is compromised or its holder leaves, respecting legal and regulatory duties.",
+      "mappings": [
+        {
+          "control": "A.8.24",
+          "coverage": "PARTIAL",
+          "rationale": "Key lifecycle is covered generally; revocation is not explicit"
+        }
+      ]
+    },
+    {
+      "code": "CEK-14",
+      "section": "Cryptography, Encryption & Key Management",
+      "title": "Key Destruction",
+      "text": "Securely destroy keys that are no longer needed, respecting legal and regulatory duties.",
+      "mappings": [
+        {
+          "control": "A.8.24",
+          "coverage": "PARTIAL",
+          "rationale": "Key lifecycle is covered generally; key destruction is not explicit"
+        }
+      ]
+    },
+    {
+      "code": "CEK-15",
+      "section": "Cryptography, Encryption & Key Management",
+      "title": "Key Activation",
+      "text": "Newly generated keys should stay in a pre-activated state until someone authorises their use, with attention to legal and regulatory obligations.",
+      "mappings": [
+        {
+          "control": "A.8.24",
+          "coverage": "PARTIAL",
+          "rationale": "Key lifecycle is covered generally; the pre-activation state is not explicit"
+        }
+      ]
+    },
+    {
+      "code": "CEK-16",
+      "section": "Cryptography, Encryption & Key Management",
+      "title": "Key Suspension",
+      "text": "Monitor, review and approve every move of a key into or out of suspension, respecting legal and regulatory duties.",
+      "mappings": [
+        {
+          "control": "A.8.24",
+          "coverage": "PARTIAL",
+          "rationale": "Key lifecycle is covered generally; suspension handling is not explicit"
+        }
+      ]
+    },
+    {
+      "code": "CEK-17",
+      "section": "Cryptography, Encryption & Key Management",
+      "title": "Key Deactivation",
+      "text": "Deactivate keys when they expire, respecting legal and regulatory duties.",
+      "mappings": [
+        {
+          "control": "A.8.24",
+          "coverage": "PARTIAL",
+          "rationale": "Key lifecycle is covered generally; deactivation at expiry is not explicit"
+        }
+      ]
+    },
+    {
+      "code": "CEK-18",
+      "section": "Cryptography, Encryption & Key Management",
+      "title": "Key Archival",
+      "text": "Archived keys belong in a secure repository where access follows least privilege, with legal and regulatory obligations in mind.",
+      "mappings": [
+        {
+          "control": "A.8.24",
+          "coverage": "PARTIAL",
+          "rationale": "Key lifecycle is covered generally; archive handling is not explicit"
+        }
+      ]
+    },
+    {
+      "code": "CEK-19",
+      "section": "Cryptography, Encryption & Key Management",
+      "title": "Key Compromise",
+      "text": "Once a key is compromised, allow it only for decrypting existing data and never again for encrypting, and only encrypt with it under controlled conditions, respecting legal and regulatory duties.",
+      "mappings": []
+    },
+    {
+      "code": "CEK-20",
+      "section": "Cryptography, Encryption & Key Management",
+      "title": "Key Recovery",
+      "text": "Weigh the risk to operational continuity of losing the keys against the risk of exposing the keys and the data they protect, and set key recovery accordingly, respecting legal and regulatory duties.",
+      "mappings": [
+        {
+          "control": "A.8.24",
+          "coverage": "PARTIAL",
+          "rationale": "Key lifecycle is covered generally; recovery risk trade-off is not explicit"
+        }
+      ]
+    },
+    {
+      "code": "CEK-21",
+      "section": "Cryptography, Encryption & Key Management",
+      "title": "Key Inventory Management",
+      "text": "Have the key management system track and report all cryptographic material and each change of its status, respecting legal and regulatory duties.",
+      "mappings": [
+        {
+          "control": "A.8.24",
+          "coverage": "PARTIAL",
+          "rationale": "Key lifecycle is covered generally; a key inventory is not explicit"
+        },
+        {
+          "control": "A.5.9",
+          "coverage": "PARTIAL",
+          "rationale": "Covers an inventory of assets, which may not include cryptographic keys"
+        }
+      ]
+    },
+    {
+      "code": "DCS-01",
+      "section": "Datacenter Security",
+      "title": "Physical and Environmental Security Policy and Procedures",
+      "text": "Physical and environmental security should be governed by approved and communicated policies and procedures, revisited yearly or after a material change.",
+      "mappings": [
+        {
+          "control": "A.7.1",
+          "coverage": "PARTIAL",
+          "rationale": "Covers perimeters; a dedicated physical and environmental policy is not required"
+        },
+        {
+          "control": "A.7.5",
+          "coverage": "PARTIAL",
+          "rationale": "Covers environmental threats, not the policy framework"
+        }
+      ]
+    },
+    {
+      "code": "DCS-02",
+      "section": "Datacenter Security",
+      "title": "Off-Site Equipment Disposal Policy and Procedures",
+      "text": "Equipment used away from the organisation's premises needs approved disposal procedures; if it is not physically destroyed, data must be erased so it cannot be recovered. Revisit them yearly or after a material change.",
+      "mappings": [
+        {
+          "control": "A.7.14",
+          "coverage": "FULL"
+        },
+        {
+          "control": "A.7.9",
+          "coverage": "PARTIAL",
+          "rationale": "Covers security of off-premises assets in general"
+        }
+      ]
+    },
+    {
+      "code": "DCS-03",
+      "section": "Datacenter Security",
+      "title": "Off-Site Transfer Authorization Policy and Procedures",
+      "text": "Approved procedures should govern moving hardware, software or data to another or off-site location, and each move needs written or cryptographically verifiable authorisation. Revisit them yearly or after a material change.",
+      "mappings": [
+        {
+          "control": "A.7.9",
+          "coverage": "PARTIAL",
+          "rationale": "Covers off-premises assets, but authorised relocation is not explicit"
+        },
+        {
+          "control": "A.7.10",
+          "coverage": "PARTIAL",
+          "rationale": "Covers transport of storage media only"
+        }
+      ]
+    },
+    {
+      "code": "DCS-04",
+      "section": "Datacenter Security",
+      "title": "Secure Area Policy and Procedures",
+      "text": "Offices, rooms and other facilities need approved procedures that keep the working environment safe and secure; revisit them yearly or following a material change.",
+      "mappings": [
+        {
+          "control": "A.7.3",
+          "coverage": "FULL"
+        },
+        {
+          "control": "A.7.6",
+          "coverage": "PARTIAL",
+          "rationale": "Covers working in secure areas but not the full policy"
+        }
+      ]
+    },
+    {
+      "code": "DCS-05",
+      "section": "Datacenter Security",
+      "title": "Secure Media Transportation Policy and Procedures",
+      "text": "Approved procedures should govern the secure transport of physical media; revisit them yearly or after a material change.",
+      "mappings": [
+        {
+          "control": "A.7.10",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "DCS-06",
+      "section": "Datacenter Security",
+      "title": "Assets Classification",
+      "text": "Classify and document physical and logical assets, such as applications, by business risk, and revisit the classification yearly or after significant change.",
+      "mappings": [
+        {
+          "control": "A.5.9",
+          "coverage": "PARTIAL",
+          "rationale": "Covers an inventory with owners; risk-based classification of assets is not explicit"
+        },
+        {
+          "control": "A.5.12",
+          "coverage": "PARTIAL",
+          "rationale": "Covers classification of information, not physical assets"
+        }
+      ]
+    },
+    {
+      "code": "DCS-07",
+      "section": "Datacenter Security",
+      "title": "Assets Cataloguing and Tracking",
+      "text": "Catalogue and track the relevant physical and logical assets at all of the provider's sites in a secured system, and review the catalogue yearly or after significant change.",
+      "mappings": [
+        {
+          "control": "A.5.9",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "DCS-08",
+      "section": "Datacenter Security",
+      "title": "Controlled Physical Access Points",
+      "text": "Design and put in place physical security perimeters that protect people, data and information systems.",
+      "mappings": [
+        {
+          "control": "A.7.1",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "DCS-09",
+      "section": "Datacenter Security",
+      "title": "Equipment Identification",
+      "text": "Use the identity of equipment as a basis for authenticating its network connection.",
+      "mappings": []
+    },
+    {
+      "code": "DCS-10",
+      "section": "Datacenter Security",
+      "title": "Secure Area Authorization",
+      "text": "Only people with authorisation may enter secure areas; every point of entry and exit is restricted, recorded and watched through physical access controls, and access records are kept for a period the organisation judges appropriate.",
+      "mappings": [
+        {
+          "control": "A.7.2",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "DCS-11",
+      "section": "Datacenter Security",
+      "title": "Surveillance System",
+      "text": "Operate surveillance at the datacenter's outer perimeter and all entry and exit points to detect unauthorised attempts to get in or out.",
+      "mappings": [
+        {
+          "control": "A.7.4",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "DCS-12",
+      "section": "Datacenter Security",
+      "title": "Adverse Event Response Training",
+      "text": "Train datacenter staff to handle adverse events safely, including unauthorised entry or exit attempts.",
+      "mappings": [
+        {
+          "control": "A.6.3",
+          "coverage": "PARTIAL",
+          "rationale": "Covers awareness and training generally, not datacenter adverse event response"
+        }
+      ]
+    },
+    {
+      "code": "DCS-13",
+      "section": "Datacenter Security",
+      "title": "Cabling Security",
+      "text": "Protect power and telecommunications cables against interception, interference and damage in all facilities, offices and rooms, in proportion to risk.",
+      "mappings": [
+        {
+          "control": "A.7.12",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "DCS-14",
+      "section": "Datacenter Security",
+      "title": "Environmental Systems",
+      "text": "Run datacenter environmental controls that monitor, maintain and regularly test temperature and humidity within accepted industry ranges.",
+      "mappings": [
+        {
+          "control": "A.7.5",
+          "coverage": "PARTIAL",
+          "rationale": "Covers environmental threats generally; temperature and humidity control is not explicit"
+        },
+        {
+          "control": "A.7.11",
+          "coverage": "PARTIAL",
+          "rationale": "Covers supporting utilities, which may include climate control"
+        }
+      ]
+    },
+    {
+      "code": "DCS-15",
+      "section": "Datacenter Security",
+      "title": "Secure Utilities",
+      "text": "Secure, monitor, maintain and periodically test utility services so they stay effective.",
+      "mappings": [
+        {
+          "control": "A.7.11",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "DCS-16",
+      "section": "Datacenter Security",
+      "title": "Equipment Location",
+      "text": "Avoid siting business-critical equipment where environmental hazards are likely.",
+      "mappings": [
+        {
+          "control": "A.7.8",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "DCS-17",
+      "section": "Datacenter Security",
+      "title": "Datacenter Metrics",
+      "text": "Measure and report on datacenter security so that datacenter assets and services stay protected.",
+      "mappings": [
+        {
+          "control": "ISMS-9.1",
+          "coverage": "PARTIAL",
+          "rationale": "Requires measuring ISMS performance generally, not datacenter metrics"
+        }
+      ]
+    },
+    {
+      "code": "DCS-18",
+      "section": "Datacenter Security",
+      "title": "Datacenter Operations Resilience",
+      "text": "Ensure datacenter operations continue without interruption through suitable processes, procedures and technical measures.",
+      "mappings": [
+        {
+          "control": "A.5.30",
+          "coverage": "PARTIAL",
+          "rationale": "Covers ICT readiness for continuity, not datacenter operations specifically"
+        },
+        {
+          "control": "A.8.14",
+          "coverage": "PARTIAL",
+          "rationale": "Covers redundancy of processing facilities"
+        }
+      ]
+    },
+    {
+      "code": "DSP-01",
+      "section": "Data Security and Privacy Lifecycle Management",
+      "title": "Security and Privacy Policy and Procedures",
+      "text": "Data should be prepared, classified, protected and handled over its whole lifecycle under approved and communicated policies and procedures that reflect applicable laws, standards and risk level; revisit them yearly or after a material change.",
+      "mappings": [
+        {
+          "control": "A.5.12",
+          "coverage": "PARTIAL",
+          "rationale": "Covers classification of information, not the full data lifecycle policy"
+        },
+        {
+          "control": "A.5.34",
+          "coverage": "PARTIAL",
+          "rationale": "Covers privacy and PII protection, not all data types"
+        }
+      ]
+    },
+    {
+      "code": "DSP-02",
+      "section": "Data Security and Privacy Lifecycle Management",
+      "title": "Secure Disposal",
+      "text": "Dispose of data on storage media only with accepted methods that leave nothing recoverable by forensic means.",
+      "mappings": [
+        {
+          "control": "A.7.14",
+          "coverage": "FULL"
+        },
+        {
+          "control": "A.8.10",
+          "coverage": "PARTIAL",
+          "rationale": "Covers deletion of information no longer required, without a forensic-unrecoverability standard"
+        }
+      ]
+    },
+    {
+      "code": "DSP-03",
+      "section": "Data Security and Privacy Lifecycle Management",
+      "title": "Data Inventory",
+      "text": "Create and keep an inventory of data, at least for sensitive, regulated and personal data, and review it yearly or after significant change.",
+      "mappings": [
+        {
+          "control": "A.5.9",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "DSP-04",
+      "section": "Data Security and Privacy Lifecycle Management",
+      "title": "Data Classification",
+      "text": "Classify data by its type, how critical it is and how sensitive it is.",
+      "mappings": [
+        {
+          "control": "A.5.12",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "DSP-05",
+      "section": "Data Security and Privacy Lifecycle Management",
+      "title": "Data Flow Documentation",
+      "text": "Document how data flows, showing what is processed, stored or transmitted and where, and review the documentation at set intervals, at least yearly.",
+      "mappings": [
+        {
+          "control": "A.5.14",
+          "coverage": "PARTIAL",
+          "rationale": "Covers rules for information transfer, but data flow documentation is not required"
+        },
+        {
+          "control": "A.5.9",
+          "coverage": "PARTIAL",
+          "rationale": "Covers an inventory of information, not flow documentation"
+        }
+      ]
+    },
+    {
+      "code": "DSP-06",
+      "section": "Data Security and Privacy Lifecycle Management",
+      "title": "Data Ownership and Stewardship",
+      "text": "Record who owns and who stewards the relevant personal and sensitive data, and review this at least once a year.",
+      "mappings": [
+        {
+          "control": "A.5.9",
+          "coverage": "PARTIAL",
+          "rationale": "Requires an owner for each asset, but not stewardship documentation or annual review"
+        },
+        {
+          "control": "A.5.34",
+          "coverage": "PARTIAL",
+          "rationale": "Covers privacy of PII, but not stewardship records"
+        }
+      ]
+    },
+    {
+      "code": "DSP-07",
+      "section": "Data Security and Privacy Lifecycle Management",
+      "title": "Data Protection by Design and Default",
+      "text": "Build systems, products and business practices on a security-by-design principle and industry best practice.",
+      "mappings": [
+        {
+          "control": "A.8.27",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "DSP-08",
+      "section": "Data Security and Privacy Lifecycle Management",
+      "title": "Data Privacy by Design and Default",
+      "text": "Build systems, products and business practices on a privacy-by-design principle, and set privacy options to protective defaults as the law requires.",
+      "mappings": [
+        {
+          "control": "A.5.34",
+          "coverage": "PARTIAL",
+          "rationale": "Covers privacy and PII protection, but privacy by design and default are not explicit"
+        },
+        {
+          "control": "A.8.27",
+          "coverage": "PARTIAL",
+          "rationale": "Covers secure engineering principles, not privacy defaults"
+        }
+      ]
+    },
+    {
+      "code": "DSP-09",
+      "section": "Data Security and Privacy Lifecycle Management",
+      "title": "Data Protection Impact Assessment",
+      "text": "Carry out a data protection impact assessment to judge the origin, nature, particularities and severity of risks from processing personal data, as the law and good practice require.",
+      "mappings": []
+    },
+    {
+      "code": "DSP-10",
+      "section": "Data Security and Privacy Lifecycle Management",
+      "title": "Sensitive Data Transfer",
+      "text": "Any movement of personal or sensitive data must be safeguarded against unauthorised access, and the data may only be handled within the limits the applicable law sets.",
+      "mappings": [
+        {
+          "control": "A.5.14",
+          "coverage": "FULL"
+        },
+        {
+          "control": "A.5.34",
+          "coverage": "PARTIAL",
+          "rationale": "Covers PII protection, but lawful scope of processing is not explicit"
+        }
+      ]
+    },
+    {
+      "code": "DSP-11",
+      "section": "Data Security and Privacy Lifecycle Management",
+      "title": "Personal Data Access, Reversal, Rectification and Deletion",
+      "text": "Let individuals ask to see, change or erase their personal data through supported processes and technical means, as the applicable law provides.",
+      "mappings": []
+    },
+    {
+      "code": "DSP-12",
+      "section": "Data Security and Privacy Lifecycle Management",
+      "title": "Limitation of Purpose in Personal Data Processing",
+      "text": "Personal data may be processed only in line with the law and for the purposes that were disclosed to the individual.",
+      "mappings": [
+        {
+          "control": "A.5.34",
+          "coverage": "PARTIAL",
+          "rationale": "Covers privacy and PII protection, but purpose limitation is not explicit"
+        },
+        {
+          "control": "A.5.31",
+          "coverage": "PARTIAL",
+          "rationale": "Covers identifying legal requirements, not enforcing purpose limitation"
+        }
+      ]
+    },
+    {
+      "code": "DSP-13",
+      "section": "Data Security and Privacy Lifecycle Management",
+      "title": "Personal Data Sub-processing",
+      "text": "Control how personal data is handed on and sub-processed along the service supply chain, in line with applicable law.",
+      "mappings": [
+        {
+          "control": "A.5.19",
+          "coverage": "PARTIAL",
+          "rationale": "Covers supplier relationships generally, not sub-processing of personal data"
+        },
+        {
+          "control": "A.5.34",
+          "coverage": "PARTIAL",
+          "rationale": "Covers PII protection, but sub-processing is not explicit"
+        }
+      ]
+    },
+    {
+      "code": "DSP-14",
+      "section": "Data Security and Privacy Lifecycle Management",
+      "title": "Disclosure of Data Sub-processors",
+      "text": "Tell the data owner, before processing starts, which sub-processors will access personal or sensitive data and how.",
+      "mappings": []
+    },
+    {
+      "code": "DSP-15",
+      "section": "Data Security and Privacy Lifecycle Management",
+      "title": "Limitation of Production Data Use",
+      "text": "Before production data is copied or used in non-production environments, the data owners must agree and the resulting risk must be handled.",
+      "mappings": [
+        {
+          "control": "A.8.33",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "DSP-16",
+      "section": "Data Security and Privacy Lifecycle Management",
+      "title": "Data Retention and Deletion",
+      "text": "Manage retention, archiving and deletion of data to fit business needs and applicable laws and regulations.",
+      "mappings": [
+        {
+          "control": "A.8.10",
+          "coverage": "FULL"
+        },
+        {
+          "control": "A.5.33",
+          "coverage": "PARTIAL",
+          "rationale": "Covers protection and retention of records, not all data"
+        }
+      ]
+    },
+    {
+      "code": "DSP-17",
+      "section": "Data Security and Privacy Lifecycle Management",
+      "title": "Sensitive Data Protection",
+      "text": "Protect sensitive data through every stage of its lifecycle with suitable processes, procedures and technical measures.",
+      "mappings": [
+        {
+          "control": "A.5.12",
+          "coverage": "PARTIAL",
+          "rationale": "Covers classification and handling, but not protection at every lifecycle stage"
+        },
+        {
+          "control": "A.8.12",
+          "coverage": "PARTIAL",
+          "rationale": "Covers data leakage prevention only"
+        }
+      ]
+    },
+    {
+      "code": "DSP-18",
+      "section": "Data Security and Privacy Lifecycle Management",
+      "title": "Disclosure Notification",
+      "text": "Providers must describe to customers, and apply, the procedure for handling law enforcement requests to disclose personal data, in line with applicable law.",
+      "mappings": []
+    },
+    {
+      "code": "DSP-19",
+      "section": "Data Security and Privacy Lifecycle Management",
+      "title": "Data Location",
+      "text": "Document where data physically resides, including every location where it is handled or backed up.",
+      "mappings": [
+        {
+          "control": "CCM-SUP-05",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "GRC-01",
+      "section": "Governance, Risk and Compliance",
+      "title": "Governance Program Policy and Procedures",
+      "text": "An information governance programme backed by leadership should be underpinned by approved and communicated policies and procedures that are revisited yearly or after a material change.",
+      "mappings": [
+        {
+          "control": "ISMS-5.1",
+          "coverage": "FULL"
+        },
+        {
+          "control": "A.5.1",
+          "coverage": "PARTIAL",
+          "rationale": "Covers information security policy, not a wider governance programme"
+        }
+      ]
+    },
+    {
+      "code": "GRC-02",
+      "section": "Governance, Risk and Compliance",
+      "title": "Risk Management Program",
+      "text": "Run a documented enterprise-wide risk management programme with leadership backing; it should cover how risks are found, assessed, assigned to owners, treated and accepted.",
+      "mappings": [
+        {
+          "control": "ISMS-6.1.2",
+          "coverage": "PARTIAL",
+          "rationale": "Covers information security risk assessment, not enterprise-wide risk management"
+        },
+        {
+          "control": "ISMS-6.1.3",
+          "coverage": "PARTIAL",
+          "rationale": "Covers information security risk treatment, not enterprise-wide risk management"
+        }
+      ]
+    },
+    {
+      "code": "GRC-03",
+      "section": "Governance, Risk and Compliance",
+      "title": "Organizational Policy Reviews",
+      "text": "Review all relevant organisational policies and their procedures yearly or whenever the organisation changes substantially.",
+      "mappings": [
+        {
+          "control": "A.5.1",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "GRC-04",
+      "section": "Governance, Risk and Compliance",
+      "title": "Policy Exception Process",
+      "text": "Follow an approved exception process, set by the governance programme, whenever something departs from an established policy.",
+      "mappings": []
+    },
+    {
+      "code": "GRC-05",
+      "section": "Governance, Risk and Compliance",
+      "title": "Information Security Program",
+      "text": "Run an information security programme spanning all CCM domains that apply.",
+      "mappings": [
+        {
+          "control": "ISMS-4.4",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "GRC-06",
+      "section": "Governance, Risk and Compliance",
+      "title": "Governance Responsibility Model",
+      "text": "Define and record who is responsible for planning, running, assessing and improving governance programmes.",
+      "mappings": [
+        {
+          "control": "A.5.2",
+          "coverage": "FULL"
+        },
+        {
+          "control": "ISMS-5.3",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "GRC-07",
+      "section": "Governance, Risk and Compliance",
+      "title": "Information System Regulatory Mapping",
+      "text": "List every standard, regulation and legal, contractual or statutory obligation that binds the organisation, and recheck the list at least annually or after a material change.",
+      "mappings": [
+        {
+          "control": "A.5.31",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "GRC-08",
+      "section": "Governance, Risk and Compliance",
+      "title": "Special Interest Groups",
+      "text": "Maintain relationships with cloud-focused interest groups and other bodies that matter given the organisation's business.",
+      "mappings": [
+        {
+          "control": "A.5.6",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "HRS-01",
+      "section": "Human Resources",
+      "title": "Background Screening Policy and Procedures",
+      "text": "Approved and communicated procedures should require background verification of every new hire, remote staff, contractors and third parties included, within local law, ethics and contract limits and in proportion to the data they will reach, business needs and acceptable risk. Revisit them yearly or after a material change.",
+      "mappings": [
+        {
+          "control": "A.6.1",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "HRS-02",
+      "section": "Human Resources",
+      "title": "Acceptable Use of Technology Policy and Procedures",
+      "text": "Approved and communicated procedures should state what use of organisation-owned or managed assets is allowed and on what conditions; revisit them yearly or after a material change.",
+      "mappings": [
+        {
+          "control": "A.5.10",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "HRS-03",
+      "section": "Human Resources",
+      "title": "Clean Desk Policy and Procedures",
+      "text": "Approved and communicated procedures should ensure unattended workspaces do not display confidential data openly; revisit them yearly or after a material change.",
+      "mappings": [
+        {
+          "control": "A.7.7",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "HRS-04",
+      "section": "Human Resources",
+      "title": "Remote and Home Working Policy and Procedures",
+      "text": "Approved policies and procedures should protect information that is accessed, handled or stored at remote or home-working sites; communicate them and revisit yearly or after a material change.",
+      "mappings": [
+        {
+          "control": "A.6.7",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "HRS-05",
+      "section": "Human Resources",
+      "title": "Asset returns",
+      "text": "Write down how organisation-owned assets get returned when employees, contractors or third parties leave.",
+      "mappings": [
+        {
+          "control": "A.5.11",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "HRS-06",
+      "section": "Human Resources",
+      "title": "Employment Termination",
+      "text": "Document and tell relevant personnel about the procedures that set out roles and responsibilities when employment changes or ends.",
+      "mappings": [
+        {
+          "control": "A.6.5",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "HRS-07",
+      "section": "Human Resources",
+      "title": "Employment Agreement Process",
+      "text": "Have employees sign their employment agreement before they get access to systems, resources and assets.",
+      "mappings": [
+        {
+          "control": "A.6.2",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "HRS-08",
+      "section": "Human Resources",
+      "title": "Employment Agreement Content",
+      "text": "Put terms in employment agreements requiring adherence to the established governance and security policies.",
+      "mappings": [
+        {
+          "control": "A.6.2",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "HRS-09",
+      "section": "Human Resources",
+      "title": "Personnel Roles and Responsibilities",
+      "text": "Define, document and communicate employees' roles and responsibilities for the security and privacy of information assets.",
+      "mappings": [
+        {
+          "control": "A.5.2",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "HRS-10",
+      "section": "Human Resources",
+      "title": "Non-Disclosure Agreements",
+      "text": "Identify, document and periodically review the need for non-disclosure or confidentiality agreements, reflecting how the organisation must protect data and operational details.",
+      "mappings": [
+        {
+          "control": "A.6.6",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "HRS-11",
+      "section": "Human Resources",
+      "title": "Security Awareness Training",
+      "text": "Run a security awareness training programme for all employees, with regular refresher updates.",
+      "mappings": [
+        {
+          "control": "A.6.3",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "HRS-12",
+      "section": "Human Resources",
+      "title": "Personal and Sensitive Data Awareness and Training",
+      "text": "Give staff who access sensitive organisational or personal data security training suited to their function, with regular updates on relevant policies and procedures.",
+      "mappings": [
+        {
+          "control": "A.6.3",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "HRS-13",
+      "section": "Human Resources",
+      "title": "Compliance User Responsibility",
+      "text": "Make employees aware of their own part in complying with established policies and with applicable legal, statutory and regulatory obligations.",
+      "mappings": [
+        {
+          "control": "A.5.4",
+          "coverage": "FULL"
+        },
+        {
+          "control": "A.6.3",
+          "coverage": "PARTIAL",
+          "rationale": "Covers awareness of policies, but not specifically of legal and regulatory duties"
+        }
+      ]
+    },
+    {
+      "code": "IAM-01",
+      "section": "Identity & Access Management",
+      "title": "Identity and Access Management Policy and Procedures",
+      "text": "Identity and access management should be governed by approved policies and procedures that are communicated, put into practice and revisited yearly or after a material change.",
+      "mappings": [
+        {
+          "control": "A.5.15",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "IAM-02",
+      "section": "Identity & Access Management",
+      "title": "Credentials Management Policy and Procedures",
+      "text": "Authentication credentials, passwords included, should be managed under approved policies and procedures that are communicated and put into practice and revisited yearly or after a material change.",
+      "mappings": [
+        {
+          "control": "A.5.17",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "IAM-03",
+      "section": "Identity & Access Management",
+      "title": "Identity Inventory",
+      "text": "Keep an inventory of identities, review it regularly and watch the access level each identity holds.",
+      "mappings": [
+        {
+          "control": "A.5.16",
+          "coverage": "FULL"
+        },
+        {
+          "control": "A.5.18",
+          "coverage": "PARTIAL",
+          "rationale": "Covers review of access rights, but monitoring of identities' access level is not explicit"
+        }
+      ]
+    },
+    {
+      "code": "IAM-04",
+      "section": "Identity & Access Management",
+      "title": "Separation of Duties",
+      "text": "Apply separation of duties when granting access to information systems.",
+      "mappings": [
+        {
+          "control": "A.5.3",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "IAM-05",
+      "section": "Identity & Access Management",
+      "title": "Least Privilege",
+      "text": "Apply the least privilege principle when granting access to information systems.",
+      "mappings": [
+        {
+          "control": "A.5.15",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "IAM-06",
+      "section": "Identity & Access Management",
+      "title": "Access Provisioning",
+      "text": "Granting access should go through a process that approves each change to who can reach data and assets, records it and tells those affected.",
+      "mappings": [
+        {
+          "control": "A.5.18",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "IAM-07",
+      "section": "Identity & Access Management",
+      "title": "Access Changes and Revocation",
+      "text": "Remove or change identity access promptly when it is no longer appropriate.",
+      "mappings": [
+        {
+          "control": "A.5.18",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "IAM-08",
+      "section": "Identity & Access Management",
+      "title": "Access Review",
+      "text": "Access should be rechecked for least privilege and separation of duties as often as the organisation's risk tolerance demands, no less than once a year, and after major changes.",
+      "mappings": [
+        {
+          "control": "A.5.18",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "IAM-09",
+      "section": "Identity & Access Management",
+      "title": "Segregation of Privileged Access Roles",
+      "text": "Keep privileged access roles apart from each other through suitable processes, procedures and technical measures.",
+      "mappings": [
+        {
+          "control": "A.5.3",
+          "coverage": "PARTIAL",
+          "rationale": "Covers separation of conflicting duties generally"
+        },
+        {
+          "control": "A.8.2",
+          "coverage": "PARTIAL",
+          "rationale": "Covers privileged access rights, but segregating privileged roles is not explicit"
+        }
+      ]
+    },
+    {
+      "code": "IAM-10",
+      "section": "Identity & Access Management",
+      "title": "Management of Privileged Access Roles",
+      "text": "Grant privileged roles and rights only for a limited time and prevent the build-up of privileged roles that should stay separate.",
+      "mappings": [
+        {
+          "control": "A.8.2",
+          "coverage": "PARTIAL",
+          "rationale": "Privileged rights are allocated in a controlled way, but time-limited grants and preventing accumulation are not explicit"
+        }
+      ]
+    },
+    {
+      "code": "IAM-11",
+      "section": "Identity & Access Management",
+      "title": "Service Customers Approval for Agreed Privileged Access Roles",
+      "text": "Let customers take part, where relevant, in granting agreed high-risk privileged access roles that the provider's staff hold.",
+      "mappings": [
+        {
+          "control": "CCM-SUP-06",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "IAM-12",
+      "section": "Identity & Access Management",
+      "title": "Unique Identities",
+      "text": "Each identity needs its own unique ID so that its activity can be attributed.",
+      "mappings": [
+        {
+          "control": "A.5.16",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "IAM-13",
+      "section": "Identity & Access Management",
+      "title": "Strong Authentication",
+      "text": "Access to systems, applications and data must be authenticated. Least-privileged users and sensitive data access require multiple factors, and system identities should use digital certificates or something equally strong.",
+      "mappings": [
+        {
+          "control": "A.8.5",
+          "coverage": "PARTIAL",
+          "rationale": "Secure authentication is required, but multifactor authentication and certificates for system identities are not mandated"
+        }
+      ]
+    },
+    {
+      "code": "IAM-14",
+      "section": "Identity & Access Management",
+      "title": "Credentials Management",
+      "text": "Authentication credentials, passwords included, must be handled securely.",
+      "mappings": [
+        {
+          "control": "A.5.17",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "IAM-15",
+      "section": "Identity & Access Management",
+      "title": "Authorization Mechanisms",
+      "text": "Check that every access to data and system functions has been authorised.",
+      "mappings": [
+        {
+          "control": "A.8.3",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "IPY-01",
+      "section": "Interoperability & Portability",
+      "title": "Interoperability and Portability Policy and Procedures",
+      "text": "Approved, communicated policies and procedures should address interoperability and portability: how application interfaces communicate, how information processing interoperates, how application development stays portable, and how data is exchanged, used, ported, kept intact and persisted. Revisit them yearly or after a material change.",
+      "mappings": [
+        {
+          "control": "CCM-SUP-04",
+          "coverage": "PARTIAL",
+          "rationale": "Covers data portability, but interface interoperability and application development portability are not included"
+        }
+      ]
+    },
+    {
+      "code": "IPY-02",
+      "section": "Interoperability & Portability",
+      "title": "Application Interface Availability",
+      "text": "Offer customers application interfaces through which they can retrieve their data programmatically, supporting interoperability and portability.",
+      "mappings": [
+        {
+          "control": "CCM-SUP-04",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "IPY-03",
+      "section": "Interoperability & Portability",
+      "title": "Secure Interoperability and Portability Management",
+      "text": "Use cryptographically secure network protocols that follow industry standards to manage, import and export data.",
+      "mappings": [
+        {
+          "control": "A.8.24",
+          "coverage": "PARTIAL",
+          "rationale": "Covers use of cryptography, but secure protocols for data import and export are not explicit"
+        },
+        {
+          "control": "A.5.14",
+          "coverage": "PARTIAL",
+          "rationale": "Covers secure information transfer in general"
+        }
+      ]
+    },
+    {
+      "code": "IPY-04",
+      "section": "Interoperability & Portability",
+      "title": "Data Portability Contractual Obligations",
+      "text": "Include contract terms stating customers' access to their data after termination: the data format, how long data is kept, what data is retained and made available, and the deletion policy.",
+      "mappings": [
+        {
+          "control": "CCM-SUP-04",
+          "coverage": "FULL"
+        },
+        {
+          "control": "A.5.20",
+          "coverage": "PARTIAL",
+          "rationale": "Covers security terms in supplier agreements, not data return on termination"
+        }
+      ]
+    },
+    {
+      "code": "I&S-01",
+      "section": "Infrastructure Security",
+      "title": "Infrastructure and Virtualization Security Policy and Procedures",
+      "text": "Infrastructure and virtualisation security should be governed by approved policies and procedures that are communicated and revisited yearly or after a material change.",
+      "mappings": [
+        {
+          "control": "A.8.20",
+          "coverage": "PARTIAL",
+          "rationale": "Covers network security, but infrastructure and virtualisation policy is not explicit"
+        },
+        {
+          "control": "A.8.9",
+          "coverage": "PARTIAL",
+          "rationale": "Covers configuration management, not a dedicated infrastructure policy"
+        }
+      ]
+    },
+    {
+      "code": "I&S-02",
+      "section": "Infrastructure Security",
+      "title": "Capacity and Resource Planning",
+      "text": "Resource availability, quality and capacity should be planned and watched so that systems perform as the business requires.",
+      "mappings": [
+        {
+          "control": "A.8.6",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "I&S-03",
+      "section": "Infrastructure Security",
+      "title": "Network Security",
+      "text": "Traffic between environments, services and applications should be watched, encrypted and limited to authenticated and authorised connections with a business reason. Each allowed service, protocol and port needs a written justification (and any compensating controls), and the configuration is reviewed at least once a year.",
+      "mappings": [
+        {
+          "control": "A.8.20",
+          "coverage": "FULL"
+        },
+        {
+          "control": "A.8.22",
+          "coverage": "PARTIAL",
+          "rationale": "Covers separating network groups, but not documented justification for every allowed flow"
+        }
+      ]
+    },
+    {
+      "code": "I&S-04",
+      "section": "Infrastructure Security",
+      "title": "OS Hardening and Base Controls",
+      "text": "Secure the hosts, guest systems, hypervisors and infrastructure control plane through hardening that follows their vendors' and the industry's best practices, enforced technically and kept as part of a security baseline.",
+      "mappings": [
+        {
+          "control": "A.8.9",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "I&S-05",
+      "section": "Infrastructure Security",
+      "title": "Production and Non-Production Environments",
+      "text": "Keep production and non-production environments apart so production data is not used in non-production, and sanitise or protect production data before any authorised use there.",
+      "mappings": [
+        {
+          "control": "A.8.31",
+          "coverage": "FULL"
+        },
+        {
+          "control": "A.8.33",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "I&S-06",
+      "section": "Infrastructure Security",
+      "title": "Segmentation and Segregation",
+      "text": "Build and configure applications and infrastructure so that each customer's (tenant's) access is properly segmented, segregated, monitored and restricted.",
+      "mappings": [
+        {
+          "control": "CCM-SUP-01",
+          "coverage": "FULL"
+        },
+        {
+          "control": "A.8.22",
+          "coverage": "PARTIAL",
+          "rationale": "Covers segregation of networks, not tenant isolation in shared platforms"
+        }
+      ]
+    },
+    {
+      "code": "I&S-07",
+      "section": "Infrastructure Security",
+      "title": "Migration to Cloud Environments",
+      "text": "Migrations of servers, services, applications or data into the cloud should travel over protected, encrypted channels that rely solely on current and approved protocols.",
+      "mappings": [
+        {
+          "control": "A.5.14",
+          "coverage": "PARTIAL",
+          "rationale": "Covers secure information transfer, but migration to cloud is not explicit"
+        },
+        {
+          "control": "A.8.24",
+          "coverage": "PARTIAL",
+          "rationale": "Covers use of cryptography, but approved protocols for migration are not explicit"
+        }
+      ]
+    },
+    {
+      "code": "I&S-08",
+      "section": "Infrastructure Security",
+      "title": "Network Architecture Documentation",
+      "text": "Work out which environments carry elevated risk, judged by how sensitive their data is, how exposed they are to threats and what a failure would cost the business, and write this down.",
+      "mappings": [
+        {
+          "control": "A.8.22",
+          "coverage": "PARTIAL",
+          "rationale": "Covers separation of networks, but identifying and documenting high-risk environments is not explicit"
+        },
+        {
+          "control": "ISMS-6.1.2",
+          "coverage": "PARTIAL",
+          "rationale": "Covers risk assessment generally, not environment documentation"
+        }
+      ]
+    },
+    {
+      "code": "I&S-09",
+      "section": "Infrastructure Security",
+      "title": "Network Defense",
+      "text": "Apply defence-in-depth techniques to protect against, detect and quickly respond to network-based attacks.",
+      "mappings": [
+        {
+          "control": "A.8.20",
+          "coverage": "PARTIAL",
+          "rationale": "Covers network protection, but defence-in-depth is not explicit"
+        },
+        {
+          "control": "A.8.16",
+          "coverage": "PARTIAL",
+          "rationale": "Covers monitoring for anomalous behaviour, but response to network attacks is not explicit"
+        }
+      ]
+    },
+    {
+      "code": "LOG-01",
+      "section": "Logging and Monitoring",
+      "title": "Logging and Monitoring Policy and Procedures",
+      "text": "Logging and monitoring should be governed by an approved policy and procedure set, communicated to staff and revisited yearly or after a material change.",
+      "mappings": [
+        {
+          "control": "A.8.15",
+          "coverage": "PARTIAL",
+          "rationale": "Covers logging, but a dedicated policy is not required"
+        },
+        {
+          "control": "A.8.16",
+          "coverage": "PARTIAL",
+          "rationale": "Covers monitoring activities, but a dedicated policy is not required"
+        }
+      ]
+    },
+    {
+      "code": "LOG-02",
+      "section": "Logging and Monitoring",
+      "title": "Audit Logs Protection",
+      "text": "Ensure audit logs are kept securely and retained for as long as needed.",
+      "mappings": [
+        {
+          "control": "A.8.15",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "LOG-03",
+      "section": "Logging and Monitoring",
+      "title": "Security Monitoring and Alerting",
+      "text": "Identify and monitor security events in applications and the infrastructure beneath them, and generate alerts to the responsible people based on those events and related metrics.",
+      "mappings": [
+        {
+          "control": "A.8.16",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "LOG-04",
+      "section": "Logging and Monitoring",
+      "title": "Audit Logs Access and Accountability",
+      "text": "Limit audit log access to authorised identities and keep records of that access.",
+      "mappings": [
+        {
+          "control": "A.8.15",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "LOG-05",
+      "section": "Logging and Monitoring",
+      "title": "Audit Logs Monitoring and Response",
+      "text": "Correlate and watch security audit logs so unusual or suspicious activity stands out from normal patterns, and have a defined routine for reviewing and acting on such findings promptly.",
+      "mappings": [
+        {
+          "control": "A.8.16",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "LOG-06",
+      "section": "Logging and Monitoring",
+      "title": "Clock Synchronization",
+      "text": "All relevant systems that process information should take their clock from one trustworthy source.",
+      "mappings": [
+        {
+          "control": "A.8.17",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "LOG-07",
+      "section": "Logging and Monitoring",
+      "title": "Logging Scope",
+      "text": "Decide, document and implement which system events and metadata are logged, and revisit the scope yearly, when the threat environment changes and as regulation requires.",
+      "mappings": [
+        {
+          "control": "A.8.15",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "LOG-08",
+      "section": "Logging and Monitoring",
+      "title": "Audit Logs Sanitization",
+      "text": "Give customers technical means to find and remove or tokenise sensitive data in logs, to prevent unauthorised exposure as the law requires.",
+      "mappings": [
+        {
+          "control": "A.8.11",
+          "coverage": "PARTIAL",
+          "rationale": "Covers data masking, but customer-facing detection and scrubbing of logs is not explicit"
+        },
+        {
+          "control": "A.8.15",
+          "coverage": "PARTIAL",
+          "rationale": "Covers protection of log information, but not scrubbing sensitive data from it"
+        }
+      ]
+    },
+    {
+      "code": "LOG-09",
+      "section": "Logging and Monitoring",
+      "title": "Log Records",
+      "text": "Produce audit records that contain the relevant security information.",
+      "mappings": [
+        {
+          "control": "A.8.15",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "LOG-10",
+      "section": "Logging and Monitoring",
+      "title": "Audit Records Protection",
+      "text": "Protect audit records from unauthorised access, change and deletion.",
+      "mappings": [
+        {
+          "control": "A.8.15",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "LOG-11",
+      "section": "Logging and Monitoring",
+      "title": "Encryption Monitoring and Reporting",
+      "text": "Be able to observe, and report to management, how cryptography and key management are actually run: the policies, processes, procedures and controls around them.",
+      "mappings": [
+        {
+          "control": "A.8.16",
+          "coverage": "PARTIAL",
+          "rationale": "Covers monitoring activities, but cryptography-specific monitoring is not explicit"
+        },
+        {
+          "control": "ISMS-9.1",
+          "coverage": "PARTIAL",
+          "rationale": "Covers performance measurement generally, not cryptography reporting"
+        }
+      ]
+    },
+    {
+      "code": "LOG-12",
+      "section": "Logging and Monitoring",
+      "title": "Transaction/Activity Logging",
+      "text": "Log and monitor key lifecycle events so that key usage can be audited and reported.",
+      "mappings": [
+        {
+          "control": "A.8.15",
+          "coverage": "PARTIAL",
+          "rationale": "Covers logging of activities, but key lifecycle events are not explicit"
+        }
+      ]
+    },
+    {
+      "code": "LOG-13",
+      "section": "Logging and Monitoring",
+      "title": "Access Control Logs",
+      "text": "Monitor and log physical access with an access control system that can be audited.",
+      "mappings": [
+        {
+          "control": "A.7.2",
+          "coverage": "FULL"
+        },
+        {
+          "control": "A.7.4",
+          "coverage": "PARTIAL",
+          "rationale": "Covers physical monitoring, but auditable access logs are not explicit"
+        }
+      ]
+    },
+    {
+      "code": "LOG-14",
+      "section": "Logging and Monitoring",
+      "title": "Failures and Anomalies Reporting",
+      "text": "Report failures and anomalies of the monitoring system itself, with immediate notice to the accountable party.",
+      "mappings": [
+        {
+          "control": "A.8.16",
+          "coverage": "PARTIAL",
+          "rationale": "Covers monitoring, but failures of the monitoring system and immediate notification are not explicit"
+        }
+      ]
+    },
+    {
+      "code": "SEF-01",
+      "section": "Security Incident Management, E-Discovery, & Cloud Forensics",
+      "title": "Security Incident Management Policy and Procedures",
+      "text": "A reviewed and approved policy set, communicated to staff, should govern security incident handling together with e-discovery and cloud forensic work, and be revisited annually or when circumstances shift materially.",
+      "mappings": [
+        {
+          "control": "A.5.24",
+          "coverage": "FULL"
+        },
+        {
+          "control": "A.5.28",
+          "coverage": "PARTIAL",
+          "rationale": "Covers evidence collection, but e-discovery and cloud forensics are not explicit"
+        }
+      ]
+    },
+    {
+      "code": "SEF-02",
+      "section": "Security Incident Management, E-Discovery, & Cloud Forensics",
+      "title": "Service Management Policy and Procedures",
+      "text": "Approved and communicated policies and procedures should govern timely handling of security incidents; revisit them yearly or after a material change.",
+      "mappings": [
+        {
+          "control": "A.5.24",
+          "coverage": "FULL"
+        },
+        {
+          "control": "A.5.26",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "SEF-03",
+      "section": "Security Incident Management, E-Discovery, & Cloud Forensics",
+      "title": "Incident Response Plans",
+      "text": "Keep an approved incident response plan; among other things it should lay out how internal teams, affected customers and other dependent parties such as supply chain partners are told about an incident.",
+      "mappings": [
+        {
+          "control": "A.5.24",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "SEF-04",
+      "section": "Security Incident Management, E-Discovery, & Cloud Forensics",
+      "title": "Incident Response Testing",
+      "text": "Rehearse the incident response plans on a planned schedule and after material change.",
+      "mappings": [
+        {
+          "control": "A.5.24",
+          "coverage": "PARTIAL",
+          "rationale": "Covers incident planning and preparation, but exercising the plans is not explicit"
+        }
+      ]
+    },
+    {
+      "code": "SEF-05",
+      "section": "Security Incident Management, E-Discovery, & Cloud Forensics",
+      "title": "Incident Response Metrics",
+      "text": "Set up measures of information security incidents, track them and report on them.",
+      "mappings": [
+        {
+          "control": "ISMS-9.1",
+          "coverage": "PARTIAL",
+          "rationale": "Covers performance measurement generally, not incident metrics"
+        },
+        {
+          "control": "A.5.27",
+          "coverage": "PARTIAL",
+          "rationale": "Covers learning from incidents, but metrics are not explicit"
+        }
+      ]
+    },
+    {
+      "code": "SEF-06",
+      "section": "Security Incident Management, E-Discovery, & Cloud Forensics",
+      "title": "Event Triage Processes",
+      "text": "Support business processes with processes and technical measures that triage security-related events.",
+      "mappings": [
+        {
+          "control": "A.5.25",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "SEF-07",
+      "section": "Security Incident Management, E-Discovery, & Cloud Forensics",
+      "title": "Incident Management and Response",
+      "text": "Respond to security incidents promptly and effectively according to incident category and severity, and review, update and test the procedures at least yearly.",
+      "mappings": [
+        {
+          "control": "A.5.26",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "SEF-08",
+      "section": "Security Incident Management, E-Discovery, & Cloud Forensics",
+      "title": "Security Breach Notification",
+      "text": "Notify others of security breaches, including relevant supply chain breaches, and report material breaches as the SLAs, laws and regulations require.",
+      "mappings": [
+        {
+          "control": "A.5.26",
+          "coverage": "PARTIAL",
+          "rationale": "Covers response to incidents, but breach notification duties are not explicit"
+        },
+        {
+          "control": "A.5.5",
+          "coverage": "PARTIAL",
+          "rationale": "Covers contact with authorities, but not customer and supply chain notification"
+        }
+      ]
+    },
+    {
+      "code": "SEF-09",
+      "section": "Security Incident Management, E-Discovery, & Cloud Forensics",
+      "title": "Incident Records Management",
+      "text": "Keep a secure repository of incident records and review it regularly to spot patterns, root causes and systemic weaknesses, then correct them.",
+      "mappings": [
+        {
+          "control": "A.5.27",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "SEF-10",
+      "section": "Security Incident Management, E-Discovery, & Cloud Forensics",
+      "title": "Points of Contact Maintenance",
+      "text": "Keep current contact details for regulators, police at national and local level and other authorities with jurisdiction, and refresh them at least annually.",
+      "mappings": [
+        {
+          "control": "A.5.5",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "STA-01",
+      "section": "Supply Chain Management, Transparency, and Accountability",
+      "title": "Supply Chain Risk Management Policies and Procedures",
+      "text": "Supply chain risk management should be governed by an approved policy and procedure set, communicated to staff and revisited yearly or after a material change.",
+      "mappings": [
+        {
+          "control": "A.5.19",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "STA-02",
+      "section": "Supply Chain Management, Transparency, and Accountability",
+      "title": "SSRM Policy and Procedures",
+      "text": "Application of the shared security responsibility model inside the organisation should be governed by approved and communicated policies and procedures, revisited yearly or after a material change.",
+      "mappings": [
+        {
+          "control": "CCM-SUP-02",
+          "coverage": "FULL"
+        },
+        {
+          "control": "A.5.23",
+          "coverage": "PARTIAL",
+          "rationale": "Covers use of cloud services, but not the provider's own shared responsibility policy"
+        }
+      ]
+    },
+    {
+      "code": "STA-03",
+      "section": "Supply Chain Management, Transparency, and Accountability",
+      "title": "SSRM Supply Chain",
+      "text": "Apply, record and manage the shared security responsibility model throughout the supply chain.",
+      "mappings": [
+        {
+          "control": "CCM-SUP-02",
+          "coverage": "FULL"
+        },
+        {
+          "control": "A.5.21",
+          "coverage": "PARTIAL",
+          "rationale": "Covers the ICT supply chain generally, not the shared responsibility model"
+        }
+      ]
+    },
+    {
+      "code": "STA-04",
+      "section": "Supply Chain Management, Transparency, and Accountability",
+      "title": "SSRM Guidance",
+      "text": "Give customers guidance explaining how the shared security responsibility model applies across the supply chain.",
+      "mappings": [
+        {
+          "control": "CCM-SUP-02",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "STA-05",
+      "section": "Supply Chain Management, Transparency, and Accountability",
+      "title": "SSRM Control Ownership",
+      "text": "Spell out which party owns each CCM control and where it applies under the shared security responsibility model.",
+      "mappings": [
+        {
+          "control": "CCM-SUP-02",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "STA-06",
+      "section": "Supply Chain Management, Transparency, and Accountability",
+      "title": "SSRM Documentation Review",
+      "text": "Review and validate the shared security responsibility documentation.",
+      "mappings": [
+        {
+          "control": "CCM-SUP-02",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "STA-07",
+      "section": "Supply Chain Management, Transparency, and Accountability",
+      "title": "SSRM Control Implementation",
+      "text": "Put into practice, run and audit or assess the parts of the shared security responsibility model that fall to the organisation.",
+      "mappings": [
+        {
+          "control": "CCM-SUP-02",
+          "coverage": "PARTIAL",
+          "rationale": "Records ownership, but operating and auditing the organisation's own portion is covered elsewhere"
+        },
+        {
+          "control": "A.5.36",
+          "coverage": "PARTIAL",
+          "rationale": "Covers compliance reviews, not audit of the shared responsibility portion"
+        }
+      ]
+    },
+    {
+      "code": "STA-08",
+      "section": "Supply Chain Management, Transparency, and Accountability",
+      "title": "Supply Chain Inventory",
+      "text": "Every relationship with a supplier or other party in the service's supply chain should appear in a list that is kept current.",
+      "mappings": [
+        {
+          "control": "A.5.19",
+          "coverage": "PARTIAL",
+          "rationale": "Covers supplier relationships, but a complete inventory of them is not explicit"
+        },
+        {
+          "control": "A.5.21",
+          "coverage": "PARTIAL",
+          "rationale": "Covers the ICT supply chain, but an inventory is not explicit"
+        }
+      ]
+    },
+    {
+      "code": "STA-09",
+      "section": "Supply Chain Management, Transparency, and Accountability",
+      "title": "Service Bill of Material (BOM)",
+      "text": "Define and enforce a process to build a bill of materials for the service supply chain, and review it yearly or after significant change.",
+      "mappings": []
+    },
+    {
+      "code": "STA-10",
+      "section": "Supply Chain Management, Transparency, and Accountability",
+      "title": "Supply Chain Risk Management",
+      "text": "Review the risk factors tied to supply chain relationships at regular intervals.",
+      "mappings": [
+        {
+          "control": "A.5.22",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "STA-11",
+      "section": "Supply Chain Management, Transparency, and Accountability",
+      "title": "Primary Service and Contractual Agreement",
+      "text": "Include in service agreements mutually agreed terms on: scope, characteristics and location of services; security requirements including the shared responsibility model; change management; logging and monitoring; incident handling and communication; audit rights; termination; interoperability and portability; data privacy; and operational resilience.",
+      "mappings": [
+        {
+          "control": "A.5.20",
+          "coverage": "PARTIAL",
+          "rationale": "Covers security terms in supplier agreements, but several listed items (audit rights, portability, resilience) are not required"
+        },
+        {
+          "control": "A.5.23",
+          "coverage": "PARTIAL",
+          "rationale": "Covers cloud service agreements, including exit, but not the full list of terms"
+        }
+      ]
+    },
+    {
+      "code": "STA-12",
+      "section": "Supply Chain Management, Transparency, and Accountability",
+      "title": "Supply Chain Agreement Review",
+      "text": "Review supply chain agreements yearly or after significant change.",
+      "mappings": [
+        {
+          "control": "A.5.22",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "STA-13",
+      "section": "Supply Chain Management, Transparency, and Accountability",
+      "title": "Supply Chain Compliance Assessment",
+      "text": "At least once a year, run internal assessments checking whether standards, policies, procedures and service level activities are conformed to and working.",
+      "mappings": [
+        {
+          "control": "A.5.36",
+          "coverage": "PARTIAL",
+          "rationale": "Covers compliance reviews, but supply chain assessments are not explicit"
+        },
+        {
+          "control": "A.5.22",
+          "coverage": "PARTIAL",
+          "rationale": "Covers monitoring supplier services, but not internal conformance assessments"
+        }
+      ]
+    },
+    {
+      "code": "STA-14",
+      "section": "Supply Chain Management, Transparency, and Accountability",
+      "title": "Supply Chain Service Agreement Compliance",
+      "text": "Adopt policies obliging each provider in the supply chain to honour the organisation's expectations on security, confidentiality, access control, privacy, audit, staffing and service levels.",
+      "mappings": [
+        {
+          "control": "A.5.19",
+          "coverage": "FULL"
+        },
+        {
+          "control": "A.5.20",
+          "coverage": "PARTIAL",
+          "rationale": "Covers security requirements in agreements, but not all listed requirement areas"
+        }
+      ]
+    },
+    {
+      "code": "STA-15",
+      "section": "Supply Chain Management, Transparency, and Accountability",
+      "title": "Supply Chain Governance Review",
+      "text": "Review the IT governance policies and procedures of the organisation's service providers yearly or after significant change.",
+      "mappings": [
+        {
+          "control": "A.5.22",
+          "coverage": "PARTIAL",
+          "rationale": "Covers monitoring and review of supplier services, but reviewing providers' governance policies is not explicit"
+        }
+      ]
+    },
+    {
+      "code": "STA-16",
+      "section": "Supply Chain Management, Transparency, and Accountability",
+      "title": "Supply Chain Data Security Assessment",
+      "text": "A defined process should drive security assessments of the supply chain, with depth chosen by risk.",
+      "mappings": [
+        {
+          "control": "A.5.21",
+          "coverage": "PARTIAL",
+          "rationale": "Covers managing security in the ICT supply chain, but risk-based assessments are not explicit"
+        },
+        {
+          "control": "A.5.22",
+          "coverage": "PARTIAL",
+          "rationale": "Covers monitoring and review of supplier services"
+        }
+      ]
+    },
+    {
+      "code": "TVM-01",
+      "section": "Threat & Vulnerability Management",
+      "title": "Threat and Vulnerability Management Policy and Procedures",
+      "text": "Approved policies and procedures should govern how vulnerabilities and threats are found, reported and prioritised for fixing, so systems withstand exploitation; communicate them and revisit yearly or after a material change.",
+      "mappings": [
+        {
+          "control": "A.8.8",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "TVM-02",
+      "section": "Threat & Vulnerability Management",
+      "title": "Malware and Malicious Instructions Protection Policy and Procedures",
+      "text": "Protection from malware and malicious instructions should be governed by approved and communicated policies and procedures, revisited yearly or after a material change.",
+      "mappings": [
+        {
+          "control": "A.8.7",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "TVM-03",
+      "section": "Threat & Vulnerability Management",
+      "title": "Vulnerability Identification",
+      "text": "Scan organisation-managed assets for vulnerabilities no less often than monthly.",
+      "mappings": [
+        {
+          "control": "A.8.8",
+          "coverage": "PARTIAL",
+          "rationale": "Covers technical vulnerability management, but a monthly detection cadence is not required"
+        }
+      ]
+    },
+    {
+      "code": "TVM-04",
+      "section": "Threat & Vulnerability Management",
+      "title": "Threat Analysis and Modelling",
+      "text": "Study and review the cloud threat landscape, and build threat models by industry practice that inform the choice of risk mitigations.",
+      "mappings": [
+        {
+          "control": "A.5.7",
+          "coverage": "PARTIAL",
+          "rationale": "Covers threat intelligence, but threat modelling is not explicit"
+        },
+        {
+          "control": "ISMS-6.1.2",
+          "coverage": "PARTIAL",
+          "rationale": "Covers risk assessment generally, not cloud threat modelling"
+        }
+      ]
+    },
+    {
+      "code": "TVM-05",
+      "section": "Threat & Vulnerability Management",
+      "title": "Detection Updates",
+      "text": "Refresh malware detection tooling, signatures and compromise indicators weekly at the latest.",
+      "mappings": [
+        {
+          "control": "A.8.7",
+          "coverage": "PARTIAL",
+          "rationale": "Covers protection against malware, but a weekly update cadence is not required"
+        }
+      ]
+    },
+    {
+      "code": "TVM-06",
+      "section": "Threat & Vulnerability Management",
+      "title": "External Library Vulnerabilities",
+      "text": "For applications built on open source or third-party libraries, find available updates in line with the vulnerability management policy.",
+      "mappings": [
+        {
+          "control": "A.8.8",
+          "coverage": "PARTIAL",
+          "rationale": "Covers technical vulnerability management, but third-party library updates are not explicit"
+        },
+        {
+          "control": "A.8.28",
+          "coverage": "PARTIAL",
+          "rationale": "Covers secure coding, including use of third-party code, but not update tracking"
+        }
+      ]
+    },
+    {
+      "code": "TVM-07",
+      "section": "Threat & Vulnerability Management",
+      "title": "Penetration Testing",
+      "text": "Have independent third parties perform penetration tests periodically.",
+      "mappings": [
+        {
+          "control": "A.8.29",
+          "coverage": "PARTIAL",
+          "rationale": "Covers security testing, but independent penetration testing is not required"
+        },
+        {
+          "control": "A.8.8",
+          "coverage": "PARTIAL",
+          "rationale": "Covers vulnerability management, not penetration testing"
+        }
+      ]
+    },
+    {
+      "code": "TVM-08",
+      "section": "Threat & Vulnerability Management",
+      "title": "Vulnerability Remediation Schedule",
+      "text": "Based on the risks found, be ready to react to newly identified vulnerabilities both on a schedule and in an emergency.",
+      "mappings": [
+        {
+          "control": "A.8.8",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "TVM-09",
+      "section": "Threat & Vulnerability Management",
+      "title": "Vulnerability Prioritization",
+      "text": "Prioritise vulnerability remediation by risk, using an industry-recognised framework.",
+      "mappings": [
+        {
+          "control": "A.8.8",
+          "coverage": "PARTIAL",
+          "rationale": "Covers vulnerability evaluation and action, but a recognised prioritisation framework is not required"
+        }
+      ]
+    },
+    {
+      "code": "TVM-10",
+      "section": "Threat & Vulnerability Management",
+      "title": "Threat Response",
+      "text": "Prioritise and mitigate threats by risk, guided by an industry-recognised framework.",
+      "mappings": [
+        {
+          "control": "A.5.7",
+          "coverage": "PARTIAL",
+          "rationale": "Covers threat intelligence, but risk-based prioritisation frameworks are not explicit"
+        },
+        {
+          "control": "ISMS-6.1.3",
+          "coverage": "PARTIAL",
+          "rationale": "Covers risk treatment generally, not threat response"
+        }
+      ]
+    },
+    {
+      "code": "TVM-11",
+      "section": "Threat & Vulnerability Management",
+      "title": "Vulnerability Management Reporting",
+      "text": "Track and report vulnerability identification and fixing, including notifying stakeholders.",
+      "mappings": [
+        {
+          "control": "A.8.8",
+          "coverage": "PARTIAL",
+          "rationale": "Covers vulnerability management, but tracking and stakeholder reporting are not explicit"
+        },
+        {
+          "control": "ISMS-9.1",
+          "coverage": "PARTIAL",
+          "rationale": "Covers performance reporting generally"
+        }
+      ]
+    },
+    {
+      "code": "TVM-12",
+      "section": "Threat & Vulnerability Management",
+      "title": "Vulnerability Management Metrics",
+      "text": "Define, monitor and report metrics on vulnerability identification and remediation at set intervals.",
+      "mappings": [
+        {
+          "control": "ISMS-9.1",
+          "coverage": "PARTIAL",
+          "rationale": "Covers performance measurement generally, not vulnerability metrics"
+        },
+        {
+          "control": "A.8.8",
+          "coverage": "PARTIAL",
+          "rationale": "Covers vulnerability management, but metrics are not explicit"
+        }
+      ]
+    },
+    {
+      "code": "UEM-01",
+      "section": "Universal Endpoint Management",
+      "title": "Endpoint Devices Policy and Procedures",
+      "text": "Approved policies and procedures should cover all endpoints; communicate them and revisit yearly or after a material change.",
+      "mappings": [
+        {
+          "control": "A.8.1",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "UEM-02",
+      "section": "Universal Endpoint Management",
+      "title": "Application and Service Approval",
+      "text": "Maintain a defined list of the services, applications and app stores that endpoints may use to reach or hold organisation-managed data.",
+      "mappings": [
+        {
+          "control": "A.8.1",
+          "coverage": "PARTIAL",
+          "rationale": "Covers user endpoint devices, but an approved application list is not explicit"
+        },
+        {
+          "control": "A.8.19",
+          "coverage": "PARTIAL",
+          "rationale": "Covers control of software installation on operational systems, not endpoints"
+        }
+      ]
+    },
+    {
+      "code": "UEM-03",
+      "section": "Universal Endpoint Management",
+      "title": "Compatibility",
+      "text": "Validate that endpoint devices are compatible with the operating systems and applications they run.",
+      "mappings": [
+        {
+          "control": "A.8.1",
+          "coverage": "PARTIAL",
+          "rationale": "Covers user endpoint devices, but compatibility validation is not explicit"
+        }
+      ]
+    },
+    {
+      "code": "UEM-04",
+      "section": "Universal Endpoint Management",
+      "title": "Endpoint Inventory",
+      "text": "Keep a current list of every endpoint that holds, reaches or handles company data.",
+      "mappings": [
+        {
+          "control": "A.5.9",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "UEM-05",
+      "section": "Universal Endpoint Management",
+      "title": "Endpoint Management",
+      "text": "Endpoints allowed to reach systems or to hold, send or process organisational data must have the organisation's policies and controls enforced on them.",
+      "mappings": [
+        {
+          "control": "A.8.1",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "UEM-06",
+      "section": "Universal Endpoint Management",
+      "title": "Automatic Lock Screen",
+      "text": "Devices people use interactively should lock their screen on their own after a period of inactivity.",
+      "mappings": [
+        {
+          "control": "A.7.7",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "UEM-07",
+      "section": "Universal Endpoint Management",
+      "title": "Operating Systems",
+      "text": "Endpoint operating system, patch and application changes should go through the organisation's normal change management.",
+      "mappings": [
+        {
+          "control": "A.8.32",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "UEM-08",
+      "section": "Universal Endpoint Management",
+      "title": "Storage Encryption",
+      "text": "Encrypt the storage of managed endpoint devices so that data on them cannot be read by unauthorised parties.",
+      "mappings": [
+        {
+          "control": "A.8.24",
+          "coverage": "PARTIAL",
+          "rationale": "Covers use of cryptography, but storage encryption of endpoints is not mandated"
+        },
+        {
+          "control": "A.8.1",
+          "coverage": "PARTIAL",
+          "rationale": "Covers user endpoint devices, but encryption is not explicit"
+        }
+      ]
+    },
+    {
+      "code": "UEM-09",
+      "section": "Universal Endpoint Management",
+      "title": "Anti-Malware Detection and Prevention",
+      "text": "Managed endpoints should run anti-malware software that detects and prevents infections.",
+      "mappings": [
+        {
+          "control": "A.8.7",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "UEM-10",
+      "section": "Universal Endpoint Management",
+      "title": "Software Firewall",
+      "text": "Run properly configured software firewalls on managed endpoints.",
+      "mappings": [
+        {
+          "control": "A.8.1",
+          "coverage": "PARTIAL",
+          "rationale": "Covers user endpoint devices, but software firewalls are not explicit"
+        }
+      ]
+    },
+    {
+      "code": "UEM-11",
+      "section": "Universal Endpoint Management",
+      "title": "Data Loss Prevention",
+      "text": "Deploy data loss prevention technology and rules on managed endpoints, based on a risk assessment.",
+      "mappings": [
+        {
+          "control": "A.8.12",
+          "coverage": "FULL"
+        }
+      ]
+    },
+    {
+      "code": "UEM-12",
+      "section": "Universal Endpoint Management",
+      "title": "Remote Locate",
+      "text": "Enable remote geo-location of all managed mobile endpoints, within applicable laws and regulations.",
+      "mappings": []
+    },
+    {
+      "code": "UEM-13",
+      "section": "Universal Endpoint Management",
+      "title": "Remote Wipe",
+      "text": "Provide for remote deletion of company data on managed endpoint devices.",
+      "mappings": [
+        {
+          "control": "A.8.1",
+          "coverage": "PARTIAL",
+          "rationale": "Covers user endpoint devices, but remote wipe is not explicit"
+        },
+        {
+          "control": "A.8.10",
+          "coverage": "PARTIAL",
+          "rationale": "Covers deletion of information, but not remote deletion"
+        }
+      ]
+    },
+    {
+      "code": "UEM-14",
+      "section": "Universal Endpoint Management",
+      "title": "Third-Party Endpoint Security Posture",
+      "text": "Maintain the security of third-party endpoints that access organisational assets, using technical and/or contractual measures.",
+      "mappings": [
+        {
+          "control": "A.8.1",
+          "coverage": "PARTIAL",
+          "rationale": "Covers user endpoint devices, but third-party endpoints are not explicit"
+        },
+        {
+          "control": "A.5.20",
+          "coverage": "PARTIAL",
+          "rationale": "Covers security terms in supplier agreements, but not endpoint posture"
+        }
+      ]
+    }
+  ]
+}
