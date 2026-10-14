@@ -42,7 +42,7 @@ The queue and what to do next are in [`HANDOFF.md`](HANDOFF.md). The per-issue r
 
 ### Not built yet
 
-- **Milestone 4:** the Cybersäkerhetslagen content. CSA CCM 4.1.1 is an import file (`prisma/seed-data/frameworks/csa-ccm-4.1.1.json`) that loads as a Draft for a Compliance Manager to review and publish.
+- **Milestone 4:** the Cybersäkerhetslagen content.
 - **The GDPR and Export Control (EAR/ITAR) Frameworks** are Published but have no Requirements.
 - **Other open issues:** #46 (Control content versioning and notifications; needs re-scoping against the PRD), #61 (a per-System audit trail; deferred) and #63 (a lint cleanup of effect-based data fetching).
 

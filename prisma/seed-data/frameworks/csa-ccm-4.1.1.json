@@ -144,7 +144,7 @@
       "code": "A&A-02",
       "section": "Audit & Assurance",
       "title": "Independent Assessments",
-      "text": "Have independent parties carry out audit and assurance assessments against recognised standards, at least once a year.",
+      "text": "Every year at minimum, an independent party examines the organisation against the relevant standards and reports on assurance.",
       "mappings": [
         {
           "control": "A.5.35",
@@ -191,7 +191,7 @@
       "code": "A&A-05",
       "section": "Audit & Assurance",
       "title": "Audit Management Process",
-      "text": "An audit management process aligned with auditing standards should cover audit planning, risk analysis, control assessment, conclusions, remediation schedules and report production, and include a look back at earlier reports and evidence.",
+      "text": "Audits follow a managed process modelled on recognised auditing standards: planning, risk analysis, testing of security controls, concluding, scheduling fixes and issuing reports, with earlier reports and their evidence taken into account.",
       "mappings": [
         {
           "control": "ISMS-9.2",
@@ -203,7 +203,7 @@
       "code": "A&A-06",
       "section": "Audit & Assurance",
       "title": "Remediation",
-      "text": "Keep a risk-driven corrective action plan for audit findings, and report remediation progress to stakeholders on a regular basis.",
+      "text": "Findings from audits lead to a corrective action plan ordered by risk, whose progress is checked and shared with interested parties on a recurring basis.",
       "mappings": [
         {
           "control": "ISMS-10.2",
@@ -371,7 +371,7 @@
       "code": "BCR-03",
       "section": "Business Continuity Management and Operational Resilience",
       "title": "Business Continuity Strategy",
-      "text": "Define strategies that lessen the effect of business disruptions and improve the ability to withstand and recover from them.",
+      "text": "Plans exist for limiting the harm of disruptions to the business and for coming back stronger and faster after them.",
       "mappings": [
         {
           "control": "A.5.30",
@@ -418,7 +418,7 @@
       "code": "BCR-06",
       "section": "Business Continuity Management and Operational Resilience",
       "title": "Business Continuity Exercises",
-      "text": "Exercise and test continuity and resilience plans yearly or after significant change.",
+      "text": "Continuity and resilience plans are rehearsed and proven in practice once a year, plus whenever the organisation undergoes a material change.",
       "mappings": [
         {
           "control": "A.5.30",
@@ -430,7 +430,7 @@
       "code": "BCR-07",
       "section": "Business Continuity Management and Operational Resilience",
       "title": "Communication",
-      "text": "Open and sustain lines of communication to all relevant stakeholders while continuity and resilience procedures are carried out.",
+      "text": "Stakeholders can be reached through established channels at any time during continuity and resilience work.",
       "mappings": [
         {
           "control": "A.5.29",
@@ -473,7 +473,7 @@
       "code": "BCR-10",
       "section": "Business Continuity Management and Operational Resilience",
       "title": "Response Plan Exercise",
-      "text": "Rehearse the disaster response plan each year or after significant change, involving local emergency authorities where possible.",
+      "text": "The disaster response plan is put through a practice run annually and after material change, ideally alongside local emergency services.",
       "mappings": [
         {
           "control": "A.5.30",
@@ -516,7 +516,7 @@
       "code": "CCC-02",
       "section": "Change Control and Configuration Management",
       "title": "Quality Testing",
-      "text": "Operate a defined process for change control, approval and testing that rests on baselines, test steps and release standards.",
+      "text": "Changes pass through an organised quality gate of approval and testing, measured against baselines and agreed release criteria.",
       "mappings": [
         {
           "control": "A.8.32",
@@ -533,7 +533,7 @@
       "code": "CCC-03",
       "section": "Change Control and Configuration Management",
       "title": "Change Management Technology",
-      "text": "Use a change management procedure to control the risks of changes to assets that the organisation owns, controls or uses.",
+      "text": "Risk from modifying the assets that the organisation owns, controls or relies upon is kept in check through a change management routine.",
       "mappings": [
         {
           "control": "A.8.32",
@@ -609,7 +609,7 @@
       "code": "CCC-08",
       "section": "Change Control and Configuration Management",
       "title": "Exception Management",
-      "text": "Handle exceptions, emergencies included, to the change and configuration process through a defined procedure that is in line with the policy exception process.",
+      "text": "When a change or configuration step needs to depart from the rules, including in an emergency, there is a defined path for handling that, consistent with how policy exceptions are managed generally.",
       "mappings": [
         {
           "control": "A.8.32",
@@ -627,7 +627,7 @@
       "code": "CCC-09",
       "section": "Change Control and Configuration Management",
       "title": "Change Restoration",
-      "text": "Define a process that reverts changes to the last known good state when errors or security concerns arise.",
+      "text": "There is a ready way to undo a change and restore the last state known to work, so errors or security worries can be answered quickly.",
       "mappings": [
         {
           "control": "A.8.32",
@@ -670,7 +670,7 @@
       "code": "CEK-03",
       "section": "Cryptography, Encryption & Key Management",
       "title": "Data Protection",
-      "text": "Protect data while stored, in transit and, where relevant, in use, using cryptographic libraries certified to recognised standards.",
+      "text": "Data stays encrypted whether it is at rest or travelling, and where feasible while being processed too; the cryptographic code relied on holds recognised certification.",
       "mappings": [
         {
           "control": "A.8.24",
@@ -731,7 +731,7 @@
       "code": "CEK-07",
       "section": "Cryptography, Encryption & Key Management",
       "title": "Encryption Risk Management",
-      "text": "Run a risk programme for encryption and key management covering assessment, treatment, context, monitoring and feedback.",
+      "text": "A programme manages the risks of encryption and key management, with steps for assessing, treating, setting the context of, watching and feeding back on those risks.",
       "mappings": [
         {
           "control": "ISMS-6.1.2",
@@ -792,7 +792,7 @@
       "code": "CEK-11",
       "section": "Cryptography, Encryption & Key Management",
       "title": "Key Purpose",
-      "text": "Provision secret and private keys for one purpose only.",
+      "text": "Each secret or private key is issued for a single designated use.",
       "mappings": [
         {
           "control": "A.8.24",
@@ -831,7 +831,7 @@
       "code": "CEK-14",
       "section": "Cryptography, Encryption & Key Management",
       "title": "Key Destruction",
-      "text": "Securely destroy keys that are no longer needed, respecting legal and regulatory duties.",
+      "text": "Keys that have outlived their purpose are destroyed in a way that cannot be undone, with legal and regulatory duties in mind.",
       "mappings": [
         {
           "control": "A.8.24",
@@ -916,7 +916,7 @@
       "code": "CEK-21",
       "section": "Cryptography, Encryption & Key Management",
       "title": "Key Inventory Management",
-      "text": "Have the key management system track and report all cryptographic material and each change of its status, respecting legal and regulatory duties.",
+      "text": "The key management system keeps a live record of every piece of keying material and reports each time its state changes, in line with legal and regulatory duties.",
       "mappings": [
         {
           "control": "A.8.24",
@@ -1016,7 +1016,7 @@
       "code": "DCS-06",
       "section": "Datacenter Security",
       "title": "Assets Classification",
-      "text": "Classify and document physical and logical assets, such as applications, by business risk, and revisit the classification yearly or after significant change.",
+      "text": "Assets, physical and logical alike (applications, for instance), are recorded and ranked according to the business risk they carry; the ranking is rechecked annually and after material change.",
       "mappings": [
         {
           "control": "A.5.9",
@@ -1034,7 +1034,7 @@
       "code": "DCS-07",
       "section": "Datacenter Security",
       "title": "Assets Cataloguing and Tracking",
-      "text": "Catalogue and track the relevant physical and logical assets at all of the provider's sites in a secured system, and review the catalogue yearly or after significant change.",
+      "text": "Every physical and logical asset at each of the provider's locations is listed and followed in a protected system; the list is checked for currency at least once a year and after material change.",
       "mappings": [
         {
           "control": "A.5.9",
@@ -1046,7 +1046,7 @@
       "code": "DCS-08",
       "section": "Datacenter Security",
       "title": "Controlled Physical Access Points",
-      "text": "Design and put in place physical security perimeters that protect people, data and information systems.",
+      "text": "Facilities have physical boundaries designed and built to keep people, data and information systems safe.",
       "mappings": [
         {
           "control": "A.7.1",
@@ -1058,7 +1058,7 @@
       "code": "DCS-09",
       "section": "Datacenter Security",
       "title": "Equipment Identification",
-      "text": "Use the identity of equipment as a basis for authenticating its network connection.",
+      "text": "A machine's own identifier can be what proves it is allowed to join the network.",
       "mappings": []
     },
     {
@@ -1077,7 +1077,7 @@
       "code": "DCS-11",
       "section": "Datacenter Security",
       "title": "Surveillance System",
-      "text": "Operate surveillance at the datacenter's outer perimeter and all entry and exit points to detect unauthorised attempts to get in or out.",
+      "text": "Cameras and similar monitoring at the datacenter's outer boundary and at each door or gate pick up attempts to enter or leave without permission.",
       "mappings": [
         {
           "control": "A.7.4",
@@ -1114,7 +1114,7 @@
       "code": "DCS-14",
       "section": "Datacenter Security",
       "title": "Environmental Systems",
-      "text": "Run datacenter environmental controls that monitor, maintain and regularly test temperature and humidity within accepted industry ranges.",
+      "text": "Datacenters have climate and environmental control equipment that watches temperature and humidity, is kept in good order and is tested to confirm it keeps conditions inside recognised industry limits.",
       "mappings": [
         {
           "control": "A.7.5",
@@ -1156,7 +1156,7 @@
       "code": "DCS-17",
       "section": "Datacenter Security",
       "title": "Datacenter Metrics",
-      "text": "Measure and report on datacenter security so that datacenter assets and services stay protected.",
+      "text": "Figures describing how well datacenter assets and services are secured are collected, watched and reported.",
       "mappings": [
         {
           "control": "ISMS-9.1",
@@ -1222,7 +1222,7 @@
       "code": "DSP-03",
       "section": "Data Security and Privacy Lifecycle Management",
       "title": "Data Inventory",
-      "text": "Create and keep an inventory of data, at least for sensitive, regulated and personal data, and review it yearly or after significant change.",
+      "text": "A register exists of the organisation's data, covering sensitive, regulated and personal data as a minimum, and it is brought up to date every year and after material change.",
       "mappings": [
         {
           "control": "A.5.9",
@@ -1246,7 +1246,7 @@
       "code": "DSP-05",
       "section": "Data Security and Privacy Lifecycle Management",
       "title": "Data Flow Documentation",
-      "text": "Document how data flows, showing what is processed, stored or transmitted and where, and review the documentation at set intervals, at least yearly.",
+      "text": "Diagrams or descriptions show where each kind of data is handled, held or sent, and they are rechecked on a regular basis, yearly at the minimum and after material change.",
       "mappings": [
         {
           "control": "A.5.14",
@@ -1264,7 +1264,7 @@
       "code": "DSP-06",
       "section": "Data Security and Privacy Lifecycle Management",
       "title": "Data Ownership and Stewardship",
-      "text": "Record who owns and who stewards the relevant personal and sensitive data, and review this at least once a year.",
+      "text": "For personal and sensitive data, the responsible owner and steward are named in writing and rechecked annually.",
       "mappings": [
         {
           "control": "A.5.9",
@@ -1282,7 +1282,7 @@
       "code": "DSP-07",
       "section": "Data Security and Privacy Lifecycle Management",
       "title": "Data Protection by Design and Default",
-      "text": "Build systems, products and business practices on a security-by-design principle and industry best practice.",
+      "text": "Security is a design input for systems, products and business processes from the start, guided by accepted industry practice.",
       "mappings": [
         {
           "control": "A.8.27",
@@ -1312,7 +1312,7 @@
       "code": "DSP-09",
       "section": "Data Security and Privacy Lifecycle Management",
       "title": "Data Protection Impact Assessment",
-      "text": "Carry out a data protection impact assessment to judge the origin, nature, particularities and severity of risks from processing personal data, as the law and good practice require.",
+      "text": "Before personal data is processed in a risky way, an assessment weighs where the risk comes from, what it is like and how serious it could be, following the applicable law and good practice (a DPIA).",
       "mappings": []
     },
     {
@@ -1398,7 +1398,7 @@
       "code": "DSP-16",
       "section": "Data Security and Privacy Lifecycle Management",
       "title": "Data Retention and Deletion",
-      "text": "Manage retention, archiving and deletion of data to fit business needs and applicable laws and regulations.",
+      "text": "How long data is kept, when it is archived and when it is erased follows business needs and the laws and regulations that apply.",
       "mappings": [
         {
           "control": "A.8.10",
@@ -1499,7 +1499,7 @@
       "code": "GRC-04",
       "section": "Governance, Risk and Compliance",
       "title": "Policy Exception Process",
-      "text": "Follow an approved exception process, set by the governance programme, whenever something departs from an established policy.",
+      "text": "A departure from an established policy is only acceptable through the sanctioned exception route that the governance programme prescribes.",
       "mappings": []
     },
     {
@@ -1518,7 +1518,7 @@
       "code": "GRC-06",
       "section": "Governance, Risk and Compliance",
       "title": "Governance Responsibility Model",
-      "text": "Define and record who is responsible for planning, running, assessing and improving governance programmes.",
+      "text": "It is written down who answers for designing, running, evaluating and bettering the governance programmes.",
       "mappings": [
         {
           "control": "A.5.2",
@@ -1618,7 +1618,7 @@
       "code": "HRS-06",
       "section": "Human Resources",
       "title": "Employment Termination",
-      "text": "Document and tell relevant personnel about the procedures that set out roles and responsibilities when employment changes or ends.",
+      "text": "Everyone concerned is informed of the steps that spell out who does what when someone's employment changes or ends.",
       "mappings": [
         {
           "control": "A.6.5",
@@ -1630,7 +1630,7 @@
       "code": "HRS-07",
       "section": "Human Resources",
       "title": "Employment Agreement Process",
-      "text": "Have employees sign their employment agreement before they get access to systems, resources and assets.",
+      "text": "An employee must have signed their employment contract before being given any access to systems, resources or assets.",
       "mappings": [
         {
           "control": "A.6.2",
@@ -1642,7 +1642,7 @@
       "code": "HRS-08",
       "section": "Human Resources",
       "title": "Employment Agreement Content",
-      "text": "Put terms in employment agreements requiring adherence to the established governance and security policies.",
+      "text": "Contracts of employment commit staff to follow the governance and security policies in force.",
       "mappings": [
         {
           "control": "A.6.2",
@@ -1654,7 +1654,7 @@
       "code": "HRS-09",
       "section": "Human Resources",
       "title": "Personnel Roles and Responsibilities",
-      "text": "Define, document and communicate employees' roles and responsibilities for the security and privacy of information assets.",
+      "text": "Staff are told in writing what their part is in keeping information assets secure and private.",
       "mappings": [
         {
           "control": "A.5.2",
@@ -1666,7 +1666,7 @@
       "code": "HRS-10",
       "section": "Human Resources",
       "title": "Non-Disclosure Agreements",
-      "text": "Identify, document and periodically review the need for non-disclosure or confidentiality agreements, reflecting how the organisation must protect data and operational details.",
+      "text": "Needs for confidentiality or non-disclosure agreements are determined from what the organisation must protect, recorded, and re-examined on a planned schedule.",
       "mappings": [
         {
           "control": "A.6.6",
@@ -1678,7 +1678,7 @@
       "code": "HRS-11",
       "section": "Human Resources",
       "title": "Security Awareness Training",
-      "text": "Run a security awareness training programme for all employees, with regular refresher updates.",
+      "text": "All staff take part in an ongoing security awareness training programme that is refreshed regularly.",
       "mappings": [
         {
           "control": "A.6.3",
@@ -1702,7 +1702,7 @@
       "code": "HRS-13",
       "section": "Human Resources",
       "title": "Compliance User Responsibility",
-      "text": "Make employees aware of their own part in complying with established policies and with applicable legal, statutory and regulatory obligations.",
+      "text": "Staff understand what is expected of them for following policies and procedures, and for meeting the laws, statutes and regulations that bind the organisation.",
       "mappings": [
         {
           "control": "A.5.4",
@@ -1772,7 +1772,7 @@
       "code": "IAM-05",
       "section": "Identity & Access Management",
       "title": "Least Privilege",
-      "text": "Apply the least privilege principle when granting access to information systems.",
+      "text": "Systems give each person or process only the access it needs to do its job, and no more.",
       "mappings": [
         {
           "control": "A.5.15",
@@ -1937,7 +1937,7 @@
       "code": "IPY-03",
       "section": "Interoperability & Portability",
       "title": "Secure Interoperability and Portability Management",
-      "text": "Use cryptographically secure network protocols that follow industry standards to manage, import and export data.",
+      "text": "Management traffic and the movement of data in and out use network protocols with strong cryptographic protection that matches industry norms.",
       "mappings": [
         {
           "control": "A.8.24",
@@ -2031,7 +2031,7 @@
       "code": "I&S-05",
       "section": "Infrastructure Security",
       "title": "Production and Non-Production Environments",
-      "text": "Keep production and non-production environments apart so production data is not used in non-production, and sanitise or protect production data before any authorised use there.",
+      "text": "Live and test or development environments are kept apart, so that real production data does not wander into them; if such data is ever needed there, it is cleansed or shielded first and its use is approved.",
       "mappings": [
         {
           "control": "A.8.31",
@@ -2047,7 +2047,7 @@
       "code": "I&S-06",
       "section": "Infrastructure Security",
       "title": "Segmentation and Segregation",
-      "text": "Build and configure applications and infrastructure so that each customer's (tenant's) access is properly segmented, segregated, monitored and restricted.",
+      "text": "Applications and infrastructure are built and set up so that customers (tenants) remain walled off from each other, with their access watched and constrained.",
       "mappings": [
         {
           "control": "CCM-SUP-01",
@@ -2148,7 +2148,7 @@
       "code": "LOG-03",
       "section": "Logging and Monitoring",
       "title": "Security Monitoring and Alerting",
-      "text": "Identify and monitor security events in applications and the infrastructure beneath them, and generate alerts to the responsible people based on those events and related metrics.",
+      "text": "Security-relevant events across applications and their supporting infrastructure are observed, and the people accountable are alerted automatically when such events or related indicators warrant it.",
       "mappings": [
         {
           "control": "A.8.16",
@@ -2160,7 +2160,7 @@
       "code": "LOG-04",
       "section": "Logging and Monitoring",
       "title": "Audit Logs Access and Accountability",
-      "text": "Limit audit log access to authorised identities and keep records of that access.",
+      "text": "Only identities with a legitimate need get to the audit logs, and every such access leaves a record.",
       "mappings": [
         {
           "control": "A.8.15",
@@ -2226,7 +2226,7 @@
       "code": "LOG-09",
       "section": "Logging and Monitoring",
       "title": "Log Records",
-      "text": "Produce audit records that contain the relevant security information.",
+      "text": "Audit entries capture the information that matters for security analysis.",
       "mappings": [
         {
           "control": "A.8.15",
@@ -2238,7 +2238,7 @@
       "code": "LOG-10",
       "section": "Logging and Monitoring",
       "title": "Audit Records Protection",
-      "text": "Protect audit records from unauthorised access, change and deletion.",
+      "text": "Nobody without permission can read, alter or erase the trail of recorded security activity.",
       "mappings": [
         {
           "control": "A.8.15",
@@ -2281,7 +2281,7 @@
       "code": "LOG-13",
       "section": "Logging and Monitoring",
       "title": "Access Control Logs",
-      "text": "Monitor and log physical access with an access control system that can be audited.",
+      "text": "Entry to physical spaces is registered by an access control system whose records can be audited and which is watched.",
       "mappings": [
         {
           "control": "A.7.2",
@@ -2387,7 +2387,7 @@
       "code": "SEF-06",
       "section": "Security Incident Management, E-Discovery, & Cloud Forensics",
       "title": "Event Triage Processes",
-      "text": "Support business processes with processes and technical measures that triage security-related events.",
+      "text": "Security events are sorted and prioritised through defined steps and supporting tooling that fit the way the business works.",
       "mappings": [
         {
           "control": "A.5.25",
@@ -2429,7 +2429,7 @@
       "code": "SEF-09",
       "section": "Security Incident Management, E-Discovery, & Cloud Forensics",
       "title": "Incident Records Management",
-      "text": "Keep a secure repository of incident records and review it regularly to spot patterns, root causes and systemic weaknesses, then correct them.",
+      "text": "Incident records sit in a protected store and are studied regularly for recurring patterns, root causes and structural weaknesses, with fixes applied.",
       "mappings": [
         {
           "control": "A.5.27",
@@ -2482,7 +2482,7 @@
       "code": "STA-03",
       "section": "Supply Chain Management, Transparency, and Accountability",
       "title": "SSRM Supply Chain",
-      "text": "Apply, record and manage the shared security responsibility model throughout the supply chain.",
+      "text": "Responsibility splits under the SSRM are put into effect, written down and governed for every link of the supply chain.",
       "mappings": [
         {
           "control": "CCM-SUP-02",
@@ -2523,7 +2523,7 @@
       "code": "STA-06",
       "section": "Supply Chain Management, Transparency, and Accountability",
       "title": "SSRM Documentation Review",
-      "text": "Review and validate the shared security responsibility documentation.",
+      "text": "The documents describing who is responsible for what under the SSRM are checked for correctness and currency.",
       "mappings": [
         {
           "control": "CCM-SUP-02",
@@ -2571,14 +2571,14 @@
       "code": "STA-09",
       "section": "Supply Chain Management, Transparency, and Accountability",
       "title": "Service Bill of Material (BOM)",
-      "text": "Define and enforce a process to build a bill of materials for the service supply chain, and review it yearly or after significant change.",
+      "text": "A parts list (bill of materials) of what makes up the service and its supply chain is produced under an enforced process and refreshed each year or after material change.",
       "mappings": []
     },
     {
       "code": "STA-10",
       "section": "Supply Chain Management, Transparency, and Accountability",
       "title": "Supply Chain Risk Management",
-      "text": "Review the risk factors tied to supply chain relationships at regular intervals.",
+      "text": "The risks that come with each supply chain relationship are reassessed from time to time.",
       "mappings": [
         {
           "control": "A.5.22",
@@ -2590,7 +2590,7 @@
       "code": "STA-11",
       "section": "Supply Chain Management, Transparency, and Accountability",
       "title": "Primary Service and Contractual Agreement",
-      "text": "Include in service agreements mutually agreed terms on: scope, characteristics and location of services; security requirements including the shared responsibility model; change management; logging and monitoring; incident handling and communication; audit rights; termination; interoperability and portability; data privacy; and operational resilience.",
+      "text": "Contracts for services spell out, by mutual agreement, at minimum these subjects: what is provided, its features and where it is delivered; security obligations including the SSRM; how changes are handled; logging and monitoring ability; incident procedures and communication; audit and independent assessment rights; ending the service; interoperability and portability; privacy of data; and operational resilience.",
       "mappings": [
         {
           "control": "A.5.20",
@@ -2608,7 +2608,7 @@
       "code": "STA-12",
       "section": "Supply Chain Management, Transparency, and Accountability",
       "title": "Supply Chain Agreement Review",
-      "text": "Review supply chain agreements yearly or after significant change.",
+      "text": "Contracts along the supply chain are looked at again every year, and whenever something material changes.",
       "mappings": [
         {
           "control": "A.5.22",
@@ -2655,7 +2655,7 @@
       "code": "STA-15",
       "section": "Supply Chain Management, Transparency, and Accountability",
       "title": "Supply Chain Governance Review",
-      "text": "Review the IT governance policies and procedures of the organisation's service providers yearly or after significant change.",
+      "text": "Once a year, and after material change, the governance arrangements that service providers use for IT are examined.",
       "mappings": [
         {
           "control": "A.5.22",
@@ -2668,7 +2668,7 @@
       "code": "STA-16",
       "section": "Supply Chain Management, Transparency, and Accountability",
       "title": "Supply Chain Data Security Assessment",
-      "text": "A defined process should drive security assessments of the supply chain, with depth chosen by risk.",
+      "text": "The supply chain's security is examined through a standing, risk-prioritised assessment process.",
       "mappings": [
         {
           "control": "A.5.21",
@@ -2851,7 +2851,7 @@
       "code": "TVM-12",
       "section": "Threat & Vulnerability Management",
       "title": "Vulnerability Management Metrics",
-      "text": "Define, monitor and report metrics on vulnerability identification and remediation at set intervals.",
+      "text": "Progress in finding and fixing vulnerabilities is expressed as figures that are tracked and reported on a defined schedule.",
       "mappings": [
         {
           "control": "ISMS-9.1",
@@ -2948,7 +2948,7 @@
       "code": "UEM-07",
       "section": "Universal Endpoint Management",
       "title": "Operating Systems",
-      "text": "Endpoint operating system, patch and application changes should go through the organisation's normal change management.",
+      "text": "Upgrading an endpoint's operating system, patching it or altering its applications follows the same change process as everything else in the company.",
       "mappings": [
         {
           "control": "A.8.32",
@@ -2990,7 +2990,7 @@
       "code": "UEM-10",
       "section": "Universal Endpoint Management",
       "title": "Software Firewall",
-      "text": "Run properly configured software firewalls on managed endpoints.",
+      "text": "A host-based firewall, correctly set up, is active on every managed endpoint.",
       "mappings": [
         {
           "control": "A.8.1",
@@ -3003,7 +3003,7 @@
       "code": "UEM-11",
       "section": "Universal Endpoint Management",
       "title": "Data Loss Prevention",
-      "text": "Deploy data loss prevention technology and rules on managed endpoints, based on a risk assessment.",
+      "text": "Leakage of company information from managed endpoints is countered by DLP software and rules chosen after assessing the risk.",
       "mappings": [
         {
           "control": "A.8.12",
@@ -3015,14 +3015,14 @@
       "code": "UEM-12",
       "section": "Universal Endpoint Management",
       "title": "Remote Locate",
-      "text": "Enable remote geo-location of all managed mobile endpoints, within applicable laws and regulations.",
+      "text": "Mobile devices under organisational management can be tracked to a location from afar, to the extent local law permits.",
       "mappings": []
     },
     {
       "code": "UEM-13",
       "section": "Universal Endpoint Management",
       "title": "Remote Wipe",
-      "text": "Provide for remote deletion of company data on managed endpoint devices.",
+      "text": "Company data can be erased from a managed endpoint device without having it physically in hand.",
       "mappings": [
         {
           "control": "A.8.1",
