@@ -30,7 +30,9 @@ export default async function MyCheckUpsPage() {
         <ul className="flex flex-col gap-2">
           {checkUps.map((checkUp) => (
             <li key={checkUp.id} className="flex flex-wrap items-center gap-3 rounded border border-zinc-200 p-3 text-sm dark:border-zinc-800">
-              {checkUp.outcome ? (
+              {checkUp.withdrawn ? (
+                <StatusChip tone="neutral">Withdrawn</StatusChip>
+              ) : checkUp.outcome ? (
                 <StatusChip tone={checkUpOutcomeTone(checkUp.outcome)}>{CHECK_UP_OUTCOME_LABEL[checkUp.outcome]}</StatusChip>
               ) : checkUp.answered ? (
                 <StatusChip tone="success">Answered</StatusChip>

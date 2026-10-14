@@ -33,14 +33,17 @@ export function canEvaluateCheckUps(user: { role: UserRole }): boolean {
  * Why a Check-up can't be evaluated (now), or null if it can. All of them are 409, checked in
  * this order: it is already evaluated (an evaluation is final: it is never changed or replaced.
  * Product-owner decision 18a of 2026-10-13, comment on #156; a Nonconformity fires side effects,
- * #157, that a later change would have to undo), its audit isn't launched, or it hasn't been answered.
+ * #157, that a later change would have to undo), it has been withdrawn (#158), its audit isn't
+ * launched, or it hasn't been answered.
  */
 export function checkUpEvaluationRefusal(checkUp: {
   auditStatus: InternalAuditStatus;
   answered: boolean;
   evaluated: boolean;
+  withdrawn: boolean;
 }): string | null {
   if (checkUp.evaluated) return "This Check-up has been evaluated already; an evaluation is final";
+  if (checkUp.withdrawn) return "This Check-up has been withdrawn, so it can't be evaluated";
   if (checkUp.auditStatus !== "LAUNCHED") {
     return `This Check-up can't be evaluated: its Internal Audit is ${INTERNAL_AUDIT_STATUS_LABEL[checkUp.auditStatus].toLowerCase()}`;
   }

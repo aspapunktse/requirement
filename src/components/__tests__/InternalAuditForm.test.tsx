@@ -150,6 +150,8 @@ describe("InternalAuditForm (#152)", () => {
       updatedAt: "2026-10-13T00:00:00.000Z",
       launchedAt: null,
       launchedBy: null,
+      closedAt: null,
+      closedBy: null,
       controls: [{ ...controls[0], questions: [] }],
       systems: [{ id: "s1", name: "Payroll", status: "ONBOARDED" }],
     };

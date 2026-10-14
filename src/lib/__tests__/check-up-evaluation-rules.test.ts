@@ -28,7 +28,7 @@ describe("canEvaluateCheckUps", () => {
 });
 
 describe("checkUpEvaluationRefusal", () => {
-  const ok = { auditStatus: "LAUNCHED", answered: true, evaluated: false } as const;
+  const ok = { auditStatus: "LAUNCHED", answered: true, evaluated: false, withdrawn: false } as const;
 
   it("allows an answered, unevaluated Check-up of a launched audit", () => {
     expect(checkUpEvaluationRefusal(ok)).toBeNull();
@@ -43,9 +43,15 @@ describe("checkUpEvaluationRefusal", () => {
     expect(checkUpEvaluationRefusal({ ...ok, auditStatus: "DRAFT" })).toMatch(/draft/);
   });
 
+  it("refuses a withdrawn Check-up, answered or not (#158)", () => {
+    expect(checkUpEvaluationRefusal({ ...ok, withdrawn: true })).toMatch(/withdrawn/);
+    expect(checkUpEvaluationRefusal({ ...ok, answered: false, withdrawn: true })).toMatch(/withdrawn/);
+    expect(checkUpEvaluationRefusal({ ...ok, auditStatus: "CLOSED", withdrawn: true })).toMatch(/withdrawn/);
+  });
+
   it("refuses a second evaluation: an evaluation is final", () => {
     expect(checkUpEvaluationRefusal({ ...ok, evaluated: true })).toMatch(/final/);
-    expect(checkUpEvaluationRefusal({ auditStatus: "CLOSED", answered: true, evaluated: true })).toMatch(/final/);
+    expect(checkUpEvaluationRefusal({ ...ok, auditStatus: "CLOSED", evaluated: true })).toMatch(/final/);
   });
 });
 

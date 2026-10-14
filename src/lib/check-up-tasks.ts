@@ -9,7 +9,7 @@ import { isCheckUpOpen, isCheckUpOverdue, ROLES_NEVER_ANSWERING_CHECK_UPS } from
  * the System's owner for a System-level Check-up and the Control Owner for an Organization-level
  * one, whatever their role. Read in one bulk query (no query per Check-up) in one snapshot.
  *
- * Open ones (audit launched, no response yet) are the user's "My tasks" rows; the answered ones
+ * Open ones (audit launched, no response yet, not withdrawn) are the user's "My tasks" rows; the answered ones
  * stay reachable from "Your Check-ups" (`/check-ups`) while they can still be changed. A role that
  * can never answer (the Internal Auditor, independence) is addressed nothing: no task, no list.
  */
@@ -23,6 +23,8 @@ export type MyCheckUp = {
   systemName: string | null;
   audit: { title: string; status: InternalAuditStatus; dueDate: string; launchedAt: Date | null };
   answered: boolean;
+  /** Whether an Internal Auditor withdrew it (#158): it leaves "My tasks" but stays readable here. */
+  withdrawn: boolean;
   /** How an Internal Auditor evaluated it (#156), or null if they haven't. */
   outcome: CheckUpOutcome | null;
   open: boolean;
@@ -46,13 +48,19 @@ export async function listMyCheckUps(user: { id: string; role: UserRole }, now =
           internalAudit: { select: { title: true, status: true, dueDate: true, launchedAt: true } },
           response: { select: { id: true } },
           evaluation: { select: { outcome: true } },
+          withdrawal: { select: { id: true } },
         },
       }),
     { isolationLevel: "RepeatableRead" },
   );
   return rows
     .map((row) => {
-      const state = { auditStatus: row.internalAudit.status, answered: row.response !== null, dueDate: row.internalAudit.dueDate };
+      const state = {
+        auditStatus: row.internalAudit.status,
+        answered: row.response !== null,
+        withdrawn: row.withdrawal !== null,
+        dueDate: row.internalAudit.dueDate,
+      };
       const checkUp: MyCheckUp = {
         id: row.id,
         control: row.control,
@@ -64,6 +72,7 @@ export async function listMyCheckUps(user: { id: string; role: UserRole }, now =
           launchedAt: row.internalAudit.launchedAt,
         },
         answered: state.answered,
+        withdrawn: state.withdrawn,
         outcome: row.evaluation?.outcome ?? null,
         open: isCheckUpOpen(state),
         overdue: isCheckUpOverdue(state, now),

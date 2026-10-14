@@ -147,7 +147,7 @@ describe("Check-up pages (#155)", () => {
   it("shows the audit's progress and links every Check-up row to its response", async () => {
     acting.userId = users.INTERNAL_AUDITOR;
     const html = renderToStaticMarkup(await InternalAuditPage({ params: Promise.resolve({ id: auditId }) } as never));
-    expect(html).toContain("2 sent, 1 answered, 0 evaluated, 0 overdue");
+    expect(html).toContain("2 sent, 1 answered, 0 evaluated, 0 withdrawn, 0 overdue");
     expect(html).toContain(`/check-ups/${answeredId}`);
     expect(html).toContain("Answered: read the response");
     expect(html).toContain("Not answered");
@@ -214,7 +214,7 @@ describe("Check-up pages (#155)", () => {
       const mine = await render(recipientId, () => MyCheckUpsPage());
       expect(mine).toContain("Nonconformity");
       const html = await auditPage(users.INTERNAL_AUDITOR);
-      expect(html).toContain("2 sent, 1 answered, 1 evaluated, 0 overdue");
+      expect(html).toContain("2 sent, 1 answered, 1 evaluated, 0 withdrawn, 0 overdue");
       expect(html).toContain("Nonconformity");
       expect(html).not.toContain("awaiting evaluation");
     });

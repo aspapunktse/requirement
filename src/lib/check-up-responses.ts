@@ -4,6 +4,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { canReadInternalAudits, formatCalendarDate } from "@/lib/internal-audit-rules";
 import { canEvaluateCheckUps, checkUpEvaluationRefusal } from "@/lib/check-up-evaluation-rules";
+import { canWithdrawCheckUps, checkUpWithdrawalRefusal } from "@/lib/check-up-withdrawal-rules";
 import {
   canAnswerCheckUp,
   canReadCheckUp,
@@ -34,7 +35,7 @@ const SNAPSHOT = { isolationLevel: "RepeatableRead" } as const;
 
 /**
  * Locks the Check-up row (`SELECT ... FOR UPDATE`) for the rest of the transaction and says
- * whether it exists. Changing a response and evaluating it both take this lock *first* and read
+ * whether it exists. Changing a response, evaluating it and withdrawing the Check-up (#158) all take this lock *first* and read
  * what they depend on (is it evaluated? what is the response?) only afterwards, so they run one
  * after the other: either the evaluation judges the response as it stands and the later change is
  * refused (409, it reads the evaluation), or the change lands first and that is what the
@@ -86,10 +87,13 @@ export type CheckUpDetail = {
     evaluatedBy: { id: string; name: string };
     evaluatedAt: string;
   } | null;
+  /** Why and by whom an Internal Auditor withdrew it (#158); a withdrawn Check-up is final and read-only. Null until then. */
+  withdrawal: { reason: string; withdrawnBy: { id: string; name: string }; withdrawnAt: string } | null;
   /** The Risk a Nonconformity opened (#157): on the target System, or with no System for an Organization-level Check-up. Null for any other outcome. */
   risk: { id: string; title: string; description: string; status: RiskStatus; systemId: string | null } | null;
   answered: boolean;
   evaluated: boolean;
+  withdrawn: boolean;
   open: boolean;
   overdue: boolean;
 };
@@ -117,6 +121,7 @@ export async function getCheckUpDetail(id: string, now = new Date()): Promise<Ch
         evaluation: {
           select: { outcome: true, comment: true, evaluatedAt: true, evaluatedBy: { select: { id: true, name: true } } },
         },
+        withdrawal: { select: { reason: true, withdrawnAt: true, withdrawnBy: { select: { id: true, name: true } } } },
         risk: { select: { id: true, title: true, description: true, status: true, systemId: true } },
       },
     });
@@ -125,7 +130,12 @@ export async function getCheckUpDetail(id: string, now = new Date()): Promise<Ch
     const recipientId = checkUpRecipientId({ system: checkUp.system, control: checkUp.control });
     const recipient = recipientId ? await tx.user.findUnique({ where: { id: recipientId }, select: { id: true, name: true } }) : null;
     const answered = checkUp.response !== null;
-    const state = { auditStatus: checkUp.internalAudit.status, answered, dueDate: checkUp.internalAudit.dueDate };
+    const state = {
+      auditStatus: checkUp.internalAudit.status,
+      answered,
+      withdrawn: checkUp.withdrawal !== null,
+      dueDate: checkUp.internalAudit.dueDate,
+    };
 
     return {
       id: checkUp.id,
@@ -155,9 +165,15 @@ export async function getCheckUpDetail(id: string, now = new Date()): Promise<Ch
         evaluatedBy: checkUp.evaluation.evaluatedBy,
         evaluatedAt: checkUp.evaluation.evaluatedAt.toISOString(),
       },
+      withdrawal: checkUp.withdrawal && {
+        reason: checkUp.withdrawal.reason,
+        withdrawnBy: checkUp.withdrawal.withdrawnBy,
+        withdrawnAt: checkUp.withdrawal.withdrawnAt.toISOString(),
+      },
       risk: checkUp.risk,
       answered,
       evaluated: checkUp.evaluation !== null,
+      withdrawn: checkUp.withdrawal !== null,
       open: isCheckUpOpen(state),
       overdue: isCheckUpOverdue(state, now),
     };
@@ -165,13 +181,13 @@ export async function getCheckUpDetail(id: string, now = new Date()): Promise<Ch
 }
 
 /**
- * What `user` may do with a Check-up: read it, answer it (create or change the response) and
- * evaluate it (#156). Whether the Check-up can be answered or evaluated *now* is part of the answer,
+ * What `user` may do with a Check-up: read it, answer it (create or change the response), evaluate
+ * it (#156) and withdraw it (#158). Whether the Check-up can be answered or evaluated *now* is part of the answer,
  * so the page and the routes show exactly what the write would accept.
  */
 export function checkUpAccess(
   user: { id: string; role: UserRole },
-  checkUp: Pick<CheckUpDetail, "recipient" | "audit" | "answered" | "evaluated">,
+  checkUp: Pick<CheckUpDetail, "recipient" | "audit" | "answered" | "evaluated" | "withdrawn">,
 ) {
   const recipientId = checkUp.recipient?.id ?? null;
   return {
@@ -179,10 +195,18 @@ export function checkUpAccess(
     // The Risk a Nonconformity opened is the Risk Owner's and the audit readers' business, not the recipient's (#157).
     canReadRisk: canReadInternalAudits(user),
     canAnswer:
-      canAnswerCheckUp(user, recipientId) && checkUpResponseRefusal({ auditStatus: checkUp.audit.status, evaluated: checkUp.evaluated }) === null,
+      canAnswerCheckUp(user, recipientId) && checkUpResponseRefusal({ auditStatus: checkUp.audit.status, evaluated: checkUp.evaluated, withdrawn: checkUp.withdrawn }) === null,
     canEvaluate:
       canEvaluateCheckUps(user) &&
-      checkUpEvaluationRefusal({ auditStatus: checkUp.audit.status, answered: checkUp.answered, evaluated: checkUp.evaluated }) === null,
+      checkUpEvaluationRefusal({
+        auditStatus: checkUp.audit.status,
+        answered: checkUp.answered,
+        evaluated: checkUp.evaluated,
+        withdrawn: checkUp.withdrawn,
+      }) === null,
+    canWithdraw:
+      canWithdrawCheckUps(user) &&
+      checkUpWithdrawalRefusal({ auditStatus: checkUp.audit.status, evaluated: checkUp.evaluated, withdrawn: checkUp.withdrawn }) === null,
   };
 }
 
@@ -212,6 +236,7 @@ export async function submitCheckUpResponse(
         questions: { select: { id: true, position: true } },
         response: { select: { id: true } },
         evaluation: { select: { id: true } },
+        withdrawal: { select: { id: true } },
       },
     });
     if (!checkUp) throw new CheckUpResponseError(404, "Check-up not found");
@@ -220,7 +245,11 @@ export async function submitCheckUpResponse(
     if (!canAnswerCheckUp(user, recipientId)) {
       throw new CheckUpResponseError(403, "Only the recipient of a Check-up can answer it");
     }
-    const refusal = checkUpResponseRefusal({ auditStatus: checkUp.internalAudit.status, evaluated: checkUp.evaluation !== null });
+    const refusal = checkUpResponseRefusal({
+      auditStatus: checkUp.internalAudit.status,
+      evaluated: checkUp.evaluation !== null,
+      withdrawn: checkUp.withdrawal !== null,
+    });
     if (refusal) throw new CheckUpResponseError(409, refusal);
 
     // `null` is a body of the wrong shape; the refusals above come first, so a non-recipient learns nothing from it.

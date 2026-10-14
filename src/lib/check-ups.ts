@@ -229,6 +229,9 @@ export type CheckUpRow = {
   /** Whether an Internal Auditor has evaluated it (#156), and how, by whom and when. */
   evaluated: boolean;
   evaluation: { outcome: CheckUpOutcome; evaluatedByName: string; evaluatedAt: string } | null;
+  /** Whether an Internal Auditor withdrew it (#158), with the reason, who and when. */
+  withdrawn: boolean;
+  withdrawal: { reason: string; withdrawnByName: string; withdrawnAt: string } | null;
   /** Open and after the audit's due date (#155). */
   overdue: boolean;
 };
@@ -250,6 +253,7 @@ export async function listCheckUps(internalAuditId: string, now = new Date()): P
         questions: { orderBy: { position: "asc" }, select: { text: true } },
         response: { select: { respondedAt: true, respondedBy: { select: { name: true } } } },
         evaluation: { select: { outcome: true, evaluatedAt: true, evaluatedBy: { select: { name: true } } } },
+        withdrawal: { select: { reason: true, withdrawnAt: true, withdrawnBy: { select: { name: true } } } },
       },
     });
     if (checkUps.length === 0) return [];
@@ -296,7 +300,13 @@ export async function listCheckUps(internalAuditId: string, now = new Date()): P
             evaluatedByName: checkUp.evaluation.evaluatedBy.name,
             evaluatedAt: checkUp.evaluation.evaluatedAt.toISOString(),
           },
-          overdue: isCheckUpOverdue({ auditStatus: audit.status, answered, dueDate: audit.dueDate }, now),
+          withdrawn: checkUp.withdrawal !== null,
+          withdrawal: checkUp.withdrawal && {
+            reason: checkUp.withdrawal.reason,
+            withdrawnByName: checkUp.withdrawal.withdrawnBy.name,
+            withdrawnAt: checkUp.withdrawal.withdrawnAt.toISOString(),
+          },
+          overdue: isCheckUpOverdue({ auditStatus: audit.status, answered, withdrawn: checkUp.withdrawal !== null, dueDate: audit.dueDate }, now),
         };
       })
       .sort(
