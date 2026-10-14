@@ -60,7 +60,7 @@ export const sideEffects = {
  * Evaluates `checkUpId` as `input.outcome` with `input.comment`. Throws `CheckUpResponseError`:
  * 403 unless `user` is an Internal Auditor (the Admin and the Compliance Manager included; checked
  * before anything is read), 404 if there is no such Check-up, 409 if `checkUpEvaluationRefusal`
- * says so (already evaluated, its audit isn't launched, not answered yet), 400 naming each problem
+ * says so (already evaluated, withdrawn, its audit isn't launched, not answered yet), 400 naming each problem
  * if the evaluation is invalid. A refusal changes nothing.
  */
 export async function evaluateCheckUp(
@@ -83,6 +83,7 @@ export async function evaluateCheckUp(
         system: { select: { name: true } },
         response: { select: { id: true } },
         evaluation: { select: { id: true } },
+        withdrawal: { select: { id: true } },
       },
     });
     if (!checkUp) throw new CheckUpResponseError(404, "Check-up not found");
@@ -91,6 +92,7 @@ export async function evaluateCheckUp(
       auditStatus: checkUp.internalAudit.status,
       answered: checkUp.response !== null,
       evaluated: checkUp.evaluation !== null,
+      withdrawn: checkUp.withdrawal !== null,
     });
     if (refusal) throw new CheckUpResponseError(409, refusal);
 
@@ -154,10 +156,10 @@ export const checkUpEvaluationBodySchema = z.object({
 
 /**
  * How many answered Check-ups of launched audits still await an evaluation: the Internal Auditor's
- * "N awaiting evaluation" on /home. Spans every audit (audits are a small team's shared work).
+ * "N awaiting evaluation" on /home (of one audit when `internalAuditId` is given). A withdrawn Check-up (#158) awaits nothing. Spans every audit (audits are a small team's shared work).
  */
-export async function countAwaitingEvaluation(): Promise<number> {
+export async function countAwaitingEvaluation(internalAuditId?: string): Promise<number> {
   return prisma.checkUp.count({
-    where: { internalAudit: { status: "LAUNCHED" }, response: { isNot: null }, evaluation: { is: null } },
+    where: { ...(internalAuditId && { internalAuditId }), internalAudit: { status: "LAUNCHED" }, response: { isNot: null }, evaluation: { is: null }, withdrawal: { is: null } },
   });
 }

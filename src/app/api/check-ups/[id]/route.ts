@@ -23,5 +23,6 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/check-up
     checkUp: access.canReadRisk ? checkUp : { ...checkUp, risk: null },
     canAnswer: access.canAnswer,
     canEvaluate: access.canEvaluate,
+    canWithdraw: access.canWithdraw,
   });
 }

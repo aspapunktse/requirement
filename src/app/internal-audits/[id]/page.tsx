@@ -11,12 +11,16 @@ import { getInternalAudit } from "@/lib/internal-audits";
 import { getLaunchPreview, listCheckUps } from "@/lib/check-ups";
 import { checkUpProgress } from "@/lib/check-up-response-rules";
 import { CHECK_UP_OUTCOME_LABEL, canEvaluateCheckUps } from "@/lib/check-up-evaluation-rules";
+import { canWithdrawCheckUps } from "@/lib/check-up-withdrawal-rules";
+import { canCloseInternalAudits, describeUnfinishedCheckUp, unfinishedCheckUps } from "@/lib/internal-audit-close-rules";
 import { checkUpOutcomeTone, internalAuditStatusTone } from "@/lib/status-tones";
 import { buttonClassName } from "@/components/ui/Button";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { DeleteInternalAuditButton } from "@/components/DeleteInternalAuditButton";
 import { DraftQuestionsEditor } from "@/components/DraftQuestionsEditor";
 import { LaunchInternalAuditPanel } from "@/components/LaunchInternalAuditPanel";
+import { CloseInternalAuditPanel } from "@/components/CloseInternalAuditPanel";
+import { WithdrawCheckUpControl } from "@/components/WithdrawCheckUpControl";
 
 /**
  * One Internal Audit (PRD 0001 F-IA.1-F-IA.3, #152, #154): everything on it, with notes where a half
@@ -26,7 +30,10 @@ import { LaunchInternalAuditPanel } from "@/components/LaunchInternalAuditPanel"
  * their current recipient (derived on every read: it follows a change of owner), with the audit's
  * progress (sent, answered, evaluated, overdue; #155, #156) and each Check-up's state, linked to its
  * response and, for an Internal Auditor, to the evaluation form, with a shortcut to the next answered
- * Check-up that still awaits one.
+ * Check-up that still awaits one. A launched audit also shows, to its readers, which Check-ups are still
+ * neither evaluated nor withdrawn, and an Internal Auditor can withdraw each of them (with a reason) and
+ * close the audit once none is left (#158). A closed audit is read-only: it shows who closed it and when,
+ * and offers no action at all.
  */
 export default async function InternalAuditPage({ params }: PageProps<"/internal-audits/[id]">) {
   const { id } = await params;
@@ -50,7 +57,19 @@ export default async function InternalAuditPage({ params }: PageProps<"/internal
   const isDraft = audit.status === "DRAFT";
   const [preview, checkUps] = await Promise.all([isDraft ? getLaunchPreview(audit.id) : null, isDraft ? [] : listCheckUps(audit.id)]);
   const progress = checkUpProgress(checkUps);
-  const nextToEvaluate = canEvaluateCheckUps(user) && audit.status === "LAUNCHED" ? checkUps.find((c) => c.answered && !c.evaluated) : undefined;
+  const nextToEvaluate =
+    canEvaluateCheckUps(user) && audit.status === "LAUNCHED" ? checkUps.find((c) => c.answered && !c.evaluated && !c.withdrawn) : undefined;
+  const isLaunched = audit.status === "LAUNCHED";
+  const canWithdraw = isLaunched && canWithdrawCheckUps(user);
+  const unfinished = unfinishedCheckUps(
+    checkUps.map((c) => ({
+      id: c.id,
+      controlCode: c.control.code,
+      systemName: c.target.kind === "system" ? c.target.name : null,
+      evaluated: c.evaluated,
+      withdrawn: c.withdrawn,
+    })),
+  ).map(describeUnfinishedCheckUp);
   const notes = internalAuditNotes({
     includeOrganization: audit.includeOrganization,
     systemCount: audit.systems.length,
@@ -94,8 +113,19 @@ export default async function InternalAuditPage({ params }: PageProps<"/internal
         </p>
       )}
 
-      {(isDraft || audit.status === "LAUNCHED") && (
+      {audit.closedAt && (
+        <p className="mb-4 text-sm text-zinc-500">
+          Closed {audit.closedAt.slice(0, 10)}
+          {audit.closedBy ? ` by ${audit.closedBy.name}` : ""}. The audit, its Check-ups, responses, evaluations and withdrawals are read-only for everyone.
+        </p>
+      )}
+
+      {(isDraft || isLaunched) && (
         <LaunchInternalAuditPanel internalAuditId={audit.id} title={audit.title} preview={preview} canLaunch={canEdit} />
+      )}
+
+      {isLaunched && (
+        <CloseInternalAuditPanel internalAuditId={audit.id} title={audit.title} unfinished={unfinished} canClose={canCloseInternalAudits(user)} />
       )}
 
       {notes.length > 0 && (
@@ -161,7 +191,7 @@ export default async function InternalAuditPage({ params }: PageProps<"/internal
         <section className="mb-6">
           <h2 className="mb-1 text-lg">Check-ups ({checkUps.length} sent)</h2>
           <p className="mb-2 text-sm text-zinc-500" data-testid="check-up-progress">
-            {progress.sent} sent, {progress.answered} answered, {progress.evaluated} evaluated, {progress.overdue} overdue
+            {progress.sent} sent, {progress.answered} answered, {progress.evaluated} evaluated, {progress.withdrawn} withdrawn, {progress.overdue} overdue
           </p>
           {progress.awaitingEvaluation > 0 && (
             <p className="mb-2 text-sm text-zinc-500" data-testid="check-up-awaiting-evaluation">
@@ -215,7 +245,15 @@ export default async function InternalAuditPage({ params }: PageProps<"/internal
                       {checkUp.overdue && <StatusChip tone="danger">Overdue</StatusChip>}
                     </td>
                     <td className="py-2 pr-4">
-                      {checkUp.evaluation ? (
+                      {checkUp.withdrawal ? (
+                        <>
+                          <StatusChip tone="neutral">Withdrawn</StatusChip>
+                          <p className="text-zinc-500">
+                            {checkUp.withdrawal.withdrawnByName}, {checkUp.withdrawal.withdrawnAt.slice(0, 10)}
+                          </p>
+                          <p className="whitespace-pre-wrap">{checkUp.withdrawal.reason}</p>
+                        </>
+                      ) : checkUp.evaluation ? (
                         <>
                           <StatusChip tone={checkUpOutcomeTone(checkUp.evaluation.outcome)}>{CHECK_UP_OUTCOME_LABEL[checkUp.evaluation.outcome]}</StatusChip>
                           <p className="text-zinc-500">
@@ -228,6 +266,11 @@ export default async function InternalAuditPage({ params }: PageProps<"/internal
                         </Link>
                       ) : (
                         <span className="text-zinc-500">-</span>
+                      )}
+                      {canWithdraw && !checkUp.evaluated && !checkUp.withdrawn && (
+                        <div className="mt-1">
+                          <WithdrawCheckUpControl checkUpId={checkUp.id} />
+                        </div>
                       )}
                     </td>
                     <td className="py-2">

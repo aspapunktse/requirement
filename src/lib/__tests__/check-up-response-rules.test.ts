@@ -63,13 +63,18 @@ describe("who may answer and who may read", () => {
 
 describe("open and overdue", () => {
   const dueDate = new Date("2026-11-10T00:00:00.000Z");
-  const open = { auditStatus: "LAUNCHED", answered: false, dueDate } as const;
+  const open = { auditStatus: "LAUNCHED", answered: false, withdrawn: false, dueDate } as const;
 
   it("is open only while the audit is launched and nothing is answered", () => {
     expect(isCheckUpOpen(open)).toBe(true);
     expect(isCheckUpOpen({ ...open, answered: true })).toBe(false);
     expect(isCheckUpOpen({ ...open, auditStatus: "CLOSED" })).toBe(false);
     expect(isCheckUpOpen({ ...open, auditStatus: "DRAFT" })).toBe(false);
+  });
+
+  it("is not open once withdrawn: it leaves the recipient's tasks (#158)", () => {
+    expect(isCheckUpOpen({ ...open, withdrawn: true })).toBe(false);
+    expect(isCheckUpOverdue({ ...open, withdrawn: true }, new Date("2027-01-01T00:00:00.000Z"))).toBe(false);
   });
 
   it("is overdue from the day after the due date, compared in UTC", () => {
@@ -88,28 +93,39 @@ describe("open and overdue", () => {
 
 describe("checkUpResponseRefusal", () => {
   it("allows a launched audit and refuses a draft or closed one", () => {
-    expect(checkUpResponseRefusal({ auditStatus: "LAUNCHED", evaluated: false })).toBeNull();
-    expect(checkUpResponseRefusal({ auditStatus: "CLOSED", evaluated: false })).toMatch(/closed/);
-    expect(checkUpResponseRefusal({ auditStatus: "DRAFT", evaluated: false })).toMatch(/draft/);
+    expect(checkUpResponseRefusal({ auditStatus: "LAUNCHED", evaluated: false, withdrawn: false })).toBeNull();
+    expect(checkUpResponseRefusal({ auditStatus: "CLOSED", evaluated: false, withdrawn: false })).toMatch(/closed/);
+    expect(checkUpResponseRefusal({ auditStatus: "DRAFT", evaluated: false, withdrawn: false })).toMatch(/draft/);
   });
 
   it("refuses an evaluated Check-up's response, whatever the audit's state (#156)", () => {
-    expect(checkUpResponseRefusal({ auditStatus: "LAUNCHED", evaluated: true })).toMatch(/evaluated/);
-    expect(checkUpResponseRefusal({ auditStatus: "CLOSED", evaluated: true })).toMatch(/evaluated/);
+    expect(checkUpResponseRefusal({ auditStatus: "LAUNCHED", evaluated: true, withdrawn: false })).toMatch(/evaluated/);
+    expect(checkUpResponseRefusal({ auditStatus: "CLOSED", evaluated: true, withdrawn: false })).toMatch(/evaluated/);
   });
 });
 
 describe("checkUpProgress", () => {
-  it("counts sent, answered, evaluated, awaiting evaluation, open and overdue", () => {
-    expect(checkUpProgress([])).toEqual({ sent: 0, answered: 0, evaluated: 0, awaitingEvaluation: 0, open: 0, overdue: 0 });
+  it("counts sent, answered, evaluated, awaiting evaluation, withdrawn, open and overdue", () => {
+    expect(checkUpProgress([])).toEqual({ sent: 0, answered: 0, evaluated: 0, awaitingEvaluation: 0, withdrawn: 0, open: 0, overdue: 0 });
     expect(
       checkUpProgress([
-        { answered: true, evaluated: true, overdue: false },
-        { answered: true, evaluated: false, overdue: false },
-        { answered: false, evaluated: false, overdue: true },
-        { answered: false, evaluated: false, overdue: false },
+        { answered: true, evaluated: true, withdrawn: false, overdue: false },
+        { answered: true, evaluated: false, withdrawn: false, overdue: false },
+        { answered: false, evaluated: false, withdrawn: false, overdue: true },
+        { answered: false, evaluated: false, withdrawn: false, overdue: false },
       ]),
-    ).toEqual({ sent: 4, answered: 2, evaluated: 1, awaitingEvaluation: 1, open: 2, overdue: 1 });
+    ).toEqual({ sent: 4, answered: 2, evaluated: 1, awaitingEvaluation: 1, withdrawn: 0, open: 2, overdue: 1 });
+  });
+
+  it("counts a withdrawn Check-up only as withdrawn, an answered one included (#158)", () => {
+    expect(
+      checkUpProgress([
+        { answered: true, evaluated: true, withdrawn: false, overdue: false },
+        { answered: true, evaluated: false, withdrawn: true, overdue: false },
+        { answered: false, evaluated: false, withdrawn: true, overdue: false },
+        { answered: false, evaluated: false, withdrawn: false, overdue: true },
+      ]),
+    ).toEqual({ sent: 4, answered: 1, evaluated: 1, awaitingEvaluation: 0, withdrawn: 2, open: 1, overdue: 1 });
   });
 });
 

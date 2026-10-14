@@ -11,9 +11,9 @@ This file holds current state and the queue, and nothing else. The rule is in th
 
 ## Next up: the queue (start here)
 
-**Where the last session stopped (2026-10-12). Do this first.**
-1. **The rest of PRD 0001 is cut into issues** (2026-10-12): milestones "PRD 0001 · M4 Content & SoA" (#144–#146, #148–#151) and "PRD 0001 · M5 Internal audit" (#147, #152–#158). None is started. Dependencies are native "blocked by" links, also listed below.
-2. **Start with the issues that have no blocker:** #144, #145, #146 and #147. The product owner hasn't said which milestone goes first; ask if it matters, otherwise M4 first.
+**Where the last session stopped (2026-10-14). Do this first.**
+1. **PRD 0001 · M5 Internal audit is complete** with #158 (PR #177). Close the GitHub milestone once #158 is closed.
+2. **M4 waits on the product owner:** #148 and #149 are `ready-for-human` until the source documents are attached. Nothing else in PRD 0001 is cut into issues.
 3. Nothing is in flight. The dev DB is in its seeded state (see below).
 
 **The queue**
@@ -35,14 +35,14 @@ PRD 0001 · M5 Internal audit:
 5. #155 Answer a Check-up from My tasks. **Done: PR #174.**
 6. #156 Evaluate a Check-up. **Done: PR #175.**
 7. #157 Nonconformity side effects: Risk and status set-back. **Done: PR #176.**
-8. #158 Withdraw Check-ups and close an Internal Audit. Unblocked (#156 is done).
+8. #158 Withdraw Check-ups and close an Internal Audit. **Done: PR #177.**
 9. #169 Read-only Control Library page for every role. **Done: PR #170.**
 
 Not cut into issues: the PRD's two "could" features, F-OUT.6 (PDF export of the SoA) and F-IMP.4 (UI upload of Framework files, other Frameworks as data).
 
-**State as of 2026-10-12**
-- PRD 0001 milestones 1, 2 and 3 are complete, closed and in production, and so is every follow-up to them. Milestones 4 and 5 are cut into issues and not started.
-- The last code change on `main` is #126 (PR #136), deployed by CD run 37222499029. Production has every migration up to `20261013160000_add_check_up_risk_link` (39 in all).
+**State as of 2026-10-14**
+- PRD 0001 milestones 1, 2 and 3 are complete, closed and in production. Milestone 5 is complete with #158. Milestone 4 has #148 and #149 left.
+- Production has every migration up to `20261014100000_add_check_up_withdrawals_and_audit_closing` (40 in all) once PR #177 is deployed.
 - Other open issues:
   - #46 needs re-scoping against the PRD before anyone picks it up.
   - #61 is deferred.
@@ -95,7 +95,7 @@ The dev DB is in its seeded state. When cleaning up after a browser check, compa
 
 - 11 Systems (one is the Provider "Entra ID SSO"), 11 Users (the seed adds the Internal Auditor; run `npx prisma db seed` after pulling #147), 118 Controls, 527 Control Assessments, 2 Change Events, 4 Control Offerings, 2 Provider dependencies, and 92 Organization Control Implementations, all Not Started. No Control Owners.
 - The two Change Events are seeded state (the `"system"` events on GitHub and Microsoft 365 from the Capability migration): do not delete them.
-- 39 rows in `_prisma_migrations`.
+- 40 rows in `_prisma_migrations`.
 - Controls by applicability: 61 Organizational, 31 Both, 26 Per-System. All mandatory.
 - Frameworks: ISO/IEC 27001:2022, which is the base and Published. GDPR 1 and Export Control (EAR/ITAR) 1 are Published but have no Requirements yet.
 - ISO/IEC 27001:2022 figures: Jira 56 of 117 (47.9%), CATIA 9 of 117, Unily 6 of 117 ("needs assessment" 44 and 47), the Provider "Entra ID SSO" 4 of 117 ("needs assessment" 52), pooled 467 of 1288 (36.3%).

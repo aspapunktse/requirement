@@ -64,12 +64,12 @@ export function canReadCheckUp(user: { id: string; role: UserRole }, recipientId
 // Open, overdue, locked
 
 /**
- * Is the Check-up open: the audit is launched and nothing has been answered yet? (#156 does not
- * change this: an evaluated Check-up is answered. #158's withdrawn Check-up joins the conditions.)
- * `Open` Check-ups are the ones in the recipient's "My tasks".
+ * Is the Check-up open: the audit is launched, nothing has been answered yet and it hasn't been
+ * withdrawn (#158; a withdrawn Check-up leaves the recipient's tasks)? (#156 does not change this:
+ * an evaluated Check-up is answered.) `Open` Check-ups are the ones in the recipient's "My tasks".
  */
-export function isCheckUpOpen(checkUp: { auditStatus: InternalAuditStatus; answered: boolean }): boolean {
-  return checkUp.auditStatus === "LAUNCHED" && !checkUp.answered;
+export function isCheckUpOpen(checkUp: { auditStatus: InternalAuditStatus; answered: boolean; withdrawn: boolean }): boolean {
+  return checkUp.auditStatus === "LAUNCHED" && !checkUp.answered && !checkUp.withdrawn;
 }
 
 /**
@@ -77,7 +77,7 @@ export function isCheckUpOpen(checkUp: { auditStatus: InternalAuditStatus; answe
  * due date is not overdue. `dueDate` is the audit's calendar date (UTC midnight).
  */
 export function isCheckUpOverdue(
-  checkUp: { auditStatus: InternalAuditStatus; answered: boolean; dueDate: Date },
+  checkUp: { auditStatus: InternalAuditStatus; answered: boolean; withdrawn: boolean; dueDate: Date },
   now: Date = new Date(),
 ): boolean {
   if (!isCheckUpOpen(checkUp)) return false;
@@ -87,39 +87,52 @@ export function isCheckUpOverdue(
 
 /**
  * Why a Check-up's response can't be created or changed, or null if it can: its audit isn't
- * launched (a closed audit is read-only, #158), or it has been evaluated (#156: the auditor judged
- * this response, so it is frozen; an evaluation is final, so it never unlocks).
+ * launched (a closed audit is read-only, #158), it has been evaluated (#156: the auditor judged
+ * this response, so it is frozen; an evaluation is final, so it never unlocks) or it has been
+ * withdrawn (#158: a withdrawal is final too; any response it had stays, read-only).
  */
-export function checkUpResponseRefusal(checkUp: { auditStatus: InternalAuditStatus; evaluated: boolean }): string | null {
+export function checkUpResponseRefusal(checkUp: {
+  auditStatus: InternalAuditStatus;
+  evaluated: boolean;
+  withdrawn: boolean;
+}): string | null {
   if (checkUp.evaluated) return "This Check-up has been evaluated, so its response can no longer be changed";
+  if (checkUp.withdrawn) return "This Check-up has been withdrawn, so it can't be answered or its response changed";
   if (checkUp.auditStatus === "LAUNCHED") return null;
   return `This Check-up can't be answered: its Internal Audit is ${INTERNAL_AUDIT_STATUS_LABEL[checkUp.auditStatus].toLowerCase()}`;
 }
 
 /**
- * Sent, answered, evaluated, awaiting-evaluation, open and overdue Check-ups of one audit, for its
- * page. "Answered" is every Check-up with a response, evaluated ones included; "evaluated" is the
- * subset the auditor has judged, and "awaiting evaluation" is answered minus evaluated.
+ * Sent, answered, evaluated, awaiting-evaluation, withdrawn, open and overdue Check-ups of one
+ * audit, for its page. Withdrawn Check-ups (#158) are counted only as withdrawn, even if they had
+ * a response, so `sent` = `open` + `answered` + `withdrawn`. "Answered" is every live Check-up with
+ * a response, evaluated ones included; "evaluated" is the subset the auditor has judged, and
+ * "awaiting evaluation" is answered minus evaluated.
  */
 export type CheckUpProgress = {
   sent: number;
   answered: number;
   evaluated: number;
   awaitingEvaluation: number;
+  withdrawn: number;
   open: number;
   overdue: number;
 };
 
-export function checkUpProgress(checkUps: { answered: boolean; evaluated: boolean; overdue: boolean }[]): CheckUpProgress {
-  const answered = checkUps.filter((c) => c.answered).length;
-  const evaluated = checkUps.filter((c) => c.answered && c.evaluated).length;
+export function checkUpProgress(
+  checkUps: { answered: boolean; evaluated: boolean; withdrawn: boolean; overdue: boolean }[],
+): CheckUpProgress {
+  const live = checkUps.filter((c) => !c.withdrawn);
+  const answered = live.filter((c) => c.answered).length;
+  const evaluated = live.filter((c) => c.answered && c.evaluated).length;
   return {
     sent: checkUps.length,
     answered,
     evaluated,
     awaitingEvaluation: answered - evaluated,
-    open: checkUps.length - answered,
-    overdue: checkUps.filter((c) => c.overdue).length,
+    withdrawn: checkUps.length - live.length,
+    open: live.length - answered,
+    overdue: live.filter((c) => c.overdue).length,
   };
 }
 

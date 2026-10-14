@@ -9,6 +9,7 @@ import { checkUpOutcomeTone, riskStatusTone } from "@/lib/status-tones";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { CheckUpResponseForm } from "@/components/CheckUpResponseForm";
 import { CheckUpEvaluationForm } from "@/components/CheckUpEvaluationForm";
+import { WithdrawCheckUpControl } from "@/components/WithdrawCheckUpControl";
 
 /**
  * One Check-up (PRD 0001 F-IA.4, F-IA.5, #155): the Control, the target, the audit's title and due
@@ -20,7 +21,9 @@ import { CheckUpEvaluationForm } from "@/components/CheckUpEvaluationForm";
  * A Nonconformity's Risk (#157) is shown beneath it to the roles that read Internal Audits, with what
  * the evaluation did to the target (set back, or why not), linked to where the Risk is managed.
  * Anyone else sees nothing, and not whether the
- * Check-up exists. The recipient needs no right to read Internal Audits: this page shows their
+ * Check-up exists. A Check-up an Internal Auditor withdrew (#158) shows the reason, who withdrew it and when,
+ * and is read-only for everyone; an Internal Auditor can withdraw an unevaluated one from here, with a reason.
+ * The recipient needs no right to read Internal Audits: this page shows their
  * Check-up, not the audit.
  */
 export default async function CheckUpPage({ params }: PageProps<"/check-ups/[id]">) {
@@ -38,7 +41,7 @@ export default async function CheckUpPage({ params }: PageProps<"/check-ups/[id]
   }
 
   const isRecipient = checkUp.recipient?.id === user.id;
-  const lockedReason = checkUpResponseRefusal({ auditStatus: checkUp.audit.status, evaluated: checkUp.evaluated });
+  const lockedReason = checkUpResponseRefusal({ auditStatus: checkUp.audit.status, evaluated: checkUp.evaluated, withdrawn: checkUp.withdrawn });
   const changedLater = checkUp.response !== null && checkUp.response.updatedAt !== checkUp.response.respondedAt;
 
   return (
@@ -60,7 +63,9 @@ export default async function CheckUpPage({ params }: PageProps<"/check-ups/[id]
         {checkUp.control.code} {checkUp.control.title}
       </h1>
       <div className="mb-4 flex flex-wrap items-center gap-3 text-sm text-zinc-500">
-        {checkUp.evaluation ? (
+        {checkUp.withdrawal ? (
+          <StatusChip tone="neutral">Withdrawn</StatusChip>
+        ) : checkUp.evaluation ? (
           <StatusChip tone={checkUpOutcomeTone(checkUp.evaluation.outcome)}>{CHECK_UP_OUTCOME_LABEL[checkUp.evaluation.outcome]}</StatusChip>
         ) : checkUp.answered ? (
           <StatusChip tone="success">Answered</StatusChip>
@@ -153,6 +158,16 @@ export default async function CheckUpPage({ params }: PageProps<"/check-ups/[id]
         </section>
       )}
 
+      {checkUp.withdrawal && (
+        <section aria-label="Withdrawal" className="mb-6">
+          <h2 className="mb-1 text-lg">Withdrawn</h2>
+          <p className="mb-1 text-sm text-zinc-500">
+            Withdrawn by {checkUp.withdrawal.withdrawnBy.name} on {checkUp.withdrawal.withdrawnAt.slice(0, 10)}. A withdrawal is final.
+          </p>
+          <p className="whitespace-pre-wrap text-sm">{checkUp.withdrawal.reason}</p>
+        </section>
+      )}
+
       {checkUp.evaluation ? (
         <section aria-label="Evaluation">
           <h2 className="mb-1 text-lg">Evaluation</h2>
@@ -174,7 +189,17 @@ export default async function CheckUpPage({ params }: PageProps<"/check-ups/[id]
           <CheckUpEvaluationForm checkUpId={checkUp.id} />
         </section>
       ) : (
-        checkUp.answered && <p className="text-sm text-zinc-500">Not evaluated yet.</p>
+        checkUp.answered && !checkUp.withdrawn && <p className="text-sm text-zinc-500">Not evaluated yet.</p>
+      )}
+
+      {access.canWithdraw && (
+        <section aria-label="Withdraw this Check-up" className="mt-6">
+          <h2 className="mb-2 text-lg">Withdraw this Check-up</h2>
+          <p className="mb-2 text-sm text-zinc-500">
+            Withdraw a Check-up that should not be answered or evaluated after all. It leaves the recipient&apos;s tasks; any response stays on record. A withdrawal is final.
+          </p>
+          <WithdrawCheckUpControl checkUpId={checkUp.id} />
+        </section>
       )}
 
       {checkUp.risk && access.canReadRisk && (

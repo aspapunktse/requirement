@@ -42,6 +42,9 @@ export type InternalAuditDetail = {
   /** Set once launched (#154). */
   launchedAt: string | null;
   launchedBy: { id: string; name: string } | null;
+  /** Set once closed (#158). */
+  closedAt: string | null;
+  closedBy: { id: string; name: string } | null;
   /** `questions`: the draft's questions for the Control, in order (empty once launched: each Check-up has its own copy). */
   controls: { id: string; code: string; title: string; applicability: ControlApplicability; questions: string[] }[];
   systems: { id: string; name: string; status: OnboardingStatus }[];
@@ -103,7 +106,11 @@ export async function getInternalAudit(id: string): Promise<InternalAuditDetail 
   return prisma.$transaction(async (tx) => {
     const audit = await tx.internalAudit.findUnique({
       where: { id },
-      include: { createdBy: { select: { id: true, name: true } }, launchedBy: { select: { id: true, name: true } } },
+      include: {
+        createdBy: { select: { id: true, name: true } },
+        launchedBy: { select: { id: true, name: true } },
+        closedBy: { select: { id: true, name: true } },
+      },
     });
     if (!audit) return null;
     const [controlRows, systemRows] = await Promise.all([
@@ -137,6 +144,8 @@ export async function getInternalAudit(id: string): Promise<InternalAuditDetail 
       updatedAt: audit.updatedAt.toISOString(),
       launchedAt: audit.launchedAt?.toISOString() ?? null,
       launchedBy: audit.launchedBy,
+      closedAt: audit.closedAt?.toISOString() ?? null,
+      closedBy: audit.closedBy,
       controls: controls.sort(byCode).map((control) => ({ ...control, questions: questionsByControlId.get(control.id) ?? [] })),
       systems,
     };

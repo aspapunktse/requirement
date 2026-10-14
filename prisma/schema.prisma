@@ -106,9 +106,11 @@ model User {
   ownedControls                      Control[]                           @relation("ControlOwner")
   internalAuditsCreated              InternalAudit[]                     @relation("InternalAuditCreator")
   internalAuditsLaunched             InternalAudit[]                     @relation("InternalAuditLauncher")
+  internalAuditsClosed               InternalAudit[]                     @relation("InternalAuditCloser")
   checkUpResponsesGiven              CheckUpResponse[]                   @relation("CheckUpResponder")
   checkUpResponsesChanged            CheckUpResponse[]                   @relation("CheckUpResponseChanger")
   checkUpsEvaluated                  CheckUpEvaluation[]                 @relation("CheckUpEvaluator")
+  checkUpsWithdrawn                  CheckUpWithdrawal[]                 @relation("CheckUpWithdrawer")
   organizationImplementationsUpdated OrganizationControlImplementation[] @relation("OrganizationImplementationUpdatedBy")
 }
 
@@ -701,6 +703,11 @@ model InternalAudit {
   launchedAt          DateTime?
   launchedById        String?
   launchedBy          User?               @relation("InternalAuditLauncher", fields: [launchedById], references: [id], onDelete: Restrict)
+  // Set together with status CLOSED (#158): when the audit was closed and by whom. Null until then.
+  // Restrict, like the creator and the launcher: who closed an audit is part of the record.
+  closedAt            DateTime?
+  closedById          String?
+  closedBy            User?               @relation("InternalAuditCloser", fields: [closedById], references: [id], onDelete: Restrict)
 
   controls InternalAuditControl[]
   systems  InternalAuditSystem[]
@@ -708,6 +715,7 @@ model InternalAudit {
 
   @@index([createdById])
   @@index([launchedById])
+  @@index([closedById])
 }
 
 // A target Control of an Internal Audit. An explicit join model, not an implicit many-to-many:
@@ -799,6 +807,8 @@ model CheckUp {
   response   CheckUpResponse?
   // Present once an Internal Auditor has evaluated it (#156); its existence is what "evaluated" means.
   evaluation CheckUpEvaluation?
+  // Present once an Internal Auditor has withdrawn it (#158); its existence is what "withdrawn" means.
+  withdrawal CheckUpWithdrawal?
   // The Risk a Nonconformity opened (#157); null for any other outcome and before the evaluation.
   risk Risk?
 
@@ -877,6 +887,24 @@ model CheckUpEvaluation {
   evaluatedAt   DateTime       @default(now())
 
   @@index([evaluatedById])
+}
+
+// A Check-up an Internal Auditor withdrew (PRD 0001 F-IA.8, #158): one per Check-up at most, and its
+// existence is what "withdrawn" means, beside CheckUpEvaluation's existence meaning "evaluated"
+// (closing an audit tests "neither evaluated nor withdrawn" with those two existence checks). A
+// withdrawal is final: the application never updates or deletes it (decision 2a, #158). The reason
+// is required (non-blank, at most 2000 characters; application rules). A withdrawn Check-up keeps
+// any response it had, as part of the record. Who withdrew is audit evidence, so the User is Restrict.
+model CheckUpWithdrawal {
+  id            String   @id @default(cuid())
+  checkUpId     String   @unique
+  checkUp       CheckUp  @relation(fields: [checkUpId], references: [id], onDelete: Cascade)
+  reason        String
+  withdrawnById String
+  withdrawnBy   User     @relation("CheckUpWithdrawer", fields: [withdrawnById], references: [id], onDelete: Restrict)
+  withdrawnAt   DateTime @default(now())
+
+  @@index([withdrawnById])
 }
 
 // The answer to one question of a Check-up: Yes / No / N/A with a free-text description.
