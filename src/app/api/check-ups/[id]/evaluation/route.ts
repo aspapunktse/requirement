@@ -10,8 +10,9 @@ import { readJson } from "@/lib/internal-audit-api";
  * every other role, the Admin and the Compliance Manager included, gets 403 with no DB change. 404
  * if there is no such Check-up, 409 if it is already evaluated (an evaluation is final), isn't
  * answered, or its audit isn't launched, 400 naming each problem if the evaluation is invalid.
- * Writes the evaluation and one System-less Change Event in one transaction, and nothing else: a
- * Nonconformity opens no Risk and changes no status yet. Answers 201 with the Check-up.
+ * Writes the evaluation and one System-less Change Event in one transaction; a Nonconformity also
+ * opens a Risk linked to the Check-up and sets a Fulfilled target back to In Progress (#157), in
+ * that same transaction. Answers 201 with the Check-up.
  */
 export async function POST(request: NextRequest, ctx: RouteContext<"/api/check-ups/[id]/evaluation">) {
   const auth = await authenticate(request);

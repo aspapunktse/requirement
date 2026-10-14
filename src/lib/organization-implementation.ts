@@ -136,11 +136,15 @@ export function normalizeDescription(description: string | null | undefined): st
  * on an existing row writes nothing, so "last updated by" isn't bumped by a
  * Save that didn't change anything. Returns the Control as the API shows it.
  * The caller has already checked permission and the description rule.
+ *
+ * `userId` is null when no person made the edit (an Internal Audit's Nonconformity sets a
+ * Fulfilled implementation back, #157): "last updated by" is then left as it was (a new row gets
+ * none), because naming a User who did not edit it would be a false record.
  */
 export async function saveOrganizationImplementation(
   db: Db,
   control: ControlWithImplementation,
-  userId: string,
+  userId: string | null,
   edit: ImplementationEdit,
 ): Promise<OrganizationControlRow> {
   const existing = control.organizationImplementation;
@@ -163,7 +167,7 @@ export async function saveOrganizationImplementation(
     update: {
       ...(edit.status !== undefined && { status: edit.status }),
       ...(description !== undefined && { description }),
-      updatedById: userId,
+      ...(userId !== null && { updatedById: userId }),
     },
   });
   const saved = await db.control.findUniqueOrThrow({ where: { id: control.id }, include: ROW_INCLUDE });

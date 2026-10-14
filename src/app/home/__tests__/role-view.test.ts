@@ -144,6 +144,7 @@ describe("roleView: owner tasks for any role (#98)", () => {
         "Organization Controls",
         "Control Library",
         "Statement of Applicability",
+        "Organization Risks",
       ]);
       expect(view.tiles.find((t) => t.title === "Internal Audits")).toMatchObject({ href: "/internal-audits" });
       expect(view.tiles.every((t) => !t.disabled)).toBe(true);

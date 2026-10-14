@@ -113,8 +113,13 @@ describe("Evaluating a Check-up (#156)", () => {
       expect(written[0].detail).toContain(outcome === "CONFORMING" ? "Conforming" : outcome === "OBSERVATION" ? "Observation" : "Nonconformity");
       expect(written[0].detail).not.toContain(comment || "\u0000");
 
-      // A Nonconformity too: no Risk, no status change, nothing else.
-      expect(await elsewhere()).toEqual(before);
+      // Conforming and Observation change nothing else. A Nonconformity has side effects (#157), tested in
+      // nonconformity.test.ts; here only that it opened the one Risk.
+      if (outcome === "NONCONFORMITY") {
+        expect(await prisma.risk.count({ where: { checkUpId: target.id } })).toBe(1);
+      } else {
+        expect(await elsewhere()).toEqual(before);
+      }
     });
 
     it.each(["CONFORMING", "OBSERVATION", "NONCONFORMITY"])("as %s on an Organization-level Check-up", async (outcome) => {
@@ -132,7 +137,11 @@ describe("Evaluating a Check-up (#156)", () => {
       expect(written[0]).toMatchObject({ systemId: null, actorId: s.roleUser.INTERNAL_AUDITOR });
       expect(written[0].detail).toContain("for the Organization");
       expect(written[0].detail).toContain(target.control.code);
-      expect(await elsewhere()).toEqual(before);
+      if (outcome === "NONCONFORMITY") {
+        expect(await prisma.risk.count({ where: { checkUpId: target.id, systemId: null } })).toBe(1);
+      } else {
+        expect(await elsewhere()).toEqual(before);
+      }
     });
 
     it("lets any Internal Auditor evaluate, not only the one who created the audit", async () => {

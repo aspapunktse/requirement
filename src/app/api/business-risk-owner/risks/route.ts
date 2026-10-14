@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authorize } from "@/lib/api-authz";
 import { resolveScopeWhere } from "@/lib/business-risk-owner";
-import { RISK_INCLUDE } from "@/lib/risks";
+import { RISK_INCLUDE, SYSTEM_RISK_WHERE } from "@/lib/risks";
 
 /**
  * Risks (ad-hoc and Control-auto-opened alike) for Systems within the
@@ -23,7 +23,8 @@ export async function GET(request: NextRequest) {
   }
 
   const risks = await prisma.risk.findMany({
-    where: { system: resolved.where },
+    // An Organization Risk has no System and is never listed in a scoped view (#157), whatever the filter.
+    where: { ...SYSTEM_RISK_WHERE, system: resolved.where },
     include: { ...RISK_INCLUDE, system: { select: { id: true, name: true } } },
     orderBy: { createdAt: "desc" },
   });

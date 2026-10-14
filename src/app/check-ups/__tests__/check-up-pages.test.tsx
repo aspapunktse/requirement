@@ -82,6 +82,8 @@ describe("Check-up pages (#155)", () => {
     const audits = await prisma.internalAudit.findMany({ where: { createdById: users.INTERNAL_AUDITOR }, select: { id: true } });
     // The System-less Change Event of the evaluation test (#156) names this run through the audit title and Control code.
     await prisma.changeEvent.deleteMany({ where: { systemId: null, action: "CHECK_UP_EVALUATED", detail: { contains: SUFFIX } } });
+    // A Nonconformity's Risk (#157) is Restrict on its Check-up.
+    await prisma.risk.deleteMany({ where: { checkUp: { internalAuditId: { in: audits.map((a) => a.id) } } } });
     await prisma.checkUp.deleteMany({ where: { internalAuditId: { in: audits.map((a) => a.id) } } });
     await prisma.internalAudit.deleteMany({ where: { id: { in: audits.map((a) => a.id) } } });
     await prisma.system.deleteMany({ where: { name: { endsWith: SUFFIX } } });
@@ -194,6 +196,18 @@ describe("Check-up pages (#155)", () => {
         expect(html).toContain("can no longer be changed");
       }
       expect(await checkUpPage(users.VIEWER, answeredId)).toContain("not available to you");
+    });
+
+    it("shows the Risk a Nonconformity opened to the audit readers, with what the evaluation did to the target, and not to the recipient", async () => {
+      for (const userId of [users.INTERNAL_AUDITOR, users.ADMIN]) {
+        const html = await checkUpPage(userId, answeredId);
+        expect(html).toContain("Risk opened");
+        expect(html).toContain("Internal Audit Nonconformity)");
+        expect(html).toContain("Only tested in staging");
+        // The target had no stored Assessment, so nothing was set back and the page says so.
+        expect(html).toContain("Not changed: the System");
+      }
+      expect(await checkUpPage(recipientId, answeredId)).not.toContain("Risk opened");
     });
 
     it("shows the outcome in the recipient's list and the audit page, which counts it as evaluated", async () => {

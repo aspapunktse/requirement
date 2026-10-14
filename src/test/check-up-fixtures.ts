@@ -15,6 +15,12 @@ import { createFixtureFramework, mapControlsToFramework } from "@/test/framework
  * System, and a launched audit over all of them. That is `systemControls` System-level and
  * `organizationControls` Organization-level Check-ups. `cleanup` removes everything in an order
  * the RESTRICT keys allow.
+ *
+ * Optionally (#157): `bothControls` Both Controls (owned by the Control Owner, mapped to the
+ * fixture Framework, so each gives a System-level Check-up on the System and an Organization-level
+ * one), and `extraSystems` more Systems with the fixture Framework in scope that are NOT in the audit
+ * (they inherit a Both Control's Organization status). Risks and the Change Events they cause are
+ * removed by `cleanup` too.
  */
 
 export const ALL_ROLES: UserRole[] = [
@@ -28,7 +34,10 @@ export const ALL_ROLES: UserRole[] = [
   "INTERNAL_AUDITOR",
 ];
 
-export async function createCheckUpScenario(tag: string, shape: { systemControls: number; organizationControls: number }) {
+export async function createCheckUpScenario(
+  tag: string,
+  shape: { systemControls: number; organizationControls: number; bothControls?: number; extraSystems?: number },
+) {
   const suffix = `${process.pid}-${Date.now()}`;
   const makeUser = async (label: string, role: UserRole) =>
     (await prisma.user.create({ data: { email: `test-${tag}-${label}-${suffix}@example.com`, name: `Test ${tag} ${label}`, role } })).id;
@@ -39,7 +48,7 @@ export async function createCheckUpScenario(tag: string, shape: { systemControls
   const systemOwner = await makeUser("system-owner", "SYSTEM_OWNER");
   const controlOwner = await makeUser("control-owner", "RISK_OWNER");
 
-  const makeControl = async (label: string, applicability: "ORGANIZATIONAL" | "PER_SYSTEM", ownerId?: string) => {
+  const makeControl = async (label: string, applicability: "ORGANIZATIONAL" | "PER_SYSTEM" | "BOTH", ownerId?: string) => {
     const code = `TEST-${tag}-${label}-${suffix}`;
     const control = await prisma.control.create({
       data: { code, title: `Test ${tag} Control ${label}`, description: "d", category: "Security", applicability, question: `Is ${label} in place?`, ...(ownerId && { ownerId }) },
@@ -51,10 +60,20 @@ export async function createCheckUpScenario(tag: string, shape: { systemControls
   const organizationControls = [];
   for (let i = 1; i <= shape.organizationControls; i++) organizationControls.push(await makeControl(`ORG${i}`, "ORGANIZATIONAL", controlOwner));
 
+  const bothControls = [];
+  for (let i = 1; i <= (shape.bothControls ?? 0); i++) bothControls.push(await makeControl(`BOTH${i}`, "BOTH", controlOwner));
+
   const framework = await createFixtureFramework(tag);
-  await mapControlsToFramework(framework.id, systemControls.map((c) => c.id));
+  await mapControlsToFramework(framework.id, [...systemControls, ...bothControls].map((c) => c.id));
   const systemName = `Test ${tag} System ${suffix}`;
   const system = await prisma.system.create({ data: { name: systemName, ownerId: systemOwner, frameworkScopes: { connect: [{ id: framework.id }] } } });
+  const extraSystemIds: string[] = [];
+  for (let i = 1; i <= (shape.extraSystems ?? 0); i++) {
+    const extra = await prisma.system.create({
+      data: { name: `Test ${tag} Extra System ${i} ${suffix}`, ownerId: systemOwner, frameworkScopes: { connect: [{ id: framework.id }] } },
+    });
+    extraSystemIds.push(extra.id);
+  }
 
   const dueDate = new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10);
   const auditTitle = `Test ${tag} Audit ${suffix}`;
@@ -62,8 +81,8 @@ export async function createCheckUpScenario(tag: string, shape: { systemControls
     {
       title: auditTitle,
       dueDate,
-      includeOrganization: organizationControls.length > 0,
-      controlIds: [...systemControls, ...organizationControls].map((c) => c.id),
+      includeOrganization: organizationControls.length + bothControls.length > 0,
+      controlIds: [...systemControls, ...organizationControls, ...bothControls].map((c) => c.id),
       systemIds: [system.id],
     },
     roleUser.INTERNAL_AUDITOR,
@@ -79,6 +98,9 @@ export async function createCheckUpScenario(tag: string, shape: { systemControls
     controlOwner,
     systemControls,
     organizationControls,
+    bothControls,
+    extraSystemIds,
+    frameworkId: framework.id,
     systemId: system.id,
     systemName,
     auditId,
@@ -105,7 +127,8 @@ export async function createCheckUpScenario(tag: string, shape: { systemControls
     cleanup: async () => {
       const audits = await prisma.internalAudit.findMany({ where: { createdById: roleUser.INTERNAL_AUDITOR }, select: { id: true } });
       const ids = audits.map((a) => a.id);
-      await prisma.changeEvent.deleteMany({ where: { systemId: null, action: "CHECK_UP_EVALUATED", detail: { contains: suffix } } });
+      await prisma.changeEvent.deleteMany({ where: { systemId: null, detail: { contains: suffix } } });
+      await prisma.risk.deleteMany({ where: { OR: [{ checkUp: { internalAuditId: { in: ids } } }, { system: { name: { endsWith: suffix } } }] } });
       await prisma.checkUp.deleteMany({ where: { internalAuditId: { in: ids } } });
       await prisma.internalAudit.deleteMany({ where: { id: { in: ids } } });
       await prisma.system.deleteMany({ where: { name: { endsWith: suffix } } });

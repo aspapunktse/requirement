@@ -1,8 +1,8 @@
-import { Prisma, type CheckUpAnswer, type CheckUpOutcome, type InternalAuditStatus, type UserRole } from "@prisma/client";
+import { Prisma, type CheckUpAnswer, type CheckUpOutcome, type InternalAuditStatus, type RiskStatus, type UserRole } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { formatCalendarDate } from "@/lib/internal-audit-rules";
+import { canReadInternalAudits, formatCalendarDate } from "@/lib/internal-audit-rules";
 import { canEvaluateCheckUps, checkUpEvaluationRefusal } from "@/lib/check-up-evaluation-rules";
 import {
   canAnswerCheckUp,
@@ -86,6 +86,8 @@ export type CheckUpDetail = {
     evaluatedBy: { id: string; name: string };
     evaluatedAt: string;
   } | null;
+  /** The Risk a Nonconformity opened (#157): on the target System, or with no System for an Organization-level Check-up. Null for any other outcome. */
+  risk: { id: string; title: string; description: string; status: RiskStatus; systemId: string | null } | null;
   answered: boolean;
   evaluated: boolean;
   open: boolean;
@@ -115,6 +117,7 @@ export async function getCheckUpDetail(id: string, now = new Date()): Promise<Ch
         evaluation: {
           select: { outcome: true, comment: true, evaluatedAt: true, evaluatedBy: { select: { id: true, name: true } } },
         },
+        risk: { select: { id: true, title: true, description: true, status: true, systemId: true } },
       },
     });
     if (!checkUp) return null;
@@ -152,6 +155,7 @@ export async function getCheckUpDetail(id: string, now = new Date()): Promise<Ch
         evaluatedBy: checkUp.evaluation.evaluatedBy,
         evaluatedAt: checkUp.evaluation.evaluatedAt.toISOString(),
       },
+      risk: checkUp.risk,
       answered,
       evaluated: checkUp.evaluation !== null,
       open: isCheckUpOpen(state),
@@ -172,6 +176,8 @@ export function checkUpAccess(
   const recipientId = checkUp.recipient?.id ?? null;
   return {
     canRead: canReadCheckUp(user, recipientId),
+    // The Risk a Nonconformity opened is the Risk Owner's and the audit readers' business, not the recipient's (#157).
+    canReadRisk: canReadInternalAudits(user),
     canAnswer:
       canAnswerCheckUp(user, recipientId) && checkUpResponseRefusal({ auditStatus: checkUp.audit.status, evaluated: checkUp.evaluated }) === null,
     canEvaluate:

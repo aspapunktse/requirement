@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { authorize } from "@/lib/api-authz";
 import { resolveScopeWhere } from "@/lib/business-risk-owner";
 import { getComplianceForSystems } from "@/lib/compliance";
+import { SYSTEM_RISK_WHERE } from "@/lib/risks";
 
 export type PortfolioSystem = {
   id: string;
@@ -45,7 +46,7 @@ export async function GET(request: NextRequest) {
     getComplianceForSystems(resolved.where, { frameworkId }),
     prisma.risk.groupBy({
       by: ["systemId"],
-      where: { status: "OPEN", system: resolved.where },
+      where: { status: "OPEN", ...SYSTEM_RISK_WHERE, system: resolved.where },
       _count: { _all: true },
     }),
   ]);

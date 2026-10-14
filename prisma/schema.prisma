@@ -537,11 +537,16 @@ model QueryMessage {
   createdAt         DateTime        @default(now())
 }
 
-// A risk identified during onboarding of a System.
+// A risk identified during onboarding of a System, or opened by an Internal Audit's Nonconformity
+// (#157). A Risk belongs to a System, except one opened by an Organization-level Nonconformity,
+// which has no System (`systemId` null) and is linked to the Check-up that opened it. A CHECK
+// constraint written by hand in the migration ("Risk_system_or_check_up_check") keeps it that way:
+// a Risk has a System or a Check-up, never neither (Prisma's schema language can't express it, and
+// `migrate diff` ignores check constraints).
 model Risk {
   id             String       @id @default(cuid())
-  systemId       String
-  system         System       @relation(fields: [systemId], references: [id], onDelete: Cascade)
+  systemId       String?
+  system         System?      @relation(fields: [systemId], references: [id], onDelete: Cascade)
   title          String
   description    String
   severity       RiskSeverity
@@ -557,6 +562,13 @@ model Risk {
   // Self-Assessment Question, rather than logged ad-hoc. Null for ad-hoc Risks.
   controlAssessmentId String?
   controlAssessment   ControlAssessment? @relation(fields: [controlAssessmentId], references: [id])
+
+  // Set when an Internal Auditor's Nonconformity opened this Risk (#157): the Check-up it came
+  // from. At most one Risk per Check-up (an evaluation is final, so a Check-up opens at most one).
+  // Restrict: a Check-up is audit evidence and nothing deletes one (its audit, Control and System are
+  // all Restrict), so this only says that if a Check-up ever did go, it could not take a Risk with it.
+  checkUpId String?  @unique
+  checkUp   CheckUp? @relation(fields: [checkUpId], references: [id], onDelete: Restrict)
 }
 
 // Formal sign-off record on a System's onboarding.
@@ -787,6 +799,8 @@ model CheckUp {
   response   CheckUpResponse?
   // Present once an Internal Auditor has evaluated it (#156); its existence is what "evaluated" means.
   evaluation CheckUpEvaluation?
+  // The Risk a Nonconformity opened (#157); null for any other outcome and before the evaluation.
+  risk Risk?
 
   @@unique([internalAuditId, controlId, systemId])
   @@index([controlId])
