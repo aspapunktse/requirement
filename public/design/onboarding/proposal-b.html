@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>System Profile Register</title>
+<link rel="stylesheet" href="register.css">
+<style>
+/* Layout: one page, top to bottom. Profile form where the reference register had its filters,
+   then a domain map that resizes, a change ledger, and the register itself. */
+.page { max-width: 1120px; margin: 0 auto; padding-inline: 20px; padding-block: 28px 64px; display: grid; gap: 26px; }
+.head { display: grid; gap: 8px; max-width: 72ch; }
+.head .lede { color: var(--muted); font-size: 1.02rem; }
+.presets { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.chip { border: 1px solid var(--line); background: var(--surface); border-radius: 99px; padding: 4px 12px; font-size: 0.86rem; cursor: pointer; }
+.chip[aria-pressed="true"] { border-color: var(--accent); background: var(--soft); color: var(--accent); font-weight: 650; }
+
+/* Profile grid: same field shape as the reference register filters */
+.profile { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 26px; }
+@media (max-width: 680px) { .profile { grid-template-columns: minmax(0, 1fr); } }
+.field { display: grid; gap: 6px; min-width: 0; }
+.field > label, .field > span { font-weight: 650; font-size: 0.9rem; }
+.field .sub { font-weight: 400; color: var(--muted); font-size: 0.8rem; }
+.field select, .multi > summary, .field input[type=search] { width: 100%; border: 1px solid var(--line); background: var(--surface); border-radius: 4px; padding: 9px 12px; min-height: 2.6rem; }
+.multi { position: relative; }
+.multi > summary { cursor: pointer; list-style: none; display: flex; gap: 8px; align-items: center; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.multi > summary::-webkit-details-marker { display: none; }
+.multi > summary::before { content: "\25B8"; font-size: 0.8rem; }
+.multi[open] > summary::before { content: "\25BE"; }
+.multi fieldset { position: absolute; z-index: 4; left: 0; right: 0; top: calc(100% + 4px); margin: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 8px 12px; display: grid; gap: 6px; box-shadow: 0 8px 24px color-mix(in srgb, var(--ink) 14%, transparent); }
+.multi legend { font-size: 0.8rem; color: var(--muted); padding: 0; float: left; margin-bottom: 4px; }
+.multi label { display: flex; gap: 8px; align-items: baseline; font-size: 0.9rem; }
+.multi input { accent-color: var(--accent); }
+
+/* Summary line + ledger */
+.summary { display: grid; gap: 10px; }
+.countline { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 18px; }
+.countline .big { font-size: 1.5rem; font-weight: 750; font-variant-numeric: tabular-nums; }
+.countline .split span { margin-right: 12px; font-size: 0.9rem; }
+.countline i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+.tools { display: flex; flex-wrap: wrap; gap: 8px; }
+.tool { border: 1px solid var(--accent); color: var(--accent); background: var(--surface); border-radius: 4px; padding: 5px 12px; font-size: 0.86rem; font-weight: 600; cursor: pointer; }
+.tool[aria-pressed="true"] { background: var(--accent); color: var(--surface); }
+.ledger { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.ledger li { font-size: 0.82rem; background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 3px 9px; display: flex; gap: 6px; align-items: baseline; }
+.ledger li:first-child { border-color: var(--accent); }
+.ledger .up { color: var(--add); font-weight: 700; font-variant-numeric: tabular-nums; }
+.ledger .down { color: var(--drop); font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* Domain map */
+.domains { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; }
+.dom { text-align: left; border: 1px solid var(--line); background: var(--surface); border-radius: 5px; padding: 10px 12px; cursor: pointer; display: grid; gap: 6px; transition: opacity .3s; }
+.dom:hover { border-color: var(--accent); }
+.dom[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.dom.zero { opacity: .5; }
+.dom .top { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.dom .name { font-weight: 650; font-size: 0.88rem; }
+.dom .cnt { font-variant-numeric: tabular-nums; font-size: 0.84rem; color: var(--muted); white-space: nowrap; }
+.dom .cnt b { color: var(--ink); font-size: 1.05rem; }
+.dom .track { display: flex; height: 7px; background: var(--line); border-radius: 2px; overflow: hidden; }
+.dom .track span { transition: width .45s ease; }
+.dom .d { font-size: 0.76rem; min-height: 1.1em; font-variant-numeric: tabular-nums; }
+.dom .d .up { color: var(--add); font-weight: 700; } .dom .d .down { color: var(--drop); font-weight: 700; }
+@keyframes pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 40%, transparent); } 100% { box-shadow: 0 0 0 8px transparent; } }
+.dom.changed { animation: pulse .9s ease-out; }
+@media (prefers-reduced-motion: reduce) { .dom.changed { animation: none; } }
+
+.section-h { display: grid; gap: 4px; }
+.dropped-h { margin-top: 18px; padding: 8px 14px; font-size: 0.86rem; color: var(--drop); border-bottom: 1px solid var(--line); }
+.register .empty { padding: 14px; color: var(--muted); background: var(--surface); }
+</style>
+<style>
+:root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+body { margin: 0; }
+img { max-width: 100%; }
+[hidden] { display: none !important; }
+.switch { font-size: 0.86rem; color: var(--muted); }
+.switch a { color: var(--accent); font-weight: 600; }
+</style>
+</head>
+<body>
+
+<div class="page">
+  <header class="head">
+    <span class="eyebrow">Proposal B / System profile as register filters</span>
+    <h1>Vendor portal</h1>
+    <p class="lede">Describe the system in the profile below. Every field works like a register filter: change it and the control register, the domain map and the counts update in place. You never pick standards; they follow from the answers.</p>
+    <p class="switch">Design proposal for onboarding a System. Compare with <a href="proposal-a.html">Proposal A: guided interview</a>.</p>
+  </header>
+
+  <section class="section-h" aria-label="Profile">
+    <span class="label">System profile</span>
+    <div class="presets" style="margin-block:4px 10px"><span class="small muted">Start from a typical profile:</span><span id="presets" class="presets"></span><span class="tag">Example data</span></div>
+    <div class="profile">
+      <div class="field"><span>How we get it <span class="sub">(pick all that fit)</span></span>
+        <details class="multi" id="f-deliv"><summary id="s-deliv"></summary><fieldset><legend>Delivery (matches any selected)</legend>
+          <label><input type="checkbox" id="d-S" value="S"> We subscribe to it and log in (SaaS)</label>
+          <label><input type="checkbox" id="d-I" value="I"> We run it on a cloud platform</label>
+          <label><input type="checkbox" id="d-O" value="O"> We run it in our own data centre</label>
+        </fieldset></details></div>
+      <div class="field"><label for="f-c">Most sensitive information in it</label>
+        <select id="f-c"><option value="0">Not answered yet</option><option value="1">Public or internal only</option><option value="2">Internal business data</option><option value="3">Confidential</option><option value="4">Strictly confidential</option></select></div>
+      <div class="field"><label for="f-pers">Personal data about people</label>
+        <select id="f-pers"><option value="0">No</option><option value="1">Yes, it holds personal data</option></select></div>
+      <div class="field"><label for="f-i">If its data were wrong or tampered with</label>
+        <select id="f-i"><option value="0">Not answered yet</option><option value="1">A minor annoyance</option><option value="2">Rework and delays</option><option value="3">Customers or money get hurt</option><option value="4">Safety or legal consequences</option></select></div>
+      <div class="field"><label for="f-a">How long the business manages without it</label>
+        <select id="f-a"><option value="0">Not answered yet</option><option value="1">A week or more</option><option value="2">About a day</option><option value="3">A few hours</option><option value="4">Minutes</option></select></div>
+      <div class="field"><label for="f-ess">Supports a service we deliver to society</label>
+        <select id="f-ess"><option value="0">No</option><option value="1">Yes, an essential service</option></select></div>
+      <div class="field"><span>Company services it relies on <span class="sub">(changes who does the work)</span></span>
+        <details class="multi" id="f-prov"><summary id="s-prov"></summary><fieldset id="provs"><legend>Relies on (each covers part of the work)</legend></fieldset></details></div>
+      <div class="field"><label for="f-q">Search controls</label>
+        <input type="search" id="f-q" placeholder="Control ID, name or evidence"></div>
+    </div>
+  </section>
+
+  <section class="summary" aria-label="Summary">
+    <div class="countline" aria-live="polite">
+      <span><span class="big" id="n">0</span> <span class="muted">of <span id="lib"></span> controls apply</span></span>
+      <span class="split" id="split"></span>
+    </div>
+    <div class="tools">
+      <button type="button" class="tool" id="t-ghost" aria-pressed="false">Show controls that dropped out</button>
+      <button type="button" class="tool" id="t-exp">Expand results</button>
+      <button type="button" class="tool" id="t-col">Collapse results</button>
+      <button type="button" class="tool" id="t-clear" hidden>Clear domain filter</button>
+    </div>
+    <div><span class="label">What changed</span><ul class="ledger" id="ledger" style="margin-top:6px"></ul></div>
+  </section>
+
+  <section class="section-h" aria-label="Domains">
+    <span class="label">Where the work is</span>
+    <p class="small muted">Each bar is that area's share of the library that applies here, split by who does the work. Click an area to filter the register.</p>
+    <div class="domains" id="domains" style="margin-top:8px"></div>
+  </section>
+
+  <section class="section-h" aria-label="Control register">
+    <span class="label">Control register</span>
+    <div class="register" id="reg" style="margin-top:8px"></div>
+    <div class="register" id="ghosts"></div>
+  </section>
+</div>
+
+<script src="data.js"></script>
+<script src="register.js"></script>
+<script>
+const PRESETS = {
+  'SaaS business app': { facets: ['S'], c: 3, i: 2, a: 2, personal: true, essential: false, providers: ['entra', 'soc'] },
+  'Internal cloud app': { facets: ['I'], c: 2, i: 2, a: 3, personal: false, essential: false, providers: ['entra', 'lz', 'soc', 'bkp'] },
+  'On-prem operational system': { facets: ['O'], c: 2, i: 4, a: 4, personal: false, essential: true, providers: ['entra', 'bkp'] },
+  'Blank': { facets: [], c: 0, i: 0, a: 0, personal: false, essential: false, providers: [] }
+};
+const P = { facets: new Set(), c: 0, i: 0, a: 0, personal: false, essential: false, providers: new Set() };
+let prev = null, ledger = [], dropped = new Map(), domainFilter = null, preset = null, showGhosts = false;
+const lib = Onb.CONTROLS.length;
+document.getElementById('lib').textContent = lib;
+document.getElementById('provs').insertAdjacentHTML('beforeend', Object.entries(Onb.PROVIDERS).map(([k, v]) => `<label><input type="checkbox" id="p-${k}" value="${k}"> ${v.name}</label>`).join(''));
+document.getElementById('presets').innerHTML = Object.keys(PRESETS).map(k => `<button type="button" class="chip" data-p="${k}" aria-pressed="false">${k}</button>`).join('');
+
+function syncForm() {
+  ['S', 'I', 'O'].forEach(f => document.getElementById('d-' + f).checked = P.facets.has(f));
+  Object.keys(Onb.PROVIDERS).forEach(k => document.getElementById('p-' + k).checked = P.providers.has(k));
+  document.getElementById('f-c').value = P.c; document.getElementById('f-i').value = P.i; document.getElementById('f-a').value = P.a;
+  document.getElementById('f-pers').value = +P.personal; document.getElementById('f-ess').value = +P.essential;
+  document.getElementById('s-deliv').textContent = [...P.facets].map(f => Onb.FACET_LABEL[f]).join(' + ') || 'Not answered yet';
+  document.getElementById('s-prov').textContent = [...P.providers].map(p => Onb.PROVIDERS[p].short).join(', ') || 'None';
+  document.querySelectorAll('.chip').forEach(b => b.setAttribute('aria-pressed', b.dataset.p === preset));
+}
+
+function update(what, animate = true) {
+  const now = Onb.evaluate(P);
+  syncForm();
+
+  // ledger + dropped tracking
+  let add = 0, drop = 0, moved = 0;
+  if (prev && what) {
+    now.forEach((e, id) => { if (!prev.has(id)) { add++; dropped.delete(id); } else if (prev.get(id).resp !== e.resp) moved++; });
+    prev.forEach((e, id) => { if (!now.has(id)) { drop++; dropped.set(id, { e, because: what }); } });
+    ledger.unshift({ what, add, drop, moved });
+    ledger = ledger.slice(0, 6);
+  }
+  document.getElementById('ledger').innerHTML = ledger.length ? ledger.map(l => `<li><span>${Reg.esc(l.what)}</span>${l.add ? `<span class="up">+${l.add}</span>` : ''}${l.drop ? `<span class="down">−${l.drop}</span>` : ''}${l.moved ? `<span class="muted">${l.moved} changed owner</span>` : ''}${!l.add && !l.drop && !l.moved ? '<span class="muted">no change</span>' : ''}</li>`).join('') : '<li class="muted">Change a profile field to see its effect here.</li>';
+
+  // counts
+  const cnt = { you: 0, shared: 0, covered: 0 };
+  now.forEach(e => cnt[e.resp]++);
+  Reg.tween(document.getElementById('n'), now.size);
+  document.getElementById('split').innerHTML = [['you', 'You do this'], ['shared', 'Shared'], ['covered', 'Covered for you']].map(([k, t]) => `<span><i style="background:var(--${k})"></i><b class="num">${cnt[k]}</b> ${t}</span>`).join('');
+
+  // domain map
+  document.getElementById('domains').innerHTML = Onb.DOMAINS.map(([d, name]) => {
+    const total = Onb.CONTROLS.filter(c => c.id.startsWith(d)).length;
+    const mine = [...now.values()].filter(e => e.c.id.startsWith(d));
+    const by = k => mine.filter(e => e.resp === k).length;
+    const before = prev ? [...prev.keys()].filter(id => id.startsWith(d)).length : mine.length;
+    const delta = mine.length - before;
+    const changed = prev && what && (delta !== 0 || mine.some(e => prev.has(e.c.id) && prev.get(e.c.id).resp !== e.resp));
+    return `<button type="button" class="dom${mine.length ? '' : ' zero'}${changed ? ' changed' : ''}" data-d="${d}" aria-pressed="${domainFilter === d}">
+      <span class="top"><span class="name">${name}</span><span class="cnt"><b>${mine.length}</b> / ${total}</span></span>
+      <span class="track">${['you', 'shared', 'covered'].map(k => `<span style="width:${by(k) / total * 100}%;background:var(--${k})"></span>`).join('')}</span>
+      <span class="d">${what && prev && delta ? `<span class="${delta > 0 ? 'up' : 'down'}">${delta > 0 ? '+' : '−'}${Math.abs(delta)}</span> after last change` : ''}</span>
+    </button>`;
+  }).join('');
+  document.getElementById('t-clear').hidden = !domainFilter;
+
+  renderRegister(now, animate && what ? prev : null);
+  prev = now;
+}
+
+function matches(e) {
+  const q = document.getElementById('f-q').value.trim().toLowerCase();
+  if (domainFilter && !e.c.id.startsWith(domainFilter)) return false;
+  if (q && !(e.c.id + ' ' + e.c.t + ' ' + e.c.d + ' ' + e.c.ev).toLowerCase().includes(q)) return false;
+  return true;
+}
+
+function renderRegister(now, prevForDiff) {
+  const all = [...now.values()].sort((x, y) => Reg.order(x.c.id, y.c.id));
+  const shown = all.filter(matches);
+  const reg = document.getElementById('reg');
+  const prevResp = prevForDiff ? new Map([...prevForDiff].map(([id, e]) => [id, e.resp])) : null;
+  Reg.diffRender(reg, shown, prevResp, { global: new Set(shown.length === all.length ? [] : now.keys()), keepNew: !prevForDiff });
+  let em = reg.querySelector('.empty');
+  if (!shown.length) { if (!em) reg.insertAdjacentHTML('beforeend', '<p class="empty">No controls match. Clear the search or the domain filter.</p>'); }
+  else em?.remove();
+
+  const g = document.getElementById('ghosts');
+  const ghosts = [...dropped.values()].filter(x => matches(x.e)).sort((x, y) => Reg.order(x.e.c.id, y.e.c.id));
+  g.innerHTML = showGhosts && ghosts.length ? `<p class="dropped-h"><b>${ghosts.length}</b> controls dropped out since you started. They are kept here so you can see what each answer took away.</p>` +
+    ghosts.map(x => `<details class="control ghost">${Reg.rowHTML(x.e, { flag: 'gone', goneText: 'Dropped: ' + x.because })}</details>`).join('') : '';
+  if (showGhosts && !ghosts.length) g.innerHTML = '<p class="dropped-h">Nothing has dropped out yet.</p>';
+}
+
+const label = (id, v) => { const el = document.getElementById(id); return el.tagName === 'SELECT' ? el.querySelector(`option[value="${v}"]`).textContent : ''; };
+document.querySelector('.profile').addEventListener('change', ev => {
+  const t = ev.target; preset = null; let what;
+  if (t.id.startsWith('d-')) { t.checked ? P.facets.add(t.value) : P.facets.delete(t.value); what = (t.checked ? '' : 'Removed ') + Onb.FACET_LABEL[t.value]; }
+  else if (t.id.startsWith('p-')) { t.checked ? P.providers.add(t.value) : P.providers.delete(t.value); what = (t.checked ? 'Relies on ' : 'No longer relies on ') + Onb.PROVIDERS[t.value].short; }
+  else if (t.id === 'f-c') { P.c = +t.value; what = 'Sensitivity: ' + label('f-c', t.value); }
+  else if (t.id === 'f-i') { P.i = +t.value; what = 'Integrity: ' + label('f-i', t.value); }
+  else if (t.id === 'f-a') { P.a = +t.value; what = 'Downtime: ' + label('f-a', t.value); }
+  else if (t.id === 'f-pers') { P.personal = t.value === '1'; what = P.personal ? 'Holds personal data' : 'No personal data'; }
+  else if (t.id === 'f-ess') { P.essential = t.value === '1'; what = P.essential ? 'Essential service' : 'Not an essential service'; }
+  else return;
+  update(what);
+});
+document.getElementById('f-q').addEventListener('input', () => update(null, false));
+document.getElementById('presets').addEventListener('click', ev => {
+  const b = ev.target.closest('.chip'); if (!b) return;
+  const p = PRESETS[b.dataset.p]; preset = b.dataset.p;
+  Object.assign(P, p, { facets: new Set(p.facets), providers: new Set(p.providers) });
+  update('Profile: ' + preset);
+});
+document.getElementById('domains').addEventListener('click', ev => {
+  const b = ev.target.closest('.dom'); if (!b) return;
+  domainFilter = domainFilter === b.dataset.d ? null : b.dataset.d; update(null, false);
+});
+document.getElementById('t-clear').onclick = () => { domainFilter = null; update(null, false); };
+document.getElementById('t-ghost').onclick = ev => { showGhosts = !showGhosts; ev.target.setAttribute('aria-pressed', showGhosts); update(null, false); };
+document.getElementById('t-exp').onclick = () => document.querySelectorAll('#reg .control, #ghosts .control').forEach(d => d.open = true);
+document.getElementById('t-col').onclick = () => document.querySelectorAll('#reg .control, #ghosts .control').forEach(d => d.open = false);
+document.addEventListener('click', ev => document.querySelectorAll('.multi[open]').forEach(d => { if (!d.contains(ev.target)) d.open = false; }));
+
+// Open in a realistic state: the SaaS preset, applied on top of a blank profile so the ledger shows its effect
+update(null, false);
+preset = 'SaaS business app';
+Object.assign(P, PRESETS[preset], { facets: new Set(PRESETS[preset].facets), providers: new Set(PRESETS[preset].providers) });
+update('Profile: ' + preset);
+</script>
+</body>
+</html>
