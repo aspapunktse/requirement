@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Onboarding Interview</title>
+<link rel="stylesheet" href="register.css">
+<style>
+/* Layout: interview column on the left, live register pinned on the right; stacks on phones. */
+.page { max-width: 1280px; margin: 0 auto; padding-inline: 20px; padding-block: 28px 64px; display: grid; gap: 22px; }
+.head { display: grid; gap: 8px; max-width: 70ch; }
+.head .lede { color: var(--muted); font-size: 1.02rem; }
+.sysname { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 6px; }
+.sysname input { border: 1px solid var(--line); background: var(--surface); padding: 6px 10px; border-radius: 4px; min-width: 0; width: 18rem; max-width: 100%; font-weight: 600; }
+
+.split { display: grid; grid-template-columns: minmax(0, 420px) minmax(0, 1fr); gap: 28px; align-items: start; }
+@media (max-width: 900px) { .split { grid-template-columns: minmax(0, 1fr); } }
+
+/* Steps rail: a real sequence, so numbered */
+.rail { display: flex; flex-wrap: wrap; gap: 6px; list-style: none; padding: 0; margin: 0 0 14px; }
+.rail button { border: 1px solid var(--line); background: var(--surface); border-radius: 99px; padding: 3px 11px 3px 4px; font-size: 0.82rem; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; }
+.rail .n { display: inline-grid; place-items: center; width: 1.45rem; height: 1.45rem; border-radius: 50%; background: var(--soft); color: var(--accent); font-weight: 700; font-size: 0.75rem; }
+.rail button[aria-current="step"] { border-color: var(--accent); color: var(--accent); font-weight: 650; }
+.rail button[aria-current="step"] .n { background: var(--accent); color: var(--surface); }
+.rail button.done .n { background: var(--accent); color: var(--surface); opacity: .55; }
+
+.q { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 20px; display: grid; gap: 14px; }
+.q h2 { font-size: 1.3rem; }
+.q .help { color: var(--muted); font-size: 0.92rem; }
+.opts { display: grid; gap: 8px; }
+.opt { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 2px 10px; align-items: start; border: 1px solid var(--line); border-radius: 5px; padding: 10px 12px; cursor: pointer; background: var(--surface); }
+.opt:hover { border-color: var(--accent); }
+.opt:has(input:checked) { border-color: var(--accent); background: var(--soft); }
+.opt input { margin: 3px 0 0; accent-color: var(--accent); }
+.opt b { font-weight: 650; }
+.opt .hint { grid-column: 2; color: var(--muted); font-size: 0.84rem; }
+.effect { grid-row: 1 / span 2; grid-column: 3; font-size: 0.78rem; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; display: grid; gap: 2px; }
+.effect .up { color: var(--add); font-weight: 700; }
+.effect .down { color: var(--drop); font-weight: 700; }
+.effect .same { color: var(--muted); }
+.nav { display: flex; justify-content: space-between; gap: 10px; }
+.btn { border: 1px solid var(--accent); background: var(--surface); color: var(--accent); border-radius: 4px; padding: 8px 16px; font-weight: 650; cursor: pointer; }
+.btn.primary { background: var(--accent); color: var(--surface); }
+.btn:disabled { opacity: .4; cursor: default; }
+.note { font-size: 0.82rem; color: var(--muted); border-left: 3px solid var(--line); padding-left: 10px; }
+
+/* Live register panel */
+.panel { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 12px); display: grid; gap: 12px; max-height: calc(100vh - 24px); grid-template-rows: auto auto minmax(0, 1fr); }
+@media (max-width: 900px) { .panel { position: static; max-height: none; } }
+.tally { display: flex; flex-wrap: wrap; align-items: end; gap: 6px 22px; }
+.big { font-size: 2.6rem; font-weight: 750; color: var(--accent); line-height: 1; font-variant-numeric: tabular-nums; }
+.tally .of { color: var(--muted); font-size: 0.9rem; }
+.bar { display: flex; height: 10px; border-radius: 3px; overflow: hidden; background: var(--line); width: 100%; }
+.bar span { transition: flex-grow .45s ease; min-width: 0; }
+.bar .you { background: var(--you); } .bar .shared { background: var(--shared); } .bar .covered { background: var(--covered); }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 0.84rem; }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+.delta { font-size: 0.88rem; background: var(--surface); border: 1px solid var(--line); border-radius: 5px; padding: 8px 12px; display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; min-height: 2.6rem; }
+.delta .what { font-weight: 650; }
+.list { overflow: auto; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); min-height: 0; }
+.group-h { position: sticky; top: 0; z-index: 1; background: var(--paper); border-bottom: 1px solid var(--line); padding: 8px 14px; display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+.group-h p { font-size: 0.82rem; color: var(--muted); }
+.empty { padding: 12px 14px; color: var(--muted); font-size: 0.88rem; background: var(--surface); }
+.list .control:last-child { border-bottom: 0; }
+
+/* Phone: a sticky mini tally so the count stays visible while answering */
+.mini { display: none; }
+@media (max-width: 900px) {
+  .mini { display: flex; position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--accent); color: var(--surface); padding: 8px 16px; margin-inline: -20px; gap: 10px; align-items: center; font-size: 0.9rem; }
+  .mini b { font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+}
+.review dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 14px; margin: 0; font-size: 0.92rem; }
+.review dt { color: var(--muted); }
+.review dd { margin: 0; }
+</style>
+<style>
+:root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+body { margin: 0; }
+img { max-width: 100%; }
+[hidden] { display: none !important; }
+.switch { font-size: 0.86rem; color: var(--muted); }
+.switch a { color: var(--accent); font-weight: 600; }
+</style>
+</head>
+<body>
+
+<div class="page">
+  <header class="head">
+    <span class="eyebrow">Proposal A / Guided interview</span>
+    <h1>Onboard a new system</h1>
+    <p class="lede">Answer six plain questions about the system. The control register on the right grows and shrinks with every answer, so you see what each choice commits you to before you move on.</p>
+    <div class="sysname"><label for="sys" class="label">System</label><input id="sys" value="Vendor portal"><span class="tag">Example data</span></div>
+    <p class="switch">Design proposal for onboarding a System. Compare with <a href="proposal-b.html">Proposal B: profile as register filters</a>.</p>
+  </header>
+
+  <div class="mini" aria-hidden="true"><b id="miniN">0</b> controls apply · <span id="miniYou">0</span> are yours</div>
+
+  <div class="split">
+    <section aria-label="Interview">
+      <ol class="rail" id="rail"></ol>
+      <form class="q" id="q" onsubmit="return false"></form>
+    </section>
+
+    <aside class="panel" aria-label="Applicable controls">
+      <div>
+        <div class="tally">
+          <div><div class="big" id="n">0</div><div class="of">controls apply, of <span id="lib"></span> in the library</div></div>
+          <div class="legend" id="legend"></div>
+        </div>
+        <div class="bar" id="bar" style="margin-top:10px"><span class="you"></span><span class="shared"></span><span class="covered"></span></div>
+      </div>
+      <div class="delta" id="delta" aria-live="polite"><span class="muted">Every system starts with the controls on the right. Your answers add or remove the rest.</span></div>
+      <div class="list" id="list"></div>
+    </aside>
+  </div>
+</div>
+
+<script src="data.js"></script>
+<script src="register.js"></script>
+<script>
+const P = { facets: new Set(), c: 0, i: 0, a: 0, personal: false, essential: false, providers: new Set() };
+const STEPS = [
+  { key: 'deliv', title: 'How do you get the system?', help: 'Pick every option that fits. A system that is partly bought as a service and partly run by you takes both.', multi: true,
+    opts: [['S', 'We subscribe to it and log in', 'Software as a service: the vendor runs everything.'], ['I', 'We run it on a cloud platform', 'Our own workloads in Azure, AWS or similar.'], ['O', 'We run it in our own data centre', 'Our own servers and premises.']],
+    get: v => P.facets.has(v), set: (v, on) => on ? P.facets.add(v) : P.facets.delete(v), label: () => [...P.facets].map(f => Onb.FACET_LABEL[f]).join(' + ') || 'Not answered' },
+  { key: 'c', title: 'What is the most sensitive information in it?', help: 'Think of the worst document or record it holds, not the typical one.',
+    opts: [[1, 'Public or internal only', 'Price lists, intranet pages, internal guides.'], [2, 'Internal business data', 'Plans, internal reports, ordinary customer contact details.'], [3, 'Confidential', 'Contracts, financials, HR records, customer data in bulk.'], [4, 'Strictly confidential', 'Trade secrets, health data, security keys.']],
+    extra: true, get: v => P.c === v, set: v => { P.c = v; }, label: () => Onb.LEVELS[P.c] },
+  { key: 'i', title: 'What happens if its data is wrong or tampered with?', help: 'Imagine someone changed records without anyone noticing for a week.',
+    opts: [[1, 'A minor annoyance', 'Easy to spot and fix.'], [2, 'Rework and delays', 'Staff time lost, decisions delayed.'], [3, 'Customers or money get hurt', 'Wrong invoices, wrong deliveries, financial loss.'], [4, 'Safety or legal consequences', 'Harm to people, regulatory breach.']],
+    get: v => P.i === v, set: v => { P.i = v; }, label: () => Onb.LEVELS[P.i] },
+  { key: 'a', title: 'How long can the business manage without it?', help: 'Count from when it stops working until the business is in real trouble.',
+    opts: [[1, 'A week or more', 'People can wait or use a workaround.'], [2, 'About a day', 'Work piles up but recovers.'], [3, 'A few hours', 'Customers notice quickly.'], [4, 'Minutes', 'It must always be up.']],
+    get: v => P.a === v, set: v => { P.a = v; }, label: () => Onb.LEVELS[P.a] },
+  { key: 'ess', title: 'Does it support a service we deliver to society?', help: 'For example energy, water, health care or digital infrastructure that we are registered to provide.',
+    opts: [[false, 'No', 'An ordinary business system.'], [true, 'Yes, it supports an essential service', 'Its failure could affect the service we provide to society.']],
+    get: v => P.essential === v, set: v => { P.essential = v; }, label: () => P.essential ? 'Yes' : 'No' },
+  { key: 'prov', title: 'What company services does it rely on?', help: 'These do not change which controls apply. They change who does the work.', multi: true,
+    opts: Object.entries(Onb.PROVIDERS).map(([k, v]) => [k, v.name, { entra: 'Users sign in with company accounts.', lz: 'Runs inside the shared cloud platform.', soc: 'Security logs go to the SOC.', bkp: 'Data is backed up by the central service.' }[k]]),
+    get: v => P.providers.has(v), set: (v, on) => on ? P.providers.add(v) : P.providers.delete(v), label: () => [...P.providers].map(p => Onb.PROVIDERS[p].short).join(', ') || 'None' },
+  { key: 'review', title: 'Review and submit', review: true }
+];
+let step = 0, prev = null, answered = new Set();
+const lib = Onb.CONTROLS.length;
+document.getElementById('lib').textContent = lib;
+
+function snapshot() { return { facets: new Set(P.facets), providers: new Set(P.providers), c: P.c, i: P.i, a: P.a, personal: P.personal, essential: P.essential }; }
+function sizeAndYou(m) { let you = 0; m.forEach(e => { if (e.resp === 'you') you++; }); return { n: m.size, you }; }
+
+// What would picking this option do, compared with now?
+function effectOf(s, v, now) {
+  const saved = snapshot();
+  const on = s.multi ? !s.get(v) : true;
+  if (!s.multi && s.get(v)) return null;
+  s.set(v, on);
+  const next = Onb.evaluate(P);
+  Object.assign(P, saved);
+  let add = 0, drop = 0, moved = 0;
+  next.forEach((e, id) => { if (!now.has(id)) add++; else if (now.get(id).resp !== e.resp) moved++; });
+  now.forEach((_, id) => { if (!next.has(id)) drop++; });
+  return { add, drop, moved, on };
+}
+
+function renderRail() {
+  document.getElementById('rail').innerHTML = STEPS.map((s, k) => `<li><button type="button" data-k="${k}" ${k === step ? 'aria-current="step"' : ''} class="${answered.has(s.key) && k !== step ? 'done' : ''}"><span class="n">${k + 1}</span>${['Delivery', 'Sensitivity', 'Integrity', 'Downtime', 'Society', 'Relies on', 'Review'][k]}</button></li>`).join('');
+}
+
+function renderQ(now) {
+  const s = STEPS[step], q = document.getElementById('q');
+  if (s.review) {
+    const yours = [...now.values()].filter(e => e.resp === 'you').length;
+    q.innerHTML = `<span class="label">Step 7 of 7</span><h2>${s.title}</h2>
+      <div class="review"><dl>
+        <dt>Delivery</dt><dd>${STEPS[0].label()}</dd>
+        <dt>Sensitivity</dt><dd>${STEPS[1].label()}${P.personal ? ', includes personal data' : ''}</dd>
+        <dt>Integrity</dt><dd>${STEPS[2].label()}</dd>
+        <dt>Downtime</dt><dd>${STEPS[3].label()}</dd>
+        <dt>Essential service</dt><dd>${STEPS[4].label()}</dd>
+        <dt>Relies on</dt><dd>${STEPS[5].label()}</dd>
+      </dl></div>
+      <p>${now.size} controls apply. <strong>${yours}</strong> need work from you; the rest are shared or already covered.</p>
+      <p class="note">Your answers can change later. The register updates the same way after onboarding, so nothing here is locked in.</p>
+      <div class="nav"><button type="button" class="btn" id="back">Back</button><button type="button" class="btn primary" id="submit">Submit for review</button></div>
+      <p id="sent" class="small muted" hidden>Prototype: in the app this sends the system to a reviewer.</p>`;
+  } else {
+    q.innerHTML = `<span class="label">Step ${step + 1} of ${STEPS.length}</span><h2>${s.title}</h2><p class="help">${s.help}</p>
+      <div class="opts">${s.opts.map(([v, t, h], k) => {
+        const ef = effectOf(s, v, now);
+        const eff = !ef ? '<span class="same">Selected</span>' : (ef.add || ef.drop || ef.moved)
+          ? `${ef.add ? `<span class="up">+${ef.add}</span>` : ''}${ef.drop ? `<span class="down">−${ef.drop}</span>` : ''}${ef.moved ? `<span class="same">${ef.moved} change owner</span>` : ''}`
+          : '<span class="same">No change</span>';
+        return `<label class="opt"><input type="${s.multi ? 'checkbox' : 'radio'}" name="o" id="o-${s.key}-${k}" data-k="${k}" ${s.get(v) ? 'checked' : ''}><b>${t}</b><span class="hint">${h}</span><span class="effect" title="Effect on the register if you pick this">${eff}</span></label>`;
+      }).join('')}</div>
+      ${s.extra ? `<label class="opt"><input type="checkbox" id="pers" ${P.personal ? 'checked' : ''}><b>It holds personal data about people</b><span class="hint">Customers, employees, patients or anyone else who can be identified.</span><span class="effect">${(() => { const saved = P.personal; P.personal = !saved; const nx = Onb.evaluate(P); P.personal = saved; const d = nx.size - now.size; return d ? `<span class="${d > 0 ? 'up' : 'down'}">${d > 0 ? '+' : '−'}${Math.abs(d)}</span>` : '<span class="same">No change</span>'; })()}</span></label>` : ''}
+      <p class="note">The numbers on each answer show how the register would change if you picked it.</p>
+      <div class="nav"><button type="button" class="btn" id="back" ${step === 0 ? 'disabled' : ''}>Back</button><button type="button" class="btn primary" id="next">Next</button></div>`;
+  }
+}
+
+function renderPanel(now, what) {
+  const groups = { you: [], shared: [], covered: [] };
+  [...now.values()].sort((x, y) => Reg.order(x.c.id, y.c.id)).forEach(e => groups[e.resp].push(e));
+  const { n, you } = sizeAndYou(now);
+  Reg.tween(document.getElementById('n'), n);
+  Reg.tween(document.getElementById('miniN'), n);
+  document.getElementById('miniYou').textContent = you;
+  const bar = document.getElementById('bar').children;
+  ['you', 'shared', 'covered'].forEach((k, j) => bar[j].style.flexGrow = groups[k].length);
+  document.getElementById('legend').innerHTML = [['you', 'You do this'], ['shared', 'Shared'], ['covered', 'Covered for you']].map(([k, t]) => `<span><i style="background:var(--${k})"></i><b class="num">${groups[k].length}</b> ${t}</span>`).join('');
+
+  const list = document.getElementById('list');
+  const intro = { you: 'You implement these and provide the evidence.', shared: 'A company service does part; you do the rest.', covered: 'Done for you. Nothing to provide.' };
+  // one section per responsibility, each diffed separately so rows animate when they move between groups
+  ['you', 'shared', 'covered'].forEach(k => {
+    let sec = list.querySelector(`[data-g="${k}"]`);
+    if (!sec) {
+      sec = document.createElement('section'); sec.dataset.g = k;
+      sec.innerHTML = `<div class="group-h"><span class="label">${Reg.WHO[k]} <span class="num" data-c></span></span><p>${intro[k]}</p></div><div class="rows"></div><p class="empty" hidden></p>`;
+      list.appendChild(sec);
+    }
+    sec.querySelector('[data-c]').textContent = '· ' + groups[k].length;
+    Reg.diffRender(sec.querySelector('.rows'), groups[k], prev, { global: new Set(now.keys()) });
+    const em = sec.querySelector('.empty');
+    em.hidden = groups[k].length > 0;
+    em.textContent = k === 'covered' ? 'Pick the company services the system relies on in step 6 to see what they cover.' : k === 'shared' ? 'Nothing shared yet.' : 'Nothing for you to do yet.';
+  });
+
+  if (what && prev) {
+    let add = 0, drop = 0, moved = 0;
+    now.forEach((e, id) => { if (!prev.has(id)) add++; else if (prev.get(id) !== e.resp) moved++; });
+    prev.forEach((_, id) => { if (!now.has(id)) drop++; });
+    const parts = [];
+    if (add) parts.push(`<span class="tag new">+${add} now apply</span>`);
+    if (drop) parts.push(`<span class="tag gone">−${drop} no longer apply</span>`);
+    if (moved) parts.push(`<span class="tag" style="background:color-mix(in srgb,var(--gold) 35%,transparent)">${moved} changed owner</span>`);
+    if (!parts.length) parts.push('<span class="muted">No change to the register</span>');
+    document.getElementById('delta').innerHTML = `<span class="what">${Reg.esc(what)}</span>${parts.join('')}`;
+  }
+  prev = new Map([...now].map(([id, e]) => [id, e.resp]));
+}
+
+function update(what) {
+  const now = Onb.evaluate(P);
+  renderRail(); renderQ(now); renderPanel(now, what);
+}
+
+document.getElementById('q').addEventListener('change', ev => {
+  const s = STEPS[step];
+  if (ev.target.id === 'pers') { P.personal = ev.target.checked; answered.add(s.key); return update(P.personal ? 'Holds personal data' : 'No personal data'); }
+  const k = ev.target.dataset.k; if (k == null) return;
+  const [v, t] = s.opts[k];
+  s.set(v, ev.target.checked);
+  answered.add(s.key);
+  update((s.multi && !ev.target.checked ? 'Removed: ' : '') + t);
+});
+document.getElementById('q').addEventListener('click', ev => {
+  if (ev.target.id === 'next') { step = Math.min(STEPS.length - 1, step + 1); update(); }
+  if (ev.target.id === 'back') { step = Math.max(0, step - 1); update(); }
+  if (ev.target.id === 'submit') document.getElementById('sent').hidden = false;
+});
+document.getElementById('rail').addEventListener('click', ev => { const b = ev.target.closest('button'); if (b) { step = +b.dataset.k; update(); } });
+update();
+</script>
+</body>
+</html>

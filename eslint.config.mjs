@@ -18,6 +18,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Static design prototypes, plain browser scripts outside the app:
+    "public/design/**",
   ]),
 ]);
 
