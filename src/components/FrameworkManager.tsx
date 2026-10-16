@@ -245,7 +245,7 @@ export function FrameworkManager({ initialFrameworks }: { initialFrameworks: Fra
                   Supersedes
                   <select
                     aria-label={`Supersedes for ${label}`}
-                    className={`${INPUT_CLASS} text-zinc-900 dark:text-zinc-100`}
+                    className={`${INPUT_CLASS} text-rg-ink`}
                     value={draft.supersedesId}
                     onChange={(event) => updateDraft(item, { supersedesId: event.target.value })}
                   >
@@ -263,7 +263,7 @@ export function FrameworkManager({ initialFrameworks }: { initialFrameworks: Fra
                   Licensing
                   <select
                     aria-label={`Licensing for ${label}`}
-                    className={`${INPUT_CLASS} text-zinc-900 dark:text-zinc-100`}
+                    className={`${INPUT_CLASS} text-rg-ink`}
                     value={draft.licensing}
                     onChange={(event) => updateDraft(item, { licensing: event.target.value as Draft["licensing"] })}
                   >

@@ -18,7 +18,7 @@ export function FrameworkLineage({ paths }: { paths: LineagePath[] }) {
               {index > 0 && " → "}
               <span
                 aria-current={member.current ? "true" : undefined}
-                className={member.current ? "font-semibold text-zinc-900 dark:text-zinc-100" : undefined}
+                className={member.current ? "font-semibold text-rg-ink" : undefined}
               >
                 {frameworkLabel(member)}
                 {member.status === "DRAFT" ? " (Draft)" : ""}

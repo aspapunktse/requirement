@@ -1,9 +1,9 @@
 /**
- * The EMS "document brief" header: a mono breadcrumb, a mono page-id line, a
- * big sans title, a lede sentence, and an optional inline stat strip.
- * Ported pattern from aspapunktse/isms's Home · A prototype variant — see
- * issues #57 and #65. Reusable across future dashboard-style pages, not just
- * /home.
+ * The Register page head: a mono eyebrow in accent that names the place, a
+ * display title, a muted lede, and an optional strip of headline figures.
+ * The eyebrow is the breadcrumb joined with " / "; a page with no breadcrumb
+ * shows its `pageId` there instead. Reusable across dashboard-style pages,
+ * not just /home (issues #57, #65, #181).
  */
 export function PageHead({
   breadcrumb,
@@ -18,35 +18,22 @@ export function PageHead({
   lede: string;
   stats?: { label: string; value: number | string }[];
 }) {
+  const eyebrow = breadcrumb && breadcrumb.length > 0 ? breadcrumb.join(" / ") : pageId;
+
   return (
-    <div className="mb-8 border-b border-zinc-300 pb-6 dark:border-zinc-700">
-      {breadcrumb && breadcrumb.length > 0 && (
-        <nav aria-label="Breadcrumb" className="mb-6">
-          <ol className="ems-mono-label flex flex-wrap gap-x-2 text-ems-ink-3">
-            {breadcrumb.map((crumb, index) => {
-              const last = index === breadcrumb.length - 1;
-              return (
-                <li key={crumb} aria-current={last ? "page" : undefined} className={last ? "text-ems-ink-1" : ""}>
-                  {index > 0 && <span aria-hidden> / </span>}
-                  {crumb}
-                </li>
-              );
-            })}
-          </ol>
-        </nav>
-      )}
-      <p className="ems-mono-label mb-3 text-ems-ink-3">{pageId}</p>
-      <h1 className="mb-3 font-sans! text-4xl font-medium tracking-tight text-ems-ink-0 sm:text-[44px] sm:leading-[1.1]">
-        {title}
-      </h1>
-      <p className="max-w-2xl text-ems-ink-2">{lede}</p>
+    <div className="mb-8 grid gap-2" data-page-id={pageId}>
+      <p className="font-mono text-[12.5px] leading-[18px] font-bold tracking-[0.06em] text-rg-accent">{eyebrow}</p>
+      <h1>{title}</h1>
+      <p className="max-w-[68ch] text-[17px] leading-[27px] text-rg-muted">{lede}</p>
 
       {stats && stats.length > 0 && (
-        <dl className="mt-6 flex flex-wrap gap-x-10 gap-y-3 border-t border-zinc-300 pt-4 dark:border-zinc-700">
+        <dl className="mt-2 flex flex-wrap gap-x-7 gap-y-2">
           {stats.map((stat) => (
-            <div key={stat.label}>
-              <dt className="ems-mono-label text-ems-ink-4">{`// ${stat.label}`}</dt>
-              <dd className="text-sm text-ems-ink-1">{stat.value}</dd>
+            <div key={stat.label} className="grid">
+              <dd className="order-first text-[26px] leading-[30px] font-bold text-rg-accent [font-variant-numeric:tabular-nums]">
+                {stat.value}
+              </dd>
+              <dt className="text-[13px] text-rg-muted">{stat.label}</dt>
             </div>
           ))}
         </dl>

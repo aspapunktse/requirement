@@ -57,7 +57,7 @@ export function StatementOfApplicability({
             onClick={() => setFilter(option.value)}
             className={`rounded border px-3 py-1 text-sm ${
               filter === option.value
-                ? "border-ems-amber-hover font-medium"
+                ? "border-rg-accent font-medium"
                 : "border-zinc-200 text-zinc-500 dark:border-zinc-800"
             }`}
           >

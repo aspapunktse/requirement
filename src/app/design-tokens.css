@@ -1,175 +1,156 @@
 /* =========================================================================
-   Design tokens ported from aspapunktse/isms (design-system/colors_and_type.css)
-   so this app shares that project's look and feel. Update by re-syncing
-   from the source repo, not by hand-tuning values here.
+   Register design tokens.
+
+   Light values live on :root; dark values apply under
+   prefers-color-scheme: dark (unless the page opts into light with
+   data-theme="light") and under data-theme="dark". Components never
+   hard-code a hex: they read these tokens, directly (--rg-*) or through the
+   legacy --ems-* aliases at the bottom, which keep untouched call sites
+   working and follow the theme automatically.
+
+   The --rg- prefix keeps these names clear of Tailwind v4's own theme
+   variables (--font-sans, --spacing, --radius-* ...).
+
+   No web fonts: the sans is the system UI face, the mono is the system
+   monospace. Mono is for identifiers and eyebrows only.
    ========================================================================= */
 
-/* Source Serif 4 and JetBrains Mono load via a <link> in layout.tsx, not a
-   CSS @import here — a nested @import inside an imported stylesheet doesn't
-   reliably stay first-in-file once the build tool inlines it. */
-
-/* --- Web fonts -----------------------------------------------------------
-   Brand sans: Aktiv Grotesk, shipped locally (public/fonts/aktiv-grotesk).
-   Source Serif 4 and JetBrains Mono come from Google Fonts, matching the
-   source design system's substitutes for its canonical serif/mono faces.
-   ------------------------------------------------------------------------- */
-@font-face {
-  font-family: "Aktiv Grotesk";
-  src: url("/fonts/aktiv-grotesk/AktivGrotesk_W_Lt.woff2") format("woff2");
-  font-weight: 300;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Aktiv Grotesk";
-  src: url("/fonts/aktiv-grotesk/AktivGrotesk_W_LtIt.woff2") format("woff2");
-  font-weight: 300;
-  font-style: italic;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Aktiv Grotesk";
-  src: url("/fonts/aktiv-grotesk/AktivGrotesk_W_Rg.woff2") format("woff2");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Aktiv Grotesk";
-  src: url("/fonts/aktiv-grotesk/AktivGrotesk_W_It.woff2") format("woff2");
-  font-weight: 400;
-  font-style: italic;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Aktiv Grotesk";
-  src: url("/fonts/aktiv-grotesk/AktivGrotesk_W_Md.woff2") format("woff2");
-  font-weight: 500;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Aktiv Grotesk";
-  src: url("/fonts/aktiv-grotesk/AktivGrotesk_W_MdIt.woff2") format("woff2");
-  font-weight: 500;
-  font-style: italic;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Aktiv Grotesk";
-  src: url("/fonts/aktiv-grotesk/AktivGrotesk_W_Bd.woff2") format("woff2");
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Aktiv Grotesk";
-  src: url("/fonts/aktiv-grotesk/AktivGrotesk_W_BdIt.woff2") format("woff2");
-  font-weight: 700;
-  font-style: italic;
-  font-display: swap;
-}
-
 :root {
-  /* Neutral / paper system — warm gray, never pure white */
-  --ems-paper-0: #f3f3f2;
-  --ems-paper-1: #f3f3f2;
-  --ems-paper-2: #e3e3e1;
-  --ems-paper-3: #e0dcd6;
-  --ems-paper-4: #cbc6bb;
+  /* Colour: ink on cool paper, one teal accent */
+  --rg-paper: #f2f5f6;
+  --rg-surface: #ffffff;
+  --rg-line: #ccd8de;
+  --rg-ink: #142d3d;
+  --rg-muted: #496171;
+  --rg-accent: #075d68;
+  --rg-accent-soft: #e4f1f1;
+  --rg-on-accent: #ffffff;
+  --rg-gold: #f3c876;
+  --rg-gold-ink: #6b4a08;
+  --rg-gold-soft: #fbecc8;
+  --rg-success: #0b7a4b;
+  --rg-success-soft: #def3e8;
+  --rg-danger: #a33a2b;
+  --rg-danger-soft: #f8e3df;
+  --rg-resp-you: var(--rg-accent);
+  --rg-resp-shared: var(--rg-gold);
+  --rg-resp-covered: #688e9a;
+  --rg-shadow-popover: 0 8px 24px rgba(20, 45, 61, 0.14);
 
-  --ems-ink-0: #1a1714;
-  --ems-ink-1: #373532;
-  --ems-ink-2: #4a453e;
-  --ems-ink-3: #6e685f;
-  --ems-ink-4: #9a9387;
+  /* Spacing */
+  --rg-space-1: 4px;
+  --rg-space-2: 8px;
+  --rg-space-3: 12px;
+  --rg-space-4: 14px;
+  --rg-space-5: 20px;
+  --rg-space-6: 28px;
 
-  --ems-shell-dark: #373532;
-  --ems-shell-darker: #2a2622;
-
-  /* Brand / accent */
-  --ems-brand-blue: #004c97;
-  --ems-brand-blue-hover: #003b75;
-  --ems-brand-blue-tint: #e2eaf3;
-
-  --ems-amber: #fab900;
-  --ems-amber-hover: #d8a000;
-  --ems-amber-tint: #fdf1c8;
-
-  /* Semantic / status */
-  --ems-success: #3d8b5c;
-  --ems-success-tint: #e3efe7;
-  --ems-warn: #c99c00;
-  --ems-warn-tint: #f7efc9;
-  --ems-danger: #c44a2c;
-  --ems-danger-tint: #f4dad0;
-  --ems-info: #1f4e8c;
-  --ems-neutral: #6e685f;
+  /* Radii */
+  --rg-radius-sm: 3px;
+  --rg-radius-md: 4px;
+  --rg-radius-lg: 6px;
+  --rg-radius-pill: 99px;
 
   /* Type families */
-  --ems-font-serif: "Source Serif 4", "Source Serif Pro", Georgia, "Times New Roman", serif;
-  --ems-font-sans: "Aktiv Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --ems-font-mono: "JetBrains Mono", "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
-
-  /* Type scale */
-  --ems-text-2xs: 11px;
-  --ems-text-xs: 12px;
-  --ems-text-sm: 13px;
-  --ems-text-base: 14px;
-  --ems-text-md: 16px;
-  --ems-text-lg: 18px;
-  --ems-text-xl: 22px;
-  --ems-text-2xl: 28px;
-  --ems-text-3xl: 36px;
-
-  --ems-tracking-wider: 0.14em;
-  --ems-tracking-widest: 0.22em;
-
-  /* Radii — square-ish, documentary, not playful */
-  --ems-radius-1: 2px;
-  --ems-radius-2: 4px;
+  --rg-font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --rg-font-mono: ui-monospace, "Cascadia Mono", Consolas, "Liberation Mono", monospace;
 }
 
-/* Dark mode: EMS's own doc has no canonical dark palette, so this inverts
-   the warm-paper/ink relationship while keeping every hue and the same
-   contrast intent, the same way the rest of this app themes. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --ems-paper-0: #211f1c;
-    --ems-paper-1: #211f1c;
-    --ems-paper-2: #2b2925;
-    --ems-paper-3: #34322c;
-    --ems-paper-4: #4a4740;
-
-    --ems-ink-0: #f3f1ec;
-    --ems-ink-1: #e7e3da;
-    --ems-ink-2: #cbc6ba;
-    --ems-ink-3: #a39d8f;
-    --ems-ink-4: #736d61;
-
-    --ems-amber: #f0b429;
-    --ems-amber-hover: #f7c94f;
-    --ems-amber-tint: #4a3b13;
-
-    --ems-brand-blue: #6fa4d8;
-    --ems-brand-blue-hover: #8fb9e2;
-    --ems-brand-blue-tint: #1c2c3d;
-
-    --ems-success: #6bbf87;
-    --ems-success-tint: #1c3024;
-    --ems-warn: #d8ab5c;
-    --ems-warn-tint: #362b12;
-    --ems-danger: #e2836a;
-    --ems-danger-tint: #3a2018;
+    --rg-paper: #0e1b22;
+    --rg-surface: #14252e;
+    --rg-line: #2a4150;
+    --rg-ink: #dbe7ec;
+    --rg-muted: #9db2bd;
+    --rg-accent: #5fc3ca;
+    --rg-accent-soft: #173a3f;
+    --rg-on-accent: #0e1b22;
+    --rg-gold: #d9ad5a;
+    --rg-gold-ink: #f3d79c;
+    --rg-gold-soft: #3a2f17;
+    --rg-success: #5ccf95;
+    --rg-success-soft: #173a2b;
+    --rg-danger: #ef8d7d;
+    --rg-danger-soft: #3d2420;
+    --rg-resp-covered: #4f7684;
+    --rg-shadow-popover: 0 8px 24px rgba(0, 0, 0, 0.45);
+    color-scheme: dark;
   }
 }
 
-/* Signature EMS look: monospaced, uppercase, letter-spaced status/id labels. */
+:root[data-theme="dark"] {
+  --rg-paper: #0e1b22;
+  --rg-surface: #14252e;
+  --rg-line: #2a4150;
+  --rg-ink: #dbe7ec;
+  --rg-muted: #9db2bd;
+  --rg-accent: #5fc3ca;
+  --rg-accent-soft: #173a3f;
+  --rg-on-accent: #0e1b22;
+  --rg-gold: #d9ad5a;
+  --rg-gold-ink: #f3d79c;
+  --rg-gold-soft: #3a2f17;
+  --rg-success: #5ccf95;
+  --rg-success-soft: #173a2b;
+  --rg-danger: #ef8d7d;
+  --rg-danger-soft: #3d2420;
+  --rg-resp-covered: #4f7684;
+  --rg-shadow-popover: 0 8px 24px rgba(0, 0, 0, 0.45);
+  color-scheme: dark;
+}
+
+/* Legacy --ems-* names: aliases of the Register tokens, so call sites that
+   still use them follow the new look and both themes with no dark block of
+   their own. Prefer the --rg-* names in new code. */
+:root {
+  --ems-paper-0: var(--rg-surface);
+  --ems-paper-1: var(--rg-paper);
+  --ems-paper-2: var(--rg-surface);
+  --ems-paper-3: var(--rg-line);
+  --ems-paper-4: var(--rg-line);
+
+  --ems-ink-0: var(--rg-ink);
+  --ems-ink-1: var(--rg-ink);
+  --ems-ink-2: var(--rg-ink);
+  --ems-ink-3: var(--rg-muted);
+  --ems-ink-4: var(--rg-muted);
+
+  --ems-shell-dark: var(--rg-ink);
+  --ems-shell-darker: var(--rg-ink);
+
+  --ems-brand-blue: var(--rg-accent);
+  --ems-brand-blue-hover: var(--rg-accent);
+  --ems-brand-blue-tint: var(--rg-accent-soft);
+
+  --ems-amber: var(--rg-accent);
+  --ems-amber-hover: var(--rg-accent);
+  --ems-amber-tint: var(--rg-gold-soft);
+
+  --ems-success: var(--rg-success);
+  --ems-success-tint: var(--rg-success-soft);
+  --ems-warn: var(--rg-gold-ink);
+  --ems-warn-tint: var(--rg-gold-soft);
+  --ems-danger: var(--rg-danger);
+  --ems-danger-tint: var(--rg-danger-soft);
+  --ems-info: var(--rg-accent);
+  --ems-neutral: var(--rg-muted);
+
+  --ems-font-serif: var(--rg-font-sans);
+  --ems-font-sans: var(--rg-font-sans);
+  --ems-font-mono: var(--rg-font-mono);
+
+  --ems-radius-1: var(--rg-radius-sm);
+  --ems-radius-2: var(--rg-radius-lg);
+}
+
+/* Register `label` role: sans, 12px, bold, letter-spaced, uppercase. Kept
+   under its old class name for the call sites that still use it. */
 .ems-mono-label {
-  font-family: var(--ems-font-mono);
-  font-size: var(--ems-text-2xs);
-  line-height: 1.4;
-  letter-spacing: var(--ems-tracking-wider);
+  font-family: var(--rg-font-sans);
+  font-size: 12px;
+  line-height: 16px;
+  letter-spacing: 0.07em;
   text-transform: uppercase;
-  font-weight: 500;
+  font-weight: 700;
 }

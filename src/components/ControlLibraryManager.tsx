@@ -300,7 +300,7 @@ export function ControlLibraryManager() {
             {visibleControls.map((control) => (
               <tr
                 key={control.id}
-                className="cursor-pointer border-b border-zinc-100 hover:bg-zinc-50 dark:border-zinc-900 dark:hover:bg-zinc-900"
+                className="cursor-pointer border-b border-rg-line hover:bg-rg-accent-soft"
                 onClick={() => selectControl(control.id)}
               >
                 <td className="p-2 whitespace-nowrap">{control.code}</td>

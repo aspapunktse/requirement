@@ -24,3 +24,19 @@ describe("TileNav", () => {
     expect(screen.getByRole("link", { name: /Browse Systems/ })).toBeInTheDocument();
   });
 });
+
+describe("TileNav, Register look", () => {
+  it("does not number the tiles and marks a disabled tile as dashed", () => {
+    render(
+      <TileNav
+        tiles={[
+          { title: "Internal Audits", description: "Soon.", href: "/internal-audits", disabled: true },
+          { title: "Browse Systems", description: "All of them.", href: "/systems" },
+        ]}
+      />,
+    );
+    expect(screen.queryByText("01")).not.toBeInTheDocument();
+    expect(screen.queryByText("02")).not.toBeInTheDocument();
+    expect(screen.getByText("Internal Audits").closest("[aria-disabled]")).toHaveClass("border-dashed");
+  });
+});
