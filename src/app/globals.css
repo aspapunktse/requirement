@@ -1,20 +1,32 @@
 @import "tailwindcss";
 @import "./design-tokens.css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--ems-font-sans);
-  --font-serif: var(--ems-font-serif);
-  --font-mono: var(--ems-font-mono);
+  --color-background: var(--rg-paper);
+  --color-foreground: var(--rg-ink);
+  --font-sans: var(--rg-font-sans);
+  --font-mono: var(--rg-font-mono);
 
-  /* Brand + semantic colors from the ported design system, available as
-     e.g. bg-ems-amber, text-ems-success, border-ems-danger. */
+  /* Register colours, available as e.g. bg-rg-surface, text-rg-accent,
+     border-rg-line. They follow the light/dark theme. */
+  --color-rg-paper: var(--rg-paper);
+  --color-rg-surface: var(--rg-surface);
+  --color-rg-line: var(--rg-line);
+  --color-rg-ink: var(--rg-ink);
+  --color-rg-muted: var(--rg-muted);
+  --color-rg-accent: var(--rg-accent);
+  --color-rg-accent-soft: var(--rg-accent-soft);
+  --color-rg-on-accent: var(--rg-on-accent);
+  --color-rg-gold: var(--rg-gold);
+  --color-rg-gold-ink: var(--rg-gold-ink);
+  --color-rg-gold-soft: var(--rg-gold-soft);
+  --color-rg-success: var(--rg-success);
+  --color-rg-success-soft: var(--rg-success-soft);
+  --color-rg-danger: var(--rg-danger);
+  --color-rg-danger-soft: var(--rg-danger-soft);
+
+  /* Legacy EMS names (bg-ems-amber, text-ems-success, ...): still compile,
+     and resolve through the --ems-* aliases to the Register tokens. */
   --color-ems-paper-0: var(--ems-paper-0);
   --color-ems-paper-1: var(--ems-paper-1);
   --color-ems-paper-2: var(--ems-paper-2);
@@ -38,39 +50,61 @@
   --color-ems-danger: var(--ems-danger);
   --color-ems-danger-tint: var(--ems-danger-tint);
 
-  /* Remap the zinc scale this app already uses throughout, so every
-     existing border-zinc and text-zinc utility picks up the ported
-     palette for free instead of needing a per-callsite rewrite. Light
-     shades (50/200/300/500/600) come from the light paper/ink ramp;
-     shades only ever used behind `dark:` (400/700/800) come from the
-     dark-mode ramp defined in design-tokens.css. */
-  --color-zinc-50: #e7e3da;
-  --color-zinc-200: #e0dcd6;
-  --color-zinc-300: #cbc6bb;
-  --color-zinc-400: #a39d8f;
-  --color-zinc-500: #6e685f;
-  --color-zinc-600: #6e685f;
-  --color-zinc-700: #4a4740;
-  --color-zinc-800: #34322c;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #211f1c;
-    --foreground: #e7e3da;
-  }
+  /* Remap the zinc scale the app already uses throughout, so every existing
+     border-zinc / text-zinc utility follows the Register tokens (and so both
+     themes) without a per-call-site rewrite. Because the tokens swap with
+     the theme, a `border-zinc-200 dark:border-zinc-800` pair resolves to
+     the same line colour on both sides.
+       borders and rules (100/200/300/700/800) -> line
+       muted text and hover borders (400/500/600) -> muted
+       faint backgrounds (50) -> paper, (900) -> accent-soft */
+  --color-zinc-50: var(--rg-paper);
+  --color-zinc-100: var(--rg-line);
+  --color-zinc-200: var(--rg-line);
+  --color-zinc-300: var(--rg-line);
+  --color-zinc-400: var(--rg-muted);
+  --color-zinc-500: var(--rg-muted);
+  --color-zinc-600: var(--rg-muted);
+  --color-zinc-700: var(--rg-line);
+  --color-zinc-800: var(--rg-line);
+  --color-zinc-900: var(--rg-accent-soft);
 }
 
 body {
-  background: var(--ems-paper-1);
-  color: var(--ems-ink-2);
-  font-family: var(--ems-font-sans);
-  font-size: var(--ems-text-base);
+  background: var(--rg-paper);
+  color: var(--rg-ink);
+  font-family: var(--rg-font-sans);
+  font-size: 15px;
+  line-height: 1.55;
 }
 
-h1, h2, h3 {
-  font-family: var(--ems-font-serif);
-  color: var(--ems-ink-1);
-  font-weight: 400;
-  letter-spacing: -0.01em;
+/* Register type roles: display, heading, subheading. In the base layer so
+   a Tailwind size or weight utility on a heading still wins. */
+@layer base {
+  h1, h2, h3 {
+    font-family: var(--rg-font-sans);
+    color: var(--rg-ink);
+  }
+  h1 {
+    font-size: 34px;
+    line-height: 40px;
+    font-weight: 750;
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+  }
+  h2 {
+    font-size: 20px;
+    line-height: 26px;
+    font-weight: 700;
+  }
+  h3 {
+    font-size: 16px;
+    line-height: 22px;
+    font-weight: 650;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--rg-accent);
+    outline-offset: 2px;
+  }
 }

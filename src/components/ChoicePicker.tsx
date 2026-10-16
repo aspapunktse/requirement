@@ -51,7 +51,7 @@ export function ChoicePicker({
               <button
                 type="button"
                 aria-label={`Remove ${item.label}`}
-                className="text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100"
+                className="text-zinc-500 hover:text-rg-ink"
                 onClick={() => toggle(item.id, false)}
               >
                 ×

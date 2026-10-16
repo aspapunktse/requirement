@@ -16,7 +16,7 @@ export default async function HomePage() {
   const user = await getActingUser();
 
   if (!user) {
-    return <p className="p-6 text-zinc-600 dark:text-zinc-400">Pick a user to act as first.</p>;
+    return <p className="p-6 text-rg-muted">Pick a user to act as first.</p>;
   }
 
   const view = await roleView(user);
@@ -53,9 +53,9 @@ export default async function HomePage() {
 
 function SectionHead({ title, note }: { title: string; note: string }) {
   return (
-    <div className="mb-3 flex items-baseline justify-between gap-4 border-b border-zinc-300 pb-2 dark:border-zinc-700">
-      <h2 className="font-sans! text-lg font-semibold text-ems-ink-1">{title}</h2>
-      <p className="ems-mono-label text-right text-ems-ink-4">{`// ${note}`}</p>
+    <div className="mb-3 flex items-baseline justify-between gap-3.5 border-b border-rg-line pb-2">
+      <h2>{title}</h2>
+      <p className="text-right text-[13px] text-rg-muted">{note}</p>
     </div>
   );
 }

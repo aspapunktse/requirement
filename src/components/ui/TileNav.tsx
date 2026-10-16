@@ -9,39 +9,33 @@ export type NavTile = {
   disabled?: boolean;
 };
 
+const TILE =
+  "grid content-start gap-1.5 rounded-[var(--rg-radius-lg)] border border-rg-line bg-rg-surface px-3.5 py-3 text-rg-ink no-underline";
+
 /**
  * The "Where to start" tile grid: pure navigation shortcuts (no count —
  * counted items belong in TaskTable instead). See issue #57.
  */
 export function TileNav({ tiles }: { tiles: NavTile[] }) {
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-      {tiles.map((tile, index) => {
+    <div className="grid grid-cols-[repeat(auto-fill,minmax(210px,1fr))] gap-2">
+      {tiles.map((tile) => {
         const content = (
           <>
-            <span className="ems-mono-label text-ems-ink-4">{String(index + 1).padStart(2, "0")}</span>
-            <span className="font-medium">{tile.title}</span>
-            <p className="text-sm text-zinc-500">{tile.description}</p>
-            {tile.foot && <p className="ems-mono-label mt-auto pt-2 text-ems-ink-4">{tile.foot}</p>}
+            <span className="font-semibold">{tile.title}</span>
+            <p className="text-[13px] text-rg-muted">{tile.description}</p>
+            {tile.foot && <p className="text-[13px] text-rg-muted">{tile.foot}</p>}
           </>
         );
         if (tile.disabled) {
           return (
-            <div
-              key={tile.title}
-              aria-disabled="true"
-              className="flex flex-col gap-2 rounded-[var(--ems-radius-2)] border border-dashed border-zinc-200 p-4 opacity-60 dark:border-zinc-800"
-            >
+            <div key={tile.title} aria-disabled="true" className={`${TILE} border-dashed opacity-60`}>
               {content}
             </div>
           );
         }
         return (
-          <Link
-            key={tile.href}
-            href={tile.href}
-            className="flex flex-col gap-2 rounded-[var(--ems-radius-2)] border border-zinc-200 p-4 hover:border-ems-amber-hover dark:border-zinc-800"
-          >
+          <Link key={tile.href} href={tile.href} className={`${TILE} hover:border-rg-accent`}>
             {content}
           </Link>
         );

@@ -5,6 +5,7 @@ import { getVisibleSystems } from "@/lib/system-visibility";
 import { canCreateSystem } from "@/lib/system-permissions";
 import { getActionableQueryCountsBySystem } from "@/lib/assessment-queries";
 import { StatusChip } from "@/components/ui/StatusChip";
+import { buttonClassName } from "@/components/ui/Button";
 import { onboardingStatusTone } from "@/lib/status-tones";
 
 /**
@@ -45,7 +46,7 @@ export default async function SystemsPage({
         {canCreateSystem(user) && (
           <Link
             href="/systems/new"
-            className="self-start rounded-[var(--ems-radius-2)] border border-ems-amber-hover bg-ems-amber px-3 py-1 text-sm font-medium text-ems-ink-0 hover:bg-ems-amber-hover"
+            className={buttonClassName("primary")}
           >
             New System
           </Link>

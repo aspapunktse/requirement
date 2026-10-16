@@ -20,13 +20,16 @@ function initials(name: string) {
 /** Avatar, name and role of the acting user: the header's right-hand side. */
 export function UserChip({ user }: { user: PublicUser | null }) {
   return (
-    <span className="flex items-center gap-3 text-left">
-      <span aria-hidden className="grid size-8 shrink-0 place-items-center bg-ems-paper-3 text-xs font-medium text-ems-ink-1">
+    <span className="inline-flex items-center gap-2 rounded-[var(--rg-radius-pill)] border border-rg-line bg-rg-surface py-[3px] pr-3 pl-1 text-left text-[13px] text-rg-ink">
+      <span
+        aria-hidden
+        className="grid size-6 shrink-0 place-items-center rounded-full bg-rg-accent-soft text-[11px] font-bold text-rg-accent"
+      >
         {user ? initials(user.name) : "?"}
       </span>
       <span className="flex min-w-0 flex-col leading-tight">
-        <span className="truncate text-sm font-medium text-ems-ink-1">{user ? user.name : "Select a user…"}</span>
-        {user && <span className="ems-mono-label truncate text-ems-ink-4">{roleLabel(user.role)}</span>}
+        <span className="truncate font-semibold">{user ? user.name : "Select a user…"}</span>
+        {user && <span className="truncate text-xs text-rg-muted">{roleLabel(user.role)}</span>}
       </span>
     </span>
   );
@@ -155,7 +158,7 @@ export function RoleSwitcher() {
   }
 
   if (loading) {
-    return <span className="text-sm text-ems-ink-3">Loading users…</span>;
+    return <span className="text-sm text-rg-muted">Loading users…</span>;
   }
 
   return (
@@ -173,10 +176,10 @@ export function RoleSwitcher() {
             openList();
           }
         }}
-        className="flex items-center gap-2 p-1 hover:bg-ems-paper-2 focus-visible:outline-2 focus-visible:outline-ems-ink-1"
+        className="flex items-center gap-2 rounded-[var(--rg-radius-pill)] hover:bg-rg-accent-soft"
       >
         <UserChip user={current} />
-        <span aria-hidden className="text-ems-ink-3">
+        <span aria-hidden className="text-rg-muted">
           ▾
         </span>
       </button>
@@ -189,7 +192,7 @@ export function RoleSwitcher() {
           aria-label="Acting as"
           aria-activedescendant={users[activeIndex] ? `acting-user-${users[activeIndex].id}` : undefined}
           onKeyDown={onListKeyDown}
-          className="absolute right-0 z-10 mt-1 max-h-96 w-64 overflow-y-auto border border-zinc-300 bg-ems-paper-1 shadow-md outline-none dark:border-zinc-700"
+          className="absolute right-0 z-10 mt-1 max-h-96 w-64 overflow-y-auto rounded-[var(--rg-radius-lg)] border border-rg-line bg-rg-surface shadow-[var(--rg-shadow-popover)] outline-none"
         >
           {users.map((user, index) => {
             const selected = user.id === actingUserId;
@@ -205,11 +208,11 @@ export function RoleSwitcher() {
                   pointerMovedRef.current = true;
                   setActiveIndex(index);
                 }}
-                className={`flex cursor-pointer flex-col gap-0.5 border-b border-zinc-300 px-3 py-2 last:border-b-0 dark:border-zinc-700 ${
-                  selected ? "bg-ems-amber text-ems-ink-0" : index === activeIndex ? "bg-ems-amber-tint" : ""
-                } ${index === activeIndex ? "outline-2 -outline-offset-2 outline-ems-ink-1" : ""}`}
+                className={`flex cursor-pointer flex-col gap-0.5 border-b border-rg-line px-3 py-2 last:border-b-0 ${
+                  selected ? "bg-rg-accent text-rg-on-accent" : index === activeIndex ? "bg-rg-accent-soft" : ""
+                } ${index === activeIndex ? "outline-2 -outline-offset-2 outline-rg-accent" : ""}`}
               >
-                <span className={`ems-mono-label ${selected ? "text-ems-ink-1" : "text-ems-ink-3"}`}>
+                <span className={`ems-mono-label ${selected ? "text-rg-on-accent" : "text-rg-muted"}`}>
                   {roleLabel(user.role)}
                 </span>
                 <span className="text-sm font-medium">{user.name}</span>

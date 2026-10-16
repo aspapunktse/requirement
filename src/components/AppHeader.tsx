@@ -17,14 +17,18 @@ export function AppHeader({ devStub, user }: { devStub: boolean; user: PublicUse
   const isSignIn = pathname === "/";
 
   return (
-    <header className="flex items-center justify-between gap-4 border-b border-zinc-300 bg-ems-paper-1 px-4 py-3 sm:px-6 dark:border-zinc-700">
-      <Link href={isSignIn ? "/" : "/home"} className="flex items-center gap-3" aria-label="ISMS - system onboarding">
-        <span aria-hidden className="grid size-8 shrink-0 place-items-center bg-ems-blue">
-          <span className="size-4 rounded-full border-2 border-ems-paper-1" />
+    <header className="flex items-center justify-between gap-3.5 border-b border-rg-line bg-rg-surface px-5 py-3">
+      <Link
+        href={isSignIn ? "/" : "/home"}
+        className="flex items-center gap-3 text-rg-ink no-underline"
+        aria-label="ISMS - system onboarding"
+      >
+        <span aria-hidden className="grid size-7 shrink-0 place-items-center rounded-[var(--rg-radius-md)] bg-rg-accent">
+          <span className="size-3 rounded-full border-2 border-rg-on-accent" />
         </span>
         <span className="flex flex-col leading-tight">
-          <span className="text-sm font-medium tracking-wide text-ems-blue">ISMS</span>
-          <span className="ems-mono-label hidden text-ems-ink-4 sm:block">System onboarding</span>
+          <span className="font-bold">ISMS</span>
+          <span className="hidden text-xs text-rg-muted sm:block">System onboarding</span>
         </span>
       </Link>
 

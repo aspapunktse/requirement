@@ -288,7 +288,7 @@ function QueryThreadItem({
         {query.messages.map((message) => (
           <li key={message.id}>
             <div className="text-xs text-zinc-500">
-              <span className="font-medium text-zinc-700 dark:text-zinc-300">{message.author.name}</span>{" "}
+              <span className="font-medium text-rg-ink">{message.author.name}</span>{" "}
               ({message.author.role}) · {new Date(message.createdAt).toLocaleString()}
             </div>
             <p>{message.body}</p>
