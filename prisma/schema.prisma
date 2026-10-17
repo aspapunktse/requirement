@@ -919,3 +919,16 @@ model CheckUpResponseAnswer {
 
   @@index([responseId])
 }
+
+// An anonymous thumbs-up on a design proposal on the public /design landing page (#186). The
+// voter is a random UUID the browser keeps; there is no User behind it. proposalId is the id used
+// in public/design/proposals.js and is deliberately not a foreign key: proposals are static pages.
+model DesignVote {
+  id         String   @id @default(cuid())
+  proposalId String
+  voterId    String
+  createdAt  DateTime @default(now())
+
+  @@unique([proposalId, voterId])
+  @@index([voterId])
+}
