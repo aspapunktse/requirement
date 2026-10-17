@@ -44,6 +44,13 @@ window.DESIGN_PARTS = [
         href: "/design/system/proposal-b.html",
         summary: "One scrolling page with a section rail, an inheritance flow and a mosaic of one tile per Control, beside a readiness checklist for approval.",
       },
+      {
+        id: "system-c",
+        label: "C",
+        title: "Action register",
+        href: "/design/system/proposal-c.html",
+        summary: "A prioritized action register with expandable Assessments, compact System context and read-only readiness, alongside Controls, Framework totals, Risks and Providers.",
+      },
     ],
   },
   {
