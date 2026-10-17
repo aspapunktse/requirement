@@ -3,6 +3,28 @@
 // `id` is the vote key: keep it stable once people have voted, or the votes are orphaned.
 window.DESIGN_PARTS = [
   {
+    id: "home",
+    name: "Home by role",
+    added: "2026-10-17",
+    question: "How should the landing page show each role what needs them today and where to go next?",
+    proposals: [
+      {
+        id: "home-a",
+        label: "A",
+        title: "Command center",
+        href: "/design/home/proposal-a.html",
+        summary: "A greeting with a your-move ring, stat cards that filter one task table grouped by urgency, beside the role's picture, shortcuts, activity and a Ctrl+K jump palette.",
+      },
+      {
+        id: "home-b",
+        label: "B",
+        title: "Daily brief",
+        href: "/design/home/proposal-b.html",
+        summary: "One sentence on what today holds, a card deck with the most urgent task in front, three lanes for the rest, the role's picture with trends, and shortcuts in a dock.",
+      },
+    ],
+  },
+  {
     id: "soa",
     name: "Statement of Applicability",
     added: "2026-10-17",

@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Home Daily Brief</title>
+<link rel="stylesheet" href="../systems/systems.css">
+<link rel="stylesheet" href="home.css">
+<style>
+/* Proposal B: a daily brief. One sentence says what today holds, a card deck puts the single
+   most urgent task in front of you, three lanes hold the rest, and the role's picture sits
+   beside a few numbers. Shortcuts live in a dock at the bottom of the screen. */
+.app { max-width: 1180px; margin: 0 auto; padding: 18px 20px 130px; display: grid; gap: 26px; }
+.app > * { min-width: 0; }
+
+/* Role switch: a pill bar with a sliding thumb */
+.roles { position: relative; display: flex; gap: 2px; padding: 4px; background: var(--surface); border: 1px solid var(--line); border-radius: 99px; overflow-x: auto; scrollbar-width: none; justify-self: center; max-width: 100%; box-shadow: var(--shadow); }
+.roles button { position: relative; z-index: 1; border: 0; background: none; padding: 6px 13px; border-radius: 99px; font-size: .8rem; font-weight: 650; color: var(--muted); cursor: pointer; white-space: nowrap; transition: color .2s; }
+.roles button[aria-pressed="true"] { color: var(--on-accent); }
+.roles .thumb { position: absolute; z-index: 0; top: 4px; bottom: 4px; border-radius: 99px; background: var(--accent); transition: left .35s cubic-bezier(.3, 1.3, .5, 1), width .35s cubic-bezier(.3, 1.3, .5, 1); }
+.roles-cap { text-align: center; font-size: .72rem; color: var(--faint); margin-top: -18px; }
+
+/* Brief: aurora background with the sentence */
+.brief { position: relative; overflow: clip; border-radius: 26px; padding: 40px 36px 36px; color: #fff; background: #0c3d47; isolation: isolate; box-shadow: var(--shadow); }
+.brief .aur { position: absolute; border-radius: 50%; filter: blur(50px); opacity: .75; z-index: -1; animation: drift 18s ease-in-out infinite alternate; }
+.brief .a1 { width: 420px; height: 300px; background: #0fa3a8; left: -80px; top: -120px; }
+.brief .a2 { width: 380px; height: 280px; background: #6c7fd8; right: -60px; bottom: -140px; animation-duration: 22s; }
+.brief .a3 { width: 300px; height: 220px; background: #f3c876; right: 18%; top: -150px; opacity: .45; animation-duration: 26s; }
+@keyframes drift { to { transform: translate(60px, 40px) scale(1.15); } }
+.brief .eyebrow { color: rgba(255, 255, 255, .72); }
+.brief h1 { font-size: clamp(1.7rem, 4vw, 2.7rem); letter-spacing: -0.025em; line-height: 1.15; margin-top: 10px; max-width: 30ch; font-weight: 760; }
+.brief h1 .w { display: inline-block; animation: word .55s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(var(--i) * 45ms); }
+.brief h1 b { color: #f3c876; }
+@keyframes word { from { opacity: 0; transform: translateY(14px); filter: blur(4px); } }
+.brief p { color: rgba(255, 255, 255, .8); margin-top: 12px; max-width: 60ch; }
+.brief .row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; align-items: center; }
+.glass { font-size: .78rem; font-weight: 650; padding: 4px 11px; border-radius: 99px; background: rgba(255, 255, 255, .14); border: 1px solid rgba(255, 255, 255, .22); backdrop-filter: blur(6px); display: inline-flex; gap: 6px; align-items: center; color: #fff; }
+.cta { display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; border-radius: 99px; background: #fff; color: #0c3d47; font-weight: 720; border: 0; cursor: pointer; text-decoration: none; transition: transform .15s, box-shadow .15s; }
+.cta:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(0, 0, 0, .25); }
+@media (max-width: 640px) { .brief { padding: 28px 20px 24px; border-radius: 20px; } }
+
+/* Up next: a card deck */
+.sec-h { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.sec-h h2 { font-size: 1.15rem; letter-spacing: -0.01em; }
+.sec-h p { color: var(--muted); font-size: .84rem; }
+.deck { position: relative; padding-bottom: 16px; }
+.deck::before, .deck::after { content: ""; position: absolute; left: 22px; right: 22px; bottom: 8px; height: 30px; border-radius: 18px; background: var(--surface); border: 1px solid var(--line); z-index: 0; }
+.deck::after { left: 44px; right: 44px; bottom: 0; opacity: .6; }
+.deck.single::before, .deck.single::after { display: none; }
+.focus { position: relative; z-index: 1; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 18px; align-items: center; padding: 22px 24px; border-radius: 20px; }
+.focus.swap { animation: swap .4s cubic-bezier(.2, .8, .2, 1); }
+@keyframes swap { from { opacity: 0; transform: translateX(28px) rotate(1deg); } }
+.focus .kind { width: 52px; height: 52px; border-radius: 15px; }
+.focus h3 { font-size: 1.3rem; letter-spacing: -0.01em; }
+.focus .sub { color: var(--muted); margin-top: 4px; }
+.focus .meta { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; font-size: .8rem; color: var(--faint); }
+.focus .acts { display: grid; gap: 8px; justify-items: end; }
+.focus .acts .btn.primary { padding: 9px 16px; border-radius: 10px; }
+.dots { display: flex; gap: 5px; }
+.dots i { width: 6px; height: 6px; border-radius: 99px; background: var(--line); transition: width .25s, background .25s; }
+.dots i.on { width: 18px; background: var(--accent); }
+@media (max-width: 700px) { .focus { grid-template-columns: auto minmax(0, 1fr); } .focus .acts { grid-column: 1 / -1; justify-items: start; grid-auto-flow: column; align-items: center; } }
+
+.calm { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 18px; align-items: center; padding: 22px 24px; border-radius: 20px; }
+.calm svg circle { stroke-dasharray: 151; stroke-dashoffset: 151; animation: dash .6s ease-out forwards; }
+.calm svg path { stroke-dasharray: 30; stroke-dashoffset: 30; animation: dash .35s .5s ease-out forwards; }
+@keyframes dash { to { stroke-dashoffset: 0; } }
+.calm p { color: var(--muted); margin-top: 4px; }
+
+/* Lanes */
+.lanes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; align-items: start; }
+@media (max-width: 900px) { .lanes { grid-template-columns: 1fr; } }
+.lane { background: color-mix(in srgb, var(--surface) 55%, var(--paper)); border: 1px solid var(--line-soft); border-radius: 18px; padding: 12px; display: grid; gap: 8px; align-content: start; }
+.lane-h { display: flex; align-items: center; gap: 8px; padding: 2px 4px 4px; font-size: .78rem; font-weight: 750; color: var(--muted); }
+.lane-h i { width: 8px; height: 8px; border-radius: 50%; }
+.lane-h b { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--ink); background: var(--surface); border: 1px solid var(--line-soft); border-radius: 99px; padding: 0 8px; font-size: .74rem; }
+.lane-h small { display: block; font-weight: 500; color: var(--faint); }
+.mini { display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 10px; padding: 10px 12px; border-radius: 13px; background: var(--surface); border: 1px solid var(--line-soft); cursor: pointer; text-align: left; width: 100%; transition: border-color .15s, transform .15s, box-shadow .15s; animation: rise .35s both; animation-delay: var(--d, 0ms); }
+.mini:hover { border-color: var(--line); transform: translateY(-2px); box-shadow: var(--shadow); }
+.mini[aria-current="true"] { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.mini .kind { width: 30px; height: 30px; border-radius: 9px; }
+.mini b { display: block; font-size: .86rem; font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mini small { display: block; color: var(--muted); font-size: .76rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mini .ft { grid-column: 2; display: flex; gap: 8px; align-items: center; justify-content: space-between; margin-top: 4px; font-size: .72rem; color: var(--faint); }
+.lane .none { color: var(--faint); font-size: .82rem; text-align: center; padding: 18px 8px; border: 1px dashed var(--line); border-radius: 13px; }
+@keyframes rise { from { opacity: 0; transform: translateY(8px); } }
+
+/* Picture + glance */
+.duo { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(260px, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 900px) { .duo { grid-template-columns: 1fr; } }
+.glance { display: grid; }
+.g-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; align-items: center; padding: 12px 18px; border-top: 1px solid var(--line-soft); }
+.g-row:first-child { border-top: 0; }
+.g-row .k { font-size: .8rem; color: var(--muted); font-weight: 600; }
+.g-row .v { font-size: 1.5rem; font-weight: 780; letter-spacing: -0.02em; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.g-row.warn .v { color: var(--gold-ink); } .g-row.danger .v { color: var(--bad); } .g-row.ok .v { color: var(--ok); }
+.g-row .spark { grid-row: 1 / 3; grid-column: 2; }
+.since { padding: 6px 18px 16px; border-top: 1px solid var(--line-soft); display: grid; gap: 8px; }
+.since .label { padding-top: 10px; }
+.since div { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 10px; align-items: center; font-size: .82rem; }
+.since .av { width: 28px; height: 28px; font-size: .66rem; }
+.since small { color: var(--faint); display: block; font-size: .72rem; }
+
+/* Dock */
+.dock-wrap { position: fixed; left: 0; right: 0; bottom: 16px; display: flex; justify-content: center; pointer-events: none; z-index: 30; padding: 0 12px; }
+.dock { pointer-events: auto; display: flex; align-items: end; gap: 6px; padding: 8px 10px; border-radius: 22px; background: color-mix(in srgb, var(--surface) 78%, transparent); border: 1px solid var(--line); backdrop-filter: blur(14px) saturate(1.4); box-shadow: 0 12px 34px rgba(10, 25, 35, .18); max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+.dk { position: relative; flex: none; width: 46px; height: 46px; border-radius: 14px; display: grid; place-items: center; background: var(--raised); border: 1px solid var(--line-soft); color: var(--accent); cursor: pointer; transform-origin: bottom center; transition: transform .18s cubic-bezier(.3, 1.4, .5, 1), margin .18s; transform: scale(var(--s, 1)); margin: 0 calc((var(--s, 1) - 1) * 14px); }
+.dk.primary { background: var(--accent); color: var(--on-accent); border-color: transparent; }
+.dk .badge { position: absolute; top: -5px; right: -5px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 99px; background: var(--bad); color: #fff; font-size: .64rem; font-weight: 800; display: grid; place-items: center; box-shadow: 0 0 0 2px var(--surface); }
+.dock .sep { width: 1px; align-self: stretch; background: var(--line); margin: 4px 4px; flex: none; }
+.tip { position: fixed; z-index: 31; pointer-events: none; background: var(--ink); color: var(--paper); border-radius: 10px; padding: 8px 11px; font-size: .78rem; max-width: 260px; opacity: 0; transform: translate(-50%, 6px); transition: opacity .12s, transform .12s; }
+.tip.on { opacity: 1; transform: translate(-50%, 0); }
+.tip b { display: block; font-size: .84rem; }
+.tip span { opacity: .8; }
+.toast { position: fixed; bottom: 92px; left: 50%; transform: translate(-50%, 20px); background: var(--ink); color: var(--paper); padding: 9px 16px; border-radius: 99px; font-size: .84rem; font-weight: 600; opacity: 0; transition: opacity .2s, transform .2s; pointer-events: none; z-index: 60; }
+.toast.on { opacity: 1; transform: translate(-50%, 0); }
+@media (prefers-reduced-motion: reduce) {
+  .brief .aur, .brief h1 .w, .mini, .focus.swap { animation: none; }
+  .dk { transition: none; } .roles .thumb { transition: none; }
+}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="logo">IS</div>
+  <div><b>ISMS</b><small>System onboarding</small></div>
+  <nav aria-label="Main"><a href="#" aria-current="page">Home</a><a href="/design/systems/proposal-b.html">Systems</a><a href="/design/controls/proposal-b.html">Controls</a><a href="#">Risks</a><a href="#">Check-ups</a><a href="#">Frameworks</a></nav>
+  <div class="proposal-switch">Proposal B · <a href="proposal-a.html" data-keep-role>see A</a></div>
+</header>
+
+<div class="app">
+  <div class="roles" id="roles" role="group" aria-label="Show Home as"><span class="thumb" id="thumb"></span></div>
+  <p class="roles-cap">Prototype only: pick a role to see its Home. The app shows the role of the user you act as.</p>
+
+  <section class="brief" id="brief" aria-live="polite"></section>
+
+  <section aria-labelledby="nextH">
+    <div class="sec-h"><h2 id="nextH">Up next</h2><p id="nextNote"></p></div>
+    <div id="next"></div>
+  </section>
+
+  <section aria-labelledby="lanesH" id="lanesSec">
+    <div class="sec-h"><h2 id="lanesH">Everything on your plate</h2><p>Click a card to bring it to the front.</p></div>
+    <div class="lanes" id="lanes"></div>
+  </section>
+
+  <section class="duo">
+    <div class="card"><div class="card-h"><h2 id="picH"></h2><p id="picNote"></p></div><div class="card-b pic" id="pic"></div></div>
+    <div class="card"><div class="glance" id="glance"></div><div class="since" id="since"></div></div>
+  </section>
+</div>
+
+<div class="dock-wrap"><nav class="dock" id="dock" aria-label="Shortcuts"></nav></div>
+<div class="tip" id="tip" role="tooltip"></div>
+<div class="toast" id="toast" role="status"></div>
+
+<script src="data.js"></script>
+<script src="home.js"></script>
+<script>
+(function () {
+  const { H, esc, reduced, icon, KIND, ring, spark, toneColor, countUp, ago, greeting, first, initials, picture, grow, onRole, setRole } = Home;
+  const $ = (id) => document.getElementById(id);
+  const LANES = [['you', 'Your move', 'var(--accent)', 'Act on these'], ['waiting', 'Waiting on others', 'var(--faint)', 'Nothing to do yet'], ['soon', 'Coming up', 'var(--gold)', 'Due later or getting stale']];
+  const TONE_RANK = { danger: 0, warn: 1, success: 2, neutral: 3 };
+  let R, queue = [], pos = 0;
+
+  // Role pills
+  $('roles').insertAdjacentHTML('beforeend', H.roles.map((r) => `<button data-role="${r.key}" aria-pressed="false">${esc(r.label)}</button>`).join(''));
+  $('roles').addEventListener('click', (e) => { const b = e.target.closest('[data-role]'); if (b) setRole(b.dataset.role); });
+  function moveThumb() {
+    const b = $('roles').querySelector('[aria-pressed="true"]'); if (!b) return;
+    $('thumb').style.left = b.offsetLeft + 'px'; $('thumb').style.width = b.offsetWidth + 'px';
+    b.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: reduced ? 'auto' : 'smooth' });
+  }
+  addEventListener('resize', moveThumb);
+
+  const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+  function sentence() {
+    const you = R.tasks.filter((t) => t.lane === 'you').length, wait = R.tasks.filter((t) => t.lane === 'waiting').length, soon = R.tasks.filter((t) => t.lane === 'soon').length;
+    if (!R.tasks.length) return `Nothing needs you today. Everything ${R.key === 'VIEWER' ? 'onboarded' : 'here'} is yours to read.`;
+    const rest = [wait && `${plural(wait, 'is', 'are')} waiting on others`, soon && `${soon} coming up`].filter(Boolean);
+    return `**${plural(you, 'thing', 'things')}** need${you === 1 ? 's' : ''} you today${rest.length ? `, ${rest.join(' and ')}` : ''}.`;
+  }
+  // One span per word so the words rise in turn; text between ** markers is gold.
+  function boldWords(s, start) {
+    let i = start;
+    return s.split('**').map((part, n) => part.split(' ').filter(Boolean)
+      .map((w) => `<span class="w" style="--i:${i++}">${n % 2 ? `<b>${esc(w)}</b>` : esc(w)}</span>`).join(' ')).join(' ').replace(/ (<span class="w"[^>]*>[.,])/g, '$1');
+  }
+
+  function renderBrief() {
+    const hello = `${greeting()}, ${first(R.person)}.`;
+    const p = R.tiles.find((t) => t.primary) || R.tiles[0];
+    $('brief').innerHTML = `<span class="aur a1"></span><span class="aur a2"></span><span class="aur a3"></span>
+      <span class="eyebrow">${new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })} · ${esc(R.label)}</span>
+      <h1>${boldWords(hello, 0)}<br>${boldWords(sentence(), hello.split(' ').length)}</h1>
+      <p>${esc(R.lede)}</p>
+      <div class="row"><a class="cta" href="#" data-tile="${R.tiles.indexOf(p)}">${icon(p.icon, 16)} ${esc(p.title)}</a>
+        ${R.scope ? `<span class="glass">Scope: ${esc(R.scope)}</span>` : ''}<span class="glass">${esc(R.person)}</span></div>`;
+  }
+
+  function ordered() {
+    return R.tasks.map((t, i) => ({ ...t, i })).sort((a, b) => (LANES.findIndex((l) => l[0] === a.lane) - LANES.findIndex((l) => l[0] === b.lane)) || (TONE_RANK[a.tone] - TONE_RANK[b.tone]) || (b.days - a.days));
+  }
+
+  function renderNext(anim) {
+    if (!queue.length) {
+      const p = R.tiles.find((t) => t.primary) || R.tiles[0];
+      $('nextNote').textContent = '';
+      $('next').innerHTML = `<div class="card calm"><svg width="56" height="56" viewBox="0 0 56 56" fill="none" aria-hidden="true"><circle cx="28" cy="28" r="24" stroke="var(--ok)" stroke-width="3"/><path d="M18 29l7 7 13-15" stroke="var(--ok)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <div><h3>You’re all caught up</h3><p>A ${esc(R.label)} has no tasks of their own. A Check-up addressed to you, or a System you own, would show up here. Meanwhile: <a class="link" href="#" data-tile="${R.tiles.indexOf(p)}">${esc(p.title)}</a>.</p></div></div>`;
+      $('lanesSec').hidden = true;
+      return;
+    }
+    $('lanesSec').hidden = false;
+    const t = queue[pos], k = KIND[t.kind];
+    $('nextNote').textContent = `${pos + 1} of ${queue.length}, most urgent first`;
+    $('next').innerHTML = `<div class="deck${queue.length === 1 ? ' single' : ''}"><article class="card focus spot${anim ? ' swap' : ''}">
+      <span class="kind" style="--hue:${k.hue}">${icon(k.icon, 24)}</span>
+      <div><span class="kind-t" style="--hue:${k.hue}">${esc(t.kind)}</span><h3>${esc(t.title)}</h3><p class="sub">${esc(t.subtitle)}</p>
+        <div class="meta"><span class="chip ${t.tone}">${esc(t.status)}</span><span>Updated ${ago(t.days)}</span>${t.due ? `<span>· due in ${t.due} days</span>` : ''}</div></div>
+      <div class="acts"><button class="btn primary" data-open="${t.i}">${esc(t.action)} ${icon('arrow', 14)}</button>
+        ${queue.length > 1 ? `<button class="btn ghost" id="skip">Next ${icon('arrow', 14)}</button>` : ''}
+        <span class="dots" aria-hidden="true">${queue.map((_, i) => `<i class="${i === pos ? 'on' : ''}"></i>`).join('')}</span></div>
+    </article></div>`;
+    document.querySelectorAll('.mini').forEach((m) => m.setAttribute('aria-current', +m.dataset.i === t.i));
+  }
+
+  function renderLanes() {
+    let d = 0;
+    $('lanes').innerHTML = LANES.map(([key, label, c, hint]) => {
+      const items = queue.filter((t) => t.lane === key);
+      return `<div class="lane"><div class="lane-h"><i style="background:${c}"></i><span>${label}<small>${hint}</small></span><b>${items.length}</b></div>
+        ${items.map((t) => { const k = KIND[t.kind]; return `<button class="mini" data-i="${t.i}" style="--d:${d++ * 40}ms"><span class="kind" style="--hue:${k.hue}">${icon(k.icon, 15)}</span>
+          <span style="min-width:0"><b>${esc(t.title)}</b><small>${esc(t.subtitle)}</small></span>
+          <span class="ft"><span class="chip ${t.tone}">${esc(t.status)}</span><span>${ago(t.days)}</span></span></button>`; }).join('') || '<div class="none">Nothing here</div>'}</div>`;
+    }).join('');
+  }
+
+  function renderDuo() {
+    const p = R.picture;
+    $('picH').textContent = p.title; $('picNote').textContent = p.note;
+    $('pic').classList.remove('in'); $('pic').innerHTML = picture(p); grow($('pic'));
+    $('glance').innerHTML = R.stats.map((s) => `<div class="g-row ${s.tone || ''}"><span class="k">${esc(s.label)}</span><span class="v" data-count="${esc(s.value)}">0</span>${spark(s.trend, 96, 34, toneColor(s.tone))}</div>`).join('');
+    $('since').innerHTML = `<span class="label">Since you were last here</span>${R.activity.map((a) => `<div><span class="av" style="background:color-mix(in srgb, ${toneColor(a.tone)} 16%, transparent);color:${toneColor(a.tone)}">${esc(a.who === 'You' ? 'Me' : initials(a.who))}</span><span><b>${esc(a.who)}</b> ${esc(a.what)}<small>${ago(a.days)}</small></span></div>`).join('')}`;
+    countUp($('glance'));
+  }
+
+  function renderDock() {
+    const badge = (t) => { const m = (t.foot || '').match(/^(\d+) (open|missing)/); return m ? `<span class="badge">${m[1]}</span>` : ''; };
+    $('dock').innerHTML = R.tiles.map((t, i) => `${i === 1 ? '<span class="sep"></span>' : ''}<button class="dk${t.primary ? ' primary' : ''}" data-tile="${i}" aria-label="${esc(t.title)}">${icon(t.icon, 20)}${badge(t)}</button>`).join('');
+  }
+
+  // Magnify dock: scale by distance from the pointer
+  const dock = $('dock'), tip = $('tip');
+  const fine = matchMedia('(hover: hover) and (pointer: fine)').matches;
+  dock.addEventListener('pointermove', (e) => {
+    if (!fine || reduced) return;
+    dock.querySelectorAll('.dk').forEach((b) => { const r = b.getBoundingClientRect(), d = Math.abs(e.clientX - (r.left + r.width / 2)); b.style.setProperty('--s', (1 + Math.max(0, 1 - d / 120) * 0.45).toFixed(3)); });
+  });
+  dock.addEventListener('pointerleave', () => { dock.querySelectorAll('.dk').forEach((b) => b.style.setProperty('--s', 1)); tip.classList.remove('on'); });
+  function showTip(b) {
+    const t = R.tiles[+b.dataset.tile], r = b.getBoundingClientRect();
+    tip.innerHTML = `<b>${esc(t.title)}</b><span>${esc(t.description)}${t.foot ? ` · ${esc(t.foot)}` : ''}</span>`;
+    tip.style.left = Math.min(Math.max(r.left + r.width / 2, 140), innerWidth - 140) + 'px'; tip.style.top = (r.top - 74) + 'px'; tip.classList.add('on');
+  }
+  dock.addEventListener('pointerover', (e) => { const b = e.target.closest('.dk'); if (b) showTip(b); });
+  dock.addEventListener('focusin', (e) => { const b = e.target.closest('.dk'); if (b) showTip(b); });
+  dock.addEventListener('focusout', () => tip.classList.remove('on'));
+
+  function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('on'), 2200); }
+
+  onRole((r) => {
+    R = r; queue = ordered(); pos = 0;
+    document.querySelectorAll('[data-role]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.role === r.key));
+    moveThumb(); renderBrief(); renderLanes(); renderNext(false); renderDuo(); renderDock();
+  });
+
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('#skip')) { pos = (pos + 1) % queue.length; renderNext(true); return; }
+    const m = e.target.closest('.mini'); if (m) { pos = queue.findIndex((t) => t.i === +m.dataset.i); renderNext(true); $('next').scrollIntoView({ block: 'nearest', behavior: reduced ? 'auto' : 'smooth' }); return; }
+    const o = e.target.closest('[data-open]'); if (o) { const t = R.tasks[+o.dataset.open]; toast(`Would open ${t.kind}: ${t.title}`); return; }
+    const tl = e.target.closest('[data-tile]'); if (tl) { e.preventDefault(); toast(`Would open ${R.tiles[+tl.dataset.tile].title}`); }
+  });
+  document.addEventListener('keydown', (e) => {
+    if (/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) return;
+    if ((e.key === 'n' || e.key === 'ArrowRight') && queue.length > 1 && !e.target.closest('.roles')) { pos = (pos + 1) % queue.length; renderNext(true); }
+  });
+})();
+</script>
+</body>
+</html>
