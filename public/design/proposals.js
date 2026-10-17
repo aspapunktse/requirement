@@ -22,6 +22,13 @@ window.DESIGN_PARTS = [
         href: "/design/soa/proposal-b.html",
         summary: "A one-sentence summary and readiness ring, then three modes: one cell per Control by domain, a typeset document with an index, and a review queue for exclusions.",
       },
+      {
+        id: "soa-c",
+        label: "C",
+        title: "Audit register",
+        href: "/design/soa/proposal-c.html",
+        summary: "A domain chapter index and expandable Control register pairing rationale with implementation, with inline exclusion justification and a focused missing-rationale view.",
+      },
     ],
   },
   {
