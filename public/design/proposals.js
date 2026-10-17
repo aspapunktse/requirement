@@ -66,6 +66,13 @@ window.DESIGN_PARTS = [
         href: "/design/controls/proposal-b.html",
         summary: "Every Control at once as one cell per Control by domain, then a three-pane browser and a Ctrl+K jump palette.",
       },
+      {
+        id: "controls-c",
+        label: "C",
+        title: "Coverage register",
+        href: "/design/controls/proposal-c.html",
+        summary: "A Framework-first register grouped by mapping relationship, with ownership and scoping filters and expandable mapping-count traces.",
+      },
     ],
   },
   {
