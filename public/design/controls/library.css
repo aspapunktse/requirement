@@ -1,0 +1,79 @@
+/* Shared look for the Control Library proposals: the Register tokens (src/app/design-tokens.css),
+   plus chips, avatars, the detail panel and buttons both pages use. */
+:root {
+  --paper: #f2f5f6; --surface: #ffffff; --line: #ccd8de; --line-soft: #e3eaee; --ink: #142d3d; --muted: #496171;
+  --accent: #075d68; --soft: #e4f1f1; --on-accent: #ffffff;
+  --gold: #f3c876; --gold-ink: #6b4a08; --gold-soft: #fbecc8;
+  --ok: #0b7a4b; --ok-soft: #def3e8; --bad: #a33a2b; --bad-soft: #f8e3df;
+  --hover: #f6f9fa; --shadow: 0 8px 24px rgba(20, 45, 61, 0.14);
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0e1b22; --surface: #14252e; --line: #2a4150; --line-soft: #1e333f; --ink: #dbe7ec; --muted: #9db2bd;
+    --accent: #5fc3ca; --soft: #173a3f; --on-accent: #0e1b22;
+    --gold: #d9ad5a; --gold-ink: #f3d79c; --gold-soft: #3a2f17;
+    --ok: #5ccf95; --ok-soft: #173a2b; --bad: #ef8d7d; --bad-soft: #3d2420;
+    --hover: #182d38; --shadow: 0 8px 24px rgba(0, 0, 0, 0.45); color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0e1b22; --surface: #14252e; --line: #2a4150; --line-soft: #1e333f; --ink: #dbe7ec; --muted: #9db2bd;
+  --accent: #5fc3ca; --soft: #173a3f; --on-accent: #0e1b22;
+  --gold: #d9ad5a; --gold-ink: #f3d79c; --gold-soft: #3a2f17;
+  --ok: #5ccf95; --ok-soft: #173a2b; --bad: #ef8d7d; --bad-soft: #3d2420;
+  --hover: #182d38; --shadow: 0 8px 24px rgba(0, 0, 0, 0.45); color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--paper); color: var(--ink); font-family: var(--font); font-size: 14px; line-height: 1.5; }
+h1, h2, h3, h4 { margin: 0; line-height: 1.2; text-wrap: balance; }
+p { margin: 0; }
+button, input, select { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.muted { color: var(--muted); }
+.mono { font-family: var(--mono); }
+.num { font-variant-numeric: tabular-nums; }
+.label { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+.code { font-family: var(--mono); font-size: 0.8rem; font-weight: 700; color: var(--accent); white-space: nowrap; }
+.chip { display: inline-flex; align-items: center; gap: 4px; border-radius: 99px; padding: 1px 8px; font-size: 0.74rem; font-weight: 600; white-space: nowrap; background: var(--soft); color: var(--ink); }
+.chip.org { background: var(--gold-soft); color: var(--gold-ink); }
+.chip.both { background: transparent; box-shadow: inset 0 0 0 1px var(--line); color: var(--muted); }
+.chip.sup { background: transparent; box-shadow: inset 0 0 0 1px var(--accent); color: var(--accent); }
+.chip.warn { background: var(--bad-soft); color: var(--bad); }
+.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.st-IMPLEMENTED { background: var(--ok); } .st-IN_PROGRESS { background: var(--gold); } .st-NOT_STARTED { background: var(--line); box-shadow: inset 0 0 0 1px var(--muted); } .st-NA { background: transparent; box-shadow: inset 0 0 0 1px var(--line); }
+
+.avatar { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; font-size: 0.66rem; font-weight: 700; color: var(--on-accent); background: var(--accent); flex: none; }
+.avatar.none { background: transparent; color: var(--muted); border: 1px dashed var(--muted); }
+.owner { display: inline-flex; align-items: center; gap: 7px; min-width: 0; white-space: nowrap; }
+.owner span:last-child { overflow: hidden; text-overflow: ellipsis; }
+
+.btn { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--surface); border-radius: 6px; padding: 5px 11px; font-weight: 600; font-size: 0.84rem; cursor: pointer; }
+.btn:hover { border-color: var(--accent); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.btn.ghost { border-color: transparent; background: transparent; }
+.kbd { font-family: var(--mono); font-size: 0.7rem; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; color: var(--muted); background: var(--surface); }
+
+.search { display: flex; align-items: center; gap: 8px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 0 10px; height: 36px; min-width: 0; }
+.search:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--soft); }
+.search input { border: 0; outline: 0; background: transparent; flex: 1; min-width: 0; height: 100%; }
+.search svg { flex: none; color: var(--muted); }
+
+/* Detail panel content, shared by the drawer (A) and the pane (B) */
+.detail { display: grid; gap: 18px; align-content: start; }
+.detail-head { display: grid; gap: 6px; }
+.detail-head h2 { font-size: 1.2rem; font-weight: 700; }
+.detail-meta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.detail section { display: grid; gap: 6px; }
+.detail dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 16px; margin: 0; }
+.detail dt { color: var(--muted); }
+.detail dd { margin: 0; min-width: 0; }
+.maps { display: grid; gap: 6px; }
+.map { display: flex; justify-content: space-between; gap: 10px; border: 1px solid var(--line); border-radius: 6px; padding: 7px 10px; background: var(--surface); }
+.question { border-left: 3px solid var(--accent); padding: 4px 0 4px 10px; font-style: italic; }
+.empty { padding: 40px 16px; text-align: center; color: var(--muted); }
+mark { background: var(--gold-soft); color: inherit; border-radius: 2px; }

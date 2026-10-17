@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Control Library Atlas</title>
+<link rel="stylesheet" href="library.css">
+<style>
+/* Proposal B: an atlas. The landing view shows every Control at once as one cell per Control,
+   grouped by domain and coloured by a chosen lens. Picking a domain opens a three-pane browser
+   (domains, Controls, details). Ctrl/Cmd+K jumps to any Control from anywhere. */
+.app { max-width: 1440px; margin: 0 auto; padding: 22px 20px 48px; display: grid; gap: 18px; }
+.top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 12px; }
+.top h1 { font-size: 1.6rem; font-weight: 750; letter-spacing: -0.01em; }
+.top .crumb { font-size: 0.8rem; color: var(--muted); margin-bottom: 4px; }
+.crumb a { color: var(--accent); text-decoration: none; cursor: pointer; }
+.top .actions { display: flex; gap: 8px; align-items: center; }
+.jump { width: 280px; justify-content: space-between; color: var(--muted); font-weight: 500; }
+
+.kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.kpi { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; display: grid; gap: 6px; text-align: left; cursor: pointer; }
+.kpi:hover { border-color: var(--accent); }
+.kpi[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 3px var(--soft); }
+.kpi .v { font-size: 1.7rem; font-weight: 750; line-height: 1; font-variant-numeric: tabular-nums; }
+.kpi .v small { font-size: 0.85rem; color: var(--muted); font-weight: 500; }
+.kpi .meter { height: 6px; border-radius: 3px; background: var(--line-soft); overflow: hidden; display: flex; }
+.kpi .meter i { display: block; }
+
+.lensbar { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; justify-content: space-between; }
+.seg { display: inline-flex; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 2px; }
+.seg button { border: 0; background: none; border-radius: 6px; padding: 4px 12px; cursor: pointer; font-weight: 600; font-size: 0.84rem; color: var(--muted); }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 0.8rem; color: var(--muted); }
+.legend span { display: inline-flex; gap: 6px; align-items: center; }
+
+/* Atlas */
+.family { display: grid; gap: 10px; }
+.family h2 { font-size: 0.95rem; display: flex; gap: 10px; align-items: baseline; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; }
+.tile { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px 14px; display: grid; gap: 10px; align-content: start; cursor: pointer; text-align: left; transition: border-color .15s, transform .15s; }
+.tile:hover { border-color: var(--accent); transform: translateY(-1px); }
+.tile header { display: flex; justify-content: space-between; gap: 10px; align-items: start; }
+.tile h3 { font-size: 0.92rem; font-weight: 650; }
+.tile .n { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 0.8rem; white-space: nowrap; }
+.cells { display: flex; flex-wrap: wrap; gap: 3px; }
+.cell { width: 12px; height: 12px; border-radius: 3px; border: 0; padding: 0; cursor: pointer; }
+.cell:hover, .cell:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
+.tile .foot { font-size: 0.78rem; color: var(--muted); }
+.c-good { background: var(--ok); } .c-mid { background: var(--gold); } .c-bad { background: var(--bad); } .c-none { background: var(--line-soft); box-shadow: inset 0 0 0 1px var(--line); } .c-own { background: var(--accent); }
+.tip { position: fixed; z-index: 50; pointer-events: none; background: var(--ink); color: var(--paper); border-radius: 6px; padding: 6px 9px; font-size: 0.78rem; max-width: 280px; box-shadow: var(--shadow); opacity: 0; transition: opacity .1s; }
+.tip.on { opacity: 1; }
+.tip b { font-family: var(--mono); }
+
+/* Browser: three panes */
+.browser { display: grid; grid-template-columns: 250px minmax(300px, 400px) minmax(0, 1fr); background: var(--surface); border: 1px solid var(--line); border-radius: 12px; height: calc(100vh - 210px); min-height: 520px; overflow: hidden; }
+.pane { min-height: 0; overflow-y: auto; border-right: 1px solid var(--line); }
+.pane:last-child { border-right: 0; }
+.domains { background: var(--paper); padding: 10px 8px; display: grid; gap: 1px; align-content: start; }
+.domains .fam { padding: 10px 8px 4px; }
+.dom { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 3px 8px; padding: 7px 8px; border-radius: 6px; border: 0; background: none; cursor: pointer; text-align: left; font-size: 0.85rem; }
+.dom:hover { background: var(--hover); }
+.dom[aria-current="true"] { background: var(--surface); box-shadow: 0 0 0 1px var(--line); font-weight: 650; }
+.dom span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dom .n { color: var(--muted); font-size: 0.76rem; font-variant-numeric: tabular-nums; }
+.dom .mini { grid-column: 1 / -1; height: 3px; border-radius: 2px; background: var(--line-soft); overflow: hidden; display: flex; }
+.list { display: grid; grid-template-rows: auto minmax(0, 1fr); overflow: hidden; }
+.list .lhead { padding: 12px; border-bottom: 1px solid var(--line); display: grid; gap: 8px; }
+.list .lhead h2 { font-size: 1rem; }
+.list .items { overflow-y: auto; }
+.li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 2px 10px; padding: 10px 12px; border: 0; border-bottom: 1px solid var(--line-soft); background: none; width: 100%; text-align: left; cursor: pointer; align-items: center; }
+.li:hover { background: var(--hover); }
+.li[aria-current="true"] { background: var(--soft); box-shadow: inset 3px 0 0 var(--accent); }
+.li .dot { grid-row: 1 / span 2; }
+.li b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.li .sub { grid-column: 2 / -1; display: flex; gap: 8px; align-items: center; font-size: 0.78rem; color: var(--muted); min-width: 0; }
+.li .sub .owner { font-size: 0.78rem; }
+.li .sub .avatar { width: 16px; height: 16px; font-size: 0.55rem; }
+.detailpane { padding: 22px 26px; background: var(--paper); }
+.back { display: none; }
+.mobile-back { display: none; }
+
+/* Command palette */
+dialog.palette { border: 1px solid var(--line); border-radius: 12px; padding: 0; width: min(620px, calc(100vw - 32px)); background: var(--surface); color: var(--ink); box-shadow: var(--shadow); margin-top: 12vh; }
+dialog.palette::backdrop { background: rgba(14, 27, 34, .35); }
+.palette .search { border: 0; border-bottom: 1px solid var(--line); border-radius: 0; height: 50px; box-shadow: none; }
+.palette ul { list-style: none; margin: 0; padding: 6px; max-height: 50vh; overflow-y: auto; }
+.palette li { display: grid; grid-template-columns: 92px minmax(0, 1fr) auto; gap: 10px; padding: 8px 10px; border-radius: 6px; cursor: pointer; align-items: center; }
+.palette li[aria-selected="true"] { background: var(--soft); }
+.palette li span:nth-child(2) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.palette li small { color: var(--muted); font-size: 0.76rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
+.palette footer { display: flex; gap: 14px; padding: 8px 14px; border-top: 1px solid var(--line); font-size: 0.76rem; color: var(--muted); }
+
+[hidden] { display: none !important; }
+@media (max-width: 1100px) { .browser { grid-template-columns: 210px minmax(260px, 340px) minmax(0, 1fr); } }
+@media (max-width: 860px) {
+  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .jump { width: auto; }
+  .browser { grid-template-columns: minmax(0, 1fr); height: auto; min-height: 0; }
+  .browser .domains { display: none; }
+  .pane { border-right: 0; }
+  .list .items { max-height: none; overflow: visible; }
+  .browser.has-detail .list { display: none; }
+  .browser:not(.has-detail) .detailpane { display: none; }
+  .detailpane { padding: 16px; }
+  .mobile-back { display: inline-flex; margin-bottom: 12px; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="top">
+    <div>
+      <p class="crumb" id="crumb"></p>
+      <h1>Control Library</h1>
+    </div>
+    <div class="actions">
+      <button class="btn jump" id="jump"><span>Jump to a Control…</span><span class="kbd">Ctrl K</span></button>
+      <button class="btn primary">+ New Control</button>
+    </div>
+  </div>
+
+  <div class="kpis" id="kpis"></div>
+
+  <div id="atlas">
+    <div class="lensbar">
+      <div class="seg" role="group" aria-label="Colour cells by" id="lens"></div>
+      <div class="legend" id="legend"></div>
+    </div>
+    <div id="families" style="display:grid;gap:22px;margin-top:16px"></div>
+  </div>
+
+  <div class="browser" id="browser" hidden>
+    <nav class="pane domains" id="domains" aria-label="Domains"></nav>
+    <section class="pane list" aria-label="Controls in domain">
+      <div class="lhead">
+        <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><h2 id="domTitle"></h2><span class="muted num" id="domCount"></span></div>
+        <label class="search"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.6"/><path d="m11 11 3.5 3.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><span class="sr">Filter this domain</span><input id="dq" type="search" placeholder="Filter this domain" autocomplete="off"></label>
+      </div>
+      <div class="items" id="items"></div>
+    </section>
+    <section class="pane detailpane" id="detail" aria-label="Control details"></section>
+  </div>
+</div>
+
+<div class="tip" id="tip" role="tooltip"></div>
+
+<dialog class="palette" id="palette" aria-label="Jump to a Control">
+  <label class="search"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.6"/><path d="m11 11 3.5 3.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><span class="sr">Search all Controls</span><input id="pq" placeholder="Search 306 Controls by ID, title or owner" autocomplete="off"></label>
+  <ul id="presults" role="listbox"></ul>
+  <footer><span><span class="kbd">↑</span> <span class="kbd">↓</span> move</span><span><span class="kbd">Enter</span> open</span><span><span class="kbd">Esc</span> close</span></footer>
+</dialog>
+
+<script src="data.js"></script>
+<script src="library.js"></script>
+<script>
+(function () {
+  const { esc, highlight, appChip, ownerHtml, detailHtml, STATUS } = Lib;
+  const $ = (id) => document.getElementById(id);
+
+  // A lens decides each Control's colour, its label and the KPI it belongs to.
+  const LENSES = {
+    status: { label: 'Status', of: (c) => c.status === 'IMPLEMENTED' ? 'good' : c.status === 'IN_PROGRESS' ? 'mid' : c.status === 'NOT_STARTED' ? 'bad' : 'none',
+      legend: [['good', 'Implemented'], ['mid', 'In progress'], ['bad', 'Not started'], ['none', 'Per System only']] },
+    owner: { label: 'Ownership', of: (c) => c.owner ? 'own' : 'bad', legend: [['own', 'Has an owner'], ['bad', 'Unassigned']] },
+    mapping: { label: 'Mapping', of: (c) => !c.mapped ? 'bad' : c.maps.some((m) => m.partial && !m.full) ? 'mid' : 'good', legend: [['good', 'Mapped'], ['mid', 'Partial only'], ['bad', 'Not mapped']] },
+  };
+  const state = { lens: 'status', domain: null, control: null, dq: '' };
+
+  const families = {};
+  CONTROLS.forEach((c) => { ((families[c.family] ||= {})[c.category] ||= []).push(c); });
+  const domainList = () => Object.entries(families).flatMap(([f, cats]) => Object.keys(cats).map((k) => ({ family: f, name: k, list: cats[k] })));
+  const pct = (n, d) => Math.round((n / d) * 100);
+
+  function renderKpis() {
+    const N = CONTROLS.length, org = CONTROLS.filter((c) => c.status);
+    const impl = org.filter((c) => c.status === 'IMPLEMENTED').length, prog = org.filter((c) => c.status === 'IN_PROGRESS').length;
+    const owned = CONTROLS.filter((c) => c.owner).length, mapped = CONTROLS.filter((c) => c.mapped).length;
+    $('kpis').innerHTML = [
+      { lens: null, label: 'Controls', v: `${N}`, sub: `${Object.keys(families).length} sources · ${domainList().length} domains`, meter: '' },
+      { lens: 'status', label: 'Implemented', v: `${pct(impl, org.length)}<small>%</small>`, sub: `${impl} of ${org.length} organizational`, meter: `<i style="width:${pct(impl, org.length)}%;background:var(--ok)"></i><i style="width:${pct(prog, org.length)}%;background:var(--gold)"></i>` },
+      { lens: 'owner', label: 'Owned', v: `${pct(owned, N)}<small>%</small>`, sub: `${N - owned} need an owner`, meter: `<i style="width:${pct(owned, N)}%;background:var(--accent)"></i>` },
+      { lens: 'mapping', label: 'Mapped', v: `${pct(mapped, N)}<small>%</small>`, sub: `${N - mapped} satisfy no Requirement`, meter: `<i style="width:${pct(mapped, N)}%;background:var(--ok)"></i>` },
+    ].map((k) => `<button class="kpi" ${k.lens ? `data-lens="${k.lens}" aria-pressed="${state.lens === k.lens && !state.domain}"` : 'data-home'}><span class="label">${k.label}</span><span class="v">${k.v}</span>${k.meter ? `<span class="meter">${k.meter}</span>` : ''}<span class="muted" style="font-size:.8rem">${k.sub}</span></button>`).join('');
+  }
+
+  function renderAtlas() {
+    const L = LENSES[state.lens];
+    $('lens').innerHTML = Object.entries(LENSES).map(([k, l]) => `<button data-lens="${k}" aria-pressed="${state.lens === k}">${l.label}</button>`).join('');
+    $('legend').innerHTML = L.legend.map(([k, l]) => `<span><span class="cell c-${k}" style="cursor:default"></span>${l}</span>`).join('') + '<span>· one square per Control</span>';
+    $('families').innerHTML = Object.entries(families).map(([f, cats]) => {
+      const n = Object.values(cats).reduce((s, l) => s + l.length, 0);
+      return `<section class="family"><h2>${esc(f)} <span class="muted num" style="font-weight:500;font-size:.82rem">${n} Controls</span></h2><div class="tiles">
+        ${Object.entries(cats).map(([cat, list]) => {
+          const bad = list.filter((c) => L.of(c) === 'bad').length;
+          return `<div class="tile" role="button" tabindex="0" data-domain="${esc(cat)}"><header><h3>${esc(cat)}</h3><span class="n">${list.length}</span></header>
+            <div class="cells">${list.map((c) => `<button class="cell c-${L.of(c)}" data-cid="${c.id}" aria-label="${esc(c.code)} ${esc(c.title)}"></button>`).join('')}</div>
+            <span class="foot">${bad ? `${bad} ${L.legend.find(([k]) => k === 'bad')[1].toLowerCase()}` : 'All clear'}</span></div>`;
+        }).join('')}</div></section>`;
+    }).join('');
+  }
+
+  function renderBrowser() {
+    const L = LENSES[state.lens];
+    let html = '', lastFam = null;
+    for (const d of domainList()) {
+      if (d.family !== lastFam) { html += `<div class="fam label">${esc(d.family)}</div>`; lastFam = d.family; }
+      const good = d.list.filter((c) => ['good', 'own'].includes(L.of(c))).length;
+      html += `<button class="dom" data-domain="${esc(d.name)}" aria-current="${state.domain === d.name}"><span>${esc(d.name)}</span><span class="n">${d.list.length}</span><span class="mini"><i style="width:${pct(good, d.list.length)}%;background:var(--accent)"></i></span></button>`;
+    }
+    $('domains').innerHTML = html;
+    const d = domainList().find((x) => x.name === state.domain);
+    $('domTitle').textContent = d.name;
+    const list = d.list.filter((c) => !state.dq || c.hay.includes(state.dq));
+    $('domCount').textContent = list.length;
+    $('items').innerHTML = list.map((c) => `<button class="li" data-cid="${c.id}" aria-current="${state.control === c.id}">
+      <span class="dot c-${L.of(c)}" title="${esc(L.legend.find(([k]) => k === L.of(c))[1])}"></span><b>${highlight(c.title, state.dq)}</b><span class="code">${highlight(c.code, state.dq)}</span>
+      <span class="sub">${appChip(c)}${ownerHtml(c, true)}</span></button>`).join('') || '<div class="empty">Nothing in this domain matches.</div>';
+    $('detail').innerHTML = state.control != null
+      ? `<button class="btn mobile-back" data-back>← ${esc(d.name)}</button>${detailHtml(CONTROLS[state.control])}<div style="display:flex;gap:8px;margin-top:20px"><button class="btn">Edit</button><a class="btn primary" href="#">Open full page →</a></div>`
+      : `<div class="empty">Pick a Control to see its details.</div>`;
+    $('browser').classList.toggle('has-detail', state.control != null);
+  }
+
+  function render() {
+    $('crumb').innerHTML = state.domain ? `Admin / <a data-home>Control Library</a> / ${esc(state.domain)}` : 'Admin / Control Library';
+    renderKpis();
+    $('atlas').hidden = !!state.domain;
+    $('browser').hidden = !state.domain;
+    state.domain ? renderBrowser() : renderAtlas();
+  }
+
+  function openControl(id) {
+    state.domain = CONTROLS[id].category; state.control = id; state.dq = ''; $('dq').value = '';
+    render();
+    const el = document.querySelector(`.li[data-cid="${id}"]`); if (el) el.scrollIntoView({ block: 'nearest' });
+  }
+
+  document.addEventListener('click', (e) => {
+    const t = e.target.closest('[data-cid], [data-domain], [data-lens], [data-home], [data-back], #jump');
+    if (!t) return;
+    if (t.id === 'jump') return openPalette();
+    if (t.dataset.cid) return openControl(+t.dataset.cid);
+    if (t.dataset.domain) { state.domain = t.dataset.domain; state.control = CONTROLS.find((c) => c.category === t.dataset.domain).id; state.dq = ''; $('dq').value = ''; return render(); }
+    if (t.dataset.lens) { state.lens = t.dataset.lens; state.domain = null; return render(); }
+    if ('home' in t.dataset) { state.domain = null; state.control = null; return render(); }
+    if ('back' in t.dataset) { state.control = null; return renderBrowser(); }
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && e.target.classList.contains('tile')) e.target.click();
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); openPalette(); }
+    if (state.domain && !$('palette').open && document.activeElement.tagName !== 'INPUT' && (e.key === 'j' || e.key === 'k')) {
+      const ids = [...document.querySelectorAll('.li')].map((b) => +b.dataset.cid);
+      const i = ids.indexOf(state.control) + (e.key === 'j' ? 1 : -1);
+      if (ids[i] != null) { state.control = ids[i]; renderBrowser(); document.querySelector(`.li[data-cid="${ids[i]}"]`).scrollIntoView({ block: 'nearest' }); }
+    }
+  });
+  $('dq').addEventListener('input', (e) => { state.dq = e.target.value.trim().toLowerCase(); renderBrowser(); });
+
+  // Hover card for atlas cells
+  const tip = $('tip');
+  document.addEventListener('pointerover', (e) => {
+    const c = e.target.closest('.cell[data-cid]');
+    if (!c) return tip.classList.remove('on');
+    const x = CONTROLS[+c.dataset.cid], r = c.getBoundingClientRect();
+    tip.innerHTML = `<b>${esc(x.code)}</b> ${esc(x.title)}<br><span style="opacity:.75">${x.owner ? esc(x.owner) : 'Unassigned'} · ${x.status ? STATUS[x.status] : 'Per System'} · ${x.satisfies} mapped</span>`;
+    tip.style.left = Math.min(r.left, innerWidth - 290) + 'px'; tip.style.top = (r.bottom + 8) + 'px';
+    tip.classList.add('on');
+  });
+
+  // Command palette
+  let hits = [], cur = 0;
+  function openPalette() { $('pq').value = ''; search(''); $('palette').showModal(); $('pq').focus(); }
+  function search(q) {
+    q = q.trim().toLowerCase();
+    hits = (q ? CONTROLS.filter((c) => c.hay.includes(q)).sort((a, b) => (b.code.toLowerCase().startsWith(q) - a.code.toLowerCase().startsWith(q))) : CONTROLS.filter((c) => !c.owner)).slice(0, 40);
+    cur = 0;
+    $('presults').innerHTML = (q ? '' : '<li class="label" style="display:block;cursor:default">Suggested: needs an owner</li>') +
+      hits.map((c, i) => `<li role="option" data-i="${i}" aria-selected="${i === 0}"><span class="code">${highlight(c.code, q)}</span><span>${highlight(c.title, q)}</span><small>${esc(c.category)}</small></li>`).join('') ||
+      '<li style="display:block" class="muted">No Controls match.</li>';
+  }
+  function move(d) { cur = Math.max(0, Math.min(hits.length - 1, cur + d)); document.querySelectorAll('#presults [data-i]').forEach((li) => li.setAttribute('aria-selected', +li.dataset.i === cur)); document.querySelector(`#presults [data-i="${cur}"]`)?.scrollIntoView({ block: 'nearest' }); }
+  function pick(i) { if (!hits[i]) return; $('palette').close(); openControl(hits[i].id); }
+  $('pq').addEventListener('input', (e) => search(e.target.value));
+  $('pq').addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowDown') { e.preventDefault(); move(1); }
+    if (e.key === 'ArrowUp') { e.preventDefault(); move(-1); }
+    if (e.key === 'Enter') { e.preventDefault(); pick(cur); }
+  });
+  $('presults').addEventListener('click', (e) => { const li = e.target.closest('[data-i]'); if (li) pick(+li.dataset.i); });
+  $('palette').addEventListener('click', (e) => { if (e.target === $('palette')) $('palette').close(); });
+
+  render();
+})();
+</script>
+</body>
+</html>
