@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Control Library Workbench</title>
+<link rel="stylesheet" href="library.css">
+<style>
+/* Proposal A: a workbench. Saved views, a facet filter rail with live counts, a dense grouped grid
+   that renders in batches, bulk actions, and a slide-over drawer for the selected Control. */
+.app { max-width: 1440px; margin: 0 auto; padding: 22px 20px 64px; display: grid; gap: 16px; }
+.top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 12px; }
+.top h1 { font-size: 1.6rem; font-weight: 750; letter-spacing: -0.01em; }
+.top .crumb { font-size: 0.8rem; color: var(--muted); margin-bottom: 4px; }
+.top .actions { display: flex; gap: 8px; }
+
+.views { display: flex; gap: 2px; border-bottom: 1px solid var(--line); overflow-x: auto; scrollbar-width: none; }
+.views button { border: 0; background: none; padding: 8px 12px; border-bottom: 2px solid transparent; margin-bottom: -1px; cursor: pointer; color: var(--muted); font-weight: 600; white-space: nowrap; display: inline-flex; gap: 7px; align-items: center; }
+.views button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+.views .n { font-size: 0.72rem; background: var(--soft); color: var(--accent); border-radius: 99px; padding: 0 7px; font-variant-numeric: tabular-nums; }
+
+.body { display: grid; grid-template-columns: 236px minmax(0, 1fr); gap: 20px; align-items: start; }
+.rail { position: sticky; top: 12px; display: grid; gap: 18px; max-height: calc(100vh - 24px); overflow-y: auto; padding-right: 4px; }
+.facet { display: grid; gap: 2px; }
+.facet h3 { margin-bottom: 4px; display: flex; justify-content: space-between; }
+.facet h3 button { border: 0; background: none; color: var(--accent); font-size: 0.72rem; cursor: pointer; text-transform: none; letter-spacing: 0; font-weight: 600; }
+.opt { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 3px 6px; border-radius: 5px; cursor: pointer; font-size: 0.86rem; }
+.opt:hover { background: var(--hover); }
+.opt input { margin: 0; accent-color: var(--accent); }
+.opt span:nth-child(2) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.opt .c { color: var(--muted); font-size: 0.76rem; font-variant-numeric: tabular-nums; }
+.opt.zero { opacity: .45; }
+.facet .more { border: 0; background: none; color: var(--accent); cursor: pointer; font-size: 0.8rem; text-align: left; padding: 2px 6px; }
+
+.main { display: grid; gap: 10px; min-width: 0; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.toolbar .search { flex: 1 1 280px; }
+.toolbar select { height: 36px; border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 0 8px; }
+.toolbar .filters-btn { display: none; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; min-height: 0; }
+.chips:empty { display: none; }
+.chips .fchip { display: inline-flex; gap: 6px; align-items: center; border: 1px solid var(--line); background: var(--surface); border-radius: 99px; padding: 2px 4px 2px 10px; font-size: 0.8rem; }
+.chips .fchip button { border: 0; background: var(--soft); border-radius: 50%; width: 18px; height: 18px; cursor: pointer; line-height: 1; padding: 0; }
+.result { font-size: 0.82rem; color: var(--muted); }
+
+.grid { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: clip; }
+.row { display: grid; grid-template-columns: 34px 92px minmax(0, 1fr) 118px 150px 82px 128px; align-items: center; gap: 0 12px; padding: 0 14px 0 6px; min-height: 46px; border-top: 1px solid var(--line-soft); }
+.row.head { position: sticky; top: 0; z-index: 2; background: var(--surface); min-height: 38px; border-top: 0; border-bottom: 1px solid var(--line); font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+.row.head button { border: 0; background: none; padding: 0; cursor: pointer; font: inherit; color: inherit; text-transform: inherit; letter-spacing: inherit; display: inline-flex; gap: 4px; }
+.row.head button[aria-sort="ascending"]::after { content: "↑"; } .row.head button[aria-sort="descending"]::after { content: "↓"; }
+.row.item { cursor: pointer; }
+.row.item:hover { background: var(--hover); }
+.row.item.active { background: var(--soft); box-shadow: inset 3px 0 0 var(--accent); }
+.row.item.sel { background: color-mix(in srgb, var(--soft) 60%, var(--surface)); }
+.row .ck { display: grid; place-items: center; height: 100%; }
+.row .ck input { accent-color: var(--accent); margin: 0; }
+.row .t { min-width: 0; padding: 7px 0; }
+.row .t b { display: block; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row .t small { display: block; color: var(--muted); font-size: 0.78rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row .sat { font-variant-numeric: tabular-nums; text-align: right; }
+.row .sat.zero { color: var(--bad); font-weight: 700; }
+.row .cell { min-width: 0; overflow: hidden; font-size: 0.84rem; }
+.group { display: flex; align-items: center; gap: 10px; padding: 8px 14px; background: var(--paper); border-top: 1px solid var(--line); cursor: pointer; position: sticky; top: 38px; z-index: 1; font-weight: 700; font-size: 0.86rem; width: 100%; border-left: 0; border-right: 0; border-bottom: 0; text-align: left; }
+.group .tw { width: 12px; color: var(--muted); transition: transform .15s; }
+.group[aria-expanded="false"] .tw { transform: rotate(-90deg); }
+.group .gc { color: var(--muted); font-weight: 500; font-variant-numeric: tabular-nums; }
+.group .gbar { margin-left: auto; display: flex; width: 120px; height: 6px; border-radius: 3px; overflow: hidden; background: var(--line-soft); }
+.group .gbar i { display: block; }
+.sentinel { padding: 14px; text-align: center; color: var(--muted); font-size: 0.82rem; }
+
+.bulk { position: fixed; left: 50%; bottom: 20px; transform: translate(-50%, 150%); transition: transform .2s ease; background: var(--ink); color: var(--paper); border-radius: 12px; padding: 8px 8px 8px 16px; display: flex; gap: 8px; align-items: center; box-shadow: var(--shadow); z-index: 20; max-width: calc(100vw - 32px); flex-wrap: wrap; }
+.bulk.on { transform: translate(-50%, 0); }
+.bulk .btn { background: transparent; color: inherit; border-color: color-mix(in srgb, var(--paper) 30%, transparent); }
+
+.scrim { position: fixed; inset: 0; background: rgba(14, 27, 34, .28); opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 30; }
+.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(480px, 100vw); background: var(--paper); border-left: 1px solid var(--line); box-shadow: var(--shadow); transform: translateX(100%); transition: transform .22s ease; z-index: 31; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; }
+body.drawer-open .scrim { opacity: 1; pointer-events: auto; }
+body.drawer-open .drawer { transform: none; }
+.drawer header, .drawer footer { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 14px; background: var(--surface); border-bottom: 1px solid var(--line); }
+.drawer footer { border-bottom: 0; border-top: 1px solid var(--line); }
+.drawer .scroll { overflow-y: auto; padding: 20px; }
+@media (prefers-reduced-motion: reduce) { .drawer, .bulk, .scrim { transition: none; } }
+
+@media (max-width: 1100px) { .row { grid-template-columns: 34px 84px minmax(0, 1fr) 140px 64px; } .row .c-app, .row .c-status { display: none; } }
+@media (max-width: 820px) {
+  .body { grid-template-columns: minmax(0, 1fr); }
+  .rail { position: fixed; inset: 0 auto 0 0; width: min(300px, 86vw); max-height: none; background: var(--paper); z-index: 31; padding: 18px; transform: translateX(-100%); transition: transform .2s; box-shadow: var(--shadow); }
+  body.rail-open .rail { transform: none; }
+  body.rail-open .scrim { opacity: 1; pointer-events: auto; }
+  .toolbar .filters-btn { display: inline-flex; }
+  .row { grid-template-columns: 30px minmax(0, 1fr) auto; grid-template-areas: "ck code sat" "ck t t" "ck own own"; padding: 8px 12px 8px 4px; gap: 2px 10px; }
+  .row.head { display: none; }
+  .row .ck { grid-area: ck; } .row .code { grid-area: code; } .row .t { grid-area: t; padding: 0; } .row .c-own { grid-area: own; } .row .sat { grid-area: sat; }
+  .group { top: 0; }
+  .group .gbar { width: 60px; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="top">
+    <div>
+      <p class="crumb">Admin / Control Library</p>
+      <h1>Control Library</h1>
+    </div>
+    <div class="actions"><button class="btn">Import</button><button class="btn primary">+ New Control</button></div>
+  </div>
+
+  <div class="views" role="tablist" id="views"></div>
+
+  <div class="body">
+    <aside class="rail" id="rail" aria-label="Filters"></aside>
+    <div class="main">
+      <div class="toolbar">
+        <button class="btn filters-btn" id="openRail">Filters</button>
+        <label class="search"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.6"/><path d="m11 11 3.5 3.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+          <span class="sr">Search Controls</span><input id="q" type="search" placeholder="Search by ID, title, description or owner" autocomplete="off"><span class="kbd">/</span></label>
+        <label><span class="sr">Group by</span><select id="groupBy"><option value="category">Group: Category</option><option value="owner">Group: Owner</option><option value="status">Group: Status</option><option value="family">Group: Source</option><option value="">No grouping</option></select></label>
+      </div>
+      <div class="chips" id="chips"></div>
+      <p class="result" id="result" aria-live="polite"></p>
+      <div class="grid" id="grid" role="table" aria-label="Controls"></div>
+    </div>
+  </div>
+</div>
+
+<div class="bulk" id="bulk" role="region" aria-label="Bulk actions">
+  <span id="bulkN" class="num"></span>
+  <button class="btn">Assign owner</button><button class="btn">Set applicability</button><button class="btn">Map to Requirement</button>
+  <button class="btn ghost" id="bulkClear">Clear</button>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="drawer" aria-label="Control details" aria-hidden="true">
+  <header><span class="muted small" id="pos"></span><div><button class="btn ghost" id="prev" title="Previous (k)">↑</button><button class="btn ghost" id="next" title="Next (j)">↓</button><button class="btn ghost" id="close" title="Close (Esc)">✕</button></div></header>
+  <div class="scroll" id="detail"></div>
+  <footer><button class="btn">Edit</button><a class="btn primary" href="#">Open full page →</a></footer>
+</aside>
+
+<script src="data.js"></script>
+<script src="library.js"></script>
+<script>
+(function () {
+  const { esc, highlight, appChip, ownerHtml, statusHtml, statusKey, detailHtml, APPLICABILITY, STATUS } = Lib;
+  const $ = (id) => document.getElementById(id);
+
+  const VIEWS = [
+    { key: 'all', label: 'All Controls', test: () => true },
+    { key: 'unowned', label: 'Needs an owner', test: (c) => !c.owner },
+    { key: 'unmapped', label: 'Not mapped', test: (c) => !c.mapped },
+    { key: 'notstarted', label: 'Not started', test: (c) => c.status === 'NOT_STARTED' },
+    { key: 'mine', label: 'Owned by me', test: (c) => c.owner === 'Elena Voss' },
+  ];
+  const FACETS = [
+    { key: 'family', label: 'Source', get: (c) => c.family },
+    { key: 'applicability', label: 'Applicability', get: (c) => APPLICABILITY[c.applicability] },
+    { key: 'status', label: 'Organization status', get: (c) => c.status ? STATUS[c.status] : 'Per System only' },
+    { key: 'owner', label: 'Control Owner', get: (c) => c.owner || 'Unassigned' },
+    { key: 'category', label: 'Category', get: (c) => c.category, long: true },
+    { key: 'facets', label: 'Deployment Facet', get: (c) => c.facets.length ? c.facets : ['Any'] },
+  ];
+  const STATUS_ORDER = ['Implemented', 'In progress', 'Not started', 'Per System only'];
+
+  const state = { view: 'all', q: '', filters: {}, groupBy: 'category', sort: { key: 'code', dir: 1 }, collapsed: new Set(), expandedFacets: new Set(), selected: new Set(), active: null, limit: 80 };
+  let visible = [];
+
+  const values = (f, c) => [].concat(f.get(c));
+  function matches(c, skipFacet) {
+    if (!VIEWS.find((v) => v.key === state.view).test(c)) return false;
+    if (state.q && !c.hay.includes(state.q)) return false;
+    for (const f of FACETS) {
+      if (f.key === skipFacet) continue;
+      const sel = state.filters[f.key];
+      if (sel && sel.size && !values(f, c).some((v) => sel.has(v))) return false;
+    }
+    return true;
+  }
+
+  function renderViews() {
+    $('views').innerHTML = VIEWS.map((v) => {
+      const n = CONTROLS.filter(v.test).length;
+      return `<button role="tab" aria-selected="${state.view === v.key}" data-view="${v.key}">${v.label}<span class="n">${n}</span></button>`;
+    }).join('');
+  }
+
+  function renderRail() {
+    $('rail').innerHTML = FACETS.map((f) => {
+      // Counts honour every other filter, so each number says what checking that box would show.
+      const counts = new Map();
+      CONTROLS.forEach((c) => { if (matches(c, f.key)) values(f, c).forEach((v) => counts.set(v, (counts.get(v) || 0) + 1)); });
+      const all = new Set(); CONTROLS.forEach((c) => values(f, c).forEach((v) => all.add(v)));
+      let opts = [...all];
+      if (f.key === 'status') opts.sort((a, b) => STATUS_ORDER.indexOf(a) - STATUS_ORDER.indexOf(b));
+      else opts.sort((a, b) => (counts.get(b) || 0) - (counts.get(a) || 0) || a.localeCompare(b));
+      const sel = state.filters[f.key] || new Set();
+      const shown = f.long && !state.expandedFacets.has(f.key) ? opts.slice(0, 6) : opts;
+      return `<div class="facet"><h3 class="label">${f.label}${sel.size ? `<button data-clear="${f.key}">Clear</button>` : ''}</h3>
+        ${shown.map((v) => `<label class="opt${counts.get(v) ? '' : ' zero'}"><input type="checkbox" data-facet="${f.key}" value="${esc(v)}" ${sel.has(v) ? 'checked' : ''}><span title="${esc(v)}">${esc(v)}</span><span class="c">${counts.get(v) || 0}</span></label>`).join('')}
+        ${f.long && opts.length > 6 ? `<button class="more" data-more="${f.key}">${state.expandedFacets.has(f.key) ? 'Show fewer' : `Show all ${opts.length}`}</button>` : ''}</div>`;
+    }).join('');
+  }
+
+  function renderChips() {
+    const chips = [];
+    for (const f of FACETS) for (const v of state.filters[f.key] || []) chips.push(`<span class="fchip">${f.label}: <b>${esc(v)}</b><button aria-label="Remove" data-rm="${f.key}" data-v="${esc(v)}">×</button></span>`);
+    if (chips.length) chips.push(`<button class="btn ghost" data-clearall>Clear all</button>`);
+    $('chips').innerHTML = chips.join('');
+  }
+
+  const cmp = (a, b) => String(a).localeCompare(String(b), undefined, { numeric: true });
+  const SORTS = { code: (c) => c.code, title: (c) => c.title, owner: (c) => c.owner || '~', satisfies: (c) => c.satisfies, status: (c) => STATUS_ORDER.indexOf(c.status ? STATUS[c.status] : 'Per System only') };
+  const GROUPS = { category: (c) => c.category, owner: (c) => c.owner || 'Unassigned', status: (c) => c.status ? STATUS[c.status] : 'Per System only', family: (c) => c.family };
+
+  function rowHtml(c) {
+    return `<div class="row item${state.active === c.id ? ' active' : ''}${state.selected.has(c.id) ? ' sel' : ''}" role="row" data-id="${c.id}" tabindex="-1">
+      <span class="ck"><input type="checkbox" aria-label="Select ${esc(c.code)}" data-sel="${c.id}" ${state.selected.has(c.id) ? 'checked' : ''}></span>
+      <span class="code">${highlight(c.code, state.q)}</span>
+      <span class="t"><b>${highlight(c.title, state.q)}</b><small>${highlight(c.description, state.q)}</small></span>
+      <span class="cell c-app">${appChip(c)}</span>
+      <span class="cell c-own">${ownerHtml(c)}</span>
+      <span class="sat${c.satisfies ? '' : ' zero'}" title="Requirements satisfied">${c.satisfies || '0'}</span>
+      <span class="cell c-status">${statusHtml(c)}</span></div>`;
+  }
+
+  function renderGrid() {
+    const sortFn = SORTS[state.sort.key];
+    visible = CONTROLS.filter((c) => matches(c)).sort((a, b) => state.sort.dir * (typeof sortFn(a) === 'number' ? sortFn(a) - sortFn(b) : cmp(sortFn(a), sortFn(b))));
+    const head = `<div class="row head" role="row"><span class="ck"><input type="checkbox" aria-label="Select all shown" id="selAll" ${visible.length && visible.every((c) => state.selected.has(c.id)) ? 'checked' : ''}></span>
+      ${[['code', 'ID'], ['title', 'Control'], [null, 'Applicability', 'c-app'], ['owner', 'Owner', 'c-own'], ['satisfies', 'Maps', 'sat'], ['status', 'Status', 'c-status']].map(([k, l, cls]) =>
+        `<span class="${cls || ''}">${k ? `<button data-sort="${k}" aria-sort="${state.sort.key === k ? (state.sort.dir > 0 ? 'ascending' : 'descending') : 'none'}">${l}</button>` : l}</span>`).join('')}</div>`;
+    let html = head, budget = state.limit, truncated = false;
+    if (!visible.length) html += `<div class="empty">No Controls match. <button class="btn" data-clearall>Clear filters</button></div>`;
+    if (state.groupBy) {
+      const groups = new Map();
+      visible.forEach((c) => { const g = GROUPS[state.groupBy](c); if (!groups.has(g)) groups.set(g, []); groups.get(g).push(c); });
+      const keys = [...groups.keys()].sort(state.groupBy === 'status' ? (a, b) => STATUS_ORDER.indexOf(a) - STATUS_ORDER.indexOf(b) : cmp);
+      for (const g of keys) {
+        if (budget <= 0) { truncated = true; break; }
+        const list = groups.get(g), open = !state.collapsed.has(g);
+        const owned = list.filter((c) => c.owner).length, mapped = list.filter((c) => c.mapped).length;
+        html += `<button class="group" aria-expanded="${open}" data-group="${esc(g)}"><span class="tw">▾</span>${esc(g)} <span class="gc">${list.length}</span>
+          <span class="gbar" title="${owned} of ${list.length} owned"><i style="width:${(owned / list.length) * 100}%;background:var(--accent)"></i></span></button>`;
+        if (open) { if (list.length > budget) truncated = true; list.slice(0, budget).forEach((c) => (html += rowHtml(c))); budget -= list.length; }
+      }
+    } else visible.slice(0, budget).forEach((c) => (html += rowHtml(c)));
+    if (truncated || (!state.groupBy && visible.length > state.limit)) html += `<div class="sentinel" id="sentinel">Loading more…</div>`;
+    $('grid').innerHTML = html;
+    $('result').textContent = `${visible.length} of ${CONTROLS.length} Controls`;
+    const s = $('sentinel');
+    if (s) new IntersectionObserver((e, o) => { if (e[0].isIntersecting) { o.disconnect(); state.limit += 80; renderGrid(); } }, { rootMargin: '400px' }).observe(s);
+    renderBulk();
+  }
+
+  function renderBulk() {
+    $('bulk').classList.toggle('on', state.selected.size > 0);
+    $('bulkN').textContent = `${state.selected.size} selected`;
+  }
+
+  function openDrawer(id) {
+    state.active = id;
+    const c = CONTROLS[id], i = visible.indexOf(c);
+    $('detail').innerHTML = detailHtml(c);
+    $('pos').textContent = i >= 0 ? `${i + 1} of ${visible.length}` : '';
+    document.body.classList.add('drawer-open');
+    $('drawer').setAttribute('aria-hidden', 'false');
+    document.querySelectorAll('.row.item.active').forEach((r) => r.classList.remove('active'));
+    const row = document.querySelector(`.row.item[data-id="${id}"]`);
+    if (row) { row.classList.add('active'); row.scrollIntoView({ block: 'nearest' }); }
+  }
+  function closeDrawer() { document.body.classList.remove('drawer-open', 'rail-open'); $('drawer').setAttribute('aria-hidden', 'true'); }
+  function step(d) {
+    const i = visible.findIndex((c) => c.id === state.active);
+    const n = visible[Math.max(0, Math.min(visible.length - 1, (i < 0 ? -1 : i) + d))];
+    if (!n) return;
+    if (visible.indexOf(n) >= state.limit) { state.limit += 80; renderGrid(); }
+    openDrawer(n.id);
+  }
+
+  function all() { renderViews(); renderRail(); renderChips(); renderGrid(); }
+
+  document.addEventListener('click', (e) => {
+    const t = e.target.closest('button, input, .row.item, a');
+    if (!t) return;
+    if (t.dataset.view) { state.view = t.dataset.view; state.limit = 80; return all(); }
+    if (t.dataset.clear) { delete state.filters[t.dataset.clear]; return all(); }
+    if (t.dataset.more) { state.expandedFacets.has(t.dataset.more) ? state.expandedFacets.delete(t.dataset.more) : state.expandedFacets.add(t.dataset.more); return renderRail(); }
+    if (t.dataset.rm) { state.filters[t.dataset.rm].delete(t.dataset.v); return all(); }
+    if ('clearall' in t.dataset) { state.filters = {}; state.q = ''; $('q').value = ''; return all(); }
+    if (t.dataset.sort) { const k = t.dataset.sort; state.sort = { key: k, dir: state.sort.key === k ? -state.sort.dir : 1 }; return renderGrid(); }
+    if (t.dataset.group !== undefined) { const g = t.dataset.group; state.collapsed.has(g) ? state.collapsed.delete(g) : state.collapsed.add(g); return renderGrid(); }
+    if (t.id === 'selAll') { visible.forEach((c) => (t.checked ? state.selected.add(c.id) : state.selected.delete(c.id))); return renderGrid(); }
+    if (t.dataset.sel) { const id = +t.dataset.sel; t.checked ? state.selected.add(id) : state.selected.delete(id); t.closest('.row').classList.toggle('sel', t.checked); return renderBulk(); }
+    if (t.id === 'bulkClear') { state.selected.clear(); return renderGrid(); }
+    if (t.classList.contains('item')) return openDrawer(+t.dataset.id);
+    if (t.id === 'close') return closeDrawer();
+    if (t.id === 'prev') return step(-1);
+    if (t.id === 'next') return step(1);
+    if (t.id === 'openRail') return document.body.classList.add('rail-open');
+  });
+  $('scrim').addEventListener('click', closeDrawer);
+  $('rail').addEventListener('change', (e) => {
+    const f = e.target.dataset.facet; if (!f) return;
+    const sel = (state.filters[f] ||= new Set());
+    e.target.checked ? sel.add(e.target.value) : sel.delete(e.target.value);
+    state.limit = 80; renderViews(); renderRail(); renderChips(); renderGrid();
+  });
+  $('groupBy').addEventListener('change', (e) => { state.groupBy = e.target.value; state.collapsed.clear(); renderGrid(); });
+  let timer;
+  $('q').addEventListener('input', (e) => { clearTimeout(timer); timer = setTimeout(() => { state.q = e.target.value.trim().toLowerCase(); state.limit = 80; renderRail(); renderGrid(); }, 90); });
+  document.addEventListener('keydown', (e) => {
+    const typing = /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName);
+    if (e.key === '/' && !typing) { e.preventDefault(); $('q').focus(); }
+    else if (e.key === 'Escape') { if (typing) document.activeElement.blur(); closeDrawer(); }
+    else if (!typing && (e.key === 'j' || e.key === 'ArrowDown') && document.body.classList.contains('drawer-open')) { e.preventDefault(); step(1); }
+    else if (!typing && (e.key === 'k' || e.key === 'ArrowUp') && document.body.classList.contains('drawer-open')) { e.preventDefault(); step(-1); }
+  });
+  all();
+})();
+</script>
+</body>
+</html>
