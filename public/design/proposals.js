@@ -3,6 +3,28 @@
 // `id` is the vote key: keep it stable once people have voted, or the votes are orphaned.
 window.DESIGN_PARTS = [
   {
+    id: "soa",
+    name: "Statement of Applicability",
+    added: "2026-10-17",
+    question: "How should the Statement of Applicability show 300+ Controls so it can be read, audited and completed?",
+    proposals: [
+      {
+        id: "soa-a",
+        label: "A",
+        title: "Ledger",
+        href: "/design/soa/proposal-a.html",
+        summary: "Four chart cards that double as filters, views such as Missing justification, and a grouped table with a drawer to write exclusion justifications in place.",
+      },
+      {
+        id: "soa-b",
+        label: "B",
+        title: "Mosaic",
+        href: "/design/soa/proposal-b.html",
+        summary: "A one-sentence summary and readiness ring, then three modes: one cell per Control by domain, a typeset document with an index, and a review queue for exclusions.",
+      },
+    ],
+  },
+  {
     id: "system",
     name: "System detail",
     added: "2026-10-17",

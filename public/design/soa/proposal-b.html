@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Statement Mosaic</title>
+<link rel="stylesheet" href="../controls/library.css">
+<link rel="stylesheet" href="soa.css">
+<style>
+/* Proposal B: a mosaic. A hero states the Statement in one sentence beside a readiness ring.
+   Three modes: Mosaic shows all Controls at once as one cell each, by domain, through a chosen
+   lens; Document is the typeset Statement an auditor reads, with a scroll-spy index; Review walks
+   the exclusions that still need a justification, one card at a time. */
+.app { max-width: 1440px; margin: 0 auto; padding: 22px 20px 72px; display: grid; gap: 20px; }
+
+.hero { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 24px; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 22px 26px; position: relative; overflow: hidden; }
+.hero::after { content: ""; position: absolute; inset: auto -80px -120px auto; width: 340px; height: 340px; border-radius: 50%; background: radial-gradient(circle, var(--soft) 0%, transparent 70%); pointer-events: none; }
+.hero h1 { font-size: 1.7rem; font-weight: 760; letter-spacing: -0.015em; margin: 6px 0 8px; }
+.hero .sentence { font-size: 1.02rem; max-width: 62ch; color: var(--muted); }
+.hero .sentence b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.hero .sentence .bad { color: var(--bad); }
+.hero .meta { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 14px; align-items: center; font-size: 0.8rem; color: var(--muted); }
+.live { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; color: var(--ok); }
+.live::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 0 color-mix(in srgb, var(--ok) 60%, transparent); animation: pulse 2s infinite; }
+@keyframes pulse { 70% { box-shadow: 0 0 0 7px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
+.gauge { position: relative; display: grid; place-items: center; z-index: 1; }
+.gauge .in { position: absolute; text-align: center; display: grid; gap: 2px; }
+.gauge .in b { font-size: 1.9rem; font-weight: 780; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; line-height: 1; }
+.gauge .in span { font-size: 0.72rem; color: var(--muted); max-width: 90px; line-height: 1.25; }
+.hero .side { display: flex; gap: 22px; align-items: center; z-index: 1; }
+.hero .facts { display: grid; gap: 10px; min-width: 180px; }
+.fact { display: grid; gap: 3px; }
+.fact .top { display: flex; justify-content: space-between; font-size: 0.78rem; color: var(--muted); }
+.fact .top b { color: var(--ink); font-variant-numeric: tabular-nums; }
+
+.modebar { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; align-items: center; position: sticky; top: 0; z-index: 10; background: color-mix(in srgb, var(--paper) 88%, transparent); backdrop-filter: blur(8px); padding: 8px 0; margin: -8px 0; }
+.modes { display: inline-flex; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 3px; gap: 2px; }
+.modes button { border: 0; background: none; border-radius: 7px; padding: 6px 14px; cursor: pointer; font-weight: 650; font-size: 0.86rem; color: var(--muted); display: inline-flex; gap: 7px; align-items: center; }
+.modes button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+.modes .n { font-size: 0.7rem; background: var(--bad); color: #fff; border-radius: 99px; padding: 0 6px; font-variant-numeric: tabular-nums; }
+.modebar .right { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.modebar .search { width: 300px; }
+.seg { display: inline-flex; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 2px; }
+.seg button { border: 0; background: none; border-radius: 6px; padding: 4px 11px; cursor: pointer; font-weight: 600; font-size: 0.8rem; color: var(--muted); }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
+
+/* Mosaic */
+.lens { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; justify-content: space-between; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 0.78rem; color: var(--muted); }
+.legend span { display: inline-flex; gap: 6px; align-items: center; }
+.legend i { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
+.fam-h { display: flex; align-items: baseline; gap: 10px; margin: 6px 0 -4px; }
+.fam-h h2 { font-size: 0.95rem; }
+.mosaic { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); grid-auto-flow: dense; gap: 12px; }
+.tile { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 13px 14px 14px; display: grid; gap: 10px; align-content: start; transition: border-color .15s, box-shadow .15s, transform .15s; position: relative; }
+.tile.wide { grid-column: span 2; }
+.tile:hover { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); box-shadow: 0 6px 20px rgba(20, 45, 61, .07); }
+.tile header { display: flex; justify-content: space-between; gap: 10px; align-items: start; }
+.tile h3 { font-size: 0.9rem; font-weight: 680; }
+.tile h3 small { display: block; color: var(--muted); font-weight: 500; font-size: 0.72rem; margin-top: 2px; }
+.tile .pct { font-size: 1.05rem; font-weight: 750; font-variant-numeric: tabular-nums; }
+.tile .pct.bad { color: var(--bad); }
+.cells { display: flex; flex-wrap: wrap; gap: 4px; }
+.cell { width: 15px; height: 15px; border-radius: 4px; border: 0; padding: 0; cursor: pointer; transition: transform .12s, opacity .2s; }
+.cell:hover, .cell:focus-visible { transform: scale(1.35); outline: 2px solid var(--ink); outline-offset: 1px; z-index: 1; }
+.cell.dim { opacity: .14; }
+.cell.l0 { background: color-mix(in srgb, var(--accent) 18%, var(--line-soft)); } .cell.l1 { background: color-mix(in srgb, var(--accent) 45%, var(--line-soft)); } .cell.l2 { background: color-mix(in srgb, var(--accent) 72%, var(--surface)); } .cell.l3 { background: var(--accent); }
+.cell.ex { background: transparent; box-shadow: inset 0 0 0 1.5px var(--line); }
+.cell.miss { background: var(--bad-soft); box-shadow: inset 0 0 0 1.5px var(--bad); }
+.cell.inc { background: var(--accent); }
+.tile .foot { display: flex; justify-content: space-between; font-size: 0.76rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.tile .foot .bad { color: var(--bad); font-weight: 700; }
+.tip { position: fixed; z-index: 50; pointer-events: none; background: var(--ink); color: var(--paper); border-radius: 8px; padding: 8px 10px; font-size: 0.78rem; max-width: 300px; box-shadow: var(--shadow); opacity: 0; transition: opacity .1s; display: grid; gap: 2px; }
+.tip.on { opacity: 1; }
+.tip b { font-family: var(--mono); }
+.tip span { opacity: .8; }
+
+/* Document */
+.doc { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 28px; align-items: start; }
+.index { position: sticky; top: 64px; max-height: calc(100vh - 80px); overflow-y: auto; display: grid; gap: 1px; padding-right: 4px; }
+.index a { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; padding: 5px 10px; border-radius: 6px; color: var(--muted); text-decoration: none; font-size: 0.84rem; border-left: 2px solid transparent; }
+.index a span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.index a .c { font-variant-numeric: tabular-nums; font-size: 0.76rem; }
+.index a:hover { background: var(--hover); color: var(--ink); }
+.index a.on { color: var(--ink); font-weight: 650; border-left-color: var(--accent); background: var(--surface); }
+.index .fam { padding: 12px 10px 4px; }
+.paper { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 8px 34px 30px; }
+.paper section { padding-top: 26px; scroll-margin-top: 70px; }
+.paper section > h2 { font-size: 1.12rem; display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+.paper section > h2 small { font-size: 0.78rem; color: var(--muted); font-weight: 500; font-variant-numeric: tabular-nums; }
+.entry { display: grid; grid-template-columns: 96px minmax(0, 1fr) 210px; gap: 4px 18px; padding: 12px 0; border-bottom: 1px solid var(--line-soft); cursor: pointer; }
+.entry:hover { background: linear-gradient(90deg, transparent, var(--hover) 8%, var(--hover) 92%, transparent); }
+.entry .body { display: grid; gap: 5px; min-width: 0; }
+.entry h3 { font-size: 0.92rem; font-weight: 650; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.entry .why { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; font-size: 0.84rem; }
+.entry .why em { color: var(--muted); }
+.entry .st { display: grid; gap: 5px; font-size: 0.8rem; align-content: start; }
+.entry .st .line { display: flex; gap: 8px; align-items: center; white-space: nowrap; }
+.entry .st .k { color: var(--muted); width: 26px; font-size: 0.72rem; font-weight: 600; }
+.entry.hide { display: none; }
+.write { border: 1px solid var(--bad); color: var(--bad); background: var(--bad-soft); border-radius: 6px; padding: 1px 8px; font-size: 0.76rem; font-weight: 700; cursor: pointer; }
+
+/* Review */
+.review { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 22px; align-items: start; max-width: 1100px; margin: 0 auto; width: 100%; }
+.stepper { display: flex; gap: 4px; margin-bottom: 14px; }
+.stepper i { flex: 1; height: 5px; border-radius: 3px; background: var(--line-soft); transition: background .3s; }
+.stepper i.done { background: var(--ok); } .stepper i.cur { background: var(--accent); }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 24px 26px; display: grid; gap: 18px; box-shadow: 0 10px 30px rgba(20, 45, 61, .06); animation: rise .28s ease; }
+@keyframes rise { from { opacity: 0; transform: translateY(8px); } }
+.card .head { display: flex; justify-content: space-between; gap: 12px; align-items: start; }
+.card h2 { font-size: 1.3rem; margin-top: 4px; }
+.card .facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.card .facts div { border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; display: grid; gap: 2px; font-size: 0.84rem; }
+.card .actions { display: flex; justify-content: space-between; gap: 8px; align-items: center; flex-wrap: wrap; }
+.queue { display: grid; gap: 4px; position: sticky; top: 64px; }
+.queue button { display: grid; grid-template-columns: 18px 90px minmax(0, 1fr); gap: 8px; align-items: center; border: 1px solid transparent; background: none; border-radius: 8px; padding: 7px 10px; text-align: left; cursor: pointer; font-size: 0.84rem; }
+.queue button:hover { background: var(--hover); }
+.queue button[aria-current="true"] { background: var(--surface); border-color: var(--accent); }
+.queue button span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.queue .ck { width: 16px; height: 16px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--bad); display: grid; place-items: center; font-size: 0.66rem; color: #fff; }
+.queue .ck.ok { background: var(--ok); box-shadow: none; }
+.done-card { text-align: center; justify-items: center; padding: 48px 26px; }
+.done-card svg path { stroke-dasharray: 40; stroke-dashoffset: 40; animation: draw .5s .15s ease forwards; }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+
+/* Side sheet */
+.scrim { position: fixed; inset: 0; background: rgba(14, 27, 34, .28); opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 30; }
+.sheet { position: fixed; top: 12px; right: 12px; bottom: 12px; width: min(460px, calc(100vw - 24px)); background: var(--paper); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); transform: translateX(calc(100% + 24px)); transition: transform .24s ease; z-index: 31; display: grid; grid-template-rows: auto minmax(0, 1fr); overflow: hidden; }
+body.sheet-open .scrim { opacity: 1; pointer-events: auto; }
+body.sheet-open .sheet { transform: none; }
+.sheet header { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: var(--surface); border-bottom: 1px solid var(--line); }
+.sheet .scroll { overflow-y: auto; padding: 20px; display: grid; gap: 18px; align-content: start; }
+.sheet h2 { font-size: 1.2rem; }
+.sheet .kv { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 16px; margin: 0; }
+.sheet .kv dt { color: var(--muted); } .sheet .kv dd { margin: 0; }
+.sheet section { display: grid; gap: 8px; }
+.sheet .reqs { display: flex; flex-wrap: wrap; gap: 6px; }
+a.btn { text-decoration: none; }
+@media (prefers-reduced-motion: reduce) { .sheet, .scrim, .card, .cell, .live::before, .done-card svg path { transition: none; animation: none; } .done-card svg path { stroke-dashoffset: 0; } }
+
+@media print {
+  .hero, .modebar, .index, .sheet, .scrim, .toast { display: none !important; }
+  .doc { grid-template-columns: 1fr; } .paper { border: 0; padding: 0; }
+  #mosaicView, #reviewView { display: none !important; } #docView { display: grid !important; }
+}
+@media (max-width: 1000px) {
+  .hero { grid-template-columns: 1fr; }
+  .doc { grid-template-columns: 1fr; } .index { display: none; }
+  .review { grid-template-columns: 1fr; } .queue { position: static; }
+  .entry { grid-template-columns: 84px minmax(0, 1fr); } .entry .st { grid-column: 2; }
+}
+@media (max-width: 640px) {
+  .app { padding: 16px 16px 64px; }
+  .hero { padding: 18px; } .hero .side { flex-direction: column; align-items: stretch; } .gauge { justify-self: center; }
+  .modebar .search { width: 100%; } .modebar .right { width: 100%; }
+  .tile.wide { grid-column: auto; }
+  .paper { padding: 4px 16px 20px; }
+  .entry { grid-template-columns: 1fr; } .entry .st { grid-column: 1; }
+  .card { padding: 18px; } .card .facts { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <section class="hero" id="hero"></section>
+
+  <div class="modebar">
+    <div class="modes" role="group" aria-label="Mode">
+      <button data-mode="mosaic" aria-pressed="true">Mosaic</button>
+      <button data-mode="doc" aria-pressed="false">Document</button>
+      <button data-mode="review" aria-pressed="false">Review exclusions <span class="n" id="missN"></span></button>
+    </div>
+    <div class="right">
+      <label class="search"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.6"/><path d="m11 11 3.5 3.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        <span class="sr">Find a Control</span><input id="q" type="search" placeholder="Find a Control: ID, title, justification" autocomplete="off"><span class="kbd">/</span></label>
+      <button class="btn" onclick="window.print()">Print</button><button class="btn primary">Export for audit</button>
+    </div>
+  </div>
+
+  <div id="mosaicView" style="display:grid; gap:16px">
+    <div class="lens">
+      <div class="seg" role="group" aria-label="Colour by" id="lens">
+        <button data-lens="inclusion" aria-pressed="true">Inclusion</button>
+        <button data-lens="org" aria-pressed="false">Organization</button>
+        <button data-lens="sys" aria-pressed="false">Systems</button>
+      </div>
+      <div class="legend" id="legend"></div>
+    </div>
+    <div id="mosaic" style="display:grid; gap:16px"></div>
+  </div>
+
+  <div id="docView" class="doc" hidden>
+    <nav class="index" id="index" aria-label="Domains"></nav>
+    <article class="paper" id="paper"></article>
+  </div>
+
+  <div id="reviewView" hidden></div>
+</div>
+
+<div class="tip" id="tip" role="tooltip"></div>
+<div class="scrim" id="scrim"></div>
+<aside class="sheet" id="sheet" aria-label="Control in the Statement" aria-hidden="true">
+  <header><span class="muted" id="pos" style="font-size:.82rem"></span><button class="btn ghost" id="close" title="Close (Esc)">✕</button></header>
+  <div class="scroll" id="detail"></div>
+</aside>
+<div class="toast" id="toast" role="status"></div>
+
+<script src="../controls/data.js"></script>
+<script src="../controls/library.js"></script>
+<script src="soa.js"></script>
+<script>
+(function () {
+  const { esc, highlight } = Lib;
+  const { rows, domains, totals, systemsOf, STATUS, ROLLUP_ORDER, TEMPLATES, statusDot, statusText, statusClass, rollupBar, rollupText, reqChips, appliesHtml, ring } = SOA;
+  const $ = (id) => document.getElementById(id);
+  const state = { mode: 'mosaic', lens: 'inclusion', q: '', reviewAt: 0, queue: rows.filter((r) => r.missing).map((r) => r.id) };
+
+  const pct = (x) => Math.round(x * 100) + '%';
+  const fams = [...new Set(domains.map((d) => d.family))];
+
+  function renderHero() {
+    const t = totals(rows);
+    const orgN = t.org.FULFILLED + t.org.IN_PROGRESS + t.org.NOT_STARTED;
+    const sysN = ROLLUP_ORDER.reduce((a, s) => a + t.sys[s], 0);
+    $('hero').innerHTML = `
+      <div style="z-index:1">
+        <p class="eyebrow">ISO/IEC 27001:2022 · Statement of Applicability</p>
+        <h1>${t.all} Controls considered</h1>
+        <p class="sentence"><b>${t.included}</b> are included because they apply to the Organization or to at least one System; <b>${t.excluded}</b> are excluded${t.missing ? `, and <b class="bad">${t.missing} of those still need a justification</b>` : ', each with its justification'}. On average the included Controls are <b>${pct(t.progress)}</b> implemented.</p>
+        <div class="meta"><span class="live">Derived live</span><span>Last change: A.8.24 justification, 2 hours ago</span><span>Approved snapshot v6 · 2026-09-30</span></div>
+      </div>
+      <div class="side">
+        <div class="facts">
+          <div class="fact"><div class="top"><span>Included</span><b>${t.included} / ${t.all}</b></div><span class="rbar wide"><i class="s-FULFILLED" style="flex:${t.included};background:var(--accent)"></i><i style="flex:${t.excluded};background:transparent"></i></span></div>
+          <div class="fact"><div class="top"><span>Exclusions justified</span><b>${t.justified} / ${t.excluded}</b></div><span class="rbar wide"><i class="s-FULFILLED" style="flex:${t.justified}"></i><i class="s-MISSING" style="flex:${t.missing}"></i></span></div>
+          <div class="fact"><div class="top"><span>Organization fulfilled</span><b>${t.org.FULFILLED} / ${orgN}</b></div><span class="rbar wide">${['FULFILLED', 'IN_PROGRESS', 'NOT_STARTED'].map((s) => `<i class="${statusClass(s)}" style="flex:${t.org[s]}"></i>`).join('')}</span></div>
+          <div class="fact"><div class="top"><span>System Assessments done</span><b>${pct((t.sys.FULFILLED + t.sys.WAIVED + t.sys.NOT_APPLICABLE) / sysN)}</b></div><span class="rbar wide">${ROLLUP_ORDER.map((s) => `<i class="${statusClass(s)}" style="flex:${t.sys[s]}"></i>`).join('')}</span></div>
+        </div>
+        <div class="gauge">${ring([[t.progress, 'c-acc']], 150, 14, `${pct(t.progress)} implemented`)}<div class="in"><b>${pct(t.progress)}</b><span>of included Controls implemented</span></div></div>
+      </div>`;
+    $('missN').textContent = t.missing || '';
+    $('missN').hidden = !t.missing;
+  }
+
+  // Mosaic
+  const LENSES = {
+    inclusion: { legend: [['inc', 'Included'], ['ex', 'Excluded, justified'], ['miss', 'Excluded, no justification']], cls: (r) => r.included ? 'inc' : r.missing ? 'miss' : 'ex' },
+    org: { legend: [['l3', 'Fulfilled'], ['l1', 'In Progress'], ['l0', 'Not Started'], ['ex', 'Not for the Organization']], cls: (r) => !r.orgStatus ? 'ex' : r.orgStatus === 'FULFILLED' ? 'l3' : r.orgStatus === 'IN_PROGRESS' ? 'l1' : 'l0' },
+    sys: { legend: [['l3', '90%+ of Systems done'], ['l2', '60–90%'], ['l1', '30–60%'], ['l0', 'Under 30%'], ['ex', 'No Systems']], cls: (r) => r.fulfilledShare == null ? 'ex' : r.fulfilledShare >= 0.9 ? 'l3' : r.fulfilledShare >= 0.6 ? 'l2' : r.fulfilledShare >= 0.3 ? 'l1' : 'l0' },
+  };
+  const matchesQ = (r) => !state.q || r.hay.includes(state.q) || r.requirements.some((m) => m.codes.toLowerCase().includes(state.q));
+  function tileStat(d) {
+    const inc = d.rows.filter((r) => r.included);
+    if (state.lens === 'inclusion') { const miss = d.rows.filter((r) => r.missing).length; return { v: `${inc.length}/${d.rows.length}`, bad: miss > 0, foot: miss ? `<span class="bad">${miss} without justification</span>` : `${d.rows.length - inc.length} excluded` }; }
+    if (state.lens === 'org') { const o = inc.filter((r) => r.orgStatus); const f = o.filter((r) => r.orgStatus === 'FULFILLED').length; return { v: o.length ? pct(f / o.length) : '—', foot: `${f} of ${o.length} fulfilled by the Organization` }; }
+    const s = inc.filter((r) => r.rollup); const avg = s.length ? s.reduce((a, r) => a + r.fulfilledShare, 0) / s.length : null;
+    return { v: avg == null ? '—' : pct(avg), foot: `${s.length} Controls assessed on Systems` };
+  }
+  function renderMosaic() {
+    const L = LENSES[state.lens];
+    $('legend').innerHTML = L.legend.map(([c, l]) => `<span><i class="cell ${c}" style="cursor:default"></i>${l}</span>`).join('') + (state.q ? `<span><b>${rows.filter(matchesQ).length}</b>&nbsp;match “${esc(state.q)}”</span>` : '');
+    $('mosaic').innerHTML = fams.map((f) => {
+      const ds = domains.filter((d) => d.family === f);
+      return `<div class="fam-h"><h2>${esc(f)}</h2><span class="muted num" style="font-size:.8rem">${ds.reduce((a, d) => a + d.rows.length, 0)} Controls · ${ds.length} domains</span></div>
+        <div class="mosaic">${ds.map((d) => {
+          const s = tileStat(d);
+          return `<div class="tile${d.rows.length > 24 ? ' wide' : ''}">
+            <header><h3>${esc(d.short)}<small>${esc(d.name === d.short ? d.rows.length + ' Controls' : d.name)}</small></h3><span class="pct${s.bad ? ' bad' : ''}">${s.v}</span></header>
+            <div class="cells">${d.rows.map((r) => `<button class="cell ${L.cls(r)}${matchesQ(r) ? '' : ' dim'}" data-id="${r.id}" aria-label="${esc(r.code)} ${esc(r.title)}"></button>`).join('')}</div>
+            <div class="foot"><span>${s.foot}</span><span>${d.rows.length}</span></div></div>`;
+        }).join('')}</div>`;
+    }).join('');
+  }
+
+  // Document
+  function entryHtml(r) {
+    const why = r.included ? reqChips(r, state.q)
+      : r.missing ? `<span class="missing">No justification</span> <button class="write" data-write="${r.id}">Write</button>`
+      : `<em>${highlight(r.exclusion, state.q)}</em>`;
+    const st = !r.included ? '<span class="muted">Not implemented: excluded</span>'
+      : (r.orgStatus ? `<span class="line"><span class="k">Org</span>${statusText(r.orgStatus)}</span>` : '') + (r.rollup ? `<span class="line"><span class="k">Sys</span>${rollupBar(r)}<span class="muted num">${r.rollup.FULFILLED}/${r.systems}</span></span>` : '');
+    return `<div class="entry${matchesQ(r) ? '' : ' hide'}" data-id="${r.id}">
+      <span class="code">${highlight(r.code, state.q)}</span>
+      <div class="body"><h3>${highlight(r.title, state.q)} <span class="inc ${r.included ? 'yes' : 'no'}">${r.included ? 'Included' : 'Excluded'}</span></h3><div class="why">${why}</div></div>
+      <div class="st">${st}</div></div>`;
+  }
+  function renderDoc() {
+    $('index').innerHTML = fams.map((f) => `<span class="label fam">${esc(f)}</span>` + domains.filter((d) => d.family === f).map((d, i) => {
+      const n = d.rows.filter(matchesQ).length;
+      return `<a href="#d-${domains.indexOf(d)}" data-d="${domains.indexOf(d)}"><span>${esc(d.short)}</span><span class="c">${state.q ? n : d.rows.length}</span></a>`;
+    }).join('')).join('');
+    $('paper').innerHTML = domains.map((d, i) => {
+      const n = d.rows.filter(matchesQ).length;
+      return `<section id="d-${i}" data-d="${i}"${state.q && !n ? ' hidden' : ''}><h2>${esc(d.name)}<small>${d.rows.filter((r) => r.included).length} included · ${d.rows.filter((r) => !r.included).length} excluded</small></h2>${d.rows.map(entryHtml).join('')}</section>`;
+    }).join('');
+    spy.disconnect();
+    document.querySelectorAll('.paper section').forEach((s) => spy.observe(s));
+  }
+  const spy = new IntersectionObserver((entries) => {
+    entries.forEach((e) => { if (e.isIntersecting) document.querySelectorAll('.index a').forEach((a) => a.classList.toggle('on', a.dataset.d === e.target.dataset.d)); });
+  }, { rootMargin: '-70px 0px -70% 0px' });
+
+  // Review
+  function renderReview() {
+    const q = state.queue;
+    const doneN = q.filter((id) => !rows[id].missing).length;
+    const cur = rows[q[state.reviewAt]];
+    const list = `<nav class="queue" aria-label="Exclusions to justify"><span class="label" style="padding:0 10px 6px">${doneN} of ${q.length} justified</span>${q.map((id, i) => { const r = rows[id]; return `<button data-at="${i}" aria-current="${i === state.reviewAt}"><span class="ck${r.missing ? '' : ' ok'}">${r.missing ? '' : '✓'}</span><span class="code">${esc(r.code)}</span><span>${esc(r.title)}</span></button>`; }).join('')}</nav>`;
+    if (!q.length || doneN === q.length && (!cur || !cur.missing && state.reviewAt >= q.length)) {
+      $('reviewView').innerHTML = `<div class="review"><div class="card done-card"><svg width="72" height="72" viewBox="0 0 72 72" aria-hidden="true"><circle cx="36" cy="36" r="33" fill="var(--ok-soft)"/><path d="M23 37l9 9 17-19" fill="none" stroke="var(--ok)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg><h2>Every exclusion is justified</h2><p class="muted">The Statement is complete. ${q.length ? `You wrote ${q.length} justifications; each is a Change Event.` : ''}</p><button class="btn primary" data-mode-go="doc">Read the Statement →</button></div>${q.length ? list : '<div></div>'}</div>`;
+      return;
+    }
+    const c = cur.control;
+    $('reviewView').innerHTML = `<div class="review"><div>
+      <div class="stepper" aria-hidden="true">${q.map((id, i) => `<i class="${!rows[id].missing ? 'done' : i === state.reviewAt ? 'cur' : ''}"></i>`).join('')}</div>
+      <div class="card" key="${cur.id}">
+        <div class="head"><div><span class="code">${esc(cur.code)}</span><h2>${esc(cur.title)}</h2></div><span class="muted num" style="font-size:.84rem;white-space:nowrap">${state.reviewAt + 1} of ${q.length}</span></div>
+        <p>${esc(cur.description)}</p>
+        <div class="facts">
+          <div><span class="label">Applicability</span>${esc(SOA.APPLIES[cur.applicability])}</div>
+          <div><span class="label">Domain</span>${esc(cur.short)}</div>
+          <div><span class="label">Why excluded</span>${cur.applicability === 'PER_SYSTEM' ? 'No System brings it in' + (c.facets.length ? ` (needs ${esc(c.facets[0])})` : '') : 'No Published Framework in scope'}</div>
+        </div>
+        <div class="editor"><span class="label">Exclusion justification</span>
+          <textarea id="just" placeholder="Why does this Control not apply? Refer to the scope, the risk assessment or the provider that covers it.">${esc(cur.exclusion || '')}</textarea>
+          <div class="tpls">${TEMPLATES.map((t, i) => `<button data-tpl="${i}">+ ${esc(t.label)}</button>`).join('')}</div></div>
+        <div class="actions"><button class="btn ghost" data-skip>Skip for now</button><div style="display:flex;gap:8px"><button class="btn" data-open="${cur.id}">Details</button><button class="btn primary" data-save>Save &amp; next <span class="kbd" style="background:transparent;color:inherit;border-color:currentColor">Ctrl ↵</span></button></div></div>
+      </div></div>${list}</div>`;
+  }
+  function saveCurrent() {
+    const r = rows[state.queue[state.reviewAt]], v = $('just').value.trim();
+    if (!v) { $('just').focus(); toast('Write a justification first'); return; }
+    r.exclusion = v; r.missing = false; r.hay += ' ' + v.toLowerCase();
+    const left = rows.filter((x) => x.missing).length;
+    toast(left ? `Saved · ${left} to go` : 'Saved · every exclusion is justified');
+    const next = state.queue.findIndex((id, i) => i > state.reviewAt && rows[id].missing);
+    const any = state.queue.findIndex((id) => rows[id].missing);
+    state.reviewAt = next >= 0 ? next : any >= 0 ? any : state.queue.length;
+    renderHero(); renderReview();
+    const ta = $('just'); if (ta) ta.focus();
+  }
+
+  // Side sheet
+  function openSheet(id) {
+    const r = rows[id];
+    $('pos').textContent = r.domain;
+    $('detail').innerHTML = `<div style="display:grid;gap:6px"><span class="code">${esc(r.code)}</span><h2>${esc(r.title)}</h2><div style="display:flex;gap:6px;flex-wrap:wrap"><span class="inc ${r.included ? 'yes' : 'no'}">${r.included ? 'Included' : 'Excluded'}</span>${Lib.appChip(r.control)}</div></div>
+      <p>${esc(r.description)}</p>
+      <section><span class="label">${r.included ? 'Included because it satisfies' : 'Exclusion justification'}</span>
+        ${r.included ? `<div class="reqs">${reqChips(r)}</div>` : r.missing ? `<span class="missing">No justification yet</span><button class="btn primary" data-review="${r.id}" style="justify-self:start">Write it in Review</button>` : `<p class="question">${esc(r.exclusion)}</p>`}</section>
+      ${r.included ? `<section><span class="label">Implementation</span><dl class="kv"><dt>Applies to</dt><dd>${appliesHtml(r)}</dd>${r.orgStatus ? `<dt>Organization</dt><dd>${statusText(r.orgStatus)}</dd>` : ''}${r.rollup ? `<dt>Systems</dt><dd>${rollupText(r)}</dd>` : ''}<dt>Control Owner</dt><dd>${Lib.ownerHtml(r.control)}</dd></dl>
+        ${r.rollup ? rollupBar(r, true) + `<div class="syslist">${systemsOf(r).map((s) => `<div><span>${esc(s.name)}</span>${statusText(s.status)}</div>`).join('')}</div>` : ''}</section>` : ''}
+      <a class="btn" href="#" style="justify-self:start">Open Control →</a>`;
+    document.body.classList.add('sheet-open'); $('sheet').setAttribute('aria-hidden', 'false');
+  }
+  function closeSheet() { document.body.classList.remove('sheet-open'); $('sheet').setAttribute('aria-hidden', 'true'); }
+  function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('on'), 2200); }
+
+  function setMode(m, at) {
+    state.mode = m;
+    document.querySelectorAll('[data-mode]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.mode === m));
+    $('mosaicView').hidden = m !== 'mosaic'; $('mosaicView').style.display = m === 'mosaic' ? 'grid' : 'none';
+    $('docView').hidden = m !== 'doc'; $('reviewView').hidden = m !== 'review';
+    if (m === 'mosaic') renderMosaic(); else if (m === 'doc') renderDoc();
+    else { if (at != null) state.reviewAt = Math.max(0, state.queue.indexOf(at)); else { const i = state.queue.findIndex((id) => rows[id].missing); state.reviewAt = i >= 0 ? i : 0; } renderReview(); }
+  }
+
+  // Events
+  document.querySelector('.modes').addEventListener('click', (e) => { const b = e.target.closest('[data-mode]'); if (b) setMode(b.dataset.mode); });
+  $('lens').addEventListener('click', (e) => { const b = e.target.closest('[data-lens]'); if (!b) return; state.lens = b.dataset.lens; document.querySelectorAll('[data-lens]').forEach((x) => x.setAttribute('aria-pressed', x === b)); renderMosaic(); });
+  $('q').addEventListener('input', (e) => { state.q = e.target.value.trim().toLowerCase(); if (state.mode === 'review') setMode('doc'); else state.mode === 'mosaic' ? renderMosaic() : renderDoc(); });
+  $('mosaic').addEventListener('click', (e) => { const c = e.target.closest('.cell[data-id]'); if (c) openSheet(+c.dataset.id); });
+  $('mosaic').addEventListener('pointerover', (e) => {
+    const c = e.target.closest('.cell[data-id]'), tip = $('tip');
+    if (!c) { tip.classList.remove('on'); return; }
+    const r = rows[+c.dataset.id], b = c.getBoundingClientRect();
+    const line = state.lens === 'inclusion' ? (r.included ? 'Included · ' + appliesHtml(r) : r.missing ? 'Excluded · no justification' : 'Excluded · justified')
+      : state.lens === 'org' ? (r.orgStatus ? 'Organization: ' + STATUS[r.orgStatus] : 'Not implemented by the Organization')
+      : (r.rollup ? `${r.rollup.FULFILLED} of ${r.systems} Systems fulfilled` : 'No Systems');
+    tip.innerHTML = `<b>${esc(r.code)}</b>${esc(r.title)}<span>${line}</span>`;
+    tip.style.left = Math.min(innerWidth - 310, b.left) + 'px'; tip.style.top = (b.bottom + 8) + 'px'; tip.classList.add('on');
+  });
+  $('mosaic').addEventListener('pointerleave', () => $('tip').classList.remove('on'));
+  $('paper').addEventListener('click', (e) => { const w = e.target.closest('[data-write]'); if (w) { setMode('review', +w.dataset.write); return; } const en = e.target.closest('.entry'); if (en) openSheet(+en.dataset.id); });
+  $('index').addEventListener('click', (e) => { const a = e.target.closest('a'); if (!a) return; e.preventDefault(); $('d-' + a.dataset.d).scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); });
+  $('reviewView').addEventListener('click', (e) => {
+    const t = e.target.closest('[data-tpl]'); if (t) { const ta = $('just'); ta.value = TEMPLATES[+t.dataset.tpl].text; ta.focus(); return; }
+    if (e.target.closest('[data-save]')) return saveCurrent();
+    if (e.target.closest('[data-skip]')) { state.reviewAt = (state.reviewAt + 1) % state.queue.length; renderReview(); return; }
+    const at = e.target.closest('[data-at]'); if (at) { state.reviewAt = +at.dataset.at; renderReview(); return; }
+    const o = e.target.closest('[data-open]'); if (o) { openSheet(+o.dataset.open); return; }
+    const g = e.target.closest('[data-mode-go]'); if (g) setMode(g.dataset.modeGo);
+  });
+  $('detail').addEventListener('click', (e) => { const r = e.target.closest('[data-review]'); if (r) { closeSheet(); setMode('review', +r.dataset.review); } });
+  $('scrim').onclick = closeSheet; $('close').onclick = closeSheet;
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && state.mode === 'review' && $('just')) { e.preventDefault(); saveCurrent(); return; }
+    const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName);
+    if (e.key === 'Escape') { if (typing) document.activeElement.blur(); closeSheet(); return; }
+    if (!typing && e.key === '/') { e.preventDefault(); $('q').focus(); }
+  });
+
+  renderHero(); setMode('mosaic');
+})();
+</script>
+</body>
+</html>
