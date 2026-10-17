@@ -1,0 +1,459 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>System Cockpit</title>
+<link rel="stylesheet" href="../systems/systems.css">
+<link rel="stylesheet" href="system.css">
+<style>
+/* Proposal A: a cockpit. A header that says who and where the System is in its lifecycle,
+   then tabs. Overview is a dashboard of tiles; each tile opens its own tab for the work. */
+.page { max-width: 1240px; margin: 0 auto; padding: 18px 20px 72px; display: grid; gap: 16px; }
+.page > * { min-width: 0; }
+.crumbs { font-size: .82rem; color: var(--muted); }
+.crumbs a { color: var(--accent); text-decoration: none; }
+
+.hero { padding: 20px; display: grid; gap: 18px; overflow: clip; position: relative; }
+.hero::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 4px; background: linear-gradient(90deg, var(--accent), #6c7fd8, var(--gold)); }
+.hero-top { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
+.mark { width: 56px; height: 56px; border-radius: 14px; display: grid; place-items: center; font-weight: 800; font-size: 1.15rem; color: #fff; background: linear-gradient(135deg, #2b8a7e, #075d68 60%, #0c3e52); box-shadow: inset 0 0 0 1px rgba(255,255,255,.15); flex: none; }
+.who { flex: 1 1 320px; min-width: 0; display: grid; gap: 6px; }
+.who h1 { font-size: 1.75rem; }
+.meta { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; font-size: .86rem; color: var(--muted); }
+.meta .owner { display: inline-flex; align-items: center; gap: 6px; color: var(--ink); }
+.actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.btn.approve { background: var(--ok); border-color: var(--ok); color: #fff; }
+.btn.reject { color: var(--bad); }
+.hero-foot { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 20px; align-items: end; }
+.hero-foot .note { font-size: .82rem; color: var(--muted); margin-top: 6px; }
+.kpis { display: flex; gap: 22px; }
+.kpi { display: grid; gap: 0; text-align: right; }
+.kpi b { font-size: 1.35rem; font-weight: 750; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.kpi > span { font-size: .74rem; color: var(--muted); }
+@media (max-width: 760px) { .hero-foot { grid-template-columns: 1fr; } .kpis { justify-content: space-between; } .kpi { text-align: left; } }
+
+/* Tabs with a sliding indicator */
+.tabs { position: sticky; top: 0; z-index: 10; display: flex; gap: 2px; padding: 6px; background: color-mix(in srgb, var(--paper) 85%, transparent); backdrop-filter: blur(10px); border-radius: 12px; overflow-x: auto; scrollbar-width: none; }
+.tabs .ind { position: absolute; top: 6px; bottom: 6px; left: 0; width: 0; border-radius: 8px; background: var(--surface); box-shadow: 0 1px 3px rgba(20, 45, 61, .15); transition: transform .3s cubic-bezier(.2, .8, .2, 1), width .3s cubic-bezier(.2, .8, .2, 1); }
+.tab { position: relative; z-index: 1; border: 0; background: none; padding: 7px 12px; border-radius: 8px; cursor: pointer; font-weight: 600; color: var(--muted); white-space: nowrap; display: inline-flex; gap: 7px; align-items: center; }
+.tab[aria-selected="true"] { color: var(--ink); }
+.tab .n { font-size: .72rem; font-variant-numeric: tabular-nums; background: var(--line-soft); color: var(--muted); padding: 0 6px; border-radius: 99px; }
+.tab .n.hot { background: var(--bad-soft); color: var(--bad); }
+@media (prefers-reduced-motion: reduce) { .tabs .ind { transition: none; } }
+
+.panel[hidden] { display: none; }
+.panel { animation: rise .35s ease both; }
+@keyframes rise { from { opacity: 0; transform: translateY(6px); } }
+@media (prefers-reduced-motion: reduce) { .panel { animation: none; } }
+
+/* Overview tiles */
+.bento { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 14px; }
+.bento > * { min-width: 0; }
+.t-comp { grid-column: span 5; } .t-ctrl { grid-column: span 7; } .t-attn { grid-column: span 7; } .t-risk { grid-column: span 5; }
+.t-prof { grid-column: span 7; } .t-act { grid-column: span 5; }
+@media (max-width: 980px) { .bento > * { grid-column: 1 / -1 !important; } }
+.comp { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
+.fwlist { display: grid; gap: 10px; flex: 1 1 200px; min-width: 0; }
+.fw { display: grid; gap: 4px; padding: 6px 8px; border-radius: 8px; cursor: pointer; border: 1px solid transparent; background: none; text-align: left; }
+.fw:hover { background: var(--raised); }
+.fw[aria-pressed="true"] { border-color: var(--line); background: var(--raised); }
+.fw .row { display: flex; justify-content: space-between; gap: 8px; font-size: .84rem; }
+.fw .row b { font-variant-numeric: tabular-nums; }
+.big { font-size: 2.2rem; font-weight: 780; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; line-height: 1; }
+.ctrl-top { display: flex; gap: 20px; align-items: end; flex-wrap: wrap; margin-bottom: 12px; }
+.mini-label { font-size: .78rem; color: var(--muted); }
+.srcbars { display: grid; gap: 8px; margin-top: 16px; }
+.srcbar { display: grid; grid-template-columns: 130px minmax(0, 1fr) 36px; gap: 10px; align-items: center; font-size: .82rem; }
+.srcbar .num { text-align: right; color: var(--muted); }
+.attn { list-style: none; margin: 0; padding: 0; display: grid; }
+.attn li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 9px 0; border-top: 1px solid var(--line-soft); }
+.attn li:first-child { border-top: 0; }
+.attn .t { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.attn small { display: block; color: var(--muted); font-size: .78rem; }
+.risk-wrap { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
+.risk-tally { display: grid; gap: 6px; font-size: .84rem; }
+.prof { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; }
+.cia-bars { display: grid; gap: 8px; }
+.cia-bar { display: grid; grid-template-columns: 24px 1fr auto; gap: 8px; align-items: center; font-size: .82rem; }
+.cia-bar .lv { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px; }
+.cia-bar .lv i { height: 8px; border-radius: 3px; background: var(--line-soft); }
+.cia-bar .lv i.on { background: var(--accent); }
+.cia-bar .lv i.on.hi { background: var(--gold); }
+.cia-bar .lv i.on.cr { background: var(--bad); }
+.tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag { font-size: .78rem; padding: 2px 9px; border-radius: 99px; background: var(--raised); border: 1px solid var(--line-soft); }
+.tl { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
+.tl li { display: grid; grid-template-columns: 14px minmax(0, 1fr); gap: 10px; position: relative; padding-bottom: 12px; font-size: .84rem; }
+.tl li::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--accent); margin-top: 6px; box-shadow: 0 0 0 3px var(--accent-soft); }
+.tl li::after { content: ""; position: absolute; left: 4px; top: 18px; bottom: 0; width: 1px; background: var(--line); }
+.tl li:last-child::after { display: none; }
+.tl small { display: block; color: var(--faint); font-size: .74rem; }
+
+/* Controls tab */
+.ctl-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 12px; border-bottom: 1px solid var(--line-soft); }
+.ctl-bar .search { flex: 1 1 240px; max-width: 340px; }
+.theme { border-top: 1px solid var(--line-soft); }
+.theme:first-child { border-top: 0; }
+.theme > button { all: unset; box-sizing: border-box; width: 100%; display: grid; grid-template-columns: 16px minmax(0, 1fr) minmax(80px, 220px) 56px; gap: 12px; align-items: center; padding: 12px 14px; cursor: pointer; background: var(--raised); }
+.theme > button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.theme > button .chev { transition: transform .2s; color: var(--faint); }
+.theme.open > button .chev { transform: rotate(90deg); }
+.theme:not(.open) .crow { display: none; }
+.theme > button b { font-size: .9rem; }
+.theme > button .num { text-align: right; font-size: .8rem; color: var(--muted); }
+.crow { display: grid; grid-template-columns: 64px minmax(0, 1fr) 120px 120px; gap: 12px; align-items: center; padding: 9px 14px 9px 42px; border-top: 1px solid var(--line-soft); cursor: pointer; }
+.crow:hover { background: var(--raised); }
+.crow code { font-family: var(--mono); font-size: .78rem; color: var(--muted); }
+.crow .ttl { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.crow .flag { font-size: .7rem; font-weight: 700; color: var(--bad); margin-left: 6px; }
+.crow .q { margin-left: 6px; }
+@media (max-width: 720px) {
+  .theme > button { grid-template-columns: 16px minmax(0, 1fr) 48px; } .theme > button .stack { display: none; }
+  .crow { grid-template-columns: 56px minmax(0, 1fr); padding-left: 14px; } .crow .src { display: none; } .crow .chip { grid-column: 2; justify-self: start; }
+}
+
+/* Requirements tab */
+.fwcards { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+.fwcard { padding: 18px; display: grid; gap: 14px; }
+.fwcard .top { display: flex; gap: 14px; align-items: center; }
+.fwcard h3 { font-size: 1rem; }
+.pill { font-size: .7rem; font-weight: 700; padding: 1px 7px; border-radius: 99px; background: var(--accent-soft); color: var(--accent); margin-left: 6px; }
+.pill.gold { background: var(--gold-soft); color: var(--gold-ink); }
+
+/* Risks tab */
+.risks { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 18px; align-items: start; }
+@media (max-width: 760px) { .risks { grid-template-columns: 1fr; } }
+table.rt { width: 100%; border-collapse: collapse; font-size: .86rem; }
+.rt th { text-align: left; font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); padding: 8px 10px; border-bottom: 1px solid var(--line); }
+.rt td { padding: 10px; border-bottom: 1px solid var(--line-soft); }
+@media (max-width: 640px) { .rt .hide-sm { display: none; } }
+
+/* Providers tab: inheritance flow */
+.flow { width: 100%; height: auto; display: block; }
+.flow text { font-size: 12px; fill: var(--ink); font-family: var(--font); }
+.flow .muted-t { fill: var(--muted); font-size: 11px; }
+.flow path { fill: none; stroke-opacity: .35; transition: stroke-opacity .2s; }
+.flow g:hover path { stroke-opacity: .7; }
+.provs { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+
+/* Profile tab */
+.facet-pick { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px; }
+.facet-pick label { display: flex; gap: 10px; align-items: center; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; cursor: pointer; }
+.facet-pick label:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.facet-pick input { accent-color: var(--accent); }
+.lvl-row { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 10px; align-items: center; padding: 6px 0; }
+@media (max-width: 560px) { .lvl-row { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="logo">IS</div>
+  <div><b>ISMS</b><small>System onboarding</small></div>
+  <nav aria-label="Main"><a href="#">Home</a><a href="/design/systems/proposal-a.html" aria-current="page">Systems</a><a href="#">Controls</a><a href="#">Risks</a><a href="#">Check-ups</a><a href="#">Frameworks</a></nav>
+  <div class="proposal-switch">Proposal A · <a href="proposal-b.html">see B</a></div>
+</header>
+
+<main class="page">
+  <div class="crumbs"><a href="/design/systems/proposal-a.html">Systems</a> / ServiceNow</div>
+
+  <section class="card hero spot" id="hero"></section>
+
+  <div class="tabs" role="tablist" aria-label="System sections" id="tabs"><span class="ind" aria-hidden="true"></span></div>
+
+  <section class="panel" id="p-overview" role="tabpanel"></section>
+  <section class="panel" id="p-controls" role="tabpanel" hidden></section>
+  <section class="panel" id="p-reqs" role="tabpanel" hidden></section>
+  <section class="panel" id="p-risks" role="tabpanel" hidden></section>
+  <section class="panel" id="p-providers" role="tabpanel" hidden></section>
+  <section class="panel" id="p-profile" role="tabpanel" hidden></section>
+  <section class="panel" id="p-activity" role="tabpanel" hidden></section>
+</main>
+
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="drawer" aria-hidden="true" aria-labelledby="dr-title"></aside>
+
+<script src="data.js"></script>
+<script src="system.js"></script>
+<script>
+const { D, esc, STATUS, STATUS_ORDER, SOURCE, LIFECYCLE, LEVELS, cap, initials, statusCounts, sourceCounts, themes, done, fwPct, attention, ring, stack, statusStack, fwStack, riskGrid, animate } = SD;
+const S = D.system, C = D.controls;
+const $ = (s) => document.querySelector(s);
+const openRisks = D.risks.filter((r) => r.status === 'OPEN');
+const doneCount = C.filter(done).length;
+const base = D.frameworks[0];
+
+// Pointer-following glow on .spot cards
+document.addEventListener('pointermove', (e) => {
+  const el = e.target.closest('.spot'); if (!el) return;
+  const r = el.getBoundingClientRect();
+  el.style.setProperty('--mx', `${e.clientX - r.left}px`); el.style.setProperty('--my', `${e.clientY - r.top}px`);
+});
+
+/* Header */
+const stageIdx = LIFECYCLE.findIndex(([k]) => k === S.status);
+$('#hero').innerHTML = `
+  <div class="hero-top">
+    <div class="mark" aria-hidden="true">SN</div>
+    <div class="who">
+      <div class="eyebrow">Proposal A · Cockpit</div>
+      <h1>${esc(S.name)}</h1>
+      <div class="meta">
+        <span class="chip warn">In review</span>
+        <span class="owner"><span class="av">${initials(S.owner)}</span>${esc(S.owner)}</span>
+        <span>${S.facets.map(esc).join(' + ')}</span>
+        <span title="Confidentiality, Integrity, Availability" class="cia"><i data-l="2"></i><i data-l="2"></i><i data-l="3"></i></span>
+        <span>Vendor ${esc(S.vendor)}</span>
+      </div>
+      <p class="muted" style="max-width:62ch">${esc(S.description)}</p>
+    </div>
+    <div class="actions">
+      <button class="btn reject" type="button">Reject</button>
+      <button class="btn approve" type="button">Approve…</button>
+      <button class="btn ghost" type="button" aria-label="More actions">⋯</button>
+    </div>
+  </div>
+  <div class="hero-foot">
+    <div>
+      <div class="stepper" aria-label="Lifecycle">${LIFECYCLE.map(([k, l], i) => `<span class="step ${i < stageIdx ? 'past' : i === stageIdx ? 'now' : ''}" ${i === stageIdx ? 'aria-current="step"' : ''}>${l}</span>`).join('')}</div>
+      <p class="note">Submitted ${S.submitted} by ${esc(S.owner)} · waiting for a Reviewer's decision</p>
+    </div>
+    <div class="kpis">
+      <div class="kpi"><b><span data-count="${fwPct(base).toFixed(1)}">0</span>%</b><span>ISO 27001 met</span></div>
+      <div class="kpi"><b><span data-count="${doneCount}">0</span>/${C.length}</b><span>Controls done</span></div>
+      <div class="kpi"><b data-count="${openRisks.length}">0</b><span>Open risks</span></div>
+    </div>
+  </div>`;
+
+/* Tabs */
+const TABS = [
+  ['overview', 'Overview'], ['controls', 'Controls', C.length], ['reqs', 'Requirements', D.frameworks.length],
+  ['risks', 'Risks', openRisks.length, true], ['providers', 'Providers', S.providers.length], ['profile', 'Profile'], ['activity', 'Activity'],
+];
+const PANEL = { overview: 'p-overview', controls: 'p-controls', reqs: 'p-reqs', risks: 'p-risks', providers: 'p-providers', profile: 'p-profile', activity: 'p-activity' };
+$('#tabs').insertAdjacentHTML('beforeend', TABS.map(([k, l, n, hot]) =>
+  `<button class="tab" role="tab" id="t-${k}" aria-controls="${PANEL[k]}" aria-selected="${k === 'overview'}" data-tab="${k}">${l}${n != null ? `<span class="n ${hot ? 'hot' : ''}">${n}</span>` : ''}</button>`).join(''));
+const ind = $('#tabs .ind');
+function moveInd() { const t = $('.tab[aria-selected="true"]'); ind.style.width = t.offsetWidth + 'px'; ind.style.transform = `translateX(${t.offsetLeft}px)`; }
+function show(k) {
+  document.querySelectorAll('.tab').forEach((t) => t.setAttribute('aria-selected', t.dataset.tab === k));
+  Object.entries(PANEL).forEach(([key, id]) => { document.getElementById(id).hidden = key !== k; });
+  moveInd(); animate(document.getElementById(PANEL[k]));
+  history.replaceState(null, '', '#' + k);
+}
+$('#tabs').addEventListener('click', (e) => { const t = e.target.closest('.tab'); if (t) show(t.dataset.tab); });
+$('#tabs').addEventListener('keydown', (e) => {
+  if (!['ArrowLeft', 'ArrowRight'].includes(e.key)) return;
+  const tabs = [...document.querySelectorAll('.tab')], i = tabs.findIndex((t) => t.getAttribute('aria-selected') === 'true');
+  const n = tabs[(i + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length]; show(n.dataset.tab); n.focus();
+});
+addEventListener('resize', moveInd);
+document.addEventListener('click', (e) => { const g = e.target.closest('[data-go]'); if (g) { e.preventDefault(); show(g.dataset.go); scrollTo({ top: $('#tabs').offsetTop - 8, behavior: 'smooth' }); } });
+
+/* Overview */
+const lvlBars = (axis, lv) => { const n = lv ? LEVELS.indexOf(lv) + 1 : 0;
+  return `<div class="cia-bar"><b>${axis}</b><span class="lv">${[1, 2, 3, 4].map((i) => `<i class="${i <= n ? 'on' : ''} ${n >= 3 ? 'hi' : ''} ${n === 4 ? 'cr' : ''}"></i>`).join('')}</span><span class="muted">${lv ? cap(lv) : 'Not classified'}</span></div>`; };
+const srcColor = { org: '#6c7fd8', provider: 'var(--accent)', shared: 'var(--gold)', own: 'var(--ink)' };
+function renderOverview(fwIdx = 0) {
+  const f = D.frameworks[fwIdx], app = f.met + f.partial + f.notMet;
+  $('#p-overview').innerHTML = `<div class="bento">
+    <article class="card spot t-comp">
+      <div class="card-h"><h2>Compliance</h2><button class="link" data-go="reqs">All Requirements →</button></div>
+      <div class="card-b comp">
+        ${ring(fwPct(f), { size: 132, stroke: 13, color: 'var(--ok)', label: fwPct(f).toFixed(0) + '%', sub: `${f.met} of ${app} met` })}
+        <div class="fwlist">${D.frameworks.map((x, i) => `<button class="fw" aria-pressed="${i === fwIdx}" data-fw="${i}">
+          <span class="row"><span>${esc(x.name)}</span><b>${fwPct(x).toFixed(0)}%</b></span>${fwStack(x, { height: 6 })}</button>`).join('')}</div>
+      </div>
+    </article>
+    <article class="card spot t-ctrl">
+      <div class="card-h"><h2>Controls</h2><button class="link" data-go="controls">Open Controls →</button></div>
+      <div class="card-b">
+        <div class="ctrl-top"><div><div class="big"><span data-count="${doneCount}">0</span><span class="muted" style="font-size:1rem;font-weight:600"> / ${C.length}</span></div><div class="mini-label">done, inherited or not applicable</div></div></div>
+        ${statusStack(C, { height: 12 })}
+        <div class="legend-row">${STATUS_ORDER.map((k) => `<span><i style="background:${STATUS[k].color}"></i>${STATUS[k].label} <b>${statusCounts[k] || 0}</b></span>`).join('')}</div>
+        <div class="srcbars"><div class="label">Where the status comes from</div>${['org', 'provider', 'shared', 'own'].map((k) =>
+          `<div class="srcbar"><span class="src ${k}">${SOURCE[k].label}</span>${stack([{ value: sourceCounts[k] || 0, color: srcColor[k], label: SOURCE[k].label }, { value: C.length - (sourceCounts[k] || 0), color: 'transparent', label: 'Other' }], { height: 6 })}<span class="num">${sourceCounts[k] || 0}</span></div>`).join('')}</div>
+      </div>
+    </article>
+    <article class="card spot t-attn">
+      <div class="card-h"><h2>Needs attention <span class="chip danger plain" style="margin-left:6px">${attention.length}</span></h2></div>
+      <div class="card-b"><ul class="attn">${attention.slice(0, 6).map((a) => `<li>
+        <span class="dot ${a.tone}"></span>
+        <div style="min-width:0"><div class="t">${esc(a.title)}</div><small>${esc(a.note)}</small></div>
+        ${a.code ? `<button class="btn" data-code="${a.code}">Open</button>` : `<button class="btn" data-go="risks">Open</button>`}</li>`).join('')}</ul>
+        ${attention.length > 6 ? `<button class="link" data-go="controls" style="margin-top:8px">${attention.length - 6} more →</button>` : ''}</div>
+    </article>
+    <article class="card spot t-risk">
+      <div class="card-h"><h2>Risks</h2><button class="link" data-go="risks">Risk register →</button></div>
+      <div class="card-b risk-wrap">${riskGrid(openRisks, { cell: 30 })}
+        <div class="risk-tally">${['OPEN', 'MITIGATED', 'ACCEPTED'].map((s) => `<div><b class="num">${D.risks.filter((r) => r.status === s).length}</b> <span class="muted">${cap(s)}</span></div>`).join('')}
+        <div class="muted" style="font-size:.76rem;max-width:18ch">Open risks by severity (rows) and likelihood (columns)</div></div></div>
+    </article>
+    <article class="card spot t-prof">
+      <div class="card-h"><h2>Classification</h2><button class="link" data-go="profile">Change →</button></div>
+      <div class="card-b prof">
+        <div class="cia-bars"><div class="label">Impact Level</div>${lvlBars('C', S.cia.c)}${lvlBars('I', S.cia.i)}${lvlBars('A', S.cia.a)}</div>
+        <div style="display:grid;gap:12px;align-content:start">
+          <div><div class="label">Deployment Facets</div><div class="tags" style="margin-top:6px">${S.facets.map((f) => `<span class="tag">${esc(f)}</span>`).join('')}</div></div>
+          <div><div class="label">Business Units</div><div class="tags" style="margin-top:6px">${S.businessUnits.map((f) => `<span class="tag">${esc(f)}</span>`).join('')}</div></div>
+          <div><div class="label">Framework Scope</div><div class="tags" style="margin-top:6px">${D.frameworks.map((f) => `<span class="tag">${esc(f.name)}</span>`).join('')}</div></div>
+        </div>
+      </div>
+    </article>
+    <article class="card spot t-act">
+      <div class="card-h"><h2>Recent activity</h2><button class="link" data-go="activity">All →</button></div>
+      <div class="card-b"><ul class="tl">${D.activity.slice(0, 4).map((a) => `<li><div><b>${esc(a.who)}</b> ${esc(a.what)}<small>${a.when}</small></div></li>`).join('')}</ul></div>
+    </article>
+  </div>`;
+  animate($('#p-overview'));
+}
+$('#p-overview').addEventListener('click', (e) => { const b = e.target.closest('[data-fw]'); if (b) renderOverview(+b.dataset.fw); });
+
+/* Controls */
+let cFilter = 'all', cQuery = '';
+const FILTERS = [['all', 'All'], ['todo', 'To do'], ['progress', 'In progress'], ['done', 'Done'], ['inherited', 'Inherited']];
+const match = (c) => {
+  if (cQuery && !(`${c.code} ${c.title}`.toLowerCase().includes(cQuery))) return false;
+  if (cFilter === 'todo') return c.status === 'NOT_STARTED';
+  if (cFilter === 'progress') return c.status === 'IN_PROGRESS';
+  if (cFilter === 'done') return done(c);
+  if (cFilter === 'inherited') return c.source !== 'own';
+  return true;
+};
+$('#p-controls').innerHTML = `<div class="card" style="overflow:clip">
+  <div class="ctl-bar">
+    <label class="search"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="9" r="6"/><path d="m14 14 4 4"/></svg>
+      <input id="cq" type="search" placeholder="Search code or title" aria-label="Search Controls"><kbd>/</kbd></label>
+    <div class="seg" role="group" aria-label="Show" id="cf">${FILTERS.map(([k, l]) => `<button aria-pressed="${k === 'all'}" data-f="${k}">${l}</button>`).join('')}</div>
+    <span style="flex:1"></span>
+    <span class="muted" style="font-size:.82rem" id="ccount"></span>
+  </div>
+  <div id="themes"></div></div>`;
+function renderControls() {
+  const list = C.filter(match);
+  $('#ccount').textContent = `${list.length} of ${C.length} Controls`;
+  $('#themes').innerHTML = themes.map((t) => {
+    const all = C.filter((c) => c.theme === t), rows = list.filter((c) => c.theme === t);
+    if (!rows.length) return '';
+    return `<div class="theme open">
+      <button type="button" data-theme aria-expanded="true"><span class="chev">▸</span><b>${esc(t)}</b>${statusStack(all, { height: 6 })}<span class="num">${all.filter(done).length}/${all.length}</span></button>
+      ${rows.map((c) => `<div class="crow" data-code="${c.code}" tabindex="0" role="button">
+        <code>${c.code}</code>
+        <span class="ttl">${esc(c.title)}${c.mandatory && c.status === 'NOT_STARTED' && c.source === 'own' ? '<span class="flag">MANDATORY</span>' : ''}${c.openQuery ? '<span class="qbadge q">? 1</span>' : ''}</span>
+        <span class="src ${c.source}">${c.source === 'provider' || c.source === 'shared' ? esc(c.provider) : SOURCE[c.source].label}</span>
+        <span class="chip ${STATUS[c.status].tone}">${STATUS[c.status].label}</span></div>`).join('')}
+    </div>`;
+  }).join('') || '<p class="muted" style="padding:40px;text-align:center">No Controls match.</p>';
+  animate($('#themes'));
+}
+$('#themes').addEventListener('click', (e) => { const b = e.target.closest('[data-theme]'); if (b) { const d = b.closest('.theme'); b.setAttribute('aria-expanded', d.classList.toggle('open')); } });
+$('#cf').addEventListener('click', (e) => { const b = e.target.closest('[data-f]'); if (!b) return; cFilter = b.dataset.f; $('#cf').querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', x === b)); renderControls(); });
+$('#cq').addEventListener('input', (e) => { cQuery = e.target.value.trim().toLowerCase(); renderControls(); });
+addEventListener('keydown', (e) => { if (e.key === '/' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') { e.preventDefault(); show('controls'); $('#cq').focus(); } if (e.key === 'Escape') closeDrawer(); });
+
+/* Control drawer */
+function openDrawer(code) {
+  const c = C.find((x) => x.code === code); if (!c) return;
+  const editable = c.source === 'own' || c.source === 'shared';
+  $('#drawer').innerHTML = `
+    <header><button class="btn ghost x" aria-label="Close" data-close>✕</button>
+      <span class="eyebrow">${c.code} · ${esc(c.theme)}</span><h2 id="dr-title">${esc(c.title)}</h2>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><span class="chip ${STATUS[c.status].tone}">${STATUS[c.status].label}</span><span class="src ${c.source}">${SOURCE[c.source].label}</span>${c.mandatory ? '<span class="facet">Mandatory</span>' : ''}</div></header>
+    <div class="body">
+      <p>${esc(c.description)}.</p>
+      ${c.source === 'org' ? `<div class="callout">Inherited from the <b>Organization</b>'s implementation. Its status shows here live; set this System's own status only to override it.</div>` : ''}
+      ${c.source === 'provider' ? `<div class="callout">Fully covered by <b>${esc(c.provider)}</b> (Onboarded Provider). Nothing for this System to do.</div>` : ''}
+      ${c.source === 'shared' ? `<div class="callout warn"><b>${esc(c.provider)}</b> covers its half. Your half:<br>${esc(c.responsibility)}</div>` : ''}
+      ${c.openQuery ? `<div class="callout warn"><b>Open question</b> from Elena Voss: ${esc(c.openQuery)}</div>` : ''}
+      <div class="field"><span class="label">Status</span><div class="seg" role="group" aria-label="Status">${STATUS_ORDER.map((k) => `<button aria-pressed="${k === c.status}" ${editable ? '' : 'disabled'}>${STATUS[k].label}</button>`).join('')}</div></div>
+      <label class="field"><span class="label">Evidence</span><input value="${esc(c.evidence || '')}" placeholder="Link or reference" ${editable ? '' : 'disabled'}></label>
+      <label class="field"><span class="label">Notes</span><textarea rows="3" ${editable ? '' : 'disabled'}>${esc(c.notes || '')}</textarea></label>
+      ${c.assessedBy ? `<p class="muted" style="font-size:.8rem">Last set by ${esc(c.assessedBy)} on ${c.updated}</p>` : ''}
+    </div>
+    <div class="foot"><button class="btn" data-close>Cancel</button><button class="btn primary" ${editable ? '' : 'disabled'}>Save</button></div>`;
+  $('#drawer').classList.add('show'); $('#drawer').setAttribute('aria-hidden', 'false'); $('#scrim').classList.add('show');
+  $('#drawer [data-close]').focus();
+}
+function closeDrawer() { $('#drawer').classList.remove('show'); $('#drawer').setAttribute('aria-hidden', 'true'); $('#scrim').classList.remove('show'); }
+document.addEventListener('click', (e) => {
+  if (e.target.closest('[data-close]') || e.target.id === 'scrim') return closeDrawer();
+  const r = e.target.closest('[data-code]'); if (r) openDrawer(r.dataset.code);
+});
+document.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.matches('.crow')) openDrawer(e.target.dataset.code); });
+
+/* Requirements */
+$('#p-reqs').innerHTML = `<div class="fwcards">${D.frameworks.map((f) => { const app = f.met + f.partial + f.notMet; return `<article class="card spot fwcard">
+  <div class="top">${ring(fwPct(f), { size: 92, stroke: 10, color: 'var(--ok)', label: fwPct(f).toFixed(0) + '%' })}
+    <div><h3>${esc(f.name)}${f.base ? '<span class="pill">Base</span>' : ''}${f.strict ? '<span class="pill gold">Strict</span>' : ''}</h3>
+    <p class="muted" style="font-size:.84rem">${f.met} of ${app} applicable Requirements met</p></div></div>
+  ${fwStack(f, { height: 10 })}
+  <div class="legend-row"><span><i style="background:var(--ok)"></i>Met <b>${f.met}</b></span><span><i style="background:var(--gold)"></i>Partial <b>${f.partial}</b></span><span><i style="background:var(--bad)"></i>Not met <b>${f.notMet}</b></span><span><i style="background:var(--line)"></i>N/A <b>${f.na}</b></span></div>
+  <button class="link" style="justify-self:start">Show Requirements not met →</button></article>`; }).join('')}</div>`;
+
+/* Risks */
+$('#p-risks').innerHTML = `<div class="card"><div class="card-h"><h2>Risk register</h2><button class="btn primary">+ Log Risk</button></div>
+  <div class="card-b risks"><div>${riskGrid(openRisks, { cell: 46 })}<p class="muted" style="font-size:.76rem;margin-top:8px">Open risks · severity ↑ likelihood →</p></div>
+  <div style="overflow-x:auto"><table class="rt"><thead><tr><th>Risk</th><th>Severity</th><th class="hide-sm">Likelihood</th><th>Status</th><th class="hide-sm">Owner</th></tr></thead><tbody>
+  ${D.risks.map((r) => `<tr><td><b>${esc(r.title)}</b></td><td><span class="chip ${r.severity === 'CRITICAL' ? 'danger' : r.severity === 'HIGH' ? 'warn' : ''}">${cap(r.severity)}</span></td><td class="hide-sm">${cap(r.likelihood)}</td>
+    <td><span class="chip ${r.status === 'OPEN' ? 'danger' : r.status === 'MITIGATED' ? 'success' : 'done'} plain">${cap(r.status)}</span></td><td class="hide-sm"><span class="owner"><span class="av">${initials(r.owner)}</span></span></td></tr>`).join('')}
+  </tbody></table></div></div></div>`;
+
+/* Providers: inheritance flow from sources into this System's Controls */
+function flowSvg() {
+  const W = 760, H = 320, src = [
+    { k: 'org', name: 'Organization', n: sourceCounts.org, color: '#6c7fd8' },
+    { k: 'provider', name: 'Entra ID SSO', n: sourceCounts.provider, color: 'var(--accent)' },
+    { k: 'shared', name: 'Azure landing zone', n: sourceCounts.shared, color: 'var(--gold)' },
+    { k: 'own', name: 'This System', n: sourceCounts.own, color: 'var(--ink)' },
+  ];
+  const total = C.length, gap = 14, usable = H - 40 - gap * (src.length - 1);
+  let y = 20, ty = 20, out = '';
+  src.forEach((s) => {
+    const h = Math.max(34, (s.n / total) * (usable - 68)), th = (s.n / total) * (H - 40);
+    out += `<g><rect x="20" y="${y}" width="10" height="${h}" rx="3" fill="${s.color}"/>
+      <text x="38" y="${y + h / 2 - 4}">${esc(s.name)}</text><text x="38" y="${y + h / 2 + 11}" class="muted-t">${s.n} Controls</text>
+      <path d="M 200 ${y + h / 2} C 420 ${y + h / 2}, 420 ${ty + th / 2}, ${W - 150} ${ty + th / 2}" stroke="${s.color}" stroke-width="${Math.max(3, th)}"/></g>`;
+    y += h + gap; ty += th;
+  });
+  out += `<rect x="${W - 150}" y="20" width="14" height="${H - 40}" rx="4" fill="var(--accent)"/>
+    <text x="${W - 128}" y="${H / 2 - 4}" style="font-weight:700">ServiceNow</text><text x="${W - 128}" y="${H / 2 + 12}" class="muted-t">${total} applicable Controls</text>`;
+  return `<svg class="flow" viewBox="0 0 ${W} ${H}" role="img" aria-label="Where this System's Control statuses come from">${out}</svg>`;
+}
+$('#p-providers').innerHTML = `<div style="display:grid;gap:14px">
+  <article class="card"><div class="card-h"><h2>Where the Controls come from</h2></div><div class="card-b">${flowSvg()}</div></article>
+  <div class="provs">${S.providers.map((p) => `<article class="card spot"><div class="card-h"><h3>${esc(p.name)}</h3><span class="chip done">Onboarded</span></div>
+    <div class="card-b" style="display:grid;gap:10px"><div class="legend-row" style="margin:0"><span>Full Offerings <b>${p.full}</b></span><span>Shared <b>${p.shared}</b></span></div>
+    <div class="tags">${C.filter((c) => c.provider === p.name).map((c) => `<button class="tag" style="cursor:pointer" data-code="${c.code}">${c.code}</button>`).join('')}</div>
+    <button class="link" style="justify-self:start">Remove dependency</button></div></article>`).join('')}
+    <article class="card" style="display:grid;place-items:center;padding:24px;border-style:dashed;box-shadow:none"><button class="btn">+ Depend on a Provider</button><p class="muted" style="font-size:.8rem;margin-top:8px;text-align:center">This System is not a Provider itself. <button class="link">Mark as Provider</button></p></article>
+  </div></div>`;
+
+/* Profile */
+const lvlSeg = (axis, cur) => `<div class="lvl-row"><b>${axis}</b><div class="seg" role="group" aria-label="${axis}">${[null, ...LEVELS].map((l) => `<button aria-pressed="${l === cur}">${l ? cap(l) : 'Not classified'}</button>`).join('')}</div></div>`;
+$('#p-profile').innerHTML = `<div style="display:grid;gap:14px">
+  <article class="card"><div class="card-h"><h2>About</h2><button class="btn">Edit</button></div><div class="card-b prof">
+    <div><div class="label">Vendor</div>${esc(S.vendor)}</div><div><div class="label">Owner</div>${esc(S.owner)}</div><div><div class="label">Created</div>${S.created}</div>
+    <div style="grid-column:1/-1"><div class="label">Description</div>${esc(S.description)}</div></div></article>
+  <article class="card"><div class="card-h"><h2>Deployment Facets</h2><span class="muted" style="font-size:.8rem">More than one means Hybrid</span></div><div class="card-b facet-pick">
+    ${['SaaS', 'Cloud IaaS/PaaS', 'On-Premises Datacenter'].map((f) => `<label><input type="checkbox" ${S.facets.includes(f) ? 'checked' : ''}>${f}</label>`).join('')}</div></article>
+  <article class="card"><div class="card-h"><h2>Impact Level</h2><span class="muted" style="font-size:.8rem">Set per axis. Changing it recomputes the applicable Controls.</span></div><div class="card-b">
+    ${lvlSeg('Confidentiality', S.cia.c)}${lvlSeg('Integrity', S.cia.i)}${lvlSeg('Availability', S.cia.a)}</div></article>
+  <article class="card"><div class="card-h"><h2>Business Units and Framework Scope</h2></div><div class="card-b prof">
+    <div><div class="label">Business Units</div><div class="tags" style="margin-top:6px">${S.businessUnits.map((b) => `<span class="tag">${esc(b)} ✕</span>`).join('')}<button class="tag" style="cursor:pointer">+ Add</button></div></div>
+    <div><div class="label">Framework Scope</div><div class="tags" style="margin-top:6px">${D.frameworks.map((f) => `<span class="tag">${esc(f.name)}${f.base ? ' · always' : ' ✕'}</span>`).join('')}<button class="tag" style="cursor:pointer">+ Add</button></div></div></div></article></div>`;
+
+/* Activity */
+$('#p-activity').innerHTML = `<article class="card"><div class="card-h"><h2>Activity and approval</h2></div><div class="card-b">
+  <div class="callout" style="margin-bottom:16px">No Approval decision yet. A Reviewer approves or rejects from the header.</div>
+  <ul class="tl">${D.activity.map((a) => `<li><div><b>${esc(a.who)}</b> ${esc(a.what)}<small>${a.when}</small></div></li>`).join('')}</ul></div></article>`;
+
+renderOverview();
+renderControls();
+animate($('#hero'));
+const start = location.hash.slice(1);
+show(PANEL[start] ? start : 'overview');
+addEventListener('hashchange', () => { const k = location.hash.slice(1); if (PANEL[k]) show(k); });
+</script>
+</body>
+</html>

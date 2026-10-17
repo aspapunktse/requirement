@@ -3,6 +3,28 @@
 // `id` is the vote key: keep it stable once people have voted, or the votes are orphaned.
 window.DESIGN_PARTS = [
   {
+    id: "system",
+    name: "System detail",
+    added: "2026-10-17",
+    question: "How should one System's page present its profile, Controls, Requirements, Risks and approval?",
+    proposals: [
+      {
+        id: "system-a",
+        label: "A",
+        title: "Cockpit",
+        href: "/design/system/proposal-a.html",
+        summary: "A header with the lifecycle stepper and decision, then tabs: an overview dashboard of tiles, grouped Controls with a detail drawer, Requirements, Risks, Providers.",
+      },
+      {
+        id: "system-b",
+        label: "B",
+        title: "Dossier",
+        href: "/design/system/proposal-b.html",
+        summary: "One scrolling page with a section rail, an inheritance flow and a mosaic of one tile per Control, beside a readiness checklist for approval.",
+      },
+    ],
+  },
+  {
     id: "controls",
     name: "Control Library",
     added: "2026-10-17",

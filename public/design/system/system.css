@@ -1,0 +1,76 @@
+/* Shared parts for the System detail proposals, on top of the Register tokens in
+   ../systems/systems.css: rings, stacked bars, the lifecycle stepper, the risk grid, a drawer. */
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); }
+.card-h { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 16px 0; }
+.card-h h2, .card-h h3 { font-size: .95rem; font-weight: 700; }
+.card-b { padding: 14px 16px 16px; }
+.link { color: var(--accent); font-weight: 650; text-decoration: none; font-size: .84rem; background: none; border: 0; cursor: pointer; padding: 0; }
+.link:hover { text-decoration: underline; }
+.label { font-size: .72rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--faint); }
+
+/* Spotlight hover: a soft accent glow follows the pointer (set --mx/--my from JS). */
+.spot { position: relative; isolation: isolate; }
+.spot::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: -1; opacity: 0; transition: opacity .25s;
+  background: radial-gradient(380px circle at var(--mx, 50%) var(--my, 50%), color-mix(in srgb, var(--accent) 9%, transparent), transparent 60%); }
+.spot:hover::after { opacity: 1; }
+
+/* Progress ring */
+.ring { display: block; flex: none; }
+.ring-arc { transition: stroke-dashoffset 1.1s cubic-bezier(.2, .8, .2, 1); }
+.ring-num { font-size: 22px; font-weight: 750; fill: var(--ink); font-variant-numeric: tabular-nums; }
+.ring-sub { font-size: 10px; fill: var(--muted); font-weight: 600; }
+
+/* Stacked bar that grows in */
+.stack { display: flex; gap: 2px; border-radius: 99px; overflow: hidden; background: var(--line-soft); }
+.stack i { display: block; width: 0; transition: width .9s cubic-bezier(.2, .8, .2, 1); }
+.stack.in i { width: var(--w); }
+.stack i:first-child { border-radius: 99px 0 0 99px; }
+.stack i:last-child { border-radius: 0 99px 99px 0; }
+.legend-row { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: .78rem; color: var(--muted); margin-top: 8px; }
+.legend-row span { display: inline-flex; align-items: center; gap: 6px; }
+.legend-row i { width: 9px; height: 9px; border-radius: 3px; display: inline-block; }
+.legend-row b { color: var(--ink); font-variant-numeric: tabular-nums; }
+
+/* Lifecycle stepper: segments with the current one pulsing */
+.stepper { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.step { display: grid; gap: 6px; font-size: .78rem; color: var(--faint); font-weight: 600; }
+.step::before { content: ""; height: 5px; border-radius: 99px; background: var(--line-soft); }
+.step.past { color: var(--muted); }
+.step.past::before { background: var(--accent); }
+.step.now { color: var(--ink); }
+.step.now::before { background: linear-gradient(90deg, var(--gold) 0 50%, var(--line-soft) 50%); background-size: 200% 100%; animation: pulse-seg 2.4s ease-in-out infinite; }
+@keyframes pulse-seg { 0%, 100% { background-position: 100% 0; } 50% { background-position: 40% 0; } }
+
+/* Risk grid */
+.rgrid { display: grid; grid-template-columns: 16px repeat(4, var(--cell)); gap: 3px; align-items: center; }
+.rg-c { width: var(--cell); height: var(--cell); border-radius: 6px; display: grid; place-items: center; }
+.rg-c b { width: 20px; height: 20px; border-radius: 50%; background: var(--surface); color: var(--ink); display: grid; place-items: center; font-size: .72rem; box-shadow: 0 1px 3px rgba(0, 0, 0, .2); }
+.rg-x, .rg-y { font-size: .66rem; color: var(--faint); font-weight: 700; text-align: center; font-family: var(--mono); }
+
+/* Source badge for where a Control's status comes from */
+.src { display: inline-flex; align-items: center; gap: 5px; font-size: .72rem; font-weight: 650; color: var(--muted); white-space: nowrap; }
+.src::before { content: ""; width: 8px; height: 8px; border-radius: 2px; background: var(--faint); }
+.src.org::before { background: #6c7fd8; } .src.provider::before { background: var(--accent); } .src.shared::before { background: linear-gradient(135deg, var(--accent) 50%, var(--gold) 50%); } .src.own::before { background: var(--ink); }
+
+/* Slide-over drawer */
+.scrim { position: fixed; inset: 0; background: rgba(10, 25, 35, .35); opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 40; }
+.scrim.show { opacity: 1; pointer-events: auto; }
+.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(460px, 100vw); background: var(--surface); border-left: 1px solid var(--line); box-shadow: var(--shadow); z-index: 41; transform: translateX(102%); transition: transform .28s cubic-bezier(.2, .8, .2, 1); display: flex; flex-direction: column; }
+.drawer.show { transform: none; }
+.drawer header { padding: 18px 20px 14px; border-bottom: 1px solid var(--line-soft); display: grid; gap: 6px; }
+.drawer header h2 { font-size: 1.1rem; }
+.drawer .x { position: absolute; top: 14px; right: 14px; }
+.drawer .body { flex: 1; padding: 16px 20px 24px; overflow: auto; display: grid; gap: 16px; align-content: start; }
+.drawer .foot { padding: 12px 20px; border-top: 1px solid var(--line-soft); display: flex; gap: 8px; justify-content: flex-end; }
+.seg { display: inline-flex; flex-wrap: wrap; gap: 4px; padding: 3px; background: var(--raised); border: 1px solid var(--line-soft); border-radius: 10px; }
+.seg button { border: 0; background: none; padding: 5px 10px; border-radius: 7px; cursor: pointer; font-size: .82rem; font-weight: 600; color: var(--muted); }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgba(20, 45, 61, .15); }
+.field { display: grid; gap: 6px; }
+.field textarea, .field input { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 8px 10px; font: inherit; color: inherit; resize: vertical; }
+.callout { border-radius: 10px; padding: 10px 12px; font-size: .86rem; background: var(--accent-soft); color: var(--ink); border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent); }
+.callout.warn { background: var(--gold-soft); border-color: color-mix(in srgb, var(--gold) 45%, transparent); }
+
+@media (prefers-reduced-motion: reduce) {
+  .ring-arc, .stack i, .drawer, .scrim { transition: none; }
+  .step.now::before { animation: none; background: var(--gold); }
+}
