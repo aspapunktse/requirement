@@ -1,0 +1,71 @@
+// The list behind the /design landing page. Add an entry here whenever a new design proposal is
+// built under public/design/<part>/ (see "Design proposals" in AGENTS.md). Newest part first.
+// `id` is the vote key: keep it stable once people have voted, or the votes are orphaned.
+window.DESIGN_PARTS = [
+  {
+    id: "controls",
+    name: "Control Library",
+    added: "2026-10-17",
+    question: "How should someone browse and work in a library of 300+ Controls?",
+    proposals: [
+      {
+        id: "controls-a",
+        label: "A",
+        title: "Workbench",
+        href: "/design/controls/proposal-a.html",
+        summary: "Saved views, a facet rail with live counts, a dense grouped grid, bulk actions and a detail drawer.",
+      },
+      {
+        id: "controls-b",
+        label: "B",
+        title: "Atlas",
+        href: "/design/controls/proposal-b.html",
+        summary: "Every Control at once as one cell per Control by domain, then a three-pane browser and a Ctrl+K jump palette.",
+      },
+    ],
+  },
+  {
+    id: "systems",
+    name: "Systems list",
+    added: "2026-10-17",
+    question: "How should the app show 100+ Systems?",
+    proposals: [
+      {
+        id: "systems-a",
+        label: "A",
+        title: "Register table",
+        href: "/design/systems/proposal-a.html",
+        summary: "A filterable, sortable table with saved views, status tabs, grouping, paging and bulk select.",
+      },
+      {
+        id: "systems-b",
+        label: "B",
+        title: "Portfolio view",
+        href: "/design/systems/proposal-b.html",
+        summary: "An onboarding pipeline and needs-attention overview over a grouped list with a preview pane.",
+      },
+    ],
+  },
+  {
+    id: "onboarding",
+    name: "Onboarding a System",
+    added: "2026-10-16",
+    question: "How should a System Owner tell us what their System is, and see which Controls apply?",
+    proposals: [
+      {
+        id: "onboarding-a",
+        label: "A",
+        title: "Guided interview",
+        href: "/design/onboarding/proposal-a.html",
+        summary: "One question at a time, with a live register beside it that updates as you answer.",
+      },
+      {
+        id: "onboarding-b",
+        label: "B",
+        title: "System profile",
+        href: "/design/onboarding/proposal-b.html",
+        summary: "One page: a profile form in place of the register's filters, a domain map, a change ledger and the register.",
+      },
+    ],
+  },
+];
