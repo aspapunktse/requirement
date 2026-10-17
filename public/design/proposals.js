@@ -110,6 +110,13 @@ window.DESIGN_PARTS = [
         href: "/design/onboarding/proposal-b.html",
         summary: "One page: a profile form in place of the register's filters, a domain map, a change ledger and the register.",
       },
+      {
+        id: "onboarding-c",
+        label: "C",
+        title: "Scope comparison",
+        href: "/design/onboarding/proposal-c.html",
+        summary: "Compare an editable System profile against a saved baseline, inspect scope additions and removals, and read responsibility changes in the Control register.",
+      },
     ],
   },
 ];

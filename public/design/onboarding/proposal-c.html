@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Onboarding · Scope comparison</title>
+<link rel="stylesheet" href="register.css">
+<style>
+body { margin: 0; }
+main { max-width: 1040px; padding: 28px 20px 64px; margin: auto; }
+a { color: var(--accent); }
+.top, .section-head, .actions { display:flex; flex-wrap:wrap; gap:10px 18px; align-items:center; justify-content:space-between; }
+.top { border-bottom:1px solid var(--line); padding-bottom:14px; margin-bottom:28px; }
+.eyebrow { text-transform:uppercase; }
+header p { margin-top:12px; max-width:70ch; color:var(--muted); }
+header h1 { margin-top:8px; }
+section { margin-top:30px; }
+.section-head { margin-bottom:14px; align-items:baseline; }
+button, select, input[type="text"], input[type="search"] { background:var(--surface); border:1px solid var(--line); border-radius:3px; padding:7px 10px; min-height:38px; }
+button { cursor:pointer; }
+button:hover { border-color:var(--accent); }
+button[aria-pressed="true"], .primary { color:var(--accent); border-color:var(--accent); background:var(--soft); }
+button:disabled { opacity:.5; cursor:default; }
+input[type="checkbox"] { accent-color:var(--accent); width:16px; height:16px; flex-shrink:0; }
+.profile { border-block:1px solid var(--line); }
+.profile-row { display:grid; grid-template-columns:160px minmax(0,1fr); gap:12px 20px; padding:14px 0; border-bottom:1px solid var(--line); align-items:start; }
+.profile-row:last-child { border:0; }
+.row-label { padding-top:7px; }
+.fields { display:flex; flex-wrap:wrap; gap:10px 24px; align-items:center; min-width:0; }
+.fields label { display:flex; gap:7px; align-items:center; }
+.fields .axis { display:grid; gap:4px; flex:1; min-width:135px; }
+.axis span { font-size:.82rem; color:var(--muted); }
+#name { width:min(100%, 320px); }
+.scope-note { font-size:.82rem; color:var(--muted); margin-top:10px; }
+.compare { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:24px; border-block:1px solid var(--line); padding:20px 0; }
+.caption { color:var(--muted); font-size:.85rem; margin-bottom:10px; }
+.waterfall { display:grid; gap:9px; }
+.flow-row { display:grid; grid-template-columns:105px minmax(0,1fr) 36px; gap:9px; align-items:center; font-size:.84rem; }
+.flow-row button { text-align:left; min-height:28px; padding:2px 6px; }
+.flow-track { background:color-mix(in srgb,var(--line) 35%,transparent); height:20px; position:relative; border-inline:1px solid var(--line); }
+.flow-track i { position:absolute; top:0; height:100%; background:var(--accent); }
+.flow-track .plus { background:var(--add); }
+.flow-track .minus { background:var(--drop); background-image:repeating-linear-gradient(135deg,transparent 0 4px,color-mix(in srgb,var(--surface) 40%,transparent) 4px 6px); }
+.flow-row b { text-align:right; font-variant-numeric:tabular-nums; }
+.delta-word { color:var(--muted); font-size:.84rem; margin-top:13px; }
+.responsibility { display:flex; height:20px; gap:3px; margin:12px 0; }
+.responsibility span { min-width:0; }
+.responsibility .you { background:var(--you); }
+.responsibility .shared { background:var(--shared); }
+.responsibility .covered { background:var(--covered); }
+.legend { display:grid; gap:8px; margin:0; padding:0; list-style:none; }
+.legend li { display:flex; justify-content:space-between; gap:12px; font-size:.9rem; }
+.legend i { display:inline-block; width:9px; height:9px; margin-right:8px; background:var(--you); }
+.legend .shared { background:var(--shared); }
+.legend .covered { background:var(--covered); }
+.last-change { margin-top:14px; border-left:3px solid var(--gold); padding-left:10px; font-size:.85rem; color:var(--muted); }
+.filters { display:flex; flex-wrap:wrap; gap:8px; padding-bottom:14px; }
+.filters label { display:grid; gap:3px; min-width:0; }
+.filters label:first-child { flex:1; min-width:180px; }
+.filters span { font-size:.78rem; color:var(--muted); }
+.filters select, .filters input { width:100%; }
+.register { margin-top:8px; }
+.control.is-new, .control.is-moved { box-shadow:none; border-left:3px solid var(--accent); }
+.control.is-moved { border-color:var(--gold); }
+.control-body { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.control-name, .control-body, .trace { overflow-wrap:anywhere; }
+.control-side { white-space:normal; }
+.empty { padding:30px 12px; border-bottom:1px solid var(--line); color:var(--muted); }
+footer { border-top:1px solid var(--line); margin-top:32px; padding-top:14px; font-size:.8rem; color:var(--muted); }
+.sr-only { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); }
+@media (max-width:650px) {
+ .profile-row, .compare { grid-template-columns:minmax(0,1fr); gap:10px; }
+ .compare { gap:24px; }
+ .row-label { padding-top:0; }
+ .fields { gap:10px 16px; }
+ .control-body { grid-template-columns:minmax(0,1fr); }
+ .control > summary { padding-inline:10px; }
+ .filters label { flex:1; min-width:130px; }
+}
+@media (prefers-reduced-motion:reduce) { *, *::before, *::after { animation:none!important; transition:none!important; } }
+</style>
+</head>
+<body>
+<main>
+<nav class="top" aria-label="Prototype navigation"><a href="/design">← Design proposals</a><span class="eyebrow">Onboarding / proposal C</span><label class="small">Appearance <select id="theme"><option value="auto">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label></nav>
+<header><p class="eyebrow">System register / new system</p><h1>See what your choices change.</h1><p>Describe your System, compare its scope with a baseline, then inspect the Controls behind the difference. No assessments or approvals are created here.</p></header>
+<section aria-labelledby="profile-heading">
+<div class="section-head"><h2 id="profile-heading">01 · System profile</h2><button id="reset" type="button">Reset example</button></div>
+<form class="profile" id="profile" autocomplete="off" onsubmit="return false">
+<div class="profile-row"><label class="label row-label" for="name">System name</label><div><input type="text" id="name" maxlength="100" value="People operations"><p class="scope-note">Example profile · changes stay in this page.</p></div></div>
+<div class="profile-row"><span class="label row-label" id="deployment-label">Deployment facets</span><div class="fields" id="facets" role="group" aria-labelledby="deployment-label"></div></div>
+<div class="profile-row"><span class="label row-label" id="impact-label">Impact levels</span><div class="fields" id="axes" role="group" aria-labelledby="impact-label"></div></div>
+<div class="profile-row"><span class="label row-label" id="scope-label">Framework scope</span><div><div class="fields" role="group" aria-labelledby="scope-label"><label><input type="checkbox" id="personal"> Handles personal data</label><label><input type="checkbox" id="essential"> Supports an essential service</label></div><p id="frameworks" class="scope-note"></p></div></div>
+<div class="profile-row"><span class="label row-label" id="provider-label">Provider dependencies</span><div><div class="fields" id="providers" role="group" aria-labelledby="provider-label"></div><p class="scope-note">Providers change responsibility, never which Controls apply. Coverage here is illustrative.</p></div></div>
+</form>
+</section>
+<section aria-labelledby="comparison-heading">
+<div class="section-head"><h2 id="comparison-heading">02 · Scope comparison</h2><button id="baseline" type="button">Use current as baseline</button></div>
+<p class="caption" id="baseline-description"></p>
+<div class="compare">
+<div><p class="label">Baseline → current scope</p><p class="caption">Select additions or removals to inspect their Controls.</p><div class="waterfall" id="waterfall"></div><p class="delta-word" id="delta"></p></div>
+<div><p class="label">Current responsibility</p><div class="responsibility" id="responsibility" role="img"></div><ul class="legend" id="legend"></ul><p class="delta-word" id="reassigned"></p></div>
+</div>
+<p class="last-change" id="last-change">Example loaded. Try removing the security operations provider or increasing Confidentiality.</p>
+<p id="announcement" class="sr-only" role="status" aria-live="polite"></p>
+</section>
+<section aria-labelledby="register-heading">
+<div class="section-head"><h2 id="register-heading">03 · Control register</h2><div class="actions"><button id="expand" type="button">Expand rows</button><button id="collapse" type="button">Collapse rows</button></div></div>
+<div class="filters">
+<label><span>Search Controls</span><input type="search" id="search" placeholder="Identifier, name, evidence…"></label>
+<label><span>Comparison</span><select id="view"><option value="current">Current scope</option><option value="added">Added since baseline</option><option value="removed">Removed since baseline</option><option value="changed">Responsibility changed</option></select></label>
+<label><span>Responsibility</span><select id="who"><option value="">All responsibilities</option><option value="you">You do this</option><option value="shared">Shared</option><option value="covered">Covered for you</option></select></label>
+<label><span>Domain</span><select id="domain"><option value="">All domains</option></select></label>
+<button id="clear" type="button">Clear filters</button>
+</div>
+<p id="result-count" class="small muted"></p><div id="register" class="register"></div>
+</section>
+<footer>Interactive design study · all Systems, Controls and mappings are illustrative. This prototype uses the same applicability examples as proposals A and B. Inspired by segmented progress and waterfall graphics from <a href="https://forevercomponents.com/">Forever Components</a>.</footer>
+</main>
+<script src="data.js"></script>
+<script src="register.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const original = {facets:['S'], c:2, i:2, a:2, personal:true, essential:false, providers:['entra']};
+const copy = p => ({...p, facets:[...p.facets], providers:[...p.providers]});
+let profile = {...copy(original), a:3, providers:['entra','soc']};
+let baseline = copy(original), base = Onb.evaluate(baseline), current = Onb.evaluate(profile);
+const ids = map => new Set(map.keys());
+let added, removed, changed;
+$('facets').innerHTML = Object.entries(Onb.FACET_LABEL).map(([id,label]) => `<label><input type="checkbox" value="${id}" name="facet"> ${Reg.esc(label)}</label>`).join('');
+$('axes').innerHTML = Object.entries(Onb.AXIS_LABEL).map(([id,label]) => `<label class="axis"><span>${label}</span><select id="axis-${id}">${Onb.LEVELS.map((level,index) => `<option value="${index}">${level}</option>`).join('')}</select></label>`).join('');
+$('providers').innerHTML = Object.entries(Onb.PROVIDERS).map(([id,p]) => `<label><input type="checkbox" value="${id}" name="provider"> ${Reg.esc(p.name)}</label>`).join('');
+$('domain').insertAdjacentHTML('beforeend',Onb.DOMAINS.map(([id,label]) => `<option value="${id}">${Reg.esc(label)}</option>`).join(''));
+function sync() {
+ document.querySelectorAll('[name="facet"]').forEach(el => el.checked = profile.facets.includes(el.value));
+ document.querySelectorAll('[name="provider"]').forEach(el => el.checked = profile.providers.includes(el.value));
+ for(const axis of ['c','i','a']) $('axis-'+axis).value = profile[axis];
+ $('personal').checked = profile.personal; $('essential').checked = profile.essential;
+}
+function description(p) {
+ return `${p.facets.map(f => Onb.FACET_LABEL[f]).join(' + ') || 'No facets'}; C / I / A: ${['c','i','a'].map(k => Onb.LEVELS[p[k]]).join(' / ')}; ${p.personal?'personal data':'no personal data'}; ${p.essential?'essential service':'not an essential service'}; ${p.providers.length ? p.providers.map(k => Onb.PROVIDERS[k].short).join(', ') : 'no Providers'}.`;
+}
+function update(message) {
+ current = Onb.evaluate(profile);
+ added = new Set([...current.keys()].filter(id => !base.has(id)));
+ removed = new Set([...base.keys()].filter(id => !current.has(id)));
+ changed = new Set([...current.keys()].filter(id => base.has(id) && base.get(id).resp !== current.get(id).resp));
+ const total = Math.max(base.size + added.size, current.size, 1);
+ const bars = [ ['Baseline',base.size,0,base.size,'','current'], ['Added',added.size,base.size,added.size,'plus','added'], ['Removed',removed.size,current.size,removed.size,'minus','removed'], ['Current',current.size,0,current.size,'','current'] ];
+ $('waterfall').innerHTML = bars.map(([label,count,start,width,cls,view]) => `<div class="flow-row">${label === 'Baseline' ? '<span>Baseline</span>' : `<button type="button" data-view="${view}" aria-label="${label}: ${count} Controls; show ${view} scope">${label}</button>`}<span class="flow-track" aria-hidden="true"><i class="${cls}" style="left:${start/total*100}%;width:${width/total*100}%"></i></span><b>${count}</b></div>`).join('');
+ $('delta').textContent = `${current.size} applicable of ${Onb.CONTROLS.length} sample Controls · ${added.size} added · ${removed.size} removed.`;
+ $('baseline-description').textContent = 'Baseline profile: '+description(baseline);
+ $('frameworks').textContent = 'In scope: '+[...Onb.scope(profile)].map(key => Onb.FRAMEWORKS[key]).join(' · ')+'. ISO 27001 is always included; cloud facets add CSA CCM in this sample.';
+ const counts = {you:0,shared:0,covered:0}; current.forEach(e => counts[e.resp]++);
+ const labels = {you:'You do this', shared:'Shared with a Provider or the Organization', covered:'Covered for you'};
+ $('responsibility').innerHTML = Object.entries(counts).map(([key,count]) => `<span class="${key}" style="flex:${count}"></span>`).join('');
+ $('responsibility').setAttribute('aria-label', Object.entries(counts).map(([key,count]) => `${count} ${labels[key]}`).join('; '));
+ $('legend').innerHTML = Object.entries(counts).map(([key,count]) => `<li><span><i class="${key}" aria-hidden="true"></i>${labels[key]}</span><b>${count}</b></li>`).join('');
+ $('reassigned').textContent = `${changed.size} existing Controls have a different responsibility from the baseline. Coverage does not mean the System is approved.`;
+ if(message) { $('last-change').textContent = message; $('announcement').textContent = `${message} ${current.size} applicable Controls; ${added.size} added, ${removed.size} removed, ${changed.size} responsibility changes from baseline.`; }
+ render();
+}
+function render() {
+ const view=$('view').value, query=$('search').value.trim().toLowerCase();
+ const source=view==='removed'?base:current;
+ const selection=view==='added'?added:view==='removed'?removed:view==='changed'?changed:ids(current);
+ const entries=[...source.values()].filter(e => selection.has(e.c.id));
+ const shown=entries.filter(e => (!$('who').value || e.resp===$('who').value) && (!$('domain').value || e.c.id.startsWith($('domain').value)) && (!query || `${e.c.id} ${e.c.t} ${e.c.d} ${e.c.ev} ${e.why.join(' ')} ${e.via||''}`.toLowerCase().includes(query))).sort((a,b) => Reg.order(a.c.id,b.c.id));
+ const open=new Set([...$('register').querySelectorAll('.control[open]')].map(el => el.dataset.id));
+ $('register').innerHTML=shown.length?shown.map(e => `<details class="control${view==='removed'?' ghost':''}" data-id="${e.c.id}"${open.has(e.c.id)?' open':''}>${Reg.rowHTML(e, {flag:view==='removed'?'gone':added.has(e.c.id)?'new':null, goneText:'Removed from current scope'})}</details>`).join(''):'<p class="empty">No Controls match this view. Change the profile or clear the filters.</p>';
+ $('result-count').textContent=`${shown.length} of ${entries.length} Controls shown · ${$('view').selectedOptions[0].textContent}${view==='removed'?' · responsibility and trace reflect the baseline':''} · ${$('name').value.trim()||'Unnamed System'}`;
+ document.querySelectorAll('[data-view]').forEach(el => el.setAttribute('aria-pressed',el.dataset.view===view));
+}
+$('profile').addEventListener('change',event => {
+ if(event.target.id==='name') { render(); return; }
+ profile.facets=[...document.querySelectorAll('[name="facet"]:checked')].map(el=>el.value);
+ profile.providers=[...document.querySelectorAll('[name="provider"]:checked')].map(el=>el.value);
+ for(const axis of ['c','i','a']) profile[axis]=+$('axis-'+axis).value;
+ profile.personal=$('personal').checked; profile.essential=$('essential').checked;
+ update('Profile updated. The comparison still uses your saved baseline.');
+});
+$('name').addEventListener('input',render);
+$('baseline').onclick=()=>{baseline=copy(profile);base=Onb.evaluate(baseline);update('Current profile saved as the comparison baseline for this session.');};
+function clearFilters(){ $('search').value='';$('view').value='current';$('who').value='';$('domain').value=''; }
+$('clear').onclick=()=>{clearFilters();render();};
+$('reset').onclick=()=>{baseline=copy(original);base=Onb.evaluate(baseline);profile={...copy(original),a:3,providers:['entra','soc']};$('name').value='People operations';clearFilters();sync();update('Example restored, including the original comparison baseline.');};
+for(const id of ['view','who','domain']) $(id).addEventListener('change',render);
+$('search').addEventListener('input',render);
+$('waterfall').onclick=event=>{const button=event.target.closest('[data-view]');if(button){$('view').value=button.dataset.view;render();}};
+$('expand').onclick=()=>document.querySelectorAll('#register > .control').forEach(el=>el.open=true);
+$('collapse').onclick=()=>document.querySelectorAll('#register details').forEach(el=>el.open=false);
+$('theme').onchange=()=>{if($('theme').value==='auto') document.documentElement.removeAttribute('data-theme');else document.documentElement.dataset.theme=$('theme').value;};
+sync();update();
+</script>
+</body>
+</html>

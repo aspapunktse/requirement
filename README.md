@@ -38,7 +38,7 @@ The queue and what to do next are in [`HANDOFF.md`](HANDOFF.md). The per-issue r
 - **Assessment Queries:** non-blocking question threads on one Control Assessment.
 - **Change Events:** a curated log of compliance-relevant changes. Nothing shows it in the UI yet.
 - **Admin catalogs:** Deployment Facets, Business Units, Frameworks, users and Business Risk Owner assignments.
-- **Design proposals:** browsable at `/design`, with anonymous thumbs-up voting per proposal.
+- **Design proposals:** browsable at `/design`, with interactive alternatives for onboarding, the Systems list, System detail, the Control Library and Statement of Applicability, and anonymous thumbs-up voting per proposal.
 - **Pipeline:** CI on every pull request, and CD to Vercel production gated on green CI (see CI/CD below).
 
 ### Not built yet
