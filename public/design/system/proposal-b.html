@@ -1,0 +1,400 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>System Dossier</title>
+<link rel="stylesheet" href="../systems/systems.css">
+<link rel="stylesheet" href="system.css">
+<style>
+/* Proposal B: a dossier. One page you read top to bottom, with a section rail that follows
+   your scroll on the left and a readiness rail on the right saying what stands between this
+   System and the next lifecycle step. Controls are a mosaic, one tile per Control. */
+.shell { max-width: 1400px; margin: 0 auto; padding: 22px 20px 80px; display: grid; grid-template-columns: 200px minmax(0, 1fr) 300px; gap: 24px; align-items: start; }
+.shell > * { min-width: 0; }
+@media (max-width: 1180px) { .shell { grid-template-columns: minmax(0, 1fr) 300px; } .rail-l { display: none; } }
+@media (max-width: 900px) { .shell { grid-template-columns: 1fr; } .rail-r { position: static !important; } }
+
+/* Left rail: scroll-spy */
+.rail-l { position: sticky; top: 20px; display: grid; gap: 2px; }
+.rail-l .label { margin: 0 0 8px 10px; }
+.rail-l a { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 7px 10px; border-radius: 8px; color: var(--muted); text-decoration: none; font-size: .88rem; font-weight: 600; position: relative; }
+.rail-l a::before { content: ""; position: absolute; left: 0; top: 8px; bottom: 8px; width: 3px; border-radius: 3px; background: transparent; transition: background .2s; }
+.rail-l a:hover { background: var(--surface); color: var(--ink); }
+.rail-l a.on { color: var(--ink); background: var(--surface); box-shadow: 0 1px 2px rgba(20, 45, 61, .06); }
+.rail-l a.on::before { background: var(--accent); }
+.rail-l small { font-size: .72rem; font-variant-numeric: tabular-nums; color: var(--faint); font-weight: 600; }
+.rail-l small.hot { color: var(--bad); }
+
+/* Hero */
+.main { display: grid; gap: 22px; }
+.hero { border-radius: 18px; overflow: clip; border: 1px solid var(--line); box-shadow: var(--shadow); background: var(--surface); }
+.band { position: relative; padding: 22px 22px 56px; color: #fff; background:
+  radial-gradient(600px 220px at 85% -10%, rgba(243, 200, 118, .55), transparent 60%),
+  radial-gradient(500px 260px at 10% 120%, rgba(108, 127, 216, .55), transparent 60%),
+  linear-gradient(135deg, #0c4f5a, #075d68 45%, #0f3446); }
+.band .eyebrow { color: rgba(255, 255, 255, .75); }
+.band h1 { font-size: 2.1rem; margin-top: 6px; }
+.band p { color: rgba(255, 255, 255, .82); max-width: 60ch; margin-top: 6px; }
+.band .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.glass { font-size: .78rem; font-weight: 650; padding: 3px 10px; border-radius: 99px; background: rgba(255, 255, 255, .14); border: 1px solid rgba(255, 255, 255, .22); backdrop-filter: blur(6px); display: inline-flex; gap: 6px; align-items: center; }
+.glass.warn { background: rgba(243, 200, 118, .9); color: #4a3205; border-color: transparent; }
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: -38px 16px 16px; position: relative; }
+@media (max-width: 760px) { .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.stat { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; box-shadow: var(--shadow); display: grid; gap: 6px; }
+.stat .v { font-size: 1.6rem; font-weight: 780; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; line-height: 1; }
+.stat .v small { font-size: .9rem; color: var(--muted); font-weight: 600; }
+.stat .k { font-size: .76rem; color: var(--muted); font-weight: 600; }
+.spark { display: flex; gap: 2px; align-items: end; height: 18px; }
+.spark i { flex: 1; background: var(--accent-soft); border-radius: 2px; }
+.spark i.on { background: var(--accent); }
+
+/* Sections */
+.sec { scroll-margin-top: 16px; }
+.sec-h { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.sec-h h2 { font-size: 1.2rem; }
+.sec-h p { color: var(--muted); font-size: .86rem; }
+
+/* Profile: definition grid */
+.dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+.dl > div { padding: 14px 16px; border-top: 1px solid var(--line-soft); border-left: 1px solid var(--line-soft); display: grid; gap: 6px; align-content: start; }
+.dl > div:hover { background: var(--raised); }
+.dl .edit { font-size: .76rem; color: var(--accent); font-weight: 650; opacity: 0; transition: opacity .15s; justify-self: start; background: none; border: 0; padding: 0; cursor: pointer; }
+.dl > div:hover .edit, .dl > div:focus-within .edit { opacity: 1; }
+.tags { display: flex; flex-wrap: wrap; gap: 5px; }
+.tag { font-size: .78rem; padding: 2px 9px; border-radius: 99px; background: var(--raised); border: 1px solid var(--line-soft); }
+.gauge { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.gauge div { display: grid; justify-items: center; gap: 4px; font-size: .74rem; color: var(--muted); }
+.gauge svg { overflow: visible; }
+
+/* Inheritance flow */
+.flow { width: 100%; height: auto; display: block; }
+.flow text { font-size: 12px; fill: var(--ink); font-family: var(--font); }
+.flow .mt { fill: var(--muted); font-size: 11px; }
+.flow path { fill: none; stroke-opacity: .3; transition: stroke-opacity .2s; }
+.flow g:hover path { stroke-opacity: .65; }
+
+/* Controls mosaic */
+.mos-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--line-soft); }
+.mos { padding: 14px 16px 18px; display: grid; gap: 16px; }
+.mos-group { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 14px; align-items: start; }
+@media (max-width: 640px) { .mos-group { grid-template-columns: 1fr; } }
+.mos-group h3 { font-size: .86rem; display: grid; gap: 6px; }
+.mos-group h3 small { color: var(--muted); font-weight: 600; font-size: .76rem; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(30px, 1fr)); gap: 5px; }
+.tile { aspect-ratio: 1; border-radius: 7px; border: 0; cursor: pointer; position: relative; padding: 0; font-family: var(--mono); font-size: .56rem; font-weight: 700; color: rgba(255, 255, 255, .9); display: grid; place-items: center; transition: transform .15s, box-shadow .15s, opacity .2s; animation: pop .4s cubic-bezier(.2, .8, .2, 1.2) both; animation-delay: calc(var(--i) * 6ms); }
+@keyframes pop { from { transform: scale(.4); opacity: 0; } }
+.tile:hover, .tile:focus-visible { transform: scale(1.18); z-index: 2; box-shadow: 0 6px 16px rgba(20, 45, 61, .25); }
+.tile.FULFILLED { background: var(--ok); } .tile.IN_PROGRESS { background: var(--gold); color: #4a3205; } .tile.NOT_STARTED { background: var(--surface); box-shadow: inset 0 0 0 1.5px var(--line); color: var(--muted); }
+.tile.WAIVED { background: var(--accent); } .tile.NOT_APPLICABLE { background: var(--line-soft); color: var(--faint); }
+.tile.inh::after { content: ""; position: absolute; top: 3px; right: 3px; width: 5px; height: 5px; border-radius: 50%; background: rgba(255, 255, 255, .85); }
+.tile.mand.NOT_STARTED { box-shadow: inset 0 0 0 2px var(--bad); color: var(--bad); }
+.tile.q::before { content: "?"; position: absolute; top: -5px; right: -5px; width: 13px; height: 13px; border-radius: 50%; background: var(--gold); color: #4a3205; font-size: .55rem; display: grid; place-items: center; }
+.tile.dim { opacity: .14; }
+.mos-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: .76rem; color: var(--muted); padding: 0 16px 14px; }
+.mos-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.mos-legend i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+.tip { position: fixed; z-index: 50; pointer-events: none; background: var(--ink); color: var(--paper); padding: 8px 10px; border-radius: 8px; font-size: .78rem; max-width: 260px; box-shadow: var(--shadow); opacity: 0; transition: opacity .12s; }
+.tip.show { opacity: 1; }
+.tip b { display: block; }
+
+/* Inline Control panel under the mosaic */
+.peek { margin: 0 16px 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--raised); padding: 16px; display: grid; gap: 12px; animation: rise .25s ease both; }
+@keyframes rise { from { opacity: 0; transform: translateY(6px); } }
+.peek-h { display: flex; justify-content: space-between; gap: 10px; align-items: start; }
+.peek-h h3 { font-size: 1.05rem; }
+.peek-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 640px) { .peek-grid { grid-template-columns: 1fr; } }
+
+/* Requirements bars */
+.fwrow { display: grid; grid-template-columns: minmax(140px, 220px) minmax(0, 1fr) 60px; gap: 14px; align-items: center; padding: 14px 16px; border-top: 1px solid var(--line-soft); }
+.fwrow:first-child { border-top: 0; }
+.fwrow b { font-size: .9rem; }
+.fwrow small { display: block; color: var(--muted); font-size: .76rem; }
+.fwrow .pct { text-align: right; font-weight: 750; font-variant-numeric: tabular-nums; font-size: 1.05rem; }
+@media (max-width: 560px) { .fwrow { grid-template-columns: 1fr 60px; } .fwrow .stack { grid-column: 1 / -1; grid-row: 2; } }
+
+/* Risks */
+.rlist { display: grid; }
+.risk { display: grid; grid-template-columns: 6px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 12px 16px; border-top: 1px solid var(--line-soft); }
+.risk:first-child { border-top: 0; }
+.risk .bar { align-self: stretch; border-radius: 3px; }
+.risk small { color: var(--muted); font-size: .78rem; }
+.mini4 { display: grid; grid-template-columns: repeat(4, 7px); grid-template-rows: repeat(4, 7px); gap: 2px; }
+.mini4 i { border-radius: 2px; background: var(--line-soft); }
+.mini4 i.on { background: var(--bad); }
+
+/* Right rail: readiness */
+.rail-r { position: sticky; top: 20px; display: grid; gap: 14px; }
+.ready { padding: 16px; display: grid; gap: 14px; }
+.ready-top { display: flex; gap: 14px; align-items: center; }
+.ready-top h2 { font-size: 1rem; }
+.checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.checks li { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 8px; padding: 6px 4px; font-size: .84rem; border-radius: 6px; }
+.checks li .ic { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-size: .66rem; font-weight: 800; }
+.checks li.ok .ic { background: var(--ok-soft); color: var(--ok); }
+.checks li.no .ic { background: var(--bad-soft); color: var(--bad); }
+.checks li.wa .ic { background: var(--gold-soft); color: var(--gold-ink); }
+.checks small { display: block; color: var(--muted); font-size: .76rem; }
+.decide { display: grid; gap: 8px; }
+.decide textarea { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font: inherit; resize: vertical; background: var(--surface); color: inherit; }
+.decide .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.btn.approve { background: var(--ok); border-color: var(--ok); color: #fff; justify-content: center; }
+.btn.reject { color: var(--bad); justify-content: center; }
+.tl { list-style: none; margin: 0; padding: 0; }
+.tl li { display: grid; grid-template-columns: 12px minmax(0, 1fr); gap: 10px; position: relative; padding-bottom: 10px; font-size: .8rem; }
+.tl li::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); margin-top: 5px; }
+.tl li::after { content: ""; position: absolute; left: 3.5px; top: 16px; bottom: 0; width: 1px; background: var(--line); }
+.tl li:last-child::after { display: none; }
+.tl small { display: block; color: var(--faint); font-size: .72rem; }
+@media (prefers-reduced-motion: reduce) { .tile, .peek { animation: none; } .tile { transition: none; } }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="logo">IS</div>
+  <div><b>ISMS</b><small>System onboarding</small></div>
+  <nav aria-label="Main"><a href="#">Home</a><a href="/design/systems/proposal-b.html" aria-current="page">Systems</a><a href="#">Controls</a><a href="#">Risks</a><a href="#">Check-ups</a><a href="#">Frameworks</a></nav>
+  <div class="proposal-switch">Proposal B · <a href="proposal-a.html">see A</a></div>
+</header>
+
+<div class="shell">
+  <nav class="rail-l" aria-label="On this page" id="spy"></nav>
+
+  <main class="main">
+    <section class="hero" id="hero"></section>
+
+    <section class="sec" id="profile">
+      <div class="sec-h"><h2>Profile</h2><p>Hover a field to change it. Classification changes recompute the Controls.</p></div>
+      <div class="card" style="overflow:clip"><div class="dl" id="dl"></div></div>
+    </section>
+
+    <section class="sec" id="inheritance">
+      <div class="sec-h"><h2>Inheritance</h2><p>Where each Control's status comes from.</p></div>
+      <div class="card"><div class="card-b" id="flow"></div></div>
+    </section>
+
+    <section class="sec" id="controls">
+      <div class="sec-h"><h2>Controls</h2><p id="ctl-sub"></p></div>
+      <div class="card" style="overflow:clip">
+        <div class="mos-bar">
+          <label class="search" style="flex:1 1 220px;max-width:320px"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="9" r="6"/><path d="m14 14 4 4"/></svg>
+            <input id="mq" type="search" placeholder="Highlight code or title" aria-label="Highlight Controls"><kbd>/</kbd></label>
+          <div class="seg" role="group" aria-label="Highlight" id="mf"></div>
+        </div>
+        <div class="mos" id="mos"></div>
+        <div class="mos-legend" id="mleg"></div>
+        <div id="peek"></div>
+      </div>
+    </section>
+
+    <section class="sec" id="requirements">
+      <div class="sec-h"><h2>Requirements by Framework</h2><p>Derived live from the Controls above.</p></div>
+      <div class="card" id="fws"></div>
+    </section>
+
+    <section class="sec" id="risks">
+      <div class="sec-h"><h2>Risks</h2><button class="btn">+ Log Risk</button></div>
+      <div class="card rlist" id="rlist"></div>
+    </section>
+  </main>
+
+  <aside class="rail-r" id="rail"></aside>
+</div>
+<div class="tip" id="tip" role="tooltip"></div>
+
+<script src="data.js"></script>
+<script src="system.js"></script>
+<script>
+const { D, esc, STATUS, STATUS_ORDER, SOURCE, LIFECYCLE, LEVELS, RISK_LEVELS, cap, initials, statusCounts, sourceCounts, themes, done, fwPct, attention, ring, stack, statusStack, fwStack, animate } = SD;
+const S = D.system, C = D.controls;
+const $ = (s) => document.querySelector(s);
+const openRisks = D.risks.filter((r) => r.status === 'OPEN');
+const doneCount = C.filter(done).length;
+const base = D.frameworks[0];
+
+/* Hero */
+const spark = (n, of) => `<div class="spark" aria-hidden="true">${Array.from({ length: 14 }, (_, i) => `<i class="${i < Math.round((n / of) * 14) ? 'on' : ''}" style="height:${30 + ((i * 37) % 70)}%"></i>`).join('')}</div>`;
+$('#hero').innerHTML = `
+  <div class="band">
+    <div class="eyebrow">Proposal B · Dossier · <a href="/design/systems/proposal-b.html" style="color:inherit">Systems</a></div>
+    <h1>${esc(S.name)}</h1>
+    <p>${esc(S.description)}</p>
+    <div class="chips">
+      <span class="glass warn">● In review</span>
+      <span class="glass"><span class="av" style="width:18px;height:18px;font-size:.55rem">${initials(S.owner)}</span>${esc(S.owner)}</span>
+      ${S.facets.map((f) => `<span class="glass">${esc(f)}</span>`).join('')}
+      <span class="glass">C ${cap(S.cia.c)} · I ${cap(S.cia.i)} · A ${cap(S.cia.a)}</span>
+    </div>
+  </div>
+  <div class="stats">
+    <div class="stat"><span class="k">ISO 27001 met</span><span class="v"><span data-count="${fwPct(base).toFixed(1)}">0</span><small>%</small></span>${stack([{ value: base.met, color: 'var(--ok)', label: 'Met' }, { value: base.partial + base.notMet, color: 'var(--line-soft)', label: 'Not yet' }], { height: 5 })}</div>
+    <div class="stat"><span class="k">Controls done</span><span class="v"><span data-count="${doneCount}">0</span><small> / ${C.length}</small></span>${statusStack(C, { height: 5 })}</div>
+    <div class="stat"><span class="k">Inherited</span><span class="v"><span data-count="${C.length - sourceCounts.own}">0</span><small> Controls</small></span>${spark(C.length - sourceCounts.own, C.length)}</div>
+    <div class="stat"><span class="k">Open risks</span><span class="v"><span data-count="${openRisks.length}">0</span><small> · 1 critical</small></span>${spark(openRisks.length, 6)}</div>
+  </div>`;
+
+/* Left rail */
+const SECTIONS = [
+  ['profile', 'Profile', ''], ['inheritance', 'Inheritance', `${C.length - sourceCounts.own}`],
+  ['controls', 'Controls', `${doneCount}/${C.length}`], ['requirements', 'Requirements', `${fwPct(base).toFixed(0)}%`],
+  ['risks', 'Risks', `${openRisks.length} open`, true],
+];
+$('#spy').innerHTML = `<div class="label">On this page</div>` + SECTIONS.map(([id, l, n, hot]) => `<a href="#${id}" data-spy="${id}">${l}<small class="${hot ? 'hot' : ''}">${n}</small></a>`).join('');
+const spyIO = new IntersectionObserver((es) => es.forEach((e) => {
+  if (e.isIntersecting) document.querySelectorAll('[data-spy]').forEach((a) => a.classList.toggle('on', a.dataset.spy === e.target.id));
+}), { rootMargin: '-30% 0px -60% 0px' });
+SECTIONS.forEach(([id]) => spyIO.observe(document.getElementById(id)));
+
+/* Profile */
+const gauge = (axis, lv) => {
+  const n = lv ? LEVELS.indexOf(lv) + 1 : 0, r = 22, c = Math.PI * r, col = n >= 4 ? 'var(--bad)' : n >= 3 ? 'var(--gold)' : 'var(--accent)';
+  return `<div><svg width="56" height="32" viewBox="0 0 56 32"><path d="M6 28 A22 22 0 0 1 50 28" fill="none" stroke="var(--line-soft)" stroke-width="7" stroke-linecap="round"/>
+    <path d="M6 28 A22 22 0 0 1 50 28" fill="none" stroke="${col}" stroke-width="7" stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="${c * (1 - n / 4)}"/></svg>
+    <b style="color:var(--ink)">${axis}</b>${lv ? cap(lv) : 'Not classified'}</div>`;
+};
+$('#dl').innerHTML = [
+  ['Vendor', esc(S.vendor)],
+  ['Owner', `<span style="display:inline-flex;gap:8px;align-items:center"><span class="av">${initials(S.owner)}</span>${esc(S.owner)}</span>`],
+  ['Deployment Facets', `<div class="tags">${S.facets.map((f) => `<span class="tag">${esc(f)}</span>`).join('')}</div>`],
+  ['Impact Level', `<div class="gauge">${gauge('C', S.cia.c)}${gauge('I', S.cia.i)}${gauge('A', S.cia.a)}</div>`],
+  ['Framework Scope', `<div class="tags">${D.frameworks.map((f) => `<span class="tag">${esc(f.name)}</span>`).join('')}</div>`],
+  ['Business Units', `<div class="tags">${S.businessUnits.map((f) => `<span class="tag">${esc(f)}</span>`).join('')}</div>`],
+  ['Provider', 'Not a Provider'],
+  ['Created', `${S.created} · submitted ${S.submitted}`],
+].map(([k, v]) => `<div><span class="label">${k}</span><div>${v}</div><button class="edit">Change</button></div>`).join('');
+
+/* Inheritance flow */
+(function () {
+  const W = 820, H = 290, src = [
+    { name: 'Organization', sub: 'Org-wide implementation', n: sourceCounts.org, color: '#6c7fd8' },
+    { name: 'Entra ID SSO', sub: 'Provider · full', n: sourceCounts.provider, color: 'var(--accent)' },
+    { name: 'Azure landing zone', sub: 'Provider · shared', n: sourceCounts.shared, color: 'var(--gold)' },
+    { name: 'ServiceNow itself', sub: 'Own Assessments', n: sourceCounts.own, color: 'var(--ink)' },
+  ];
+  const statusOut = [['Done', C.filter(done).length, 'var(--ok)'], ['In progress', statusCounts.IN_PROGRESS || 0, 'var(--gold)'], ['Not started', statusCounts.NOT_STARTED || 0, 'var(--faint)']];
+  const span = H - 30, gap = 10;
+  let y = 15, ty = 15, out = '';
+  src.forEach((s) => {
+    const h = Math.max(34, (s.n / C.length) * (span - gap * 3 - 68)), th = (s.n / C.length) * span;
+    out += `<g><rect x="0" y="${y}" width="8" height="${h}" rx="3" fill="${s.color}"/><text x="16" y="${y + h / 2 - 3}">${esc(s.name)} · <tspan style="font-weight:700">${s.n}</tspan></text><text x="16" y="${y + h / 2 + 11}" class="mt">${s.sub}</text>
+      <path d="M 190 ${y + h / 2} C 330 ${y + h / 2}, 300 ${ty + th / 2}, 400 ${ty + th / 2}" stroke="${s.color}" stroke-width="${Math.max(2, th)}"/></g>`;
+    y += h + gap; ty += th;
+  });
+  out += `<rect x="400" y="15" width="12" height="${span}" rx="4" fill="var(--accent)"/><text x="406" y="10" text-anchor="middle" class="mt">${C.length} Controls</text>`;
+  let oy = 15, ry = 15;
+  statusOut.forEach(([l, n, col]) => {
+    const th = (n / C.length) * span, h = Math.max(22, (n / C.length) * (span - gap * 2 - 44));
+    out += `<g><path d="M 412 ${oy + th / 2} C 520 ${oy + th / 2}, 520 ${ry + h / 2}, ${W - 170} ${ry + h / 2}" stroke="${col}" stroke-width="${Math.max(2, th)}"/>
+      <rect x="${W - 170}" y="${ry}" width="8" height="${h}" rx="3" fill="${col}"/><text x="${W - 154}" y="${ry + h / 2 + 4}">${l} · <tspan style="font-weight:700">${n}</tspan></text></g>`;
+    oy += th; ry += h + gap;
+  });
+  $('#flow').innerHTML = `<svg class="flow" viewBox="0 0 ${W} ${H}" role="img" aria-label="Sources of Control status flowing into this System and out by status">${out}</svg>`;
+})();
+
+/* Controls mosaic */
+let hl = 'all', mq = '';
+const HL = [['all', 'All'], ['todo', 'To do'], ['inherited', 'Inherited'], ['mandatory', 'Mandatory']];
+$('#mf').innerHTML = HL.map(([k, l]) => `<button aria-pressed="${k === 'all'}" data-h="${k}">${l}</button>`).join('');
+$('#ctl-sub').textContent = `${doneCount} of ${C.length} done · ${statusCounts.NOT_STARTED} not started`;
+$('#mleg').innerHTML = STATUS_ORDER.map((k) => `<span><i class="tile ${k}" style="animation:none;width:12px;height:12px;border-radius:3px"></i>${STATUS[k].label}</span>`).join('') +
+  `<span><i style="background:var(--ok);position:relative"></i>• inherited</span><span><i style="box-shadow:inset 0 0 0 2px var(--bad)"></i>mandatory, not started</span><span><i style="background:var(--gold);border-radius:50%"></i>open question</span>`;
+const lit = (c) => {
+  if (mq && !`${c.code} ${c.title}`.toLowerCase().includes(mq)) return false;
+  if (hl === 'todo') return !done(c);
+  if (hl === 'inherited') return c.source !== 'own';
+  if (hl === 'mandatory') return c.mandatory;
+  return true;
+};
+let idx = 0;
+$('#mos').innerHTML = themes.map((t) => {
+  const all = C.filter((c) => c.theme === t);
+  return `<div class="mos-group"><h3>${esc(t)}<small>${all.filter(done).length} of ${all.length} done</small>${statusStack(all, { height: 5 })}</h3>
+    <div class="tiles">${all.map((c) => `<button class="tile ${c.status} ${c.source !== 'own' ? 'inh' : ''} ${c.mandatory ? 'mand' : ''} ${c.openQuery ? 'q' : ''}" style="--i:${idx++}" data-code="${c.code}" aria-label="${c.code} ${esc(c.title)}, ${STATUS[c.status].label}">${c.code.split('.').pop()}</button>`).join('')}</div></div>`;
+}).join('');
+function relight() { document.querySelectorAll('.tile[data-code]').forEach((el) => el.classList.toggle('dim', !lit(C.find((c) => c.code === el.dataset.code)))); }
+$('#mf').addEventListener('click', (e) => { const b = e.target.closest('[data-h]'); if (!b) return; hl = b.dataset.h; $('#mf').querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', x === b)); relight(); });
+$('#mq').addEventListener('input', (e) => { mq = e.target.value.trim().toLowerCase(); relight(); });
+addEventListener('keydown', (e) => { if (e.key === '/' && !['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) { e.preventDefault(); $('#controls').scrollIntoView({ behavior: 'smooth' }); $('#mq').focus({ preventScroll: true }); } });
+
+const tip = $('#tip');
+$('#mos').addEventListener('pointerover', (e) => {
+  const t = e.target.closest('.tile'); if (!t) return;
+  const c = C.find((x) => x.code === t.dataset.code), r = t.getBoundingClientRect();
+  tip.innerHTML = `<b>${c.code} ${esc(c.title)}</b>${STATUS[c.status].label} · ${c.provider ? esc(c.provider) : SOURCE[c.source].label}`;
+  tip.style.left = Math.min(innerWidth - 270, r.left) + 'px'; tip.style.top = (r.bottom + 8) + 'px'; tip.classList.add('show');
+});
+$('#mos').addEventListener('pointerout', (e) => { if (e.target.closest('.tile')) tip.classList.remove('show'); });
+
+function peek(code) {
+  const c = C.find((x) => x.code === code), editable = c.source === 'own' || c.source === 'shared';
+  $('#peek').innerHTML = `<div class="peek">
+    <div class="peek-h"><div><span class="eyebrow">${c.code} · ${esc(c.theme)}</span><h3>${esc(c.title)}</h3><p class="muted" style="font-size:.86rem">${esc(c.description)}.</p></div>
+      <button class="btn ghost" aria-label="Close" data-unpeek>✕</button></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><span class="chip ${STATUS[c.status].tone}">${STATUS[c.status].label}</span><span class="src ${c.source}">${c.provider ? esc(c.provider) : SOURCE[c.source].label}</span>${c.mandatory ? '<span class="facet">Mandatory</span>' : ''}</div>
+    ${c.source === 'org' ? `<div class="callout">Inherited live from the Organization's implementation.</div>` : ''}
+    ${c.source === 'provider' ? `<div class="callout">Fully covered by ${esc(c.provider)}. Nothing for this System to do.</div>` : ''}
+    ${c.source === 'shared' ? `<div class="callout warn"><b>Your half:</b> ${esc(c.responsibility)}</div>` : ''}
+    ${c.openQuery ? `<div class="callout warn"><b>Open question:</b> ${esc(c.openQuery)} <button class="link">Reply</button></div>` : ''}
+    ${editable ? `<div class="field"><span class="label">Status</span><div class="seg">${STATUS_ORDER.map((k) => `<button aria-pressed="${k === c.status}">${STATUS[k].label}</button>`).join('')}</div></div>
+    <div class="peek-grid"><label class="field"><span class="label">Evidence</span><input value="${esc(c.evidence || '')}" placeholder="Link or reference"></label>
+      <label class="field"><span class="label">Notes</span><input value="${esc(c.notes || '')}"></label></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn" data-unpeek>Cancel</button><button class="btn primary">Save</button></div>` : ''}
+  </div>`;
+  document.querySelectorAll('.tile').forEach((t) => t.style.outline = t.dataset.code === code ? '2px solid var(--ink)' : '');
+  $('#peek').scrollIntoView({ behavior: SD.reduced ? 'auto' : 'smooth', block: 'nearest' });
+}
+document.addEventListener('click', (e) => {
+  if (e.target.closest('[data-unpeek]')) { $('#peek').innerHTML = ''; document.querySelectorAll('.tile').forEach((t) => t.style.outline = ''); return; }
+  const t = e.target.closest('[data-code]'); if (t) { if (!t.classList.contains('tile')) $('#controls').scrollIntoView({ behavior: 'smooth' }); peek(t.dataset.code); }
+});
+
+/* Requirements */
+$('#fws').innerHTML = D.frameworks.map((f) => { const app = f.met + f.partial + f.notMet; return `<div class="fwrow">
+  <div><b>${esc(f.name)}</b><small>${f.met} of ${app} met${f.strict ? ' · strict' : ''}${f.base ? ' · base' : ''}</small></div>
+  ${fwStack(f, { height: 12 })}<span class="pct">${fwPct(f).toFixed(0)}%</span></div>`; }).join('') +
+  `<div class="legend-row" style="padding:0 16px 14px"><span><i style="background:var(--ok)"></i>Met</span><span><i style="background:var(--gold)"></i>Partially met</span><span><i style="background:var(--bad)"></i>Not met</span><span><i style="background:var(--line)"></i>Not applicable</span></div>`;
+
+/* Risks */
+const sevCol = { CRITICAL: 'var(--bad)', HIGH: 'var(--gold)', MEDIUM: 'color-mix(in srgb, var(--gold) 50%, var(--line))', LOW: 'var(--line)' };
+$('#rlist').innerHTML = D.risks.map((r) => {
+  const s = RISK_LEVELS.indexOf(r.severity), l = RISK_LEVELS.indexOf(r.likelihood);
+  const cells = Array.from({ length: 16 }, (_, i) => `<i class="${3 - Math.floor(i / 4) === s && i % 4 === l ? 'on' : ''}"></i>`).join('');
+  return `<div class="risk"><span class="bar" style="background:${sevCol[r.severity]}"></span>
+    <div><b>${esc(r.title)}</b><br><small>${cap(r.severity)} severity · ${cap(r.likelihood)} likelihood · ${esc(r.owner)}</small></div>
+    <div style="display:flex;gap:12px;align-items:center"><span class="mini4" title="Severity × likelihood">${cells}</span><span class="chip ${r.status === 'OPEN' ? 'danger' : r.status === 'MITIGATED' ? 'success' : 'done'} plain">${cap(r.status)}</span></div></div>`;
+}).join('');
+
+/* Right rail: readiness for approval + decision + activity */
+const mandMissing = C.filter((c) => c.mandatory && c.status === 'NOT_STARTED' && c.source === 'own');
+const queries = C.filter((c) => c.openQuery);
+const sharedOpen = C.filter((c) => c.source === 'shared' && c.status !== 'FULFILLED');
+const critRisks = openRisks.filter((r) => r.severity === 'CRITICAL');
+const checks = [
+  ['ok', 'Classification declared', 'Facet and all three Impact Levels set'],
+  ['ok', 'Framework Scope set', `${D.frameworks.length} Frameworks`],
+  [mandMissing.length ? 'no' : 'ok', 'Mandatory Controls assessed', mandMissing.length ? `${mandMissing.length} still without an Assessment` : 'All have one', mandMissing[0]?.code],
+  [queries.length ? 'wa' : 'ok', 'Open questions answered', queries.length ? `${queries.length} open` : 'None open', queries[0]?.code],
+  [sharedOpen.length ? 'wa' : 'ok', 'Shared responsibilities done', sharedOpen.length ? `${sharedOpen.length} of ${sourceCounts.shared} still in progress` : 'All done', sharedOpen[0]?.code],
+  [critRisks.length ? 'wa' : 'ok', 'No open critical risk', critRisks.length ? critRisks[0].title : 'None'],
+];
+const okN = checks.filter((c) => c[0] === 'ok').length;
+const stageIdx = LIFECYCLE.findIndex(([k]) => k === S.status);
+$('#rail').innerHTML = `
+  <section class="card ready">
+    <div class="ready-top">${ring((okN / checks.length) * 100, { size: 64, stroke: 7, color: 'var(--accent)', label: `${okN}/${checks.length}` })}
+      <div><h2>Ready for approval?</h2><p class="muted" style="font-size:.8rem">What a Reviewer will look at</p></div></div>
+    <div class="stepper" aria-label="Lifecycle">${LIFECYCLE.map(([k, l], i) => `<span class="step ${i < stageIdx ? 'past' : i === stageIdx ? 'now' : ''}" ${i === stageIdx ? 'aria-current="step"' : ''}>${l}</span>`).join('')}</div>
+    <ul class="checks">${checks.map(([st, t, sub, code]) => `<li class="${st}"><span class="ic">${st === 'ok' ? '✓' : st === 'no' ? '!' : '•'}</span>
+      <div>${code ? `<button class="link" style="color:var(--ink);font-size:.84rem" data-code="${code}">${t}</button>` : t}<small>${esc(sub)}</small></div></li>`).join('')}</ul>
+    <div class="decide"><span class="label">Reviewer decision</span><textarea rows="2" placeholder="Comment (required to reject)"></textarea>
+      <div class="row"><button class="btn reject">Reject</button><button class="btn approve">Approve</button></div></div>
+  </section>
+  <section class="card"><div class="card-h"><h3>Activity</h3><button class="link">All</button></div>
+    <div class="card-b"><ul class="tl">${D.activity.slice(0, 5).map((a) => `<li><div><b>${esc(a.who)}</b> ${esc(a.what)}<small>${a.when}</small></div></li>`).join('')}</ul></div></section>`;
+
+animate();
+</script>
+</body>
+</html>
