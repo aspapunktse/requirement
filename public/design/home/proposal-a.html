@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Home Command Center</title>
+<link rel="stylesheet" href="../systems/systems.css">
+<link rel="stylesheet" href="home.css">
+<style>
+/* Proposal A: a command center. A greeting with a "your move" ring, stat cards that double as
+   filters, one task table grouped by urgency (your move, waiting on others, coming up) beside
+   the role's picture, the shortcuts and recent activity. Ctrl+K jumps to anything. */
+.app { max-width: 1320px; margin: 0 auto; padding: 22px 20px 72px; display: grid; gap: 18px; }
+.app > * { min-width: 0; }
+.acting { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; font-size: .78rem; color: var(--muted); }
+.acting select { border: 1px solid var(--line); background: var(--surface); border-radius: 99px; padding: 4px 10px; font-weight: 650; font-size: .8rem; }
+.proposal-switch { margin-left: 14px; }
+@media (max-width: 760px) { .acting span { display: none; } .acting select { max-width: 52vw; } .proposal-switch { display: none; } .topbar small { display: none; } }
+
+.hero { position: relative; overflow: clip; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 20px; align-items: center; padding: 26px 26px; border-radius: 20px; border: 1px solid var(--line); background:
+  radial-gradient(520px 200px at 100% 0%, color-mix(in srgb, var(--gold) 26%, transparent), transparent 70%),
+  radial-gradient(520px 240px at 0% 110%, color-mix(in srgb, #6c7fd8 18%, transparent), transparent 70%),
+  linear-gradient(135deg, var(--surface), color-mix(in srgb, var(--accent-soft) 60%, var(--surface))); box-shadow: var(--shadow); }
+.hero::before { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .5;
+  background-image: radial-gradient(color-mix(in srgb, var(--accent) 22%, transparent) 1px, transparent 1px); background-size: 18px 18px;
+  mask-image: linear-gradient(90deg, transparent 40%, #000); }
+.hero > * { position: relative; }
+.who { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.who .av { width: 34px; height: 34px; font-size: .8rem; background: var(--accent); color: var(--on-accent); }
+.hero h1 { font-size: clamp(1.6rem, 3vw, 2.2rem); letter-spacing: -0.02em; }
+.hero .lede { color: var(--muted); margin-top: 6px; max-width: 62ch; }
+.hero .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.move { display: flex; align-items: center; gap: 16px; padding: 14px 18px; background: color-mix(in srgb, var(--surface) 80%, transparent); border: 1px solid var(--line-soft); border-radius: 16px; backdrop-filter: blur(8px); }
+.move ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: .82rem; color: var(--muted); }
+.move li { display: flex; align-items: center; gap: 8px; }
+.move li i { width: 9px; height: 9px; border-radius: 3px; }
+.move li b { color: var(--ink); font-variant-numeric: tabular-nums; min-width: 1.2em; }
+@media (max-width: 760px) { .hero { grid-template-columns: 1fr; padding: 20px; } }
+
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.stat { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 4px 10px; padding: 14px 16px; text-align: left; border-radius: 14px; }
+button.stat { cursor: pointer; transition: border-color .15s, box-shadow .15s, transform .15s; }
+button.stat:hover { border-color: var(--accent); transform: translateY(-1px); }
+button.stat[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft), var(--shadow); }
+.stat .k { grid-column: 1 / -1; font-size: .78rem; color: var(--muted); font-weight: 650; display: flex; justify-content: space-between; gap: 6px; }
+.stat .k em { font-style: normal; color: var(--accent); font-size: .72rem; opacity: 0; transition: opacity .15s; }
+button.stat:hover .k em, button.stat[aria-pressed="true"] .k em { opacity: 1; }
+.stat .v { font-size: 1.9rem; font-weight: 780; letter-spacing: -0.02em; line-height: 1; font-variant-numeric: tabular-nums; }
+.stat.warn .v { color: var(--gold-ink); } .stat.danger .v { color: var(--bad); } .stat.ok .v { color: var(--ok); }
+
+.main { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(300px, 1fr); gap: 18px; align-items: start; }
+.side { display: grid; gap: 18px; }
+@media (max-width: 1040px) { .main { grid-template-columns: 1fr; } }
+
+.tabs { display: flex; gap: 2px; padding: 10px 12px 0; border-bottom: 1px solid var(--line-soft); overflow-x: auto; scrollbar-width: none; }
+.tabs button { border: 0; background: none; padding: 8px 10px; border-bottom: 2px solid transparent; margin-bottom: -1px; cursor: pointer; color: var(--muted); font-weight: 650; white-space: nowrap; display: inline-flex; gap: 7px; align-items: center; font-size: .86rem; }
+.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+.tabs .n { font-size: .7rem; background: var(--raised); border: 1px solid var(--line-soft); border-radius: 99px; padding: 0 7px; font-variant-numeric: tabular-nums; }
+.tabs button[aria-selected="true"] .n { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+.tbar { display: flex; gap: 8px; align-items: center; padding: 12px 16px; flex-wrap: wrap; }
+.tbar .search { flex: 1 1 220px; }
+
+.lane-h { display: flex; align-items: center; gap: 8px; padding: 10px 18px 6px; font-size: .74rem; font-weight: 750; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); border-top: 1px solid var(--line-soft); background: var(--raised); }
+.lane-h i { width: 8px; height: 8px; border-radius: 50%; }
+.lane-h small { margin-left: auto; text-transform: none; letter-spacing: 0; font-weight: 600; color: var(--faint); }
+.task { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto 78px auto; gap: 12px; align-items: center; padding: 11px 18px; border-top: 1px solid var(--line-soft); cursor: pointer; animation: rise .35s both; animation-delay: var(--d, 0ms); }
+.task:hover { background: var(--raised); }
+.task .t { min-width: 0; }
+.task .t b { display: block; font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.task .t small { display: block; color: var(--muted); font-size: .8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.task .when { color: var(--faint); font-size: .76rem; text-align: right; font-variant-numeric: tabular-nums; }
+.task .go { opacity: .0; transform: translateX(-4px); transition: opacity .15s, transform .15s; }
+.task:hover .go, .task:focus-within .go { opacity: 1; transform: none; }
+.task.you .go { opacity: 1; transform: none; }
+@keyframes rise { from { opacity: 0; transform: translateY(6px); } }
+@media (max-width: 640px) {
+  .task { grid-template-columns: 32px minmax(0, 1fr) auto; }
+  .task .when { display: none; }
+  .task .go { grid-column: 2 / -1; justify-self: start; opacity: 1; transform: none; }
+}
+
+.done-state { display: grid; justify-items: center; gap: 8px; text-align: center; padding: 34px 18px 38px; border-top: 1px solid var(--line-soft); }
+.done-state svg circle { stroke-dasharray: 151; stroke-dashoffset: 151; animation: dash .6s ease-out forwards; }
+.done-state svg path { stroke-dasharray: 30; stroke-dashoffset: 30; animation: dash .35s .5s ease-out forwards; }
+@keyframes dash { to { stroke-dashoffset: 0; } }
+.done-state h3 { font-size: 1.05rem; }
+.done-state p { color: var(--muted); max-width: 44ch; }
+
+.tiles { display: grid; gap: 6px; padding: 12px 12px 14px; }
+.tile { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 9px 10px; border-radius: 12px; text-decoration: none; color: inherit; border: 1px solid transparent; transition: border-color .15s, background .15s; }
+.tile:hover { border-color: var(--line); background: var(--surface); }
+.tile .ib { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; background: var(--raised); color: var(--accent); border: 1px solid var(--line-soft); transition: transform .2s; }
+.tile:hover .ib { transform: rotate(-6deg) scale(1.06); }
+.tile.primary .ib { background: var(--accent); color: var(--on-accent); border-color: transparent; }
+.tile b { display: block; font-size: .88rem; }
+.tile small { display: block; color: var(--muted); font-size: .76rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tile .foot { font-size: .72rem; color: var(--faint); font-weight: 650; white-space: nowrap; }
+
+.feed { list-style: none; margin: 0; padding: 4px 18px 16px; display: grid; }
+.feed li { display: grid; grid-template-columns: 14px minmax(0, 1fr) auto; gap: 10px; padding: 8px 0; font-size: .84rem; position: relative; }
+.feed li::before { content: ""; position: absolute; left: 4px; top: 22px; bottom: -8px; width: 2px; background: var(--line-soft); }
+.feed li:last-child::before { display: none; }
+.feed li i { width: 10px; height: 10px; border-radius: 50%; margin-top: 5px; background: var(--c, var(--accent)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--c, var(--accent)) 20%, transparent); }
+.feed li span:last-child { color: var(--faint); font-size: .76rem; white-space: nowrap; }
+
+/* Ctrl+K palette */
+.pal-scrim { position: fixed; inset: 0; background: rgba(10, 25, 35, .35); backdrop-filter: blur(2px); display: none; z-index: 50; }
+.pal-scrim.show { display: block; }
+.pal { position: fixed; left: 50%; top: 12vh; transform: translateX(-50%); width: min(560px, calc(100vw - 32px)); background: var(--surface); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 24px 60px rgba(10, 25, 35, .3); z-index: 51; display: none; overflow: hidden; }
+.pal.show { display: block; animation: pop .18s ease-out; }
+@keyframes pop { from { opacity: 0; transform: translateX(-50%) scale(.97); } }
+.pal input { width: 100%; border: 0; border-bottom: 1px solid var(--line-soft); padding: 16px 18px; font-size: 1rem; background: transparent; outline: none; }
+.pal ul { list-style: none; margin: 0; padding: 6px; max-height: 50vh; overflow-y: auto; }
+.pal li { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 9px; cursor: pointer; font-size: .88rem; }
+.pal li[aria-selected="true"] { background: var(--accent-soft); }
+.pal li small { color: var(--faint); font-size: .74rem; }
+.pal .grp { font-size: .68rem; text-transform: uppercase; letter-spacing: .06em; color: var(--faint); font-weight: 750; padding: 8px 10px 4px; cursor: default; display: block; }
+.toast { position: fixed; bottom: 20px; left: 50%; transform: translate(-50%, 20px); background: var(--ink); color: var(--paper); padding: 9px 16px; border-radius: 99px; font-size: .84rem; font-weight: 600; opacity: 0; transition: opacity .2s, transform .2s; pointer-events: none; z-index: 60; }
+.toast.on { opacity: 1; transform: translate(-50%, 0); }
+@media (prefers-reduced-motion: reduce) { .task { animation: none; } .done-state svg * { animation: none; stroke-dashoffset: 0; } }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="logo">IS</div>
+  <div><b>ISMS</b><small>System onboarding</small></div>
+  <nav aria-label="Main"><a href="#" aria-current="page">Home</a><a href="/design/systems/proposal-a.html">Systems</a><a href="/design/controls/proposal-a.html">Controls</a><a href="#">Risks</a><a href="#">Check-ups</a><a href="#">Frameworks</a></nav>
+  <label class="acting"><span>Acting as</span><select id="rolePick" aria-label="Acting as role"></select></label>
+  <div class="proposal-switch">Proposal A · <a href="proposal-b.html" data-keep-role>see B</a></div>
+</header>
+
+<div class="app">
+  <section class="hero" id="hero"></section>
+  <section class="stats" id="stats" aria-label="Headline numbers"></section>
+
+  <div class="main">
+    <section class="card" aria-labelledby="tasksH">
+      <div class="card-h"><h2 id="tasksH">My tasks</h2><p><span class="kbd" style="font-family:var(--mono);border:1px solid var(--line);border-radius:4px;padding:0 5px">Ctrl K</span> to jump anywhere</p></div>
+      <div class="tabs" role="tablist" id="tabs"></div>
+      <div class="tbar">
+        <label class="search"><svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.6"/><path d="m11 11 3.5 3.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+          <input id="q" type="search" placeholder="Filter tasks" aria-label="Filter tasks" autocomplete="off"><kbd>/</kbd></label>
+        <select class="sel" id="sort" aria-label="Order"><option value="lane">By urgency</option><option value="new">Newest first</option><option value="old">Oldest first</option></select>
+      </div>
+      <div id="tasks"></div>
+    </section>
+
+    <aside class="side">
+      <section class="card" aria-labelledby="picH"><div class="card-h"><h2 id="picH"></h2><p id="picNote"></p></div><div class="card-b pic" id="pic"></div></section>
+      <section class="card" aria-labelledby="tilesH"><div class="card-h"><h2 id="tilesH">Where to start</h2><p id="tilesNote"></p></div><div class="tiles" id="tiles"></div></section>
+      <section class="card" aria-labelledby="feedH"><div class="card-h"><h2 id="feedH">Recent activity</h2><p>last 2 weeks</p></div><ul class="feed" id="feed"></ul></section>
+    </aside>
+  </div>
+</div>
+
+<div class="pal-scrim" id="palScrim"></div>
+<div class="pal" id="pal" role="dialog" aria-label="Jump to"><input id="palQ" placeholder="Jump to a task or a page…" autocomplete="off"><ul id="palList" role="listbox"></ul></div>
+<div class="toast" id="toast" role="status"></div>
+
+<script src="data.js"></script>
+<script src="home.js"></script>
+<script>
+(function () {
+  const { H, esc, icon, KIND, ring, spark, toneColor, countUp, ago, greeting, first, initials, picture, grow, onRole, setRole, roleKey } = Home;
+  const $ = (id) => document.getElementById(id);
+  const LANES = [['you', 'Your move', 'var(--accent)', 'act on these'], ['waiting', 'Waiting on others', 'var(--faint)', 'nothing to do yet'], ['soon', 'Coming up', 'var(--gold)', 'due later or getting stale']];
+  const TONE_RANK = { danger: 0, warn: 1, success: 2, neutral: 3 };
+  const state = { kind: '', q: '', sort: 'lane', stat: null };
+  let R;
+
+  $('rolePick').innerHTML = H.roles.map((r) => `<option value="${r.key}">${esc(r.label)} · ${esc(r.person)}</option>`).join('');
+  $('rolePick').onchange = (e) => setRole(e.target.value);
+
+  function renderHero() {
+    const n = (l) => R.tasks.filter((t) => t.lane === l).length, tot = R.tasks.length;
+    const you = n('you');
+    $('hero').innerHTML = `<div>
+        <div class="who"><span class="av">${esc(initials(R.person))}</span><span class="eyebrow">Home · ${esc(R.label)}</span></div>
+        <h1>${greeting()}, ${esc(first(R.person))}.</h1>
+        <p class="lede">${esc(R.lede)}</p>
+        <div class="chips">${R.scope ? `<span class="chip done">Scope: ${esc(R.scope)}</span>` : ''}${you ? `<span class="chip warn">${you} need${you === 1 ? 's' : ''} you</span>` : '<span class="chip success">You’re all caught up</span>'}</div>
+      </div>
+      ${tot ? `<div class="move">${ring([[n('you') / tot, 'var(--accent)'], [n('waiting') / tot, 'var(--faint)'], [n('soon') / tot, 'var(--gold)']], 92, 10, String(you), 'your move')}
+        <ul>${LANES.map(([k, l, c]) => `<li><i style="background:${c}"></i><b>${n(k)}</b>${l}</li>`).join('')}</ul></div>` : ''}`;
+  }
+
+  function renderStats() {
+    $('stats').innerHTML = R.stats.map((s, i) => {
+      const tag = s.filter ? 'button' : 'div';
+      return `<${tag} class="card stat spot ${s.tone || ''}" ${s.filter ? `data-stat="${i}" aria-pressed="${state.stat === i}"` : ''}>
+        <span class="k">${esc(s.label)}${s.filter ? '<em>Filter →</em>' : ''}</span>
+        <span class="v" data-count="${esc(s.value)}">0</span>${spark(s.trend, 86, 30, toneColor(s.tone))}</${tag}>`;
+    }).join('');
+    countUp($('stats'));
+  }
+
+  function visible() {
+    let list = R.tasks.map((t, i) => ({ ...t, i }));
+    if (state.kind) list = list.filter((t) => t.kind === state.kind);
+    if (state.q) list = list.filter((t) => (t.title + ' ' + t.subtitle + ' ' + t.status).toLowerCase().includes(state.q));
+    const urg = (a, b) => (TONE_RANK[a.tone] - TONE_RANK[b.tone]) || (b.days - a.days);
+    if (state.sort === 'new') list.sort((a, b) => a.days - b.days);
+    else if (state.sort === 'old') list.sort((a, b) => b.days - a.days);
+    else list.sort(urg);
+    return list;
+  }
+
+  function taskHtml(t, d) {
+    const k = KIND[t.kind];
+    return `<div class="task ${t.lane}" style="--d:${d * 35}ms" data-task="${t.i}" tabindex="0">
+      <span class="kind" style="--hue:${k.hue}" title="${esc(t.kind)}">${icon(k.icon, 17)}</span>
+      <span class="t"><b>${esc(t.title)}</b><small><span class="kind-t" style="--hue:${k.hue}">${esc(t.kind)}</span> · ${esc(t.subtitle)}</small></span>
+      <span class="chip ${t.tone}">${esc(t.status)}</span>
+      <span class="when">${ago(t.days)}</span>
+      <button class="btn go${t.lane === 'you' ? ' primary' : ''}" data-open="${t.i}">${esc(t.action)} ${icon('arrow', 14)}</button>
+    </div>`;
+  }
+
+  function renderTasks() {
+    const kinds = [...new Set(R.tasks.map((t) => t.kind))];
+    if (state.kind && !kinds.includes(state.kind)) state.kind = '';
+    $('tabs').innerHTML = [['', 'All', R.tasks.length], ...kinds.map((k) => [k, k === 'Query' ? 'Queries' : k + 's', R.tasks.filter((t) => t.kind === k).length])]
+      .map(([k, l, n]) => `<button role="tab" aria-selected="${state.kind === k}" data-kind="${k}">${esc(l)}<span class="n">${n}</span></button>`).join('');
+    const list = visible();
+    if (!R.tasks.length) {
+      const p = R.tiles.find((t) => t.primary) || R.tiles[0];
+      $('tasks').innerHTML = `<div class="done-state"><svg width="56" height="56" viewBox="0 0 56 56" fill="none" aria-hidden="true"><circle cx="28" cy="28" r="24" stroke="var(--ok)" stroke-width="3"/><path d="M18 29l7 7 13-15" stroke="var(--ok)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <h3>Nothing needs you</h3><p>${esc(R.label)}s have no tasks of their own. Anything addressed to you, such as a Check-up or a System you own, appears here.</p>
+        <button class="btn primary" data-tile="0">${esc(p.title)} ${icon('arrow', 14)}</button></div>`;
+      return;
+    }
+    if (!list.length) { $('tasks').innerHTML = `<div class="done-state"><h3>No tasks match</h3><button class="btn" id="clear">Clear filters</button></div>`; return; }
+    let d = 0;
+    if (state.sort === 'lane') {
+      $('tasks').innerHTML = LANES.map(([k, l, c, hint]) => {
+        const items = list.filter((t) => t.lane === k); if (!items.length) return '';
+        return `<div class="lane-h"><i style="background:${c}"></i>${l} · ${items.length}<small>${hint}</small></div>${items.map((t) => taskHtml(t, d++)).join('')}`;
+      }).join('');
+    } else $('tasks').innerHTML = list.map((t) => taskHtml(t, d++)).join('');
+  }
+
+  function renderSide() {
+    const p = R.picture;
+    $('picH').textContent = p.title; $('picNote').textContent = p.note;
+    $('pic').classList.remove('in'); $('pic').innerHTML = picture(p); grow($('pic'));
+    $('tilesNote').textContent = `${R.tiles.length} shortcuts`;
+    $('tiles').innerHTML = R.tiles.map((t, i) => `<a class="tile spot${t.primary ? ' primary' : ''}" href="#" data-tile="${i}"><span class="ib">${icon(t.icon)}</span>
+      <span><b>${esc(t.title)}</b><small>${esc(t.description)}</small></span><span class="foot">${esc(t.foot || '')}</span></a>`).join('');
+    $('feed').innerHTML = R.activity.map((a) => `<li style="--c:${toneColor(a.tone)}"><i></i><span><b>${esc(a.who)}</b> ${esc(a.what)}</span><span>${ago(a.days)}</span></li>`).join('');
+  }
+
+  function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('on'), 2200); }
+
+  onRole((r) => {
+    R = r; $('rolePick').value = r.key; state.kind = ''; state.stat = null; state.q = ''; $('q').value = '';
+    renderHero(); renderStats(); renderTasks(); renderSide();
+  });
+
+  $('stats').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-stat]'); if (!b) return;
+    const i = +b.dataset.stat;
+    state.stat = state.stat === i ? null : i; state.kind = state.stat == null ? '' : R.stats[i].filter;
+    document.querySelectorAll('[data-stat]').forEach((x) => x.setAttribute('aria-pressed', +x.dataset.stat === state.stat));
+    renderTasks();
+  });
+  $('tabs').addEventListener('click', (e) => { const b = e.target.closest('[data-kind]'); if (!b) return; state.kind = b.dataset.kind; state.stat = null; document.querySelectorAll('[data-stat]').forEach((x) => x.setAttribute('aria-pressed', 'false')); renderTasks(); });
+  $('q').addEventListener('input', (e) => { state.q = e.target.value.trim().toLowerCase(); renderTasks(); });
+  $('sort').addEventListener('change', (e) => { state.sort = e.target.value; renderTasks(); });
+  document.addEventListener('click', (e) => {
+    if (e.target.id === 'clear') { state.q = ''; $('q').value = ''; state.kind = ''; renderTasks(); return; }
+    const o = e.target.closest('[data-open], [data-task]');
+    if (o && !e.target.closest('#pal')) { const t = R.tasks[+(o.dataset.open ?? o.dataset.task)]; toast(`Would open ${t.kind}: ${t.title}`); return; }
+    const tl = e.target.closest('[data-tile]');
+    if (tl && !e.target.closest('#pal')) { e.preventDefault(); const t = tl.closest('.done-state') ? (R.tiles.find((x) => x.primary) || R.tiles[0]) : R.tiles[+tl.dataset.tile]; toast(`Would open ${t.title}`); }
+  });
+
+  // Ctrl+K palette over tasks, shortcuts and the other roles
+  let palItems = [], sel = 0;
+  function palRender() {
+    const q = $('palQ').value.trim().toLowerCase();
+    const all = [
+      ...R.tasks.map((t) => ({ g: 'Tasks', icon: KIND[t.kind].icon, label: t.title, meta: t.status, run: () => toast(`Would open ${t.kind}: ${t.title}`) })),
+      ...R.tiles.map((t) => ({ g: 'Pages', icon: t.icon, label: t.title, meta: t.foot || '', run: () => toast(`Would open ${t.title}`) })),
+      ...H.roles.filter((r) => r.key !== R.key).map((r) => ({ g: 'Act as (prototype)', icon: 'bolt', label: r.label, meta: r.person, run: () => setRole(r.key) })),
+    ];
+    palItems = all.filter((x) => !q || (x.label + ' ' + x.meta).toLowerCase().includes(q));
+    sel = Math.min(sel, Math.max(0, palItems.length - 1));
+    let g = '';
+    $('palList').innerHTML = palItems.map((x, i) => `${x.g !== g ? `<span class="grp">${esc(g = x.g)}</span>` : ''}<li role="option" data-pi="${i}" aria-selected="${i === sel}">${icon(x.icon, 16)}<span>${esc(x.label)}</span><small>${esc(x.meta)}</small></li>`).join('') || '<li><span></span><span class="muted">Nothing matches</span></li>';
+  }
+  function palOpen() { $('pal').classList.add('show'); $('palScrim').classList.add('show'); $('palQ').value = ''; sel = 0; palRender(); $('palQ').focus(); }
+  function palClose() { $('pal').classList.remove('show'); $('palScrim').classList.remove('show'); }
+  $('palQ').addEventListener('input', () => { sel = 0; palRender(); });
+  $('palList').addEventListener('click', (e) => { const li = e.target.closest('[data-pi]'); if (li) { palClose(); palItems[+li.dataset.pi].run(); } });
+  $('palScrim').onclick = palClose;
+  document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); $('pal').classList.contains('show') ? palClose() : palOpen(); return; }
+    if ($('pal').classList.contains('show')) {
+      if (e.key === 'Escape') palClose();
+      else if (e.key === 'ArrowDown') { e.preventDefault(); sel = Math.min(sel + 1, palItems.length - 1); palRender(); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); sel = Math.max(sel - 1, 0); palRender(); }
+      else if (e.key === 'Enter' && palItems[sel]) { palClose(); palItems[sel].run(); }
+      return;
+    }
+    const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName);
+    if (e.key === '/' && !typing) { e.preventDefault(); $('q').focus(); }
+    if (e.key === 'Enter' && document.activeElement.dataset.task != null) document.activeElement.click();
+  });
+})();
+</script>
+</body>
+</html>
