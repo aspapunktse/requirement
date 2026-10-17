@@ -30,6 +30,10 @@ Implementation work runs as a **supervised sub-agent workflow**. The main sessio
 
 That document names Claude Code's tools (the Agent tool, `SendMessage`, `AskUserQuestion`, `preview_stop`). In another harness, use its equivalents: the roles, the order of work, the brief rules and the review steps apply unchanged. If your harness can't spawn sub-agents, ask the product owner how to proceed before implementing an issue yourself.
 
+## Design proposals
+
+Static design prototypes live in `public/design/<part>/proposal-<x>.html`, and `/design` is their landing page. Whenever a proposal is added, renamed or removed, update `public/design/proposals.js` in the same change: a new part goes first in the list, with its `added` date and the question it answers, and each proposal gets a stable `id` (`<part>-<x>`), a title and a one-line summary. The previews and the voting work from that entry alone. Don't change an `id` once people have voted on it; the votes are stored under it.
+
 ## Keep README.md current
 
 Whenever a change lands that affects what's described in `README.md` — a feature ships, an issue closes, the project status changes, a deferred item gets picked up, setup/scripts/stack change — update `README.md` in the same piece of work rather than leaving it to drift. In particular, keep the "Project status" section an accurate snapshot of what's actually implemented, not a point-in-time note that goes stale. Don't treat this as optional cleanup; treat a change as incomplete until README reflects it.
