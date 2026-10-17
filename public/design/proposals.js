@@ -88,6 +88,13 @@ window.DESIGN_PARTS = [
         href: "/design/systems/proposal-b.html",
         summary: "An onboarding pipeline and needs-attention overview over a grouped list with a preview pane.",
       },
+      {
+        id: "systems-c",
+        label: "C",
+        title: "Comparison register",
+        href: "/design/systems/proposal-c.html",
+        summary: "An expandable System register with search and filters, plus up to three pinned Systems compared side by side across classification and assessment progress.",
+      },
     ],
   },
   {
