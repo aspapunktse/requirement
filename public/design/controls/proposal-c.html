@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Control Library · Coverage register · Proposal C</title>
+<style>
+:root{--paper:#f2f5f6;--surface:#fff;--raised:#eaf0f2;--ink:#142d3d;--muted:#496171;--line:#ccd8de;--teal:#075d68;--wash:#e4f1f1;--partial:#789ca3;color-scheme:light}
+@media(prefers-color-scheme:dark){:root{--paper:#0e1b22;--surface:#14252e;--raised:#213642;--ink:#dbe7ec;--muted:#a7bdc7;--line:#36505e;--teal:#70d2d7;--wash:#173a3f;--partial:#66949c;color-scheme:dark}}
+*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:14px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}button,input,select{font:inherit;color:inherit}button,a,input,select,summary{touch-action:manipulation}button,summary{cursor:pointer}button:disabled{opacity:.45;cursor:default}a{color:var(--teal);text-underline-offset:3px}:focus-visible{outline:2px solid var(--teal);outline-offset:3px}h1,h2,h3,p{margin:0}h1{font-size:clamp(30px,5vw,43px);line-height:1.12;letter-spacing:-.04em;font-weight:650}h2{font-size:19px;letter-spacing:-.025em;font-weight:650}h3{font-size:13px;font-weight:650}.muted,small{color:var(--muted)}.mono,.eyebrow{font:11px/1.5 ui-monospace,Consolas,monospace;letter-spacing:.07em}.eyebrow{color:var(--teal);text-transform:uppercase}.wrap{max-width:1080px;padding-inline:20px;margin:auto}header{border-bottom:1px solid var(--line);background:var(--surface)}.nav{display:flex;align-items:center;flex-wrap:wrap;gap:12px;padding-block:14px}.brand{font-weight:700;letter-spacing:-.025em;margin-right:auto}.mark{color:var(--teal);margin-right:8px}.nav a{font-size:12px}.nav [aria-current]{font-weight:700;text-decoration:none;color:var(--ink);font-size:12px}main{padding-top:38px;padding-bottom:70px}.intro{display:flex;align-items:end;justify-content:space-between;gap:24px;margin-bottom:28px}.intro h1{margin:9px 0 12px}.intro p{max-width:600px;color:var(--muted)}.index{font-size:12px;text-align:right;white-space:nowrap;color:var(--muted)}.index strong{display:block;color:var(--ink);font-size:30px;font-weight:500;line-height:1.25;font-variant-numeric:tabular-nums}.context{padding:17px 0 16px;border-top:2px solid var(--teal);border-bottom:1px solid var(--line);display:grid;grid-template-columns:1fr 1.1fr;gap:30px;align-items:center}.context label{font-size:12px;font-weight:650}.context select{display:block;width:100%;background:var(--surface);border:1px solid var(--line);border-radius:4px;margin-top:7px;padding:10px}.context p{font-size:12px;color:var(--muted)}.scope-note{font-size:11px;margin-top:12px;color:var(--muted)}.scope-note strong{color:var(--ink);font-weight:500}.coverage-strip{display:flex;gap:2px;height:7px;margin:20px 0 12px;background:var(--raised)}.coverage-strip span{min-width:0}.full-segment{background:var(--teal)}.partial-segment{background:var(--partial)}.none-segment{background:var(--line)}.mapping-views{display:flex;gap:6px 20px;flex-wrap:wrap;padding-bottom:18px}.mapping-views button{border:0;border-bottom:2px solid transparent;border-radius:0;padding:4px 0;min-height:34px;background:transparent;color:var(--muted);font-size:12px}.mapping-views button[aria-pressed=true]{border-bottom-color:var(--teal);color:var(--ink);font-weight:650}.mapping-views b{font-variant-numeric:tabular-nums;font-weight:650}.swatch{display:inline-block;width:7px;height:7px;margin-right:5px;background:var(--teal)}.swatch.partial{background:var(--partial)}.swatch.none{background:var(--line)}.filters{padding:16px 0 14px;border-top:1px solid var(--line);display:grid;grid-template-columns:1.5fr 1fr 1fr;gap:13px}.filters label{display:block;font-size:12px;font-weight:600}.filters input,.filters select{display:block;width:100%;min-width:0;background:var(--surface);border:1px solid var(--line);border-radius:4px;margin-top:5px;padding:9px;min-height:40px}.secondary{display:flex;gap:12px 18px;flex-wrap:wrap;align-items:center;font-size:12px;padding-bottom:18px}.secondary select{background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:5px;max-width:100%}.secondary input{accent-color:var(--teal)}button{border:1px solid var(--line);border-radius:4px;background:var(--surface);padding:7px 11px;min-height:36px}button:hover:not(:disabled){color:var(--teal);border-color:var(--teal)}button.text{border:0;background:transparent;padding:3px 0;color:var(--teal);text-decoration:underline;text-underline-offset:3px}.secondary .text{margin-left:auto}.section-head{display:flex;justify-content:space-between;align-items:center;gap:15px;margin:8px 0 12px}.section-head p{font-size:12px;color:var(--muted);margin-top:3px}.section-head span{font-size:12px;color:var(--muted)}.results-line{display:flex;align-items:center;gap:12px;justify-content:space-between;padding:10px 0;border-block:1px solid var(--line);font-size:12px;color:var(--muted)}.results-line strong{font-weight:600;color:var(--ink)}.group-head{display:flex;justify-content:space-between;gap:12px;padding:12px 14px;background:var(--paper);border-bottom:1px solid var(--line);border-left:2px solid var(--teal);font-size:12px;font-weight:650}.group-head span{font-weight:400;color:var(--muted)}.register{background:var(--surface)}.record{border-bottom:1px solid var(--line);padding:0 14px}.record>summary{list-style:none;display:grid;grid-template-columns:98px minmax(0,1fr) 150px;gap:16px;padding:17px 0;align-items:start}.record>summary::-webkit-details-marker{display:none}.code{color:var(--teal);padding-top:3px;overflow-wrap:anywhere}.code::before{content:'+';display:inline-block;width:18px;font:15px system-ui}.record[open] .code::before{content:'−'}.title{font-size:15px;font-weight:650;line-height:1.4;overflow-wrap:anywhere}.why{display:block;font-size:12px;color:var(--muted);font-weight:400;margin-top:5px}.owner{font-size:12px;color:var(--muted)}.owner strong{display:block;color:var(--ink);font-weight:500;margin-bottom:4px}.detail{padding:0 0 20px 114px;max-width:870px}.description{padding-top:15px;border-top:1px solid var(--line);font-size:13px;color:var(--muted);margin-bottom:14px}.trace{border-top:1px solid var(--line);padding:12px 0}.trace summary{font-size:12px;font-weight:650;color:var(--teal)}.trace-body{padding-top:12px}.map-list{padding:0;margin:0;list-style:none}.map-list li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;padding:10px;border-bottom:1px solid var(--line);font-size:12px}.map-list li.selected{background:var(--wash)}.map-list li:last-child{border-bottom:0}.map-count{font-variant-numeric:tabular-nums;color:var(--muted);text-align:right}.map-count strong{font-weight:500;color:var(--ink)}.tiny-note{font-size:11px;color:var(--muted);margin-top:10px}.metadata{display:grid;grid-template-columns:1fr 1fr;gap:15px 22px;margin:0}dt{font-size:11px;color:var(--muted);margin-bottom:3px}dd{margin:0;font-size:12px;overflow-wrap:anywhere}.question{border-left:2px solid var(--teal);padding-left:12px;font-size:13px;margin-top:10px}.pager{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:16px 0;font-size:12px;color:var(--muted)}.actions{display:flex;align-items:center;gap:9px}.empty{padding:35px 15px;border-bottom:1px solid var(--line)}.empty h2{margin-bottom:7px}footer{border-top:1px solid var(--line);padding-top:16px;color:var(--muted);font-size:11px}[hidden]{display:none!important}
+@media(max-width:720px){main{padding-top:28px}.intro{align-items:start}.index{white-space:normal}.index strong{font-size:25px}.nav{gap:10px}.brand{flex-basis:100%}.context{grid-template-columns:1fr;gap:12px}.filters{grid-template-columns:1fr 1fr}.filters label:first-child{grid-column:1/-1}.record{padding-inline:10px}.record>summary{grid-template-columns:minmax(0,1fr);gap:5px;padding-block:15px}.code{font-size:10px}.owner{display:flex;flex-wrap:wrap;gap:3px 10px}.owner strong{margin:0}.detail{padding-left:0}.metadata{grid-template-columns:1fr}.map-list li{grid-template-columns:minmax(0,1fr);gap:3px}.map-count{text-align:left}.results-line>span{display:none}.section-head{align-items:start}.section-head>span{max-width:95px;text-align:right}.secondary{align-items:start}.secondary label{max-width:100%}.secondary label[for=facet]{display:grid;gap:5px}.mapping-views{gap:5px 15px}}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<header><nav class="wrap nav" aria-label="Design proposals"><span class="brand"><span class="mark" aria-hidden="true">▤</span>Requirement &amp; Risk</span><a href="/design">All proposals</a><a href="proposal-a.html">A · Workbench</a><a href="proposal-b.html">B · Atlas</a><span aria-current="page">C · Coverage register</span></nav></header>
+<main class="wrap">
+<section class="intro" aria-labelledby="title"><div><div class="eyebrow">Control Library / The coverage register</div><h1 id="title">Follow the mapping.</h1><p>Start with a Framework. Read which Controls support it, where only Partial mappings exist, and who owns the next decision.</p></div><div class="index"><strong id="total">—</strong>Controls in the library</div></section>
+<section aria-label="Framework context"><div class="context"><label for="framework">01 / Choose a Framework<select id="framework"></select></label><p>The library stays whole. Changing Framework changes the mapping lens, so Controls without a mapping remain visible and can be investigated.</p></div>
+<div id="segments" class="coverage-strip" aria-hidden="true"></div><div id="mapping-views" class="mapping-views" aria-label="Filter by mapping relationship"></div>
+<p class="scope-note"><strong>Reading this view:</strong> counts describe Controls and their mappings to the chosen Framework. They do not measure Requirement Coverage or System compliance.</p>
+</section>
+<form id="filters" role="search" aria-label="Filter the Control Library" style="margin-top:22px">
+<div class="filters"><label for="query">Search the register<input id="query" type="search" placeholder="Control ID, name or description" autocomplete="off"></label><label for="owner">Control Owner<select id="owner"><option value="">All owners</option><option value="unassigned">Unassigned</option></select></label><label for="applicability">Applicability<select id="applicability"><option value="">All applicability</option></select></label></div>
+<div class="secondary"><label for="facet">Deployment Facet <select id="facet"><option value="">Any scoping</option><option value="unrestricted">No Facet restriction</option></select></label><label><input id="mandatory" type="checkbox"> Mandatory only</label><button id="reset" type="button" class="text">Reset filters</button></div>
+</form>
+<section aria-labelledby="register-title"><div class="section-head"><div><div class="eyebrow">02 / Control register</div><h2 id="register-title">The detail behind the relationship</h2><p id="framework-caption"></p></div><span>Expand a Control to follow its mapping trace.</span></div>
+<div class="results-line"><strong id="results" role="status" aria-live="polite" aria-atomic="true"></strong><span>Control / Why it appears / Who owns it</span></div>
+<div class="register" id="register"></div>
+<div class="pager"><span id="range"></span><div class="actions"><button id="prev">Previous</button><span id="page"></span><button id="next">Next</button></div></div>
+</section>
+<footer>Proposal C · Coverage register · Static, read-only exploration. Same 306 illustrative Controls as proposals A and B, including generated owners and scoping. Mapping detail contains aggregate counts; individual Requirement records are not part of this example dataset.</footer>
+<noscript><p>This interactive prototype needs JavaScript to display the example Control Library.</p></noscript>
+</main>
+<script src="data.js"></script>
+<script src="library.js"></script>
+<script>
+(() => {
+  'use strict';
+  const { esc, APPLICABILITY } = window.Lib;
+  const controls = window.CONTROLS;
+  const $ = id => document.getElementById(id);
+  const frameworks = [...new Set(controls.flatMap(c => c.maps.map(m => m.fw)))];
+  const expanded = new Set();
+  const traceExpanded = new Set();
+  const pageSize = 18;
+  const groups = [ ['full', 'Full mappings present'], ['partial', 'Partial mappings only'], ['none', 'No mappings to this Framework'] ];
+  let mappingView = 'all'; let page = 1; let filtered = [];
+  const mapping = c => c.maps.find(m => m.fw === $('framework').value) || {full:0, partial:0};
+  const relation = c => mapping(c).full > 0 ? 'full' : mapping(c).partial > 0 ? 'partial' : 'none';
+  const mappingWords = c => {
+    const m = mapping(c);
+    return m.full + ' Full ' + (m.full === 1 ? 'mapping' : 'mappings') + ' · ' + m.partial + ' Partial ' + (m.partial === 1 ? 'mapping' : 'mappings');
+  };
+  const level = v => v ? v.charAt(0) + v.slice(1).toLowerCase() : 'None';
+  const scope = c => c.applicability === 'ORGANIZATIONAL' ? 'Implemented once by the Organization' : (c.facets.length ? c.facets.join(', ') : 'Any Deployment Facet');
+  function row(c) {
+    const classification = relation(c);
+    const why = classification === 'none' ? 'No mapping to the selected Framework' : mappingWords(c);
+    return `<details class="record" data-id="${c.id}"${expanded.has(c.id) ? ' open' : ''}><summary><span class="mono code">${esc(c.code)}</span><span class="title">${esc(c.title)}<span class="why">${esc(why)}</span></span><span class="owner"><strong>${esc(c.owner || 'Unassigned')}</strong>${esc(APPLICABILITY[c.applicability])}</span></summary><div class="detail"><p class="description">${esc(c.description)}</p>
+<details class="trace" data-trace="${c.id}:mapping"${traceExpanded.has(c.id + ':mapping') ? ' open' : ''}><summary>Mapping trace · ${c.maps.length} ${c.maps.length === 1 ? 'Framework' : 'Frameworks'} · ${c.satisfies} total mappings</summary><div class="trace-body"><ul class="map-list">${c.maps.length ? c.maps.map(m => `<li class="${m.fw === $('framework').value ? 'selected' : ''}"><span>${esc(m.fw)}${m.fw === $('framework').value ? ' · Selected Framework' : ''}</span><span class="map-count"><strong>${m.full} Full</strong> · ${m.partial} Partial</span></li>`).join('') : '<li>No mappings to any Framework.</li>'}${classification === 'none' && c.maps.length ? `<li class="selected"><span>${esc($('framework').value)} · Selected Framework</span><span class="map-count">0 Full · 0 Partial</span></li>` : ''}</ul><p class="tiny-note">These are mapping counts, not distinct Requirement counts. A Partial mapping does not become Full when combined with other Partial mappings. Requirement-level details are not available in this example.</p></div></details>
+<details class="trace" data-trace="${c.id}:scope"${traceExpanded.has(c.id + ':scope') ? ' open' : ''}><summary>Ownership and scoping · ${esc(c.mandatory ? 'Mandatory' : 'Optional')}</summary><div class="trace-body"><dl class="metadata"><div><dt>Control Owner</dt><dd>${esc(c.owner || 'Unassigned')}</dd></div><div><dt>Applicability</dt><dd>${esc(APPLICABILITY[c.applicability])}</dd></div><div><dt>Category</dt><dd>${esc(c.category)}</dd></div><div><dt>Origin</dt><dd>${esc(c.origin || 'ISO 27001 Annex A base Control')}</dd></div><div><dt>Deployment Facet scoping</dt><dd>${esc(scope(c))}</dd></div><div><dt>Minimum Impact Levels</dt><dd>${c.applicability === 'ORGANIZATIONAL' ? 'Not used for Organizational Controls' : `Confidentiality: ${level(c.c)}<br>Integrity: ${level(c.i)}<br>Availability: ${level(c.a)}`}</dd></div>${c.applicability !== 'ORGANIZATIONAL' ? `<div><dt>Assessed on (illustrative)</dt><dd>${c.systems} Systems</dd></div>` : ''}</dl>${c.question ? `<h3 style="margin-top:18px">Self-Assessment Question</h3><p class="question">${esc(c.question)}</p>` : '<p class="tiny-note">No Self-Assessment Question in this example record.</p>'}</div></details>
+</div></details>`;
+  }
+  function render() {
+    const q = $('query').value.trim().toLowerCase();
+    const owner = $('owner').value; const app = $('applicability').value; const facet = $('facet').value;
+    const base = controls.filter(c => (!q || c.hay.includes(q)) && (!owner || (owner === 'unassigned' ? !c.owner : c.owner === owner)) && (!app || c.applicability === app) && (!facet || (facet === 'unrestricted' ? !c.facets.length : c.applicability !== 'ORGANIZATIONAL' && (!c.facets.length || c.facets.includes(facet)))) && (!$('mandatory').checked || c.mandatory));
+    const counts = Object.fromEntries(groups.map(([key]) => [key, base.filter(c => relation(c) === key).length]));
+    $('mapping-views').innerHTML = `<button type="button" data-view="all" aria-pressed="${mappingView === 'all'}">All <b>${base.length}</b></button>${groups.map(([key,label]) => `<button type="button" data-view="${key}" aria-pressed="${mappingView === key}"><span class="swatch ${key}" aria-hidden="true"></span>${label} <b>${counts[key]}</b></button>`).join('')}`;
+    $('segments').innerHTML = groups.map(([key]) => `<span class="${key}-segment" style="width:${base.length ? 100 * counts[key] / base.length : 0}%"></span>`).join('');
+    filtered = base.filter(c => mappingView === 'all' || relation(c) === mappingView).sort((a,b) => groups.findIndex(([key]) => key === relation(a)) - groups.findIndex(([key]) => key === relation(b)) || a.code.localeCompare(b.code,undefined,{numeric:true}));
+    const pages = Math.max(1, Math.ceil(filtered.length/pageSize)); page = Math.min(page,pages);
+    const start = (page - 1) * pageSize; const visible = filtered.slice(start,start + pageSize);
+    $('framework-caption').textContent = 'Mapping lens: ' + $('framework').value;
+    $('results').textContent = filtered.length + ' of ' + controls.length + ' Controls match';
+    $('range').textContent = filtered.length ? 'Showing ' + (start+1) + '–' + Math.min(start+pageSize,filtered.length) + ' of ' + filtered.length : 'Showing 0 Controls';
+    $('page').textContent = 'Page ' + page + ' of ' + pages;
+    $('prev').disabled = page === 1; $('next').disabled = page === pages;
+    $('register').innerHTML = visible.length ? groups.map(([key,label]) => {
+      const current = visible.filter(c => relation(c) === key);
+      return current.length ? `<section aria-label="${esc(label)}"><h3 class="group-head">${label}<span>${counts[key]} in filtered library</span></h3>${current.map(row).join('')}</section>` : '';
+    }).join('') : '<div class="empty"><h2>No matching Controls</h2><p class="muted">Try a different search, mapping relationship or owner.</p><button type="button" id="empty-reset" style="margin-top:14px">Reset filters</button></div>';
+    $('register').querySelectorAll('.record').forEach(el => el.addEventListener('toggle', () => el.open ? expanded.add(Number(el.dataset.id)) : expanded.delete(Number(el.dataset.id))));
+    $('register').querySelectorAll('[data-trace]').forEach(el => el.addEventListener('toggle', () => el.open ? traceExpanded.add(el.dataset.trace) : traceExpanded.delete(el.dataset.trace)));
+  }
+  function reset() { $('filters').reset(); mappingView = 'all'; page = 1; render(); }
+  frameworks.forEach(fw => $('framework').add(new Option(fw,fw))); $('framework').value = frameworks.includes('CSA CCM 4.1.1') ? 'CSA CCM 4.1.1' : frameworks[0];
+  [...new Set(controls.map(c => c.owner).filter(Boolean))].sort().forEach(owner => $('owner').add(new Option(owner,owner)));
+  Object.entries(APPLICABILITY).forEach(([key,label]) => $('applicability').add(new Option(label,key)));
+  [...new Set(controls.flatMap(c => c.facets))].sort().forEach(facet => $('facet').add(new Option(facet,facet)));
+  $('total').textContent = controls.length;
+  $('framework').addEventListener('change', () => { page = 1; render(); });
+  $('filters').addEventListener('submit', e => e.preventDefault());
+  $('filters').addEventListener('input', () => { page = 1; render(); });
+  $('mapping-views').addEventListener('click', e => {
+    const button = e.target.closest('[data-view]'); if (!button) return;
+    mappingView = button.dataset.view; page = 1; render();
+    $('mapping-views').querySelector(`[data-view="${mappingView}"]`).focus();
+  });
+  $('reset').addEventListener('click', reset);
+  $('register').addEventListener('click', e => { if(e.target.closest('#empty-reset')) {reset();$('query').focus();} });
+  $('prev').addEventListener('click', () => { if(page > 1) {page--; render();} });
+  $('next').addEventListener('click', () => { if(page*pageSize < filtered.length) {page++; render();} });
+  render();
+})();
+</script>
+</body>
+</html>
