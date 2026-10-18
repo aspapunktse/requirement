@@ -169,6 +169,7 @@ async function roleOwnView(user: { id: string; name: string; role: UserRole }): 
         tiles: [
           { title: "Controls", description: "Manage the Control Library.", href: "/admin/controls" },
           { title: "Deployment Facets", description: "Manage deployment classifications.", href: "/admin/deployment-facets" },
+          { title: "Review Groups", description: "Manage who reviews each Framework.", href: "/admin/review-groups" },
           ORGANIZATION_CONTROLS_TILE,
         ],
       };

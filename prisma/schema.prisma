@@ -100,6 +100,9 @@ model User {
   // Business Units, Frameworks, or both, not necessarily paired. See #55.
   businessUnitScopes                 BusinessUnit[]
   frameworkScopes                    Framework[]                         @relation("FrameworkRiskOwner")
+  // Review Groups this User is a member of (#197). Membership is independent of role, except
+  // that an Internal Auditor can't be a member (enforced in the API, not the schema).
+  reviewGroups                       ReviewGroup[]                       @relation("ReviewGroupMember")
   resolvedQueries                    AssessmentQuery[]                   @relation("QueryResolvedBy")
   queryMessages                      QueryMessage[]
   acceptedGaps                       Requirement[]                       @relation("GapAcceptedBy")
@@ -203,6 +206,20 @@ model BusinessUnit {
   riskOwners User[]
 }
 
+// A named set of Users who review Systems on behalf of the Frameworks the group is tied to
+// (see CONTEXT.md, Review Group; ADR 0010). Membership is maintained by hand for now. Later a
+// Review Group is to be linked to one Entra ID group that supplies its members; that link is not
+// built and has no column yet. The name and the Framework ties stay the app's own record.
+model ReviewGroup {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+
+  members    User[]      @relation("ReviewGroupMember")
+  frameworks Framework[]
+}
+
 // A curated compliance standard, law or regulation (e.g. ISO/IEC 27001:2022,
 // CMMC), made up of its own Requirements — the standard's line items —
 // which Controls satisfy through Control Mappings (ADR 0005). Each version
@@ -250,6 +267,11 @@ model Framework {
   // Users assigned this Framework as (part of) their BUSINESS_RISK_OWNER
   // portfolio.
   riskOwners         User[]        @relation("FrameworkRiskOwner")
+
+  // The Review Group that reviews this Framework's non-base Controls on a System; at most one.
+  // Restrict: a Review Group can't be deleted while tied (the API checks first and answers 409).
+  reviewGroupId String?
+  reviewGroup   ReviewGroup? @relation(fields: [reviewGroupId], references: [id], onDelete: Restrict)
 
   @@unique([name, version])
 }

@@ -74,6 +74,13 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/framew
     return NextResponse.json({ error: "Publish a Framework with POST /api/frameworks/[id]/publish" }, { status: 400 });
   }
 
+  if (parsed.data.isBase === true && !existing.isBase && existing.reviewGroupId) {
+    return NextResponse.json(
+      { error: "Untie this Framework from its Review Group before making it the base Framework" },
+      { status: 409 },
+    );
+  }
+
   if (parsed.data.isBase !== undefined) {
     const violation = await checkBaseFrameworkInvariant(id, {
       wasBase: existing.isBase,
