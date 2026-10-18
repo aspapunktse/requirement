@@ -33,12 +33,24 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems
     );
   }
 
-  const updated = await prisma.system.update({
-    where: { id: system.id },
-    data: { status: "IN_REVIEW" },
-    include: { deploymentFacets: true, owner: true },
+  // The status change, the new Review Round and the Change Event commit together.
+  const updated = await prisma.$transaction(async (tx) => {
+    // Guards on Draft so two concurrent submits can't start two rounds.
+    const moved = await tx.system.updateMany({
+      where: { id: system.id, status: "DRAFT" },
+      data: { status: "IN_REVIEW" },
+    });
+    if (moved.count === 0) return null;
+    await tx.reviewRound.create({ data: { systemId: system.id } });
+    await logChangeEvent(system.id, "SYSTEM_SUBMITTED", "Submitted for review", auth.user.id, tx);
+    return tx.system.findUniqueOrThrow({
+      where: { id: system.id },
+      include: { deploymentFacets: true, owner: true },
+    });
   });
-  await logChangeEvent(system.id, "SYSTEM_SUBMITTED", "Submitted for review", auth.user.id);
+  if (!updated) {
+    return NextResponse.json({ error: "Only a Draft System can be submitted for review" }, { status: 400 });
+  }
 
   return NextResponse.json({ system: updated });
 }

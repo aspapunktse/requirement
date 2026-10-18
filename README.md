@@ -22,7 +22,7 @@ The queue and what to do next are in [`HANDOFF.md`](HANDOFF.md). The per-issue r
 
 ### What works today
 
-- **Onboarding lifecycle:** create a System, assess it against the Control Library, log Risks, submit for review, a Reviewer approves or rejects (Rejected returns to Draft), mark Onboarded.
+- **Onboarding lifecycle:** create a System, assess it against the Control Library, log Risks, submit for review (each submission is a Review Round), a Reviewer approves or rejects (Rejected returns to Draft), mark Onboarded. A System In Review shows the round's Review Steps (the base step plus one per Review Group with a Control in its remit, derived from the Framework Scope) and the approval history grouped by round; decisions are still made on the base step only.
 - **Roles:** a dev-only auth stub with a role switcher and server-enforced authorization for eight roles: Admin, Risk Owner, System Owner, Reviewer, Viewer, Business Risk Owner, Compliance Manager and Internal Auditor. Seeing a System never implies writing to it; owner actions belong to the System's owner or an Admin. The Internal Auditor reads everything and writes nothing, even as a System's or Control's recorded owner.
 - **Requirement database:** Frameworks (versioned, Draft or Published) own their Requirements, which are linked to Controls by Control Mappings with Full or Partial Coverage. ISO/IEC 27001:2022 is the base Framework, with Annex A and clauses 4–10.
 - **Framework import:** `npm run frameworks:load` loads Framework files (Requirements, Control Mappings, Supplementary Controls) as a Draft, idempotently; a Published Framework is only touched with `--allow-published`. The format is in [`prisma/seed-data/frameworks/README.md`](prisma/seed-data/frameworks/README.md).
@@ -38,7 +38,7 @@ The queue and what to do next are in [`HANDOFF.md`](HANDOFF.md). The per-issue r
 - **Assessment Queries:** non-blocking question threads on one Control Assessment.
 - **Change Events:** a curated log of compliance-relevant changes. Nothing shows it in the UI yet.
 - **Admin catalogs:** Deployment Facets, Business Units, Frameworks, users and Business Risk Owner assignments.
-- **Review Groups:** an Admin creates named groups of Users (any role but Internal Auditor) and manages their members; an Admin or Compliance Manager ties a group to non-base Frameworks (a Framework has at most one group), and a tied group with no members is flagged. Nothing consumes the groups yet: Review Steps come next.
+- **Review Groups:** an Admin creates named groups of Users (any role but Internal Auditor) and manages their members; an Admin or Compliance Manager ties a group to non-base Frameworks (a Framework has at most one group), and a tied group with no members is flagged. A tied group adds a Review Step to Systems In Review that have one of its Frameworks in scope; deciding that step comes next.
 - **Design proposals:** browsable at `/design`, with interactive alternatives for onboarding, the Systems list, System detail, the Control Library, the Statement of Applicability, Home by role and creating an Internal Audit, and anonymous thumbs-up voting per proposal.
 - **Pipeline:** CI on every pull request, and CD to Vercel production gated on green CI (see CI/CD below).
 

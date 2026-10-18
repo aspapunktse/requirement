@@ -144,7 +144,7 @@ export function checkWaiveGate(
  *   the System's declared facets.
  * Impact Level thresholds are applied in application code afterwards.
  */
-const APPLICABILITY_SCOPING = (classification: Pick<SystemClassification, "deploymentFacets" | "frameworkScopes">) => {
+export const APPLICABILITY_SCOPING = (classification: Pick<SystemClassification, "deploymentFacets" | "frameworkScopes">) => {
   const facetIds = classification.deploymentFacets.map((f) => f.id);
   const scopedFrameworkIds = classification.frameworkScopes.map((f) => f.id);
   return [

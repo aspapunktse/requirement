@@ -205,7 +205,7 @@ async function main() {
   });
   await fulfillMost({ id: jira.id, ...jiraClass });
   await prisma.approval.create({
-    data: { systemId: jira.id, approverId: reviewer.id, decision: "APPROVED", comment: "Meets baseline controls." },
+    data: { systemId: jira.id, reviewRoundId: (await prisma.reviewRound.create({ data: { systemId: jira.id } })).id, approverId: reviewer.id, decision: "APPROVED", comment: "Meets baseline controls." },
   });
   await prisma.risk.create({
     data: {
@@ -250,7 +250,7 @@ async function main() {
   });
   await fulfillMost({ id: confluence.id, ...confluenceClass });
   await prisma.approval.create({
-    data: { systemId: confluence.id, approverId: reviewer.id, decision: "APPROVED" },
+    data: { systemId: confluence.id, reviewRoundId: (await prisma.reviewRound.create({ data: { systemId: confluence.id } })).id, approverId: reviewer.id, decision: "APPROVED" },
   });
   await prisma.risk.create({
     data: {
@@ -286,7 +286,7 @@ async function main() {
   });
   await fulfillMost({ id: m365.id, ...m365Class });
   await prisma.approval.create({
-    data: { systemId: m365.id, approverId: reviewer.id, decision: "APPROVED", comment: "Org-wide baseline." },
+    data: { systemId: m365.id, reviewRoundId: (await prisma.reviewRound.create({ data: { systemId: m365.id } })).id, approverId: reviewer.id, decision: "APPROVED", comment: "Org-wide baseline." },
   });
   await prisma.risk.create({
     data: {
@@ -325,6 +325,7 @@ async function main() {
       description: "Enterprise content management and records archive for Legal.",
       ownerId: marcus.id,
       status: "IN_REVIEW",
+      reviewRounds: { create: {} }, // the open Review Round of the submission
       deploymentFacets: { connect: openTextClass.deploymentFacets },
       confidentialityImpactLevel: openTextClass.confidentialityImpactLevel,
       integrityImpactLevel: openTextClass.integrityImpactLevel,
@@ -387,6 +388,7 @@ async function main() {
   await prisma.approval.create({
     data: {
       systemId: catia.id,
+      reviewRoundId: (await prisma.reviewRound.create({ data: { systemId: catia.id } })).id,
       approverId: reviewer.id,
       decision: "REJECTED",
       comment: "Export-control classification evidence was incomplete — please attach the ECCN determination.",
@@ -426,7 +428,7 @@ async function main() {
   });
   await fulfillMost({ id: workday.id, ...workdayClass });
   await prisma.approval.create({
-    data: { systemId: workday.id, approverId: reviewer.id, decision: "APPROVED", comment: "PII controls verified." },
+    data: { systemId: workday.id, reviewRoundId: (await prisma.reviewRound.create({ data: { systemId: workday.id } })).id, approverId: reviewer.id, decision: "APPROVED", comment: "PII controls verified." },
   });
   // A "No" self-assessment answer, left open with its auto-generated Risk —
   // see CONTEXT.md's Risk entry.
@@ -465,6 +467,7 @@ async function main() {
       description: "IT service management: incident, change, and asset workflows.",
       ownerId: marcus.id,
       status: "IN_REVIEW",
+      reviewRounds: { create: {} }, // the open Review Round of the submission
       deploymentFacets: { connect: serviceNowClass.deploymentFacets },
       confidentialityImpactLevel: serviceNowClass.confidentialityImpactLevel,
       integrityImpactLevel: serviceNowClass.integrityImpactLevel,
@@ -495,7 +498,7 @@ async function main() {
   });
   await fulfillMost({ id: github.id, ...githubClass });
   await prisma.approval.create({
-    data: { systemId: github.id, approverId: reviewer.id, decision: "APPROVED" },
+    data: { systemId: github.id, reviewRoundId: (await prisma.reviewRound.create({ data: { systemId: github.id } })).id, approverId: reviewer.id, decision: "APPROVED" },
   });
   await prisma.risk.create({
     data: {
@@ -534,6 +537,7 @@ async function main() {
   await prisma.approval.create({
     data: {
       systemId: entra.id,
+      reviewRoundId: (await prisma.reviewRound.create({ data: { systemId: entra.id } })).id,
       approverId: reviewer.id,
       decision: "APPROVED",
       comment: "Critical infrastructure — approved with a follow-up Risk tracked for PIM coverage.",

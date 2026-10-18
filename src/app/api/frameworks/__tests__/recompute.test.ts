@@ -202,7 +202,7 @@ describe("Recompute affected Systems on catalog changes (#87)", { timeout: 60_00
       await mapDirect(requirement.id, c2.id);
       // In scope + Approved (status must stay), in scope but facet B (Controls are scoped to A), and not in scope.
       const inScope = await makeSystem({ scope: [draft.id], status: "APPROVED" });
-      await prisma.approval.create({ data: { systemId: inScope.id, approverId: ownerId, decision: "APPROVED" } });
+      await prisma.approval.create({ data: { systemId: inScope.id, reviewRoundId: (await prisma.reviewRound.create({ data: { systemId: inScope.id } })).id, approverId: ownerId, decision: "APPROVED" } });
       const wrongFacet = await makeSystem({ facets: [facetB], scope: [draft.id] });
       const notInScope = await makeSystem({});
       const before = await fingerprint(inScope.id);
