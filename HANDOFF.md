@@ -16,7 +16,7 @@ This file holds current state and the queue, and nothing else. The rule is in th
 2. **M4:** #149 is done (PR #178). The product owner loaded CSA CCM 4.1.1 into production as a Draft on 2026-10-14; CD and the seed don't run the loader, so a later content file needs the same manual load. #148 waits on the product owner (`ready-for-human`) until the source documents are attached. Nothing else in PRD 0001 is cut into issues.
 3. **Design:** #181 moved the app to the Register design system (PR #182). Follow-ups: list components to RegisterRow, filter panels to FilterFields, the header tab row. New code uses the `--rg-*` tokens and `rg-*` Tailwind colours, not `--ems-*`.
    Design proposals are listed at `/design` with thumbs-up voting (#186). Each new proposal adds its entry to `public/design/proposals.js` (rule in `AGENTS.md`).
-4. **Framework Review Groups (2026-10-18):** grilled with the product owner; the design is in `CONTEXT.md` (Review Group, Review Step, Review Round) and [ADR 0010](docs/adr/0010-onboarding-review-runs-as-parallel-review-steps.md), and cut into #197–#201 (queue below). #197 is done (PR #204), #198 is done (PR #205), #199 is done (PR #206); next is #200 or #201. #201 widens the member visibility rule #199 added in `src/lib/review-group-visibility.ts`.
+4. **Framework Review Groups (2026-10-18):** grilled with the product owner; the design is in `CONTEXT.md` (Review Group, Review Step, Review Round) and [ADR 0010](docs/adr/0010-onboarding-review-runs-as-parallel-review-steps.md), and cut into #197–#201 (queue below). #197 is done (PR #204), #198 is done (PR #205), #199 is done (PR #206), #200 is in PR #207 (merge waits on the product-owner questions on the PR); next is #201. #201 widens the member visibility rule #199 added in `src/lib/review-group-visibility.ts`.
 5. Nothing is in flight. The dev DB is in its seeded state (see below).
 
 **The queue**
@@ -45,7 +45,7 @@ Framework Review Groups (ADR 0010, no milestone):
 1. #197 Review Groups: groups, members and Framework ties. **Done: PR #204.**
 2. #198 Review Rounds and Review Steps derived from Framework Scope. **Done: PR #205.**
 3. #199 Decide Review Steps in parallel, attributed to the group. **Done: PR #206.**
-4. #200 Reopen an approved Review Step when the owner edits its remit. Blocked by #199.
+4. #200 Reopen an approved Review Step when the owner edits its remit. **Done: PR #207.**
 5. #201 Review Group members: System visibility and Assessment Queries. Blocked by #197, #199.
 Future work, not an issue: a standalone Framework review of an Onboarded System when a Framework is added to its scope (ADR 0010), and linking a Review Group to an Entra ID group.
 
@@ -53,7 +53,7 @@ Not cut into issues: the PRD's two "could" features, F-OUT.6 (PDF export of the 
 
 **State as of 2026-10-14**
 - PRD 0001 milestones 1, 2 and 3 are complete, closed and in production. Milestone 5 is complete with #158. Milestone 4 has #148 left.
-- Production has every migration up to `20261019100000_add_approval_voided_at` (44 in all) once PR #206 is deployed.
+- Production has every migration up to `20261019120000_add_approval_void_reason` (46 in all) once PR #207 is deployed.
 - Other open issues:
   - #46 needs re-scoping against the PRD before anyone picks it up.
   - #61 is deferred.
@@ -107,7 +107,7 @@ The dev DB is in its seeded state. When cleaning up after a browser check, compa
 
 - 11 Systems (one is the Provider "Entra ID SSO"), 11 Users (the seed adds the Internal Auditor; run `npx prisma db seed` after pulling #147), 118 Controls, 527 Control Assessments, 2 Change Events, 4 Control Offerings, 2 Provider dependencies, and 92 Organization Control Implementations, all Not Started. No Control Owners.
 - The two Change Events are seeded state (the `"system"` events on GitHub and Microsoft 365 from the Capability migration): do not delete them.
-- 43 rows in `_prisma_migrations`.
+- 46 rows in `_prisma_migrations` once PR #207 is merged and applied (44 before).
 - 7 Approvals and 9 Review Rounds (one per Approval, plus an open one for each of the 2 Systems In Review).
 - Controls by applicability: 61 Organizational, 31 Both, 26 Per-System. All mandatory.
 - Frameworks: ISO/IEC 27001:2022, which is the base and Published. GDPR 1 and Export Control (EAR/ITAR) 1 are Published but have no Requirements yet. The seed doesn't load `prisma/seed-data/frameworks/`, so CSA CCM 4.1.1 is absent until `npm run frameworks:load` is run.
