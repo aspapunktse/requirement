@@ -17,7 +17,7 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/systems/
     return NextResponse.json({ error: "System not found" }, { status: 404 });
   }
 
-  const { rounds, currentRoundId, steps } = await loadReviewRounds(system);
+  const { rounds, currentRoundId, steps } = await loadReviewRounds(system.id);
   return NextResponse.json({
     // Newest round first; a round's approvals are oldest first.
     rounds: rounds.map((round) => ({

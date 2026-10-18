@@ -40,7 +40,6 @@ export function isBaseControl(control: ControlWithFrameworks): boolean {
   return control.mappings.some(({ requirement }) => requirement.framework.isBase);
 }
 
-type ReviewableSystem = SystemClassification & { id: string; status: OnboardingStatus };
 
 const CONTROL_FOR_REMIT = {
   mappings: {
@@ -107,7 +106,7 @@ function stepStatus(
 }
 
 /**
- * A System's Review Rounds, newest first, each with its Approvals (oldest first), plus the
+ * A System's Review Rounds (by id; its status and classification are re-read in the snapshot), newest first, each with its Approvals (oldest first), plus the
  * derived steps of the current round. The current round is the System's latest round, and only
  * while the System is In Review; otherwise `steps` is empty and `currentRoundId` null. An In
  * Review System with no round (it should not happen after the #198 migration) reads as all
@@ -116,11 +115,19 @@ function stepStatus(
  * One REPEATABLE READ transaction with every query on `tx`: the steps read several tables and a
  * nested include runs as several statements, so a concurrent delete would otherwise throw.
  */
-export async function loadReviewRounds(system: ReviewableSystem) {
+export async function loadReviewRounds(systemId: string) {
   return prisma.$transaction(
     async (tx) => {
+      // Status and classification are read here, inside the snapshot, so the steps never mix
+      // an older System with newer rounds. Visibility is the caller's check.
+      const system = await tx.system.findUnique({
+        where: { id: systemId },
+        include: { deploymentFacets: { select: { id: true } }, frameworkScopes: { select: { id: true } } },
+      });
+      if (!system) return { rounds: [], currentRoundId: null, steps: [] as ReviewStep[] };
+
       const rounds = await tx.reviewRound.findMany({
-        where: { systemId: system.id },
+        where: { systemId },
         orderBy: [{ submittedAt: "desc" }, { id: "desc" }],
         include: {
           approvals: {

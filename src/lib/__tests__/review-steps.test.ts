@@ -53,13 +53,7 @@ describe("Review Steps derived from Framework Scope", () => {
     return { system, round };
   }
 
-  async function load(systemId: string) {
-    const system = await prisma.system.findUniqueOrThrow({
-      where: { id: systemId },
-      include: { deploymentFacets: true, frameworkScopes: { select: { id: true } } },
-    });
-    return loadReviewRounds(system);
-  }
+  const load = (systemId: string) => loadReviewRounds(systemId);
 
   const names = (steps: { name: string }[]) => steps.map((step) => step.name);
 
@@ -233,5 +227,11 @@ describe("Review Steps derived from Framework Scope", () => {
     const loaded = await load(system.id);
     expect(loaded.currentRoundId).toBeNull();
     expect(loaded.steps.map((s) => s.status)).toEqual(["OPEN", "OPEN"]);
+  });
+
+  it("reads the System's status and scope from the database, not from the caller", async () => {
+    const { system } = await makeSystem([fwA1]);
+    expect((await load(system.id)).steps).toHaveLength(2);
+    expect(await loadReviewRounds(`missing-${suffix}`)).toEqual({ rounds: [], currentRoundId: null, steps: [] });
   });
 });
