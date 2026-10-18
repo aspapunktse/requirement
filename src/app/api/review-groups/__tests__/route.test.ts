@@ -34,7 +34,7 @@ function requestAs(userId: string | null, init?: { method?: string; body?: unkno
   });
 }
 
-function ctxFor(params: Record<string, string>) {
+function ctxFor<T extends Record<string, string>>(params: T) {
   return { params: Promise.resolve(params) };
 }
 
