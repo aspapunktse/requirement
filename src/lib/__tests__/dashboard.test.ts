@@ -89,7 +89,7 @@ describe("dashboard", () => {
       });
       systemIds.push(system.id);
       await prisma.approval.create({
-        data: { systemId: system.id, approverId: reviewerId, decision: "REJECTED" },
+        data: { systemId: system.id, reviewRoundId: (await prisma.reviewRound.create({ data: { systemId: system.id } })).id, approverId: reviewerId, decision: "REJECTED" },
       });
 
       const attention = await getSystemsNeedingAttention(ownerId);
@@ -127,7 +127,7 @@ describe("dashboard", () => {
       });
       systemIds.push(system.id);
       await prisma.approval.create({
-        data: { systemId: system.id, approverId: reviewerId, decision: "REJECTED" },
+        data: { systemId: system.id, reviewRoundId: (await prisma.reviewRound.create({ data: { systemId: system.id } })).id, approverId: reviewerId, decision: "REJECTED" },
       });
 
       const attention = await getSystemsNeedingAttention(ownerId);

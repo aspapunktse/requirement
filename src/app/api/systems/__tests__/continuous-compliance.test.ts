@@ -172,7 +172,7 @@ describe("Continuous compliance: classification and scope change at any lifecycl
     systemIds.push(system.id);
     testSystemIds.push(system.id);
     if (status === "APPROVED" || status === "ONBOARDED") {
-      await prisma.approval.create({ data: { systemId: system.id, approverId: users.reviewer, decision: "APPROVED" } });
+      await prisma.approval.create({ data: { systemId: system.id, reviewRoundId: (await prisma.reviewRound.create({ data: { systemId: system.id } })).id, approverId: users.reviewer, decision: "APPROVED" } });
     }
     return system.id;
   }

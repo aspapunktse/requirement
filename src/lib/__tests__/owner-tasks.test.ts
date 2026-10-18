@@ -85,7 +85,7 @@ describe("getOwnerTasks", () => {
       // A rejected Draft is the cheapest "needs attention" System: no Controls involved.
       const system = await makeSystem(user.id, `rejected ${role}`);
       rejectedSystemByRole[role] = system.id;
-      await prisma.approval.create({ data: { systemId: system.id, approverId, decision: "REJECTED" } });
+      await prisma.approval.create({ data: { systemId: system.id, reviewRoundId: (await prisma.reviewRound.create({ data: { systemId: system.id } })).id, approverId, decision: "REJECTED" } });
     }
     await makeUser("none-viewer", "VIEWER");
     await makeUser("none-admin", "ADMIN");

@@ -131,6 +131,7 @@ describe("/api/systems/[id]/approvals", () => {
     await prisma.controlAssessment.deleteMany({ where: { systemId: inReviewSystemId } });
     await prisma.approval.deleteMany({ where: { id: { in: createdApprovalIds } } });
     createdApprovalIds.length = 0;
+    await prisma.reviewRound.deleteMany({ where: { systemId: inReviewSystemId } });
     await prisma.system.update({ where: { id: inReviewSystemId }, data: { status: "IN_REVIEW" } });
   });
 
@@ -254,22 +255,78 @@ describe("/api/systems/[id]/approvals", () => {
 
     system = await prisma.system.findUnique({ where: { id: inReviewSystemId } });
     expect(system?.status).toBe("IN_REVIEW");
+
+    // The rejection sits in the first Review Round; the resubmission started a second, still open (#198).
+    const rounds = await prisma.reviewRound.findMany({
+      where: { systemId: inReviewSystemId },
+      orderBy: { submittedAt: "asc" },
+      include: { approvals: true },
+    });
+    expect(rounds.map((r) => r.approvals.map((a) => [a.decision, a.reviewGroupId]))).toEqual([[["REJECTED", null]], []]);
   });
 
-  it("GET returns the full Approval history oldest to newest, surviving resubmission", async () => {
+  it("submitting a Draft System starts a Review Round with the status change and its Change Event; a second submit starts none", async () => {
+    await fulfillAllMandatoryControls(draftSystemId, [systemTypeId]);
+    const submit = () =>
+      submitForReview(
+        new NextRequest(`http://localhost/api/systems/${draftSystemId}/submit`, {
+          method: "POST",
+          headers: new Headers({ cookie: `${ACTING_USER_COOKIE}=${ownerId}` }),
+        }),
+        { params: Promise.resolve({ id: draftSystemId }) },
+      );
+    try {
+      expect((await submit()).status).toBe(200);
+      expect((await prisma.system.findUniqueOrThrow({ where: { id: draftSystemId } })).status).toBe("IN_REVIEW");
+      expect(await prisma.reviewRound.count({ where: { systemId: draftSystemId } })).toBe(1);
+      expect(await prisma.changeEvent.count({ where: { systemId: draftSystemId, action: "SYSTEM_SUBMITTED" } })).toBe(1);
+
+      // Refused (no longer a Draft): nothing is added.
+      expect((await submit()).status).toBe(400);
+      expect(await prisma.reviewRound.count({ where: { systemId: draftSystemId } })).toBe(1);
+      expect(await prisma.changeEvent.count({ where: { systemId: draftSystemId, action: "SYSTEM_SUBMITTED" } })).toBe(1);
+    } finally {
+      await prisma.reviewRound.deleteMany({ where: { systemId: draftSystemId } });
+      await prisma.changeEvent.deleteMany({ where: { systemId: draftSystemId } });
+      await prisma.controlAssessment.deleteMany({ where: { systemId: draftSystemId } });
+      await prisma.system.update({ where: { id: draftSystemId }, data: { status: "DRAFT" } });
+    }
+  });
+
+  it("GET returns the full Approval history grouped by Review Round, newest round first, surviving resubmission", async () => {
+    const olderRound = await prisma.reviewRound.create({
+      data: { systemId: inReviewSystemId, submittedAt: new Date("2026-01-01T10:00:00Z") },
+    });
+    const newerRound = await prisma.reviewRound.create({
+      data: { systemId: inReviewSystemId, submittedAt: new Date("2026-02-01T10:00:00Z") },
+    });
     const first = await prisma.approval.create({
-      data: { systemId: inReviewSystemId, approverId: reviewerId, decision: "REJECTED", comment: "first pass" },
+      data: {
+        systemId: inReviewSystemId,
+        reviewRoundId: olderRound.id,
+        approverId: reviewerId,
+        decision: "REJECTED",
+        comment: "first pass",
+      },
     });
     const second = await prisma.approval.create({
-      data: { systemId: inReviewSystemId, approverId: reviewerId, decision: "APPROVED", comment: "second pass" },
+      data: {
+        systemId: inReviewSystemId,
+        reviewRoundId: newerRound.id,
+        approverId: reviewerId,
+        decision: "APPROVED",
+        comment: "second pass",
+      },
     });
     createdApprovalIds.push(first.id, second.id);
 
     const response = await GET(requestAs(inReviewSystemId, ownerId), ctxFor(inReviewSystemId));
     const body = await response.json();
-    const ids = body.approvals.map((a: { id: string }) => a.id);
 
-    expect(ids.indexOf(first.id)).toBeLessThan(ids.indexOf(second.id));
+    expect(body.rounds.map((r: { id: string }) => r.id)).toEqual([newerRound.id, olderRound.id]);
+    expect(body.rounds[0].approvals.map((a: { id: string }) => a.id)).toEqual([second.id]);
+    expect(body.rounds[1].approvals.map((a: { id: string }) => a.id)).toEqual([first.id]);
+    expect(body.rounds[0].approvals[0]).toMatchObject({ stepName: "Base review", approver: { name: "Approvals Reviewer" } });
   });
 
   it("lets a REVIEWER approve a System despite an open mandatory Control gap and an unresolved Risk", async () => {

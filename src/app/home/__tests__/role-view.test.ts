@@ -26,7 +26,7 @@ describe("roleView: owner tasks for any role (#98)", () => {
   /** A rejected Draft owned by `ownerId`, plus a Query on it awaiting the owner's reply. */
   async function ownedSystemWithQuery(ownerId: string, name: string) {
     const system = await makeSystem(ownerId, name);
-    await prisma.approval.create({ data: { systemId: system.id, approverId, decision: "REJECTED" } });
+    await prisma.approval.create({ data: { systemId: system.id, reviewRoundId: (await prisma.reviewRound.create({ data: { systemId: system.id } })).id, approverId, decision: "REJECTED" } });
     const query = await raiseQuery(system, controlId, approverId, "Please explain");
     return { system, query };
   }

@@ -145,6 +145,7 @@ model System {
   assessments          ControlAssessment[]
   risks                Risk[]
   approvals            Approval[]
+  reviewRounds         ReviewRound[]
   // Business Units that consume this System (a reporting/grouping dimension
   // only), and the Framework(s) this System declares in scope. The declared
   // Framework Scope drives which Controls apply (the base Framework is
@@ -218,6 +219,7 @@ model ReviewGroup {
 
   members    User[]      @relation("ReviewGroupMember")
   frameworks Framework[]
+  approvals  Approval[]
 }
 
 // A curated compliance standard, law or regulation (e.g. ISO/IEC 27001:2022,
@@ -596,15 +598,39 @@ model Risk {
 }
 
 // Formal sign-off record on a System's onboarding.
+// One submission of a System for review (CONTEXT.md: Review Round, ADR 0010). Every
+// Approval belongs to exactly one round; a resubmission starts a new one. The Review
+// Steps of a round are NOT stored: they are derived live from the System's Framework
+// Scope (src/lib/review-steps.ts). Approvals from before rounds existed each sit in a
+// round of their own.
+model ReviewRound {
+  id          String     @id @default(cuid())
+  systemId    String
+  system      System     @relation(fields: [systemId], references: [id], onDelete: Cascade)
+  submittedAt DateTime   @default(now())
+  approvals   Approval[]
+
+  @@index([systemId, submittedAt])
+}
+
 model Approval {
-  id         String           @id @default(cuid())
-  systemId   String
-  system     System           @relation(fields: [systemId], references: [id], onDelete: Cascade)
-  approverId String
-  approver   User             @relation(fields: [approverId], references: [id])
-  decision   OnboardingStatus
-  comment    String?
-  decidedAt  DateTime         @default(now())
+  id            String           @id @default(cuid())
+  systemId      String
+  system        System           @relation(fields: [systemId], references: [id], onDelete: Cascade)
+  reviewRoundId String
+  reviewRound   ReviewRound      @relation(fields: [reviewRoundId], references: [id], onDelete: Cascade)
+  // The Review Step this decision belongs to: null is the base Review Step, otherwise the
+  // Review Group whose step it is. Restrict: deleting a group must never silently turn its
+  // recorded decisions into base-step ones, nor erase them.
+  reviewGroupId String?
+  reviewGroup   ReviewGroup?     @relation(fields: [reviewGroupId], references: [id], onDelete: Restrict)
+  approverId    String
+  approver      User             @relation(fields: [approverId], references: [id])
+  decision      OnboardingStatus
+  comment       String?
+  decidedAt     DateTime         @default(now())
+
+  @@index([reviewRoundId])
 }
 
 enum ChangeEventAction {
