@@ -39,3 +39,56 @@ Static design prototypes live in `public/design/<part>/proposal-<x>.html`, and `
 Whenever a change lands that affects what's described in `README.md` — a feature ships, an issue closes, the project status changes, a deferred item gets picked up, setup/scripts/stack change — update `README.md` in the same piece of work rather than leaving it to drift. In particular, keep the "Project status" section an accurate snapshot of what's actually implemented, not a point-in-time note that goes stale. Don't treat this as optional cleanup; treat a change as incomplete until README reflects it.
 
 **Keep it short.** `README.md` says what the app does today, in a line or two per capability. It is not a log: no per-issue write-ups, routes, migration names, test file lists or measured figures. That detail goes in the pull request description, and product-owner decisions go on the issue. When an issue changes a capability, edit its existing line rather than adding a paragraph. [`docs/implementation-history.md`](docs/implementation-history.md) holds the old per-issue record up to PRD 0001 milestone 3 and is frozen; don't add to it.
+
+## Review guidelines
+
+These guide automated PR reviews (Codex) and any agent asked to review a change. Every merge to `main` is a production deploy that runs migrations against production, so a review is the last check before real data is touched.
+
+**How to review**
+
+- Read the linked issue (`Closes #n`) and its comments first. The issue is the spec, and its comments hold the product owner's decisions. Check the change does what the issue asks, all of it and no more.
+- Report problems a careful senior reviewer would block or fix before merge: wrong behaviour, data loss, security gaps, missing tests for new behaviour, broken project rules. Every finding names the file and line, says what goes wrong and under what input or state, and suggests a fix.
+- Rank findings by impact. Mark a suggestion that is a matter of taste or optional polish as a nit, or leave it out. Don't comment on formatting that ESLint and TypeScript already enforce, and don't restate what the diff does.
+- Don't flag something as wrong because it differs from older Next.js, React or Prisma versions you know. This repo runs Next.js 16 (see the block at the top of this file); check `node_modules/next/dist/docs/` before calling an API misused.
+- When a rule here and the code disagree, say so rather than guessing which one is right.
+
+**Data and migrations** (`prisma/migrations/`, `prisma/schema.prisma`)
+
+- Read every migration's SQL in full. Its directory name must sort after the latest migration already on `main`.
+- Data migrations select rows by stable properties, never by hard-coded ids or display names alone (names are editable in the UI), are idempotent where possible (`ON CONFLICT DO NOTHING`), and are a no-op on an empty database.
+- Flag anything that can drop or lose data: dropped columns or tables without a backfill, a renamed model that flips an implicit many-to-many join table's `A`/`B` columns, a required foreign key turned into a relation without copying rows.
+- An enum value added with `ALTER TYPE ... ADD VALUE` can't be used in the same migration; it needs its own earlier migration.
+- A migration that can raise an exception blocks every later deploy until someone repairs production by hand. It must ship with a read-only pre-check script (`scripts/check-*-migration.ts` is the pattern) and the PR must say so.
+- `schema.prisma` and the migrations must agree (no drift). A schema change without a migration, or the reverse, is a blocking finding.
+- Use the domain terms from `CONTEXT.md` for new models, fields, enum values and UI text. Flag a change that contradicts a decision in `docs/adr/` unless the PR records a new decision.
+
+**Authorization and security**
+
+- Every protected API route handler resolves the acting user with `authenticate` or `authorize` from `src/lib/api-authz.ts` before reading or writing, and checks object-level rights too (for example, that the acting user owns the System they change), not just the role. Only three routes are public by design: `api/health` (health check), `api/design-votes` (anonymous design voting) and `api/session/acting-user` (sets the acting user, so it runs before there is one). A new unauthenticated route needs a stated reason in the PR.
+- A refused request returns 401/403 and changes nothing. Look for writes made before the check, or checks done after a partial write.
+- Validate request bodies with zod at the boundary. Don't trust ids, roles or status values sent by the client.
+- No secrets, credentials or production URLs in code, tests, fixtures or logs. No raw SQL built by string concatenation with user input (`$queryRawUnsafe` with interpolation).
+- When unsure, the conservative choice is right: deny rather than allow, preserve data rather than drop it.
+
+**Correctness**
+
+- Inside `prisma.$transaction(async (tx) => …)`, every query, including in helpers it calls, uses `tx`, not the global `prisma`. A query on the global client inside a transaction can deadlock CI's 3-connection pool.
+- A loader that reads several tables or nests required relations does its reads in one `RepeatableRead` transaction (`loadStatementOfApplicability` is the example), or it can throw under concurrent deletes.
+- Multi-step writes that must succeed or fail together run in one transaction. A change that records a Change Event writes it in the same transaction, by passing `tx` to `logChangeEvent`.
+- Check edge cases: empty lists, missing optional relations, a deleted or archived parent, concurrent edits, and role switches.
+- React components: no state reset in an effect that also runs after mount, no fetches without error and loading states, no missing keys, and no stale closures in handlers.
+
+**Tests** (Vitest)
+
+- New behaviour and every bug fix come with tests. Route tests call the exported handlers against real Postgres (the `requestAs` / `ctxFor` pattern); component tests use Testing Library with a stubbed `fetch`.
+- CI's test database is migrated but **not seeded**. A test that depends on seeded rows passes locally and fails in CI. Tests create their own uniquely named `Test …` fixtures and remove them in `afterAll`.
+- Tests never create, flip or delete a base Framework; they use `getBaseFramework()`. A fixture Organizational Control is never mapped to the base Framework. Unscoped `PER_SYSTEM` Control fixtures leak into other test files.
+- Refused writes assert that nothing changed in the database, not only the status code.
+
+**Project rules a PR must keep**
+
+- `README.md`'s Project status is updated in the same PR when a capability changes, in a line or two. It isn't a log: no per-issue write-ups, routes, migration names or test lists. `docs/implementation-history.md` is frozen.
+- A design proposal added, renamed or removed under `public/design/` updates `public/design/proposals.js` in the same change. An existing proposal `id` never changes.
+- Files are valid UTF-8.
+- No new ESLint warnings (the baseline is 5, all `react-hooks/set-state-in-effect`).
+- `.claude/` and secret-bearing env files (`.env`, `.env.*.local`) are never committed. The tracked `.env.example` template holds only local placeholders and is kept current when setup variables change.
