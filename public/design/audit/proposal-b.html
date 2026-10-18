@@ -1,0 +1,442 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Audit Guided Flow</title>
+<link rel="stylesheet" href="../systems/systems.css">
+<link rel="stylesheet" href="audit.css">
+<style>
+/* Proposal B: a guided flow. A four-step stepper (start, Controls, where, review). Start from a
+   pack or a previous audit; pick Controls on a mosaic of one cell per Control, shaded by how long
+   ago each was audited; describe the Systems in one sentence; then review a flow from Controls to
+   targets to recipients before creating the draft. A bottom bar keeps the running totals. */
+.app { max-width: 1180px; margin: 0 auto; padding: 22px 20px 120px; display: grid; gap: 20px; }
+.app > * { min-width: 0; }
+.head { display: flex; align-items: end; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.head h1 { font-size: clamp(1.4rem, 3vw, 1.9rem); letter-spacing: -0.02em; }
+.head p { color: var(--muted); }
+
+/* Stepper */
+.stepper { position: relative; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; padding: 6px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); }
+.stepper .rail { position: absolute; left: 6px; top: 6px; bottom: 6px; width: calc((100% - 12px) / 4); border-radius: 11px; background: var(--accent-soft); transition: transform .45s cubic-bezier(.3, 1.3, .5, 1); }
+.stepper button { position: relative; z-index: 1; display: flex; align-items: center; gap: 10px; border: 0; background: none; padding: 9px 12px; border-radius: 11px; cursor: pointer; text-align: left; min-width: 0; }
+.stepper .num { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-weight: 780; font-size: .82rem; background: var(--raised); color: var(--muted); border: 1px solid var(--line-soft); flex: none; transition: background .25s, color .25s; }
+.stepper button.done .num { background: var(--ok); color: #fff; border-color: transparent; }
+.stepper button[aria-current="step"] .num { background: var(--accent); color: var(--on-accent); border-color: transparent; }
+.stepper b { display: block; font-size: .88rem; }
+.stepper small { display: block; color: var(--faint); font-size: .74rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stepper span.tx { min-width: 0; }
+@media (max-width: 720px) { .stepper small { display: none; } .stepper button { justify-content: center; padding: 8px 4px; } .stepper b { font-size: .76rem; } .stepper .num { width: 24px; height: 24px; } }
+@media (max-width: 460px) { .stepper b { display: none; } }
+
+.panel { display: none; gap: 18px; animation: slide .35s cubic-bezier(.2, .8, .2, 1); }
+.panel.on { display: grid; }
+@keyframes slide { from { opacity: 0; transform: translateX(var(--from, 16px)); } }
+.panel > h2 { font-size: 1.15rem; }
+.panel > p.lede { color: var(--muted); margin-top: -12px; }
+
+/* Step 1 */
+.starts { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px; }
+.start { position: relative; display: grid; gap: 8px; align-content: start; text-align: left; padding: 16px; border-radius: 16px; border: 1px solid var(--line); background: var(--surface); cursor: pointer; transition: transform .2s, border-color .2s, box-shadow .2s; overflow: hidden; }
+.start::after { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity .25s; background: radial-gradient(260px circle at var(--mx, 50%) var(--my, 0%), color-mix(in srgb, var(--accent) 10%, transparent), transparent 60%); }
+.start:hover { transform: translateY(-2px); border-color: var(--accent); box-shadow: var(--shadow); }
+.start:hover::after { opacity: 1; }
+.start[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft), var(--shadow); }
+.start .ib { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); }
+.start.prev .ib { background: color-mix(in srgb, #6c7fd8 15%, transparent); color: #6c7fd8; }
+.start.blank .ib { background: var(--raised); color: var(--muted); border: 1px dashed var(--line); }
+.start b { font-size: .95rem; }
+.start small { color: var(--muted); font-size: .8rem; }
+.start .foot { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 2px; }
+.start .sel-mark { position: absolute; top: 12px; right: 12px; width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: var(--on-accent); display: grid; place-items: center; transform: scale(0); transition: transform .3s cubic-bezier(.3, 1.6, .5, 1); }
+.start[aria-pressed="true"] .sel-mark { transform: scale(1); }
+.basics { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.basics .full { grid-column: 1 / -1; }
+@media (max-width: 760px) { .basics { grid-template-columns: 1fr; } }
+.due-wrap { display: grid; gap: 8px; }
+.due-wrap .seg { justify-self: start; }
+
+/* Step 2 mosaic */
+.ctrl-layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 18px; align-items: start; }
+@media (max-width: 980px) { .ctrl-layout { grid-template-columns: 1fr; } }
+.mtools { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 14px 18px 4px; }
+.mtools .search { flex: 1 1 220px; }
+.mosaic { display: grid; gap: 16px; padding: 12px 18px 18px; }
+.mgroup-h { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+.mgroup-h button { border: 0; background: none; padding: 0; cursor: pointer; font-size: .76rem; font-weight: 750; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.mgroup-h button:hover { color: var(--accent); }
+.mgroup-h small { color: var(--faint); font-size: .74rem; font-variant-numeric: tabular-nums; }
+.mgroup-h .bar { flex: 1; height: 1px; background: var(--line-soft); }
+.cells { display: flex; flex-wrap: wrap; gap: 4px; }
+.cell { position: relative; width: 26px; height: 26px; border-radius: 7px; border: 0; cursor: pointer; padding: 0; background: var(--h); transition: transform .18s cubic-bezier(.3, 1.6, .5, 1), opacity .2s, box-shadow .15s; animation: cell-in .4s both; animation-delay: var(--d); }
+.cell:hover { transform: scale(1.25); z-index: 2; box-shadow: 0 4px 10px rgba(20, 45, 61, .25); }
+.cell[aria-pressed="true"] { background: var(--accent); box-shadow: inset 0 0 0 2px color-mix(in srgb, #fff 35%, transparent); }
+.cell[aria-pressed="true"]::after { content: ""; position: absolute; left: 9px; top: 7px; width: 7px; height: 4px; border: 2px solid var(--on-accent); border-top: 0; border-right: 0; transform: rotate(-45deg); }
+.cell.dim { opacity: .18; }
+@keyframes cell-in { from { opacity: 0; transform: scale(.4); } }
+.tip { position: fixed; z-index: 40; pointer-events: none; max-width: 280px; background: var(--ink); color: var(--paper); border-radius: 10px; padding: 8px 10px; font-size: .78rem; box-shadow: 0 10px 30px rgba(0, 0, 0, .25); opacity: 0; transition: opacity .12s; }
+.tip.on { opacity: 1; }
+.tip b { font-family: var(--mono); }
+.tip small { display: block; opacity: .75; }
+.picked-list { list-style: none; margin: 0; padding: 4px 0 8px; max-height: 460px; overflow-y: auto; }
+.picked-list li { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 7px 18px; border-top: 1px solid var(--line-soft); font-size: .82rem; animation: rise .25s both; }
+.picked-list li span:nth-child(2) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.picked-list li button { border: 0; background: none; color: var(--faint); cursor: pointer; padding: 2px; border-radius: 6px; display: grid; }
+.picked-list li button:hover { color: var(--bad); background: var(--bad-soft); }
+.picked-list li i { width: 7px; height: 7px; border-radius: 50%; background: var(--gold); display: inline-block; margin-right: 5px; }
+@keyframes rise { from { opacity: 0; transform: translateY(4px); } }
+
+/* Step 3 */
+.sentence { font-size: clamp(1.05rem, 2.2vw, 1.3rem); line-height: 2.3; font-weight: 600; color: var(--muted); }
+.sentence select { font: inherit; font-weight: 720; color: var(--accent); background: var(--accent-soft); border: 0; border-bottom: 2px solid var(--accent); border-radius: 8px 8px 0 0; padding: 0 6px; cursor: pointer; max-width: 100%; }
+.sentence select:focus-visible { outline: 2px solid var(--accent); }
+.match-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding-top: 10px; border-top: 1px solid var(--line-soft); }
+.match-bar .big { font-size: 1.8rem; font-weight: 780; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+.match-bar .grow { flex: 1; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+.scard { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); cursor: pointer; text-align: left; animation: rise .3s both; animation-delay: var(--d); transition: border-color .15s, background .15s; }
+.scard:hover { border-color: var(--accent); }
+.scard[aria-pressed="true"] { background: color-mix(in srgb, var(--accent-soft) 65%, var(--surface)); border-color: var(--accent); }
+.scard .logo2 { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; font-weight: 800; font-size: .8rem; color: #fff; background: var(--c); }
+.scard b { display: block; font-size: .88rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.scard small { display: block; color: var(--faint); font-size: .74rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.scard .tick { width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid var(--line); display: grid; place-items: center; color: transparent; transition: all .2s; }
+.scard[aria-pressed="true"] .tick { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.orgcard { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: 18px; border-radius: 16px; border: 1px solid var(--line); background: linear-gradient(120deg, var(--surface), color-mix(in srgb, #8a5cc2 9%, var(--surface))); }
+.orgcard .ib { width: 48px; height: 48px; border-radius: 14px; display: grid; place-items: center; background: color-mix(in srgb, #8a5cc2 16%, transparent); color: #8a5cc2; }
+.orgcard b { display: block; font-size: .98rem; }
+.orgcard small { color: var(--muted); }
+
+/* Step 4 */
+.review { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 18px; align-items: start; }
+@media (max-width: 980px) { .review { grid-template-columns: 1fr; } }
+.flowwrap { overflow-x: auto; padding: 8px 18px 18px; }
+.flow-svg { display: block; width: 100%; min-width: 560px; height: auto; }
+.flow-svg .lnk { fill: none; stroke-opacity: .28; transition: stroke-opacity .2s; }
+.flow-svg .lnk:hover, .flow-svg .lnk.hi { stroke-opacity: .6; }
+.flow-svg .nd { rx: 3; }
+.flow-svg text { font-size: 11px; fill: var(--ink); font-weight: 600; }
+.flow-svg text.n { fill: var(--faint); font-weight: 600; }
+.flow-svg .lnk { stroke-dasharray: 2000; stroke-dashoffset: 2000; animation: flow-in 1.1s cubic-bezier(.2, .8, .2, 1) forwards; animation-delay: var(--d); }
+@keyframes flow-in { to { stroke-dashoffset: 0; } }
+.cols { display: flex; justify-content: space-between; padding: 14px 18px 0; font-size: .72rem; font-weight: 750; letter-spacing: .05em; text-transform: uppercase; color: var(--faint); }
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
+.fact { padding: 12px 14px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); }
+.fact b { display: block; font-size: 1.6rem; font-weight: 780; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.fact span { color: var(--muted); font-size: .78rem; }
+.qfix { display: grid; gap: 10px; }
+.qfix label { display: grid; gap: 4px; font-size: .8rem; }
+.qfix label span { display: flex; gap: 8px; }
+.qfix textarea { min-height: 44px; }
+
+/* Bottom bar */
+.bar-b { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; background: color-mix(in srgb, var(--surface) 90%, transparent); backdrop-filter: blur(12px); border-top: 1px solid var(--line); padding: 10px 20px calc(10px + env(safe-area-inset-bottom)); }
+.bar-in { max-width: 1180px; margin: 0 auto; display: flex; align-items: center; gap: 10px; }
+.tally { display: flex; gap: 6px; flex-wrap: wrap; flex: 1; min-width: 0; }
+.tally .chip { font-variant-numeric: tabular-nums; }
+.tally .chip b { color: var(--ink); }
+@media (max-width: 640px) { .tally { flex-wrap: nowrap; overflow: hidden; } .tally .chip.opt { display: none; } .tally .chip { padding: 1px 7px; } .bar-b .btn span.l { display: none; } }
+@media (max-width: 420px) { .tally .chip:nth-child(2) { display: none; } }
+@media (max-width: 760px) { .proposal-switch { display: none; } }
+@media (prefers-reduced-motion: reduce) { .cell, .scard, .panel, .flow-svg .lnk { animation: none; stroke-dashoffset: 0; } }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="logo">IS</div>
+  <div><b>ISMS</b><small>System onboarding</small></div>
+  <nav aria-label="Main"><a href="/design/home/proposal-b.html">Home</a><a href="/design/systems/proposal-a.html">Systems</a><a href="/design/controls/proposal-b.html">Controls</a><a href="#">Risks</a><a href="#" aria-current="page">Internal Audits</a><a href="#">Check-ups</a></nav>
+  <div class="proposal-switch">Proposal B · <a href="proposal-a.html">see A</a> · <a href="proposal-c.html">see C</a></div>
+</header>
+
+<div class="app">
+  <div class="head">
+    <div><span class="eyebrow">Internal Audits · New</span><h1 id="h1">Plan a new Internal Audit</h1><p>It starts as a draft: nothing is sent to anyone until it is launched.</p></div>
+  </div>
+
+  <nav class="stepper" aria-label="Steps" id="stepper"><span class="rail" id="rail"></span></nav>
+
+  <!-- 1 Start -->
+  <section class="panel" data-step="0" aria-labelledby="s1h">
+    <h2 id="s1h">What do you want to verify?</h2>
+    <p class="lede">Start from a theme or repeat an earlier audit. You can change every pick in the next steps.</p>
+    <div class="starts" id="starts"></div>
+    <div class="card"><div class="card-h"><h2>The basics</h2><p>title and due date are required</p></div>
+      <div class="card-b basics">
+        <label class="field">Title<input id="title" placeholder="e.g. Q4 2026 · Access control" autocomplete="off"><small id="titleSmall">Picked a theme? We suggest a title from it.</small></label>
+        <div class="due-wrap"><label class="field">Due date<input type="date" id="due"></label><div class="seg" id="quick" role="group" aria-label="Quick due dates"></div><small class="muted" id="dueSmall" style="font-size:.76rem"></small></div>
+        <label class="field full">Scope (optional)<textarea id="scope" rows="2" placeholder="What this audit covers and why"></textarea></label>
+      </div></div>
+  </section>
+
+  <!-- 2 Controls -->
+  <section class="panel" data-step="1" aria-labelledby="s2h">
+    <h2 id="s2h">Pick the Controls</h2>
+    <p class="lede">One cell per Control. The redder a cell, the longer since anyone audited it. Click a cell, or a domain name to take the whole domain.</p>
+    <div class="ctrl-layout">
+      <div class="card">
+        <div class="mtools">
+          <label class="search"><svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.6"/><path d="m11 11 3.5 3.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+            <input id="mq" type="search" placeholder="Highlight by code, title or question" aria-label="Highlight Controls" autocomplete="off"></label>
+          <div class="seg" id="mset" role="group" aria-label="Which set"><button type="button" data-set="annex" aria-pressed="true">Annex A</button><button type="button" data-set="ccm" aria-pressed="false">CCM</button><button type="button" data-set="all" aria-pressed="false">All</button></div>
+        </div>
+        <div class="legend-row" style="padding:6px 18px 0"><span><i style="background:var(--accent)"></i>Picked</span><span><i style="background:color-mix(in srgb,var(--ok) 30%,var(--surface))"></i>Audited this year</span><span><i style="background:color-mix(in srgb,var(--gold) 70%,var(--surface))"></i>1–2 years ago</span><span><i style="background:color-mix(in srgb,var(--bad) 55%,var(--surface))"></i>Over 2 years or never</span></div>
+        <div class="mosaic" id="mosaic"></div>
+      </div>
+      <aside class="card"><div class="card-h"><h2>Picked</h2><p id="pickedN"></p></div>
+        <div class="card-b" style="padding-bottom:6px;display:grid;gap:8px"><button class="btn" type="button" id="addStale"></button></div>
+        <ul class="picked-list" id="pickedList"></ul></aside>
+    </div>
+  </section>
+
+  <!-- 3 Where -->
+  <section class="panel" data-step="2" aria-labelledby="s3h">
+    <h2 id="s3h">Where should it look?</h2>
+    <p class="lede">Describe the Systems; the audit keeps the Systems you add, not the description.</p>
+    <div class="card"><div class="card-b" style="display:grid;gap:12px;padding-top:18px">
+      <p class="sentence" id="sentence"></p>
+      <div class="match-bar"><span class="big" id="matchN">0</span><span class="muted">Systems match<br><small id="matchSub"></small></span><span class="grow"></span><button class="btn" type="button" id="clearSys">Clear picked</button><button class="btn primary" type="button" id="addAll"></button></div>
+    </div></div>
+    <div class="cards" id="cards"></div>
+    <div class="orgcard"><span class="ib" id="orgIb"></span><div><b>And the Organization itself</b><small id="orgNote"></small></div><label class="toggle"><input type="checkbox" id="org" aria-label="Include the Organization Control Implementations"><span class="track"></span></label></div>
+  </section>
+
+  <!-- 4 Review -->
+  <section class="panel" data-step="3" aria-labelledby="s4h">
+    <h2 id="s4h">Review the plan</h2>
+    <p class="lede" id="sum"></p>
+    <div class="facts" id="facts"></div>
+    <div class="review">
+      <div class="card"><div class="card-h"><h2>How the Check-ups flow</h2><p>band width = Check-ups</p></div>
+        <div class="cols"><span>Controls by domain</span><span>Systems · Organization</span><span>Recipients</span></div>
+        <div class="flowwrap" id="flow"></div></div>
+      <aside style="display:grid;gap:18px">
+        <div class="card"><div class="card-h"><h2>Before it can launch</h2></div><div class="card-b"><ul class="ready" id="launch"></ul><div class="qfix" id="qfix" style="margin-top:10px"></div></div></div>
+        <div class="card"><div class="card-h"><h2>Save</h2></div><div class="card-b" style="display:grid;gap:10px"><ul class="ready" id="ready"></ul><button class="btn primary lg" id="save" type="button" style="justify-content:center">Create draft</button></div></div>
+      </aside>
+    </div>
+  </section>
+</div>
+
+<div class="bar-b"><div class="bar-in">
+  <div class="tally" id="tally"></div>
+  <button class="btn lg" id="back" type="button"></button>
+  <button class="btn primary lg" id="next" type="button"></button>
+</div></div>
+<div class="tip" id="tip"></div>
+
+<script src="../controls/data.js"></script>
+<script src="../systems/data.js"></script>
+<script src="audit.js"></script>
+<script>
+(function () {
+  const A = window.AUD, { esc, icon } = A;
+  const $ = (id) => document.getElementById(id);
+  const d = A.blank();
+  const ui = { step: 0, start: null, mq: '', set: 'annex', f: { unit: '', facet: '', framework: '', status: '' }, titleTouched: false };
+  const STEPS = [['Start', 'theme, title, due date'], ['Controls', 'what to verify'], ['Where', 'Systems and Organization'], ['Review', 'flow and blockers']];
+  $('addStale').innerHTML = `${icon('clock', 15)} Add every never-audited Control shown`;
+  $('back').innerHTML = `${icon('back', 15)}<span class="l"> Back</span>`;
+  $('orgIb').innerHTML = icon('building', 22);
+
+  // ---- stepper ----
+  function stepDone(i) { return i === 0 ? !!d.title.trim() && !!d.due : i === 1 ? d.controls.size > 0 : i === 2 ? d.systems.size > 0 || d.org : false; }
+  function renderStepper() {
+    $('stepper').querySelectorAll('button').forEach((b) => b.remove());
+    STEPS.forEach(([t, s], i) => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = stepDone(i) && i !== ui.step ? 'done' : '';
+      if (i === ui.step) b.setAttribute('aria-current', 'step');
+      b.innerHTML = `<span class="num">${stepDone(i) && i !== ui.step ? icon('check', 13) : i + 1}</span><span class="tx"><b>${t}</b><small>${s}</small></span>`;
+      b.onclick = () => go(i);
+      $('stepper').appendChild(b);
+    });
+    $('rail').style.transform = `translateX(${ui.step * 100}%)`;
+  }
+  function go(i) {
+    const from = ui.step; ui.step = Math.max(0, Math.min(3, i));
+    document.querySelectorAll('.panel').forEach((p) => { const on = +p.dataset.step === ui.step; p.classList.toggle('on', on); if (on) p.style.setProperty('--from', ui.step >= from ? '24px' : '-24px'); });
+    if (ui.step === 1) renderMosaic();
+    if (ui.step === 2) renderWhere();
+    if (ui.step === 3) renderReview();
+    refresh(); window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+  $('back').onclick = () => go(ui.step - 1);
+  $('next').onclick = () => { if (ui.step < 3) go(ui.step + 1); else save(); };
+
+  // ---- step 1 ----
+  const starts = [{ id: 'blank', kind: 'blank', icon: 'plus', title: 'Blank audit', note: 'Pick every Control and System yourself.' },
+    ...A.PACKS.map((k) => ({ id: k.id, kind: 'pack', icon: k.icon, title: k.title, note: k.note, chips: [`${k.codes.length} Controls`] })),
+    ...A.PREVIOUS.map((p) => ({ id: p.id, kind: 'prev', icon: 'repeat', title: `Repeat ${p.title}`, note: `Closed ${A.fmtDate(p.closed)} with ${p.findings} finding${p.findings === 1 ? '' : 's'}.`, chips: [`${p.codes.length} Controls`, `${p.systems.length} Systems`, ...(p.org ? ['Organization'] : [])] }))];
+  $('starts').innerHTML = starts.map((s) => `<button type="button" class="start ${s.kind}" data-start="${s.id}" aria-pressed="false"><span class="sel-mark">${icon('check', 13)}</span><span class="ib">${icon(s.icon, 20)}</span><b>${esc(s.title)}</b><small>${esc(s.note)}</small>${s.chips ? `<span class="foot">${s.chips.map((c) => `<span class="chip plain">${esc(c)}</span>`).join('')}</span>` : ''}</button>`).join('');
+  $('starts').addEventListener('pointermove', (e) => { const b = e.target.closest('.start'); if (!b) return; const r = b.getBoundingClientRect(); b.style.setProperty('--mx', `${e.clientX - r.left}px`); b.style.setProperty('--my', `${e.clientY - r.top}px`); });
+  $('starts').onclick = (e) => {
+    const b = e.target.closest('.start'); if (!b) return;
+    const id = b.dataset.start; ui.start = id;
+    d.controls.clear(); d.systems.clear(); d.org = false;
+    const pack = A.PACKS.find((k) => k.id === id), prev = A.PREVIOUS.find((p) => p.id === id);
+    if (pack) pack.codes.forEach((c) => d.controls.add(c));
+    if (prev) { prev.codes.forEach((c) => d.controls.add(c)); prev.systems.forEach((s) => d.systems.add(s)); d.org = prev.org; }
+    $('org').checked = d.org;
+    if (!ui.titleTouched) { d.title = id === 'blank' ? '' : `${A.quarterName()} · ${pack ? pack.title : prev.title.replace(/^.*· /, '')}`; $('title').value = d.title; }
+    [...$('starts').children].forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    A.toast(id === 'blank' ? 'Starting blank' : `${icon('check', 15)} ${d.controls.size} Controls${d.systems.size ? `, ${d.systems.size} Systems` : ''} picked`);
+    refresh();
+  };
+  $('title').oninput = (e) => { d.title = e.target.value; ui.titleTouched = !!d.title; refresh(); };
+  $('scope').oninput = (e) => { d.scope = e.target.value; };
+  $('due').min = A.iso(new Date());
+  $('due').oninput = (e) => { d.due = e.target.value; refresh(); };
+  $('quick').innerHTML = A.QUICK_DUES.map(([l], i) => `<button type="button" data-i="${i}">${l}</button>`).join('');
+  $('quick').onclick = (e) => { const b = e.target.closest('button'); if (!b) return; d.due = A.QUICK_DUES[+b.dataset.i][1](); $('due').value = d.due; refresh(); };
+
+  // ---- step 2 ----
+  const heat = (m) => m == null || m >= 24 ? 'color-mix(in srgb, var(--bad) 55%, var(--surface))' : m >= 12 ? 'color-mix(in srgb, var(--gold) 70%, var(--surface))' : 'color-mix(in srgb, var(--ok) 30%, var(--surface))';
+  const inSet = (c) => ui.set === 'all' || (ui.set === 'annex' ? c.annex : !c.annex);
+  const groups = () => [...new Set(A.controls.filter(inSet).map((c) => c.domain))].map((k) => [k, A.controls.filter((c) => c.domain === k)]);
+  const hit = (c) => !ui.mq || (c.code + ' ' + c.title + ' ' + (c.question || '')).toLowerCase().includes(ui.mq);
+  function renderMosaic() {
+    let n = 0;
+    $('mosaic').innerHTML = groups().map(([k, cs]) => {
+      const on = cs.filter((c) => d.controls.has(c.code)).length;
+      return `<div><div class="mgroup-h"><button type="button" data-dom="${esc(k)}" title="Pick or unpick the whole domain">${esc(k)}</button><small>${on ? `${on} of ` : ''}${cs.length}</small><span class="bar"></span></div>
+        <div class="cells">${cs.map((c) => `<button type="button" class="cell ${hit(c) ? '' : 'dim'}" data-c="${c.code}" aria-pressed="${d.controls.has(c.code)}" aria-label="${esc(c.code)} ${esc(c.title)}" style="--h:${heat(c.lastAudit)};--d:${Math.min(600, n++ * 3)}ms"></button>`).join('')}</div></div>`;
+    }).join('');
+    renderPicked();
+  }
+  function paintCells() { document.querySelectorAll('.cell').forEach((el) => { el.setAttribute('aria-pressed', String(d.controls.has(el.dataset.c))); el.classList.toggle('dim', !hit(A.byCode.get(el.dataset.c))); }); document.querySelectorAll('.mgroup-h').forEach((h) => { const k = h.querySelector('button').dataset.dom, cs = A.controls.filter((c) => c.domain === k), on = cs.filter((c) => d.controls.has(c.code)).length; h.querySelector('small').textContent = `${on ? `${on} of ` : ''}${cs.length}`; }); renderPicked(); }
+  function renderPicked() {
+    const cs = [...d.controls].map((k) => A.byCode.get(k)).sort((a, b) => a.code.localeCompare(b.code, 'en', { numeric: true }));
+    $('pickedN').textContent = `${cs.length} Controls`;
+    $('pickedList').innerHTML = cs.length ? cs.map((c) => `<li><span class="code">${esc(c.code)}</span><span title="${esc(c.title)}">${A.question(d, c) ? '' : '<i title="No question yet"></i>'}${esc(c.title)}</span><button type="button" data-rm="${c.code}" aria-label="Remove ${esc(c.code)}">${icon('x', 14)}</button></li>`).join('') : '<li style="display:block" class="empty">Nothing picked yet</li>';
+  }
+  $('mosaic').onclick = (e) => {
+    const cell = e.target.closest('.cell');
+    if (cell) { const k = cell.dataset.c; d.controls.has(k) ? d.controls.delete(k) : d.controls.add(k); paintCells(); refresh(); return; }
+    const dom = e.target.closest('[data-dom]');
+    if (dom) { const cs = A.controls.filter((c) => c.domain === dom.dataset.dom && hit(c)); const all = cs.every((c) => d.controls.has(c.code)); cs.forEach((c) => all ? d.controls.delete(c.code) : d.controls.add(c.code)); paintCells(); refresh(); }
+  };
+  $('mosaic').addEventListener('pointerover', (e) => {
+    const cell = e.target.closest('.cell'); if (!cell) { $('tip').classList.remove('on'); return; }
+    const c = A.byCode.get(cell.dataset.c), r = cell.getBoundingClientRect();
+    $('tip').innerHTML = `<b>${esc(c.code)}</b> ${esc(c.title)}<small>${A.auditedLabel(c.lastAudit)} · ${c.applicability === 'PER_SYSTEM' ? 'Per System' : c.applicability === 'BOTH' ? 'Both' : 'Organizational'}${c.owner ? ` · ${esc(c.owner)}` : ' · no Control Owner'}</small>`;
+    $('tip').style.left = Math.min(innerWidth - 290, r.left) + 'px'; $('tip').style.top = (r.bottom + 8) + 'px'; $('tip').classList.add('on');
+  });
+  $('mosaic').addEventListener('pointerleave', () => $('tip').classList.remove('on'));
+  $('mq').oninput = (e) => { ui.mq = e.target.value.toLowerCase(); paintCells(); };
+  $('mset').onclick = (e) => { const b = e.target.closest('button'); if (!b) return; ui.set = b.dataset.set; [...$('mset').children].forEach((x) => x.setAttribute('aria-pressed', String(x === b))); renderMosaic(); };
+  $('pickedList').onclick = (e) => { const b = e.target.closest('[data-rm]'); if (!b) return; d.controls.delete(b.dataset.rm); paintCells(); refresh(); };
+  $('addStale').onclick = () => { const cs = A.controls.filter((c) => inSet(c) && hit(c) && c.lastAudit == null && !d.controls.has(c.code)); cs.forEach((c) => d.controls.add(c.code)); A.toast(cs.length ? `${icon('plus', 15)} Added ${cs.length} never-audited Controls` : 'Every never-audited Control shown is already picked'); paintCells(); refresh(); };
+
+  // ---- step 3 ----
+  const opt = (k, any, list) => `<select data-f="${k}" aria-label="${any}"><option value="">${any}</option>${list.map(([v, l]) => `<option value="${esc(v)}" ${ui.f[k] === v ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>`;
+  function renderWhere() {
+    $('sentence').innerHTML = `Audit the Systems owned by ${opt('unit', 'any Business Unit', window.SYS.UNITS.map((u) => [u, u]))}, deployed as ${opt('facet', 'any Deployment Facet', Object.entries(A.FACET))}, in scope of ${opt('framework', 'any Framework', A.FRAMEWORKS.map((f) => [f, f]))}, that are ${opt('status', 'in any onboarding status', A.STATUSES.map((s) => [s.key, s.label]))}.`;
+    renderCards();
+  }
+  $('sentence').onchange = (e) => { const k = e.target.dataset.f; if (!k) return; ui.f[k] = e.target.value; renderCards(); };
+  const hue = (name) => { let h = 0; for (const ch of name) h = (h * 31 + ch.charCodeAt(0)) % 360; return `hsl(${h} 45% 42%)`; };
+  function renderCards() {
+    const m = A.matchSystems(ui.f), fresh = m.filter((s) => !d.systems.has(s.id));
+    A.tween($('matchN'), m.length);
+    $('matchSub').textContent = `${fresh.length} not picked yet · ${d.systems.size} picked in all`;
+    $('addAll').innerHTML = `${icon('plus', 15)} Add ${fresh.length}`; $('addAll').disabled = !fresh.length;
+    const list = [...m].sort((a, b) => (d.systems.has(b.id) - d.systems.has(a.id)) || a.name.localeCompare(b.name)).slice(0, 24);
+    $('cards').innerHTML = list.map((s, i) => { const st = A.STATUSES.find((x) => x.key === s.status); return `<button type="button" class="scard" data-s="${s.id}" aria-pressed="${d.systems.has(s.id)}" style="--d:${i * 18}ms"><span class="logo2" style="--c:${hue(s.name)}">${esc(A.initials(s.name))}</span><span style="min-width:0"><b>${esc(s.name)}</b><small><span class="dot ${st.tone}"></span> ${esc(st.label)} · ${esc(s.owner)}</small></span><span class="tick">${icon('check', 12)}</span></button>`; }).join('')
+      + (m.length > 24 ? `<p class="muted" style="align-self:center;font-size:.84rem">+${m.length - 24} more match: “Add” takes them all</p>` : '');
+    const orgCtl = [...d.controls].map((k) => A.byCode.get(k)).filter(A.hasOrgImpl).length;
+    $('orgNote').textContent = `One Check-up per picked Organizational or Both Control (${orgCtl} of your ${d.controls.size}), sent to the Control Owner.`;
+  }
+  $('cards').onclick = (e) => { const b = e.target.closest('.scard'); if (!b) return; const id = b.dataset.s; d.systems.has(id) ? d.systems.delete(id) : d.systems.add(id); b.setAttribute('aria-pressed', String(d.systems.has(id))); $('matchSub').textContent = `${A.matchSystems(ui.f).filter((s) => !d.systems.has(s.id)).length} not picked yet · ${d.systems.size} picked in all`; refresh(); };
+  $('addAll').onclick = () => { const f = A.matchSystems(ui.f).filter((s) => !d.systems.has(s.id)); f.forEach((s) => d.systems.add(s.id)); A.toast(`${icon('plus', 15)} Added ${f.length} Systems`); renderCards(); refresh(); };
+  $('clearSys').onclick = () => { d.systems.clear(); renderCards(); refresh(); };
+  $('org').onchange = (e) => { d.org = e.target.checked; refresh(); };
+
+  // ---- step 4 ----
+  function sankey(p) {
+    const links1 = new Map(), links2 = new Map();
+    const bump = (m, a, b, n = 1) => { const k = a + '\u0001' + b; m.set(k, (m.get(k) || 0) + n); };
+    const sysCount = new Map(), recCount = new Map();
+    for (const c of p.controls) {
+      if (c.applicability !== 'ORGANIZATIONAL') for (const s of p.systems) if (A.applies(c, s)) { sysCount.set(s.name, (sysCount.get(s.name) || 0) + 1); }
+    }
+    const topSys = [...sysCount.entries()].sort((a, b) => b[1] - a[1]).slice(0, 7).map((x) => x[0]);
+    const recs = p.recipients.slice(0, 7).map((r) => r.who);
+    const tgt = (s) => topSys.includes(s.name) ? s.name : `${p.systems.length - topSys.length} other Systems`;
+    const rec = (w) => recs.includes(w) ? w : `${p.recipients.length - recs.length} others`;
+    for (const c of p.controls) {
+      if (c.applicability !== 'ORGANIZATIONAL') for (const s of p.systems) if (A.applies(c, s)) { bump(links1, c.domain, tgt(s)); bump(links2, tgt(s), rec(s.owner)); }
+      if (d.org && A.hasOrgImpl(c)) { bump(links1, c.domain, 'Organization'); bump(links2, 'Organization', c.owner ? rec(c.owner) : 'No Control Owner'); }
+    }
+    const cols = [new Map(), new Map(), new Map()];
+    for (const [k, n] of links1) { const [a, b] = k.split('\u0001'); cols[0].set(a, (cols[0].get(a) || 0) + n); cols[1].set(b, (cols[1].get(b) || 0) + n); }
+    for (const [k, n] of links2) { const [, b] = k.split('\u0001'); cols[2].set(b, (cols[2].get(b) || 0) + n); }
+    const total = p.total; if (!total) return '<p class="empty">Nothing flows yet: pick Controls and Systems, or include the Organization.</p>';
+    const W = 760, gap = 8, colX = [130, 360, 590], nw = 10;
+    const maxNodes = Math.max(...cols.map((c) => c.size));
+    const H = Math.max(220, maxNodes * 30 + 40);
+    const scale = (H - 20 - gap * (maxNodes - 1)) / total;
+    const pos = cols.map((col) => { let y = 10; const m = new Map(); [...col.entries()].sort((a, b) => b[1] - a[1]).forEach(([k, n]) => { const h = Math.max(3, n * scale); m.set(k, { y, h, n, out: y, in: y }); y += h + gap; }); return m; });
+    const colors = ['var(--accent)', '#6c7fd8', '#b07a12', '#8a5cc2', 'var(--ok)', '#c0563f', '#3d8fb5'];
+    const domColor = new Map([...pos[0].keys()].map((k, i) => [k, colors[i % colors.length]]));
+    let out = '', li = 0;
+    const path = (x0, y0, x1, y1) => { const mx = (x0 + x1) / 2; return `M${x0},${y0} C${mx},${y0} ${mx},${y1} ${x1},${y1}`; };
+    const draw = (links, a, b, ci) => [...links.entries()].sort((x, y) => y[1] - x[1]).forEach(([k, n]) => {
+      const [s, t] = k.split('\u0001'), S = pos[a].get(s), T = pos[b].get(t), w = Math.max(1.5, n * scale);
+      const col = ci === 0 ? domColor.get(s) : 'var(--muted)';
+      out += `<path class="lnk" d="${path(colX[a] + nw, S.out + w / 2, colX[b], T.in + w / 2)}" stroke="${col}" stroke-width="${w}" style="--d:${li++ * 25}ms"><title>${esc(s)} → ${esc(t)}: ${n} Check-up${n === 1 ? '' : 's'}</title></path>`;
+      S.out += w; T.in += w;
+    });
+    draw(links1, 0, 1, 0); draw(links2, 1, 2, 1);
+    pos.forEach((m, ci) => m.forEach((v, k) => {
+      const col = ci === 0 ? domColor.get(k) : k === 'Organization' ? '#8a5cc2' : k === 'No Control Owner' ? 'var(--bad)' : ci === 1 ? 'var(--accent)' : 'var(--ink)';
+      out += `<rect class="nd" x="${colX[ci]}" y="${v.y}" width="${nw}" height="${v.h}" fill="${col}"/>`;
+      const anchor = ci === 0 ? 'end' : 'start', tx = ci === 0 ? colX[ci] - 6 : colX[ci] + nw + 6;
+      const label = k.length > 24 ? k.slice(0, 23) + '…' : k;
+      out += `<text x="${tx}" y="${v.y + v.h / 2 + 4}" text-anchor="${anchor}">${esc(label)} <tspan class="n">${v.n}</tspan></text>`;
+    }));
+    return `<svg class="flow-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="${total} Check-ups from ${cols[0].size} domains to ${p.recipients.length} recipients">${out}</svg>`;
+  }
+  function renderReview() {
+    const p = A.plan(d);
+    $('sum').textContent = p.total || p.skipped ? `Launching would generate ${A.summary(p)}.` : 'Nothing to generate yet.';
+    const n = A.workdays(d.due);
+    $('facts').innerHTML = [[p.total, 'Check-ups'], [p.recipients.length, 'recipients'], [p.controls.length, 'Controls'], [p.systems.length + (d.org ? 1 : 0), d.org ? 'targets incl. Organization' : 'Systems'], [d.due ? n : '–', d.due ? `working days, due ${A.fmtDate(d.due)}` : 'no due date yet']]
+      .map(([v, l]) => `<div class="fact"><b data-v="0">${v}</b><span>${esc(l)}</span></div>`).join('');
+    document.querySelectorAll('.fact b').forEach((b) => { const v = Number(b.textContent); if (!Number.isNaN(v)) { b.textContent = '0'; A.tween(b, v); } });
+    $('flow').innerHTML = sankey(p);
+    $('launch').innerHTML = p.launch.length ? p.launch.map((b) => `<li class="warn"><span class="mk">${icon('alert', 12)}</span><span>${esc(b.text)}<small>${esc(b.codes.slice(0, 8).join(', '))}${b.codes.length > 8 ? ` +${b.codes.length - 8}` : ''}${b.kind === 'owner' ? ' · an Admin assigns Control Owners' : ''}</small></span></li>`).join('')
+      : `<li class="${p.total ? 'ok' : ''}"><span class="mk">${icon('check', 12)}</span><span>${p.total ? 'Nothing blocks the launch' : 'Nothing to check yet'}<small>Launch it from the audit page once the draft is saved</small></span></li>`;
+    $('qfix').innerHTML = p.noQuestion.slice(0, 4).map((c) => `<label><span><b class="code">${esc(c.code)}</b>${esc(c.title)}</span><textarea class="inp" data-q="${c.code}" placeholder="Write the Check-up question"></textarea></label>`).join('') + (p.noQuestion.length > 4 ? `<small class="muted">and ${p.noQuestion.length - 4} more, also editable on the draft's page</small>` : '');
+    renderReady(p);
+  }
+  function renderReady(p) {
+    $('ready').innerHTML = p.draftProblems.length ? p.draftProblems.map((t) => `<li><span class="mk"></span><span>${esc(t)}</span></li>`).join('') : `<li class="ok"><span class="mk">${icon('check', 12)}</span><span>Ready to save as a draft</span></li>`;
+    $('save').disabled = !p.canSave;
+  }
+  $('qfix').oninput = (e) => { const k = e.target.dataset.q; if (!k) return; d.questions[k] = e.target.value; refresh(); };
+  $('qfix').addEventListener('focusout', () => { const p = A.plan(d); $('launch').innerHTML = p.launch.length ? p.launch.map((b) => `<li class="warn"><span class="mk">${icon('alert', 12)}</span><span>${esc(b.text)}<small>${esc(b.codes.slice(0, 8).join(', '))}</small></span></li>`).join('') : `<li class="ok"><span class="mk">${icon('check', 12)}</span><span>Nothing blocks the launch</span></li>`; });
+
+  // ---- shared ----
+  function refresh() {
+    const p = A.plan(d);
+    renderStepper();
+    $('h1').textContent = d.title.trim() || 'Plan a new Internal Audit';
+    [...$('quick').children].forEach((b, i) => b.setAttribute('aria-pressed', String(!!d.due && A.QUICK_DUES[i][1]() === d.due)));
+    $('dueSmall').textContent = d.due ? (A.daysUntil(d.due) < 0 ? "Can't be in the past" : `${A.workdays(d.due)} working days for recipients to answer`) : 'Every Check-up shares this date.';
+    $('tally').innerHTML = `<span class="chip ${d.controls.size ? 'done' : ''}"><b>${d.controls.size}</b>&nbsp;Controls</span><span class="chip ${d.systems.size || d.org ? 'done' : ''}"><b>${d.systems.size}</b>&nbsp;Systems${d.org ? ' + Org' : ''}</span><span class="chip ${p.total ? 'success' : ''}"><b>${p.total}</b>&nbsp;Check-ups</span><span class="chip opt">${d.due ? `Due ${esc(A.fmtDate(d.due))}` : 'No due date'}</span>${p.launch.length && p.total ? `<span class="chip warn opt">${p.launch.length} to fix before launch</span>` : ''}`;
+    $('back').disabled = ui.step === 0;
+    $('next').innerHTML = ui.step < 3 ? `Next: ${STEPS[ui.step + 1][0]} ${icon('arrow', 15)}` : `${icon('check', 15)} Create draft`;
+    $('next').disabled = ui.step === 3 && !p.canSave;
+    if (ui.step === 3) renderReady(p);
+  }
+  function save() { const p = A.plan(d); if (p.canSave) A.celebrate(d.title, p); }
+  $('save').onclick = save;
+
+  go(0);
+})();
+</script>
+</body>
+</html>
