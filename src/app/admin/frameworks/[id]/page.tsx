@@ -5,6 +5,7 @@ import { ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE } from "@/lib/catalog";
 import { frameworkLabel } from "@/lib/framework-label";
 import { requirementInclude } from "@/lib/frameworks";
 import { FrameworkRequirementsEditor } from "@/components/FrameworkRequirementsEditor";
+import { FrameworkReviewGroup } from "@/components/FrameworkReviewGroup";
 import { StatusChip } from "@/components/ui/StatusChip";
 
 export default async function FrameworkDetailPage({ params }: PageProps<"/admin/frameworks/[id]">) {
@@ -23,7 +24,7 @@ export default async function FrameworkDetailPage({ params }: PageProps<"/admin/
     );
   }
 
-  const [framework, requirements, controls] = await Promise.all([
+  const [framework, requirements, controls, reviewGroups] = await Promise.all([
     prisma.framework.findUnique({ where: { id } }),
     prisma.requirement.findMany({
       where: { frameworkId: id },
@@ -31,6 +32,10 @@ export default async function FrameworkDetailPage({ params }: PageProps<"/admin/
       include: requirementInclude,
     }),
     prisma.control.findMany({ orderBy: { code: "asc" }, select: { id: true, code: true, title: true } }),
+    prisma.reviewGroup.findMany({
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, _count: { select: { members: true } } },
+    }),
   ]);
 
   if (!framework) {
@@ -59,6 +64,13 @@ export default async function FrameworkDetailPage({ params }: PageProps<"/admin/
           System&apos;s Framework Scope until it is published from the Frameworks page.
         </p>
       )}
+      <FrameworkReviewGroup
+        frameworkId={framework.id}
+        isBase={framework.isBase}
+        groups={reviewGroups.map((group) => ({ id: group.id, name: group.name, memberCount: group._count.members }))}
+        initialReviewGroupId={framework.reviewGroupId}
+        canOpenGroup={user.role === "ADMIN"}
+      />
       <FrameworkRequirementsEditor
         frameworkId={framework.id}
         licensing={framework.licensing}

@@ -38,6 +38,7 @@ The queue and what to do next are in [`HANDOFF.md`](HANDOFF.md). The per-issue r
 - **Assessment Queries:** non-blocking question threads on one Control Assessment.
 - **Change Events:** a curated log of compliance-relevant changes. Nothing shows it in the UI yet.
 - **Admin catalogs:** Deployment Facets, Business Units, Frameworks, users and Business Risk Owner assignments.
+- **Review Groups:** an Admin creates named groups of Users (any role but Internal Auditor) and manages their members; an Admin or Compliance Manager ties a group to non-base Frameworks (a Framework has at most one group), and a tied group with no members is flagged. Nothing consumes the groups yet: Review Steps come next.
 - **Design proposals:** browsable at `/design`, with interactive alternatives for onboarding, the Systems list, System detail, the Control Library, the Statement of Applicability, Home by role and creating an Internal Audit, and anonymous thumbs-up voting per proposal.
 - **Pipeline:** CI on every pull request, and CD to Vercel production gated on green CI (see CI/CD below).
 
