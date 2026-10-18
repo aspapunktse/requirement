@@ -34,7 +34,7 @@ type ReviewStep = {
 const STEP_STATUS_LABEL: Record<ReviewStep["status"], string> = { OPEN: "Open", APPROVED: "Approved", REJECTED: "Rejected" };
 const STEP_STATUS_TONE: Record<ReviewStep["status"], ChipTone> = { OPEN: "neutral", APPROVED: "success", REJECTED: "danger" };
 
-function DecisionForm({ systemId, step }: { systemId: string; step: ReviewStep }) {
+function DecisionForm({ systemId, step, onDecided }: { systemId: string; step: ReviewStep; onDecided: () => void }) {
   const router = useRouter();
   const [comment, setComment] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -57,7 +57,8 @@ function DecisionForm({ systemId, step }: { systemId: string; step: ReviewStep }
       }
 
       setComment("");
-      router.refresh();
+      onDecided(); // re-fetch the panel's own data
+      router.refresh(); // and the page's status badge
     } finally {
       setSubmitting(false);
     }
@@ -95,22 +96,33 @@ function DecisionForm({ systemId, step }: { systemId: string; step: ReviewStep }
 export function ApprovalPanel({ systemId }: { systemId: string }) {
   const [rounds, setRounds] = useState<ReviewRound[] | null>(null);
   const [steps, setSteps] = useState<ReviewStep[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  // Bumped after a decision so the effect below fetches again.
+  const [version, setVersion] = useState(0);
+  const reload = () => setVersion((current) => current + 1);
 
   useEffect(() => {
     let cancelled = false;
 
     fetch(`/api/systems/${systemId}/approvals`)
-      .then((response) => response.json())
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Failed to load the Approval history");
+        return response.json();
+      })
       .then((body) => {
         if (cancelled) return;
+        setLoadError(null);
         setRounds(body.rounds ?? []);
         setSteps(body.steps ?? []);
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) setLoadError(error instanceof Error ? error.message : "Failed to load the Approval history");
       });
 
     return () => {
       cancelled = true;
     };
-  }, [systemId]);
+  }, [systemId, version]);
 
   return (
     <div>
@@ -127,14 +139,18 @@ export function ApprovalPanel({ systemId }: { systemId: string }) {
                   <span>{step.name}</span>
                   <StatusChip tone={STEP_STATUS_TONE[step.status]}>{STEP_STATUS_LABEL[step.status]}</StatusChip>
                 </div>
-                {step.canDecide && step.status === "OPEN" && <DecisionForm systemId={systemId} step={step} />}
+                {step.canDecide && step.status === "OPEN" && <DecisionForm systemId={systemId} step={step} onDecided={reload} />}
               </li>
             ))}
           </ul>
         </section>
       )}
 
-      {rounds === null ? (
+      {loadError ? (
+        <p role="alert" className="text-sm text-red-600">
+          {loadError}
+        </p>
+      ) : rounds === null ? (
         <p>Loading Approval history…</p>
       ) : rounds.length === 0 ? (
         <p className="text-sm text-zinc-500">No Approval decisions recorded yet.</p>

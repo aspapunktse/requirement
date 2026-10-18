@@ -131,4 +131,48 @@ describe("ApprovalPanel (#198)", () => {
     const post = fetchMock.mock.calls.find(([, init]) => init?.method === "POST")!;
     expect(JSON.parse(String(post[1]?.body))).toEqual({ decision: "APPROVED", comment: "Looks fine", reviewGroupId: "g1" });
   });
+
+  it("re-fetches after a decision and shows it, with the form gone", async () => {
+    let decided = false;
+    const fetchMock = vi.fn((_url: string, init?: RequestInit) => {
+      if (init?.method === "POST") {
+        decided = true;
+        return Promise.resolve(new Response("{}", { status: 201 }));
+      }
+      const body = decided
+        ? {
+            steps: [],
+            rounds: [
+              {
+                id: "r1",
+                submittedAt: "2026-03-01T08:00:00.000Z",
+                current: false,
+                approvals: [{ id: "a1", decision: "REJECTED", comment: "Nope", decidedAt: "2026-03-02T09:30:00.000Z", reviewGroupId: "g1", stepName: "GDPR Review Group" }],
+              },
+            ],
+          }
+        : {
+            steps: [{ reviewGroupId: "g1", name: "GDPR Review Group", status: "OPEN", canDecide: true }],
+            rounds: [{ id: "r1", submittedAt: "2026-03-01T08:00:00.000Z", current: true, approvals: [] }],
+          };
+      return Promise.resolve(new Response(JSON.stringify(body), { status: 200 }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<ApprovalPanel systemId="s1" />);
+
+    const form = within(await screen.findByRole("group", { name: "Decide GDPR Review Group" }));
+    fireEvent.change(form.getByLabelText("Comment for GDPR Review Group"), { target: { value: "Nope" } });
+    fireEvent.click(form.getByRole("button", { name: "Reject" }));
+
+    await waitFor(() => expect(screen.queryByRole("group", { name: "Decide GDPR Review Group" })).toBeNull());
+    expect(await screen.findByText("GDPR Review Group")).toBeTruthy();
+    expect(screen.getByText("REJECTED")).toBeTruthy();
+    expect(screen.queryByText("No decisions yet.")).toBeNull();
+  });
+
+  it("says so when the history can't be loaded", async () => {
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response("{}", { status: 500 }))));
+    render(<ApprovalPanel systemId="s1" />);
+    expect(await screen.findByRole("alert")).toBeTruthy();
+  });
 });
