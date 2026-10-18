@@ -179,7 +179,7 @@ Run `npm run implementer:destroy -- <n> <slug>` in the main checkout. It does th
   - `npm run typecheck` and `npm run lint`: check exit codes unpiped. Piping to `tail` hides failures. No new warnings.
   - Simulate CI: on a scratch DB with `migrate deploy` only, run the full `npx vitest run`. Also run the touched files against `requirement_<issue>`, which holds the seeded data.
   - The full suite takes about 5 minutes and can flake under load. Re-run a failing file alone; only failures that reproduce in isolation are real.
-  - If typecheck complains about stale `.next/dev/types`, delete that folder.
+  - Run the final typecheck from a clean cache: `rm -rf .next && npm run typecheck`. Stale generated route types can make it pass locally and fail in CI and on Vercel: #197's first push had 21 `RouteContext` errors in a test that passed against a stale `.next`.
 - **Encoding:** every written file must be valid UTF-8. A PowerShell write once produced Latin-1 bytes, which Vitest and `tsc` accepted but Turbopack rejected with a 500. Use the Write/Edit tools or Git Bash, and check with `iconv`.
 - **Don't** start a dev server or use the browser; the supervisor verifies.
 - **Docs in the same change:** update `README.md`'s Project status (an `AGENTS.md` rule), in a line or two: edit the capability's line under "What works today" and the milestone table, and put the detail in your final report for the PR description, not in the README. Don't edit `HANDOFF.md`; the supervisor does. Touch `CONTEXT.md` only for genuine glossary changes, and flag them.
