@@ -198,7 +198,7 @@ describe("Reopening an approved Review Step when its remit is edited (#200)", { 
       expect(events).toHaveLength(1);
       expect(events[0]).toMatchObject({
         actorId: users.owner,
-        detail: `${groups[0].name} Review Group step reopened: ${c.g1.code} changed after approval`,
+        detail: `${groups[0].name} step reopened: ${c.g1.code} changed after approval`,
       });
 
       // The API says when and why on the open step, and keeps the voided decision in the round's history.
@@ -351,7 +351,7 @@ describe("Reopening an approved Review Step when its remit is edited (#200)", { 
       expect(response.status).toBe(200);
       expect(await stepStatuses(systemId)).toMatchObject({ g1: "OPEN" });
       expect((await reopenEvents(systemId))[0].detail).toBe(
-        `${groups[0].name} Review Group step reopened: ${c.both.code} changed after approval`,
+        `${groups[0].name} step reopened: ${c.both.code} changed after approval`,
       );
     });
 
@@ -378,7 +378,7 @@ describe("Reopening an approved Review Step when its remit is edited (#200)", { 
       expect((await remove(c.staleOrphan)).status).toBe(200);
       expect(await stepStatuses(systemId)).toEqual({ base: "OPEN", g1: "OPEN", g2: "APPROVED" });
       expect((await reopenEvents(systemId)).map((event) => event.detail)).toEqual([
-        `${groups[0].name} Review Group step reopened: ${c.staleG1.code} changed after approval`,
+        `${groups[0].name} step reopened: ${c.staleG1.code} changed after approval`,
         `Base review step reopened: ${c.staleOrphan.code} changed after approval`,
       ]);
     });

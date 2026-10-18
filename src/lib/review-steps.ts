@@ -403,7 +403,7 @@ export async function reopenStepsForEdit(
     await logChangeEvent(
       systemId,
       "REVIEW_STEP_REOPENED",
-      `${step.reviewGroupId === null ? "Base review step" : `${step.name} Review Group step`} reopened: ${reason}`,
+      `${step.name} step reopened: ${reason}`,
       actorId,
       tx,
     );
