@@ -16,7 +16,8 @@ This file holds current state and the queue, and nothing else. The rule is in th
 2. **M4:** #149 is done (PR #178). The product owner loaded CSA CCM 4.1.1 into production as a Draft on 2026-10-14; CD and the seed don't run the loader, so a later content file needs the same manual load. #148 waits on the product owner (`ready-for-human`) until the source documents are attached. Nothing else in PRD 0001 is cut into issues.
 3. **Design:** #181 moved the app to the Register design system (PR #182). Follow-ups: list components to RegisterRow, filter panels to FilterFields, the header tab row. New code uses the `--rg-*` tokens and `rg-*` Tailwind colours, not `--ems-*`.
    Design proposals are listed at `/design` with thumbs-up voting (#186). Each new proposal adds its entry to `public/design/proposals.js` (rule in `AGENTS.md`).
-4. Nothing is in flight. The dev DB is in its seeded state (see below).
+4. **Framework Review Groups (2026-10-18):** grilled with the product owner; the design is in `CONTEXT.md` (Review Group, Review Step, Review Round) and [ADR 0010](docs/adr/0010-onboarding-review-runs-as-parallel-review-steps.md), and cut into #197–#201 (queue below). Start with #197.
+5. Nothing is in flight. The dev DB is in its seeded state (see below).
 
 **The queue**
 
@@ -39,6 +40,14 @@ PRD 0001 · M5 Internal audit:
 7. #157 Nonconformity side effects: Risk and status set-back. **Done: PR #176.**
 8. #158 Withdraw Check-ups and close an Internal Audit. **Done: PR #177.**
 9. #169 Read-only Control Library page for every role. **Done: PR #170.**
+
+Framework Review Groups (ADR 0010, no milestone):
+1. #197 Review Groups: groups, members and Framework ties.
+2. #198 Review Rounds and Review Steps derived from Framework Scope. Blocked by #197.
+3. #199 Decide Review Steps in parallel, attributed to the group. Blocked by #198.
+4. #200 Reopen an approved Review Step when the owner edits its remit. Blocked by #199.
+5. #201 Review Group members: System visibility and Assessment Queries. Blocked by #197, #199.
+Future work, not an issue: a standalone Framework review of an Onboarded System when a Framework is added to its scope (ADR 0010), and linking a Review Group to an Entra ID group.
 
 Not cut into issues: the PRD's two "could" features, F-OUT.6 (PDF export of the SoA) and F-IMP.4 (UI upload of Framework files, other Frameworks as data).
 
