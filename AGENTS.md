@@ -64,7 +64,7 @@ These guide automated PR reviews (Codex) and any agent asked to review a change.
 
 **Authorization and security**
 
-- Every API route handler resolves the acting user with `authenticate` or `authorize` from `src/lib/api-authz.ts` before reading or writing, and checks object-level rights too (for example, that the acting user owns the System they change), not just the role.
+- Every protected API route handler resolves the acting user with `authenticate` or `authorize` from `src/lib/api-authz.ts` before reading or writing, and checks object-level rights too (for example, that the acting user owns the System they change), not just the role. Only three routes are public by design: `api/health` (health check), `api/design-votes` (anonymous design voting) and `api/session/acting-user` (sets the acting user, so it runs before there is one). A new unauthenticated route needs a stated reason in the PR.
 - A refused request returns 401/403 and changes nothing. Look for writes made before the check, or checks done after a partial write.
 - Validate request bodies with zod at the boundary. Don't trust ids, roles or status values sent by the client.
 - No secrets, credentials or production URLs in code, tests, fixtures or logs. No raw SQL built by string concatenation with user input (`$queryRawUnsafe` with interpolation).
@@ -91,4 +91,4 @@ These guide automated PR reviews (Codex) and any agent asked to review a change.
 - A design proposal added, renamed or removed under `public/design/` updates `public/design/proposals.js` in the same change. An existing proposal `id` never changes.
 - Files are valid UTF-8.
 - No new ESLint warnings (the baseline is 5, all `react-hooks/set-state-in-effect`).
-- `.claude/` and `.env*` files are never committed.
+- `.claude/` and secret-bearing env files (`.env`, `.env.*.local`) are never committed. The tracked `.env.example` template holds only local placeholders and is kept current when setup variables change.
