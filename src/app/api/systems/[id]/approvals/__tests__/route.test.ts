@@ -326,7 +326,9 @@ describe("/api/systems/[id]/approvals", () => {
     expect(body.rounds.map((r: { id: string }) => r.id)).toEqual([newerRound.id, olderRound.id]);
     expect(body.rounds[0].approvals.map((a: { id: string }) => a.id)).toEqual([second.id]);
     expect(body.rounds[1].approvals.map((a: { id: string }) => a.id)).toEqual([first.id]);
-    expect(body.rounds[0].approvals[0]).toMatchObject({ stepName: "Base review", approver: { name: "Approvals Reviewer" } });
+    // The owner sees the step, never the person (#199).
+    expect(body.rounds[0].approvals[0]).toMatchObject({ stepName: "Base review" });
+    expect(body.rounds[0].approvals[0]).not.toHaveProperty("approver");
   });
 
   it("lets a REVIEWER approve a System despite an open mandatory Control gap and an unresolved Risk", async () => {

@@ -1,5 +1,7 @@
-import type { OnboardingStatus, Prisma } from "@prisma/client";
+import type { OnboardingStatus, Prisma, UserRole } from "@prisma/client";
+import { userCanDecideStep } from "@/lib/approvals";
 import { prisma } from "@/lib/prisma";
+import { logChangeEvent, SYSTEM_ACTOR } from "@/lib/change-events";
 import { APPLICABILITY_SCOPING } from "@/lib/control-assessments";
 import {
   APPLICABLE_APPLICABILITIES,
@@ -70,7 +72,7 @@ const CONTROL_FOR_REMIT = {
  *
  * Takes the transaction client so the reads see one snapshot (see `loadReviewRounds`).
  */
-async function groupsWithRemit(tx: Prisma.TransactionClient, system: SystemClassification) {
+export async function groupsWithRemit(tx: Prisma.TransactionClient, system: SystemClassification) {
   const controls = await tx.control.findMany({
     where: {
       applicability: { in: [...APPLICABLE_APPLICABILITIES] },
@@ -92,12 +94,14 @@ async function groupsWithRemit(tx: Prisma.TransactionClient, system: SystemClass
   return groups;
 }
 
-function stepStatus(
-  approvals: { reviewGroupId: string | null; decision: OnboardingStatus; decidedAt: Date; id: string }[],
-  reviewGroupId: string | null,
-): ReviewStepStatus {
+type Tx = Prisma.TransactionClient;
+
+type StepApproval = { reviewGroupId: string | null; decision: OnboardingStatus; decidedAt: Date; id: string };
+
+/** The status of one step from the round's Approvals. Voided Approvals (a dropped step's) never count. */
+function stepStatus(approvals: (StepApproval & { voidedAt?: Date | null })[], reviewGroupId: string | null): ReviewStepStatus {
   const decisions = approvals
-    .filter((approval) => approval.reviewGroupId === reviewGroupId)
+    .filter((approval) => approval.reviewGroupId === reviewGroupId && !approval.voidedAt)
     .sort((a, b) => a.decidedAt.getTime() - b.decidedAt.getTime() || a.id.localeCompare(b.id));
   const latest = decisions.at(-1);
   if (latest?.decision === "APPROVED") return "APPROVED";
@@ -105,25 +109,126 @@ function stepStatus(
   return "OPEN";
 }
 
+const SYSTEM_FOR_STEPS = {
+  deploymentFacets: { select: { id: true } },
+  frameworkScopes: { select: { id: true } },
+} satisfies Prisma.SystemInclude;
+
+/** The base step plus one step per live group (sorted by name), with statuses from `approvals`. */
+function buildSteps(
+  groups: Map<string, string>,
+  approvals: (StepApproval & { voidedAt?: Date | null })[],
+): ReviewStep[] {
+  return [
+    { reviewGroupId: null, name: BASE_REVIEW_STEP_NAME, status: stepStatus(approvals, null) },
+    ...[...groups]
+      .sort(([, a], [, b]) => a.localeCompare(b))
+      .map(([reviewGroupId, name]) => ({ reviewGroupId, name, status: stepStatus(approvals, reviewGroupId) })),
+  ];
+}
+
+/**
+ * Takes a row lock on the System, so decisions and reconciliations on it run one after another.
+ * Call it first in a READ COMMITTED transaction (a REPEATABLE READ snapshot would be taken before
+ * the wait and miss what the previous holder committed).
+ */
+export async function lockSystem(tx: Tx, systemId: string) {
+  await tx.$queryRaw`SELECT "id" FROM "System" WHERE "id" = ${systemId} FOR UPDATE`;
+}
+
+/**
+ * The current Review Round and its live steps, read on `tx` and written to nothing. Null unless the
+ * System exists and is In Review. An In Review System with no round (it should not happen after the
+ * #198 migration) reads as all steps open.
+ */
+export async function readCurrentSteps(tx: Tx, systemId: string) {
+  const system = await tx.system.findUnique({ where: { id: systemId }, include: SYSTEM_FOR_STEPS });
+  if (!system || system.status !== "IN_REVIEW") return null;
+  const round = await tx.reviewRound.findFirst({
+    where: { systemId },
+    orderBy: [{ submittedAt: "desc" }, { id: "desc" }],
+    include: { approvals: { orderBy: [{ decidedAt: "asc" }, { id: "asc" }] } },
+  });
+  const groups = await groupsWithRemit(tx, system);
+  return { system, round, groups, steps: buildSteps(groups, round?.approvals ?? []) };
+}
+
+/**
+ * Brings the current round in line with the live steps, on a System row the caller has locked
+ * (`lockSystem`):
+ * - a group's Approvals in the round whose step is no longer live are voided, so the step comes back
+ *   Open if its remit returns during the same round (product-owner decision on #198/#199). Steps have
+ *   no event of their own when they disappear, so this runs after every change that can move a
+ *   System's remit (see `reconcileReviewSteps`) and again before every decision;
+ * - when every remaining live step has approved, the System becomes Approved at once (a dropped step
+ *   was the only thing left to wait for).
+ * Returns the System's status afterwards. A System that isn't In Review is left alone.
+ */
+export async function settleReviewSteps(tx: Tx, systemId: string) {
+  const current = await readCurrentSteps(tx, systemId);
+  if (!current) return { status: null as null | "APPROVED" | "IN_REVIEW", current: null };
+  const { round, groups } = current;
+  if (round) {
+    const liveIds = [...groups.keys()];
+    await tx.approval.updateMany({
+      where: {
+        reviewRoundId: round.id,
+        voidedAt: null,
+        reviewGroupId: { not: null, notIn: liveIds },
+      },
+      data: { voidedAt: new Date() },
+    });
+  }
+  const after = round ? await readCurrentSteps(tx, systemId) : current;
+  if (after && after.steps.every((step) => step.status === "APPROVED")) {
+    const moved = await tx.system.updateMany({ where: { id: systemId, status: "IN_REVIEW" }, data: { status: "APPROVED" } });
+    if (moved.count > 0) {
+      await logChangeEvent(
+        systemId,
+        "APPROVAL_DECIDED",
+        "Approved: every remaining Review Step has approved",
+        SYSTEM_ACTOR,
+        tx,
+      );
+      return { status: "APPROVED" as const, current: after };
+    }
+  }
+  return { status: "IN_REVIEW" as const, current: after };
+}
+
+/** `settleReviewSteps` for one System, in its own transaction. Call it right after a change to the System's remit. */
+export async function reconcileReviewSteps(systemId: string) {
+  try {
+    await prisma.$transaction(async (tx) => {
+      await lockSystem(tx, systemId);
+      await settleReviewSteps(tx, systemId);
+    });
+  } catch (error) {
+    // The change that called us has committed; a failure here must not turn it into a 500. The next
+    // decision on the System settles again before it counts anything.
+    console.error(`Could not reconcile the Review Steps of System ${systemId}`, error);
+  }
+}
+
+/** `reconcileReviewSteps` for every System In Review, for a change to the catalog (Frameworks, Controls, ties). */
+export async function reconcileAllReviewSteps() {
+  const inReview = await prisma.system.findMany({ where: { status: "IN_REVIEW" }, select: { id: true } });
+  for (const { id } of inReview) await reconcileReviewSteps(id);
+}
+
 /**
  * A System's Review Rounds (by id; its status and classification are re-read in the snapshot), newest first, each with its Approvals (oldest first), plus the
  * derived steps of the current round. The current round is the System's latest round, and only
- * while the System is In Review; otherwise `steps` is empty and `currentRoundId` null. An In
- * Review System with no round (it should not happen after the #198 migration) reads as all
- * steps open.
+ * while the System is In Review; otherwise `steps` is empty and `currentRoundId` null.
  *
  * One REPEATABLE READ transaction with every query on `tx`: the steps read several tables and a
  * nested include runs as several statements, so a concurrent delete would otherwise throw.
+ * Approvals carry their deciding User (`approver`): the caller redacts it per viewer.
  */
 export async function loadReviewRounds(systemId: string) {
   return prisma.$transaction(
     async (tx) => {
-      // Status and classification are read here, inside the snapshot, so the steps never mix
-      // an older System with newer rounds. Visibility is the caller's check.
-      const system = await tx.system.findUnique({
-        where: { id: systemId },
-        include: { deploymentFacets: { select: { id: true } }, frameworkScopes: { select: { id: true } } },
-      });
+      const system = await tx.system.findUnique({ where: { id: systemId }, include: SYSTEM_FOR_STEPS });
       if (!system) return { rounds: [], currentRoundId: null, steps: [] as ReviewStep[] };
 
       const rounds = await tx.reviewRound.findMany({
@@ -132,7 +237,7 @@ export async function loadReviewRounds(systemId: string) {
         include: {
           approvals: {
             orderBy: [{ decidedAt: "asc" }, { id: "asc" }],
-            include: { approver: true, reviewGroup: { select: { id: true, name: true } } },
+            include: { approver: { select: { id: true, name: true } }, reviewGroup: { select: { id: true, name: true } } },
           },
         },
       });
@@ -140,20 +245,49 @@ export async function loadReviewRounds(systemId: string) {
       if (system.status !== "IN_REVIEW") return { rounds, currentRoundId: null, steps: [] as ReviewStep[] };
 
       const current = rounds[0] ?? null;
-      const currentApprovals = current?.approvals ?? [];
       const groups = await groupsWithRemit(tx, system);
-      const groupSteps: ReviewStep[] = [...groups]
-        .sort(([, a], [, b]) => a.localeCompare(b))
-        .map(([reviewGroupId, name]) => ({ reviewGroupId, name, status: stepStatus(currentApprovals, reviewGroupId) }));
+      return { rounds, currentRoundId: current?.id ?? null, steps: buildSteps(groups, current?.approvals ?? []) };
+    },
+    { isolationLevel: "RepeatableRead" },
+  );
+}
 
-      return {
-        rounds,
-        currentRoundId: current?.id ?? null,
-        steps: [
-          { reviewGroupId: null, name: BASE_REVIEW_STEP_NAME, status: stepStatus(currentApprovals, null) },
-          ...groupSteps,
-        ],
-      };
+/**
+ * The open Review Steps `user` can decide, for "My tasks": on Systems In Review that the user
+ * doesn't own, the base step for a Reviewer or Admin, a group's step for a member of the group,
+ * any open step for an Admin. One entry per System and step.
+ */
+export async function getOpenStepsForUser(user: { id: string; role: UserRole }) {
+  const groupIds = (await prisma.reviewGroup.findMany({ where: { members: { some: { id: user.id } } }, select: { id: true } })).map(
+    (group) => group.id,
+  );
+  const decidesAny = user.role === "ADMIN" || user.role === "REVIEWER";
+  if (!decidesAny && groupIds.length === 0) return [];
+  return prisma.$transaction(
+    async (tx) => {
+      const systems = await tx.system.findMany({
+        where: {
+          status: "IN_REVIEW",
+          ownerId: { not: user.id },
+          ...(decidesAny ? {} : { frameworkScopes: { some: { reviewGroupId: { in: groupIds } } } }),
+        },
+        orderBy: { updatedAt: "asc" },
+        include: SYSTEM_FOR_STEPS,
+      });
+      const tasks: { system: (typeof systems)[number]; step: ReviewStep }[] = [];
+      for (const system of systems) {
+        const round = await tx.reviewRound.findFirst({
+          where: { systemId: system.id },
+          orderBy: [{ submittedAt: "desc" }, { id: "desc" }],
+          include: { approvals: true },
+        });
+        const steps = buildSteps(await groupsWithRemit(tx, system), round?.approvals ?? []);
+        for (const step of steps) {
+          if (step.status !== "OPEN") continue;
+          if (userCanDecideStep(user, system.ownerId, groupIds, step.reviewGroupId)) tasks.push({ system, step });
+        }
+      }
+      return tasks;
     },
     { isolationLevel: "RepeatableRead" },
   );

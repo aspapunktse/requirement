@@ -14,18 +14,27 @@ type Approval = {
   comment: string | null;
   decidedAt: string;
   stepName: string;
-  approver: { name: string };
+  /** The step's decision no longer counts: its group's step left the round (CONTEXT.md, Review Step). */
+  voided?: boolean;
+  /** Present only when the viewer may see who decided (an Admin, Internal Auditor, Compliance Manager or the step's deciders). */
+  approver?: { name: string };
 };
 
 /** One Review Round: a submission of the System, with the decisions made in it (CONTEXT.md). */
 type ReviewRound = { id: string; submittedAt: string; current: boolean; approvals: Approval[] };
 
-type ReviewStep = { reviewGroupId: string | null; name: string; status: "OPEN" | "APPROVED" | "REJECTED" };
+type ReviewStep = {
+  reviewGroupId: string | null;
+  name: string;
+  status: "OPEN" | "APPROVED" | "REJECTED";
+  /** Whether the viewer may decide this step now. */
+  canDecide?: boolean;
+};
 
 const STEP_STATUS_LABEL: Record<ReviewStep["status"], string> = { OPEN: "Open", APPROVED: "Approved", REJECTED: "Rejected" };
 const STEP_STATUS_TONE: Record<ReviewStep["status"], ChipTone> = { OPEN: "neutral", APPROVED: "success", REJECTED: "danger" };
 
-function DecisionForm({ systemId }: { systemId: string }) {
+function DecisionForm({ systemId, step, onDecided }: { systemId: string; step: ReviewStep; onDecided: () => void }) {
   const router = useRouter();
   const [comment, setComment] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -38,7 +47,7 @@ function DecisionForm({ systemId }: { systemId: string }) {
       const response = await fetch(`/api/systems/${systemId}/approvals`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ decision, comment }),
+        body: JSON.stringify({ decision, comment, reviewGroupId: step.reviewGroupId }),
       });
 
       if (!response.ok) {
@@ -48,18 +57,23 @@ function DecisionForm({ systemId }: { systemId: string }) {
       }
 
       setComment("");
-      router.refresh();
+      onDecided(); // re-fetch the panel's own data
+      router.refresh(); // and the page's status badge
     } finally {
       setSubmitting(false);
     }
   }
 
   return (
-    <div className="mb-4 flex flex-col gap-2 rounded border border-zinc-200 p-3 dark:border-zinc-800">
+    <div
+      className="mt-2 flex flex-col gap-2 rounded border border-zinc-200 p-3 dark:border-zinc-800"
+      role="group"
+      aria-label={`Decide ${step.name}`}
+    >
       {error && <p className="text-sm text-red-600">{error}</p>}
 
       <label className="flex flex-col gap-1 text-sm">
-        Comment
+        Comment for {step.name}
         <textarea
           className="rounded border border-zinc-200 p-2 dark:border-zinc-800 dark:bg-transparent"
           value={comment}
@@ -79,36 +93,39 @@ function DecisionForm({ systemId }: { systemId: string }) {
   );
 }
 
-export function ApprovalPanel({
-  systemId,
-  canDecide,
-}: {
-  systemId: string;
-  canDecide: boolean;
-}) {
+export function ApprovalPanel({ systemId }: { systemId: string }) {
   const [rounds, setRounds] = useState<ReviewRound[] | null>(null);
   const [steps, setSteps] = useState<ReviewStep[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  // Bumped after a decision so the effect below fetches again.
+  const [version, setVersion] = useState(0);
+  const reload = () => setVersion((current) => current + 1);
 
   useEffect(() => {
     let cancelled = false;
 
     fetch(`/api/systems/${systemId}/approvals`)
-      .then((response) => response.json())
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Failed to load the Approval history");
+        return response.json();
+      })
       .then((body) => {
         if (cancelled) return;
+        setLoadError(null);
         setRounds(body.rounds ?? []);
         setSteps(body.steps ?? []);
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) setLoadError(error instanceof Error ? error.message : "Failed to load the Approval history");
       });
 
     return () => {
       cancelled = true;
     };
-  }, [systemId]);
+  }, [systemId, version]);
 
   return (
     <div>
-      {canDecide && <DecisionForm systemId={systemId} />}
-
       {steps.length > 0 && (
         <section className="mb-4" aria-label="Review Steps">
           <h3 className="mb-2 text-sm font-semibold text-rg-muted">Review Steps</h3>
@@ -116,17 +133,24 @@ export function ApprovalPanel({
             {steps.map((step) => (
               <li
                 key={step.reviewGroupId ?? "base"}
-                className="flex items-center justify-between gap-2 rounded border border-rg-line px-3 py-2"
+                className="rounded border border-rg-line px-3 py-2"
               >
-                <span>{step.name}</span>
-                <StatusChip tone={STEP_STATUS_TONE[step.status]}>{STEP_STATUS_LABEL[step.status]}</StatusChip>
+                <div className="flex items-center justify-between gap-2">
+                  <span>{step.name}</span>
+                  <StatusChip tone={STEP_STATUS_TONE[step.status]}>{STEP_STATUS_LABEL[step.status]}</StatusChip>
+                </div>
+                {step.canDecide && step.status === "OPEN" && <DecisionForm systemId={systemId} step={step} onDecided={reload} />}
               </li>
             ))}
           </ul>
         </section>
       )}
 
-      {rounds === null ? (
+      {loadError ? (
+        <p role="alert" className="text-sm text-red-600">
+          {loadError}
+        </p>
+      ) : rounds === null ? (
         <p>Loading Approval history…</p>
       ) : rounds.length === 0 ? (
         <p className="text-sm text-zinc-500">No Approval decisions recorded yet.</p>
@@ -147,8 +171,13 @@ export function ApprovalPanel({
                     <li key={approval.id} className="rounded border border-rg-line p-3">
                       <div className="flex items-center gap-2 font-medium">
                         <StatusChip tone={onboardingStatusTone(approval.decision)}>{approval.decision}</StatusChip>
-                        <span>by {approval.approver.name}</span>
-                        <span className="text-xs font-normal text-rg-muted">{approval.stepName}</span>
+                        <span>{approval.stepName}</span>
+                        {approval.approver && (
+                          <span className="text-xs font-normal text-rg-muted">by {approval.approver.name}</span>
+                        )}
+                        {approval.voided && (
+                          <span className="text-xs font-normal text-rg-muted">(step dropped, no longer counts)</span>
+                        )}
                       </div>
                       <p className="text-xs text-zinc-500">{new Date(approval.decidedAt).toLocaleString()}</p>
                       {approval.comment && <p className="mt-1 text-sm">{approval.comment}</p>}

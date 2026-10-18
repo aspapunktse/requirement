@@ -59,14 +59,6 @@ export async function getSystemsNeedingAttention(ownerId: string): Promise<Atten
   return results;
 }
 
-/** Systems currently IN_REVIEW, awaiting a REVIEWER/ADMIN Approval decision. */
-export function getSystemsAwaitingApproval() {
-  return prisma.system.findMany({
-    where: { status: "IN_REVIEW" },
-    orderBy: { updatedAt: "asc" },
-  });
-}
-
 /** Every open Risk across every System, newest first, with its System's name. */
 export function getAllOpenRisks() {
   return prisma.risk.findMany({

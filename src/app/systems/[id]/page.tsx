@@ -2,7 +2,6 @@ import { getActingUser } from "@/lib/acting-user";
 import { canWriteSystems, getVisibleSystem } from "@/lib/system-visibility";
 import { canLogRisk, ROLES_ALLOWED_TO_MANAGE_RISK_STATUS } from "@/lib/risks";
 import { canReadInternalAudits } from "@/lib/internal-audit-rules";
-import { ROLES_ALLOWED_TO_APPROVE } from "@/lib/approvals";
 import { canMarkOnboarded } from "@/lib/onboarding";
 import { canChangeSystemClassification } from "@/lib/system-classification-change";
 import { canManageBusinessUnits } from "@/lib/business-units";
@@ -190,10 +189,7 @@ export default async function SystemDetailPage({ params }: PageProps<"/systems/[
       />
 
       <h2 className="mb-3 mt-8 text-xl">Approval</h2>
-      <ApprovalPanel
-        systemId={system.id}
-        canDecide={system.status === "IN_REVIEW" && ROLES_ALLOWED_TO_APPROVE.includes(user.role)}
-      />
+      <ApprovalPanel systemId={system.id} />
     </div>
   );
 }

@@ -2,6 +2,7 @@ import type { ImpactLevel, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { diffApplicabilityOps, getApplicableControls, type SystemClassification } from "@/lib/control-assessments";
 import { logChangeEvent } from "@/lib/change-events";
+import { reconcileReviewSteps } from "@/lib/review-steps";
 import { recordProviderChange } from "@/lib/provider-inheritance";
 import { isSystemOwnerOrAdmin } from "@/lib/system-permissions";
 
@@ -127,6 +128,8 @@ async function applyClassificationChange(
     `Classification changed (+${added}/-${removed.count} Control Assessment(s))`,
     actorId,
   );
+  // A Deployment Facet or Impact Level change can move a Review Group's remit while In Review (#199).
+  await reconcileReviewSteps(system.id);
 
   return { added, removed: removed.count };
 }
