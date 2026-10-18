@@ -2,7 +2,7 @@ import type { Prisma, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getAssignedScope, scopedSystemsWhere } from "@/lib/business-risk-owner";
 import { isReadOnlySystemRole } from "@/lib/system-permissions";
-import { systemIdsWithLiveStepFor } from "@/lib/review-group-visibility";
+import { reviewGroupScopeWhere } from "@/lib/review-group-visibility";
 
 const FULL_VISIBILITY_ROLES: UserRole[] = ["ADMIN", "RISK_OWNER", "REVIEWER", "COMPLIANCE_MANAGER", "INTERNAL_AUDITOR"];
 
@@ -27,16 +27,16 @@ export function canWriteSystems(user: { role: UserRole }) {
  * drilling into a System's own page from there (e.g. the System Portfolio,
  * see #62) shouldn't 404; everyone else sees Systems they own (any status)
  * plus every ONBOARDED System. A member of a Review Group additionally sees every
- * System In Review that has a live Review Step for one of their groups
- * (`systemIdsWithLiveStepFor`, #199; #201 widens it).
+ * System, in any status, that has one of their groups' Frameworks in its declared
+ * Framework Scope (`reviewGroupScopeWhere`, #201).
  */
 export async function visibleSystemsWhere(user: { id: string; role: UserRole }): Promise<Prisma.SystemWhereInput> {
   if (FULL_VISIBILITY_ROLES.includes(user.role)) {
     return {};
   }
   const ownedOrOnboarded: Prisma.SystemWhereInput[] = [{ ownerId: user.id }, { status: "ONBOARDED" }];
-  const throughReviewGroup = await systemIdsWithLiveStepFor(user.id);
-  if (throughReviewGroup.length > 0) ownedOrOnboarded.push({ id: { in: throughReviewGroup } });
+  const throughReviewGroup = await reviewGroupScopeWhere(user.id);
+  if (throughReviewGroup) ownedOrOnboarded.push(throughReviewGroup);
   if (user.role === "BUSINESS_RISK_OWNER") {
     const scope = await getAssignedScope(user.id);
     ownedOrOnboarded.push(scopedSystemsWhere(scope));

@@ -3,13 +3,13 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { authenticate } from "@/lib/api-authz";
 import { canWriteSystems, getVisibleSystem } from "@/lib/system-visibility";
-import { addQueryMessage, canReplyToQuery } from "@/lib/assessment-queries";
+import { addQueryMessage, mayActThroughMembership, queryRightsFor, redactQueries } from "@/lib/assessment-queries";
 
 const addMessageSchema = z.object({ body: z.string().min(1) });
 
 /**
- * Replies to an Assessment Query — the System's owner or a
- * REVIEWER/RISK_OWNER/ADMIN. Reopens the Query if it was resolved (see #56).
+ * Replies to an Assessment Query — the System's owner, a REVIEWER/RISK_OWNER/ADMIN, or a Review
+ * Group member for a Control in the group's remit (#201). Reopens the Query if it was resolved (see #56).
  */
 export async function POST(
   request: NextRequest,
@@ -17,7 +17,8 @@ export async function POST(
 ) {
   const auth = await authenticate(request);
   if ("response" in auth) return auth.response;
-  if (!canWriteSystems(auth.user)) {
+  // A read-only role is refused up front, unless it can still act as a Review Group member (Compliance Manager, #201).
+  if (!canWriteSystems(auth.user) && !(await mayActThroughMembership(auth.user))) {
     return NextResponse.json({ error: "Your role can read Systems but not change them" }, { status: 403 });
   }
 
@@ -27,9 +28,10 @@ export async function POST(
     return NextResponse.json({ error: "System not found" }, { status: 404 });
   }
 
-  if (!canReplyToQuery(auth.user, system)) {
+  const rights = await queryRightsFor(auth.user, system, controlId, "reply");
+  if (!rights.allowed) {
     return NextResponse.json(
-      { error: "Only the System's owner, a Reviewer, a Risk Owner, or an Admin can reply" },
+      { error: "Only the System's owner, a Reviewer, a Risk Owner, an Admin, or a Review Group member for this Control can reply" },
       { status: 403 },
     );
   }
@@ -46,6 +48,7 @@ export async function POST(
     return NextResponse.json({ error: "A message body is required" }, { status: 400 });
   }
 
-  const query = await addQueryMessage(queryId, auth.user.id, parsed.data.body);
-  return NextResponse.json({ query }, { status: 201 });
+  const query = await addQueryMessage(queryId, auth.user.id, parsed.data.body, rights.attribution);
+  const [view] = await redactQueries([query], auth.user, system.ownerId);
+  return NextResponse.json({ query: view }, { status: 201 });
 }

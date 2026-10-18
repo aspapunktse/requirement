@@ -3,6 +3,7 @@ import { authenticate } from "@/lib/api-authz";
 import { getVisibleSystem } from "@/lib/system-visibility";
 import { isSystemOwnerOrAdmin } from "@/lib/system-permissions";
 import { getSystemAssessmentRow, resetAssessmentToInherited } from "@/lib/control-assessments";
+import { presentAssessmentRows } from "@/lib/assessment-queries";
 
 /**
  * Reset the System's own Control Assessment to inherited (#129, F-IN.5): the
@@ -44,5 +45,6 @@ export async function POST(
   if (!row) {
     return NextResponse.json({ error: "Control not found" }, { status: 404 });
   }
-  return NextResponse.json(row);
+  const [presented] = await presentAssessmentRows([row], auth.user, system);
+  return NextResponse.json(presented);
 }

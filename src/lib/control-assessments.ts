@@ -1,6 +1,6 @@
 import type { ControlAssessmentStatus, Prisma, SelfAssessmentAnswer, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { QUERY_INCLUDE } from "@/lib/assessment-queries";
+import { QUERY_INCLUDE } from "@/lib/assessment-query-include";
 import { ROLES_ALLOWED_TO_WAIVE, waiveRefusal } from "@/lib/system-permissions";
 import { CONTROL_ASSESSMENT_STATUS_LABEL } from "@/lib/requirement-status-rules";
 import {

@@ -108,6 +108,7 @@ export async function roleView(user: { id: string; name: string; role: UserRole 
   const [view, owner, controlRows, checkUps] = await Promise.all([
     roleOwnView(user, reviewStepRows)
       .then((own) => withReviewStepTasks(own, user, reviewStepRows))
+      .then((own) => withMemberQueryTasks(own, user))
       .then((own) => withControlLibraryTile(own, user))
       .then(withStatementOfApplicabilityTile)
       .then((view) => withOrganizationRisksTile(user, view))
@@ -137,6 +138,36 @@ export async function roleView(user: { id: string; name: string; role: UserRole 
   }
 
   return { ...view, stats, tasks: mergeTaskRows([...owner.rows, ...controlRows, ...checkUps.rows], view.tasks ?? []) };
+}
+
+/**
+ * Open Assessment Queries on Controls in the remit of the user's Review Groups, where it is the
+ * reviewer side's turn (#201). A Reviewer's and a Risk Owner's own view already lists every Query, so
+ * they are skipped; an Internal Auditor is never a member. Rows already in the view are not repeated.
+ */
+async function withMemberQueryTasks(view: RoleView, user: { id: string; role: UserRole }): Promise<RoleView> {
+  if (user.role === "REVIEWER" || user.role === "RISK_OWNER" || user.role === "INTERNAL_AUDITOR") return view;
+  // One read, empty for anyone in no group: this runs on every landing page.
+  const systems = await prisma.system.findMany({
+    where: { frameworkScopes: { some: { reviewGroup: { members: { some: { id: user.id } } } } }, ownerId: { not: user.id } },
+    select: { id: true },
+  });
+  if (systems.length === 0) return view;
+  const queries = await getActionableQueries(user, systems.map((system) => system.id));
+  const seen = new Set((view.tasks ?? []).map((row) => row.id));
+  const rows = queries
+    .filter((query) => !seen.has(query.id))
+    .map((query): TaskRow => ({
+      id: query.id,
+      kind: "Query",
+      title: query.controlTitle,
+      subtitle: query.systemName,
+      tone: "accent",
+      status: "Your turn",
+      updatedAt: query.updatedAt,
+      href: `/systems/${query.systemId}`,
+    }));
+  return rows.length === 0 ? view : { ...view, tasks: [...(view.tasks ?? []), ...rows] };
 }
 
 /**

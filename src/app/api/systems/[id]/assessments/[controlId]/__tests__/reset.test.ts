@@ -190,7 +190,7 @@ describe("POST /api/systems/[id]/assessments/[controlId]/reset (#129)", { timeou
 
         // The response is the row as GET /assessments shows it.
         const body = await response.json();
-        expect(Object.keys(body).sort()).toEqual(["assessment", "control", "effective"]);
+        expect(Object.keys(body).sort()).toEqual(["assessment", "canManageQueries", "control", "effective"]);
         expect(body.control).toMatchObject({ id: control.both.id, code: control.both.code });
         expect(body.assessment).toMatchObject({ id: row!.id, status: "NOT_STARTED", assessedById: null, assessedBy: null, queries: [] });
         expect(body.effective).toEqual({
