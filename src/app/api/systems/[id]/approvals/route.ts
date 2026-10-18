@@ -91,11 +91,13 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems
     return NextResponse.json({ error: "System not found" }, { status: 404 });
   }
 
-  const parsed = decisionSchema.safeParse(await request.json().catch(() => null));
-  if (!parsed.success) {
-    return NextResponse.json({ error: "A decision (Approved or Rejected) and comment are required" }, { status: 400 });
+  // Which step is read first so that a refusal for who is asking (403) comes before one for the rest of the body.
+  const body = await request.json().catch(() => null);
+  const step = decisionSchema.pick({ reviewGroupId: true }).safeParse(body ?? {});
+  if (!step.success) {
+    return NextResponse.json({ error: "reviewGroupId must be a Review Group id or null" }, { status: 400 });
   }
-  const { decision, comment, reviewGroupId } = parsed.data;
+  const { reviewGroupId } = step.data;
 
   // Who decides which step (all of it before any write).
   if (!(await canDecideStep(auth.user, system.ownerId, reviewGroupId))) {
@@ -109,6 +111,12 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems
       { status: 403 },
     );
   }
+
+  const parsed = decisionSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json({ error: "A decision (Approved or Rejected) and comment are required" }, { status: 400 });
+  }
+  const { decision, comment } = parsed.data;
 
   if (system.status !== "IN_REVIEW") {
     return NextResponse.json({ error: NOT_IN_REVIEW }, { status: 400 });
