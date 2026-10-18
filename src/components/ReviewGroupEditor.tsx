@@ -59,43 +59,45 @@ export function ReviewGroupEditor({
     (framework) => !tiedIds.has(framework.id) && (framework.reviewGroupId === null || framework.reviewGroupId === group.id),
   );
 
-  async function run(request: () => Promise<Response>, fallback: string): Promise<boolean> {
+  /** Sends a request; on a refusal or a network failure shows the error and returns null. */
+  async function call(request: () => Promise<Response>, fallback: string): Promise<Response | null> {
     setError(null);
-    const response = await request();
-    if (!response.ok) {
-      setError(await errorMessage(response, fallback));
-      return false;
+    try {
+      const response = await request();
+      if (!response.ok) {
+        setError(await errorMessage(response, fallback));
+        return null;
+      }
+      return response;
+    } catch {
+      setError(`${fallback}: the server could not be reached`);
+      return null;
     }
-    return true;
-  }
-
-  async function reload() {
-    const response = await fetch(`/api/review-groups/${group.id}`);
-    if (response.ok) setGroup((await response.json()).reviewGroup);
   }
 
   async function handleSave(event: React.FormEvent) {
     event.preventDefault();
-    setError(null);
-    const response = await fetch(`/api/review-groups/${group.id}`, {
-      method: "PATCH",
-      headers: JSON_HEADERS,
-      body: JSON.stringify({ name, description }),
-    });
-    if (!response.ok) {
-      setError(await errorMessage(response, "Failed to save the Review Group"));
-      return;
-    }
+    const response = await call(
+      () =>
+        fetch(`/api/review-groups/${group.id}`, {
+          method: "PATCH",
+          headers: JSON_HEADERS,
+          body: JSON.stringify({ name, description }),
+        }),
+      "Failed to save the Review Group",
+    );
+    if (!response) return;
     const saved = (await response.json()).reviewGroup as ReviewGroupDetail;
     setGroup(saved);
     setName(saved.name);
     setDescription(saved.description ?? "");
   }
 
+  // The member routes return the updated group, so the screen takes it from there.
   async function handleAddMember(event: React.FormEvent) {
     event.preventDefault();
     if (!userToAdd) return;
-    const ok = await run(
+    const response = await call(
       () =>
         fetch(`/api/review-groups/${group.id}/members`, {
           method: "POST",
@@ -104,52 +106,57 @@ export function ReviewGroupEditor({
         }),
       "Failed to add the member",
     );
-    if (ok) {
-      setUserToAdd("");
-      await reload();
-    }
+    if (!response) return;
+    setGroup((await response.json()).reviewGroup);
+    setUserToAdd("");
   }
 
   async function handleRemoveMember(userId: string) {
-    const ok = await run(
+    const response = await call(
       () => fetch(`/api/review-groups/${group.id}/members/${userId}`, { method: "DELETE" }),
       "Failed to remove the member",
     );
-    if (ok) await reload();
+    if (response) setGroup((await response.json()).reviewGroup);
   }
 
+  // The Framework routes don't return the group, so the tied list is updated locally once the server has accepted.
   async function handleTie(event: React.FormEvent) {
     event.preventDefault();
-    if (!frameworkToTie) return;
-    const ok = await run(
+    const framework = frameworks.find((candidate) => candidate.id === frameworkToTie);
+    if (!framework) return;
+    const response = await call(
       () =>
-        fetch(`/api/frameworks/${frameworkToTie}/review-group`, {
+        fetch(`/api/frameworks/${framework.id}/review-group`, {
           method: "PUT",
           headers: JSON_HEADERS,
           body: JSON.stringify({ reviewGroupId: group.id }),
         }),
       "Failed to tie the Framework",
     );
-    if (ok) {
-      setFrameworkToTie("");
-      await reload();
-    }
+    if (!response) return;
+    setGroup((current) => ({
+      ...current,
+      frameworks: [...current.frameworks, { id: framework.id, name: framework.name, version: framework.version }],
+    }));
+    setFrameworkToTie("");
   }
 
   async function handleUntie(frameworkId: string) {
-    const ok = await run(
+    const response = await call(
       () => fetch(`/api/frameworks/${frameworkId}/review-group`, { method: "DELETE" }),
       "Failed to untie the Framework",
     );
-    if (ok) await reload();
+    if (response) {
+      setGroup((current) => ({ ...current, frameworks: current.frameworks.filter((f) => f.id !== frameworkId) }));
+    }
   }
 
   async function handleDelete() {
-    const ok = await run(
+    const response = await call(
       () => fetch(`/api/review-groups/${group.id}`, { method: "DELETE" }),
       "Failed to delete the Review Group",
     );
-    if (ok) router.push("/admin/review-groups");
+    if (response) router.push("/admin/review-groups");
   }
 
   return (

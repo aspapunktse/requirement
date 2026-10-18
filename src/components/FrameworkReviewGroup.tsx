@@ -33,7 +33,13 @@ export function FrameworkReviewGroup({
 
   async function change(request: () => Promise<Response>, fallback: string) {
     setError(null);
-    const response = await request();
+    let response: Response;
+    try {
+      response = await request();
+    } catch {
+      setError(`${fallback}: the server could not be reached`);
+      return;
+    }
     if (!response.ok) {
       let message = fallback;
       try {

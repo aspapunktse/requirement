@@ -32,14 +32,15 @@ export function ReviewGroupManager() {
   const [newName, setNewName] = useState("");
   const [newDescription, setNewDescription] = useState("");
 
-  async function load() {
-    const response = await fetch("/api/review-groups");
-    if (!response.ok) {
-      setError(await errorMessage(response, "Failed to load Review Groups"));
-      setGroups([]);
-      return;
+  /** Reloads the list after a change. On failure keeps the list and says the change was saved but the list is stale. */
+  async function reload() {
+    try {
+      const response = await fetch("/api/review-groups");
+      if (!response.ok) throw new Error("refresh failed");
+      setGroups((await response.json()).reviewGroups ?? []);
+    } catch {
+      setError("The Review Group was created, but the list could not be refreshed. Reload the page.");
     }
-    setGroups((await response.json()).reviewGroups ?? []);
   }
 
   useEffect(() => {
@@ -65,18 +66,24 @@ export function ReviewGroupManager() {
   async function handleCreate(event: React.FormEvent) {
     event.preventDefault();
     setError(null);
-    const response = await fetch("/api/review-groups", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: newName, description: newDescription || undefined }),
-    });
+    let response: Response;
+    try {
+      response = await fetch("/api/review-groups", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newName, description: newDescription || undefined }),
+      });
+    } catch {
+      setError("Failed to create the Review Group: the server could not be reached");
+      return;
+    }
     if (!response.ok) {
       setError(await errorMessage(response, "Failed to create the Review Group"));
       return;
     }
     setNewName("");
     setNewDescription("");
-    await load();
+    await reload();
   }
 
   if (groups === null) return <p>Loading Review Groups…</p>;

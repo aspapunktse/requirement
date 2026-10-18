@@ -97,6 +97,36 @@ describe("ReviewGroupManager", () => {
     await userEvent.click(screen.getByRole("button", { name: "Create" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("already exists");
   });
+
+  it("keeps the list and says so when the refresh after a create fails", async () => {
+    let created = false;
+    stubFetch({
+      "GET /api/review-groups": () => (created ? json({ error: "boom" }, 500) : json({ reviewGroups: [] })),
+      "POST /api/review-groups": () => {
+        created = true;
+        return json({ reviewGroup: groups[0] }, 201);
+      },
+    });
+    render(<ReviewGroupManager />);
+    await screen.findByText("No Review Groups yet.");
+    await userEvent.type(screen.getByLabelText("Name"), "GDPR Review Group");
+    await userEvent.click(screen.getByRole("button", { name: "Create" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(/created, but the list could not be refreshed/);
+  });
+
+  it("shows an error when the create request fails to reach the server", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: string | URL | Request, init?: RequestInit) =>
+        init?.method === "POST" ? Promise.reject(new TypeError("network")) : Promise.resolve(json({ reviewGroups: [] })),
+      ),
+    );
+    render(<ReviewGroupManager />);
+    await screen.findByText("No Review Groups yet.");
+    await userEvent.type(screen.getByLabelText("Name"), "X");
+    await userEvent.click(screen.getByRole("button", { name: "Create" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(/could not be reached/);
+  });
 });
 
 describe("ReviewGroupEditor", () => {
@@ -217,6 +247,37 @@ describe("ReviewGroupEditor", () => {
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(calls.find((c) => c.method === "PATCH")?.body).toEqual({ name: "Privacy Review Group", description: "" }));
   });
+
+  it("takes the group from the member responses and makes no follow-up GET", async () => {
+    const withMember = { ...empty, members: [{ id: "u1", name: "Rita Reviewer", email: "rita@example.com" }] };
+    const calls = stubFetch({
+      "POST /api/review-groups/g1/members": () => json({ reviewGroup: withMember }, 201),
+      "DELETE /api/review-groups/g1/members/u1": () => json({ reviewGroup: empty }),
+    });
+    render(<ReviewGroupEditor initialGroup={empty} users={users} frameworks={frameworks} />);
+    await userEvent.selectOptions(screen.getByLabelText("User to add"), "u1");
+    await userEvent.click(screen.getByRole("button", { name: "Add member" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Remove Rita Reviewer" }));
+    expect(await screen.findByText("No members yet.")).toBeInTheDocument();
+    expect(calls.map((c) => c.method)).toEqual(["POST", "DELETE"]);
+  });
+
+  it("shows an error and keeps the screen when a request fails to reach the server", async () => {
+    vi.stubGlobal("fetch", vi.fn(() => Promise.reject(new TypeError("network"))));
+    render(<ReviewGroupEditor initialGroup={empty} users={users} frameworks={frameworks} />);
+
+    await userEvent.selectOptions(screen.getByLabelText("User to add"), "u1");
+    await userEvent.click(screen.getByRole("button", { name: "Add member" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(/could not be reached/);
+    expect(screen.getByText("No members yet.")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Untie GDPR:2016" }));
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(/Failed to untie the Framework/));
+    expect(screen.getByRole("button", { name: "Untie GDPR:2016" })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(/Failed to save/));
+  });
 });
 
 describe("FrameworkReviewGroup", () => {
@@ -272,6 +333,15 @@ describe("FrameworkReviewGroup", () => {
     await userEvent.selectOptions(screen.getByLabelText("Review Group to tie"), "g1");
     await userEvent.click(screen.getByRole("button", { name: "Tie" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("already tied");
+    expect(screen.getByLabelText("Review Group to tie")).toBeInTheDocument();
+  });
+
+  it("shows an error when the request fails to reach the server", async () => {
+    vi.stubGlobal("fetch", vi.fn(() => Promise.reject(new TypeError("network"))));
+    render(<FrameworkReviewGroup frameworkId="f1" isBase={false} groups={groups} initialReviewGroupId={null} canOpenGroup />);
+    await userEvent.selectOptions(screen.getByLabelText("Review Group to tie"), "g1");
+    await userEvent.click(screen.getByRole("button", { name: "Tie" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(/could not be reached/);
     expect(screen.getByLabelText("Review Group to tie")).toBeInTheDocument();
   });
 });
