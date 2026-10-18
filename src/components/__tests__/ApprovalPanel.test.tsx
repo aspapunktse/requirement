@@ -99,6 +99,43 @@ describe("ApprovalPanel (#198)", () => {
     expect(await screen.findByText("(step dropped, no longer counts)")).toBeTruthy();
   });
 
+  it("shows when and why a step was reopened, on the step and on its voided decision (#200)", async () => {
+    stubApprovals({
+      steps: [
+        { reviewGroupId: null, name: "Base review", status: "OPEN" },
+        {
+          reviewGroupId: "g1",
+          name: "GDPR Review Group",
+          status: "OPEN",
+          reopened: { at: "2026-03-03T10:00:00.000Z", reason: "A.5.1 changed after approval" },
+        },
+      ],
+      rounds: [
+        {
+          id: "r1",
+          submittedAt: "2026-03-01T08:00:00.000Z",
+          current: true,
+          approvals: [
+            {
+              ...approval("a1", "APPROVED", "ok", "GDPR Review Group"),
+              voided: true,
+              voidedAt: "2026-03-03T10:00:00.000Z",
+              voidReason: "A.5.1 changed after approval",
+            },
+          ],
+        },
+      ],
+    });
+    render(<ApprovalPanel systemId="s1" />);
+
+    const steps = within(await screen.findByRole("region", { name: "Review Steps" }));
+    const [base, gdpr] = steps.getAllByRole("listitem");
+    expect(within(base).queryByText(/Reopened/)).toBeNull();
+    expect(within(gdpr).getByText(/Reopened .*: A\.5\.1 changed after approval/)).toBeTruthy();
+    expect(screen.getByText("(step reopened: A.5.1 changed after approval, no longer counts)")).toBeTruthy();
+    expect(screen.queryByText("(step dropped, no longer counts)")).toBeNull();
+  });
+
   it("offers a decision form only on the open steps the viewer can decide, and posts that step", async () => {
     const fetchMock = vi.fn((_url: string, init?: RequestInit) =>
       Promise.resolve(

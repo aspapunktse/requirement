@@ -14,6 +14,7 @@ import {
 import { loadOrganizationStatuses, loadProviderSources, toOwnAssessment } from "@/lib/effective-status-data";
 import { lockProvider, withProviderInheritanceEvents } from "@/lib/provider-inheritance";
 import { logChangeEvent } from "@/lib/change-events";
+import { editReopensSteps, lockSystem, reopenStepsForEdit } from "@/lib/review-steps";
 import {
   APPLICABLE_APPLICABILITIES,
   controlAppliesToSystem,
@@ -431,11 +432,14 @@ export type RemoveStaleAssessmentResult = { ok: true } | { ok: false; status: 40
  *   delete itself, so a Query raised in the meantime can't be cascaded away.
  * Resolved Queries (and their messages) cascade with the row; only their count
  * goes into the Change Event.
+ *
+ * It counts as an edit: on a System In Review, the approved Review Steps whose remit holds the Control
+ * go back to Open in the same transaction (#200, `reopenStepsForEdit`).
  */
 export async function removeStaleAssessment(
-  system: SystemClassification & { id: string },
+  system: SystemClassification & { id: string; status: string; ownerId: string },
   controlId: string,
-  actorId: string,
+  actor: { id: string; role: UserRole },
 ): Promise<RemoveStaleAssessmentResult> {
   const assessment = await prisma.controlAssessment.findUnique({
     where: { systemId_controlId: { systemId: system.id, controlId } },
@@ -455,6 +459,7 @@ export async function removeStaleAssessment(
   if (assessment.queries.some((query) => !query.resolved)) return openQueryError;
 
   return prisma.$transaction(async (tx): Promise<RemoveStaleAssessmentResult> => {
+    if (system.status === "IN_REVIEW") await lockSystem(tx, system.id);
     const { count } = await tx.controlAssessment.deleteMany({
       where: { id: assessment.id, queries: { none: { resolved: false } } },
     });
@@ -463,9 +468,12 @@ export async function removeStaleAssessment(
       system.id,
       "ASSESSMENT_REMOVED",
       describeRemovedAssessment(assessment.control.code, assessment, assessment.queries.length),
-      actorId,
+      actor.id,
       tx,
     );
+    if (system.status === "IN_REVIEW" && editReopensSteps(actor, system)) {
+      await reopenStepsForEdit(tx, system.id, assessment.control, actor.id);
+    }
     return { ok: true };
   });
 }
@@ -492,11 +500,14 @@ export type ResetAssessmentResult = { ok: true } | { ok: false; status: 404 | 40
  * If the System is itself a Provider, resetting its own status can move the
  * Systems depending on it: those are recorded in the same transaction, under the
  * Provider lock taken first (see `provider-inheritance.ts`).
+ *
+ * It counts as an edit: on a System In Review, the approved Review Steps whose remit holds the Control
+ * go back to Open in the same transaction (#200, `reopenStepsForEdit`).
  */
 export async function resetAssessmentToInherited(
-  system: SystemClassification & { id: string; isProvider: boolean },
+  system: SystemClassification & { id: string; isProvider: boolean; status: string; ownerId: string },
   controlId: string,
-  actorId: string,
+  actor: { id: string; role: UserRole },
 ): Promise<ResetAssessmentResult> {
   const control = await prisma.control.findUnique({ where: { id: controlId } });
   if (!control) return { ok: false, status: 404, error: "Control not found" };
@@ -506,6 +517,8 @@ export async function resetAssessmentToInherited(
     // Lock order: the Provider first, then the Control (see LOCKS in provider-inheritance.ts).
     if (system.isProvider) await lockProvider(tx, system.id);
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${controlId}))`;
+    // Then the System's row (after the advisory locks, the order `runAssessmentEdit` documents).
+    if (system.status === "IN_REVIEW") await lockSystem(tx, system.id);
     const assessment = await tx.controlAssessment.findUnique({
       where: { systemId_controlId: { systemId: system.id, controlId } },
     });
@@ -536,9 +549,12 @@ export async function resetAssessmentToInherited(
       system.id,
       "ASSESSMENT_STATUS_CHANGED",
       describeResetAssessment(control.code, assessment, now),
-      actorId,
+      actor.id,
       tx,
     );
+    if (system.status === "IN_REVIEW" && editReopensSteps(actor, system)) {
+      await reopenStepsForEdit(tx, system.id, control, actor.id);
+    }
     return { ok: true };
   });
 }

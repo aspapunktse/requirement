@@ -633,6 +633,9 @@ model Approval {
   // went). A voided decision stays in the history but no longer counts, so the step comes back
   // Open if it returns during the same Review Round (#199).
   voidedAt      DateTime?
+  // Why it was voided when an edit reopened the step ("A.5.1 changed after approval", #200).
+  // Null for a dropped step's void (#199) and for a live Approval.
+  voidReason    String?
 
   @@index([reviewRoundId])
 }
@@ -681,6 +684,9 @@ enum ChangeEventAction {
   // Auditor; the detail names the Internal Audit, the Control, the target (a System or the
   // Organization) and the outcome. System-less even for a System-level Check-up.
   CHECK_UP_EVALUATED
+  // An approved Review Step went back to Open because a person edited a Control Assessment in its
+  // remit (#200). System-scoped, actor the person who edited; the detail names the step and the Control.
+  REVIEW_STEP_REOPENED
 }
 
 // A curated, System-lifecycle-relevant mutation record — feeds the landing

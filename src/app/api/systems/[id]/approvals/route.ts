@@ -24,6 +24,7 @@ function approvalView(
     comment: string | null;
     decidedAt: Date;
     voidedAt: Date | null;
+    voidReason: string | null;
     reviewGroupId: string | null;
     reviewGroup: { name: string } | null;
     approver: { id: string; name: string };
@@ -36,6 +37,10 @@ function approvalView(
     comment: approval.comment,
     decidedAt: approval.decidedAt,
     voided: approval.voidedAt !== null,
+    // Why a voided decision no longer counts when an edit reopened its step ("A.5.1 changed after
+    // approval", #200); null for a dropped step's. It names a Control, not a person, so it isn't redacted.
+    voidReason: approval.voidReason,
+    voidedAt: approval.voidedAt,
     reviewGroupId: approval.reviewGroupId,
     stepName: approval.reviewGroup?.name ?? BASE_REVIEW_STEP_NAME,
     ...(canSeeDecider ? { approver: { id: approval.approver.id, name: approval.approver.name } } : {}),
