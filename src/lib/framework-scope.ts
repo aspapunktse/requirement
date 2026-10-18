@@ -2,6 +2,7 @@ import type { Prisma, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { diffApplicabilityOps, getApplicableControls, type SystemClassification } from "@/lib/control-assessments";
 import { logChangeEvent } from "@/lib/change-events";
+import { reconcileReviewSteps } from "@/lib/review-steps";
 import { recordProviderChange } from "@/lib/provider-inheritance";
 import { isSystemOwnerOrAdmin } from "@/lib/system-permissions";
 
@@ -86,6 +87,7 @@ async function declareFrameworkScope(system: ScopeSystem, framework: { id: strin
     `Framework Scope "${framework.name}" added (+${added}/-${removed.count} Control Assessment(s))`,
     actorId,
   );
+  await reconcileReviewSteps(system.id);
 
   return { added, removed: removed.count };
 }
@@ -130,6 +132,7 @@ async function removeFrameworkScope(system: ScopeSystem, framework: { id: string
     `Framework Scope "${framework.name}" removed (+${added}/-${removed.count} Control Assessment(s))`,
     actorId,
   );
+  await reconcileReviewSteps(system.id);
 
   return { added, removed: removed.count };
 }

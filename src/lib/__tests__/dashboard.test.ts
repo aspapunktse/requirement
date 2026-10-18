@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
 import { mapControlsToBase } from "@/test/framework-fixtures";
 import { getUnaddressedMandatoryControls } from "@/lib/control-assessments";
-import { getAllOpenRisks, getSystemsAwaitingApproval, getSystemsNeedingAttention } from "../dashboard";
+import { getAllOpenRisks, getSystemsNeedingAttention } from "../dashboard";
 
 const OWNER_EMAIL = "test-dashboard-owner@example.com";
 const REVIEWER_EMAIL = "test-dashboard-reviewer@example.com";
@@ -253,22 +253,6 @@ describe("dashboard", () => {
         const entries = (await getSystemsNeedingAttention(ownerId)).filter((entry) => entry.id === system.id);
         expect(entries.map((entry) => entry.reason)).toContain("stale");
       });
-    });
-  });
-
-  describe("getSystemsAwaitingApproval", () => {
-    it("returns only IN_REVIEW Systems", async () => {
-      const inReview = await prisma.system.create({
-        data: { name: `Awaiting Review ${Date.now()}`, ownerId, status: "IN_REVIEW" },
-      });
-      const draft = await prisma.system.create({
-        data: { name: `Not Submitted ${Date.now()}`, ownerId, status: "DRAFT" },
-      });
-      systemIds.push(inReview.id, draft.id);
-
-      const awaiting = await getSystemsAwaitingApproval();
-      expect(awaiting.map((s) => s.id)).toContain(inReview.id);
-      expect(awaiting.map((s) => s.id)).not.toContain(draft.id);
     });
   });
 

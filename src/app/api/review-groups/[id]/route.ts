@@ -59,7 +59,7 @@ const DECIDED_ERROR = "This Review Group has recorded Review Step decisions, whi
 
 /**
  * Refused (409) while the group is tied to any Framework, or once it has decided a Review Step
- * (an Approval's Restrict foreign key; no step is decided by a group before #199). Its members just go with it.
+ * (an Approval's Restrict foreign key). Its members just go with it.
  */
 export async function DELETE(request: NextRequest, ctx: RouteContext<"/api/review-groups/[id]">) {
   const auth = await authorize(request, ROLES_ALLOWED_TO_MANAGE_CATALOG);

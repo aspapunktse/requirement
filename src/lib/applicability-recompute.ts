@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getApplicableControls, UNTOUCHED_ASSESSMENT_WHERE, type SystemClassification } from "@/lib/control-assessments";
 import { SYSTEM_ACTOR } from "@/lib/change-events";
 import { systemsInScopeOf } from "@/lib/framework-scope";
+import { reconcileAllReviewSteps } from "@/lib/review-steps";
 
 /**
  * Recompute of applicability when the requirement database changes under
@@ -147,6 +148,15 @@ export async function finishRecompute(
   trigger: string,
 ): Promise<RecomputeSummary | null> {
   if (!pending) return null;
+  try {
+    return await recomputeApplicability(pending, trigger);
+  } finally {
+    // The catalog change may have moved a Review Group's remit on Systems In Review (#199).
+    await reconcileAllReviewSteps();
+  }
+}
+
+async function recomputeApplicability(pending: PendingRecompute, trigger: string): Promise<RecomputeSummary | null> {
   const { scope, before } = pending;
   const summary: RecomputeSummary = { systems: 0, changed: 0, added: 0, removed: 0, stale: 0 };
 

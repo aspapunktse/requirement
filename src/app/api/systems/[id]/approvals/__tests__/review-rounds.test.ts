@@ -108,7 +108,7 @@ describe("Review Rounds through /api/systems/[id]/approvals", () => {
     await prisma.user.deleteMany({ where: { id: { in: [ownerId, reviewerId, viewerId, adminId] } } });
   });
 
-  it("records a decision against the current round's base step, with today's status transition, group step open or not", async () => {
+  it("records a decision against the current round's base step; the System stays In Review while the group step is open", async () => {
     const { system, round } = await makeSubmittedSystem();
 
     const response = await decide(system.id, reviewerId, "APPROVED", "Base is fine");
@@ -116,8 +116,7 @@ describe("Review Rounds through /api/systems/[id]/approvals", () => {
 
     const approval = await prisma.approval.findFirstOrThrow({ where: { systemId: system.id } });
     expect(approval).toMatchObject({ reviewRoundId: round.id, reviewGroupId: null, decision: "APPROVED" });
-    // The group step is still open, yet the System is Approved: #199 changes that rule.
-    expect((await prisma.system.findUniqueOrThrow({ where: { id: system.id } })).status).toBe("APPROVED");
+    expect((await prisma.system.findUniqueOrThrow({ where: { id: system.id } })).status).toBe("IN_REVIEW");
     expect(await prisma.changeEvent.count({ where: { systemId: system.id, action: "APPROVAL_DECIDED" } })).toBe(1);
   });
 
@@ -189,8 +188,8 @@ describe("Review Rounds through /api/systems/[id]/approvals", () => {
 
     const body = await (await GET(requestAs(ownerId), ctxFor(system.id))).json();
     expect(body.steps).toEqual([
-      { reviewGroupId: null, name: BASE_REVIEW_STEP_NAME, status: "OPEN" },
-      { reviewGroupId: groupId, name: groupName, status: "OPEN" },
+      { reviewGroupId: null, name: BASE_REVIEW_STEP_NAME, status: "OPEN", canDecide: false },
+      { reviewGroupId: groupId, name: groupName, status: "OPEN", canDecide: false },
     ]);
 
     // A scope change shows at once.

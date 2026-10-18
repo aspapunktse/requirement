@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { reconcileAllReviewSteps } from "@/lib/review-steps";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
@@ -97,6 +98,8 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/framew
 
   try {
     const framework = await prisma.framework.update({ where: { id }, data: changes });
+    // Making a Framework base (or not) moves Controls between the base step and a group's remit (#199).
+    if (parsed.data.isBase !== undefined && parsed.data.isBase !== existing.isBase) await reconcileAllReviewSteps();
     return NextResponse.json({ framework });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError) {

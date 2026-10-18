@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { reconcileAllReviewSteps } from "@/lib/review-steps";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { authorize } from "@/lib/api-authz";
@@ -47,6 +48,8 @@ export async function PUT(request: NextRequest, ctx: RouteContext<"/api/framewor
     );
   }
 
+  // A tie can bring a group's step to Systems In Review (#199).
+  await reconcileAllReviewSteps();
   const updated = await prisma.framework.findUniqueOrThrow({ where: { id }, include: { reviewGroup: reviewGroupSelect } });
   return NextResponse.json({ framework: updated });
 }
@@ -62,6 +65,8 @@ export async function DELETE(request: NextRequest, ctx: RouteContext<"/api/frame
   }
 
   await prisma.framework.update({ where: { id }, data: { reviewGroupId: null } });
+  // Untying drops the group's step on Systems In Review (#199).
+  await reconcileAllReviewSteps();
   const updated = await prisma.framework.findUniqueOrThrow({ where: { id }, include: { reviewGroup: reviewGroupSelect } });
   return NextResponse.json({ framework: updated });
 }

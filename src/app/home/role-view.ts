@@ -2,7 +2,8 @@ import type { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { TaskRow } from "@/components/ui/TaskTable";
 import type { NavTile } from "@/components/ui/TileNav";
-import { getSystemsAwaitingApproval, getAllOpenRisks } from "@/lib/dashboard";
+import { getAllOpenRisks } from "@/lib/dashboard";
+import { getOpenStepsForUser } from "@/lib/review-steps";
 import { scopedSystemsWhere, getAssignedScope } from "@/lib/business-risk-owner";
 import { getActionableQueries } from "@/lib/assessment-queries";
 import { getOwnerTasks, mergeTaskRows } from "@/lib/owner-tasks";
@@ -91,8 +92,22 @@ export type RoleView = {
  * answered ones included, also gets the "Your Check-ups" tile.
  */
 export async function roleView(user: { id: string; name: string; role: UserRole }): Promise<RoleView> {
+  const reviewStepRows = (await getOpenStepsForUser(user)).map(
+    ({ system, step }): TaskRow => ({
+      // The base step keeps the System's id (a Reviewer's row since before Review Steps); a group's step has its own row.
+      id: step.reviewGroupId === null ? system.id : `${system.id}:step:${step.reviewGroupId}`,
+      kind: "System",
+      title: system.name,
+      subtitle: step.name,
+      tone: "accent",
+      status: "Awaiting review",
+      updatedAt: system.updatedAt,
+      href: `/systems/${system.id}`,
+    }),
+  );
   const [view, owner, controlRows, checkUps] = await Promise.all([
-    roleOwnView(user)
+    roleOwnView(user, reviewStepRows)
+      .then((own) => withReviewStepTasks(own, user, reviewStepRows))
       .then((own) => withControlLibraryTile(own, user))
       .then(withStatementOfApplicabilityTile)
       .then((view) => withOrganizationRisksTile(user, view))
@@ -124,6 +139,15 @@ export async function roleView(user: { id: string; name: string; role: UserRole 
   return { ...view, stats, tasks: mergeTaskRows([...owner.rows, ...controlRows, ...checkUps.rows], view.tasks ?? []) };
 }
 
+/**
+ * Open Review Steps the user can decide (#199): a Reviewer's own view already lists them; for every other
+ * role (an Admin, or anyone who is a member of a Review Group) they follow the role's own tasks.
+ */
+function withReviewStepTasks(view: RoleView, user: { role: UserRole }, rows: TaskRow[]): RoleView {
+  if (user.role === "REVIEWER" || rows.length === 0) return view;
+  return { ...view, tasks: [...(view.tasks ?? []), ...rows] };
+}
+
 /** Admin and Compliance Manager already have the editor tile; everyone else gets the read-only page. */
 function withControlLibraryTile(view: RoleView, user: { role: UserRole }): RoleView {
   if (user.role === "ADMIN" || user.role === "COMPLIANCE_MANAGER") return view;
@@ -144,7 +168,7 @@ function withInternalAuditsReadTile(user: { role: UserRole }, view: RoleView): R
   return { ...view, tiles: [...view.tiles, INTERNAL_AUDITS_READ_TILE] };
 }
 
-async function roleOwnView(user: { id: string; name: string; role: UserRole }): Promise<RoleView> {
+async function roleOwnView(user: { id: string; name: string; role: UserRole }, reviewStepRows: TaskRow[]): Promise<RoleView> {
   switch (user.role) {
     case "SYSTEM_OWNER":
       // Its tasks and stats are the owner tasks, added by `roleView` for every role.
@@ -228,21 +252,10 @@ async function roleOwnView(user: { id: string; name: string; role: UserRole }): 
 
     case "REVIEWER": {
       const allSystemIds = (await prisma.system.findMany({ select: { id: true } })).map((s) => s.id);
-      const [awaiting, openQueries] = await Promise.all([
-        getSystemsAwaitingApproval(),
-        getActionableQueries(user, allSystemIds),
-      ]);
+      const openQueries = await getActionableQueries(user, allSystemIds);
 
       const tasks: TaskRow[] = [
-        ...awaiting.map((system): TaskRow => ({
-          id: system.id,
-          kind: "System",
-          title: system.name,
-          tone: "accent",
-          status: "Awaiting review",
-          updatedAt: system.updatedAt,
-          href: `/systems/${system.id}`,
-        })),
+        ...reviewStepRows,
         ...openQueries.map((query): TaskRow => ({
           id: query.id,
           kind: "Query",
@@ -258,7 +271,7 @@ async function roleOwnView(user: { id: string; name: string; role: UserRole }): 
       return {
         lede: "Systems waiting on your Approval decision, and questions where the System Owner has replied.",
         stats: [
-          { label: "Awaiting review", value: awaiting.length },
+          { label: "Awaiting review", value: reviewStepRows.length },
           { label: "Open questions", value: openQueries.length },
         ],
         tasks,

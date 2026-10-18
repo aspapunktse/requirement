@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ApprovalPanel } from "../ApprovalPanel";
 
@@ -33,7 +33,7 @@ describe("ApprovalPanel (#198)", () => {
         { id: "r1", submittedAt: "2026-01-10T08:00:00.000Z", current: false, approvals: [approval("a1", "REJECTED", "First pass")] },
       ],
     });
-    render(<ApprovalPanel systemId="s1" canDecide={false} />);
+    render(<ApprovalPanel systemId="s1" />);
 
     const steps = within(await screen.findByRole("region", { name: "Review Steps" }));
     const rows = steps.getAllByRole("listitem").map((li) => li.textContent);
@@ -51,7 +51,7 @@ describe("ApprovalPanel (#198)", () => {
 
   it("shows no steps section when the System isn't In Review, and says so when nothing was ever decided", async () => {
     stubApprovals({ steps: [], rounds: [] });
-    render(<ApprovalPanel systemId="s1" canDecide={false} />);
+    render(<ApprovalPanel systemId="s1" />);
 
     expect(await screen.findByText("No Approval decisions recorded yet.")).toBeTruthy();
     expect(screen.queryByRole("region", { name: "Review Steps" })).toBeNull();
@@ -62,9 +62,73 @@ describe("ApprovalPanel (#198)", () => {
       steps: [{ reviewGroupId: null, name: "Base review", status: "OPEN" }],
       rounds: [{ id: "r1", submittedAt: "2026-03-01T08:00:00.000Z", current: true, approvals: [] }],
     });
-    render(<ApprovalPanel systemId="s1" canDecide={false} />);
+    render(<ApprovalPanel systemId="s1" />);
 
     expect(await screen.findByText("No decisions yet.")).toBeTruthy();
     expect(screen.getByText("Open")).toBeTruthy();
+  });
+
+  it("attributes a decision to its step and shows no decider when the response carries none (#199)", async () => {
+    const { approver: _omit, ...hidden } = approval("a1", "REJECTED", "Not compliant", "GDPR Review Group");
+    void _omit;
+    stubApprovals({
+      steps: [],
+      rounds: [{ id: "r1", submittedAt: "2026-03-01T08:00:00.000Z", current: false, approvals: [hidden] }],
+    });
+    render(<ApprovalPanel systemId="s1" />);
+
+    const round = within(await screen.findByRole("region", { name: /^Review Round submitted/ }));
+    expect(round.getByText("GDPR Review Group")).toBeTruthy();
+    expect(round.getByText("Not compliant")).toBeTruthy();
+    expect(round.queryByText(/^by /)).toBeNull();
+  });
+
+  it("marks a decision whose step was dropped as no longer counting", async () => {
+    stubApprovals({
+      steps: [],
+      rounds: [
+        {
+          id: "r1",
+          submittedAt: "2026-03-01T08:00:00.000Z",
+          current: true,
+          approvals: [{ ...approval("a1", "APPROVED", "ok", "GDPR Review Group"), voided: true }],
+        },
+      ],
+    });
+    render(<ApprovalPanel systemId="s1" />);
+    expect(await screen.findByText("(step dropped, no longer counts)")).toBeTruthy();
+  });
+
+  it("offers a decision form only on the open steps the viewer can decide, and posts that step", async () => {
+    const fetchMock = vi.fn((_url: string, init?: RequestInit) =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify(
+            init?.method === "POST"
+              ? {}
+              : {
+                  steps: [
+                    { reviewGroupId: null, name: "Base review", status: "OPEN", canDecide: false },
+                    { reviewGroupId: "g1", name: "GDPR Review Group", status: "OPEN", canDecide: true },
+                    { reviewGroupId: "g2", name: "NIS2 Review Group", status: "APPROVED", canDecide: false },
+                  ],
+                  rounds: [{ id: "r1", submittedAt: "2026-03-01T08:00:00.000Z", current: true, approvals: [] }],
+                },
+          ),
+          { status: init?.method === "POST" ? 201 : 200 },
+        ),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    render(<ApprovalPanel systemId="s1" />);
+
+    const form = within(await screen.findByRole("group", { name: "Decide GDPR Review Group" }));
+    expect(screen.getAllByRole("group")).toHaveLength(1);
+    fireEvent.change(form.getByLabelText("Comment for GDPR Review Group"), { target: { value: "Looks fine" } });
+    fireEvent.click(form.getByRole("button", { name: "Approve" }));
+
+    await waitFor(() => expect(fetchMock.mock.calls.some(([, init]) => init?.method === "POST")).toBe(true));
+    const post = fetchMock.mock.calls.find(([, init]) => init?.method === "POST")!;
+    expect(JSON.parse(String(post[1]?.body))).toEqual({ decision: "APPROVED", comment: "Looks fine", reviewGroupId: "g1" });
   });
 });
