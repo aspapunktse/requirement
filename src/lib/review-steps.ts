@@ -172,13 +172,14 @@ function buildSteps(groups: Map<string, string>, approvals: StepApproval[]): Rev
   const step = (reviewGroupId: string | null, name: string): ReviewStep => {
     const status = stepStatus(approvals, reviewGroupId);
     if (status !== "OPEN") return { reviewGroupId, name, status };
-    // An Open step whose latest void was an edit's (a reason is recorded) was reopened (#200).
+    // An Open step whose latest void was an edit's (a reason is recorded) was reopened (#200). A later
+    // dropped-step void (no reason) supersedes an older reopen.
     const reopening = approvals
-      .filter((approval) => approval.reviewGroupId === reviewGroupId && approval.voidedAt && approval.voidReason)
+      .filter((approval) => approval.reviewGroupId === reviewGroupId && approval.voidedAt)
       .sort((a, b) => a.voidedAt!.getTime() - b.voidedAt!.getTime())
       .at(-1);
-    return reopening
-      ? { reviewGroupId, name, status, reopened: { at: reopening.voidedAt!, reason: reopening.voidReason! } }
+    return reopening?.voidReason
+      ? { reviewGroupId, name, status, reopened: { at: reopening.voidedAt!, reason: reopening.voidReason } }
       : { reviewGroupId, name, status };
   };
   return [

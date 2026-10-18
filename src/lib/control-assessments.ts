@@ -437,7 +437,7 @@ export type RemoveStaleAssessmentResult = { ok: true } | { ok: false; status: 40
  * go back to Open in the same transaction (#200, `reopenStepsForEdit`).
  */
 export async function removeStaleAssessment(
-  system: SystemClassification & { id: string; status: string; ownerId: string },
+  system: SystemClassification & { id: string; ownerId: string },
   controlId: string,
   actor: { id: string; role: UserRole },
 ): Promise<RemoveStaleAssessmentResult> {
@@ -459,7 +459,7 @@ export async function removeStaleAssessment(
   if (assessment.queries.some((query) => !query.resolved)) return openQueryError;
 
   return prisma.$transaction(async (tx): Promise<RemoveStaleAssessmentResult> => {
-    if (system.status === "IN_REVIEW") await lockSystem(tx, system.id);
+    await lockSystem(tx, system.id);
     const { count } = await tx.controlAssessment.deleteMany({
       where: { id: assessment.id, queries: { none: { resolved: false } } },
     });
@@ -471,7 +471,8 @@ export async function removeStaleAssessment(
       actor.id,
       tx,
     );
-    if (system.status === "IN_REVIEW" && editReopensSteps(actor, system)) {
+    // Whether it is In Review is read under the lock, not from `system`, which may be stale.
+    if (editReopensSteps(actor, system)) {
       await reopenStepsForEdit(tx, system.id, assessment.control, actor.id);
     }
     return { ok: true };
@@ -505,7 +506,7 @@ export type ResetAssessmentResult = { ok: true } | { ok: false; status: 404 | 40
  * go back to Open in the same transaction (#200, `reopenStepsForEdit`).
  */
 export async function resetAssessmentToInherited(
-  system: SystemClassification & { id: string; isProvider: boolean; status: string; ownerId: string },
+  system: SystemClassification & { id: string; isProvider: boolean; ownerId: string },
   controlId: string,
   actor: { id: string; role: UserRole },
 ): Promise<ResetAssessmentResult> {
@@ -518,7 +519,7 @@ export async function resetAssessmentToInherited(
     if (system.isProvider) await lockProvider(tx, system.id);
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${controlId}))`;
     // Then the System's row (after the advisory locks, the order `runAssessmentEdit` documents).
-    if (system.status === "IN_REVIEW") await lockSystem(tx, system.id);
+    await lockSystem(tx, system.id);
     const assessment = await tx.controlAssessment.findUnique({
       where: { systemId_controlId: { systemId: system.id, controlId } },
     });
@@ -552,7 +553,7 @@ export async function resetAssessmentToInherited(
       actor.id,
       tx,
     );
-    if (system.status === "IN_REVIEW" && editReopensSteps(actor, system)) {
+    if (editReopensSteps(actor, system)) {
       await reopenStepsForEdit(tx, system.id, control, actor.id);
     }
     return { ok: true };

@@ -4,6 +4,8 @@ import type { ControlAssessmentStatus, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { ACTING_USER_COOKIE } from "@/lib/acting-user";
 import { loadReviewRounds } from "@/lib/review-steps";
+import { removeStaleAssessment, resetAssessmentToInherited } from "@/lib/control-assessments";
+import { reopenStepsAfterEdit, runAssessmentEdit } from "@/lib/assessment-edit";
 import { saveOrganizationImplementationWithEvents } from "@/lib/organization-inheritance";
 import { getOrganizationControl } from "@/lib/organization-implementation";
 import { evaluateCheckUp } from "@/lib/check-up-evaluations";
@@ -381,6 +383,67 @@ describe("Reopening an approved Review Step when its remit is edited (#200)", { 
         `${groups[0].name} step reopened: ${c.staleG1.code} changed after approval`,
         `Base review step reopened: ${c.staleOrphan.code} changed after approval`,
       ]);
+    });
+  });
+
+  describe("the System's status is read under the lock, not before it", () => {
+    /** The System as a route read it before a concurrent submission: Draft, while the row says In Review. */
+    const staleDraft = async (systemId: string) => ({
+      ...(await prisma.system.findUniqueOrThrow({
+        where: { id: systemId },
+        include: { deploymentFacets: { select: { id: true } }, frameworkScopes: { select: { id: true } } },
+      })),
+      status: "DRAFT" as const,
+    });
+    const owner = () => ({ id: users.owner, role: "SYSTEM_OWNER" as const });
+
+    it("reopens from a write that was started on a stale Draft System", async () => {
+      const systemId = await makeSystem();
+      await approveG1(systemId);
+      const stale = await staleDraft(systemId);
+      await runAssessmentEdit(stale, c.g1.id, async (db, locked) => {
+        await db.controlAssessment.create({ data: { systemId, controlId: c.g1.id, status: "FULFILLED", assessedById: users.owner } });
+        await reopenStepsAfterEdit(db, locked, stale, c.g1, owner(), true);
+      });
+      expect(await stepStatuses(systemId)).toMatchObject({ g1: "OPEN" });
+      expect(await reopenEvents(systemId)).toHaveLength(1);
+    });
+
+    it("reopens on a stale removal and a stale reset", async () => {
+      const systemId = await makeSystem();
+      await prisma.controlAssessment.create({
+        data: { systemId, controlId: c.staleG1.id, status: "IN_PROGRESS", assessedById: users.owner, assessedAt: new Date() },
+      });
+      await approveG1(systemId);
+      expect((await removeStaleAssessment(await staleDraft(systemId), c.staleG1.id, owner())).ok).toBe(true);
+      expect(await stepStatuses(systemId)).toMatchObject({ g1: "OPEN" });
+
+      const organization = await getOrganizationControl(prisma, c.both.id);
+      await saveOrganizationImplementationWithEvents(organization!, users.admin, { status: "FULFILLED" });
+      await prisma.controlAssessment.create({
+        data: { systemId, controlId: c.both.id, status: "IN_PROGRESS", assessedById: users.owner, assessedAt: new Date() },
+      });
+      await approveG1(systemId);
+      const stale = { ...(await staleDraft(systemId)), isProvider: false };
+      expect((await resetAssessmentToInherited(stale, c.both.id, owner())).ok).toBe(true);
+      expect(await stepStatuses(systemId)).toMatchObject({ g1: "OPEN" });
+      expect(await reopenEvents(systemId)).toHaveLength(2);
+    });
+
+    it("shows no reopen label once a later dropped-step void supersedes the reopen", async () => {
+      const systemId = await makeSystem();
+      await approveG1(systemId);
+      await edit(systemId, c.g1, { status: "IN_PROGRESS" }); // reopened, with a reason
+      await approveG1(systemId); // approved again
+      // Its remit disappears and returns: a #199 void, with no reason, is the step's latest.
+      await prisma.approval.updateMany({
+        where: { systemId, reviewGroupId: groups[0].id, voidedAt: null },
+        data: { voidedAt: new Date(Date.now() + 1000) },
+      });
+      const body = await (await getApprovals(requestAs(users.admin, `/api/systems/${systemId}/approvals`), ctxFor(systemId))).json();
+      const g1 = body.steps.find((step: { reviewGroupId: string | null }) => step.reviewGroupId === groups[0].id);
+      expect(g1.status).toBe("OPEN");
+      expect(g1.reopened).toBeUndefined();
     });
   });
 
