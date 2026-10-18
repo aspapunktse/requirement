@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Audit Scope Matrix</title>
+<link rel="stylesheet" href="../systems/systems.css">
+<link rel="stylesheet" href="audit.css">
+<style>
+/* Proposal C: a scope matrix. A compact header holds the title, due date and scope. A Control
+   tree on the left feeds the rows; Systems added through a filter popover are the columns, with
+   the Organization as the last one. Every cell says whether launching makes a Check-up there or
+   skips the pair. Below: a recipients register and a blockers register with inline fixes. */
+.app { max-width: 1440px; margin: 0 auto; padding: 18px 20px 72px; display: grid; gap: 16px; }
+.app > * { min-width: 0; }
+
+.headbar { display: grid; grid-template-columns: minmax(0, 1.4fr) 190px auto auto; gap: 12px; align-items: end; padding: 14px 16px; }
+.headbar .field input { font-weight: 650; }
+.headbar .title-f input { font-size: 1.05rem; }
+.headbar .qd { display: flex; gap: 4px; }
+.headbar .qd button { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 8px 9px; font-size: .76rem; font-weight: 650; color: var(--muted); cursor: pointer; white-space: nowrap; }
+.headbar .qd button:hover, .headbar .qd button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+.headbar .totals { display: flex; gap: 14px; align-items: center; padding-left: 12px; border-left: 1px solid var(--line-soft); }
+.headbar .tot { display: grid; line-height: 1.1; }
+.headbar .tot b { font-size: 1.35rem; font-weight: 780; font-variant-numeric: tabular-nums; }
+.headbar .tot span { font-size: .7rem; color: var(--faint); font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
+.scope-row { grid-column: 1 / -1; display: flex; gap: 10px; align-items: center; }
+.scope-row input { flex: 1; border: 0; border-bottom: 1px dashed var(--line); background: transparent; padding: 4px 0; color: var(--muted); font: inherit; }
+.scope-row input:focus { outline: none; border-bottom-color: var(--accent); color: var(--ink); }
+@media (max-width: 1100px) { .headbar { grid-template-columns: repeat(2, minmax(0, 1fr)); } .headbar .totals { grid-column: 1 / -1; border-left: 0; padding-left: 0; } }
+@media (max-width: 640px) { .headbar { grid-template-columns: minmax(0, 1fr); } .headbar .qd { flex-wrap: wrap; } .scope-row { flex-wrap: wrap; } .scope-row input { min-width: 0; flex-basis: 100%; order: 3; } }
+
+.work { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 980px) { .work { grid-template-columns: 1fr; } }
+
+/* Control tree */
+.tree { position: sticky; top: 12px; display: grid; grid-template-rows: auto auto minmax(0, 1fr); max-height: calc(100vh - 24px); }
+.tree .search { margin: 12px 14px 6px; }
+.tree-tabs { display: flex; gap: 4px; padding: 0 14px 8px; flex-wrap: wrap; }
+.tree-body { overflow-y: auto; padding: 0 6px 10px; border-top: 1px solid var(--line-soft); }
+.dom { border-bottom: 1px solid var(--line-soft); }
+.dom-h { display: grid; grid-template-columns: 18px 18px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 8px 8px; cursor: pointer; border-radius: 8px; }
+.dom-h:hover { background: var(--raised); }
+.dom-h .chev { color: var(--faint); transition: transform .2s; }
+.dom.open .chev { transform: rotate(90deg); }
+.dom-h b { font-size: .82rem; font-weight: 680; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dom-h small { font-size: .72rem; color: var(--faint); font-variant-numeric: tabular-nums; }
+.dom-items { display: none; padding: 0 0 6px 26px; }
+.dom.open .dom-items { display: block; }
+.leaf { display: grid; grid-template-columns: 18px 58px minmax(0, 1fr) 8px; gap: 6px; align-items: center; padding: 4px 6px; border-radius: 6px; cursor: pointer; font-size: .8rem; }
+.leaf:hover { background: var(--raised); }
+.leaf span:nth-child(3) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
+.leaf i { width: 7px; height: 7px; border-radius: 50%; }
+@media (max-width: 980px) { .tree { position: static; max-height: 420px; } }
+
+/* Matrix */
+.mx-card { min-width: 0; }
+.mx-tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 12px 16px; border-bottom: 1px solid var(--line-soft); position: relative; }
+.mx-tools h2 { font-size: 1rem; margin-right: auto; }
+.mx-wrap { overflow: auto; max-height: 640px; }
+table.mx { border-collapse: separate; border-spacing: 0; font-size: .8rem; min-width: 100%; }
+.mx th, .mx td { border-bottom: 1px solid var(--line-soft); padding: 0; }
+.mx thead { position: sticky; top: 0; z-index: 2; background: var(--surface); }
+.mx thead th { vertical-align: bottom; height: 128px; background: transparent; }
+.mx thead th.rowh { position: sticky; left: 0; z-index: 3; background: var(--surface); text-align: left; padding: 8px 12px; font-size: .72rem; color: var(--faint); font-weight: 700; text-transform: uppercase; letter-spacing: .05em; vertical-align: bottom; }
+.mx .colh { width: 34px; min-width: 34px; position: relative; }
+.mx .colh .rot { position: absolute; left: 50%; bottom: 30px; transform-origin: left bottom; transform: rotate(-58deg); white-space: nowrap; font-weight: 650; font-size: .76rem; color: var(--ink); width: 140px; overflow: hidden; text-overflow: ellipsis; text-align: left; }
+.mx .colh button { position: absolute; bottom: 6px; left: 50%; transform: translateX(-50%); width: 20px; height: 20px; border-radius: 6px; border: 0; background: none; color: var(--faint); cursor: pointer; display: grid; place-items: center; opacity: 0; }
+.mx .colh:hover button, .mx .colh button:focus-visible { opacity: 1; }
+.mx .colh button:hover { color: var(--bad); background: var(--bad-soft); }
+.mx .colh.org .rot { color: #8a5cc2; }
+.mx .pad { width: 90px; min-width: 90px; }
+.mx .colh.sum, .mx td.sum { width: 52px; min-width: 52px; text-align: center; font-weight: 750; font-variant-numeric: tabular-nums; }
+.mx .colh.sum .rot { color: var(--faint); }
+.mx tbody th { position: sticky; left: 0; z-index: 1; background: var(--surface); text-align: left; font-weight: 500; padding: 6px 12px; min-width: 260px; max-width: 320px; }
+.mx tbody th .rh { display: grid; grid-template-columns: 58px minmax(0, 1fr) 20px; gap: 6px; align-items: center; }
+.mx tbody th .rh span:nth-child(2) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mx tbody th button { border: 0; background: none; color: var(--faint); cursor: pointer; border-radius: 6px; display: grid; place-items: center; padding: 2px; opacity: 0; }
+.mx tbody tr:hover th button { opacity: 1; }
+.mx tbody th button:hover { color: var(--bad); background: var(--bad-soft); }
+.mx td.c { text-align: center; height: 32px; }
+.mx td.c i { display: inline-block; width: 12px; height: 12px; border-radius: 50%; vertical-align: middle; transition: transform .15s; }
+.mx td.c i.on { background: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent); animation: pop-in .3s cubic-bezier(.3, 1.6, .5, 1) both; animation-delay: var(--d, 0ms); }
+.mx td.c i.org { background: #8a5cc2; box-shadow: 0 0 0 3px color-mix(in srgb, #8a5cc2 16%, transparent); }
+.mx td.c i.bad { background: var(--bad); box-shadow: 0 0 0 3px var(--bad-soft); }
+.mx td.c i.skip { width: 9px; height: 9px; border: 1.5px solid var(--line); background: transparent; }
+.mx td.c i.na { width: 8px; height: 2px; border-radius: 2px; background: var(--line-soft); }
+.mx tbody tr:hover td, .mx tbody tr:hover th { background: color-mix(in srgb, var(--accent-soft) 45%, var(--surface)); }
+.mx td.hc { background: color-mix(in srgb, var(--accent-soft) 45%, var(--surface)); }
+.mx td.c:hover i { transform: scale(1.4); }
+.mx tfoot td, .mx tfoot th { position: sticky; bottom: 0; background: var(--raised); font-weight: 750; text-align: center; font-variant-numeric: tabular-nums; padding: 7px 0; border-top: 1px solid var(--line); font-size: .76rem; }
+.mx tfoot th { left: 0; z-index: 2; text-align: left; padding: 7px 12px; color: var(--muted); }
+.mx-empty { display: grid; justify-items: center; gap: 8px; padding: 56px 20px; text-align: center; color: var(--muted); }
+.mx-empty svg { color: var(--faint); }
+.mx-legend { display: flex; gap: 14px; flex-wrap: wrap; padding: 10px 16px; border-top: 1px solid var(--line-soft); font-size: .76rem; color: var(--muted); }
+.mx-legend span { display: inline-flex; gap: 6px; align-items: center; }
+.mx-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; }
+
+/* Systems popover */
+.pop { position: absolute; right: 16px; top: calc(100% + 6px); z-index: 20; width: min(520px, calc(100vw - 32px)); background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 20px 50px rgba(10, 25, 35, .22); display: none; animation: pop-down .18s ease-out; }
+.pop.on { display: block; }
+@keyframes pop-down { from { opacity: 0; transform: translateY(-6px); } }
+.pop-f { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 14px; border-bottom: 1px solid var(--line-soft); }
+.pop-l { max-height: 280px; overflow-y: auto; }
+.pop-l label { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 7px 14px; border-bottom: 1px solid var(--line-soft); cursor: pointer; font-size: .84rem; }
+.pop-l label:hover { background: var(--raised); }
+.pop-l small { color: var(--faint); font-size: .74rem; }
+.pop-a { display: flex; gap: 8px; align-items: center; padding: 10px 14px; }
+.pop-a span { margin-right: auto; color: var(--muted); font-size: .8rem; }
+
+/* Registers */
+.regs { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 1100px) { .regs { grid-template-columns: 1fr; } }
+table.reg { width: 100%; border-collapse: collapse; font-size: .82rem; }
+.reg th { text-align: left; font-size: .7rem; font-weight: 750; letter-spacing: .05em; text-transform: uppercase; color: var(--faint); padding: 8px 16px; border-bottom: 1px solid var(--line-soft); background: var(--raised); cursor: pointer; white-space: nowrap; }
+.reg th[aria-sort] { color: var(--accent); }
+.reg td { padding: 8px 16px; border-bottom: 1px solid var(--line-soft); vertical-align: middle; }
+.reg td.n { text-align: right; font-variant-numeric: tabular-nums; font-weight: 700; }
+.reg .who { display: flex; gap: 8px; align-items: center; }
+.reg .stack { display: flex; height: 6px; width: 120px; border-radius: 99px; overflow: hidden; background: var(--line-soft); }
+.reg .stack i { display: block; height: 100%; }
+.reg tr.heavy td.n:last-of-type { color: var(--gold-ink); }
+@media (max-width: 640px) { .reg .hide-s { display: none; } }
+.blk { display: grid; gap: 8px; padding: 12px 16px 16px; }
+.blk-row { display: grid; grid-template-columns: 58px minmax(0, 1fr); gap: 4px 10px; align-items: start; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line-soft); background: var(--raised); }
+.blk-row .what { font-size: .82rem; }
+.blk-row .what small { display: block; color: var(--gold-ink); font-weight: 650; font-size: .74rem; }
+.blk-row textarea { grid-column: 1 / -1; min-height: 40px; }
+.blk-row.fixed { background: var(--ok-soft); border-color: transparent; }
+.blk-row.fixed .what small { color: var(--ok); }
+.foot-actions { display: flex; gap: 8px; justify-content: flex-end; align-items: center; flex-wrap: wrap; }
+.foot-actions .why { margin-right: auto; color: var(--muted); font-size: .82rem; }
+@media (max-width: 760px) { .proposal-switch { display: none; } }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="logo">IS</div>
+  <div><b>ISMS</b><small>System onboarding</small></div>
+  <nav aria-label="Main"><a href="/design/home/proposal-a.html">Home</a><a href="/design/systems/proposal-c.html">Systems</a><a href="/design/controls/proposal-c.html">Controls</a><a href="#">Risks</a><a href="#" aria-current="page">Internal Audits</a><a href="#">Check-ups</a></nav>
+  <div class="proposal-switch">Proposal C · <a href="proposal-a.html">see A</a> · <a href="proposal-b.html">see B</a></div>
+</header>
+
+<div class="app">
+  <section class="card headbar" aria-label="Audit">
+    <label class="field title-f">New Internal Audit · title<input id="title" placeholder="e.g. Q4 2026 · Access control" autocomplete="off"></label>
+    <label class="field">Due date<input type="date" id="due"></label>
+    <div class="qd" id="quick" role="group" aria-label="Quick due dates"></div>
+    <div class="totals" id="totals"></div>
+    <div class="scope-row"><span class="chip">Draft</span><input id="scope" placeholder="Scope (optional): what this audit covers and why" aria-label="Scope (optional)"><span class="muted" style="font-size:.78rem;white-space:nowrap">Nothing is sent until launch</span></div>
+  </section>
+
+  <div class="work">
+    <aside class="card tree" aria-label="Controls">
+      <div class="card-h"><h2>Controls</h2><p id="treeN"></p></div>
+      <div>
+        <label class="search"><svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.6"/><path d="m11 11 3.5 3.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+          <input id="tq" type="search" placeholder="Code or title" aria-label="Search Controls" autocomplete="off"></label>
+        <div class="tree-tabs" id="treeTabs"></div>
+      </div>
+      <div class="tree-body" id="tree"></div>
+    </aside>
+
+    <section class="card mx-card" aria-labelledby="mxH">
+      <div class="mx-tools">
+        <h2 id="mxH">Scope matrix</h2>
+        <label class="toggle" style="font-size:.84rem;font-weight:650;color:var(--muted)"><input type="checkbox" id="org"><span class="track"></span>Organization</label>
+        <button class="btn" id="addSys" type="button" aria-expanded="false"></button>
+        <div class="pop" id="pop" role="dialog" aria-label="Add Systems">
+          <div class="pop-f" id="popF"></div>
+          <div class="pop-l" id="popL"></div>
+          <div class="pop-a"><span id="popN"></span><button class="btn" type="button" id="popClose">Done</button><button class="btn primary" type="button" id="popAdd"></button></div>
+        </div>
+      </div>
+      <div class="mx-wrap" id="mxWrap"></div>
+      <div class="mx-legend"><span><i style="background:var(--accent)"></i>Check-up to the System Owner</span><span><i style="background:#8a5cc2"></i>Check-up to the Control Owner</span><span><i style="background:var(--bad)"></i>No Control Owner: blocks launch</span><span><i style="border:1.5px solid var(--line)"></i>Skipped: the Control doesn't apply</span></div>
+    </section>
+  </div>
+
+  <div class="regs">
+    <section class="card" aria-labelledby="recH"><div class="card-h"><h2 id="recH">Recipients</h2><p id="recNote"></p></div>
+      <div style="overflow-x:auto;margin-top:10px"><table class="reg"><thead><tr><th data-sort="who">Recipient</th><th class="hide-s">Receives as</th><th data-sort="n" style="text-align:right">This audit</th><th data-sort="load" style="text-align:right" class="hide-s">Already open</th><th class="hide-s">Load</th></tr></thead><tbody id="rec"></tbody></table></div></section>
+    <section class="card" aria-labelledby="blkH"><div class="card-h"><h2 id="blkH">Before it can launch</h2><p id="blkNote"></p></div><div class="blk" id="blk"></div></section>
+  </div>
+
+  <div class="foot-actions"><span class="why" id="why"></span><button class="btn lg" type="button" onclick="history.back()">Cancel</button><button class="btn primary lg" type="button" id="save">Create draft</button></div>
+</div>
+
+<script src="../controls/data.js"></script>
+<script src="../systems/data.js"></script>
+<script src="audit.js"></script>
+<script>
+(function () {
+  const A = window.AUD, { esc, icon } = A;
+  const $ = (id) => document.getElementById(id);
+  const d = A.blank();
+  const ui = { tq: '', set: 'annex', open: new Set(['A.8 Technological']), f: { framework: '', facet: '', unit: '', status: '' }, popPick: new Set(), sort: 'n' };
+  $('addSys').innerHTML = `${icon('plus', 15)} Add Systems`;
+
+  // ---- header ----
+  $('title').oninput = (e) => { d.title = e.target.value; refresh(); };
+  $('scope').oninput = (e) => { d.scope = e.target.value; };
+  $('due').min = A.iso(new Date());
+  $('due').oninput = (e) => { d.due = e.target.value; refresh(); };
+  $('quick').innerHTML = A.QUICK_DUES.map(([l], i) => `<button type="button" data-i="${i}">${l.replace('End of quarter', 'Quarter end')}</button>`).join('');
+  $('quick').onclick = (e) => { const b = e.target.closest('button'); if (!b) return; d.due = A.QUICK_DUES[+b.dataset.i][1](); $('due').value = d.due; refresh(); };
+
+  // ---- tree ----
+  const SETS = [['annex', 'Annex A'], ['ccm', 'CCM'], ['due', 'Due for audit'], ['picked', 'Picked']];
+  $('treeTabs').innerHTML = SETS.map(([k, l]) => `<button class="fchip" type="button" data-set="${k}">${l}</button>`).join('');
+  $('treeTabs').onclick = (e) => { const b = e.target.closest('button'); if (!b) return; ui.set = b.dataset.set; renderTree(); };
+  $('tq').oninput = (e) => { ui.tq = e.target.value.toLowerCase(); renderTree(); };
+  const inSet = (c) => ui.set === 'annex' ? c.annex : ui.set === 'ccm' ? !c.annex : ui.set === 'due' ? (c.lastAudit == null || c.lastAudit >= 12) : d.controls.has(c.code);
+  const ageDot = (m) => m == null || m >= 24 ? 'var(--bad)' : m >= 12 ? 'var(--gold)' : 'var(--ok)';
+  function renderTree() {
+    [...$('treeTabs').children].forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.set === ui.set)));
+    const list = A.controls.filter((c) => inSet(c) && (!ui.tq || (c.code + ' ' + c.title).toLowerCase().includes(ui.tq)));
+    const doms = [...new Set(list.map((c) => c.domain))];
+    $('treeN').textContent = `${d.controls.size} picked`;
+    $('tree').innerHTML = doms.length ? doms.map((k) => {
+      const cs = list.filter((c) => c.domain === k), on = cs.filter((c) => d.controls.has(c.code)).length;
+      const open = ui.open.has(k) || !!ui.tq || ui.set === 'picked';
+      return `<div class="dom ${open ? 'open' : ''}" data-dom="${esc(k)}"><div class="dom-h"><span class="chev">${icon('arrow', 14).replace('M5 10h10M11 6l4 4-4 4', 'M8 5l5 5-5 5')}</span><input type="checkbox" class="ck" data-all="${esc(k)}" ${on === cs.length ? 'checked' : ''} aria-label="Pick every Control in ${esc(k)}"><b>${esc(k)}</b><small>${on ? `${on}/` : ''}${cs.length}</small></div>
+        <div class="dom-items">${cs.map((c) => `<label class="leaf" title="${esc(c.title)} · ${A.auditedLabel(c.lastAudit)}"><input type="checkbox" class="ck" data-c="${c.code}" ${d.controls.has(c.code) ? 'checked' : ''}><span class="code">${esc(c.code)}</span><span>${esc(c.title)}</span><i style="background:${ageDot(c.lastAudit)}" aria-label="${A.auditedLabel(c.lastAudit)}"></i></label>`).join('')}</div></div>`;
+    }).join('') : '<p class="empty">No Control matches</p>';
+    document.querySelectorAll('[data-all]').forEach((el) => { const cs = list.filter((c) => c.domain === el.dataset.all); const on = cs.filter((c) => d.controls.has(c.code)).length; el.indeterminate = on > 0 && on < cs.length; });
+  }
+  $('tree').onclick = (e) => {
+    if (e.target.dataset.all) { const list = A.controls.filter((c) => c.domain === e.target.dataset.all && inSet(c) && (!ui.tq || (c.code + ' ' + c.title).toLowerCase().includes(ui.tq))); list.forEach((c) => e.target.checked ? d.controls.add(c.code) : d.controls.delete(c.code)); renderTree(); refresh(); return; }
+    if (e.target.dataset.c) { e.target.checked ? d.controls.add(e.target.dataset.c) : d.controls.delete(e.target.dataset.c); renderTree(); refresh(); return; }
+    const h = e.target.closest('.dom-h'); if (h) { const k = h.parentElement.dataset.dom; ui.open.has(k) ? ui.open.delete(k) : ui.open.add(k); h.parentElement.classList.toggle('open'); }
+  };
+
+  // ---- Systems popover ----
+  const sel = (k, label, opts) => `<label class="field">${label}<select class="sel" data-f="${k}"><option value="">Any</option>${opts.map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join('')}</select></label>`;
+  $('popF').innerHTML = sel('framework', 'Framework', A.FRAMEWORKS.map((f) => [f, f])) + sel('facet', 'Deployment Facet', Object.entries(A.FACET)) + sel('unit', 'Business Unit', window.SYS.UNITS.map((u) => [u, u])) + sel('status', 'Onboarding status', A.STATUSES.map((s) => [s.key, s.label]));
+  $('popF').onchange = (e) => { const k = e.target.dataset.f; if (!k) return; ui.f[k] = e.target.value; ui.popPick = new Set(A.matchSystems(ui.f).filter((s) => !d.systems.has(s.id)).map((s) => s.id)); renderPop(); };
+  function renderPop() {
+    const m = A.matchSystems(ui.f).filter((s) => !d.systems.has(s.id));
+    $('popL').innerHTML = m.length ? m.map((s) => { const st = A.STATUSES.find((x) => x.key === s.status); return `<label><input type="checkbox" class="ck" data-s="${s.id}" ${ui.popPick.has(s.id) ? 'checked' : ''}><span>${esc(s.name)} <small>${esc(s.vendor || '')}</small></span><small><span class="dot ${st.tone}"></span> ${esc(st.label)} · ${esc(s.facetNames.join(', '))}</small></label>`; }).join('') : '<p class="empty">Every matching System is already a column</p>';
+    $('popN').textContent = `${m.length} match · ${ui.popPick.size} ticked`;
+    $('popAdd').textContent = `Add ${ui.popPick.size} as columns`; $('popAdd').disabled = !ui.popPick.size;
+  }
+  $('popL').onchange = (e) => { const id = e.target.dataset.s; if (!id) return; e.target.checked ? ui.popPick.add(id) : ui.popPick.delete(id); renderPop(); };
+  const togglePop = (on) => { $('pop').classList.toggle('on', on); $('addSys').setAttribute('aria-expanded', String(on)); if (on) { ui.popPick = new Set(); renderPop(); } };
+  $('addSys').onclick = (e) => { e.stopPropagation(); togglePop(!$('pop').classList.contains('on')); };
+  $('popClose').onclick = () => togglePop(false);
+  $('popAdd').onclick = () => { const n = ui.popPick.size; ui.popPick.forEach((id) => d.systems.add(id)); A.toast(`${icon('plus', 15)} Added ${n} System${n === 1 ? '' : 's'} as columns`); togglePop(false); refresh(); };
+  document.addEventListener('click', (e) => { if ($('pop').classList.contains('on') && !e.target.closest('#pop') && e.target.id !== 'addSys') togglePop(false); });
+  $('org').onchange = (e) => { d.org = e.target.checked; refresh(); };
+
+  // ---- matrix ----
+  function renderMatrix(p) {
+    const cs = [...p.controls].sort((a, b) => a.code.localeCompare(b.code, 'en', { numeric: true }));
+    const ss = [...p.systems].sort((a, b) => a.name.localeCompare(b.name));
+    if (!cs.length || (!ss.length && !d.org)) {
+      $('mxWrap').innerHTML = `<div class="mx-empty">${icon('control', 34)}<b>${!cs.length ? 'Pick Controls on the left to add rows' : 'Add Systems, or switch on the Organization, to add columns'}</b><span>Each cell then shows whether launching makes a Check-up there.</span>${!ss.length ? `<button class="btn primary" type="button" onclick="document.getElementById('addSys').click();event.stopPropagation()">${icon('plus', 15)} Add Systems</button>` : ''}</div>`;
+      return;
+    }
+    let n = 0;
+    const head = `<tr><th class="rowh">${cs.length} Controls × ${ss.length} Systems${d.org ? ' + Organization' : ''}</th>${ss.map((s, i) => `<th class="colh" data-col="${i}"><span class="rot" title="${esc(s.name)} · ${esc(s.owner)}">${esc(s.name)}</span><button type="button" data-rms="${s.id}" aria-label="Remove ${esc(s.name)}">${icon('x', 12)}</button></th>`).join('')}${d.org ? '<th class="colh org"><span class="rot">Organization</span></th>' : ''}<th class="colh sum"><span class="rot">Check-ups</span></th><th class="pad" aria-hidden="true"></th></tr>`;
+    const rows = cs.map((c) => {
+      const cells = ss.map((s, i) => {
+        if (c.applicability === 'ORGANIZATIONAL') return `<td class="c" data-col="${i}" title="${esc(c.code)} is Organizational: audited only at Organization level"><i class="na"></i></td>`;
+        const on = A.applies(c, s);
+        return `<td class="c" data-col="${i}" title="${esc(c.code)} × ${esc(s.name)}: ${on ? `Check-up to ${esc(s.owner)}` : "skipped, the Control doesn't apply"}"><i class="${on ? 'on' : 'skip'}" style="--d:${Math.min(500, n++ * 4)}ms"></i></td>`;
+      }).join('');
+      const org = d.org ? (A.hasOrgImpl(c) ? `<td class="c" title="${esc(c.code)} × Organization: ${c.owner ? `Check-up to ${esc(c.owner)}` : 'no Control Owner, blocks the launch'}"><i class="${c.owner ? 'on org' : 'bad'}"></i></td>` : `<td class="c" title="Per System only"><i class="na"></i></td>`) : '';
+      return `<tr><th><span class="rh"><span class="code">${esc(c.code)}</span><span title="${esc(c.title)}">${esc(c.title)}</span><button type="button" data-rmc="${c.code}" aria-label="Remove ${esc(c.code)}">${icon('x', 12)}</button></span></th>${cells}${org}<td class="sum">${p.perControl.get(c.code)}</td><td class="pad"></td></tr>`;
+    }).join('');
+    const foot = `<tr><th>Check-ups per column</th>${ss.map((s) => `<td>${p.perSystem.get(s.id)}</td>`).join('')}${d.org ? `<td>${p.org}</td>` : ''}<td style="color:var(--accent)">${p.total}</td><td class="pad"></td></tr>`;
+    $('mxWrap').innerHTML = `<table class="mx"><thead>${head}</thead><tbody>${rows}</tbody><tfoot>${foot}</tfoot></table>`;
+  }
+  $('mxWrap').onclick = (e) => {
+    const s = e.target.closest('[data-rms]'); if (s) { d.systems.delete(s.dataset.rms); refresh(); return; }
+    const c = e.target.closest('[data-rmc]'); if (c) { d.controls.delete(c.dataset.rmc); renderTree(); refresh(); }
+  };
+  // column crosshair
+  $('mxWrap').addEventListener('pointerover', (e) => { const td = e.target.closest('[data-col]'); document.querySelectorAll('.mx .hc').forEach((x) => x.classList.remove('hc')); if (td && td.tagName === 'TD') document.querySelectorAll(`.mx td[data-col="${td.dataset.col}"]`).forEach((x) => x.classList.add('hc')); });
+  $('mxWrap').addEventListener('pointerleave', () => document.querySelectorAll('.mx .hc').forEach((x) => x.classList.remove('hc')));
+
+  // ---- registers ----
+  document.querySelector('.reg thead').onclick = (e) => { const th = e.target.closest('[data-sort]'); if (!th) return; ui.sort = th.dataset.sort; refresh(); };
+  function renderRecipients(p) {
+    const rs = [...p.recipients].sort((a, b) => ui.sort === 'who' ? a.who.localeCompare(b.who) : ui.sort === 'load' ? b.load - a.load : b.n - a.n);
+    document.querySelectorAll('.reg th[data-sort]').forEach((th) => th.toggleAttribute('aria-sort', th.dataset.sort === ui.sort));
+    const max = Math.max(1, ...rs.map((r) => r.n + r.load));
+    $('recNote').textContent = rs.length ? `${rs.length} people · all due ${d.due ? A.fmtDate(d.due) : 'on the due date'}` : '';
+    $('rec').innerHTML = rs.length ? rs.map((r) => `<tr class="${r.n + r.load >= 15 ? 'heavy' : ''}"><td><span class="who"><span class="av ${r.role.has('System Owner') ? '' : 'org'}">${esc(A.initials(r.who))}</span>${esc(r.who)}</span></td><td class="hide-s">${[...r.role].join(', ')}</td><td class="n">${r.n}</td><td class="n hide-s">${r.load}</td><td class="hide-s"><span class="stack" title="${r.n} new, ${r.load} already open"><i style="width:${(r.n / max) * 100}%;background:var(--accent)"></i><i style="width:${(r.load / max) * 100}%;background:var(--gold)"></i></span></td></tr>`).join('')
+      : `<tr><td colspan="5" class="empty">Recipients appear once the matrix has Check-ups</td></tr>`;
+  }
+  function renderBlockers(p) {
+    const qs = p.noQuestion, os = p.noOwner;
+    $('blkNote').textContent = qs.length + os.length ? `${qs.length + os.length} to fix` : '';
+    const fixed = [...p.controls].filter((c) => !c.question && d.questions[c.code]?.trim());
+    $('blk').innerHTML = (qs.length || os.length || fixed.length ? '' : `<ul class="ready"><li class="${p.total ? 'ok' : ''}"><span class="mk">${icon('check', 12)}</span><span>${p.total ? 'Nothing blocks the launch' : 'Nothing to check yet'}<small>Launch it from the audit page once the draft is saved</small></span></li></ul>`)
+      + qs.slice(0, 6).map((c) => `<div class="blk-row"><span class="code">${esc(c.code)}</span><span class="what">${esc(c.title)}<small>No question for the Check-up yet</small></span><textarea class="inp" data-q="${c.code}" placeholder="Write the Check-up question"></textarea></div>`).join('')
+      + (qs.length > 6 ? `<p class="muted" style="font-size:.8rem">and ${qs.length - 6} more without a question</p>` : '')
+      + fixed.map((c) => `<div class="blk-row fixed"><span class="code">${esc(c.code)}</span><span class="what">${esc(c.title)}<small>${icon('check', 12).replace('class="ico"', 'class="ico" style="display:inline;vertical-align:-2px"')} Question written</small></span></div>`).join('')
+      + os.map((c) => `<div class="blk-row"><span class="code">${esc(c.code)}</span><span class="what">${esc(c.title)}<small>No Control Owner for the Organization-level Check-up · an Admin assigns one</small></span></div>`).join('');
+  }
+  $('blk').oninput = (e) => { const k = e.target.dataset.q; if (!k) return; d.questions[k] = e.target.value; const p = A.plan(d); renderTotals(p); };
+  $('blk').addEventListener('focusout', (e) => { if (e.target.dataset.q) renderBlockers(A.plan(d)); });
+
+  function renderTotals(p) {
+    $('totals').innerHTML = [[p.total, 'Check-ups'], [p.recipients.length, 'recipients'], [p.skipped, 'skipped'], [p.launch.length, 'to fix']].map(([v, l]) => `<span class="tot"><b data-v="${v}" style="${l === 'to fix' && v ? 'color:var(--gold-ink)' : ''}">${v}</b><span>${l}</span></span>`).join('');
+    $('save').disabled = !p.canSave;
+    $('why').textContent = p.canSave ? (p.total ? A.summary(p) + '.' : '') : p.draftProblems.join(' · ');
+  }
+  function refresh() {
+    const p = A.plan(d);
+    [...$('quick').children].forEach((b, i) => b.setAttribute('aria-pressed', String(!!d.due && A.QUICK_DUES[i][1]() === d.due)));
+    $('addSys').innerHTML = `${icon('plus', 15)} Add Systems${d.systems.size ? ` · ${d.systems.size}` : ''}`;
+    renderTotals(p); renderMatrix(p); renderRecipients(p); renderBlockers(p);
+  }
+  $('save').onclick = () => { const p = A.plan(d); if (p.canSave) A.celebrate(d.title, p); };
+
+  // A few Controls and Systems so the matrix shows something on first open.
+  A.PACKS[2].codes.concat(A.PACKS[3].codes).forEach((c) => d.controls.add(c));
+  A.systems.filter((s) => ['Jira', 'Confluence', 'Microsoft 365', 'ServiceNow', 'Workday', 'Salesforce', 'GitHub', 'AWS Organisation'].includes(s.name)).forEach((s) => d.systems.add(s.id));
+  renderTree(); refresh();
+})();
+</script>
+</body>
+</html>

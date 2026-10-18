@@ -3,6 +3,35 @@
 // `id` is the vote key: keep it stable once people have voted, or the votes are orphaned.
 window.DESIGN_PARTS = [
   {
+    id: "audit-new",
+    name: "New Internal Audit",
+    added: "2026-10-18",
+    question: "How should an Internal Auditor set up and plan a new Internal Audit quickly, seeing what launching it will generate?",
+    proposals: [
+      {
+        id: "audit-new-a",
+        label: "A",
+        title: "Planner",
+        href: "/design/audit/proposal-a.html",
+        summary: "One page: the title in a hero, starting packs, cards for when, which Controls and where, beside a live launch preview with a Check-up ring, readiness, blockers and recipient load.",
+      },
+      {
+        id: "audit-new-b",
+        label: "B",
+        title: "Guided flow",
+        href: "/design/audit/proposal-b.html",
+        summary: "Four steps: start from a theme or a previous audit, pick Controls on a mosaic shaded by last audit, describe the Systems in a sentence, then review a Controls-to-recipients flow.",
+      },
+      {
+        id: "audit-new-c",
+        label: "C",
+        title: "Scope matrix",
+        href: "/design/audit/proposal-c.html",
+        summary: "A Control tree feeds the rows of a Controls × Systems matrix, Organization included, marking each Check-up or skipped pair, above recipient and blocker registers with inline fixes.",
+      },
+    ],
+  },
+  {
     id: "home",
     name: "Home by role",
     added: "2026-10-17",
