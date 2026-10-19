@@ -1,0 +1,184 @@
+{
+  "framework": {
+    "name": "CMMC Level 1",
+    "version": "2.0",
+    "description": "Cybersecurity Maturity Model Certification (CMMC) 2.0 Level 1 (Foundational): the 15 basic safeguarding requirements of FAR 52.204-21(b)(1) for systems that process, store or transmit Federal Contract Information (FCI), in 6 domains. Codes follow the CMMC Level 1 Assessment Guide v2 (DoD CIO); FAR clause text is a US government work and is quoted.",
+    "licensing": "QUOTABLE",
+    "strictComplianceRequired": true
+  },
+  "supplementaryControls": [
+    {
+      "code": "CMMC-SUP-01",
+      "title": "Control of information on publicly accessible systems",
+      "description": "Name who may post or process information on publicly accessible systems, have procedures that keep Federal Contract Information from being posted or processed on them, review content before it is posted, review the content already on them for Federal Contract Information, and have a way to remove and address an improper posting",
+      "category": "CMMC Level 1 obligations",
+      "mandatory": true,
+      "applicability": "PER_SYSTEM",
+      "question": "For this publicly accessible system: is it defined who may post or process information on it, are there procedures that keep Federal Contract Information from being posted or processed on it, is content reviewed before it is posted and reviewed again once published, and is there a way to remove and address an improper posting?",
+      "intent": "Federal Contract Information is not public, and a post to a website, forum or social channel is hard to recall. Access control and data leakage prevention do not by themselves check what a permitted person publishes.",
+      "examples": [
+        "Written list of the people allowed to publish to the website and social media accounts",
+        "Second-person review or approval step before content goes live",
+        "Periodic review of public pages for non-public information",
+        "Procedure to take down an improper posting and alert the people who need to know",
+        "Guidance to staff that contract documents and FCI are not posted publicly"
+      ]
+    }
+  ],
+  "requirements": [
+    {
+      "code": "AC.L1-b.1.i",
+      "section": "Access Control",
+      "title": "Authorized Access Control",
+      "text": "Limit information system access to authorized users, processes acting on behalf of authorized users, or devices (including other information systems). (FAR 52.204-21(b)(1)(i); NIST SP 800-171 Rev. 2 3.1.1.)",
+      "mappings": [
+        { "control": "A.5.15", "coverage": "PARTIAL", "rationale": "Sets the access control rules, but does not by itself require identifying authorized processes and devices or limiting access to them." },
+        { "control": "A.5.16", "coverage": "PARTIAL", "rationale": "Keeps the list of identities (users and systems) accurate, which is what authorized access is checked against; it does not enforce the limit." },
+        { "control": "A.5.18", "coverage": "PARTIAL", "rationale": "Provisioning and removal of access rights for users; says nothing specific about processes or devices." },
+        { "control": "A.8.20", "coverage": "PARTIAL", "rationale": "Network controls limit which devices and other systems can connect, covering the device part of the requirement only." }
+      ]
+    },
+    {
+      "code": "AC.L1-b.1.ii",
+      "section": "Access Control",
+      "title": "Transaction & Function Control",
+      "text": "Limit information system access to the types of transactions and functions that authorized users are permitted to execute. (FAR 52.204-21(b)(1)(ii); NIST SP 800-171 Rev. 2 3.1.2.)",
+      "mappings": [
+        { "control": "A.8.3", "coverage": "FULL", "rationale": "Restricts access to information and functions according to the access control policy, which is this requirement." },
+        { "control": "A.8.2", "coverage": "PARTIAL", "rationale": "Limits privileged functions only; ordinary user functions are covered by A.8.3." },
+        { "control": "A.5.18", "coverage": "PARTIAL", "rationale": "Assigns the access rights that define which functions a user may execute; does not itself enforce them in the system." }
+      ]
+    },
+    {
+      "code": "AC.L1-b.1.iii",
+      "section": "Access Control",
+      "title": "External Connections",
+      "text": "Verify and control/limit connections to and use of external information systems. (FAR 52.204-21(b)(1)(iii); NIST SP 800-171 Rev. 2 3.1.20.)",
+      "mappings": [
+        { "control": "A.8.20", "coverage": "PARTIAL", "rationale": "Controls connections from the network side; it does not cover verifying and limiting use of external systems such as personal devices or third-party services." },
+        { "control": "A.8.21", "coverage": "PARTIAL", "rationale": "Security requirements for network services used, which includes connections to external providers; not use of external systems by staff." },
+        { "control": "A.6.7", "coverage": "PARTIAL", "rationale": "Covers connecting from outside the organization's premises; not every external system connection." },
+        { "control": "A.5.23", "coverage": "PARTIAL", "rationale": "Covers control of cloud services as external systems; other external systems are not addressed." }
+      ]
+    },
+    {
+      "code": "AC.L1-b.1.iv",
+      "section": "Access Control",
+      "title": "Control Public Information",
+      "text": "Control information posted or processed on publicly accessible information systems. (FAR 52.204-21(b)(1)(iv); NIST SP 800-171 Rev. 2 3.1.22.)",
+      "mappings": [
+        { "control": "CMMC-SUP-01", "coverage": "FULL", "rationale": "Covers all five assessment objectives [a]-[e]: who may post or process, procedures keeping FCI off public systems, review before posting, review of published content, and removal of an improper posting." },
+        { "control": "A.8.12", "coverage": "PARTIAL", "rationale": "Helps prevent FCI leaking to public destinations but does not define who may post or require review before publication." },
+        { "control": "A.5.14", "coverage": "PARTIAL", "rationale": "Rules for transferring information to other parties; not specific to posting on public systems." }
+      ]
+    },
+    {
+      "code": "IA.L1-b.1.v",
+      "section": "Identification and Authentication",
+      "title": "Identification",
+      "text": "Identify information system users, processes acting on behalf of users, or devices. (FAR 52.204-21(b)(1)(v); NIST SP 800-171 Rev. 2 3.5.1.)",
+      "mappings": [
+        { "control": "A.5.16", "coverage": "FULL", "rationale": "Managing the full life cycle of identities, for people and systems, gives each user, process and device a unique identity." }
+      ]
+    },
+    {
+      "code": "IA.L1-b.1.vi",
+      "section": "Identification and Authentication",
+      "title": "Authentication",
+      "text": "Authenticate (or verify) the identities of those users, processes, or devices, as a prerequisite to allowing access to organizational information systems. (FAR 52.204-21(b)(1)(vi); NIST SP 800-171 Rev. 2 3.5.2.)",
+      "mappings": [
+        { "control": "A.8.5", "coverage": "FULL", "rationale": "Secure authentication for all access is the control that verifies identity before access is granted." },
+        { "control": "A.5.17", "coverage": "PARTIAL", "rationale": "Management of authentication credentials such as passwords and keys; supports but is not the verification itself." }
+      ]
+    },
+    {
+      "code": "MP.L1-b.1.vii",
+      "section": "Media Protection",
+      "title": "Media Disposal",
+      "text": "Sanitize or destroy information system media containing Federal Contract Information before disposal or release for reuse. (FAR 52.204-21(b)(1)(vii); NIST SP 800-171 Rev. 2 3.8.3.)",
+      "mappings": [
+        { "control": "A.7.14", "coverage": "FULL", "rationale": "Sanitising or destroying equipment (including its storage media) before disposal or re-use is this requirement." },
+        { "control": "A.7.10", "coverage": "PARTIAL", "rationale": "Covers the life cycle of storage media including disposal, but is broader and does not on its own guarantee sanitisation of media containing FCI, nor non-digital media such as paper." }
+      ]
+    },
+    {
+      "code": "PE.L1-b.1.viii",
+      "section": "Physical Protection",
+      "title": "Limit Physical Access",
+      "text": "Limit physical access to organizational information systems, equipment, and the respective operating environments to authorized individuals. (FAR 52.204-21(b)(1)(viii); NIST SP 800-171 Rev. 2 3.10.1.)",
+      "mappings": [
+        { "control": "A.7.2", "coverage": "FULL", "rationale": "Controls physical access to secure areas with appropriate authentication, limiting entry to authorized individuals." },
+        { "control": "A.7.1", "coverage": "PARTIAL", "rationale": "Defines the perimeters of the areas that hold systems, which entry controls then protect." },
+        { "control": "A.7.3", "coverage": "PARTIAL", "rationale": "Secures offices, rooms and facilities where the systems and equipment are located." }
+      ]
+    },
+    {
+      "code": "PE.L1-b.1.ix",
+      "section": "Physical Protection",
+      "title": "Manage Visitors & Physical Access",
+      "text": "Escort visitors and monitor visitor activity; maintain audit logs of physical access; and control and manage physical access devices. (FAR 52.204-21(b)(1)(ix); NIST SP 800-171 Rev. 2 3.10.3, 3.10.4 and 3.10.5: this one FAR requirement is split into three NIST practices, so the assessment covers all three.)",
+      "mappings": [
+        { "control": "A.7.2", "coverage": "PARTIAL", "rationale": "Physical entry controls normally cover visitor handling and entry logs, but the Control does not on its own require escorting visitors or managing keys and badges." },
+        { "control": "A.7.4", "coverage": "PARTIAL", "rationale": "Monitoring of premises supports watching visitor activity and keeping physical access records; it does not cover physical access devices." },
+        { "control": "A.5.11", "coverage": "PARTIAL", "rationale": "Return of assets covers recovering keys and badges when someone leaves; it does not cover inventory or day-to-day management of physical access devices." }
+      ]
+    },
+    {
+      "code": "SC.L1-b.1.x",
+      "section": "System and Communications Protection",
+      "title": "Boundary Protection",
+      "text": "Monitor, control, and protect organizational communications (i.e., information transmitted or received by organizational information systems) at the external boundaries and key internal boundaries of the information systems. (FAR 52.204-21(b)(1)(x); NIST SP 800-171 Rev. 2 3.13.1.)",
+      "mappings": [
+        { "control": "A.8.20", "coverage": "PARTIAL", "rationale": "Network security (firewalls, restricted traffic) controls boundary traffic, but the Control does not on its own require monitoring of communications at the external and key internal boundaries." },
+        { "control": "A.8.22", "coverage": "PARTIAL", "rationale": "Segregating networks creates the key internal boundaries; it does not itself monitor or control traffic across them." },
+        { "control": "A.8.16", "coverage": "PARTIAL", "rationale": "Monitoring of network activity supplies the monitoring part; the boundary scope is not specified." }
+      ]
+    },
+    {
+      "code": "SC.L1-b.1.xi",
+      "section": "System and Communications Protection",
+      "title": "Public-Access System Separation",
+      "text": "Implement subnetworks for publicly accessible system components that are physically or logically separated from internal networks. (FAR 52.204-21(b)(1)(xi); NIST SP 800-171 Rev. 2 3.13.5.) Not applicable if the organization has no publicly accessible systems.",
+      "mappings": [
+        { "control": "A.8.22", "coverage": "PARTIAL", "rationale": "Segregation of networks (for example a DMZ for public-facing components) is the usual way to meet this, but the Control does not require public-access components specifically to be separated." },
+        { "control": "A.8.20", "coverage": "PARTIAL", "rationale": "Network security rules keep public-facing components from reaching internal networks, without requiring separate subnetworks." }
+      ]
+    },
+    {
+      "code": "SI.L1-b.1.xii",
+      "section": "System and Information Integrity",
+      "title": "Flaw Remediation",
+      "text": "Identify, report, and correct information and information system flaws in a timely manner. (FAR 52.204-21(b)(1)(xii); NIST SP 800-171 Rev. 2 3.14.1.)",
+      "mappings": [
+        { "control": "A.8.8", "coverage": "FULL", "rationale": "Identifying, evaluating and remediating technical vulnerabilities, with timelines for fixing them, matches flaw remediation." }
+      ]
+    },
+    {
+      "code": "SI.L1-b.1.xiii",
+      "section": "System and Information Integrity",
+      "title": "Malicious Code Protection",
+      "text": "Provide protection from malicious code at appropriate locations within organizational information systems. (FAR 52.204-21(b)(1)(xiii); NIST SP 800-171 Rev. 2 3.14.2.)",
+      "mappings": [
+        { "control": "A.8.7", "coverage": "FULL", "rationale": "Malware detection, prevention and recovery controls on endpoints and servers are this requirement." }
+      ]
+    },
+    {
+      "code": "SI.L1-b.1.xiv",
+      "section": "System and Information Integrity",
+      "title": "Update Malicious Code Protection",
+      "text": "Update malicious code protection mechanisms when new releases are available. (FAR 52.204-21(b)(1)(xiv); NIST SP 800-171 Rev. 2 3.14.4.)",
+      "mappings": [
+        { "control": "A.8.7", "coverage": "PARTIAL", "rationale": "Requires malware protection to be in place and kept effective, but does not by itself guarantee that updates are applied as new releases appear." }
+      ]
+    },
+    {
+      "code": "SI.L1-b.1.xv",
+      "section": "System and Information Integrity",
+      "title": "System & File Scanning",
+      "text": "Perform periodic scans of the information system and real-time scans of files from external sources as files are downloaded, opened, or executed. (FAR 52.204-21(b)(1)(xv); NIST SP 800-171 Rev. 2 3.14.5.)",
+      "mappings": [
+        { "control": "A.8.7", "coverage": "PARTIAL", "rationale": "Scheduled scans are a typical part of malware protection, but the Control does not by itself require both periodic scans and real-time scans of files from external sources." }
+      ]
+    }
+  ]
+}
