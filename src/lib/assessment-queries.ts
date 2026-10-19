@@ -35,7 +35,8 @@ export function canReplyToQuery(user: { id: string; role: UserRole }, system: { 
  *     so later membership or remit changes never rewrite an old thread. The name shown is a snapshot.
  *  2. An Admin's messages stay named.
  *  3. When posting: the Control is in the remit of a group the author is a member of, the group (even
- *     for a Reviewer); otherwise a Reviewer posts as "Base review"; a Risk Owner, an Admin and the
+ *     for a Reviewer or a Risk Owner: membership wins there; an Admin stays named, rule 2); otherwise
+ *     a Reviewer posts as "Base review"; a Risk Owner (not posting as a member), an Admin and the
  *     System's owner post named. With two such groups the one whose name sorts first is used.
  *  4. A Compliance Manager who is a member may raise, reply and resolve in the group's remit
  *     (the read-only guard is lifted only for that, and only through membership).
@@ -162,7 +163,11 @@ export async function redactQueries(
   systemOwnerId: string,
 ): Promise<QueryView[]> {
   if (queries.length === 0) return [];
-  const canSee = await attributionVisibilityFor(viewer, systemOwnerId);
+  return redactQueriesWith(queries, await attributionVisibilityFor(viewer, systemOwnerId));
+}
+
+/** `redactQueries` with the viewer's predicate already built (`attributionVisibilityFor`), so a response with many threads reads their groups once. */
+export function redactQueriesWith(queries: RawQuery[], canSee: (attribution: QueryAttribution) => boolean): QueryView[] {
   return queries.map((query) => {
     const resolution = { reviewGroupId: query.resolvedByReviewGroupId, attributedTo: query.resolvedAttributedTo };
     return {
@@ -208,27 +213,35 @@ export async function queryManagementFor(
   return (controlId) => inRemit.has(controlId);
 }
 
+/** What a response with Assessment rows needs of the viewer, built once: who they may see behind an attribution, and where they may manage Queries. */
+export async function presentationContextFor(
+  viewer: { id: string; role: UserRole },
+  system: SystemClassification & { ownerId: string },
+) {
+  const [canSee, canManage] = await Promise.all([attributionVisibilityFor(viewer, system.ownerId), queryManagementFor(viewer, system)]);
+  return { canSee, canManage };
+}
+
+type PresentationContext = Awaited<ReturnType<typeof presentationContextFor>>;
+
 /**
  * The System's Assessment rows as `viewer` may receive them: Queries redacted (`redactQueries`), and a
  * `canManageQueries` flag per row. Everything that sends `getSystemAssessments`, `getSystemAssessmentRow`
- * or `getStaleAssessments` output to a client passes through here or `presentStaleAssessments`.
+ * or `getStaleAssessments` output to a client passes through here or `presentStaleAssessments`. Pass a
+ * `context` (`presentationContextFor`) to share one across both calls of a response.
  */
 export async function presentAssessmentRows<A extends { queries: RawQuery[] }>(
   rows: { control: { id: string }; assessment: A | null }[],
   viewer: { id: string; role: UserRole },
   system: SystemClassification & { ownerId: string },
+  context?: PresentationContext,
 ) {
-  const canManage = await queryManagementFor(viewer, system);
-  return Promise.all(
-    rows.map(async (row) => ({
-      ...row,
-      canManageQueries: canManage(row.control.id),
-      assessment: row.assessment && {
-        ...row.assessment,
-        queries: await redactQueries(row.assessment.queries, viewer, system.ownerId),
-      },
-    })),
-  );
+  const { canSee, canManage } = context ?? (await presentationContextFor(viewer, system));
+  return rows.map((row) => ({
+    ...row,
+    canManageQueries: canManage(row.control.id),
+    assessment: row.assessment && { ...row.assessment, queries: redactQueriesWith(row.assessment.queries, canSee) },
+  }));
 }
 
 /** `presentAssessmentRows` for stale Assessments (rows of the Assessment itself, with its Control). */
@@ -236,15 +249,14 @@ export async function presentStaleAssessments<A extends { controlId: string; que
   assessments: A[],
   viewer: { id: string; role: UserRole },
   system: SystemClassification & { ownerId: string },
+  context?: PresentationContext,
 ) {
-  const canManage = await queryManagementFor(viewer, system);
-  return Promise.all(
-    assessments.map(async (assessment) => ({
-      ...assessment,
-      canManageQueries: canManage(assessment.controlId),
-      queries: await redactQueries(assessment.queries, viewer, system.ownerId),
-    })),
-  );
+  const { canSee, canManage } = context ?? (await presentationContextFor(viewer, system));
+  return assessments.map((assessment) => ({
+    ...assessment,
+    canManageQueries: canManage(assessment.controlId),
+    queries: redactQueriesWith(assessment.queries, canSee),
+  }));
 }
 
 /**
@@ -394,9 +406,15 @@ type OpenQueryForMembership = {
  * The user's groups load once and a remit is computed only for a System that has an open Query and
  * one of the groups' Frameworks in its declared scope: no per-Query reads.
  */
-async function membershipQueryKeys(user: { id: string; role: UserRole }, queries: OpenQueryForMembership[]) {
+async function membershipQueryKeys(
+  user: { id: string; role: UserRole },
+  queries: OpenQueryForMembership[],
+  // True computes the keys whatever the role (the role-based actionability then isn't what is being asked).
+  regardlessOfRole = false,
+) {
   const keys = new Set<string>();
-  if (!canActThroughMembership(user) || ROLES_ALLOWED_TO_MANAGE_QUERIES.includes(user.role)) return keys;
+  if (!canActThroughMembership(user)) return keys;
+  if (!regardlessOfRole && ROLES_ALLOWED_TO_MANAGE_QUERIES.includes(user.role)) return keys;
   const groupIds = await memberGroupIds(user.id);
   if (groupIds.length === 0) return keys;
   const systemIds = [
@@ -480,6 +498,9 @@ export type ActionableQuery = {
 export async function getActionableQueries(
   user: { id: string; role: UserRole },
   systemIds: string[],
+  // Only the Queries the user acts on as a Review Group member (a Control in their groups' remit, the
+  // reviewer side's turn), whatever their role: what a member's My tasks lists.
+  options: { membershipOnly?: boolean } = {},
 ): Promise<ActionableQuery[]> {
   if (systemIds.length === 0) return [];
 
@@ -496,10 +517,11 @@ export async function getActionableQueries(
     },
   });
 
-  const viaMembership = await membershipQueryKeys(user, openQueries);
+  const viaMembership = await membershipQueryKeys(user, openQueries, options.membershipOnly);
   const rows: ActionableQuery[] = [];
   for (const query of openQueries) {
     const { system, control } = query.controlAssessment;
+    if (options.membershipOnly && !viaMembership.has(`${system.id}:${query.controlAssessment.controlId}`)) continue;
     if (!isQueryActionableBy(query, system, user, viaMembership.has(`${system.id}:${query.controlAssessment.controlId}`))) continue;
     rows.push({
       id: query.id,

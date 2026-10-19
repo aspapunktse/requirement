@@ -153,7 +153,11 @@ async function withMemberQueryTasks(view: RoleView, user: { id: string; role: Us
     select: { id: true },
   });
   if (systems.length === 0) return view;
-  const queries = await getActionableQueries(user, systems.map((system) => system.id));
+  const queries = await getActionableQueries(
+    user,
+    systems.map((system) => system.id),
+    { membershipOnly: true },
+  );
   const seen = new Set((view.tasks ?? []).map((row) => row.id));
   const rows = queries
     .filter((query) => !seen.has(query.id))

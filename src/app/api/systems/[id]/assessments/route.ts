@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { authenticate } from "@/lib/api-authz";
 import { getVisibleSystem } from "@/lib/system-visibility";
 import { getStaleAssessments, getSystemAssessments } from "@/lib/control-assessments";
-import { presentAssessmentRows, presentStaleAssessments } from "@/lib/assessment-queries";
+import { presentAssessmentRows, presentationContextFor, presentStaleAssessments } from "@/lib/assessment-queries";
 
 export async function GET(request: NextRequest, ctx: RouteContext<"/api/systems/[id]/assessments">) {
   const auth = await authenticate(request);
@@ -19,8 +19,9 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/systems/
     getStaleAssessments(system),
   ]);
   // Queries go out redacted for this viewer (who wrote or resolved one), with a per-row "may raise/resolve" flag.
+  const context = await presentationContextFor(auth.user, system);
   return NextResponse.json({
-    assessments: await presentAssessmentRows(assessments, auth.user, system),
-    staleAssessments: await presentStaleAssessments(staleAssessments, auth.user, system),
+    assessments: await presentAssessmentRows(assessments, auth.user, system, context),
+    staleAssessments: await presentStaleAssessments(staleAssessments, auth.user, system, context),
   });
 }

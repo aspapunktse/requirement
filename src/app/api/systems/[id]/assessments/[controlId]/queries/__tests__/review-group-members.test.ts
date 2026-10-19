@@ -91,6 +91,7 @@ describe("Review Group members: visibility and Assessment Queries (#201)", () =>
       ["auditor", "INTERNAL_AUDITOR"],
       ["compliance", "COMPLIANCE_MANAGER"], // not a member
       ["viewerMember", "VIEWER"], // GDPR group member, no other right
+      ["adminMember", "ADMIN"], // GDPR group member and an Admin
       ["complianceMember", "COMPLIANCE_MANAGER"], // GDPR group member
       ["reviewerMember", "REVIEWER"], // GDPR group member and a Reviewer
       ["ownerMember", "SYSTEM_OWNER"], // GDPR group member who owns sysOwned
@@ -102,7 +103,7 @@ describe("Review Group members: visibility and Assessment Queries (#201)", () =>
     facetId = (await prisma.deploymentFacet.create({ data: { name: `Test #201 Facet ${SUFFIX}` } })).id;
 
     const groupDefs: [string, string[]][] = [
-      ["gdpr", ["viewerMember", "complianceMember", "reviewerMember", "ownerMember"]],
+      ["gdpr", ["viewerMember", "complianceMember", "reviewerMember", "ownerMember", "adminMember"]],
       ["other", ["otherMember"]],
     ];
     for (const [key, members] of groupDefs) {
@@ -528,6 +529,20 @@ describe("Review Group members: visibility and Assessment Queries (#201)", () =>
       // Resolved, it drops out.
       expect((await resolveAs("viewerMember", "draft", "gdpr", remit)).status).toBe(200);
       expect((await getActionableQueryCountsBySystem(member, [systems.draft])).get(systems.draft) ?? 0).toBe(0);
+    });
+
+    it("lists in an Admin member's My tasks only the Queries on Controls in their group's remit", async () => {
+      // On one System: a remit Control, a base Control and another group's Control, each awaiting the reviewer side.
+      const ids: Record<string, string> = {};
+      for (const key of ["gdpr", "base", "other"]) {
+        ids[key] = ((await (await raiseAs("reviewer", "both", key, `Question on ${key}`)).json()) as { query: { id: string } }).query.id;
+        expect((await replyAs("owner", "both", key, ids[key], "Answer")).status).toBe(201);
+      }
+      const user = await prisma.user.findUniqueOrThrow({ where: { id: users.adminMember.id } });
+      const queryRows = ((await roleView(user)).tasks ?? []).filter((t) => t.kind === "Query").map((t) => t.id);
+      expect(queryRows).toContain(ids.gdpr);
+      expect(queryRows).not.toContain(ids.base);
+      expect(queryRows).not.toContain(ids.other);
     });
   });
 });
