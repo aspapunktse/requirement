@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
 import { ACTING_USER_COOKIE } from "@/lib/acting-user";
-import { raiseQuery } from "@/lib/assessment-queries";
+import { raiseQuery, NAMED } from "@/lib/assessment-queries";
 import { POST } from "../route";
 
 const OWNER_EMAIL = "test-query-reply-owner@example.com";
@@ -92,6 +92,7 @@ describe("POST .../queries/[queryId]/messages", () => {
       controlId,
       reviewerId,
       "Question for this round",
+      NAMED,
     );
     queryId = query.id;
   });
@@ -122,7 +123,9 @@ describe("POST .../queries/[queryId]/messages", () => {
     const body = await response.json();
 
     expect(response.status).toBe(201);
-    expect(body.query.lastMessageAuthorId).toBe(ownerId);
+    expect(body.query.messages.at(-1).author.id).toBe(ownerId);
+    // The raw ids never leave the server: the view is built field by field.
+    expect(body.query).not.toHaveProperty("lastMessageAuthorId");
     expect(body.query.messages).toHaveLength(2);
   });
 

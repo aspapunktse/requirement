@@ -9,6 +9,7 @@ import {
   isQueryActionableBy,
   raiseQuery,
   resolveQuery,
+  NAMED,
 } from "../assessment-queries";
 
 describe("canReplyToQuery", () => {
@@ -135,7 +136,7 @@ describe("raiseQuery / addQueryMessage / resolveQuery (integration)", () => {
     });
     expect(before).toBeNull();
 
-    const query = await raiseQuery(system, controlId, reviewerId, "What does this control require here?");
+    const query = await raiseQuery(system, controlId, reviewerId, "What does this control require here?", NAMED);
     expect(query.resolved).toBe(false);
     expect(query.lastMessageAuthorId).toBe(reviewerId);
     expect(query.messages).toHaveLength(1);
@@ -153,13 +154,13 @@ describe("raiseQuery / addQueryMessage / resolveQuery (integration)", () => {
     });
     systemIds.push(system.id);
 
-    const query = await raiseQuery(system, controlId, reviewerId, "Clarify please");
-    await resolveQuery(query.id, reviewerId);
+    const query = await raiseQuery(system, controlId, reviewerId, "Clarify please", NAMED);
+    await resolveQuery(query.id, reviewerId, NAMED);
 
     const resolved = await prisma.assessmentQuery.findUniqueOrThrow({ where: { id: query.id } });
     expect(resolved.resolved).toBe(true);
 
-    const reopened = await addQueryMessage(query.id, ownerId, "Here's an answer");
+    const reopened = await addQueryMessage(query.id, ownerId, "Here's an answer", NAMED);
     expect(reopened.resolved).toBe(false);
     expect(reopened.resolvedById).toBeNull();
     expect(reopened.lastMessageAuthorId).toBe(ownerId);
@@ -171,7 +172,7 @@ describe("raiseQuery / addQueryMessage / resolveQuery (integration)", () => {
     });
     expect(repliedEvent?.actorId).toBe(ownerId);
 
-    await resolveQuery(query.id, reviewerId);
+    await resolveQuery(query.id, reviewerId, NAMED);
     const resolvedEvent = await prisma.changeEvent.findFirst({
       where: { systemId: system.id, action: "QUERY_RESOLVED" },
       orderBy: { createdAt: "desc" },
@@ -185,7 +186,7 @@ describe("raiseQuery / addQueryMessage / resolveQuery (integration)", () => {
     });
     systemIds.push(system.id);
 
-    const query = await raiseQuery(system, controlId, reviewerId, "Question one");
+    const query = await raiseQuery(system, controlId, reviewerId, "Question one", NAMED);
 
     const raisedEvent = await prisma.changeEvent.findFirst({
       where: { systemId: system.id, action: "QUERY_OPENED" },
@@ -205,7 +206,7 @@ describe("raiseQuery / addQueryMessage / resolveQuery (integration)", () => {
     );
     expect(reviewerCountsAfterRaise.get(system.id) ?? 0).toBe(0);
 
-    await addQueryMessage(query.id, ownerId, "Here's my answer");
+    await addQueryMessage(query.id, ownerId, "Here's my answer", NAMED);
 
     const ownerCountsAfterReply = await getActionableQueryCountsBySystem(
       { id: ownerId, role: "SYSTEM_OWNER" },
@@ -226,7 +227,7 @@ describe("raiseQuery / addQueryMessage / resolveQuery (integration)", () => {
     });
     systemIds.push(system.id);
 
-    const query = await raiseQuery(system, controlId, reviewerId, "Detail question");
+    const query = await raiseQuery(system, controlId, reviewerId, "Detail question", NAMED);
 
     const ownerQueries = await getActionableQueries({ id: ownerId, role: "SYSTEM_OWNER" }, [system.id]);
     const row = ownerQueries.find((q) => q.id === query.id);

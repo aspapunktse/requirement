@@ -89,18 +89,25 @@ function stepsOfControl(control: ControlForRemit, declaredScopeIds: Set<string>)
 }
 
 /**
- * The Review Groups that have at least one Control in their remit on the System: a non-base
- * Control that applies to the System (same rules as `getApplicableControls`: applicability,
- * Deployment Facets, Impact Levels, a Published Framework in scope) and is mapped to a
- * Requirement of a Published Framework of the group that is in the System's *declared*
- * Framework Scope. Two such Frameworks sharing a group give one entry. A Framework with no
- * group adds none; its non-base Controls fall to the base step.
+ * The Review Groups in whose remit each Control of the System sits, keyed by Control id (a Control
+ * in no group's remit is absent). A Control is in a group's remit when it is a non-base Control
+ * that applies to the System (same rules as `getApplicableControls`: applicability, Deployment
+ * Facets, Impact Levels, a Published Framework in scope) and is mapped to a Requirement of a
+ * Published Framework of the group that is in the System's *declared* Framework Scope. A Framework
+ * with no group adds none; its non-base Controls fall to the base step. This is the single
+ * definition of a group's remit: `groupsWithRemit` and `groupsWhoseRemitIncludes` both read it.
  *
- * Takes the transaction client so the reads see one snapshot (see `loadReviewRounds`).
+ * Takes the transaction client so the reads see one snapshot (see `loadReviewRounds`). `controlId`
+ * narrows the read to one Control.
  */
-export async function groupsWithRemit(tx: Prisma.TransactionClient, system: SystemClassification) {
+export async function remitGroupsByControl(
+  tx: Pick<Prisma.TransactionClient, "control">,
+  system: SystemClassification,
+  controlId?: string,
+) {
   const controls = await tx.control.findMany({
     where: {
+      ...(controlId !== undefined && { id: controlId }),
       applicability: { in: [...APPLICABLE_APPLICABILITIES] },
       AND: APPLICABILITY_SCOPING(system),
     },
@@ -108,12 +115,34 @@ export async function groupsWithRemit(tx: Prisma.TransactionClient, system: Syst
   });
 
   const declaredScopeIds = new Set(system.frameworkScopes.map((framework) => framework.id));
-  const groups = new Map<string, string>();
+  const byControl = new Map<string, Map<string, string>>();
   for (const control of controls) {
     if (!meetsAllImpactThresholds(system, control)) continue;
-    for (const [id, name] of stepsOfControl(control, declaredScopeIds).groups) groups.set(id, name);
+    const { groups } = stepsOfControl(control, declaredScopeIds);
+    if (groups.size > 0) byControl.set(control.id, groups);
+  }
+  return byControl;
+}
+
+/**
+ * The Review Groups that have at least one Control in their remit on the System (id to name). Two
+ * Frameworks sharing a group give one entry. See `remitGroupsByControl` for what a remit is.
+ */
+export async function groupsWithRemit(tx: Prisma.TransactionClient, system: SystemClassification) {
+  const groups = new Map<string, string>();
+  for (const forControl of (await remitGroupsByControl(tx, system)).values()) {
+    for (const [id, name] of forControl) groups.set(id, name);
   }
   return groups;
+}
+
+/** The Review Groups (id to name) whose remit on the System includes the Control; empty for a base Control or one that doesn't apply. */
+export async function groupsWhoseRemitIncludes(
+  tx: Pick<Prisma.TransactionClient, "control">,
+  system: SystemClassification,
+  controlId: string,
+) {
+  return (await remitGroupsByControl(tx, system, controlId)).get(controlId) ?? new Map<string, string>();
 }
 
 /**
@@ -162,7 +191,8 @@ function stepStatus(approvals: StepApproval[], reviewGroupId: string | null): Re
   return "OPEN";
 }
 
-const SYSTEM_FOR_STEPS = {
+/** What the remit and step reads need of a System: its Deployment Facets and declared Framework Scope. */
+export const SYSTEM_FOR_STEPS = {
   deploymentFacets: { select: { id: true } },
   frameworkScopes: { select: { id: true } },
 } satisfies Prisma.SystemInclude;

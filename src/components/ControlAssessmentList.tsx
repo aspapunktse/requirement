@@ -52,14 +52,20 @@ type QueryMessage = {
   id: string;
   body: string;
   createdAt: string;
-  author: { id: string; name: string; role: UserRole };
+  /** The group's name or "Base review" when the message is posted as one; null when shown named (#201). */
+  attributedTo: string | null;
+  /** Absent when the server won't say who wrote it: the viewer may only see the group (#201). */
+  author?: { id: string; name: string; role: UserRole };
 };
 
 type AssessmentQuery = {
   id: string;
   resolved: boolean;
-  lastMessageAuthorId: string;
   createdAt: string;
+  /** Who the resolution is attributed to, like a message's; absent or null when named or unresolved. */
+  resolvedAttributedTo?: string | null;
+  /** Absent when unresolved, or when the viewer may only see the group (#201). */
+  resolvedBy?: { id: string; name: string };
   messages: QueryMessage[];
 };
 
@@ -73,10 +79,12 @@ type AssessmentRow = {
   assessment: Assessment;
   queries: AssessmentQuery[];
   effective: EffectiveStatus | null;
+  /** The server's answer to "may this viewer raise and resolve Queries on this Control" (a Review Group member can in the group's remit, #201); absent: fall back to the role. */
+  canManageQueries?: boolean;
 };
 
 /** A row as `GET /api/systems/[id]/assessments` sends it (and the reset route returns it). */
-type AssessmentRowApi = { control: Control; assessment: Assessment; effective?: EffectiveStatus };
+type AssessmentRowApi = { control: Control; assessment: Assessment; effective?: EffectiveStatus; canManageQueries?: boolean };
 
 function toAssessmentRow(row: AssessmentRowApi): AssessmentRow {
   return {
@@ -272,6 +280,12 @@ function QueryThreadItem({
         <StatusChip tone={query.resolved ? "success" : "warn"}>
           {query.resolved ? "Resolved" : "Open"}
         </StatusChip>
+        {query.resolved && (query.resolvedBy || query.resolvedAttributedTo) && (
+          <span className="text-xs text-zinc-500">
+            by {query.resolvedBy ? query.resolvedBy.name : query.resolvedAttributedTo}
+            {query.resolvedBy && query.resolvedAttributedTo && <> for {query.resolvedAttributedTo}</>}
+          </span>
+        )}
         {canResolve && !query.resolved && (
           <Button
             variant="secondary"
@@ -288,8 +302,15 @@ function QueryThreadItem({
         {query.messages.map((message) => (
           <li key={message.id}>
             <div className="text-xs text-zinc-500">
-              <span className="font-medium text-rg-ink">{message.author.name}</span>{" "}
-              ({message.author.role}) · {new Date(message.createdAt).toLocaleString()}
+              {message.author ? (
+                <>
+                  <span className="font-medium text-rg-ink">{message.author.name}</span> ({message.author.role})
+                  {message.attributedTo && <> for {message.attributedTo}</>}
+                </>
+              ) : (
+                <span className="font-medium text-rg-ink">{message.attributedTo}</span>
+              )}{" "}
+              · {new Date(message.createdAt).toLocaleString()}
             </div>
             <p>{message.body}</p>
           </li>
@@ -326,6 +347,7 @@ function AssessmentQueries({
   userRole,
   isSystemOwner,
   readOnly,
+  canManage,
   onChange,
 }: {
   queries: AssessmentQuery[];
@@ -334,10 +356,12 @@ function AssessmentQueries({
   userRole: UserRole;
   isSystemOwner: boolean;
   readOnly: boolean;
+  /** The server's per-Control answer; undefined falls back to the role (a Review Group member's right comes only from the server, #201). */
+  canManage?: boolean;
   onChange: (queries: AssessmentQuery[]) => void;
 }) {
-  const canRaise = !readOnly && ROLES_ALLOWED_TO_MANAGE_QUERIES.includes(userRole);
-  const canReply = !readOnly && (isSystemOwner || canRaise);
+  const canRaise = canManage ?? (!readOnly && ROLES_ALLOWED_TO_MANAGE_QUERIES.includes(userRole));
+  const canReply = (!readOnly && isSystemOwner) || canRaise;
   const openCount = queries.filter((q) => !q.resolved).length;
   const [showForm, setShowForm] = useState(false);
   const [draft, setDraft] = useState("");
@@ -804,6 +828,7 @@ function ControlRow({
         userRole={userRole}
         isSystemOwner={isSystemOwner}
         readOnly={readOnly}
+        canManage={row.canManageQueries}
         onChange={onQueriesChanged}
       />
 
@@ -823,7 +848,7 @@ function ControlRow({
   );
 }
 
-type StaleAssessmentApi = NonNullable<Assessment> & { control: Control; queries: AssessmentQuery[] };
+type StaleAssessmentApi = NonNullable<Assessment> & { control: Control; queries: AssessmentQuery[]; canManageQueries?: boolean };
 
 export function ControlAssessmentList({
   systemId,
@@ -864,6 +889,7 @@ export function ControlAssessmentList({
             assessment,
             queries: assessment.queries ?? [],
             effective: null,
+            canManageQueries: assessment.canManageQueries,
           })),
         );
       });

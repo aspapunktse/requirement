@@ -1008,3 +1008,67 @@ describe("ControlAssessmentList: Shared Offerings (#125)", () => {
     confirm.mockRestore();
   });
 });
+
+describe("ControlAssessmentList: Review Group members and attributed Queries (#201)", () => {
+  const control = { id: "g1", code: "GDPR.1", title: "Records of processing", description: "d", category: "Organizational", mandatory: true, question: null };
+  const row = (extra: Record<string, unknown>, queries: unknown[] = []) => ({
+    control,
+    assessment: { id: "a-g1", status: "IN_PROGRESS", evidence: null, notes: null, selfAssessmentAnswer: null, queries },
+    effective: resolveEffectiveStatus({ status: "IN_PROGRESS", personSet: true }, []),
+    ...extra,
+  });
+  const thread = [
+    {
+      id: "q1",
+      resolved: true,
+      createdAt: "2026-09-01T00:00:00Z",
+      resolvedAttributedTo: "GDPR group",
+      messages: [
+        { id: "m1", body: "Where is the record?", createdAt: "2026-09-01T00:00:00Z", attributedTo: "GDPR group" },
+        { id: "m2", body: "Attached", createdAt: "2026-09-02T00:00:00Z", attributedTo: null, author: { id: "owner", name: "Olivia Owner", role: "SYSTEM_OWNER" } },
+        { id: "m3", body: "Seen by a Reviewer", createdAt: "2026-09-03T00:00:00Z", attributedTo: "Base review", author: { id: "rev", name: "Rita Reviewer", role: "REVIEWER" } },
+      ],
+    },
+  ];
+
+  const stub = (assessmentRow: unknown) =>
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response(JSON.stringify({ assessments: [assessmentRow], staleAssessments: [] }), { status: 200 }))));
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("offers a Viewer who is a member the question button when the server says they may, and not otherwise", async () => {
+    stub(row({ canManageQueries: true }));
+    const { unmount } = render(<ControlAssessmentList systemId="s1" userRole="VIEWER" currentUserId="member" systemOwnerId="owner" readOnly />);
+    expect(await screen.findByRole("button", { name: "Ask a question" })).toBeInTheDocument();
+    unmount();
+
+    stub(row({ canManageQueries: false }));
+    render(<ControlAssessmentList systemId="s1" userRole="VIEWER" currentUserId="member" systemOwnerId="owner" readOnly />);
+    await screen.findByText("Records of processing", { exact: false });
+    expect(screen.queryByRole("button", { name: "Ask a question" })).not.toBeInTheDocument();
+  });
+
+  it("offers a Reviewer the button when the server doesn't say (the role decides)", async () => {
+    stub(row({}));
+    render(<ControlAssessmentList systemId="s1" userRole="REVIEWER" currentUserId="rev" systemOwnerId="owner" />);
+    expect(await screen.findByRole("button", { name: "Ask a question" })).toBeInTheDocument();
+  });
+
+  it("shows a message with no author as its group, a named one by name, and the person next to the group when sent", async () => {
+    stub(row({ canManageQueries: false }, thread));
+    render(<ControlAssessmentList systemId="s1" userRole="SYSTEM_OWNER" currentUserId="owner" systemOwnerId="owner" />);
+
+    expect(await screen.findByText("Where is the record?")).toBeInTheDocument();
+    const first = screen.getByText("Where is the record?").previousElementSibling as HTMLElement;
+    expect(first).toHaveTextContent(/^GDPR group/);
+    expect(first).not.toHaveTextContent("SYSTEM_OWNER");
+
+    const named = screen.getByText("Attached").previousElementSibling as HTMLElement;
+    expect(named).toHaveTextContent("Olivia Owner (SYSTEM_OWNER)");
+
+    const both = screen.getByText("Seen by a Reviewer").previousElementSibling as HTMLElement;
+    expect(both).toHaveTextContent("Rita Reviewer (REVIEWER) for Base review");
+
+    // Resolved by the group: shown as the group, since the server sent no person.
+    expect(screen.getByText(/^by GDPR group/)).toBeInTheDocument();
+  });
+});

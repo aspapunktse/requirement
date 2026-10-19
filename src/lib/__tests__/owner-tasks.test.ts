@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { TaskRow } from "@/components/ui/TaskTable";
-import { addQueryMessage, raiseQuery, resolveQuery } from "../assessment-queries";
+import { addQueryMessage, raiseQuery, resolveQuery, NAMED } from "../assessment-queries";
 import { getOwnerTasks, mergeTaskRows } from "../owner-tasks";
 
 const OWNING_ROLES: UserRole[] = [
@@ -152,7 +152,7 @@ describe("getOwnerTasks", () => {
         const system = await makeSystem(userIds[role], `queries ${role}`);
 
         // Raised by the approver (reviewer side): awaiting the owner's reply.
-        const awaitingOwner = await raiseQuery(system, controlId, approverId, "Please explain");
+        const awaitingOwner = await raiseQuery(system, controlId, approverId, "Please explain", NAMED);
         const tasks = await getOwnerTasks({ id: userIds[role], role });
         const queryRow = tasks.rows.find((r) => r.id === awaitingOwner.id);
         expect(queryRow).toMatchObject({
@@ -164,14 +164,14 @@ describe("getOwnerTasks", () => {
         expect(tasks.openQuestionCount).toBe(1);
 
         // Once the owner replies it's the reviewer side's turn, so it isn't the owner's task any more.
-        await addQueryMessage(awaitingOwner.id, userIds[role], "Here you go");
+        await addQueryMessage(awaitingOwner.id, userIds[role], "Here you go", NAMED);
         const afterReply = await getOwnerTasks({ id: userIds[role], role });
         expect(afterReply.rows.map((r) => r.id)).not.toContain(awaitingOwner.id);
         expect(afterReply.openQuestionCount).toBe(0);
 
         // A resolved Query is nobody's task.
-        await addQueryMessage(awaitingOwner.id, approverId, "Another question");
-        await resolveQuery(awaitingOwner.id, approverId);
+        await addQueryMessage(awaitingOwner.id, approverId, "Another question", NAMED);
+        await resolveQuery(awaitingOwner.id, approverId, NAMED);
         const afterResolve = await getOwnerTasks({ id: userIds[role], role });
         expect(afterResolve.rows.map((r) => r.id)).not.toContain(awaitingOwner.id);
       },
@@ -180,8 +180,8 @@ describe("getOwnerTasks", () => {
     it("does not list Queries on Systems the user doesn't own, even for a role that can act on them", async () => {
       const otherSystem = await makeSystem(userIds["VIEWER"], "queries elsewhere");
       // The owning REVIEWER's turn would be "the owner has replied" on someone else's System.
-      const query = await raiseQuery(otherSystem, controlId, approverId, "Question");
-      await addQueryMessage(query.id, userIds["VIEWER"], "Answer");
+      const query = await raiseQuery(otherSystem, controlId, approverId, "Question", NAMED);
+      await addQueryMessage(query.id, userIds["VIEWER"], "Answer", NAMED);
       const tasks = await getOwnerTasks({ id: userIds["REVIEWER"], role: "REVIEWER" });
       expect(tasks.rows.map((r) => r.id)).not.toContain(query.id);
     });

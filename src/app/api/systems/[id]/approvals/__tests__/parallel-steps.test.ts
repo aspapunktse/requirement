@@ -451,14 +451,16 @@ describe("Parallel Review Steps through /api/systems/[id]/approvals (#199)", () 
       expect(await canDecide("riskOwner")).toEqual([false, false, false]);
     });
 
-    it("lets a member see a System In Review while their group has a step on it, and no longer after", async () => {
+    it("lets a member see a System, in any status, while one of their group's Frameworks is in its scope (#201)", async () => {
       const { system } = await makeSystem({ scope: [0] });
       expect((await GET(requestAs(users.member1.id), ctxFor(system.id))).status).toBe(200);
-      // member2's group has no step on this System.
+      // member2's group has no Framework in this System's scope.
       expect((await GET(requestAs(users.member2.id), ctxFor(system.id))).status).toBe(404);
 
+      // The status doesn't matter (it used to end at Draft).
       await prisma.system.update({ where: { id: system.id }, data: { status: "DRAFT" } });
-      expect((await GET(requestAs(users.member1.id), ctxFor(system.id))).status).toBe(404);
+      expect((await GET(requestAs(users.member1.id), ctxFor(system.id))).status).toBe(200);
+      expect((await GET(requestAs(users.member2.id), ctxFor(system.id))).status).toBe(404);
     });
 
     it("lists open steps in the right users' My tasks, never for the owner, and drops a decided step", async () => {
@@ -488,6 +490,6 @@ describe("Parallel Review Steps through /api/systems/[id]/approvals (#199)", () 
       const ownAdmin = await makeSystem({ ownerKey: "adminOwner" });
       const adminOwnerView = await roleView(await prisma.user.findUniqueOrThrow({ where: { id: users.adminOwner.id } }));
       expect((adminOwnerView.tasks ?? []).some((t) => t.id.startsWith(ownAdmin.system.id) && t.status === "Awaiting review")).toBe(false);
-    });
+    }, 20_000); // about twenty page loads: close to the default 5 s on a slow database
   });
 });

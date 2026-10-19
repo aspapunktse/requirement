@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
 import { ACTING_USER_COOKIE } from "@/lib/acting-user";
-import { raiseQuery } from "@/lib/assessment-queries";
+import { raiseQuery, NAMED } from "@/lib/assessment-queries";
 import { POST } from "../route";
 
 const OWNER_EMAIL = "test-query-resolve-owner@example.com";
@@ -69,7 +69,7 @@ describe("POST .../queries/[queryId]/resolve", () => {
   });
 
   beforeEach(async () => {
-    const query = await raiseQuery({ id: systemId }, controlId, reviewerId, "Please clarify");
+    const query = await raiseQuery({ id: systemId }, controlId, reviewerId, "Please clarify", NAMED);
     queryId = query.id;
   });
 
@@ -103,7 +103,9 @@ describe("POST .../queries/[queryId]/resolve", () => {
 
     expect(response.status).toBe(200);
     expect(body.query.resolved).toBe(true);
-    expect(body.query.resolvedById).toBe(riskOwnerId);
+    expect(body.query.resolvedBy.id).toBe(riskOwnerId);
+    expect(body.query).not.toHaveProperty("resolvedById");
+    expect((await prisma.assessmentQuery.findUniqueOrThrow({ where: { id: queryId } })).resolvedById).toBe(riskOwnerId);
   });
 
   it("lets the original asker resolve their own Query too", async () => {

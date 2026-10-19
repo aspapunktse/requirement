@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { raiseQuery } from "@/lib/assessment-queries";
+import { raiseQuery, NAMED } from "@/lib/assessment-queries";
 import { roleView } from "../role-view";
 
 describe("roleView: owner tasks for any role (#98)", () => {
@@ -27,7 +27,7 @@ describe("roleView: owner tasks for any role (#98)", () => {
   async function ownedSystemWithQuery(ownerId: string, name: string) {
     const system = await makeSystem(ownerId, name);
     await prisma.approval.create({ data: { systemId: system.id, reviewRoundId: (await prisma.reviewRound.create({ data: { systemId: system.id } })).id, approverId, decision: "REJECTED" } });
-    const query = await raiseQuery(system, controlId, approverId, "Please explain");
+    const query = await raiseQuery(system, controlId, approverId, "Please explain", NAMED);
     return { system, query };
   }
 

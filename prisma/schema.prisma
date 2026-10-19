@@ -220,6 +220,10 @@ model ReviewGroup {
   members    User[]      @relation("ReviewGroupMember")
   frameworks Framework[]
   approvals  Approval[]
+  // Query Messages posted, and Assessment Queries resolved, as this group (#201). SetNull on delete: the
+  // row keeps the group's name in its own snapshot column and never turns into a base-step or named one.
+  queryMessages   QueryMessage[]    @relation("QueryMessageGroup")
+  resolvedQueries AssessmentQuery[] @relation("QueryResolvedByGroup")
 }
 
 // A curated compliance standard, law or regulation (e.g. ISO/IEC 27001:2022,
@@ -539,6 +543,12 @@ model AssessmentQuery {
   resolvedById        String?
   resolvedBy          User?             @relation("QueryResolvedBy", fields: [resolvedById], references: [id])
   resolvedAt          DateTime?
+  // Who the resolution is attributed to (#201), fixed when it is made, like a Query Message's:
+  // a Review Group (id and name) or the base Review Step (name only), otherwise both null (shown named).
+  // The name is a snapshot, so it survives the group being renamed or deleted.
+  resolvedByReviewGroupId String?
+  resolvedByReviewGroup   ReviewGroup?      @relation("QueryResolvedByGroup", fields: [resolvedByReviewGroupId], references: [id], onDelete: SetNull)
+  resolvedAttributedTo    String?
   createdAt           DateTime          @default(now())
   // Denormalized copy of the most recent QueryMessage's authorId, kept in
   // sync on every new message. Lets "is it the System Owner's turn, or the
@@ -561,6 +571,14 @@ model QueryMessage {
   author            User            @relation(fields: [authorId], references: [id])
   body              String
   createdAt         DateTime        @default(now())
+  // Who the message is attributed to (#201), fixed when it is posted: a Review Group's member
+  // posts as the group, a Reviewer as the base Review Step; both null means the author is shown
+  // named. `attributedTo` is a snapshot of the shown name, so the message keeps it when the group is
+  // renamed or deleted (then `reviewGroupId` is null and only an Admin, Internal Auditor or
+  // Compliance Manager sees the author).
+  reviewGroupId     String?
+  reviewGroup       ReviewGroup?    @relation("QueryMessageGroup", fields: [reviewGroupId], references: [id], onDelete: SetNull)
+  attributedTo      String?
 }
 
 // A risk identified during onboarding of a System, or opened by an Internal Audit's Nonconformity
