@@ -1,0 +1,86 @@
+{
+  "framework": {
+    "name": "DEF STAN 05-138 Level 0",
+    "version": "Issue 4",
+    "description": "DEF STAN 05-138 Issue 4 (14 May 2024), Cyber Risk Profile Level 0 (Basic): the 3 control requirements of Table 1 that apply where there is a very low level of assessed cyber risk to a supplier. Each Control ID is a Requirement code; the Control Requirements text is quoted from the standard.",
+    "licensing": "QUOTABLE",
+    "strictComplianceRequired": false
+  },
+  "supplementaryControls": [
+    {
+      "code": "DEFSTAN-SUP-01",
+      "title": "Cyber Essentials certification",
+      "description": "Hold current Cyber Essentials certification whose scope covers all aspects of the contract, and commit to keeping it for the duration of the contract",
+      "category": "DEF STAN 05-138 obligations",
+      "mandatory": true,
+      "applicability": "ORGANIZATIONAL",
+      "intent": "Cyber Essentials is the UK government scheme for baseline technical hygiene, certified by an accredited body. ISO 27001 controls describe good practice but do not amount to holding the certificate, and the standard asks for the certificate itself, with a scope that covers the contract.",
+      "examples": [
+        "Current Cyber Essentials certificate from an accredited certification body",
+        "Certificate scope statement that covers the systems used for the contract",
+        "Renewal reminder or plan so the certificate does not lapse during the contract"
+      ]
+    }
+  ],
+  "requirements": [
+    {
+      "code": "0001",
+      "section": "Certification",
+      "title": "Cyber Essentials",
+      "text": "The Supplier shall have Cyber Essentials certification that covers the scope required for all aspects of the contract and commit to maintaining this for the duration of the contract.",
+      "mappings": [
+        {
+          "control": "DEFSTAN-SUP-01",
+          "coverage": "FULL",
+          "rationale": "The Supplementary Control is this obligation: hold Cyber Essentials certification covering the contract scope and keep it for the contract term. No ISO 27001 Control requires a named UK certification scheme."
+        }
+      ]
+    },
+    {
+      "code": "2314",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Ensure UK GDPR compliance",
+      "text": "The Supplier shall ensure that the processing of personal data is conducted in compliance with the General Data Protection Regulation.",
+      "mappings": [
+        {
+          "control": "A.5.34",
+          "coverage": "FULL",
+          "rationale": "The organisation identifies and meets the requirements for the preservation of privacy and the protection of personally identifiable information under law, which here is the UK GDPR."
+        },
+        {
+          "control": "A.5.31",
+          "coverage": "PARTIAL",
+          "rationale": "Legal, statutory and regulatory requirements are identified; the UK GDPR is one of them."
+        }
+      ]
+    },
+    {
+      "code": "2500",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Resilient networks and systems",
+      "text": "The Supplier shall build resilience against cyber-attack and system failure into their design, implementation, operation and management of systems that support the operation of business Functions and protection of Data.",
+      "mappings": [
+        {
+          "control": "A.5.29",
+          "coverage": "PARTIAL",
+          "rationale": "Information security during disruption is maintained."
+        },
+        {
+          "control": "A.5.30",
+          "coverage": "PARTIAL",
+          "rationale": "ICT readiness supports continuity."
+        },
+        {
+          "control": "A.8.14",
+          "coverage": "PARTIAL",
+          "rationale": "Information processing facilities have redundancy."
+        },
+        {
+          "control": "A.8.27",
+          "coverage": "PARTIAL",
+          "rationale": "Systems are built on secure engineering principles. Together they build resilience into design and operation; none covers it alone."
+        }
+      ]
+    }
+  ]
+}
