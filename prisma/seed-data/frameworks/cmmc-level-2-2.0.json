@@ -1,0 +1,2075 @@
+{
+  "framework": {
+    "name": "CMMC Level 2",
+    "version": "2.0",
+    "description": "Cybersecurity Maturity Model Certification (CMMC) 2.0 Level 2 (Advanced): the 110 security requirements of NIST SP 800-171 Rev. 2 for systems that process, store or transmit Controlled Unclassified Information (CUI), in 14 families. Codes follow the CMMC Level 2 Assessment Guide v2 (DoD CIO); NIST SP 800-171 requirement text is a US government work and is quoted. Level 2 is assessed separately from Level 1 even where a practice is the same, because it protects CUI rather than Federal Contract Information.",
+    "licensing": "QUOTABLE",
+    "strictComplianceRequired": true
+  },
+  "supplementaryControls": [
+    {
+      "code": "CMMC-L2-SUP-01",
+      "title": "Control of CUI on publicly accessible systems",
+      "description": "Name who may post or process information on publicly accessible systems, have procedures that keep Controlled Unclassified Information (CUI) from being posted or processed on them, review content before it is posted, review the content already on them for CUI, and have a way to remove and address an improper posting",
+      "category": "CMMC Level 2 obligations",
+      "mandatory": true,
+      "applicability": "PER_SYSTEM",
+      "question": "For this publicly accessible system: is it defined who may post or process information on it, are there procedures that keep Controlled Unclassified Information (CUI) from being posted or processed on it, is content reviewed before it is posted and reviewed again once published, and is there a way to remove and address an improper posting?",
+      "intent": "CUI is not cleared for public release, and a post to a website, forum or social channel is hard to recall. Access control and data leakage prevention do not by themselves check what a permitted person publishes.",
+      "examples": [
+        "Written list of the people allowed to publish to the website and social media accounts",
+        "Second-person review or approval step before content goes live, checking for CUI",
+        "Periodic review of public pages for CUI and other non-public information",
+        "Procedure to take down an improper posting and alert the people who need to know, including the contracting officer where the contract requires it",
+        "Guidance to staff that CUI, and contract documents that carry CUI markings, are not posted publicly"
+      ]
+    }
+  ],
+  "requirements": [
+    {
+      "code": "AC.L2-3.1.1",
+      "section": "Access Control",
+      "title": "Authorized Access Control",
+      "text": "Limit system access to authorized users, processes acting on behalf of authorized users, and devices (including other systems). (NIST SP 800-171 Rev. 2 3.1.1.)",
+      "mappings": [
+        {
+          "control": "A.5.15",
+          "coverage": "PARTIAL",
+          "rationale": "Same mapping as CMMC Level 1 AC.L1-b.1.i. Sets the access control rules, but does not by itself require identifying authorized processes and devices or limiting access to them."
+        },
+        {
+          "control": "A.5.16",
+          "coverage": "PARTIAL",
+          "rationale": "Keeps the list of identities (users and systems) accurate, which is what authorized access is checked against; it does not enforce the limit."
+        },
+        {
+          "control": "A.5.18",
+          "coverage": "PARTIAL",
+          "rationale": "Provisioning and removal of access rights for users; says nothing specific about processes or devices."
+        },
+        {
+          "control": "A.8.20",
+          "coverage": "PARTIAL",
+          "rationale": "Network controls limit which devices and other systems can connect, covering the device part of the requirement only."
+        }
+      ]
+    },
+    {
+      "code": "AC.L2-3.1.2",
+      "section": "Access Control",
+      "title": "Transaction & Function Control",
+      "text": "Limit system access to the types of transactions and functions that authorized users are permitted to execute. (NIST SP 800-171 Rev. 2 3.1.2.)",
+      "mappings": [
+        {
+          "control": "A.8.3",
+          "coverage": "FULL",
+          "rationale": "Same mapping as CMMC Level 1 AC.L1-b.1.ii. Restricts access to information and functions according to the access control policy, which is this requirement."
+        },
+        {
+          "control": "A.8.2",
+          "coverage": "PARTIAL",
+          "rationale": "Limits privileged functions only; ordinary user functions are covered by A.8.3."
+        },
+        {
+          "control": "A.5.18",
+          "coverage": "PARTIAL",
+          "rationale": "Assigns the access rights that define which functions a user may execute; does not itself enforce them in the system."
+        }
+      ]
+    },
+    {
+      "code": "AC.L2-3.1.3",
+      "section": "Access Control",
+      "title": "Control CUI Flow",
+      "text": "Control the flow of CUI in accordance with approved authorizations. (NIST SP 800-171 Rev. 2 3.1.3.)",
+      "mappings": [
+        {
+          "control": "A.5.14",
+          "coverage": "PARTIAL",
+          "rationale": "Rules and agreements for transferring information control flow between parties, but not every internal flow of CUI, nor an approval per flow."
+        },
+        {
+          "control": "A.8.22",
+          "coverage": "PARTIAL",
+          "rationale": "Segregating networks limits where CUI can flow between network zones; it does not cover flow control inside a zone or at the application level."
+        },
+        {
+          "control": "A.8.20",
+          "coverage": "PARTIAL",
+          "rationale": "Network security controls such as firewalls and filters enforce permitted flows, without requiring them to be tied to approved authorizations for CUI."
+        },
+        {
+          "control": "A.8.12",
+          "coverage": "PARTIAL",
+          "rationale": "Data leakage prevention detects and blocks CUI leaving through channels, but is not a general flow-control mechanism."
+        }
+      ]
+    },
+    {
+      "code": "AC.L2-3.1.4",
+      "section": "Access Control",
+      "title": "Separation of Duties",
+      "text": "Separate the duties of individuals to reduce the risk of malevolent activity without collusion. (NIST SP 800-171 Rev. 2 3.1.4.)",
+      "mappings": [
+        {
+          "control": "A.5.3",
+          "coverage": "FULL",
+          "rationale": "Separating conflicting duties and areas of responsibility to reduce the risk of misuse is this requirement."
+        }
+      ]
+    },
+    {
+      "code": "AC.L2-3.1.5",
+      "section": "Access Control",
+      "title": "Least Privilege",
+      "text": "Employ the principle of least privilege, including for specific security functions and privileged accounts. (NIST SP 800-171 Rev. 2 3.1.5.)",
+      "mappings": [
+        {
+          "control": "A.5.15",
+          "coverage": "PARTIAL",
+          "rationale": "Need-to-know and need-to-use rules for access; does not by itself address security functions and privileged accounts specifically."
+        },
+        {
+          "control": "A.8.2",
+          "coverage": "PARTIAL",
+          "rationale": "Restricts and manages privileged access rights, which covers privileged accounts and security functions but not least privilege for ordinary accounts."
+        },
+        {
+          "control": "A.8.3",
+          "coverage": "PARTIAL",
+          "rationale": "Restricts access to information and functions per the access control policy; does not mandate the least-privilege principle as such."
+        },
+        {
+          "control": "A.5.18",
+          "coverage": "PARTIAL",
+          "rationale": "Access rights are provisioned and reviewed against the access control policy, which supports least privilege without requiring it."
+        }
+      ]
+    },
+    {
+      "code": "AC.L2-3.1.6",
+      "section": "Access Control",
+      "title": "Non-Privileged Account Use",
+      "text": "Use non-privileged accounts or roles when accessing nonsecurity functions. (NIST SP 800-171 Rev. 2 3.1.6.)",
+      "mappings": [
+        {
+          "control": "A.8.2",
+          "coverage": "FULL",
+          "rationale": "Privileged identities are used only for administrative tasks, with ordinary accounts used for everyday nonsecurity work, which is this requirement."
+        }
+      ]
+    },
+    {
+      "code": "AC.L2-3.1.7",
+      "section": "Access Control",
+      "title": "Privileged Functions",
+      "text": "Prevent non-privileged users from executing privileged functions and capture the execution of such functions in audit logs. (NIST SP 800-171 Rev. 2 3.1.7.)",
+      "mappings": [
+        {
+          "control": "A.8.2",
+          "coverage": "PARTIAL",
+          "rationale": "Restricts who holds privileged access rights, which keeps non-privileged users from privileged functions; does not require the execution of those functions to be logged."
+        },
+        {
+          "control": "A.8.3",
+          "coverage": "PARTIAL",
+          "rationale": "Access restriction to functions per the access control policy; does not mention capturing privileged function execution."
+        },
+        {
+          "control": "A.8.15",
+          "coverage": "PARTIAL",
+          "rationale": "Logging of privileged activity gives the audit record; does not by itself prevent non-privileged users from executing privileged functions."
+        }
+      ]
+    },
+    {
+      "code": "AC.L2-3.1.8",
+      "section": "Access Control",
+      "title": "Unsuccessful Logon Attempts",
+      "text": "Limit unsuccessful logon attempts. (NIST SP 800-171 Rev. 2 3.1.8.)",
+      "mappings": [
+        {
+          "control": "A.8.5",
+          "coverage": "FULL",
+          "rationale": "Secure log-on procedures limit failed attempts and protect against brute-force attacks, which is this requirement."
+        }
+      ]
+    },
+    {
+      "code": "AC.L2-3.1.9",
+      "section": "Access Control",
+      "title": "Privacy & Security Notices",
+      "text": "Provide privacy and security notices consistent with applicable CUI rules. (NIST SP 800-171 Rev. 2 3.1.9.)",
+      "mappings": [
+        {
+          "control": "A.8.5",
+          "coverage": "PARTIAL",
+          "rationale": "Log-on procedures can show a general notice that access is for authorized users only; does not cover privacy notices or the applicable CUI rules."
+        },
+        {
+          "control": "A.5.31",
+          "coverage": "PARTIAL",
+          "rationale": "Identifying the legal, statutory and regulatory requirements that apply (here CUI rules) informs the notice wording, but does not require notices to be provided."
+        },
+        {
+          "control": "A.5.10",
+          "coverage": "PARTIAL",
+          "rationale": "Rules for acceptable use communicated to users overlap with the security notice; not a system use notification at access."
+        }
+      ]
+    },
+    {
+      "code": "AC.L2-3.1.10",
+      "section": "Access Control",
+      "title": "Session Lock",
+      "text": "Use session lock with pattern-hiding displays to prevent access and viewing of data after a period of inactivity. (NIST SP 800-171 Rev. 2 3.1.10.)",
+      "mappings": [
+        {
+          "control": "A.7.7",
+          "coverage": "PARTIAL",
+          "rationale": "Clear screen rules cover locking unattended screens; they do not require an automatic lock after inactivity with a pattern-hiding display."
+        },
+        {
+          "control": "A.8.5",
+          "coverage": "PARTIAL",
+          "rationale": "Secure log-on includes session time-out after inactivity; does not require the pattern-hiding display."
+        },
+        {
+          "control": "A.8.1",
+          "coverage": "PARTIAL",
+          "rationale": "Endpoint device rules usually cover automatic locking, but the Control is broader and does not guarantee it."
+        }
+      ]
+    },
+    {
+      "code": "AC.L2-3.1.11",
+      "section": "Access Control",
+      "title": "Session Termination",
+      "text": "Terminate (automatically) a user session after a defined condition. (NIST SP 800-171 Rev. 2 3.1.11.)",
+      "mappings": [
+        {
+          "control": "A.8.5",
+          "coverage": "PARTIAL",
+          "rationale": "Inactive sessions are shut down after a defined period, covering the most common condition; the requirement allows other defined conditions."
+        },
+        {
+          "control": "A.8.1",
+          "coverage": "PARTIAL",
+          "rationale": "Endpoint device rules can include session time-outs; the Control is broader and does not guarantee automatic termination."
+        }
+      ]
+    },
+    {
+      "code": "AC.L2-3.1.12",
+      "section": "Access Control",
+      "title": "Control Remote Access",
+      "text": "Monitor and control remote access sessions. (NIST SP 800-171 Rev. 2 3.1.12.)",
+      "mappings": [
+        {
+          "control": "A.6.7",
+          "coverage": "PARTIAL",
+          "rationale": "Security measures for remote working cover remote access to systems; they do not require sessions to be monitored."
+        },
+        {
+          "control": "A.8.20",
+          "coverage": "PARTIAL",
+          "rationale": "Network security covers controlling remote connections; does not require monitoring of each session."
+        },
+        {
+          "control": "A.8.16",
+          "coverage": "PARTIAL",
+          "rationale": "Monitoring of networks and systems supplies the monitoring part; remote access sessions are not singled out."
+        }
+      ]
+    },
+    {
+      "code": "AC.L2-3.1.13",
+      "section": "Access Control",
+      "title": "Remote Access Confidentiality",
+      "text": "Employ cryptographic mechanisms to protect the confidentiality of remote access sessions. (NIST SP 800-171 Rev. 2 3.1.13.)",
+      "mappings": [
+        {
+          "control": "A.8.24",
+          "coverage": "PARTIAL",
+          "rationale": "Rules for the effective use of cryptography cover encrypting remote connections but do not require it for every remote access session."
+        },
+        {
+          "control": "A.6.7",
+          "coverage": "PARTIAL",
+          "rationale": "Remote working security measures include secure remote access; encryption of the session is not specified."
+        },
+        {
+          "control": "A.8.20",
+          "coverage": "PARTIAL",
+          "rationale": "Network security covers securing remote connections; does not require cryptographic mechanisms."
+        }
+      ]
+    },
+    {
+      "code": "AC.L2-3.1.14",
+      "section": "Access Control",
+      "title": "Remote Access Routing",
+      "text": "Route remote access via managed access control points. (NIST SP 800-171 Rev. 2 3.1.14.)",
+      "mappings": [
+        {
+          "control": "A.8.20",
+          "coverage": "PARTIAL",
+          "rationale": "Network controls can force remote access through VPN gateways or similar, but the Control does not require routing through managed access control points."
+        },
+        {
+          "control": "A.8.22",
+          "coverage": "PARTIAL",
+          "rationale": "Segregation of networks supports a managed entry point for remote users; does not require it."
+        },
+        {
+          "control": "A.6.7",
+          "coverage": "PARTIAL",
+          "rationale": "Remote working security measures cover how people connect from outside; routing through managed points is not specified."
+        }
+      ]
+    },
+    {
+      "code": "AC.L2-3.1.15",
+      "section": "Access Control",
+      "title": "Privileged Remote Access",
+      "text": "Authorize remote execution of privileged commands and remote access to security-relevant information. (NIST SP 800-171 Rev. 2 3.1.15.)",
+      "mappings": [
+        {
+          "control": "A.8.2",
+          "coverage": "PARTIAL",
+          "rationale": "Authorization of privileged access rights applies to remote privileged commands too; remote access to security-relevant information is not singled out."
+        },
+        {
+          "control": "A.6.7",
+          "coverage": "PARTIAL",
+          "rationale": "Remote working measures cover who may work remotely and how; no separate authorization of privileged remote commands."
+        },
+        {
+          "control": "A.5.18",
+          "coverage": "PARTIAL",
+          "rationale": "Access rights are authorized before they are granted, which includes remote privileged access; not specific to remote execution."
+        }
+      ]
+    },
+    {
+      "code": "AC.L2-3.1.16",
+      "section": "Access Control",
+      "title": "Wireless Access Authorization",
+      "text": "Authorize wireless access prior to allowing such connections. (NIST SP 800-171 Rev. 2 3.1.16.)",
+      "mappings": [
+        {
+          "control": "A.8.20",
+          "coverage": "PARTIAL",
+          "rationale": "Network security covers authorizing devices and connections to networks; wireless access is not singled out."
+        },
+        {
+          "control": "A.8.21",
+          "coverage": "PARTIAL",
+          "rationale": "Security requirements for network services cover wireless as a service; does not require authorization before each connection."
+        }
+      ]
+    },
+    {
+      "code": "AC.L2-3.1.17",
+      "section": "Access Control",
+      "title": "Wireless Access Protection",
+      "text": "Protect wireless access using authentication and encryption. (NIST SP 800-171 Rev. 2 3.1.17.)",
+      "mappings": [
+        {
+          "control": "A.8.20",
+          "coverage": "PARTIAL",
+          "rationale": "Network security covers securing wireless networks; authentication and encryption are not both required."
+        },
+        {
+          "control": "A.8.21",
+          "coverage": "PARTIAL",
+          "rationale": "Security mechanisms for network services include wireless; not specific to authentication and encryption."
+        },
+        {
+          "control": "A.8.24",
+          "coverage": "PARTIAL",
+          "rationale": "Cryptography rules cover encrypting wireless traffic; the Control is broader and does not require wireless encryption."
+        }
+      ]
+    },
+    {
+      "code": "AC.L2-3.1.18",
+      "section": "Access Control",
+      "title": "Mobile Device Connection",
+      "text": "Control connection of mobile devices. (NIST SP 800-171 Rev. 2 3.1.18.)",
+      "mappings": [
+        {
+          "control": "A.8.1",
+          "coverage": "PARTIAL",
+          "rationale": "Rules for user endpoint devices, including mobile devices, cover how they are registered and connected; the Control is broader and does not guarantee connection control."
+        },
+        {
+          "control": "A.8.20",
+          "coverage": "PARTIAL",
+          "rationale": "Network security controls which devices can connect, covering the connection part only."
+        }
+      ]
+    },
+    {
+      "code": "AC.L2-3.1.19",
+      "section": "Access Control",
+      "title": "Encrypt CUI on Mobile",
+      "text": "Encrypt CUI on mobile devices and mobile computing platforms. (NIST SP 800-171 Rev. 2 3.1.19.)",
+      "mappings": [
+        {
+          "control": "A.8.1",
+          "coverage": "PARTIAL",
+          "rationale": "Endpoint device rules usually require encryption of stored information on mobile devices; the Control is broader and does not guarantee it for CUI."
+        },
+        {
+          "control": "A.8.24",
+          "coverage": "PARTIAL",
+          "rationale": "Cryptography rules cover encrypting stored information; they do not single out mobile devices and platforms."
+        }
+      ]
+    },
+    {
+      "code": "AC.L2-3.1.20",
+      "section": "Access Control",
+      "title": "External Connections",
+      "text": "Verify and control/limit connections to and use of external systems. (NIST SP 800-171 Rev. 2 3.1.20.)",
+      "mappings": [
+        {
+          "control": "A.8.20",
+          "coverage": "PARTIAL",
+          "rationale": "Same mapping as CMMC Level 1 AC.L1-b.1.iii. Controls connections from the network side; it does not cover verifying and limiting use of external systems such as personal devices or third-party services."
+        },
+        {
+          "control": "A.8.21",
+          "coverage": "PARTIAL",
+          "rationale": "Security requirements for network services used, which includes connections to external providers; not use of external systems by staff."
+        },
+        {
+          "control": "A.6.7",
+          "coverage": "PARTIAL",
+          "rationale": "Covers connecting from outside the organization's premises; not every external system connection."
+        },
+        {
+          "control": "A.5.23",
+          "coverage": "PARTIAL",
+          "rationale": "Covers control of cloud services as external systems; other external systems are not addressed."
+        }
+      ]
+    },
+    {
+      "code": "AC.L2-3.1.21",
+      "section": "Access Control",
+      "title": "Portable Storage Use",
+      "text": "Limit use of portable storage devices on external systems. (NIST SP 800-171 Rev. 2 3.1.21.)",
+      "mappings": [
+        {
+          "control": "A.7.10",
+          "coverage": "PARTIAL",
+          "rationale": "Storage media rules cover use of portable storage; they do not address using it on systems the organization does not control."
+        },
+        {
+          "control": "A.5.10",
+          "coverage": "PARTIAL",
+          "rationale": "Acceptable use rules can limit use of portable storage on external systems, without requiring it."
+        },
+        {
+          "control": "A.6.7",
+          "coverage": "PARTIAL",
+          "rationale": "Remote working measures cover working on systems outside the organization; portable storage is not singled out."
+        }
+      ]
+    },
+    {
+      "code": "AC.L2-3.1.22",
+      "section": "Access Control",
+      "title": "Control Public Information",
+      "text": "Control CUI posted or processed on publicly accessible systems. (NIST SP 800-171 Rev. 2 3.1.22.)",
+      "mappings": [
+        {
+          "control": "CMMC-L2-SUP-01",
+          "coverage": "FULL",
+          "rationale": "Same mapping as CMMC Level 1 AC.L1-b.1.iv. Covers all five assessment objectives [a]-[e]: who may post or process, procedures keeping CUI off public systems, review before posting, review of published content, and removal of an improper posting."
+        },
+        {
+          "control": "A.8.12",
+          "coverage": "PARTIAL",
+          "rationale": "Helps prevent CUI leaking to public destinations but does not define who may post or require review before publication."
+        },
+        {
+          "control": "A.5.14",
+          "coverage": "PARTIAL",
+          "rationale": "Rules for transferring information to other parties; not specific to posting on public systems."
+        }
+      ]
+    },
+    {
+      "code": "AT.L2-3.2.1",
+      "section": "Awareness and Training",
+      "title": "Role-Based Risk Awareness",
+      "text": "Ensure that managers, systems administrators, and users of organizational systems are made aware of the security risks associated with their activities and of the applicable policies, standards, and procedures related to the security of those systems. (NIST SP 800-171 Rev. 2 3.2.1.)",
+      "mappings": [
+        {
+          "control": "A.6.3",
+          "coverage": "FULL",
+          "rationale": "Awareness of the organization's policies and of the risks of one's own activities, tailored to job function, is this requirement."
+        },
+        {
+          "control": "ISMS-7.3",
+          "coverage": "PARTIAL",
+          "rationale": "Awareness of the policy and of one's contribution to the ISMS; narrower than the risks of each role's activities."
+        }
+      ]
+    },
+    {
+      "code": "AT.L2-3.2.2",
+      "section": "Awareness and Training",
+      "title": "Role-Based Training",
+      "text": "Ensure that personnel are trained to carry out their assigned information security-related duties and responsibilities. (NIST SP 800-171 Rev. 2 3.2.2.)",
+      "mappings": [
+        {
+          "control": "A.6.3",
+          "coverage": "FULL",
+          "rationale": "Appropriate training for the information security duties of a job function is this requirement."
+        },
+        {
+          "control": "ISMS-7.2",
+          "coverage": "PARTIAL",
+          "rationale": "Competence of people affecting security performance; covers training as one way to get there."
+        }
+      ]
+    },
+    {
+      "code": "AT.L2-3.2.3",
+      "section": "Awareness and Training",
+      "title": "Insider Threat Awareness",
+      "text": "Provide security awareness training on recognizing and reporting potential indicators of insider threat. (NIST SP 800-171 Rev. 2 3.2.3.)",
+      "mappings": [
+        {
+          "control": "A.6.3",
+          "coverage": "PARTIAL",
+          "rationale": "Awareness training can cover insider threat indicators, but the Control does not require the topic."
+        },
+        {
+          "control": "A.6.8",
+          "coverage": "PARTIAL",
+          "rationale": "Reporting of observed security events covers reporting a suspected insider, without the recognition training."
+        }
+      ]
+    },
+    {
+      "code": "AU.L2-3.3.1",
+      "section": "Audit and Accountability",
+      "title": "System Auditing",
+      "text": "Create and retain system audit logs and records to the extent needed to enable the monitoring, analysis, investigation, and reporting of unlawful or unauthorized system activity. (NIST SP 800-171 Rev. 2 3.3.1.)",
+      "mappings": [
+        {
+          "control": "A.8.15",
+          "coverage": "FULL",
+          "rationale": "Producing, storing, protecting and analysing logs of activities, exceptions and events is this requirement."
+        }
+      ]
+    },
+    {
+      "code": "AU.L2-3.3.2",
+      "section": "Audit and Accountability",
+      "title": "User Accountability",
+      "text": "Ensure that the actions of individual system users can be uniquely traced to those users so they can be held accountable for their actions. (NIST SP 800-171 Rev. 2 3.3.2.)",
+      "mappings": [
+        {
+          "control": "A.8.15",
+          "coverage": "FULL",
+          "rationale": "Logs record user IDs and the activities performed, so actions can be traced to individual users."
+        },
+        {
+          "control": "A.5.16",
+          "coverage": "PARTIAL",
+          "rationale": "Unique identities per person are what make a log entry traceable; the Control does not itself create the log."
+        }
+      ]
+    },
+    {
+      "code": "AU.L2-3.3.3",
+      "section": "Audit and Accountability",
+      "title": "Event Review",
+      "text": "Review and update logged events. (NIST SP 800-171 Rev. 2 3.3.3.)",
+      "mappings": [
+        {
+          "control": "A.8.15",
+          "coverage": "PARTIAL",
+          "rationale": "Logs are analysed, but the Control does not require reviewing and updating the set of logged events."
+        },
+        {
+          "control": "A.8.16",
+          "coverage": "PARTIAL",
+          "rationale": "Monitoring includes reviewing records for anomalies; it does not cover updating what is logged."
+        }
+      ]
+    },
+    {
+      "code": "AU.L2-3.3.4",
+      "section": "Audit and Accountability",
+      "title": "Audit Failure Alerting",
+      "text": "Alert in the event of an audit logging process failure. (NIST SP 800-171 Rev. 2 3.3.4.)",
+      "mappings": [
+        {
+          "control": "A.8.15",
+          "coverage": "PARTIAL",
+          "rationale": "Logging facilities are protected, but alerting when the logging process fails is not required."
+        },
+        {
+          "control": "A.8.16",
+          "coverage": "PARTIAL",
+          "rationale": "Monitoring of systems can include the health of logging, without requiring an alert on logging failure."
+        }
+      ]
+    },
+    {
+      "code": "AU.L2-3.3.5",
+      "section": "Audit and Accountability",
+      "title": "Audit Correlation",
+      "text": "Correlate audit record review, analysis, and reporting processes for investigation and response to indications of unlawful, unauthorized, suspicious, or unusual activity. (NIST SP 800-171 Rev. 2 3.3.5.)",
+      "mappings": [
+        {
+          "control": "A.8.15",
+          "coverage": "PARTIAL",
+          "rationale": "Log analysis may correlate events, but the Control does not require correlating review, analysis and reporting for response."
+        },
+        {
+          "control": "A.8.16",
+          "coverage": "PARTIAL",
+          "rationale": "Monitoring for anomalous behaviour supports correlation; the Control does not require a correlation process."
+        }
+      ]
+    },
+    {
+      "code": "AU.L2-3.3.6",
+      "section": "Audit and Accountability",
+      "title": "Reduction & Reporting",
+      "text": "Provide audit record reduction and report generation to support on-demand analysis and reporting. (NIST SP 800-171 Rev. 2 3.3.6.)",
+      "mappings": [
+        {
+          "control": "A.8.15",
+          "coverage": "PARTIAL",
+          "rationale": "Logs are analysed and reported on, but audit record reduction and on-demand reporting are not required."
+        }
+      ]
+    },
+    {
+      "code": "AU.L2-3.3.7",
+      "section": "Audit and Accountability",
+      "title": "Authoritative Time Source",
+      "text": "Provide a system capability that compares and synchronizes internal system clocks with an authoritative source to generate time stamps for audit records. (NIST SP 800-171 Rev. 2 3.3.7.)",
+      "mappings": [
+        {
+          "control": "A.8.17",
+          "coverage": "FULL",
+          "rationale": "Synchronising the clocks of information processing systems to approved time sources is this requirement."
+        }
+      ]
+    },
+    {
+      "code": "AU.L2-3.3.8",
+      "section": "Audit and Accountability",
+      "title": "Audit Protection",
+      "text": "Protect audit information and audit logging tools from unauthorized access, modification, and deletion. (NIST SP 800-171 Rev. 2 3.3.8.)",
+      "mappings": [
+        {
+          "control": "A.8.15",
+          "coverage": "FULL",
+          "rationale": "Protecting logging facilities and log information against tampering and unauthorized access is part of this Control and is this requirement."
+        }
+      ]
+    },
+    {
+      "code": "AU.L2-3.3.9",
+      "section": "Audit and Accountability",
+      "title": "Audit Management",
+      "text": "Limit management of audit logging functionality to a subset of privileged users. (NIST SP 800-171 Rev. 2 3.3.9.)",
+      "mappings": [
+        {
+          "control": "A.8.15",
+          "coverage": "PARTIAL",
+          "rationale": "Protects logging facilities from unauthorized change, without limiting management of logging to a subset of privileged users."
+        },
+        {
+          "control": "A.8.2",
+          "coverage": "PARTIAL",
+          "rationale": "Restricts privileged access rights, which keeps audit management among a few privileged users; logging is not singled out."
+        }
+      ]
+    },
+    {
+      "code": "CM.L2-3.4.1",
+      "section": "Configuration Management",
+      "title": "System Baselining",
+      "text": "Establish and maintain baseline configurations and inventories of organizational systems (including hardware, software, firmware, and documentation) throughout the respective system development life cycles. (NIST SP 800-171 Rev. 2 3.4.1.)",
+      "mappings": [
+        {
+          "control": "A.8.9",
+          "coverage": "PARTIAL",
+          "rationale": "Configurations, including security configurations, are established and documented; inventories and the full system life cycle are not covered."
+        },
+        {
+          "control": "A.5.9",
+          "coverage": "PARTIAL",
+          "rationale": "Inventory of information and other assets covers the inventory part; baseline configurations are not covered."
+        }
+      ]
+    },
+    {
+      "code": "CM.L2-3.4.2",
+      "section": "Configuration Management",
+      "title": "Security Configuration Enforcement",
+      "text": "Establish and enforce security configuration settings for information technology products employed in organizational systems. (NIST SP 800-171 Rev. 2 3.4.2.)",
+      "mappings": [
+        {
+          "control": "A.8.9",
+          "coverage": "FULL",
+          "rationale": "Establishing, implementing, monitoring and reviewing security configurations of hardware, software and services is this requirement."
+        }
+      ]
+    },
+    {
+      "code": "CM.L2-3.4.3",
+      "section": "Configuration Management",
+      "title": "System Change Management",
+      "text": "Track, review, approve or disapprove, and log changes to organizational systems. (NIST SP 800-171 Rev. 2 3.4.3.)",
+      "mappings": [
+        {
+          "control": "A.8.32",
+          "coverage": "FULL",
+          "rationale": "Changes to information processing facilities and systems under change management procedures, with review, approval and logging, is this requirement."
+        }
+      ]
+    },
+    {
+      "code": "CM.L2-3.4.4",
+      "section": "Configuration Management",
+      "title": "Security Impact Analysis",
+      "text": "Analyze the security impact of changes prior to implementation. (NIST SP 800-171 Rev. 2 3.4.4.)",
+      "mappings": [
+        {
+          "control": "A.8.32",
+          "coverage": "PARTIAL",
+          "rationale": "Change management includes assessing the impact of a change; the Control does not require the analysis to cover security specifically."
+        },
+        {
+          "control": "A.8.29",
+          "coverage": "PARTIAL",
+          "rationale": "Security testing before acceptance helps show the impact of a change; it is aimed at development and acceptance."
+        }
+      ]
+    },
+    {
+      "code": "CM.L2-3.4.5",
+      "section": "Configuration Management",
+      "title": "Access Restrictions for Change",
+      "text": "Define, document, approve, and enforce physical and logical access restrictions associated with changes to organizational systems. (NIST SP 800-171 Rev. 2 3.4.5.)",
+      "mappings": [
+        {
+          "control": "A.8.32",
+          "coverage": "PARTIAL",
+          "rationale": "Change management covers who may make and approve changes; physical and logical access restrictions are not explicit."
+        },
+        {
+          "control": "A.8.2",
+          "coverage": "PARTIAL",
+          "rationale": "Restricts privileged access, which is what logical change access depends on."
+        },
+        {
+          "control": "A.8.31",
+          "coverage": "PARTIAL",
+          "rationale": "Separating development, test and production environments limits who can change production; not all changes are in that scope."
+        }
+      ]
+    },
+    {
+      "code": "CM.L2-3.4.6",
+      "section": "Configuration Management",
+      "title": "Least Functionality",
+      "text": "Employ the principle of least functionality by configuring organizational systems to provide only essential capabilities. (NIST SP 800-171 Rev. 2 3.4.6.)",
+      "mappings": [
+        {
+          "control": "A.8.9",
+          "coverage": "PARTIAL",
+          "rationale": "Secure configurations normally remove unneeded capabilities, but the Control does not require least functionality."
+        },
+        {
+          "control": "A.8.19",
+          "coverage": "PARTIAL",
+          "rationale": "Controls installation of software on operational systems, which limits capabilities; not configuration of the system as a whole."
+        }
+      ]
+    },
+    {
+      "code": "CM.L2-3.4.7",
+      "section": "Configuration Management",
+      "title": "Nonessential Functionality",
+      "text": "Restrict, disable, or prevent the use of nonessential programs, functions, ports, protocols, and services. (NIST SP 800-171 Rev. 2 3.4.7.)",
+      "mappings": [
+        {
+          "control": "A.8.9",
+          "coverage": "PARTIAL",
+          "rationale": "Secure configuration can disable unneeded functions; the Control does not name programs, ports, protocols and services."
+        },
+        {
+          "control": "A.8.20",
+          "coverage": "PARTIAL",
+          "rationale": "Network security covers limiting ports, protocols and services; programs and functions are not covered."
+        }
+      ]
+    },
+    {
+      "code": "CM.L2-3.4.8",
+      "section": "Configuration Management",
+      "title": "Application Execution Policy",
+      "text": "Apply deny-by-exception (blacklisting) policy to prevent the use of unauthorized software or deny-all, permit-by-exception (whitelisting) policy to allow the execution of authorized software. (NIST SP 800-171 Rev. 2 3.4.8.)",
+      "mappings": [
+        {
+          "control": "A.8.19",
+          "coverage": "PARTIAL",
+          "rationale": "Rules for installing software on operational systems; allow-listing or deny-listing of execution is not required."
+        },
+        {
+          "control": "A.8.7",
+          "coverage": "PARTIAL",
+          "rationale": "Malware protection guidance mentions application allow-listing as one measure; it is not required."
+        }
+      ]
+    },
+    {
+      "code": "CM.L2-3.4.9",
+      "section": "Configuration Management",
+      "title": "User-Installed Software",
+      "text": "Control and monitor user-installed software. (NIST SP 800-171 Rev. 2 3.4.9.)",
+      "mappings": [
+        {
+          "control": "A.8.19",
+          "coverage": "PARTIAL",
+          "rationale": "Rules governing installation of software by users are established and implemented; monitoring user-installed software is not required."
+        },
+        {
+          "control": "A.8.16",
+          "coverage": "PARTIAL",
+          "rationale": "Monitoring of systems can detect unauthorized installations, without requiring it."
+        }
+      ]
+    },
+    {
+      "code": "IA.L2-3.5.1",
+      "section": "Identification and Authentication",
+      "title": "Identification",
+      "text": "Identify system users, processes acting on behalf of users, and devices. (NIST SP 800-171 Rev. 2 3.5.1.)",
+      "mappings": [
+        {
+          "control": "A.5.16",
+          "coverage": "FULL",
+          "rationale": "Same mapping as CMMC Level 1 IA.L1-b.1.v. Managing the full life cycle of identities, for people and systems, gives each user, process and device a unique identity."
+        }
+      ]
+    },
+    {
+      "code": "IA.L2-3.5.2",
+      "section": "Identification and Authentication",
+      "title": "Authentication",
+      "text": "Authenticate (or verify) the identities of users, processes, or devices, as a prerequisite to allowing access to organizational systems. (NIST SP 800-171 Rev. 2 3.5.2.)",
+      "mappings": [
+        {
+          "control": "A.8.5",
+          "coverage": "FULL",
+          "rationale": "Same mapping as CMMC Level 1 IA.L1-b.1.vi. Secure authentication for all access is the control that verifies identity before access is granted."
+        },
+        {
+          "control": "A.5.17",
+          "coverage": "PARTIAL",
+          "rationale": "Management of authentication credentials such as passwords and keys; supports but is not the verification itself."
+        }
+      ]
+    },
+    {
+      "code": "IA.L2-3.5.3",
+      "section": "Identification and Authentication",
+      "title": "Multifactor Authentication",
+      "text": "Use multifactor authentication for local and network access to privileged accounts and for network access to non-privileged accounts. (NIST SP 800-171 Rev. 2 3.5.3.)",
+      "mappings": [
+        {
+          "control": "A.8.5",
+          "coverage": "PARTIAL",
+          "rationale": "Secure authentication includes multi-factor methods where the risk calls for them; the Control does not require MFA for privileged and network access."
+        },
+        {
+          "control": "A.8.2",
+          "coverage": "PARTIAL",
+          "rationale": "Privileged access rights are tied to authentication strength by the access control policy; MFA is not stated."
+        }
+      ]
+    },
+    {
+      "code": "IA.L2-3.5.4",
+      "section": "Identification and Authentication",
+      "title": "Replay-Resistant Authentication",
+      "text": "Employ replay-resistant authentication mechanisms for network access to privileged and non-privileged accounts. (NIST SP 800-171 Rev. 2 3.5.4.)",
+      "mappings": [
+        {
+          "control": "A.8.5",
+          "coverage": "PARTIAL",
+          "rationale": "Secure authentication covers protecting authentication from being captured and reused; replay resistance is not named."
+        },
+        {
+          "control": "A.8.24",
+          "coverage": "PARTIAL",
+          "rationale": "Cryptographic mechanisms are a typical way to resist replay, but the Control does not require it for authentication."
+        }
+      ]
+    },
+    {
+      "code": "IA.L2-3.5.5",
+      "section": "Identification and Authentication",
+      "title": "Identifier Reuse",
+      "text": "Prevent reuse of identifiers for a defined period. (NIST SP 800-171 Rev. 2 3.5.5.)",
+      "mappings": [
+        {
+          "control": "A.5.16",
+          "coverage": "FULL",
+          "rationale": "Managing identities across their life cycle, including not reassigning an identity to another person, is this requirement."
+        }
+      ]
+    },
+    {
+      "code": "IA.L2-3.5.6",
+      "section": "Identification and Authentication",
+      "title": "Identifier Handling",
+      "text": "Disable identifiers after a defined period of inactivity. (NIST SP 800-171 Rev. 2 3.5.6.)",
+      "mappings": [
+        {
+          "control": "A.5.16",
+          "coverage": "PARTIAL",
+          "rationale": "Identities are disabled or removed when no longer needed and redundant identities are reviewed; a defined period of inactivity is not required."
+        },
+        {
+          "control": "A.5.18",
+          "coverage": "PARTIAL",
+          "rationale": "Access rights are reviewed and removed when no longer needed, which supports disabling inactive accounts."
+        }
+      ]
+    },
+    {
+      "code": "IA.L2-3.5.7",
+      "section": "Identification and Authentication",
+      "title": "Password Complexity",
+      "text": "Enforce a minimum password complexity and change of characters when new passwords are created. (NIST SP 800-171 Rev. 2 3.5.7.)",
+      "mappings": [
+        {
+          "control": "A.5.17",
+          "coverage": "PARTIAL",
+          "rationale": "Rules for passwords and other authentication information include strength; a minimum complexity and a change of characters are not specified."
+        },
+        {
+          "control": "A.8.5",
+          "coverage": "PARTIAL",
+          "rationale": "Secure authentication covers password quality at a high level only."
+        }
+      ]
+    },
+    {
+      "code": "IA.L2-3.5.8",
+      "section": "Identification and Authentication",
+      "title": "Password Reuse",
+      "text": "Prohibit password reuse for a specified number of generations. (NIST SP 800-171 Rev. 2 3.5.8.)",
+      "mappings": [
+        {
+          "control": "A.5.17",
+          "coverage": "PARTIAL",
+          "rationale": "Allocation and management of authentication information covers password changes; prohibiting reuse for a number of generations is not required."
+        }
+      ]
+    },
+    {
+      "code": "IA.L2-3.5.9",
+      "section": "Identification and Authentication",
+      "title": "Temporary Passwords",
+      "text": "Allow temporary password use for system logons with an immediate change to a permanent password. (NIST SP 800-171 Rev. 2 3.5.9.)",
+      "mappings": [
+        {
+          "control": "A.5.17",
+          "coverage": "FULL",
+          "rationale": "Initial and temporary authentication information is issued securely and must be changed at first use, which is this requirement."
+        }
+      ]
+    },
+    {
+      "code": "IA.L2-3.5.10",
+      "section": "Identification and Authentication",
+      "title": "Cryptographically-Protected Passwords",
+      "text": "Store and transmit only cryptographically-protected passwords. (NIST SP 800-171 Rev. 2 3.5.10.)",
+      "mappings": [
+        {
+          "control": "A.5.17",
+          "coverage": "PARTIAL",
+          "rationale": "Authentication information is kept confidential and stored and transmitted securely; cryptographic protection is not mandated."
+        },
+        {
+          "control": "A.8.24",
+          "coverage": "PARTIAL",
+          "rationale": "Cryptography rules cover protecting stored and transmitted credentials without requiring it."
+        }
+      ]
+    },
+    {
+      "code": "IA.L2-3.5.11",
+      "section": "Identification and Authentication",
+      "title": "Obscure Feedback",
+      "text": "Obscure feedback of authentication information. (NIST SP 800-171 Rev. 2 3.5.11.)",
+      "mappings": [
+        {
+          "control": "A.8.5",
+          "coverage": "FULL",
+          "rationale": "Secure log-on does not display the password or other authentication information while it is entered, which is this requirement."
+        }
+      ]
+    },
+    {
+      "code": "IR.L2-3.6.1",
+      "section": "Incident Response",
+      "title": "Incident Handling",
+      "text": "Establish an operational incident-handling capability for organizational systems that includes preparation, detection, analysis, containment, recovery, and user response activities. (NIST SP 800-171 Rev. 2 3.6.1.)",
+      "mappings": [
+        {
+          "control": "A.5.24",
+          "coverage": "FULL",
+          "rationale": "Planning and preparing incident management, with defined processes and roles across the incident life cycle, is this requirement."
+        },
+        {
+          "control": "A.5.25",
+          "coverage": "PARTIAL",
+          "rationale": "Assessing and deciding on events covers detection and analysis; not preparation, recovery or user response."
+        },
+        {
+          "control": "A.5.26",
+          "coverage": "PARTIAL",
+          "rationale": "Responding to incidents covers containment and recovery; not preparation or detection."
+        },
+        {
+          "control": "A.8.16",
+          "coverage": "PARTIAL",
+          "rationale": "Monitoring supplies detection; the rest of the incident-handling capability is out of scope."
+        }
+      ]
+    },
+    {
+      "code": "IR.L2-3.6.2",
+      "section": "Incident Response",
+      "title": "Incident Reporting",
+      "text": "Track, document, and report incidents to designated officials and/or authorities both internal and external to the organization. (NIST SP 800-171 Rev. 2 3.6.2.)",
+      "mappings": [
+        {
+          "control": "A.6.8",
+          "coverage": "PARTIAL",
+          "rationale": "Mechanism for reporting events and weaknesses; reporting to external authorities is not covered."
+        },
+        {
+          "control": "A.5.5",
+          "coverage": "PARTIAL",
+          "rationale": "Contact with relevant authorities covers external reporting; internal tracking and documentation are not covered."
+        },
+        {
+          "control": "A.5.26",
+          "coverage": "PARTIAL",
+          "rationale": "Response includes recording and escalating incidents; reporting to external bodies is not specified."
+        }
+      ]
+    },
+    {
+      "code": "IR.L2-3.6.3",
+      "section": "Incident Response",
+      "title": "Incident Response Testing",
+      "text": "Test the organizational incident response capability. (NIST SP 800-171 Rev. 2 3.6.3.)",
+      "mappings": [
+        {
+          "control": "A.5.24",
+          "coverage": "PARTIAL",
+          "rationale": "Incident management planning may include exercises, but testing is not strictly required."
+        },
+        {
+          "control": "A.5.27",
+          "coverage": "PARTIAL",
+          "rationale": "Learning from incidents improves the capability; it is not a test of it."
+        }
+      ]
+    },
+    {
+      "code": "MA.L2-3.7.1",
+      "section": "Maintenance",
+      "title": "Perform Maintenance",
+      "text": "Perform maintenance on organizational systems. (NIST SP 800-171 Rev. 2 3.7.1.)",
+      "mappings": [
+        {
+          "control": "A.7.13",
+          "coverage": "FULL",
+          "rationale": "Maintaining equipment correctly so availability, integrity and confidentiality are preserved is this requirement."
+        }
+      ]
+    },
+    {
+      "code": "MA.L2-3.7.2",
+      "section": "Maintenance",
+      "title": "System Maintenance Control",
+      "text": "Provide controls on the tools, techniques, mechanisms, and personnel used to conduct system maintenance. (NIST SP 800-171 Rev. 2 3.7.2.)",
+      "mappings": [
+        {
+          "control": "A.7.13",
+          "coverage": "PARTIAL",
+          "rationale": "Equipment maintenance covers the personnel and processes used; controls on tools and techniques are not explicit."
+        },
+        {
+          "control": "A.8.2",
+          "coverage": "PARTIAL",
+          "rationale": "Restricts privileged access, which governs use of maintenance tools and accounts."
+        }
+      ]
+    },
+    {
+      "code": "MA.L2-3.7.3",
+      "section": "Maintenance",
+      "title": "Equipment Sanitization",
+      "text": "Ensure equipment removed for off-site maintenance is sanitized of any CUI. (NIST SP 800-171 Rev. 2 3.7.3.)",
+      "mappings": [
+        {
+          "control": "A.7.14",
+          "coverage": "PARTIAL",
+          "rationale": "Sanitising equipment before disposal or re-use; off-site maintenance is not a disposal."
+        },
+        {
+          "control": "A.7.13",
+          "coverage": "PARTIAL",
+          "rationale": "Equipment maintenance covers handling of equipment sent off-site, with sanitisation only as a possible measure."
+        },
+        {
+          "control": "A.7.9",
+          "coverage": "PARTIAL",
+          "rationale": "Protecting assets off-premises covers equipment sent away; sanitisation is not required."
+        }
+      ]
+    },
+    {
+      "code": "MA.L2-3.7.4",
+      "section": "Maintenance",
+      "title": "Media Inspection",
+      "text": "Check media containing diagnostic and test programs for malicious code before the media are used in organizational systems. (NIST SP 800-171 Rev. 2 3.7.4.)",
+      "mappings": [
+        {
+          "control": "A.8.7",
+          "coverage": "PARTIAL",
+          "rationale": "Malware controls cover scanning media before use; diagnostic and test program media are not singled out."
+        },
+        {
+          "control": "A.7.13",
+          "coverage": "PARTIAL",
+          "rationale": "Equipment maintenance covers maintenance activity; checking the media brought by maintenance staff is not required."
+        }
+      ]
+    },
+    {
+      "code": "MA.L2-3.7.5",
+      "section": "Maintenance",
+      "title": "Nonlocal Maintenance",
+      "text": "Require multifactor authentication to establish nonlocal maintenance sessions via external network connections and terminate such connections when nonlocal maintenance is complete. (NIST SP 800-171 Rev. 2 3.7.5.)",
+      "mappings": [
+        {
+          "control": "A.8.5",
+          "coverage": "PARTIAL",
+          "rationale": "Secure authentication includes multi-factor methods; not required for maintenance sessions."
+        },
+        {
+          "control": "A.7.13",
+          "coverage": "PARTIAL",
+          "rationale": "Equipment maintenance covers remote maintenance as an activity; session MFA and termination are not specified."
+        }
+      ]
+    },
+    {
+      "code": "MA.L2-3.7.6",
+      "section": "Maintenance",
+      "title": "Maintenance Personnel",
+      "text": "Supervise the maintenance activities of maintenance personnel without required access authorization. (NIST SP 800-171 Rev. 2 3.7.6.)",
+      "mappings": [
+        {
+          "control": "A.7.13",
+          "coverage": "PARTIAL",
+          "rationale": "Equipment maintenance covers personnel doing the maintenance; supervision of personnel without access authorization is not specified."
+        },
+        {
+          "control": "A.7.6",
+          "coverage": "PARTIAL",
+          "rationale": "Working in secure areas includes supervising third parties; not specific to maintenance."
+        }
+      ]
+    },
+    {
+      "code": "MP.L2-3.8.1",
+      "section": "Media Protection",
+      "title": "Media Protection",
+      "text": "Protect (i.e., physically control and securely store) system media containing CUI, both paper and digital. (NIST SP 800-171 Rev. 2 3.8.1.)",
+      "mappings": [
+        {
+          "control": "A.7.10",
+          "coverage": "FULL",
+          "rationale": "Managing storage media through their life cycle, with secure storage and handling of paper and digital media, is this requirement."
+        }
+      ]
+    },
+    {
+      "code": "MP.L2-3.8.2",
+      "section": "Media Protection",
+      "title": "Media Access",
+      "text": "Limit access to CUI on system media to authorized users. (NIST SP 800-171 Rev. 2 3.8.2.)",
+      "mappings": [
+        {
+          "control": "A.7.10",
+          "coverage": "PARTIAL",
+          "rationale": "Storage media management includes who may use and handle media; the Control is broader."
+        },
+        {
+          "control": "A.8.3",
+          "coverage": "PARTIAL",
+          "rationale": "Restricts access to information per the access control policy, including on media."
+        },
+        {
+          "control": "A.5.15",
+          "coverage": "PARTIAL",
+          "rationale": "Access control rules cover who may reach CUI; media are not singled out."
+        }
+      ]
+    },
+    {
+      "code": "MP.L2-3.8.3",
+      "section": "Media Protection",
+      "title": "Media Disposal",
+      "text": "Sanitize or destroy system media containing CUI before disposal or release for reuse. (NIST SP 800-171 Rev. 2 3.8.3.)",
+      "mappings": [
+        {
+          "control": "A.7.14",
+          "coverage": "FULL",
+          "rationale": "Same mapping as CMMC Level 1 MP.L1-b.1.vii. Sanitising or destroying equipment (including its storage media) before disposal or re-use is this requirement."
+        },
+        {
+          "control": "A.7.10",
+          "coverage": "PARTIAL",
+          "rationale": "Covers the life cycle of storage media including disposal, but is broader and does not on its own guarantee sanitisation of media containing CUI, nor non-digital media such as paper."
+        }
+      ]
+    },
+    {
+      "code": "MP.L2-3.8.4",
+      "section": "Media Protection",
+      "title": "Media Markings",
+      "text": "Mark media with necessary CUI markings and distribution limitations. (NIST SP 800-171 Rev. 2 3.8.4.)",
+      "mappings": [
+        {
+          "control": "A.5.13",
+          "coverage": "PARTIAL",
+          "rationale": "Information is labelled to the organization's classification scheme; CUI markings and distribution limitations are not specified."
+        },
+        {
+          "control": "A.5.12",
+          "coverage": "PARTIAL",
+          "rationale": "Classification of information identifies what needs marking; it does not mark media."
+        }
+      ]
+    },
+    {
+      "code": "MP.L2-3.8.5",
+      "section": "Media Protection",
+      "title": "Media Accountability",
+      "text": "Control access to media containing CUI and maintain accountability for media during transport outside of controlled areas. (NIST SP 800-171 Rev. 2 3.8.5.)",
+      "mappings": [
+        {
+          "control": "A.7.10",
+          "coverage": "PARTIAL",
+          "rationale": "Storage media in transit are protected and tracked; accountability for CUI media specifically is not required."
+        },
+        {
+          "control": "A.5.14",
+          "coverage": "PARTIAL",
+          "rationale": "Information transfer rules cover physical media in transit; not accountability records."
+        }
+      ]
+    },
+    {
+      "code": "MP.L2-3.8.6",
+      "section": "Media Protection",
+      "title": "Portable Storage Encryption",
+      "text": "Implement cryptographic mechanisms to protect the confidentiality of CUI stored on digital media during transport unless otherwise protected by alternative physical safeguards. (NIST SP 800-171 Rev. 2 3.8.6.)",
+      "mappings": [
+        {
+          "control": "A.8.24",
+          "coverage": "PARTIAL",
+          "rationale": "Cryptography rules cover protecting stored information; not specifically media in transport."
+        },
+        {
+          "control": "A.7.10",
+          "coverage": "PARTIAL",
+          "rationale": "Storage media management includes protecting media in transit, with encryption as one option."
+        }
+      ]
+    },
+    {
+      "code": "MP.L2-3.8.7",
+      "section": "Media Protection",
+      "title": "Removable Media",
+      "text": "Control the use of removable media on system components. (NIST SP 800-171 Rev. 2 3.8.7.)",
+      "mappings": [
+        {
+          "control": "A.7.10",
+          "coverage": "FULL",
+          "rationale": "A policy for managing removable storage media, including authorization and controlling their use, is this requirement."
+        }
+      ]
+    },
+    {
+      "code": "MP.L2-3.8.8",
+      "section": "Media Protection",
+      "title": "Shared Media",
+      "text": "Prohibit the use of portable storage devices when such devices have no identifiable owner. (NIST SP 800-171 Rev. 2 3.8.8.)",
+      "mappings": [
+        {
+          "control": "A.7.10",
+          "coverage": "PARTIAL",
+          "rationale": "Storage media management covers authorised media; a ban on media without an identifiable owner is not stated."
+        },
+        {
+          "control": "A.5.9",
+          "coverage": "PARTIAL",
+          "rationale": "Assets have owners in the inventory, which makes an unowned device identifiable; no use prohibition."
+        }
+      ]
+    },
+    {
+      "code": "MP.L2-3.8.9",
+      "section": "Media Protection",
+      "title": "Protect Backups",
+      "text": "Protect the confidentiality of backup CUI at storage locations. (NIST SP 800-171 Rev. 2 3.8.9.)",
+      "mappings": [
+        {
+          "control": "A.8.13",
+          "coverage": "PARTIAL",
+          "rationale": "Backup copies are kept and tested; confidentiality of backups at storage locations is not the focus of the Control."
+        },
+        {
+          "control": "A.8.24",
+          "coverage": "PARTIAL",
+          "rationale": "Cryptography rules cover encrypting backups without requiring it."
+        },
+        {
+          "control": "A.7.10",
+          "coverage": "PARTIAL",
+          "rationale": "Storage media management covers securing backup media; not backups held online."
+        }
+      ]
+    },
+    {
+      "code": "PS.L2-3.9.1",
+      "section": "Personnel Security",
+      "title": "Screen Individuals",
+      "text": "Screen individuals prior to authorizing access to organizational systems containing CUI. (NIST SP 800-171 Rev. 2 3.9.1.)",
+      "mappings": [
+        {
+          "control": "A.6.1",
+          "coverage": "FULL",
+          "rationale": "Background verification of candidates before they join and before access is given is this requirement."
+        }
+      ]
+    },
+    {
+      "code": "PS.L2-3.9.2",
+      "section": "Personnel Security",
+      "title": "Personnel Actions",
+      "text": "Ensure that organizational systems containing CUI are protected during and after personnel actions such as terminations and transfers. (NIST SP 800-171 Rev. 2 3.9.2.)",
+      "mappings": [
+        {
+          "control": "A.5.18",
+          "coverage": "FULL",
+          "rationale": "Access rights are modified or removed when employment ends or a role changes, which is what protects systems during and after personnel actions."
+        },
+        {
+          "control": "A.5.11",
+          "coverage": "PARTIAL",
+          "rationale": "Return of assets on termination or transfer; does not cover removing access."
+        },
+        {
+          "control": "A.6.5",
+          "coverage": "PARTIAL",
+          "rationale": "Responsibilities that remain after termination or change of employment; not the removal of access."
+        }
+      ]
+    },
+    {
+      "code": "PE.L2-3.10.1",
+      "section": "Physical Protection",
+      "title": "Limit Physical Access",
+      "text": "Limit physical access to organizational systems, equipment, and the respective operating environments to authorized individuals. (NIST SP 800-171 Rev. 2 3.10.1.)",
+      "mappings": [
+        {
+          "control": "A.7.2",
+          "coverage": "FULL",
+          "rationale": "Same mapping as CMMC Level 1 PE.L1-b.1.viii. Controls physical access to secure areas with appropriate authentication, limiting entry to authorized individuals."
+        },
+        {
+          "control": "A.7.1",
+          "coverage": "PARTIAL",
+          "rationale": "Defines the perimeters of the areas that hold systems, which entry controls then protect."
+        },
+        {
+          "control": "A.7.3",
+          "coverage": "PARTIAL",
+          "rationale": "Secures offices, rooms and facilities where the systems and equipment are located."
+        }
+      ]
+    },
+    {
+      "code": "PE.L2-3.10.2",
+      "section": "Physical Protection",
+      "title": "Monitor Facility",
+      "text": "Protect and monitor the physical facility and support infrastructure for organizational systems. (NIST SP 800-171 Rev. 2 3.10.2.)",
+      "mappings": [
+        {
+          "control": "A.7.4",
+          "coverage": "PARTIAL",
+          "rationale": "Monitoring premises with surveillance and alarms covers the monitoring part; protection of support infrastructure is not covered."
+        },
+        {
+          "control": "A.7.1",
+          "coverage": "PARTIAL",
+          "rationale": "Defining physical security perimeters protects the facility; monitoring is not covered."
+        },
+        {
+          "control": "A.7.3",
+          "coverage": "PARTIAL",
+          "rationale": "Securing offices, rooms and facilities protects the facility; monitoring is not covered."
+        },
+        {
+          "control": "A.7.11",
+          "coverage": "PARTIAL",
+          "rationale": "Supporting utilities (power, cooling) protects part of the support infrastructure; the Control is narrower than the facility."
+        }
+      ]
+    },
+    {
+      "code": "PE.L2-3.10.3",
+      "section": "Physical Protection",
+      "title": "Escort Visitors",
+      "text": "Escort visitors and monitor visitor activity. (NIST SP 800-171 Rev. 2 3.10.3.)",
+      "mappings": [
+        {
+          "control": "A.7.2",
+          "coverage": "PARTIAL",
+          "rationale": "Narrower than CMMC Level 1 PE.L1-b.1.ix, which covers this practice together with 3.10.4 and 3.10.5. Physical entry controls normally cover visitor handling, but the Control does not on its own require escorting visitors."
+        },
+        {
+          "control": "A.7.4",
+          "coverage": "PARTIAL",
+          "rationale": "Monitoring of premises supports watching visitor activity; it does not require visitors to be escorted."
+        }
+      ]
+    },
+    {
+      "code": "PE.L2-3.10.4",
+      "section": "Physical Protection",
+      "title": "Physical Access Logs",
+      "text": "Maintain audit logs of physical access. (NIST SP 800-171 Rev. 2 3.10.4.)",
+      "mappings": [
+        {
+          "control": "A.7.2",
+          "coverage": "PARTIAL",
+          "rationale": "Narrower than CMMC Level 1 PE.L1-b.1.ix, which covers this practice together with 3.10.3 and 3.10.5. Physical entry controls normally include entry logs, but the Control does not on its own require audit logs of physical access."
+        },
+        {
+          "control": "A.7.4",
+          "coverage": "PARTIAL",
+          "rationale": "Monitoring of premises supports keeping records of physical access; it does not require audit logs."
+        }
+      ]
+    },
+    {
+      "code": "PE.L2-3.10.5",
+      "section": "Physical Protection",
+      "title": "Manage Physical Access",
+      "text": "Control and manage physical access devices. (NIST SP 800-171 Rev. 2 3.10.5.)",
+      "mappings": [
+        {
+          "control": "A.7.2",
+          "coverage": "PARTIAL",
+          "rationale": "Narrower than CMMC Level 1 PE.L1-b.1.ix, which covers this practice together with 3.10.3 and 3.10.4. Physical entry controls cover entry mechanisms, but the Control does not on its own require managing keys, badges and other physical access devices."
+        },
+        {
+          "control": "A.5.11",
+          "coverage": "PARTIAL",
+          "rationale": "Return of assets covers recovering keys and badges when someone leaves; it does not cover inventory or day-to-day management of physical access devices."
+        }
+      ]
+    },
+    {
+      "code": "PE.L2-3.10.6",
+      "section": "Physical Protection",
+      "title": "Alternative Work Sites",
+      "text": "Enforce safeguarding measures for CUI at alternate work sites. (NIST SP 800-171 Rev. 2 3.10.6.)",
+      "mappings": [
+        {
+          "control": "A.6.7",
+          "coverage": "FULL",
+          "rationale": "Security measures when personnel work remotely, to protect information accessed or processed outside the premises, are this requirement."
+        },
+        {
+          "control": "A.7.9",
+          "coverage": "PARTIAL",
+          "rationale": "Protecting equipment and assets off-premises covers part of an alternate work site."
+        }
+      ]
+    },
+    {
+      "code": "RA.L2-3.11.1",
+      "section": "Risk Assessment",
+      "title": "Risk Assessments",
+      "text": "Periodically assess the risk to organizational operations (including mission, functions, image, or reputation), organizational assets, and individuals, resulting from the operation of organizational systems and the associated processing, storage, or transmission of CUI. (NIST SP 800-171 Rev. 2 3.11.1.)",
+      "mappings": [
+        {
+          "control": "ISMS-8.2",
+          "coverage": "FULL",
+          "rationale": "Performing information security risk assessments at planned intervals or when significant changes occur is this requirement."
+        },
+        {
+          "control": "ISMS-6.1.2",
+          "coverage": "PARTIAL",
+          "rationale": "Defines the risk assessment process and criteria; the assessments themselves are done under clause 8.2."
+        }
+      ]
+    },
+    {
+      "code": "RA.L2-3.11.2",
+      "section": "Risk Assessment",
+      "title": "Vulnerability Scan",
+      "text": "Scan for vulnerabilities in organizational systems and applications periodically and when new vulnerabilities affecting those systems and applications are identified. (NIST SP 800-171 Rev. 2 3.11.2.)",
+      "mappings": [
+        {
+          "control": "A.8.8",
+          "coverage": "FULL",
+          "rationale": "Obtaining information on technical vulnerabilities, evaluating exposure and scanning for them, in a timely manner, is this requirement."
+        },
+        {
+          "control": "A.5.7",
+          "coverage": "PARTIAL",
+          "rationale": "Threat intelligence supplies information on newly identified vulnerabilities and attacks; it does not scan systems."
+        }
+      ]
+    },
+    {
+      "code": "RA.L2-3.11.3",
+      "section": "Risk Assessment",
+      "title": "Vulnerability Remediation",
+      "text": "Remediate vulnerabilities in accordance with risk assessments. (NIST SP 800-171 Rev. 2 3.11.3.)",
+      "mappings": [
+        {
+          "control": "A.8.8",
+          "coverage": "FULL",
+          "rationale": "Taking appropriate measures, with timelines, to address vulnerabilities according to the risk is this requirement."
+        },
+        {
+          "control": "ISMS-8.3",
+          "coverage": "PARTIAL",
+          "rationale": "Risk treatment implemented per the plan; the Control is broader than vulnerabilities."
+        }
+      ]
+    },
+    {
+      "code": "CA.L2-3.12.1",
+      "section": "Security Assessment",
+      "title": "Security Control Assessment",
+      "text": "Periodically assess the security controls in organizational systems to determine if the controls are effective in their application. (NIST SP 800-171 Rev. 2 3.12.1.)",
+      "mappings": [
+        {
+          "control": "A.5.35",
+          "coverage": "FULL",
+          "rationale": "Independent review of information security at planned intervals to confirm the continued suitability, adequacy and effectiveness of controls is this requirement."
+        },
+        {
+          "control": "ISMS-9.1",
+          "coverage": "PARTIAL",
+          "rationale": "Monitoring and measuring performance and ISMS effectiveness; the Control is broader than an assessment of each security control."
+        },
+        {
+          "control": "A.5.36",
+          "coverage": "PARTIAL",
+          "rationale": "Compliance with policies, rules and standards is reviewed regularly; effectiveness is not the focus."
+        }
+      ]
+    },
+    {
+      "code": "CA.L2-3.12.2",
+      "section": "Security Assessment",
+      "title": "Operational Plan of Action",
+      "text": "Develop and implement plans of action designed to correct deficiencies and reduce or eliminate vulnerabilities in organizational systems. (NIST SP 800-171 Rev. 2 3.12.2.)",
+      "mappings": [
+        {
+          "control": "ISMS-10.2",
+          "coverage": "PARTIAL",
+          "rationale": "Nonconformities are corrected with corrective action; vulnerabilities in systems are not singled out."
+        },
+        {
+          "control": "ISMS-6.1.3",
+          "coverage": "PARTIAL",
+          "rationale": "A risk treatment plan covers planned action to reduce risk; milestones for correcting deficiencies are not required."
+        }
+      ]
+    },
+    {
+      "code": "CA.L2-3.12.3",
+      "section": "Security Assessment",
+      "title": "Security Control Monitoring",
+      "text": "Monitor security controls on an ongoing basis to ensure the continued effectiveness of the controls. (NIST SP 800-171 Rev. 2 3.12.3.)",
+      "mappings": [
+        {
+          "control": "ISMS-9.1",
+          "coverage": "FULL",
+          "rationale": "Determining what to monitor and measure and evaluating ISMS performance and effectiveness on an ongoing basis is this requirement."
+        },
+        {
+          "control": "A.5.36",
+          "coverage": "PARTIAL",
+          "rationale": "Regular review of compliance with policies and standards supports ongoing monitoring of controls."
+        },
+        {
+          "control": "A.8.16",
+          "coverage": "PARTIAL",
+          "rationale": "Monitoring of networks and systems covers technical monitoring, not all security controls."
+        }
+      ]
+    },
+    {
+      "code": "CA.L2-3.12.4",
+      "section": "Security Assessment",
+      "title": "System Security Plan",
+      "text": "Develop, document, and periodically update system security plans that describe system boundaries, system environments of operation, how security requirements are implemented, and the relationships with or connections to other systems. (NIST SP 800-171 Rev. 2 3.12.4.)",
+      "mappings": [
+        {
+          "control": "ISMS-4.3",
+          "coverage": "PARTIAL",
+          "rationale": "Defines and documents the ISMS scope and boundaries; system environments and connections are not required."
+        },
+        {
+          "control": "ISMS-6.1.3",
+          "coverage": "PARTIAL",
+          "rationale": "The Statement of Applicability records how each Control is implemented; it is not a system security plan."
+        },
+        {
+          "control": "ISMS-7.5",
+          "coverage": "PARTIAL",
+          "rationale": "Documented information is created, updated and controlled; the plan's content is not specified."
+        }
+      ]
+    },
+    {
+      "code": "SC.L2-3.13.1",
+      "section": "System and Communications Protection",
+      "title": "Boundary Protection",
+      "text": "Monitor, control, and protect communications (i.e., information transmitted or received by organizational systems) at the external boundaries and key internal boundaries of organizational systems. (NIST SP 800-171 Rev. 2 3.13.1.)",
+      "mappings": [
+        {
+          "control": "A.8.20",
+          "coverage": "PARTIAL",
+          "rationale": "Same mapping as CMMC Level 1 SC.L1-b.1.x. Network security (firewalls, restricted traffic) controls boundary traffic, but the Control does not on its own require monitoring of communications at the external and key internal boundaries."
+        },
+        {
+          "control": "A.8.22",
+          "coverage": "PARTIAL",
+          "rationale": "Segregating networks creates the key internal boundaries; it does not itself monitor or control traffic across them."
+        },
+        {
+          "control": "A.8.16",
+          "coverage": "PARTIAL",
+          "rationale": "Monitoring of network activity supplies the monitoring part; the boundary scope is not specified."
+        }
+      ]
+    },
+    {
+      "code": "SC.L2-3.13.2",
+      "section": "System and Communications Protection",
+      "title": "Security Engineering",
+      "text": "Employ architectural designs, software development techniques, and systems engineering principles that promote effective information security within organizational systems. (NIST SP 800-171 Rev. 2 3.13.2.)",
+      "mappings": [
+        {
+          "control": "A.8.27",
+          "coverage": "FULL",
+          "rationale": "Principles for engineering secure systems, applied to any information system development, are this requirement."
+        },
+        {
+          "control": "A.8.25",
+          "coverage": "PARTIAL",
+          "rationale": "Secure development life cycle covers development techniques; architecture and systems engineering are in A.8.27."
+        }
+      ]
+    },
+    {
+      "code": "SC.L2-3.13.3",
+      "section": "System and Communications Protection",
+      "title": "Role Separation",
+      "text": "Separate user functionality from system management functionality. (NIST SP 800-171 Rev. 2 3.13.3.)",
+      "mappings": [
+        {
+          "control": "A.5.3",
+          "coverage": "PARTIAL",
+          "rationale": "Segregation of duties separates conflicting functions; not the technical separation of user and management functionality."
+        },
+        {
+          "control": "A.8.2",
+          "coverage": "PARTIAL",
+          "rationale": "Privileged access rights restrict management functions to administrators."
+        },
+        {
+          "control": "A.8.22",
+          "coverage": "PARTIAL",
+          "rationale": "Segregation of networks can place management interfaces apart from user traffic."
+        }
+      ]
+    },
+    {
+      "code": "SC.L2-3.13.4",
+      "section": "System and Communications Protection",
+      "title": "Shared Resource Control",
+      "text": "Prevent unauthorized and unintended information transfer via shared system resources. (NIST SP 800-171 Rev. 2 3.13.4.)",
+      "mappings": [
+        {
+          "control": "A.8.22",
+          "coverage": "PARTIAL",
+          "rationale": "Network segregation limits transfer between groups of systems; shared processors and storage are not addressed."
+        },
+        {
+          "control": "A.8.27",
+          "coverage": "PARTIAL",
+          "rationale": "Secure engineering principles include isolation between workloads; not required."
+        },
+        {
+          "control": "A.8.10",
+          "coverage": "PARTIAL",
+          "rationale": "Information deletion covers removing information from reused storage; not shared memory and processors."
+        }
+      ]
+    },
+    {
+      "code": "SC.L2-3.13.5",
+      "section": "System and Communications Protection",
+      "title": "Public-Access System Separation",
+      "text": "Implement subnetworks for publicly accessible system components that are physically or logically separated from internal networks. (NIST SP 800-171 Rev. 2 3.13.5.)",
+      "mappings": [
+        {
+          "control": "A.8.22",
+          "coverage": "PARTIAL",
+          "rationale": "Same mapping as CMMC Level 1 SC.L1-b.1.xi. Segregation of networks (for example a DMZ for public-facing components) is the usual way to meet this, but the Control does not require public-access components specifically to be separated."
+        },
+        {
+          "control": "A.8.20",
+          "coverage": "PARTIAL",
+          "rationale": "Network security rules keep public-facing components from reaching internal networks, without requiring separate subnetworks."
+        }
+      ]
+    },
+    {
+      "code": "SC.L2-3.13.6",
+      "section": "System and Communications Protection",
+      "title": "Network Communication by Exception",
+      "text": "Deny network communications traffic by default and allow network communications traffic by exception (i.e., deny all, permit by exception). (NIST SP 800-171 Rev. 2 3.13.6.)",
+      "mappings": [
+        {
+          "control": "A.8.20",
+          "coverage": "PARTIAL",
+          "rationale": "Network security rules restrict traffic; deny-by-default is not stated."
+        },
+        {
+          "control": "A.8.22",
+          "coverage": "PARTIAL",
+          "rationale": "Segregated networks are usually closed by default, but this is not required."
+        }
+      ]
+    },
+    {
+      "code": "SC.L2-3.13.7",
+      "section": "System and Communications Protection",
+      "title": "Split Tunneling",
+      "text": "Prevent remote devices from simultaneously establishing non-remote connections with organizational systems and communicating via some other connection to resources in external networks (i.e., split tunneling). (NIST SP 800-171 Rev. 2 3.13.7.)",
+      "mappings": [
+        {
+          "control": "A.8.20",
+          "coverage": "PARTIAL",
+          "rationale": "Network security covers controlling remote connections; split tunneling is not named."
+        },
+        {
+          "control": "A.6.7",
+          "coverage": "PARTIAL",
+          "rationale": "Remote working measures can forbid split tunneling, without requiring it."
+        }
+      ]
+    },
+    {
+      "code": "SC.L2-3.13.8",
+      "section": "System and Communications Protection",
+      "title": "Data in Transit",
+      "text": "Implement cryptographic mechanisms to prevent unauthorized disclosure of CUI during transmission unless otherwise protected by alternative physical safeguards. (NIST SP 800-171 Rev. 2 3.13.8.)",
+      "mappings": [
+        {
+          "control": "A.8.24",
+          "coverage": "PARTIAL",
+          "rationale": "Cryptography rules cover encrypting information in transit; the Control does not require it for CUI."
+        },
+        {
+          "control": "A.5.14",
+          "coverage": "PARTIAL",
+          "rationale": "Information transfer rules cover protecting information in transit; encryption is one option."
+        }
+      ]
+    },
+    {
+      "code": "SC.L2-3.13.9",
+      "section": "System and Communications Protection",
+      "title": "Connections Termination",
+      "text": "Terminate network connections associated with communications sessions at the end of the sessions or after a defined period of inactivity. (NIST SP 800-171 Rev. 2 3.13.9.)",
+      "mappings": [
+        {
+          "control": "A.8.5",
+          "coverage": "PARTIAL",
+          "rationale": "Secure log-on includes shutting down inactive sessions; network connections of non-user sessions are not covered."
+        },
+        {
+          "control": "A.8.20",
+          "coverage": "PARTIAL",
+          "rationale": "Network security covers connection management; session end and inactivity timeouts are not required."
+        }
+      ]
+    },
+    {
+      "code": "SC.L2-3.13.10",
+      "section": "System and Communications Protection",
+      "title": "Key Management",
+      "text": "Establish and manage cryptographic keys for cryptography employed in organizational systems. (NIST SP 800-171 Rev. 2 3.13.10.)",
+      "mappings": [
+        {
+          "control": "A.8.24",
+          "coverage": "FULL",
+          "rationale": "Rules for cryptography that include key management through the whole life cycle are this requirement."
+        }
+      ]
+    },
+    {
+      "code": "SC.L2-3.13.11",
+      "section": "System and Communications Protection",
+      "title": "CUI Encryption",
+      "text": "Employ FIPS-validated cryptography when used to protect the confidentiality of CUI. (NIST SP 800-171 Rev. 2 3.13.11.)",
+      "mappings": [
+        {
+          "control": "A.8.24",
+          "coverage": "PARTIAL",
+          "rationale": "Cryptography rules require suitable algorithms and key lengths; FIPS-validated cryptography is not required."
+        }
+      ]
+    },
+    {
+      "code": "SC.L2-3.13.12",
+      "section": "System and Communications Protection",
+      "title": "Collaborative Device Control",
+      "text": "Prohibit remote activation of collaborative computing devices and provide indication of devices in use to users present at the device. (NIST SP 800-171 Rev. 2 3.13.12.)",
+      "mappings": [
+        {
+          "control": "A.8.1",
+          "coverage": "PARTIAL",
+          "rationale": "Endpoint device rules can cover cameras and microphones; remote activation and in-use indication are not named."
+        },
+        {
+          "control": "A.8.9",
+          "coverage": "PARTIAL",
+          "rationale": "Secure configuration can disable remote activation, without requiring it."
+        }
+      ]
+    },
+    {
+      "code": "SC.L2-3.13.13",
+      "section": "System and Communications Protection",
+      "title": "Mobile Code",
+      "text": "Control and monitor the use of mobile code. (NIST SP 800-171 Rev. 2 3.13.13.)",
+      "mappings": [
+        {
+          "control": "A.8.7",
+          "coverage": "PARTIAL",
+          "rationale": "Malware protection covers blocking malicious code, including malicious mobile code; control and monitoring of mobile code are not required."
+        },
+        {
+          "control": "A.8.23",
+          "coverage": "PARTIAL",
+          "rationale": "Web filtering restricts access to sites that deliver mobile code; not all mobile code."
+        }
+      ]
+    },
+    {
+      "code": "SC.L2-3.13.14",
+      "section": "System and Communications Protection",
+      "title": "Voice over Internet Protocol",
+      "text": "Control and monitor the use of Voice over Internet Protocol (VoIP) technologies. (NIST SP 800-171 Rev. 2 3.13.14.)",
+      "mappings": [
+        {
+          "control": "A.8.20",
+          "coverage": "PARTIAL",
+          "rationale": "Network security covers voice traffic as network traffic; VoIP is not singled out."
+        },
+        {
+          "control": "A.8.21",
+          "coverage": "PARTIAL",
+          "rationale": "Security of network services includes telephony providers; monitoring of VoIP use is not covered."
+        }
+      ]
+    },
+    {
+      "code": "SC.L2-3.13.15",
+      "section": "System and Communications Protection",
+      "title": "Communications Authenticity",
+      "text": "Protect the authenticity of communications sessions. (NIST SP 800-171 Rev. 2 3.13.15.)",
+      "mappings": [
+        {
+          "control": "A.8.24",
+          "coverage": "PARTIAL",
+          "rationale": "Cryptography rules cover authenticating communications; session authenticity is not required."
+        },
+        {
+          "control": "A.8.20",
+          "coverage": "PARTIAL",
+          "rationale": "Network security controls protect communications; session authenticity is not specified."
+        }
+      ]
+    },
+    {
+      "code": "SC.L2-3.13.16",
+      "section": "System and Communications Protection",
+      "title": "Data at Rest",
+      "text": "Protect the confidentiality of CUI at rest. (NIST SP 800-171 Rev. 2 3.13.16.)",
+      "mappings": [
+        {
+          "control": "A.8.24",
+          "coverage": "PARTIAL",
+          "rationale": "Cryptography rules cover encrypting stored information; the Control does not require it for CUI at rest."
+        },
+        {
+          "control": "A.8.3",
+          "coverage": "PARTIAL",
+          "rationale": "Restricts access to information, including stored information; confidentiality at rest otherwise depends on encryption."
+        }
+      ]
+    },
+    {
+      "code": "SI.L2-3.14.1",
+      "section": "System and Information Integrity",
+      "title": "Flaw Remediation",
+      "text": "Identify, report, and correct system flaws in a timely manner. (NIST SP 800-171 Rev. 2 3.14.1.)",
+      "mappings": [
+        {
+          "control": "A.8.8",
+          "coverage": "FULL",
+          "rationale": "Same mapping as CMMC Level 1 SI.L1-b.1.xii. Identifying, evaluating and remediating technical vulnerabilities, with timelines for fixing them, matches flaw remediation."
+        }
+      ]
+    },
+    {
+      "code": "SI.L2-3.14.2",
+      "section": "System and Information Integrity",
+      "title": "Malicious Code Protection",
+      "text": "Provide protection from malicious code at designated locations within organizational systems. (NIST SP 800-171 Rev. 2 3.14.2.)",
+      "mappings": [
+        {
+          "control": "A.8.7",
+          "coverage": "FULL",
+          "rationale": "Same mapping as CMMC Level 1 SI.L1-b.1.xiii. Malware detection, prevention and recovery controls on endpoints and servers are this requirement."
+        }
+      ]
+    },
+    {
+      "code": "SI.L2-3.14.3",
+      "section": "System and Information Integrity",
+      "title": "Security Alerts & Advisories",
+      "text": "Monitor system security alerts and advisories and take action in response. (NIST SP 800-171 Rev. 2 3.14.3.)",
+      "mappings": [
+        {
+          "control": "A.8.8",
+          "coverage": "PARTIAL",
+          "rationale": "Obtaining information on technical vulnerabilities and acting on it covers vulnerability advisories; security alerts in general are not covered."
+        },
+        {
+          "control": "A.5.7",
+          "coverage": "PARTIAL",
+          "rationale": "Collecting and analysing threat information; taking action is not required."
+        },
+        {
+          "control": "A.5.6",
+          "coverage": "PARTIAL",
+          "rationale": "Contact with special interest groups gives access to alerts and advisories; no requirement to act."
+        }
+      ]
+    },
+    {
+      "code": "SI.L2-3.14.4",
+      "section": "System and Information Integrity",
+      "title": "Update Malicious Code Protection",
+      "text": "Update malicious code protection mechanisms when new releases are available. (NIST SP 800-171 Rev. 2 3.14.4.)",
+      "mappings": [
+        {
+          "control": "A.8.7",
+          "coverage": "PARTIAL",
+          "rationale": "Same mapping as CMMC Level 1 SI.L1-b.1.xiv. Requires malware protection to be in place and kept effective, but does not by itself guarantee that updates are applied as new releases appear."
+        }
+      ]
+    },
+    {
+      "code": "SI.L2-3.14.5",
+      "section": "System and Information Integrity",
+      "title": "System & File Scanning",
+      "text": "Perform periodic scans of organizational systems and real-time scans of files from external sources as files are downloaded, opened, or executed. (NIST SP 800-171 Rev. 2 3.14.5.)",
+      "mappings": [
+        {
+          "control": "A.8.7",
+          "coverage": "PARTIAL",
+          "rationale": "Same mapping as CMMC Level 1 SI.L1-b.1.xv. Scheduled scans are a typical part of malware protection, but the Control does not by itself require both periodic scans and real-time scans of files from external sources."
+        }
+      ]
+    },
+    {
+      "code": "SI.L2-3.14.6",
+      "section": "System and Information Integrity",
+      "title": "Monitor Communications for Attacks",
+      "text": "Monitor organizational systems, including inbound and outbound communications traffic, to detect attacks and indicators of potential attacks. (NIST SP 800-171 Rev. 2 3.14.6.)",
+      "mappings": [
+        {
+          "control": "A.8.16",
+          "coverage": "FULL",
+          "rationale": "Monitoring networks, systems and applications for anomalous behaviour, including network traffic, is this requirement."
+        },
+        {
+          "control": "A.8.20",
+          "coverage": "PARTIAL",
+          "rationale": "Network security controls traffic; detecting attacks is monitoring rather than control."
+        }
+      ]
+    },
+    {
+      "code": "SI.L2-3.14.7",
+      "section": "System and Information Integrity",
+      "title": "Identify Unauthorized Use",
+      "text": "Identify unauthorized use of organizational systems. (NIST SP 800-171 Rev. 2 3.14.7.)",
+      "mappings": [
+        {
+          "control": "A.8.16",
+          "coverage": "FULL",
+          "rationale": "Monitoring for anomalous behaviour and unauthorized access or use of systems is this requirement."
+        },
+        {
+          "control": "A.8.15",
+          "coverage": "PARTIAL",
+          "rationale": "Logs provide the record that unauthorized use is identified from; identification is not itself required."
+        }
+      ]
+    }
+  ]
+}
