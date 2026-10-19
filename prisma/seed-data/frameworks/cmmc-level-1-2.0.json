@@ -9,17 +9,18 @@
   "supplementaryControls": [
     {
       "code": "CMMC-SUP-01",
-      "title": "Review of information before public posting",
-      "description": "Name who may post information on publicly accessible systems, review content before it is posted to make sure it contains no Federal Contract Information or other non-public information, and remove such content if it is found",
+      "title": "Control of information on publicly accessible systems",
+      "description": "Name who may post or process information on publicly accessible systems, have procedures that keep Federal Contract Information from being posted or processed on them, review content before it is posted, review the content already on them for Federal Contract Information, and have a way to remove and address an improper posting",
       "category": "CMMC Level 1 obligations",
       "mandatory": true,
       "applicability": "PER_SYSTEM",
-      "question": "Is it defined who may post information on this publicly accessible system, and is content reviewed before posting so it contains no Federal Contract Information or other non-public information?",
+      "question": "For this publicly accessible system: is it defined who may post or process information on it, are there procedures that keep Federal Contract Information from being posted or processed on it, is content reviewed before it is posted and reviewed again once published, and is there a way to remove and address an improper posting?",
       "intent": "Federal Contract Information is not public, and a post to a website, forum or social channel is hard to recall. Access control and data leakage prevention do not by themselves check what a permitted person publishes.",
       "examples": [
         "Written list of the people allowed to publish to the website and social media accounts",
         "Second-person review or approval step before content goes live",
-        "Periodic review of public pages for non-public information, with a removal procedure",
+        "Periodic review of public pages for non-public information",
+        "Procedure to take down an improper posting and alert the people who need to know",
         "Guidance to staff that contract documents and FCI are not posted publicly"
       ]
     }
@@ -66,7 +67,7 @@
       "title": "Control Public Information",
       "text": "Control information posted or processed on publicly accessible information systems. (FAR 52.204-21(b)(1)(iv); NIST SP 800-171 Rev. 2 3.1.22.)",
       "mappings": [
-        { "control": "CMMC-SUP-01", "coverage": "FULL", "rationale": "Defines who may post and requires review before posting and removal of non-public content, matching the assessment objectives." },
+        { "control": "CMMC-SUP-01", "coverage": "FULL", "rationale": "Covers all five assessment objectives [a]-[e]: who may post or process, procedures keeping FCI off public systems, review before posting, review of published content, and removal of an improper posting." },
         { "control": "A.8.12", "coverage": "PARTIAL", "rationale": "Helps prevent FCI leaking to public destinations but does not define who may post or require review before publication." },
         { "control": "A.5.14", "coverage": "PARTIAL", "rationale": "Rules for transferring information to other parties; not specific to posting on public systems." }
       ]
