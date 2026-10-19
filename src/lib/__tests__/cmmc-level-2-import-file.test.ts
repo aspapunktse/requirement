@@ -92,7 +92,7 @@ describe("CMMC Level 2 2.0 import file", () => {
     expect(data.framework.licensing).toBe("QUOTABLE");
     expect(data.framework.strictComplianceRequired).toBe(true);
     expect(data.framework.isBase ?? false).toBe(false);
-    expect(data.framework.supersedes ?? null).toBeNull();
+    expect(data.framework.supersedes).toBeNull();
   });
 
   it("holds the 110 practices with unique codes in source order", () => {

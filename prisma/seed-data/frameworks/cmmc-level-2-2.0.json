@@ -4,7 +4,8 @@
     "version": "2.0",
     "description": "Cybersecurity Maturity Model Certification (CMMC) 2.0 Level 2 (Advanced): the 110 security requirements of NIST SP 800-171 Rev. 2 for systems that process, store or transmit Controlled Unclassified Information (CUI), in 14 families. Codes follow the CMMC Level 2 Assessment Guide v2 (DoD CIO); NIST SP 800-171 requirement text is a US government work and is quoted. Level 2 is assessed separately from Level 1 even where a practice is the same, because it protects CUI rather than Federal Contract Information.",
     "licensing": "QUOTABLE",
-    "strictComplianceRequired": true
+    "strictComplianceRequired": true,
+    "supersedes": null
   },
   "supplementaryControls": [
     {
