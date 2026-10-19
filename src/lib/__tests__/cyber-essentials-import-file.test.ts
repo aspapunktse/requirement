@@ -25,7 +25,7 @@ const SECTIONS: [string, string, number][] = [
   ["Secure Configuration", "CE-CFG", 9],
   ["Security Update Management", "CE-SUM", 4],
   ["User Access Control", "CE-UAC", 12],
-  ["Malware Protection", "CE-MP", 6],
+  ["Malware Protection", "CE-MP", 1],
 ];
 const EXPECTED_CODES = SECTIONS.flatMap(([, prefix, count]) =>
   Array.from({ length: count }, (_, i) => `${prefix}-${String(i + 1).padStart(2, "0")}`),
@@ -92,9 +92,60 @@ describe("Cyber Essentials 3.3 import file", () => {
     expect(byCode("CE-CFG-09")?.text).toMatch(/at least 6 characters/);
     expect(byCode("CE-UAC-05")?.text).toMatch(/cloud services must always use MFA/);
     expect(byCode("CE-FW-04")?.text).toMatch(/prevented from the internet/);
-    const sup = data.supplementaryControls.find((c) => c.code === "CE-SUP-02");
-    expect(sup?.question).toMatch(/12 characters/);
-    expect(sup?.question).toMatch(/6 characters/);
+    const sup = (code: string) => data.supplementaryControls.find((c) => c.code === code);
+    expect(sup("CE-SUP-02")?.question).toMatch(/at least 6 characters/);
+    expect(sup("CE-SUP-03")?.question).toMatch(/at least 8 characters/);
+    expect(sup("CE-SUP-04")?.question).toMatch(/12 characters/);
+  });
+
+  it("keeps device unlocking, MFA password and password-based rules in separate Supplementary Controls", () => {
+    const fullTo = (control: string) =>
+      data.requirements.filter((r) => r.mappings.some((m) => m.control === control && m.coverage === "FULL")).map((r) => r.code);
+    expect(fullTo("CE-SUP-02")).toEqual(["CE-CFG-08", "CE-CFG-09"]);
+    expect(fullTo("CE-SUP-03")).toEqual(["CE-UAC-08"]);
+    expect(fullTo("CE-SUP-04")).toEqual(["CE-UAC-09", "CE-UAC-10"]);
+    // Device unlocking has no MFA alternative.
+    const unlock = data.supplementaryControls.find((c) => c.code === "CE-SUP-02");
+    expect(unlock?.description).toMatch(/not an alternative/);
+    expect(unlock?.question).not.toMatch(/multi-factor|MFA/);
+    // A rule that may not apply to a System tells it to answer Yes, because Not Applicable is not Fulfilled on a strict Framework.
+    for (const code of ["CE-SUP-02", "CE-SUP-03", "CE-SUP-04"]) {
+      expect(data.supplementaryControls.find((c) => c.code === code)?.question, code).toMatch(/answer Yes/);
+    }
+  });
+
+  it("holds the either/or malware options in one Requirement mapped Full to one Supplementary Control", () => {
+    const requirement = byCode("CE-MP-01");
+    expect(requirement?.text).toMatch(/at least one of two options/);
+    expect(requirement?.text).toMatch(/If anti-malware software is used/);
+    expect(requirement?.text).toMatch(/If application allow listing is used/);
+    const mappings = Object.fromEntries((requirement?.mappings ?? []).map((m) => [m.control, m.coverage]));
+    expect(mappings).toEqual({ "CE-SUP-05": "FULL", "A.8.7": "PARTIAL", "A.8.19": "PARTIAL" });
+    const question = data.supplementaryControls.find((c) => c.code === "CE-SUP-05")?.question ?? "";
+    expect(question).toMatch(/whichever option/);
+  });
+
+  it("never maps an A.8.19 Full to a Requirement", () => {
+    for (const requirement of data.requirements) {
+      const mapping = requirement.mappings.find((m) => m.control === "A.8.19");
+      if (mapping) expect(mapping.coverage, requirement.code).toBe("PARTIAL");
+    }
+  });
+
+  it("encodes Table 2 of the source in CE-SC-12", () => {
+    const text = byCode("CE-SC-12")?.text ?? "";
+    expect(text).toContain("Student in / N/A / out");
+    expect(text).toContain("Employee in / N/A / in");
+    expect(text).toContain("Customer in / out / out");
+    expect(text.split("N/A")).toHaveLength(6);
+  });
+
+  it("keeps the source's 'should' for measures it does not make mandatory", () => {
+    for (const code of ["CE-CFG-08", "CE-UAC-09", "CE-UAC-10", "CE-UAC-11", "CE-UAC-12"]) {
+      const text = byCode(code)?.text ?? "";
+      expect(text, code).toMatch(/should/);
+      expect(text, code).toMatch(/[Cc]uratorial note|included as a requirement/);
+    }
   });
 
   it("states that cloud services cannot be excluded from scope", () => {
@@ -128,7 +179,7 @@ describe("Cyber Essentials 3.3 import file", () => {
 
   it("keeps its Supplementary Controls new, prefixed and mapped at least once", () => {
     const mapped = new Set(data.requirements.flatMap((requirement) => requirement.mappings.map((m) => m.control)));
-    expect(data.supplementaryControls.map((control) => control.code)).toEqual(["CE-SUP-01", "CE-SUP-02"]);
+    expect(data.supplementaryControls.map((control) => control.code)).toEqual(["CE-SUP-01", "CE-SUP-02", "CE-SUP-03", "CE-SUP-04", "CE-SUP-05"]);
     for (const control of data.supplementaryControls) {
       expect(control.code.startsWith("CE-SUP-"), control.code).toBe(true);
       expect(annexCodes.has(control.code) || clauseCodes.has(control.code), control.code).toBe(false);

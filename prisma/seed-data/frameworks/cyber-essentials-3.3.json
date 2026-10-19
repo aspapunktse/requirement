@@ -2,7 +2,7 @@
   "framework": {
     "name": "Cyber Essentials",
     "version": "3.3",
-    "description": "Cyber Essentials: Requirements for IT Infrastructure v3.3 (UK National Cyber Security Centre, April 2026). The scoping rules of section D and the requirements of the five technical control themes in section E. Codes: CE-SC (Scope), CE-FW (Firewalls), CE-CFG (Secure Configuration), CE-SUM (Security Update Management), CE-UAC (User Access Control), CE-MP (Malware Protection), numbered in source order; CE-SUP are Supplementary Controls that carry the Cyber Essentials thresholds. Backup (section C), asset management and zero trust guidance (section F), statements the source marks as recommended or advised, and the passwordless authentication and MFA factor guidance impose no requirement and are not listed. Material is UK Crown Copyright and is quoted.",
+    "description": "Cyber Essentials: Requirements for IT Infrastructure v3.3 (UK National Cyber Security Centre, April 2026). The scoping rules of section D and the requirements of the five technical control themes in section E. Codes: CE-SC (Scope), CE-FW (Firewalls), CE-CFG (Secure Configuration), CE-SUM (Security Update Management), CE-UAC (User Access Control), CE-MP (Malware Protection), numbered in source order; CE-SUP are Supplementary Controls that carry the Cyber Essentials thresholds and the either/or malware protection options; where the source offers alternatives, one Requirement holds them all and the System answers for the option it uses. Where the source phrases a tested measure as 'should', the text keeps 'should' and says why it is included. Backup (section C), asset management and zero trust guidance (section F), statements the source marks as recommended or advised, and the passwordless authentication and MFA factor guidance impose no requirement and are not listed. Material is UK Crown Copyright and is quoted.",
     "licensing": "QUOTABLE",
     "strictComplianceRequired": true
   },
@@ -25,18 +25,63 @@
     },
     {
       "code": "CE-SUP-02",
-      "title": "Credential strength and brute-force protection thresholds",
-      "description": "Passwords and device unlocking credentials meet the Cyber Essentials thresholds: password of at least 12 characters, or at least 8 with a deny list of common passwords, or multi-factor authentication; at least 8 characters for the password element of MFA; at least 6 characters to unlock a device; no maximum length; brute-force protection by MFA, throttling (no more than 10 guesses in 5 minutes) or lockout after no more than 10 failed attempts",
+      "title": "Device unlocking credentials: length and brute-force protection",
+      "description": "A credential used only to unlock a device (PIN or password) has at least 6 characters, and the unlock method is protected against brute-force attacks by throttling (no more than 10 guesses in 5 minutes) or by locking the device after no more than 10 unsuccessful attempts, or by the vendor's default setting where neither can be configured. Multi-factor authentication is not an alternative here",
       "category": "Cyber Essentials thresholds",
       "mandatory": true,
       "applicability": "PER_SYSTEM",
-      "question": "For this system: do passwords have a minimum of 12 characters (or 8 with a common-password deny list, or MFA), is the password element of MFA at least 8 characters, are device unlock credentials at least 6 characters, is there no maximum length, and are guesses limited by MFA, by throttling to no more than 10 guesses in 5 minutes, or by lockout after no more than 10 failed attempts?",
+      "question": "For the devices of this system that need a user's physical presence to unlock: is a credential (biometric, password or PIN) required, is a credential used only to unlock at least 6 characters, and is it protected by throttling to no more than 10 guesses in 5 minutes or by locking after no more than 10 unsuccessful attempts (or the vendor's default where neither can be configured)? If the system has no such device, answer Yes: Not Applicable does not count as Fulfilled on this strict Framework.",
+      "intent": "ISO/IEC 27001 asks for secure authentication without figures. Cyber Essentials fixes the minimum length for an unlock credential and the attempt limits, and a Compliance Manager needs these thresholds to assess.",
+      "examples": [
+        "Device management profile with a minimum unlock PIN length of 6",
+        "Lockout after 10 failed attempts, or an escalating delay between attempts",
+        "Vendor documentation where throttling or lockout cannot be configured, with the default setting noted"
+      ]
+    },
+    {
+      "code": "CE-SUP-03",
+      "title": "Multi-factor authentication: password element of at least 8 characters",
+      "description": "Where multi-factor authentication includes a password, the password element has at least 8 characters, with no maximum length restriction",
+      "category": "Cyber Essentials thresholds",
+      "mandatory": true,
+      "applicability": "PER_SYSTEM",
+      "question": "For this system: where multi-factor authentication includes a password, does the password element have a minimum length of at least 8 characters, with no maximum length restriction? If the system uses no MFA with a password element (for example passwordless only), answer Yes: Not Applicable does not count as Fulfilled on this strict Framework.",
+      "intent": "ISO/IEC 27001 asks for secure authentication without figures. Cyber Essentials sets 8 characters for the password element of MFA, so a Compliance Manager needs this threshold to assess.",
+      "examples": [
+        "Identity provider setting showing a minimum of 8 characters and no maximum for the password used with MFA",
+        "Policy stating the password element of MFA follows the 8-character minimum"
+      ]
+    },
+    {
+      "code": "CE-SUP-04",
+      "title": "Password-based authentication: brute-force protection and password quality",
+      "description": "Where a password is used to authenticate, it is protected against brute-force guessing by multi-factor authentication, throttling (no more than 10 guesses in 5 minutes) or lockout after no more than 10 unsuccessful attempts, and its quality is managed technically by multi-factor authentication, a minimum length of at least 12 characters, or a minimum of at least 8 characters with a deny list of common passwords, with no maximum length",
+      "category": "Cyber Essentials thresholds",
+      "mandatory": true,
+      "applicability": "PER_SYSTEM",
+      "question": "For this system: where a password is used to authenticate, is it protected against brute-force guessing by MFA, by throttling to no more than 10 guesses in 5 minutes, or by lockout after no more than 10 unsuccessful attempts; and is its quality managed by MFA, a minimum of 12 characters, or a minimum of 8 characters with a deny list of common passwords, with no maximum length? If the system uses no passwords to authenticate (for example passwordless only), answer Yes: Not Applicable does not count as Fulfilled on this strict Framework.",
       "intent": "ISO/IEC 27001 asks for secure authentication and good-quality authentication information without figures. Cyber Essentials fixes the minimum lengths and attempt limits, and a Compliance Manager needs these thresholds to assess.",
       "examples": [
         "Password policy or identity provider setting showing a minimum length of 12 (or 8 with a deny list) and no maximum",
         "Conditional access or MFA policy showing MFA on the account",
-        "Device management profile with a minimum unlock PIN length of 6 and a lockout after 10 failed attempts",
-        "Vendor documentation where the throttling or lockout setting cannot be configured, with the default noted"
+        "Account lockout or throttling setting showing no more than 10 attempts",
+        "Banned-password list enabled in the identity provider"
+      ]
+    },
+    {
+      "code": "CE-SUP-05",
+      "title": "Malware protection: anti-malware or application allow-listing configured as Cyber Essentials requires",
+      "description": "Every in-scope device uses at least one of anti-malware software or application allow listing, active and kept up to date per the vendor. Anti-malware software prevents malware from running, prevents execution of malicious code and prevents connections to malicious websites. Application allow listing allows only approved, code-signed applications, with approval before deployment, a current list of approved applications, and no installation of unsigned applications or applications with an invalid signature",
+      "category": "Cyber Essentials thresholds",
+      "mandatory": true,
+      "applicability": "PER_SYSTEM",
+      "question": "For this system: is each in-scope device protected by anti-malware software or by application allow listing, active and kept up to date per the vendor? If anti-malware software is used, is it configured to prevent malware from running, prevent execution of malicious code and prevent connections to malicious websites? If application allow listing is used, are only approved, code-signed applications allowed to run, approved before deployment, on a current approved list, with users unable to install unsigned applications or applications with an invalid signature? Answer for whichever option the system uses.",
+      "intent": "ISO/IEC 27001 asks for protection against malware without naming the two Cyber Essentials options or their configuration. The options are alternatives, so one Control lets a System answer for the option it uses.",
+      "examples": [
+        "Endpoint protection console showing real-time protection, automatic updates and web protection on",
+        "Allow-listing policy (for example application control) restricting execution to signed, approved applications",
+        "Current list of approved applications with the approval record",
+        "Device management setting that blocks installation of unsigned applications"
       ]
     }
   ],
@@ -248,7 +293,7 @@
       "code": "CE-SC-12",
       "section": "Scope",
       "title": "Include devices loaned to third parties",
-      "text": "All end-user devices the organisation owns that are loaned to a third party must be included in the assessment scope. For devices the organisation does not own, Table 2 of the source sets by role (for example employee, volunteer, trustee, student, MSP administrator, third-party contractor, customer) whether an organisation-owned, third-party-owned or BYOD device is in or out of scope. (Section D, (vi) Devices used by third parties.)",
+      "text": "All end-user devices the organisation owns that are loaned to a third party must be included in the assessment scope. For devices the organisation does not own, Table 2 of the source sets what is in and out of scope, by role and by who owns the device. Organisation-owned device / third-party-owned device / BYOD: Employee in / N/A / in; Volunteer in / N/A / in; Trustee in / N/A / in; University research assistant in / N/A / in; Student in / N/A / out; MSP administrator in / out / out; Third party contractor in / out / out; Customer in / out / out. (Section D, (vi) Devices used by third parties, Table 2.)",
       "mappings": [
         {
           "control": "A.5.9",
@@ -579,12 +624,12 @@
       "code": "CE-CFG-08",
       "section": "Secure Configuration",
       "title": "Protect the device unlock method against brute-force attacks",
-      "text": "The chosen authentication method for device unlocking (biometric, password or PIN) must be protected against brute-force attacks. Where it can be configured, either throttle the rate of attempts so the wait grows with each failure, allowing no more than 10 guesses in 5 minutes, or lock the device after no more than 10 unsuccessful attempts. Where the vendor does not allow this to be configured, the vendor's default setting is used. (Theme 2, Secure Configuration: Device unlocking credentials.)",
+      "text": "The chosen authentication method for device unlocking (biometric, password or PIN) must be protected against brute-force attacks. When it is possible to configure, you should apply one of: throttling the rate of attempts so the wait grows with each failure, allowing no more than 10 guesses in 5 minutes; or locking the device after no more than 10 unsuccessful attempts. When the vendor does not allow this to be configured, use the vendor's default setting. Curatorial note: the source phrases the choice of throttling or lockout as 'should' (when configurable); it is included as a Requirement because it is a tested measure of the protection that must be in place. (Theme 2, Secure Configuration: Device unlocking credentials.)",
       "mappings": [
         {
           "control": "CE-SUP-02",
           "coverage": "FULL",
-          "rationale": "Holds the throttling and lockout thresholds (no more than 10 guesses in 5 minutes, or lock after no more than 10 failures, with the vendor-default fallback)."
+          "rationale": "Holds the throttling and lockout thresholds (no more than 10 guesses in 5 minutes, or lock after no more than 10 failures, with the vendor-default fallback). Multi-factor authentication is not an alternative for device unlocking."
         },
         {
           "control": "A.8.5",
@@ -602,12 +647,12 @@
       "code": "CE-CFG-09",
       "section": "Secure Configuration",
       "title": "Control the quality of device unlocking credentials",
-      "text": "Technical controls must be used to manage the quality of credentials. If credentials only unlock a device, the minimum password or PIN length is at least 6 characters. When the unlocking credentials are also used for authentication, the full password requirements of User Access Control apply. (Theme 2, Secure Configuration: Device unlocking credentials.)",
+      "text": "Technical controls must be used to manage the quality of credentials. If credentials are just to unlock a device, use a minimum password or PIN length of at least 6 characters. When the device unlocking credentials are also used for authentication, you must apply the full password requirements to the credentials described in User Access Control (see CE-UAC-09 and CE-UAC-10). (Theme 2, Secure Configuration: Device unlocking credentials.)",
       "mappings": [
         {
           "control": "CE-SUP-02",
           "coverage": "FULL",
-          "rationale": "Holds the 6-character minimum for device-only unlocking and the full password requirements where the credential is also used to authenticate."
+          "rationale": "Holds the 6-character minimum for credentials used only to unlock a device. The full password requirements for credentials that also authenticate are assessed under CE-UAC-09 and CE-UAC-10."
         },
         {
           "control": "A.5.17",
@@ -853,10 +898,10 @@
       "code": "CE-UAC-08",
       "section": "User Access Control",
       "title": "Give the password element of MFA at least 8 characters",
-      "text": "The password element of a multi-factor authentication approach must have a length of at least 8 characters, with no maximum length restriction. (Theme 4, User Access Control: Multi-factor authentication.)",
+      "text": "The password element of the multi-factor authentication approach must have a password length of at least 8 characters, with no maximum length restrictions. (Theme 4, User Access Control: Multi-factor authentication.)",
       "mappings": [
         {
-          "control": "CE-SUP-02",
+          "control": "CE-SUP-03",
           "coverage": "FULL",
           "rationale": "Holds the 8-character minimum and the no-maximum rule for the password element of MFA."
         },
@@ -871,12 +916,12 @@
       "code": "CE-UAC-09",
       "section": "User Access Control",
       "title": "Protect passwords against brute-force guessing",
-      "text": "Where a password is used to authenticate, it must be protected against brute-force guessing by at least one of: multi-factor authentication, throttling the rate of attempts so the wait grows with each failure (no more than 10 guesses in 5 minutes), or locking the device after no more than 10 unsuccessful attempts. (Theme 4, User Access Control: Password-based authentication.)",
+      "text": "Where authentication is carried out using a password, you should put in place protection against brute-force password guessing by implementing at least one of: multi-factor authentication; throttling the rate of attempts so that the wait between attempts increases with each unsuccessful attempt, allowing no more than 10 guesses in 5 minutes; or locking devices after no more than 10 unsuccessful attempts. Curatorial note: the source phrases the protective measures as 'should'; this is included as a Requirement because it is a tested measure. (Theme 4, User Access Control: Password-based authentication.)",
       "mappings": [
         {
-          "control": "CE-SUP-02",
+          "control": "CE-SUP-04",
           "coverage": "FULL",
-          "rationale": "Holds the three alternatives and the 10-guess limits."
+          "rationale": "Holds the three alternatives (MFA, throttling, lockout) and the 10-guess limits for password-based authentication."
         },
         {
           "control": "A.5.17",
@@ -894,17 +939,17 @@
       "code": "CE-UAC-10",
       "section": "User Access Control",
       "title": "Control the quality of passwords",
-      "text": "Technical controls must manage the quality of passwords, by one of: multi-factor authentication, a minimum password length of at least 12 characters with no maximum, or a minimum of at least 8 characters with no maximum and automatic blocking of common passwords using a deny list. (Theme 4, User Access Control: Password-based authentication.)",
+      "text": "Where authentication is carried out using a password, you should use technical controls to manage the quality of passwords. This will include one of the following: multi-factor authentication; a minimum password length of at least 12 characters, with no maximum length restrictions; or a minimum password length of at least 8 characters, with no maximum length restrictions, and automatic blocking of common passwords using a deny list. Curatorial note: the source phrases the protective measures as 'should'; this is included as a Requirement because it is a tested measure. (Theme 4, User Access Control: Password-based authentication.)",
       "mappings": [
         {
-          "control": "CE-SUP-02",
+          "control": "CE-SUP-04",
           "coverage": "FULL",
-          "rationale": "Holds the three accepted options with the 12-character and 8-character-plus-deny-list thresholds."
+          "rationale": "Holds the three accepted options with the 12-character and 8-character-plus-deny-list thresholds for password-based authentication."
         },
         {
           "control": "A.5.17",
           "coverage": "PARTIAL",
-          "rationale": "Requires good-quality passwords in general terms, with no minimum length or deny list."
+          "rationale": "Requires good-quality authentication information in general terms, with no minimum length or deny list."
         },
         {
           "control": "A.8.5",
@@ -952,103 +997,23 @@
     {
       "code": "CE-MP-01",
       "section": "Malware Protection",
-      "title": "Keep a malware protection mechanism active on all in-scope devices",
-      "text": "A malware protection mechanism must be active on all devices in scope. Each device uses at least one of two options, anti-malware software or application allow listing. In all cases the software must be active, kept up to date in accordance with the vendor's instructions, and configured as described in CE-MP-02 to CE-MP-06. (Theme 5, Malware Protection: Requirements.)",
+      "title": "Keep a malware protection mechanism active on every in-scope device",
+      "text": "A malware protection mechanism must be active on all devices in scope. For each device, at least one of two options must be used: anti-malware software, or application allow listing. In all cases the software must be active, kept up to date in accordance with the vendor's instructions, and configured as follows. If anti-malware software is used (option for in-scope devices running Windows or macOS, including servers, desktop computers and laptops), it must be configured to: be updated in line with vendor recommendations; prevent malware from running; prevent the execution of malicious code; and prevent connections to malicious websites over the internet. If application allow listing is used (option for all in-scope devices), only approved applications, restricted by code signing, are allowed to execute on devices, and the organisation must: actively approve such applications before deploying them to devices; and maintain a current list of approved applications, where users must not be able to install any application that is unsigned or has an invalid signature. (Theme 5, Malware Protection: Requirements.)",
       "mappings": [
         {
-          "control": "A.8.7",
+          "control": "CE-SUP-05",
           "coverage": "FULL",
-          "rationale": "Protection against malware must be implemented across the organisation's devices, which is this requirement."
-        },
-        {
-          "control": "A.8.1",
-          "coverage": "PARTIAL",
-          "rationale": "Endpoint protection can include malware protection on each user device."
-        }
-      ]
-    },
-    {
-      "code": "CE-MP-02",
-      "section": "Malware Protection",
-      "title": "Keep anti-malware software updated",
-      "text": "If anti-malware software is used, it must be configured to be updated in line with vendor recommendations. It applies to in-scope devices running Windows or macOS, including servers, desktop computers and laptops. (Theme 5, Malware Protection: Anti-malware software.)",
-      "mappings": [
-        {
-          "control": "A.8.7",
-          "coverage": "PARTIAL",
-          "rationale": "Protection against malware, without the update requirement stated."
-        },
-        {
-          "control": "A.8.8",
-          "coverage": "PARTIAL",
-          "rationale": "Keeping security software current is part of fix management."
-        }
-      ]
-    },
-    {
-      "code": "CE-MP-03",
-      "section": "Malware Protection",
-      "title": "Prevent malware from running and malicious code from executing",
-      "text": "If anti-malware software is used, it must be configured to prevent malware from running and to prevent the execution of malicious code. (Theme 5, Malware Protection: Anti-malware software.)",
-      "mappings": [
-        {
-          "control": "A.8.7",
-          "coverage": "FULL",
-          "rationale": "Prevention and detection of malware is the purpose of the control."
-        }
-      ]
-    },
-    {
-      "code": "CE-MP-04",
-      "section": "Malware Protection",
-      "title": "Prevent connections to malicious websites",
-      "text": "If anti-malware software is used, it must be configured to prevent connections to malicious websites over the internet. (Theme 5, Malware Protection: Anti-malware software.)",
-      "mappings": [
-        {
-          "control": "A.8.23",
-          "coverage": "FULL",
-          "rationale": "Web filtering manages access to external websites to reduce exposure to malicious content."
+          "rationale": "Holds the either/or rule and the full configuration of whichever option the System uses (anti-malware software or application allow listing)."
         },
         {
           "control": "A.8.7",
           "coverage": "PARTIAL",
-          "rationale": "Malware protection includes blocking malicious sites."
-        }
-      ]
-    },
-    {
-      "code": "CE-MP-05",
-      "section": "Malware Protection",
-      "title": "Allow only approved applications, restricted by code signing",
-      "text": "If application allow listing is used, only approved applications, restricted by code signing, may execute on devices. The organisation must actively approve such applications before deploying them to devices. This option applies to all in-scope devices. (Theme 5, Malware Protection: Application allow listing.)",
-      "mappings": [
+          "rationale": "Protection against malware must be implemented, but the control does not require either option, its configuration or code-signing."
+        },
         {
           "control": "A.8.19",
           "coverage": "PARTIAL",
-          "rationale": "Software installation on operational systems is controlled, but the control does not require code signing or approval before deployment."
-        },
-        {
-          "control": "A.8.7",
-          "coverage": "PARTIAL",
-          "rationale": "Allow listing prevents malware from running; one technique among those the control covers."
-        }
-      ]
-    },
-    {
-      "code": "CE-MP-06",
-      "section": "Malware Protection",
-      "title": "Maintain a list of approved applications and block unsigned ones",
-      "text": "If application allow listing is used, a current list of approved applications must be maintained, and users must not be able to install any application that is unsigned or has an invalid signature. (Theme 5, Malware Protection: Application allow listing.)",
-      "mappings": [
-        {
-          "control": "A.8.19",
-          "coverage": "FULL",
-          "rationale": "Restricts who may install software and what may be installed, and requires it to be managed."
-        },
-        {
-          "control": "A.8.7",
-          "coverage": "PARTIAL",
-          "rationale": "Preventing unapproved software supports malware protection."
+          "rationale": "Managing software installation supports allow listing, but the control does not require a current approved list or refuse unsigned or invalidly signed applications."
         }
       ]
     }
