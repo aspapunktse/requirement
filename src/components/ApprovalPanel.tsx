@@ -16,6 +16,9 @@ type Approval = {
   stepName: string;
   /** The step's decision no longer counts: its group's step left the round (CONTEXT.md, Review Step). */
   voided?: boolean;
+  /** Set when an edit to a Control in the step's remit reopened it ("A.5.1 changed after approval"); absent for a dropped step's. */
+  voidReason?: string | null;
+  voidedAt?: string | null;
   /** Present only when the viewer may see who decided (an Admin, Internal Auditor, Compliance Manager or the step's deciders). */
   approver?: { name: string };
 };
@@ -29,6 +32,8 @@ type ReviewStep = {
   status: "OPEN" | "APPROVED" | "REJECTED";
   /** Whether the viewer may decide this step now. */
   canDecide?: boolean;
+  /** Set on an Open step that had approved and was reopened by an edit to its remit. */
+  reopened?: { at: string; reason: string };
 };
 
 const STEP_STATUS_LABEL: Record<ReviewStep["status"], string> = { OPEN: "Open", APPROVED: "Approved", REJECTED: "Rejected" };
@@ -139,6 +144,11 @@ export function ApprovalPanel({ systemId }: { systemId: string }) {
                   <span>{step.name}</span>
                   <StatusChip tone={STEP_STATUS_TONE[step.status]}>{STEP_STATUS_LABEL[step.status]}</StatusChip>
                 </div>
+                {step.status === "OPEN" && step.reopened && (
+                  <p className="mt-1 text-xs text-rg-muted">
+                    Reopened {new Date(step.reopened.at).toLocaleString()}: {step.reopened.reason}
+                  </p>
+                )}
                 {step.canDecide && step.status === "OPEN" && <DecisionForm systemId={systemId} step={step} onDecided={reload} />}
               </li>
             ))}
@@ -176,7 +186,11 @@ export function ApprovalPanel({ systemId }: { systemId: string }) {
                           <span className="text-xs font-normal text-rg-muted">by {approval.approver.name}</span>
                         )}
                         {approval.voided && (
-                          <span className="text-xs font-normal text-rg-muted">(step dropped, no longer counts)</span>
+                          <span className="text-xs font-normal text-rg-muted">
+                            {approval.voidReason
+                              ? `(step reopened: ${approval.voidReason}, no longer counts)`
+                              : "(step dropped, no longer counts)"}
+                          </span>
                         )}
                       </div>
                       <p className="text-xs text-zinc-500">{new Date(approval.decidedAt).toLocaleString()}</p>

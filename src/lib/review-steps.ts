@@ -3,6 +3,7 @@ import { userCanDecideStep } from "@/lib/approvals";
 import { prisma } from "@/lib/prisma";
 import { logChangeEvent, SYSTEM_ACTOR } from "@/lib/change-events";
 import { APPLICABILITY_SCOPING } from "@/lib/control-assessments";
+import { isSystemOwnerOrAdmin } from "@/lib/system-permissions";
 import {
   APPLICABLE_APPLICABILITIES,
   meetsAllImpactThresholds,
@@ -26,6 +27,8 @@ export type ReviewStep = {
   reviewGroupId: string | null;
   name: string;
   status: ReviewStepStatus;
+  /** Set on an Open step that had approved and was reopened by an edit to its remit (#200): when, and why. */
+  reopened?: { at: Date; reason: string };
 };
 
 /** What a Control must look like for `isBaseControl`: its mappings and the Framework of each Requirement. */
@@ -62,6 +65,29 @@ const CONTROL_FOR_REMIT = {
   },
 } satisfies Prisma.ControlInclude;
 
+type ControlForRemit = Prisma.ControlGetPayload<{ include: typeof CONTROL_FOR_REMIT }>;
+
+/**
+ * Which Review Steps a Control belongs to, given the System's declared Framework Scope: the single
+ * rule behind both "which groups have remit on a System" and "which steps does an edit to this
+ * Control reopen". A base Control belongs to the base step only. Any other Control belongs to the
+ * step of each Review Group tied to a Published, declared Framework it is mapped to, and to the base
+ * step if it is also mapped to such a Framework with no group (those fall to the base step).
+ * Applicability (facets, Impact Levels) is not looked at here.
+ */
+function stepsOfControl(control: ControlForRemit, declaredScopeIds: Set<string>) {
+  const groups = new Map<string, string>();
+  if (isBaseControl(control)) return { base: true, groups };
+  let base = false;
+  for (const { requirement } of control.mappings) {
+    const { framework } = requirement;
+    if (framework.status !== "PUBLISHED" || !declaredScopeIds.has(framework.id)) continue;
+    if (framework.reviewGroup) groups.set(framework.reviewGroup.id, framework.reviewGroup.name);
+    else base = true;
+  }
+  return { base, groups };
+}
+
 /**
  * The Review Groups that have at least one Control in their remit on the System: a non-base
  * Control that applies to the System (same rules as `getApplicableControls`: applicability,
@@ -84,22 +110,49 @@ export async function groupsWithRemit(tx: Prisma.TransactionClient, system: Syst
   const declaredScopeIds = new Set(system.frameworkScopes.map((framework) => framework.id));
   const groups = new Map<string, string>();
   for (const control of controls) {
-    if (!meetsAllImpactThresholds(system, control) || isBaseControl(control)) continue;
-    for (const { requirement } of control.mappings) {
-      const { framework } = requirement;
-      if (framework.status !== "PUBLISHED" || !declaredScopeIds.has(framework.id) || !framework.reviewGroup) continue;
-      groups.set(framework.reviewGroup.id, framework.reviewGroup.name);
-    }
+    if (!meetsAllImpactThresholds(system, control)) continue;
+    for (const [id, name] of stepsOfControl(control, declaredScopeIds).groups) groups.set(id, name);
   }
   return groups;
 }
 
+/**
+ * Open question 2 on #200: a *stale* Control (no longer applicable, so in no live remit) whose
+ * mappings point at no declared Published Framework reopens the base step when this is true (the
+ * default, "2a"), and nothing when false. The one place to change it.
+ */
+const STALE_CONTROL_FALLS_BACK_TO_BASE_STEP = true;
+
+/**
+ * The ids of the Review Steps (`null` is the base step) whose remit contains `controlId` on the System,
+ * by the same rule as `groupsWithRemit` but for one Control and without its applicability test: an
+ * edit can be to a stale Control too (one a facet change left behind). Whether those steps are live
+ * is for the caller to check against the current steps.
+ */
+export async function stepsContainingControl(tx: Tx, system: SystemClassification, controlId: string) {
+  const control = await tx.control.findUnique({ where: { id: controlId }, include: CONTROL_FOR_REMIT });
+  const ids = new Set<string | null>();
+  if (!control) return ids;
+  const { base, groups } = stepsOfControl(control, new Set(system.frameworkScopes.map((framework) => framework.id)));
+  if (base) ids.add(null);
+  for (const id of groups.keys()) ids.add(id);
+  if (ids.size === 0 && STALE_CONTROL_FALLS_BACK_TO_BASE_STEP) ids.add(null);
+  return ids;
+}
+
 type Tx = Prisma.TransactionClient;
 
-type StepApproval = { reviewGroupId: string | null; decision: OnboardingStatus; decidedAt: Date; id: string };
+type StepApproval = {
+  reviewGroupId: string | null;
+  decision: OnboardingStatus;
+  decidedAt: Date;
+  id: string;
+  voidedAt?: Date | null;
+  voidReason?: string | null;
+};
 
 /** The status of one step from the round's Approvals. Voided Approvals (a dropped step's) never count. */
-function stepStatus(approvals: (StepApproval & { voidedAt?: Date | null })[], reviewGroupId: string | null): ReviewStepStatus {
+function stepStatus(approvals: StepApproval[], reviewGroupId: string | null): ReviewStepStatus {
   const decisions = approvals
     .filter((approval) => approval.reviewGroupId === reviewGroupId && !approval.voidedAt)
     .sort((a, b) => a.decidedAt.getTime() - b.decidedAt.getTime() || a.id.localeCompare(b.id));
@@ -115,15 +168,23 @@ const SYSTEM_FOR_STEPS = {
 } satisfies Prisma.SystemInclude;
 
 /** The base step plus one step per live group (sorted by name), with statuses from `approvals`. */
-function buildSteps(
-  groups: Map<string, string>,
-  approvals: (StepApproval & { voidedAt?: Date | null })[],
-): ReviewStep[] {
+function buildSteps(groups: Map<string, string>, approvals: StepApproval[]): ReviewStep[] {
+  const step = (reviewGroupId: string | null, name: string): ReviewStep => {
+    const status = stepStatus(approvals, reviewGroupId);
+    if (status !== "OPEN") return { reviewGroupId, name, status };
+    // An Open step whose latest void was an edit's (a reason is recorded) was reopened (#200). A later
+    // dropped-step void (no reason) supersedes an older reopen.
+    const reopening = approvals
+      .filter((approval) => approval.reviewGroupId === reviewGroupId && approval.voidedAt)
+      .sort((a, b) => a.voidedAt!.getTime() - b.voidedAt!.getTime())
+      .at(-1);
+    return reopening?.voidReason
+      ? { reviewGroupId, name, status, reopened: { at: reopening.voidedAt!, reason: reopening.voidReason } }
+      : { reviewGroupId, name, status };
+  };
   return [
-    { reviewGroupId: null, name: BASE_REVIEW_STEP_NAME, status: stepStatus(approvals, null) },
-    ...[...groups]
-      .sort(([, a], [, b]) => a.localeCompare(b))
-      .map(([reviewGroupId, name]) => ({ reviewGroupId, name, status: stepStatus(approvals, reviewGroupId) })),
+    step(null, BASE_REVIEW_STEP_NAME),
+    ...[...groups].sort(([, a], [, b]) => a.localeCompare(b)).map(([reviewGroupId, name]) => step(reviewGroupId, name)),
   ];
 }
 
@@ -131,9 +192,13 @@ function buildSteps(
  * Takes a row lock on the System, so decisions and reconciliations on it run one after another.
  * Call it first in a READ COMMITTED transaction (a REPEATABLE READ snapshot would be taken before
  * the wait and miss what the previous holder committed).
+ *
+ * `FOR NO KEY UPDATE`, not `FOR UPDATE`: lockers still exclude each other, but the holder doesn't
+ * block other transactions' inserts that reference the System (Change Events on a dependent of a
+ * Provider), which would let two Provider transactions wait on each other's System rows (#200).
  */
 export async function lockSystem(tx: Tx, systemId: string) {
-  await tx.$queryRaw`SELECT "id" FROM "System" WHERE "id" = ${systemId} FOR UPDATE`;
+  await tx.$queryRaw`SELECT "id" FROM "System" WHERE "id" = ${systemId} FOR NO KEY UPDATE`;
 }
 
 /**
@@ -290,5 +355,87 @@ export async function getOpenStepsForUser(user: { id: string; role: UserRole }) 
       return tasks;
     },
     { isolationLevel: "RepeatableRead" },
+  );
+}
+
+/**
+ * Whose edit reopens an approved step (open question 1 on #200). Default ("1a"): any person's, so the
+ * owner's, an Admin's and a Risk Owner's waive / Not Applicable. To narrow it to the owner and Admins
+ * ("1b"), make this `isSystemOwnerOrAdmin(actor, system)` alone. The `"system"` actor is not a
+ * person and never gets here (see `reopenStepsForEdit`).
+ */
+const ANY_PERSONS_EDIT_REOPENS = true as boolean;
+export function editReopensSteps(actor: { id: string; role: UserRole }, system: { ownerId: string }) {
+  return ANY_PERSONS_EDIT_REOPENS || isSystemOwnerOrAdmin(actor, system);
+}
+
+/**
+ * A person has just changed the Control Assessment of `control` on a System (#200). Every approved
+ * step of the current Review Round whose remit contains the Control goes back to Open, so the approval
+ * no longer vouches for an answer that is gone: the step's live Approvals are voided with the reason
+ * (they stay in the history) and one Change Event per reopened step is written on the System, actor
+ * the editor, all on `tx`.
+ *
+ * The caller has already called `lockSystem(tx, systemId)` (first, in a READ COMMITTED transaction),
+ * so this serialises with step decisions and with `settleReviewSteps`, and calls this only for an
+ * edit that really changed the Assessment (`assessmentValuesChanged`, a reset to inherited, a stale
+ * removal) by a person `editReopensSteps` allows. Not edits, so never calling this: inheritance
+ * moving, a Nonconformity's `"system"` set-back, an applicability recompute, a reviewer raising a Query.
+ * Does nothing unless the System is In Review. Returns the names of the steps it reopened.
+ */
+export async function reopenStepsForEdit(
+  tx: Tx,
+  systemId: string,
+  control: { id: string; code: string },
+  actorId: string,
+) {
+  const current = await readCurrentSteps(tx, systemId);
+  if (!current || !current.round) return [];
+  const remit = await stepsContainingControl(tx, current.system, control.id);
+  const reopened: string[] = [];
+  const reason = `${control.code} changed after approval`;
+  const voidedAt = new Date();
+  for (const step of current.steps) {
+    if (step.status !== "APPROVED" || !remit.has(step.reviewGroupId)) continue;
+    await tx.approval.updateMany({
+      where: { reviewRoundId: current.round.id, reviewGroupId: step.reviewGroupId, voidedAt: null },
+      data: { voidedAt, voidReason: reason },
+    });
+    await logChangeEvent(
+      systemId,
+      "REVIEW_STEP_REOPENED",
+      `${step.name} step reopened: ${reason}`,
+      actorId,
+      tx,
+    );
+    reopened.push(step.name);
+  }
+  return reopened;
+}
+
+type StoredAssessment = {
+  status: string;
+  evidence: string | null;
+  notes: string | null;
+  selfAssessmentAnswer: string | null;
+  assessedById: string | null;
+} | null;
+
+/**
+ * Whether a person's save changes the Assessment, for `reopenStepsForEdit` (#200). Fields the save
+ * leaves out (`undefined`) are not changed. Saving over a row nobody has worked on yet (no row, or one
+ * not person-set) counts, because it makes the Assessment person-set, which overrides what the Control
+ * inherits; re-sending the stored values of a person-set row does not.
+ */
+export function assessmentValuesChanged(
+  previous: StoredAssessment,
+  next: { status: string; evidence?: string | null; notes?: string | null; selfAssessmentAnswer?: string | null },
+) {
+  if (!previous || previous.assessedById === null) return true;
+  return (
+    previous.status !== next.status ||
+    (next.evidence !== undefined && next.evidence !== previous.evidence) ||
+    (next.notes !== undefined && next.notes !== previous.notes) ||
+    (next.selfAssessmentAnswer !== undefined && next.selfAssessmentAnswer !== previous.selfAssessmentAnswer)
   );
 }
