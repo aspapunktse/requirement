@@ -14,7 +14,7 @@ This file holds current state and the queue, and nothing else. The rule is in th
 **Where the last session stopped (2026-10-19). Do this first.**
 1. **PRD 0001 · M5 Internal audit is complete** with #158 (PR #177). Close the GitHub milestone once #158 is closed.
 2. **M4:** #149 is done (PR #178). The product owner loaded CSA CCM 4.1.1 into production as a Draft on 2026-10-14; CD and the seed don't run the loader, so a later content file needs the same manual load. #148 waits on the product owner (`ready-for-human`) until the source documents are attached. Nothing else in PRD 0001 is cut into issues.
-   CMMC Level 1 (#209) is done (PR #213): a Draft content file, to be loaded into production by hand like CSA CCM. CMMC Level 2 is #210.
+   CMMC Level 1 (#209) is done (PR #213) and Cyber Essentials 3.3 (#212) is done (PR #214): Draft content files, to be loaded into production by hand like CSA CCM. CMMC Level 2 is #210.
 3. **Design:** #181 moved the app to the Register design system (PR #182). Follow-ups: list components to RegisterRow, filter panels to FilterFields, the header tab row. New code uses the `--rg-*` tokens and `rg-*` Tailwind colours, not `--ems-*`.
    Design proposals are listed at `/design` with thumbs-up voting (#186). Each new proposal adds its entry to `public/design/proposals.js` (rule in `AGENTS.md`).
 4. **Framework Review Groups (2026-10-18):** grilled with the product owner; the design is in `CONTEXT.md` (Review Group, Review Step, Review Round) and [ADR 0010](docs/adr/0010-onboarding-review-runs-as-parallel-review-steps.md), and cut into #197–#201 (queue below). #197 is done (PR #204), #198 is done (PR #205), #199 is done (PR #206), #200 is done (PR #207) and #201 is done (PR #208). All five issues are done; what is left is the future work listed under the queue.
@@ -31,6 +31,7 @@ PRD 0001 · M4 Content & SoA:
 6. #148 Cybersäkerhetslagen content as a Framework import file. Blocked by #144. **`ready-for-human`**: the product owner attaches the source documents first, then relabels it `ready-for-agent`.
 7. #149 CSA CCM 4.1.1 content as a Framework import file. **Done: PR #178.**
 8. #209 CMMC Level 1 content as a Framework import file. **Done: PR #213.**
+9. #212 Cyber Essentials 3.3 content as a Framework import file. **Done: PR #214.**
 
 PRD 0001 · M5 Internal audit:
 1. #147 Add the Internal Auditor role. **Done: PR #168.**
@@ -112,7 +113,7 @@ The dev DB is in its seeded state. When cleaning up after a browser check, compa
 - 47 rows in `_prisma_migrations` once PR #208 is merged and applied.
 - 7 Approvals and 9 Review Rounds (one per Approval, plus an open one for each of the 2 Systems In Review).
 - Controls by applicability: 61 Organizational, 31 Both, 26 Per-System. All mandatory.
-- Frameworks: ISO/IEC 27001:2022, which is the base and Published. GDPR 1 and Export Control (EAR/ITAR) 1 are Published but have no Requirements yet. The seed doesn't load `prisma/seed-data/frameworks/`, so CSA CCM 4.1.1 and CMMC Level 1 are absent until `npm run frameworks:load` is run.
+- Frameworks: ISO/IEC 27001:2022, which is the base and Published. GDPR 1 and Export Control (EAR/ITAR) 1 are Published but have no Requirements yet. The seed doesn't load `prisma/seed-data/frameworks/`, so CSA CCM 4.1.1, CMMC Level 1 and Cyber Essentials 3.3 are absent until `npm run frameworks:load` is run.
 - ISO/IEC 27001:2022 figures: Jira 56 of 117 (47.9%), CATIA 9 of 117, Unily 6 of 117 ("needs assessment" 44 and 47), the Provider "Entra ID SSO" 4 of 117 ("needs assessment" 52), pooled 467 of 1288 (36.3%).
 
 ## Conventions and gotchas
