@@ -7,7 +7,8 @@ import { getVisibleSystem } from "@/lib/system-visibility";
 import { assessmentEditAccess, canAnswerSelfAssessment } from "@/lib/system-permissions";
 import { checkWaiveGate, getApplicableControl } from "@/lib/control-assessments";
 import { logChangeEvent, SYSTEM_ACTOR } from "@/lib/change-events";
-import { runProviderAssessmentWrite } from "@/lib/provider-inheritance";
+import { runAssessmentEdit, reopenStepsAfterEdit } from "@/lib/assessment-edit";
+import { assessmentValuesChanged } from "@/lib/review-steps";
 import { loadEffectiveStatus, toOwnAssessment } from "@/lib/effective-status-data";
 import { describeOwnEditEffect } from "@/lib/effective-status";
 
@@ -87,7 +88,7 @@ export async function PATCH(
 
   // A Provider's own status is what its dependents inherit from (#124, F-IN.7): see the
   // Assessment edit route. For any other System this is the plain write it always was.
-  const assessment = await runProviderAssessmentWrite(system, controlId, async (db, locked) => {
+  const assessment = await runAssessmentEdit(system, controlId, async (db, locked) => {
     const previous = locked
       ? await db.controlAssessment.findUnique({ where: { systemId_controlId: { systemId: system.id, controlId } } })
       : existing;
@@ -111,6 +112,14 @@ export async function PATCH(
       },
       include: { assessedBy: true },
     });
+    await reopenStepsAfterEdit(
+      db,
+      locked,
+      system,
+      control,
+      auth.user,
+      assessmentValuesChanged(previous, { status, notes, selfAssessmentAnswer: answer }),
+    );
 
     if ((previous?.status ?? "NOT_STARTED") !== status) {
       // What the Control effectively is, when that isn't the stored status (see the edit route, #125).

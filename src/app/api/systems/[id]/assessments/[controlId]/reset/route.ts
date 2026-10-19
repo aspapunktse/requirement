@@ -36,7 +36,7 @@ export async function POST(
     );
   }
 
-  const result = await resetAssessmentToInherited(system, controlId, auth.user.id);
+  const result = await resetAssessmentToInherited(system, controlId, auth.user);
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: result.status });
   }

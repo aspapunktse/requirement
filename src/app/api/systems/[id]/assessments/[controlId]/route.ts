@@ -7,7 +7,8 @@ import { getVisibleSystem } from "@/lib/system-visibility";
 import { assessmentEditAccess, canEditAssessment, isSystemOwnerOrAdmin, WAIVE_GATED_STATUSES } from "@/lib/system-permissions";
 import { checkWaiveGate, getControlForAssessmentEdit, removeStaleAssessment } from "@/lib/control-assessments";
 import { logChangeEvent } from "@/lib/change-events";
-import { runProviderAssessmentWrite } from "@/lib/provider-inheritance";
+import { runAssessmentEdit, reopenStepsAfterEdit } from "@/lib/assessment-edit";
+import { assessmentValuesChanged } from "@/lib/review-steps";
 import { loadEffectiveStatus, toOwnAssessment } from "@/lib/effective-status-data";
 import { describeOwnEditEffect } from "@/lib/effective-status";
 
@@ -86,8 +87,9 @@ export async function PATCH(
   // A Provider's own status is what the Systems depending on it inherit from (#124, F-IN.7):
   // for a Provider the write, its event and the events on the dependents it moves are one
   // transaction under the Provider lock (re-reading the previous status inside it). For
-  // any other System this is the plain write it always was.
-  const assessment = await runProviderAssessmentWrite(system, controlId, async (db, locked) => {
+  // any other System this is the plain write it always was. On a System In Review the write also
+  // reopens the approved Review Steps whose remit holds the Control (#200), in the same transaction.
+  const assessment = await runAssessmentEdit(system, controlId, async (db, locked) => {
     const previous = locked
       ? await db.controlAssessment.findUnique({ where: { systemId_controlId: { systemId: system.id, controlId } } })
       : existing;
@@ -111,6 +113,7 @@ export async function PATCH(
       },
       include: { assessedBy: true },
     });
+    await reopenStepsAfterEdit(db, locked, system, control, auth.user, assessmentValuesChanged(previous, { status, evidence, notes }));
 
     if ((previous?.status ?? "NOT_STARTED") !== status) {
       // The stored status can differ from what the Control effectively is (a Fulfilled
@@ -158,7 +161,7 @@ export async function DELETE(
     );
   }
 
-  const result = await removeStaleAssessment(system, controlId, auth.user.id);
+  const result = await removeStaleAssessment(system, controlId, auth.user);
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: result.status });
   }
