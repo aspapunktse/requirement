@@ -9,16 +9,31 @@
   "supplementaryControls": [
     {
       "code": "DEFSTAN-SUP-02",
-      "title": "Cyber Essentials Plus certification",
-      "description": "Hold current Cyber Essentials Plus certification whose scope covers all aspects of the contract, and commit to keeping it for the duration of the contract",
+      "title": "Cyber Essentials Plus certification covers this System",
+      "description": "The organisation holds current Cyber Essentials Plus certification whose scope covers all aspects of the contract, including this System, and commits to keeping it for the duration of the contract",
       "category": "DEF STAN 05-138 obligations",
       "mandatory": true,
-      "applicability": "ORGANIZATIONAL",
-      "intent": "Cyber Essentials Plus adds a hands-on technical verification by the certification body to Cyber Essentials. ISO 27001 controls do not amount to holding the certificate, and the standard asks for the certificate itself, with a scope that covers the contract.",
+      "applicability": "PER_SYSTEM",
+      "question": "Is this System inside the scope of the organisation's current Cyber Essentials Plus certification, so that the certificate covers it for the contract?",
+      "intent": "Cyber Essentials Plus adds a hands-on technical verification by the certification body to Cyber Essentials. ISO 27001 controls do not amount to holding the certificate. The standard asks for the certificate with a scope that covers the contract, and a certificate can cover some Systems and not others, so each System confirms it is inside the scope.",
       "examples": [
         "Current Cyber Essentials Plus certificate from an accredited certification body",
-        "Certificate scope statement that covers the systems used for the contract",
+        "Certificate scope statement that names the System or the environment it runs in",
         "Renewal plan so the certificate does not lapse during the contract"
+      ]
+    },
+    {
+      "code": "DEFSTAN-SUP-05",
+      "title": "General warning notice before information system access",
+      "description": "Show users a warning notice they must accept before they access an information system: that use is monitored, recorded and subject to audit, that unauthorised use is prohibited and subject to criminal and civil penalties, and that continuing means consent to monitoring and recording of their activities",
+      "category": "DEF STAN 05-138 obligations",
+      "mandatory": true,
+      "applicability": "PER_SYSTEM",
+      "question": "For this information system: do users have to accept a warning notice before they get access, telling them that use is monitored, recorded and audited, that unauthorised use is prohibited and penalised, and that continuing means consent to monitoring?",
+      "intent": "A warning notice makes monitoring enforceable and tells users the system is not for unauthorised use. ISO 27001 has no Control for a pre-access notice, and access control and monitoring do not by themselves tell the user.",
+      "examples": [
+        "Log-on banner that the user must accept before the session starts",
+        "Banner wording approved by legal counsel"
       ]
     }
   ],
@@ -139,8 +154,8 @@
       "mappings": [
         {
           "control": "ISMS-6.1.2",
-          "coverage": "FULL",
-          "rationale": "The risk assessment process identifies, analyses and evaluates information security risks, which is the identify, assess and understand part of the requirement."
+          "coverage": "PARTIAL",
+          "rationale": "The risk assessment process identifies, analyses and evaluates information security risks, which is the identify, assess and understand part of the requirement; remediation and an overall organisational approach to risk management are not part of it."
         },
         {
           "control": "ISMS-6.1.3",
@@ -1242,8 +1257,8 @@
       "mappings": [
         {
           "control": "A.8.10",
-          "coverage": "FULL",
-          "rationale": "Information held in systems and devices is deleted when no longer required, and the requirement describes how that is done and confirmed."
+          "coverage": "PARTIAL",
+          "rationale": "Information held in systems and devices is deleted when no longer required; the attestation of destruction and the duty on third parties to dispose of data are not part of it."
         },
         {
           "control": "A.7.14",
@@ -1377,9 +1392,9 @@
       "text": "The Supplier shall ensure that mechanisms are in place to ensure users accept appropriate warning notices prior to information system access. At a minimum users must be warned that:\ni) Use of the information system is monitored, recorded and subject to audit\nii) Unauthorised usage of the information system is prohibited\niii) Unauthorised usage of the information system use is subject to criminal and civil penalties\niv) In continuing, the user affirms consent to monitoring and recording of their activities",
       "mappings": [
         {
-          "control": "DEFSTAN-SUP-03",
+          "control": "DEFSTAN-SUP-05",
           "coverage": "FULL",
-          "rationale": "The Supplementary Control is this obligation: show warning notices that users must accept before access, covering monitoring, unauthorised use and consent."
+          "rationale": "The Supplementary Control is this obligation: show a general warning notice that users must accept before access, covering monitoring and recording, unauthorised use and consent."
         }
       ]
     },
@@ -1392,7 +1407,7 @@
         {
           "control": "DEFSTAN-SUP-03",
           "coverage": "FULL",
-          "rationale": "The Supplementary Control is this obligation: show warning notices that users must accept before access, including notices about information with specific handling requirements."
+          "rationale": "The Supplementary Control is this obligation: show authenticated users a notice, which they must accept before access, about information with specific handling requirements imposed by the UK or its International Partners."
         }
       ]
     },
@@ -1820,8 +1835,8 @@
       "mappings": [
         {
           "control": "A.8.27",
-          "coverage": "FULL",
-          "rationale": "Secure system architecture and engineering principles, including defence in depth and resilience, are applied to the design of systems."
+          "coverage": "PARTIAL",
+          "rationale": "Secure system architecture and engineering principles, including defence in depth and resilience, are applied to the design of systems; segregation and mitigating resource limitations are covered by the other Controls mapped here."
         },
         {
           "control": "A.8.22",
@@ -2208,8 +2223,8 @@
       "mappings": [
         {
           "control": "A.7.5",
-          "coverage": "FULL",
-          "rationale": "Protection against physical and environmental threats such as fire and flooding is designed and implemented."
+          "coverage": "PARTIAL",
+          "rationale": "Protection against physical and environmental threats such as fire and flooding is designed and implemented; temperature and humidity control and backup power are not named."
         },
         {
           "control": "A.7.11",

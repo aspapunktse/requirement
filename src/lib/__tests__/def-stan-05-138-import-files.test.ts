@@ -143,6 +143,26 @@ describe("DEF STAN 05-138 Issue 4 import files", () => {
     }
   });
 
+  it("assess the certificate and notice Supplementary Controls per System, each with a question", () => {
+    const all = new Map(files.flatMap((d) => d.supplementaryControls).map((s) => [s.code, s]));
+    expect([...all.keys()].sort()).toEqual([
+      "DEFSTAN-SUP-01",
+      "DEFSTAN-SUP-02",
+      "DEFSTAN-SUP-03",
+      "DEFSTAN-SUP-04",
+      "DEFSTAN-SUP-05",
+    ]);
+    for (const s of all.values()) {
+      expect(s.applicability, s.code).toBe("PER_SYSTEM");
+      expect(s.question?.trim() ?? "", s.code).not.toBe("");
+    }
+    // 2406 (general banner, Level 2) and 2407 (specific-handling notice, Level 1) each have their own Control.
+    const mapped = (code: string) =>
+      files[3].requirements.find((r) => r.code === code)?.mappings.map((m) => m.control) ?? [];
+    expect(mapped("2406")).toEqual(["DEFSTAN-SUP-05"]);
+    expect(mapped("2407")).toEqual(["DEFSTAN-SUP-03"]);
+  });
+
   it("define each Supplementary Control once, in the lowest level that maps to it, with the DEFSTAN-SUP- prefix", () => {
     const definedAt = new Map<string, number>();
     files.forEach((data, level) => {
