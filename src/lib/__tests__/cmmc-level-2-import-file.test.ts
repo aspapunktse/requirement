@@ -183,6 +183,49 @@ describe("CMMC Level 2 2.0 import file", () => {
     }
   });
 
+  it("holds its six Supplementary Controls, each mapped FULL first from its practice", () => {
+    expect(data.supplementaryControls.map((control) => control.code)).toEqual([
+      "CMMC-L2-SUP-01",
+      "CMMC-L2-SUP-02",
+      "CMMC-L2-SUP-03",
+      "CMMC-L2-SUP-04",
+      "CMMC-L2-SUP-05",
+      "CMMC-L2-SUP-06",
+    ]);
+    const expected: [practice: string, control: string, applicability: string][] = [
+      ["AC.L2-3.1.22", "CMMC-L2-SUP-01", "PER_SYSTEM"],
+      ["AC.L2-3.1.9", "CMMC-L2-SUP-02", "PER_SYSTEM"],
+      ["SC.L2-3.13.11", "CMMC-L2-SUP-03", "PER_SYSTEM"],
+      ["SC.L2-3.13.12", "CMMC-L2-SUP-04", "PER_SYSTEM"],
+      ["AT.L2-3.2.3", "CMMC-L2-SUP-05", "ORGANIZATIONAL"],
+      ["CA.L2-3.12.4", "CMMC-L2-SUP-06", "PER_SYSTEM"],
+    ];
+    for (const [practice, control, applicability] of expected) {
+      const first = byCode.get(practice)?.mappings[0];
+      expect(first?.control, practice).toBe(control);
+      expect(first?.coverage, practice).toBe("FULL");
+      expect(first?.rationale ?? "", practice).toMatch(/assessment objective/);
+      const own = data.supplementaryControls.find((candidate) => candidate.code === control);
+      expect(own?.applicability, control).toBe(applicability);
+      expect(own?.deploymentFacets ?? [], control).toEqual([]);
+      if (applicability !== "ORGANIZATIONAL") expect(own?.question?.trim() ?? "", control).not.toBe("");
+    }
+  });
+
+  it("puts each practice's qualifying conditions in the question an assessor answers", () => {
+    const question = (code: string) => data.supplementaryControls.find((control) => control.code === code)?.question ?? "";
+    expect(question("CMMC-L2-SUP-02")).toMatch(/no human logon interface/);
+    expect(question("CMMC-L2-SUP-04")).toMatch(/Dedicated video conferencing systems .* are excluded/);
+    expect(question("CMMC-L2-SUP-06")).toMatch(/approved as not applicable by the designated authority/);
+  });
+
+  it("counts 43 practices as Covered (at least one FULL mapping) and 67 as Coverage Gaps", () => {
+    const covered = data.requirements.filter((requirement) => requirement.mappings.some((m) => m.coverage === "FULL"));
+    expect(covered).toHaveLength(43);
+    expect(data.requirements.length - covered.length).toBe(67);
+    expect(data.requirements.reduce((sum, requirement) => sum + requirement.mappings.length, 0)).toBe(238);
+  });
+
   describe("practices that Level 1 also holds", () => {
     const level1ByCode = new Map(level1.data.requirements.map((requirement) => [requirement.code, requirement]));
 
