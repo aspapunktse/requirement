@@ -15,7 +15,7 @@ PRD 0001 is delivered in five milestones. Three are in production, milestone 5 i
 | 1. Model split | In production |
 | 2. Applicability & continuous compliance | In production |
 | 3. Inheritance | In production |
-| 4. Content & SoA | In progress: the Statement of Applicability view (#145) with its exclusion justifications (#150), the Framework import loader (#144), Framework version lineage (#146), CSV export (#151), and the CSA CCM 4.1.1 (#149), CMMC Level 1 (#209) and CMMC Level 2 (#210) content files are built; issue #148 remains |
+| 4. Content & SoA | In progress: the Statement of Applicability view (#145) with its exclusion justifications (#150), the Framework import loader (#144), Framework version lineage (#146), CSV export (#151), and the CSA CCM 4.1.1 (#149), CMMC Level 1 (#209), CMMC Level 2 (#210) and DEF STAN 05-138 Issue 4 Level 0–3 (#211) content files are built; issue #148 remains |
 | 5. Internal audit | Built: the Internal Auditor role (#147), draft Internal Audits (#152) with Systems by filter (#153), questions and launch (#154), answering a Check-up (#155), evaluating one (#156), a Nonconformity's side effects (#157), and withdrawing Check-ups and closing an audit (#158) |
 
 The queue and what to do next are in [`HANDOFF.md`](HANDOFF.md). The per-issue record of how everything up to milestone 3 was built (routes, migrations, rules, test files) is in [`docs/implementation-history.md`](docs/implementation-history.md).
