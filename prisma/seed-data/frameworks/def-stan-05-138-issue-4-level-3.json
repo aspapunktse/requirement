@@ -1,0 +1,2754 @@
+{
+  "framework": {
+    "name": "DEF STAN 05-138 Level 3",
+    "version": "Issue 4",
+    "description": "DEF STAN 05-138 Issue 4 (14 May 2024), Cyber Risk Profile Level 3 (Expert): the 144 control requirements of Table 1 for suppliers with a substantial level of assessed cyber risk. Each Control ID is a Requirement code; the Control Requirements text is quoted from the standard. A few Level 1 and 2 controls are replaced at this level by a stronger version.",
+    "licensing": "QUOTABLE",
+    "strictComplianceRequired": false
+  },
+  "supplementaryControls": [],
+  "requirements": [
+    {
+      "code": "0001",
+      "section": "Certification",
+      "title": "Cyber Essentials",
+      "text": "The Supplier shall have Cyber Essentials certification that covers the scope required for all aspects of the contract and commit to maintaining this for the duration of the contract.",
+      "mappings": [
+        {
+          "control": "DEFSTAN-SUP-01",
+          "coverage": "FULL",
+          "rationale": "The Supplementary Control is this obligation: hold Cyber Essentials certification covering the contract scope and keep it for the contract term. No ISO 27001 Control requires a named UK certification scheme."
+        }
+      ]
+    },
+    {
+      "code": "0002",
+      "section": "Certification",
+      "title": "Cyber Essentials Plus",
+      "text": "The Supplier shall have Cyber Essentials Plus certification that covers the scope required for all aspects of the contract and commit to maintaining this for the duration of the contract.",
+      "mappings": [
+        {
+          "control": "DEFSTAN-SUP-02",
+          "coverage": "FULL",
+          "rationale": "The Supplementary Control is this obligation: hold Cyber Essentials Plus certification covering the contract scope and keep it for the contract term. No ISO 27001 Control requires a named UK certification scheme."
+        }
+      ]
+    },
+    {
+      "code": "1100",
+      "section": "Objective A: Managing security risk",
+      "title": "Governance",
+      "text": "The Supplier shall have appropriate management policies and processes in place to govern their approach to the security of the network and information systems supporting Functions and protection of Data.",
+      "mappings": [
+        {
+          "control": "A.5.1",
+          "coverage": "FULL",
+          "rationale": "Policies for information security: management approves, publishes and communicates the policies that govern the approach to the security of networks and information systems."
+        },
+        {
+          "control": "ISMS-4.4",
+          "coverage": "PARTIAL",
+          "rationale": "The ISMS is the management process that keeps those policies and the way they are applied in place; it does not name Functions or Data."
+        }
+      ]
+    },
+    {
+      "code": "1101",
+      "section": "Objective A: Managing security risk",
+      "title": "Board direction",
+      "text": "The Supplier shall have effective organisational security management led at board level and articulated clearly in corresponding policies.",
+      "mappings": [
+        {
+          "control": "ISMS-5.1",
+          "coverage": "FULL",
+          "rationale": "Top management must show leadership and commitment to the information security management system, which is board-level direction of security."
+        },
+        {
+          "control": "A.5.1",
+          "coverage": "PARTIAL",
+          "rationale": "The top-level policy is approved by management, which gives the policies the board articulates; it does not require the board to lead."
+        },
+        {
+          "control": "A.5.4",
+          "coverage": "PARTIAL",
+          "rationale": "Management requires personnel to apply security in line with the policies, which follows from board direction but is not the direction itself."
+        }
+      ]
+    },
+    {
+      "code": "1102",
+      "section": "Objective A: Managing security risk",
+      "title": "Roles and responsibilities",
+      "text": "The Supplier shall have established roles and responsibilities for the security of networks and information systems at all levels, with clear and well-understood channels for communicating and escalating risks.",
+      "mappings": [
+        {
+          "control": "A.5.2",
+          "coverage": "FULL",
+          "rationale": "Information security roles and responsibilities are defined and allocated at all levels."
+        },
+        {
+          "control": "A.6.8",
+          "coverage": "PARTIAL",
+          "rationale": "Gives a channel for reporting security events; the requirement also asks for escalating risks, which A.6.8 does not cover."
+        },
+        {
+          "control": "ISMS-5.3",
+          "coverage": "PARTIAL",
+          "rationale": "Roles and authorities for the ISMS are assigned and communicated; it does not require risk escalation channels at all levels."
+        }
+      ]
+    },
+    {
+      "code": "1103",
+      "section": "Objective A: Managing security risk",
+      "title": "Decision-making",
+      "text": "The Supplier shall have senior-level accountability for the security of networks and information systems, and delegates decision-making authority appropriately and effectively. Risks to network and information systems that protect all Data are considered in the context of other organisational risks.",
+      "mappings": [
+        {
+          "control": "ISMS-5.3",
+          "coverage": "FULL",
+          "rationale": "Top management assigns responsibility and authority for the ISMS, which is the senior accountability and the delegation of decision-making the requirement asks for."
+        },
+        {
+          "control": "ISMS-6.1.1",
+          "coverage": "PARTIAL",
+          "rationale": "Planning addresses risks and opportunities in the context of the organisation, which is where security risk is weighed against other organisational risks; the requirement also asks for senior accountability."
+        }
+      ]
+    },
+    {
+      "code": "1200",
+      "section": "Objective A: Managing security risk",
+      "title": "Risk management",
+      "text": "The Supplier shall take appropriate steps to identify, assess, understand and remediate security risks to the network and information systems that protect all Data. This includes an overall organisational approach to risk management.",
+      "mappings": [
+        {
+          "control": "ISMS-6.1.2",
+          "coverage": "PARTIAL",
+          "rationale": "The risk assessment process identifies, analyses and evaluates information security risks, which is the identify, assess and understand part of the requirement; remediation and an overall organisational approach to risk management are not part of it."
+        },
+        {
+          "control": "ISMS-6.1.3",
+          "coverage": "PARTIAL",
+          "rationale": "Risk treatment covers the remediate part; the requirement also asks for an overall organisational approach to risk management."
+        }
+      ]
+    },
+    {
+      "code": "1201",
+      "section": "Objective A: Managing security risk",
+      "title": "Risk management process",
+      "text": "The Supplier shall have effective internal processes for managing risks (to the security of network and information systems that protect all Data) and communicating associated activities and solutions.",
+      "mappings": [
+        {
+          "control": "ISMS-6.1.2",
+          "coverage": "FULL",
+          "rationale": "A defined and applied risk assessment process is the internal process for managing risks to the security of the network and information systems."
+        },
+        {
+          "control": "ISMS-6.1.3",
+          "coverage": "PARTIAL",
+          "rationale": "The treatment process produces the activities and solutions to be communicated."
+        },
+        {
+          "control": "ISMS-7.4",
+          "coverage": "PARTIAL",
+          "rationale": "Plans what is communicated, when and to whom, which covers communicating risk activities and solutions."
+        }
+      ]
+    },
+    {
+      "code": "1202",
+      "section": "Objective A: Managing security risk",
+      "title": "Periodically assess risk",
+      "text": "The Supplier shall periodically assess the risk to organisational operations (including mission, functions, image, or reputation), organisational assets, and individuals, resulting from the operation of organisational systems and the associated processing, storage, or transmission of Data.",
+      "mappings": [
+        {
+          "control": "ISMS-8.2",
+          "coverage": "FULL",
+          "rationale": "Information security risk assessments are performed at planned intervals or when significant changes occur, which is the periodic assessment of risk to operations, assets and individuals."
+        },
+        {
+          "control": "ISMS-6.1.2",
+          "coverage": "PARTIAL",
+          "rationale": "Sets the criteria and method for the assessment but not the interval at which it is repeated."
+        }
+      ]
+    },
+    {
+      "code": "1203",
+      "section": "Objective A: Managing security risk",
+      "title": "Network diagrams",
+      "text": "The Supplier shall create and maintain up to date network diagrams detailing the network boundaries, internal and external connection, and systems within the operational environment.",
+      "mappings": [
+        {
+          "control": "A.5.9",
+          "coverage": "PARTIAL",
+          "rationale": "The inventory of information and other assets supports knowing what is on the network; it does not require network diagrams."
+        },
+        {
+          "control": "A.8.20",
+          "coverage": "PARTIAL",
+          "rationale": "Networks are managed and controlled to protect information; documenting boundaries and connections is part of managing them but is not required by name."
+        }
+      ]
+    },
+    {
+      "code": "1204",
+      "section": "Objective A: Managing security risk",
+      "title": "Threat intelligence capabilities",
+      "text": "The Supplier shall implement threat intelligence capabilities (internally or externally) as part of a risk assessment to guide and inform the development of organisational systems, security architectures, selection of security solutions, monitoring, threat hunting, system security alerts and advisories, response and recovery activities.",
+      "mappings": [
+        {
+          "control": "A.5.7",
+          "coverage": "FULL",
+          "rationale": "Threat intelligence is collected and analysed to produce intelligence about threats, which then informs risk assessment, security solutions and monitoring."
+        }
+      ]
+    },
+    {
+      "code": "1205",
+      "section": "Objective A: Managing security risk",
+      "title": "Assurance",
+      "text": "The Supplier shall gain validation for the effectiveness of the security of their technology, people, and processes in support of its Functions and which store and/or process Data.",
+      "mappings": [
+        {
+          "control": "A.5.35",
+          "coverage": "FULL",
+          "rationale": "The approach to managing information security, including people, processes and technologies, is reviewed independently at planned intervals, which is the validation the requirement asks for."
+        },
+        {
+          "control": "ISMS-9.2",
+          "coverage": "PARTIAL",
+          "rationale": "Internal audit checks that the ISMS conforms and is effective, a related but narrower validation."
+        }
+      ]
+    },
+    {
+      "code": "1206",
+      "section": "Objective A: Managing security risk",
+      "title": "Internal controls assurance",
+      "text": "The Supplier shall monitor security controls on an ongoing basis to ensure the continued effectiveness of the controls. Any identified deficiencies should be recorded, reported to leadership, and mitigated within agreed timeframes.",
+      "mappings": [
+        {
+          "control": "ISMS-9.1",
+          "coverage": "FULL",
+          "rationale": "Evaluates the performance and effectiveness of the ISMS, which includes monitoring and measuring controls on an ongoing basis and reporting results."
+        },
+        {
+          "control": "ISMS-10.2",
+          "coverage": "PARTIAL",
+          "rationale": "Nonconformities are recorded and corrected; the requirement adds reporting deficiencies to leadership and agreed timeframes."
+        },
+        {
+          "control": "A.5.36",
+          "coverage": "PARTIAL",
+          "rationale": "Regular review of compliance with policies and standards, one input to the ongoing check of controls."
+        }
+      ]
+    },
+    {
+      "code": "1300",
+      "section": "Objective A: Managing security risk",
+      "title": "Asset management",
+      "text": "The Supplier shall reasonably ensure everything required to deliver, maintain or support networks and information systems that support delivery of all Functions which protect all Data are determined and understood. This includes people and systems, as well as any supporting infrastructure (such as power or cooling).",
+      "mappings": [
+        {
+          "control": "A.5.9",
+          "coverage": "FULL",
+          "rationale": "An inventory of information and other associated assets, including their owners, is drawn up and maintained, which is knowing what is needed to deliver and support the systems."
+        },
+        {
+          "control": "A.7.11",
+          "coverage": "PARTIAL",
+          "rationale": "Supporting utilities such as power and cooling are protected from failure; the requirement names them as one of the things to be understood."
+        }
+      ]
+    },
+    {
+      "code": "1301",
+      "section": "Objective A: Managing security risk",
+      "title": "Automated asset inventory management",
+      "text": "The Supplier shall employ automated discovery and management tools to maintain an up-to-date, complete, accurate, and readily available inventory of data, people, systems and supporting infrastructure used to support business Functions and protect Data.",
+      "mappings": [
+        {
+          "control": "A.5.9",
+          "coverage": "PARTIAL",
+          "rationale": "The asset inventory is accurate and up to date; ISO 27001 does not require automated discovery tools."
+        },
+        {
+          "control": "A.8.9",
+          "coverage": "PARTIAL",
+          "rationale": "Configuration management keeps records of configurations of hardware, software and networks, which an automated tool can feed; it does not require automation or an inventory of people and data."
+        }
+      ]
+    },
+    {
+      "code": "1400",
+      "section": "Objective A: Managing security risk",
+      "title": "Supply chain",
+      "text": "The Supplier shall understand and manage security risks to Functions and Data that arise as a result of dependencies on external suppliers. This includes ensuring that appropriate measures are employed where third party services are used.",
+      "mappings": [
+        {
+          "control": "A.5.19",
+          "coverage": "FULL",
+          "rationale": "Processes and procedures manage the information security risks associated with the use of suppliers, which is the requirement."
+        },
+        {
+          "control": "A.5.21",
+          "coverage": "PARTIAL",
+          "rationale": "Covers the ICT supply chain risks in particular, a subset of dependencies on external suppliers."
+        },
+        {
+          "control": "A.5.23",
+          "coverage": "PARTIAL",
+          "rationale": "Security for the use of cloud services is the most common third-party service the requirement refers to."
+        }
+      ]
+    },
+    {
+      "code": "1401",
+      "section": "Objective A: Managing security risk",
+      "title": "External provider trusted relationships",
+      "text": "The Supplier shall establish, document, and maintain trust relationships with external service providers based on the following requirements, properties, factors, or conditions: security and privacy requirements, properties, factors, or conditions defining acceptable trust relationships.",
+      "mappings": [
+        {
+          "control": "A.5.19",
+          "coverage": "FULL",
+          "rationale": "Defining and agreeing the security requirements a supplier relationship must meet is how trust with an external provider is established and documented."
+        },
+        {
+          "control": "A.5.20",
+          "coverage": "PARTIAL",
+          "rationale": "Relevant security requirements are established in agreements with each supplier; the requirement adds privacy requirements and maintaining the relationship."
+        },
+        {
+          "control": "A.5.22",
+          "coverage": "PARTIAL",
+          "rationale": "Monitoring and review of supplier services keep the trust relationship current."
+        }
+      ]
+    },
+    {
+      "code": "1500",
+      "section": "Objective A: Managing security risk",
+      "title": "Physical access controls",
+      "text": "The Supplier shall, unless prohibited by applicable law, restrict and monitor all physical access to facilities where Data is stored or processed to its authorised Personnel by implementing industry standard physical access controls. Examples of such controls include but are not limited to:\ni) Swipe card technology\nii) Monitored CCTV\niii) Remotely monitored alarm systems\niv) On-premise security guards\nv) Photographic access credentials\nvi) Visitor escort\nvii) Physical access logs\nviii) Authorised access lists.\nThe Supplier shall review physical access logs regularly or in the event of a physical or cybersecurity incident.",
+      "mappings": [
+        {
+          "control": "A.7.2",
+          "coverage": "FULL",
+          "rationale": "Secure areas are protected by entry controls, with a log of access and review of access rights, which is the restriction and monitoring of physical access."
+        },
+        {
+          "control": "A.7.4",
+          "coverage": "PARTIAL",
+          "rationale": "Premises are monitored for unauthorised physical access (CCTV, alarms, guards); the requirement lists these as examples and requires log review."
+        }
+      ]
+    },
+    {
+      "code": "1501",
+      "section": "Objective A: Managing security risk",
+      "title": "Physical access device management",
+      "text": "The Supplier shall manage and maintain an inventory of all physical access devices used on their premises. The inventory should contain a unique identifier for the device regardless of the type (e.g. RFID card, access fob or door key) as well as the named individual who it is assigned to.",
+      "mappings": [
+        {
+          "control": "A.7.2",
+          "coverage": "PARTIAL",
+          "rationale": "Physical access rights and the means of access are controlled; ISO 27001 does not require an inventory with a unique identifier and named holder per device."
+        },
+        {
+          "control": "A.5.9",
+          "coverage": "PARTIAL",
+          "rationale": "Assets are inventoried with an owner, which would include access devices if they are in scope, but it does not require them."
+        }
+      ]
+    },
+    {
+      "code": "1502",
+      "section": "Objective A: Managing security risk",
+      "title": "Physical access restrictions",
+      "text": "The Supplier shall restrict physical access to sensitive areas within an organisation's premises to only those who are authorised to have access. The Supplier shall maintain and manage an inventory of those staff who have privileged physical access.",
+      "mappings": [
+        {
+          "control": "A.7.2",
+          "coverage": "FULL",
+          "rationale": "Entry controls restrict access to secure areas to authorised personnel and keep the list of who holds access up to date."
+        },
+        {
+          "control": "A.7.3",
+          "coverage": "PARTIAL",
+          "rationale": "Offices, rooms and facilities are designed to keep sensitive areas out of public view and reach; it does not require an inventory of staff with privileged physical access."
+        }
+      ]
+    },
+    {
+      "code": "1503",
+      "section": "Objective A: Managing security risk",
+      "title": "Visitor access management",
+      "text": "The Supplier shall ensure the following controls are applied to all visitors visiting the organisation's premises:\ni) Visitor access and exit shall be logged\nii) All visitors shall wear visitor ID badges at all times. Visitor badges should visually differ from employee badges\niii) All visitors should be appropriately escorted at all times while on the premises\niv) Visitor badges should be returned to the organisation at the end of the day.",
+      "mappings": [
+        {
+          "control": "A.7.2",
+          "coverage": "FULL",
+          "rationale": "Visitors are authenticated, their date and time of entry and departure recorded, supervised and given identification, which is the visitor management the requirement lists."
+        }
+      ]
+    },
+    {
+      "code": "2100",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Resilience policy and process development",
+      "text": "The Supplier shall develop, enact and regularly review cyber security and resilience policies and processes to manage and mitigate the risk of adverse impact on Functions and protection of Data.",
+      "mappings": [
+        {
+          "control": "A.5.1",
+          "coverage": "FULL",
+          "rationale": "The information security policy and topic-specific policies are defined, approved, communicated and reviewed at planned intervals, which covers policy development, enactment and review."
+        },
+        {
+          "control": "A.5.29",
+          "coverage": "PARTIAL",
+          "rationale": "Plans how security is maintained during disruption, which is the resilience side of the policies."
+        },
+        {
+          "control": "A.5.30",
+          "coverage": "PARTIAL",
+          "rationale": "ICT readiness for business continuity is the resilience process side of the requirement."
+        }
+      ]
+    },
+    {
+      "code": "2101",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Policy and process implementation",
+      "text": "The Supplier shall implement security policies and processes that demonstrate the continuing security benefits to Functions and Data.",
+      "mappings": [
+        {
+          "control": "ISMS-8.1",
+          "coverage": "FULL",
+          "rationale": "Processes needed to meet the requirements and to implement the planned actions are planned, implemented and controlled, which is implementing security policies and processes."
+        },
+        {
+          "control": "A.5.36",
+          "coverage": "PARTIAL",
+          "rationale": "Compliance with policies and standards is reviewed regularly, which shows that the benefits continue."
+        }
+      ]
+    },
+    {
+      "code": "2200",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Identity and access control",
+      "text": "The Supplier shall understand, document and manage (i.e create, review and disable) access to networks, information systems, and removable storage media & devices supporting Functions and protection of Data. All accounts and identities, including users, system and automated functions that can access Data or systems are appropriately verified, authenticated and authorised.",
+      "mappings": [
+        {
+          "control": "A.5.16",
+          "coverage": "FULL",
+          "rationale": "The full life cycle of identities is managed, which covers creating and disabling the identities of users, systems and automated functions."
+        },
+        {
+          "control": "A.5.18",
+          "coverage": "FULL",
+          "rationale": "Access rights are provisioned, reviewed, modified and removed, which is the create, review and disable of access."
+        },
+        {
+          "control": "A.5.15",
+          "coverage": "PARTIAL",
+          "rationale": "Rules to control physical and logical access to information and other assets."
+        },
+        {
+          "control": "A.8.5",
+          "coverage": "PARTIAL",
+          "rationale": "Secure authentication is how accounts and identities are verified and authenticated."
+        },
+        {
+          "control": "A.7.10",
+          "coverage": "PARTIAL",
+          "rationale": "Storage media, including removable media, are managed through their life cycle, which covers the removable media part of the requirement."
+        }
+      ]
+    },
+    {
+      "code": "2201",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Access control - multi-factor authentication",
+      "text": "The Supplier shall implement multi-factor authentication (MFA) mechanisms to control access to critical or sensitive systems, and organisational operations. Factors can include:\ni) Something you know (e.g. password/personal identification number (PIN))\nii) Something you have (e.g. cryptographic identification device, token)\niii) Something you are (e.g. biometric).",
+      "mappings": [
+        {
+          "control": "A.8.5",
+          "coverage": "FULL",
+          "rationale": "Secure authentication technologies and procedures are implemented based on access restrictions; ISO 27002 guidance asks for multi-factor authentication for access to critical systems and information."
+        },
+        {
+          "control": "A.5.17",
+          "coverage": "PARTIAL",
+          "rationale": "Allocation and management of authentication information, which covers the factors \"something you know\" and \"something you have\"."
+        }
+      ]
+    },
+    {
+      "code": "2202",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Device management",
+      "text": "The Supplier shall fully understand and trust the devices that are used to access the network and information systems that support Functions and process Data.",
+      "mappings": [
+        {
+          "control": "A.8.1",
+          "coverage": "FULL",
+          "rationale": "Information stored on, processed by or accessible via user endpoint devices is protected; devices are registered, configured and managed so that they can be trusted."
+        },
+        {
+          "control": "A.5.9",
+          "coverage": "PARTIAL",
+          "rationale": "Devices that access the network are inventoried as assets."
+        }
+      ]
+    },
+    {
+      "code": "2203",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Privileged user management",
+      "text": "The Supplier shall closely manage privileged user access and actions to networks and information systems supporting Functions and that protect Data.",
+      "mappings": [
+        {
+          "control": "A.8.2",
+          "coverage": "FULL",
+          "rationale": "The allocation and use of privileged access rights is restricted and managed, which includes the authorisation of privileged users and their actions."
+        },
+        {
+          "control": "A.5.18",
+          "coverage": "PARTIAL",
+          "rationale": "Access rights, including privileged ones, are provisioned and reviewed."
+        },
+        {
+          "control": "A.8.15",
+          "coverage": "PARTIAL",
+          "rationale": "Logging records what privileged users do; the requirement is about managing the access and the actions."
+        }
+      ]
+    },
+    {
+      "code": "2204",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Principle of least functionality",
+      "text": "The Supplier shall ensure that all information systems are configured to provide only essential capabilities and to prohibit or restrict the use of non-essential functions, such as ports, protocols, programmes and services that are not integral to the operation of that information system.",
+      "mappings": [
+        {
+          "control": "A.8.9",
+          "coverage": "FULL",
+          "rationale": "Configurations of hardware, software, services and networks are established and kept secure; ISO 27002 guidance asks for disabling or restricting unnecessary functions, ports and services."
+        },
+        {
+          "control": "A.8.20",
+          "coverage": "PARTIAL",
+          "rationale": "Network services, ports and protocols are controlled to protect information in systems and applications."
+        }
+      ]
+    },
+    {
+      "code": "2205",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Least privilege",
+      "text": "The Supplier shall closely manage all user accounts and employ the principle of least privilege to networks and information systems supporting all Functions and protecting all Data.",
+      "mappings": [
+        {
+          "control": "A.5.15",
+          "coverage": "FULL",
+          "rationale": "Access control rules are based on business and security requirements and the principles of need-to-know and least privilege."
+        },
+        {
+          "control": "A.5.18",
+          "coverage": "PARTIAL",
+          "rationale": "Access rights are provisioned and reviewed in line with the access control policy."
+        },
+        {
+          "control": "A.8.2",
+          "coverage": "PARTIAL",
+          "rationale": "Privileged accounts are a particular case of least privilege."
+        }
+      ]
+    },
+    {
+      "code": "2206",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Least privilege - audit system",
+      "text": "The Supplier shall limit access to systems’ audit/security logging data and functionality to privileged user groups that have a confirmed requirement in accordance with the principle of least privilege.",
+      "mappings": [
+        {
+          "control": "A.8.15",
+          "coverage": "FULL",
+          "rationale": "Logs are protected against tampering and unauthorised access, which is limiting access to audit and security logging data."
+        },
+        {
+          "control": "A.8.3",
+          "coverage": "PARTIAL",
+          "rationale": "Access to information, here the logging data, is restricted in line with the access control policy."
+        },
+        {
+          "control": "A.8.2",
+          "coverage": "PARTIAL",
+          "rationale": "Privileged groups that are allowed to reach the logs are managed as privileged access."
+        }
+      ]
+    },
+    {
+      "code": "2207",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Separation of duties",
+      "text": "The Supplier shall develop a policy and implement a separation of duties methodology for standard and privileged accounts which support Functions and protect Data.",
+      "mappings": [
+        {
+          "control": "A.5.3",
+          "coverage": "FULL",
+          "rationale": "Conflicting duties and areas of responsibility are separated, which is the separation of duties for standard and privileged accounts."
+        }
+      ]
+    },
+    {
+      "code": "2208",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Identity and Access Management (IdAM)",
+      "text": "The Supplier shall closely manage and maintain identity and access control for users/admins, devices and systems accessing their networks and information systems supporting business Functions and protecting all Data.",
+      "mappings": [
+        {
+          "control": "A.5.16",
+          "coverage": "FULL",
+          "rationale": "The full life cycle of identities is managed for users, administrators, devices and systems."
+        },
+        {
+          "control": "A.5.15",
+          "coverage": "PARTIAL",
+          "rationale": "Access control rules that identities are managed against."
+        },
+        {
+          "control": "A.5.18",
+          "coverage": "PARTIAL",
+          "rationale": "Access rights of users, administrators and systems are provisioned and reviewed."
+        },
+        {
+          "control": "A.8.5",
+          "coverage": "PARTIAL",
+          "rationale": "Authentication of identities that reach the network and information systems."
+        }
+      ]
+    },
+    {
+      "code": "2209",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Limit access to authorised entities",
+      "text": "The Supplier shall implement automated mechanisms to support the management of system accounts, including processes acting on behalf of authorised users.",
+      "mappings": [
+        {
+          "control": "A.5.16",
+          "coverage": "PARTIAL",
+          "rationale": "Identity management of accounts, including accounts of processes; ISO 27001 does not require the management to be automated."
+        },
+        {
+          "control": "A.5.18",
+          "coverage": "PARTIAL",
+          "rationale": "Provisioning and removal of access rights for accounts; automation is not required."
+        }
+      ]
+    },
+    {
+      "code": "2210",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Limit to authorised transactions",
+      "text": "The Supplier shall issue, manage, verify, revoke, and audit identities and credentials to authorised transactions. users, and processes.",
+      "mappings": [
+        {
+          "control": "A.5.16",
+          "coverage": "FULL",
+          "rationale": "Identities are registered, managed and deleted over their life cycle, which is issuing, managing, verifying and revoking identities."
+        },
+        {
+          "control": "A.5.17",
+          "coverage": "PARTIAL",
+          "rationale": "Credentials are allocated and managed through a process."
+        },
+        {
+          "control": "A.5.18",
+          "coverage": "PARTIAL",
+          "rationale": "Access rights are provisioned, reviewed and removed, with auditing as part of the review."
+        }
+      ]
+    },
+    {
+      "code": "2211",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Secure first-time password management",
+      "text": "The Supplier shall employ secure practices for the secure storage, transmission, and management of first-time and one-time passwords. These practices include, but are not limited to:\ni) Secure storage of first-time password prior to use\nii) Secure transmission of first-time and one-time passwords to their new user\niii) Require first-time and one-time passwords are immediately changed after first logon.",
+      "mappings": [
+        {
+          "control": "A.5.17",
+          "coverage": "FULL",
+          "rationale": "ISO 27002 guidance on allocating authentication information asks for secure delivery of the initial secret, a temporary secret that is unique and must be changed on first use, which is the requirement."
+        }
+      ]
+    },
+    {
+      "code": "2212",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Automated password management",
+      "text": "The Supplier shall employ automated mechanisms for the generation, protection, storage, rotation, transmission, cryptographic protection and management of passwords for staff and systems.",
+      "mappings": [
+        {
+          "control": "A.5.17",
+          "coverage": "PARTIAL",
+          "rationale": "Rules for generating, storing and changing passwords; ISO 27001 does not require automated mechanisms."
+        },
+        {
+          "control": "A.8.5",
+          "coverage": "PARTIAL",
+          "rationale": "Secure authentication technologies for staff and systems."
+        },
+        {
+          "control": "A.8.24",
+          "coverage": "PARTIAL",
+          "rationale": "Cryptography is used to protect stored and transmitted credentials, one part of the requirement."
+        }
+      ]
+    },
+    {
+      "code": "2213",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Automated password quality check",
+      "text": "The Supplier shall deploy technical controls to manage the quality of credentials across all identifiers. The technical controls should reflect industry standard requirements such as password length, complexity requirements (e.g. uppercase, lowercase, numbers and symbols), reuse history, prevent reuse of identifiers for a defined period, banned words and insecure pattern recognition (e.g. 1234), as appropriate.",
+      "mappings": [
+        {
+          "control": "A.5.17",
+          "coverage": "FULL",
+          "rationale": "ISO 27002 guidance asks for password management systems that enforce good password quality, which are the technical controls the requirement describes."
+        },
+        {
+          "control": "A.8.5",
+          "coverage": "PARTIAL",
+          "rationale": "Secure authentication technologies and procedures for accounts."
+        }
+      ]
+    },
+    {
+      "code": "2214",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Repeated unsuccessful logon handling",
+      "text": "The Supplier shall employ policies and processes to appropriately manage unsuccessful login attempts to standard and privileged accounts. The Supplier shall lock accounts after at most ten unsuccessful login attempts for a minimum of 15 minutes; the duration of which should increase between multiple account lockouts.",
+      "mappings": [
+        {
+          "control": "A.8.5",
+          "coverage": "PARTIAL",
+          "rationale": "ISO 27002 guidance asks for limits on unsuccessful log-on attempts; it does not give the thresholds or the increasing lockout duration."
+        }
+      ]
+    },
+    {
+      "code": "2215",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Replay-resistant authentication",
+      "text": "The Supplier shall enforce technical control to protect against the capture of transmitted authentication or access control information and its subsequent retransmission i.e replay attacks.",
+      "mappings": [
+        {
+          "control": "A.8.5",
+          "coverage": "PARTIAL",
+          "rationale": "Secure authentication techniques are expected; protection against replay is one aspect, not named in ISO 27001."
+        },
+        {
+          "control": "A.8.24",
+          "coverage": "PARTIAL",
+          "rationale": "Cryptographic protection of authentication exchanges is the usual way to resist replay."
+        }
+      ]
+    },
+    {
+      "code": "2216",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Privilege failure handling",
+      "text": "The Supplier shall prevent non-privileged users from executing privileged functions and capture the execution of such functions in audit logs.",
+      "mappings": [
+        {
+          "control": "A.8.2",
+          "coverage": "PARTIAL",
+          "rationale": "Privileged access rights are restricted, which keeps non-privileged users from privileged functions; capturing the attempt is a separate point."
+        },
+        {
+          "control": "A.8.15",
+          "coverage": "PARTIAL",
+          "rationale": "Logging records the execution of privileged functions."
+        }
+      ]
+    },
+    {
+      "code": "2217",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Service accounts",
+      "text": "The Supplier shall inventory all generic, service and system accounts used on the network. Every account shall be owned by a single named individual who is responsible and accountable for the account and its usage.",
+      "mappings": [
+        {
+          "control": "A.5.16",
+          "coverage": "FULL",
+          "rationale": "Identity management covers shared and non-person identities, and ISO 27002 guidance asks that each has a defined owner who is accountable for it."
+        },
+        {
+          "control": "A.5.9",
+          "coverage": "PARTIAL",
+          "rationale": "Accounts, as assets, are inventoried with an owner."
+        }
+      ]
+    },
+    {
+      "code": "2218",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "System users and processes",
+      "text": "The Supplier shall identify system users, processes acting on behalf of users, and devices.",
+      "mappings": [
+        {
+          "control": "A.5.16",
+          "coverage": "FULL",
+          "rationale": "Identities of users and of systems that act on behalf of users are managed and uniquely identified."
+        }
+      ]
+    },
+    {
+      "code": "2301",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Understanding data",
+      "text": "The Supplier shall have a good understanding and classification of the data important to the operation of Functions and protection of Data, including where it is stored, where it travels, the application of protective markings to media. The Supplier shall understand how unauthorised access, modification or availability of data would adversely impact the organisation. This shall apply to data released to third parties including those important to the operation of Functions and protection of all Data.",
+      "mappings": [
+        {
+          "control": "A.5.12",
+          "coverage": "FULL",
+          "rationale": "Information is classified according to the security needs of the organisation, which is the understanding and classification of data."
+        },
+        {
+          "control": "A.5.13",
+          "coverage": "PARTIAL",
+          "rationale": "Information is labelled in line with the classification scheme, which is the protective markings; it does not cover media markings by name."
+        },
+        {
+          "control": "A.5.9",
+          "coverage": "PARTIAL",
+          "rationale": "Inventory of information and associated assets includes where they are held."
+        },
+        {
+          "control": "A.5.14",
+          "coverage": "PARTIAL",
+          "rationale": "Rules for transfer to third parties, one part of data released outside the organisation."
+        }
+      ]
+    },
+    {
+      "code": "2302",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Data in transit",
+      "text": "The Supplier shall protect and control data in transit, including the use of encryption where appropriate, for data important to the operation of the Functions and all Data. This includes the transfer of data to third parties.",
+      "mappings": [
+        {
+          "control": "A.5.14",
+          "coverage": "FULL",
+          "rationale": "Information transfer rules and procedures protect information in transit, including transfer to third parties."
+        },
+        {
+          "control": "A.8.24",
+          "coverage": "PARTIAL",
+          "rationale": "Encryption where appropriate; the requirement says so too."
+        }
+      ]
+    },
+    {
+      "code": "2303",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Management of established network connections",
+      "text": "The Supplier shall terminate network connections associated with communications sessions at the end of the sessions or after a defined period of inactivity.",
+      "mappings": [
+        {
+          "control": "A.8.20",
+          "coverage": "PARTIAL",
+          "rationale": "Network security includes how connections are managed; terminating sessions after inactivity is not named."
+        },
+        {
+          "control": "A.8.21",
+          "coverage": "PARTIAL",
+          "rationale": "Security mechanisms for network services include session controls."
+        }
+      ]
+    },
+    {
+      "code": "2304",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Wireless network access control",
+      "text": "The Supplier shall ensure that the following controls apply to trusted organisational wireless networks:\ni) All users and devices must be authorised and authenticated prior to granting access to the network via the wireless network\nii) The data transferred over the wireless network must be encrypted using WPA2 or above methodology.",
+      "mappings": [
+        {
+          "control": "A.8.20",
+          "coverage": "PARTIAL",
+          "rationale": "Networks, including wireless networks, are secured and controlled; WPA2 or above is a specific the standard adds."
+        },
+        {
+          "control": "A.8.21",
+          "coverage": "PARTIAL",
+          "rationale": "Security mechanisms and service levels of network services are identified and implemented."
+        },
+        {
+          "control": "A.8.24",
+          "coverage": "PARTIAL",
+          "rationale": "Cryptography is used on the wireless network."
+        }
+      ]
+    },
+    {
+      "code": "2305",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Remote Access - VPN (Virtual Private Network)",
+      "text": "The Supplier shall ensure the following controls are enforced for staff to connect to organisational networks and systems using Remote Access technologies, for example VPN:\ni) Enable MFA prior to establishing a remote connection to the network\nii) Encrypt all data transmitted over a VPN connection\niii) Disable split-tunnelling to ensure all Data is only transmitted via organisation controlled channels.",
+      "mappings": [
+        {
+          "control": "A.6.7",
+          "coverage": "PARTIAL",
+          "rationale": "Security measures are implemented when personnel work remotely; MFA, encryption and the ban on split tunnelling are specifics ISO 27001 leaves open."
+        },
+        {
+          "control": "A.8.5",
+          "coverage": "PARTIAL",
+          "rationale": "Secure authentication, with MFA, is the first control in the requirement."
+        },
+        {
+          "control": "A.8.24",
+          "coverage": "PARTIAL",
+          "rationale": "Cryptography is used to encrypt VPN traffic."
+        },
+        {
+          "control": "A.8.20",
+          "coverage": "PARTIAL",
+          "rationale": "Network controls determine whether split tunnelling is allowed."
+        }
+      ]
+    },
+    {
+      "code": "2306",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Remote access sessions",
+      "text": "The Supplier shall employ cryptographic mechanisms to protect the confidentiality of remote access sessions.",
+      "mappings": [
+        {
+          "control": "A.8.24",
+          "coverage": "FULL",
+          "rationale": "Rules for the effective use of cryptography cover encrypting remote access sessions to protect confidentiality."
+        },
+        {
+          "control": "A.6.7",
+          "coverage": "PARTIAL",
+          "rationale": "Remote working is secured; the requirement is about the cryptographic protection of the session."
+        }
+      ]
+    },
+    {
+      "code": "2307",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Managed access control points",
+      "text": "The Supplier shall route remote access via managed access control points.",
+      "mappings": [
+        {
+          "control": "A.8.20",
+          "coverage": "PARTIAL",
+          "rationale": "Networks and the points where they are reached are managed and controlled."
+        },
+        {
+          "control": "A.6.7",
+          "coverage": "PARTIAL",
+          "rationale": "Remote working is secured, with access through managed points as one measure."
+        }
+      ]
+    },
+    {
+      "code": "2308",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Stored data",
+      "text": "The Supplier shall appropriately protect the confidentiality of soft and hard copies of data being stored for all Functions.",
+      "mappings": [
+        {
+          "control": "A.8.3",
+          "coverage": "PARTIAL",
+          "rationale": "Access to stored information is restricted."
+        },
+        {
+          "control": "A.7.10",
+          "coverage": "PARTIAL",
+          "rationale": "Hard-copy and removable storage media are handled securely; this covers hard copies only in part."
+        },
+        {
+          "control": "A.8.24",
+          "coverage": "PARTIAL",
+          "rationale": "Encryption of stored data, where appropriate."
+        }
+      ]
+    },
+    {
+      "code": "2309",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Mobile data",
+      "text": "The Supplier shall protect, such as through encryption, data important to the operation of Functions and all Data on mobile devices.",
+      "mappings": [
+        {
+          "control": "A.8.1",
+          "coverage": "FULL",
+          "rationale": "Information stored on, processed by or accessible via user endpoint devices, including mobile devices, is protected; ISO 27002 guidance asks for encryption of devices."
+        },
+        {
+          "control": "A.8.24",
+          "coverage": "PARTIAL",
+          "rationale": "Cryptography is applied to data on the devices."
+        }
+      ]
+    },
+    {
+      "code": "2310",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Removable media",
+      "text": "The Supplier shall:\ni) Maintain and manage an inventory of corporately owned removable storage media and devices\nii) Encrypt removable media using secured and industry best practice methods\niii) Allow only corporately owned and/or authorised removable storage media and devices to have read/write permissions\niv) Prohibit the use of removable storage media and devices that are not corporately owned or authorised.",
+      "mappings": [
+        {
+          "control": "A.7.10",
+          "coverage": "FULL",
+          "rationale": "Storage media, removable media included, are managed through their life cycle: authorised, controlled, encrypted where appropriate and disposed of."
+        },
+        {
+          "control": "A.5.9",
+          "coverage": "PARTIAL",
+          "rationale": "Removable media are assets that belong in the inventory."
+        }
+      ]
+    },
+    {
+      "code": "2311",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Authorised working locations",
+      "text": "The Supplier shall maintain and update a list of authorised working locations which are not the organisation's premise and communicate these locations to all employees and contractors.",
+      "mappings": [
+        {
+          "control": "A.6.7",
+          "coverage": "PARTIAL",
+          "rationale": "Remote working security measures include where remote working is allowed; the requirement asks for a maintained list shared with staff."
+        },
+        {
+          "control": "A.7.9",
+          "coverage": "PARTIAL",
+          "rationale": "Assets off premises are secured; it does not require a list of authorised locations."
+        }
+      ]
+    },
+    {
+      "code": "2312",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Security at alternate working locations",
+      "text": "The Supplier shall employ technical security controls and educate users to reduce the security risks to employees while working outside the organisation's premise. Technical security controls for consideration may include, but are not limited to:\ni) Always-on VPN to protect data in-transit\nii) Screen privacy protector to prevent shoulder surfing\niii) Disabling USB ports on devices\niv) Full disk encryption\nUser awareness topics may include, but are not limited to:\ni) Risks of using public Wi-Fi\nii) Avoid taking confidential phone calls within earshot of unauthorised individuals\niii) Shoulder surfing\niv) Avoid leaving devices unattended",
+      "mappings": [
+        {
+          "control": "A.6.7",
+          "coverage": "FULL",
+          "rationale": "Security measures for remote working, including technical controls and guidance to users, protect information accessed outside the premises."
+        },
+        {
+          "control": "A.7.9",
+          "coverage": "PARTIAL",
+          "rationale": "Equipment off premises is protected, for example against shoulder surfing and unattended devices."
+        },
+        {
+          "control": "A.6.3",
+          "coverage": "PARTIAL",
+          "rationale": "Personnel are made aware of the risks of working outside the premises."
+        },
+        {
+          "control": "A.7.7",
+          "coverage": "PARTIAL",
+          "rationale": "Clear desk and clear screen rules reduce shoulder surfing and unattended devices."
+        }
+      ]
+    },
+    {
+      "code": "2313",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Media/equipment sanitisation",
+      "text": "The Supplier shall appropriately sanitise before reuse and / or disposal the devices, equipment, and removable storage media & devices holding data important to the operation of business Functions and that protect all Data.",
+      "mappings": [
+        {
+          "control": "A.7.14",
+          "coverage": "FULL",
+          "rationale": "Equipment containing storage media is checked so that data is removed or securely overwritten before disposal or re-use."
+        },
+        {
+          "control": "A.8.10",
+          "coverage": "PARTIAL",
+          "rationale": "Information stored on systems and devices is deleted when no longer required."
+        },
+        {
+          "control": "A.7.10",
+          "coverage": "PARTIAL",
+          "rationale": "Removable storage media are disposed of securely."
+        }
+      ]
+    },
+    {
+      "code": "2314",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Ensure UK GDPR compliance",
+      "text": "The Supplier shall ensure that the processing of personal data is conducted in compliance with the General Data Protection Regulation.",
+      "mappings": [
+        {
+          "control": "A.5.34",
+          "coverage": "FULL",
+          "rationale": "The organisation identifies and meets the requirements for the preservation of privacy and the protection of personally identifiable information under law, which here is the UK GDPR."
+        },
+        {
+          "control": "A.5.31",
+          "coverage": "PARTIAL",
+          "rationale": "Legal, statutory and regulatory requirements are identified; the UK GDPR is one of them."
+        }
+      ]
+    },
+    {
+      "code": "2315",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Email authentication methods",
+      "text": "The Supplier shall implement Domain-based Message Authentication, Reporting and Conformance (DMARC), DomainKeys Identified Mail (DKIM) and Sender Policy Framework (SPF) to verify the authenticity of an email's source.",
+      "mappings": [
+        {
+          "control": "A.5.14",
+          "coverage": "PARTIAL",
+          "rationale": "Rules for transfer of information by electronic messaging; ISO 27001 does not name DMARC, DKIM or SPF."
+        },
+        {
+          "control": "A.8.20",
+          "coverage": "PARTIAL",
+          "rationale": "Networks and the services that run on them, such as email, are secured."
+        }
+      ]
+    },
+    {
+      "code": "2316",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Personal and/or Personally Identifiable Information (PII) processing/transparency - control flow",
+      "text": "The Supplier shall employ systems to monitor and control the flow of all Personal and/or Personally Identifiable Information (PII) and all government information (e.g. OFFICIAL and above) provided or produced during the contract throughout the information lifecycle in accordance with approved authorisations, required legislation and contractual requirements.",
+      "mappings": [
+        {
+          "control": "A.5.34",
+          "coverage": "PARTIAL",
+          "rationale": "Protection of personally identifiable information, one of the two data types the requirement names."
+        },
+        {
+          "control": "A.8.12",
+          "coverage": "PARTIAL",
+          "rationale": "Data leakage prevention monitors and controls the movement of sensitive information; it does not cover the whole lifecycle or government information markings."
+        },
+        {
+          "control": "A.5.14",
+          "coverage": "PARTIAL",
+          "rationale": "Information transfer rules govern where information may flow."
+        }
+      ]
+    },
+    {
+      "code": "2317",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Endpoint encryption",
+      "text": "The Supplier shall implement and maintain full disk level encryption on all endpoints to industry standard solutions, for example, full disk encryption solutions using AES-256 encryption algorithm or FIPS equivalent.",
+      "mappings": [
+        {
+          "control": "A.8.24",
+          "coverage": "PARTIAL",
+          "rationale": "Rules for the use of cryptography cover encryption of stored data; full-disk encryption on every endpoint and the algorithm are specifics."
+        },
+        {
+          "control": "A.8.1",
+          "coverage": "PARTIAL",
+          "rationale": "Endpoint devices are protected; ISO 27002 guidance asks for encryption on devices."
+        }
+      ]
+    },
+    {
+      "code": "2318",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Approved cryptographic methods",
+      "text": "The Supplier shall employ appropriate nationally or departmentally approved cryptography when used to protect all Data (e.g. FIPS 140-2 or comparable standards)",
+      "mappings": [
+        {
+          "control": "A.8.24",
+          "coverage": "PARTIAL",
+          "rationale": "Cryptography is used in line with agreed rules and legal requirements; approved national or departmental cryptography is a specific the standard adds."
+        },
+        {
+          "control": "A.5.31",
+          "coverage": "PARTIAL",
+          "rationale": "Regulatory requirements for cryptography are identified."
+        }
+      ]
+    },
+    {
+      "code": "2319",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Securely manage cryptographic keys",
+      "text": "The Supplier shall establish and manage cryptographic keys for cryptography employed in organisational systems using appropriate nationally or departmentally approved solutions (e.g. FIPS 140-2 or comparable standards)",
+      "mappings": [
+        {
+          "control": "A.8.24",
+          "coverage": "FULL",
+          "rationale": "Rules for the effective use of cryptography include the whole life cycle of cryptographic keys, which is establishing and managing keys."
+        }
+      ]
+    },
+    {
+      "code": "2320",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Data Loss Prevention (DLP)",
+      "text": "The Supplier shall implement and maintain appropriate tooling to monitor and restrict the access and use of:\ni) Removable storage media and devices\nii) External websites\niii) Email",
+      "mappings": [
+        {
+          "control": "A.8.12",
+          "coverage": "FULL",
+          "rationale": "Data leakage prevention measures are applied to systems, networks and endpoints that process, store or transmit sensitive information; the channels in the requirement (removable media, web, email) are its common uses."
+        },
+        {
+          "control": "A.8.23",
+          "coverage": "PARTIAL",
+          "rationale": "Web filtering manages access to external websites."
+        },
+        {
+          "control": "A.7.10",
+          "coverage": "PARTIAL",
+          "rationale": "Controls on the use of removable storage media."
+        }
+      ]
+    },
+    {
+      "code": "2321",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Publicly accessible data",
+      "text": "The Supplier shall:\ni) Designate individuals authorised to make information publicly accessible\nii) Train authorised individuals to ensure that publicly accessible information does not contain non-public information\niii) Review the proposed content of information prior to posting onto the publicly accessible system to ensure that non-public information is not included\niv) Periodically review the content on the publicly accessible system for non-public information and remove such information, if discovered.",
+      "mappings": [
+        {
+          "control": "DEFSTAN-SUP-04",
+          "coverage": "FULL",
+          "rationale": "The Supplementary Control is this obligation: designate who may post, train them, review content before posting and review published content for non-public information."
+        },
+        {
+          "control": "A.8.12",
+          "coverage": "PARTIAL",
+          "rationale": "Data leakage prevention helps detect disclosure of sensitive information; it does not review what a permitted person publishes."
+        }
+      ]
+    },
+    {
+      "code": "2322",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Mobile devices/Bring Your Own Device (BYOD)",
+      "text": "The Supplier shall ensure that mobile devices accessing its corporate environment/data are appropriately configured and managed using industry recognised solutions such as Mobile Device Management (MDM) tooling.",
+      "mappings": [
+        {
+          "control": "A.8.1",
+          "coverage": "FULL",
+          "rationale": "User endpoint devices, including mobile and personally owned devices, are configured and managed (for example by mobile device management) to protect information."
+        }
+      ]
+    },
+    {
+      "code": "2323",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Secure destruction",
+      "text": "The Supplier shall, where not otherwise stated explicitly by country, legislation or Authority instructions, implement procedures to ensure that all Data is securely destroyed when no longer needed, or at the expiration or termination of the Agreement. Supplier shall:\ni) Secure and confirm the erasure of Data from its systems and servers, including any physical or electronic copies, prior to asset destruction and disposal\nii) Provide attestation of destruction, where specified by contract with Authority\niii) Require that any third parties engaged to process the Data shall securely dispose of such Data when no longer needed to provide the service, unless otherwise stated explicitly by country, legislation or Authority instructions.",
+      "mappings": [
+        {
+          "control": "A.8.10",
+          "coverage": "PARTIAL",
+          "rationale": "Information held in systems and devices is deleted when no longer required; the attestation of destruction and the duty on third parties to dispose of data are not part of it."
+        },
+        {
+          "control": "A.7.14",
+          "coverage": "PARTIAL",
+          "rationale": "Equipment holding storage media is checked before disposal."
+        },
+        {
+          "control": "A.5.20",
+          "coverage": "PARTIAL",
+          "rationale": "Agreements with suppliers carry the requirement that they dispose of data securely."
+        }
+      ]
+    },
+    {
+      "code": "2400",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "System security",
+      "text": "The Supplier shall ensure that network and information systems and technology critical for the operation of business Functions and protection of Data are protected from cyber attack. An organisational understanding of risk to business Functions and protection of Data informs the use of robust and reliable protective security measures to effectively limit opportunities for attackers to compromise networks and systems.",
+      "mappings": [
+        {
+          "control": "A.8.27",
+          "coverage": "PARTIAL",
+          "rationale": "Systems are built on secure engineering principles, one part of protecting critical systems from cyber attack."
+        },
+        {
+          "control": "A.8.8",
+          "coverage": "PARTIAL",
+          "rationale": "Technical vulnerabilities are managed, another part of the protection."
+        },
+        {
+          "control": "A.8.9",
+          "coverage": "PARTIAL",
+          "rationale": "Secure configuration is a further part."
+        },
+        {
+          "control": "A.8.20",
+          "coverage": "PARTIAL",
+          "rationale": "Network security limits the opportunities for attackers."
+        }
+      ]
+    },
+    {
+      "code": "2401",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Secure configuration",
+      "text": "The Supplier shall securely configure the network and information systems that support the operation of business Functions and that protect Data.",
+      "mappings": [
+        {
+          "control": "A.8.9",
+          "coverage": "FULL",
+          "rationale": "Configurations, including security configurations, of hardware, software, services and networks are established, documented, implemented, monitored and reviewed."
+        }
+      ]
+    },
+    {
+      "code": "2402",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Vulnerability management",
+      "text": "The Supplier shall implement a vulnerability and patch management process to identify, report, and remediate application and system (internal and external facing) vulnerabilities that is approved by the application or system owner and is commensurate with the level of risk by:\ni) Performing vulnerability scans on a monthly basis and during any major system or application updates\nii) Implementing vendor patches or fixes prioritising using the CVSS v3 scoring\niii) Developing a Risk Treatment Plan to address identified vulnerabilities.\nThe Supplier shall address vulnerabilities in accordance with the Supplier’s internal vulnerability remediation timelines and in line with reasonable industry standards for vulnerability management based on CVSS v3 or above.",
+      "mappings": [
+        {
+          "control": "A.8.8",
+          "coverage": "FULL",
+          "rationale": "Information about technical vulnerabilities is obtained, exposure is evaluated and appropriate measures are taken, including scanning, patching by risk and a plan to treat what is found; the scan interval and the CVSS scoring are parameters the Supplier sets."
+        },
+        {
+          "control": "ISMS-6.1.3",
+          "coverage": "PARTIAL",
+          "rationale": "The risk treatment plan the requirement asks for is the ISMS risk treatment process applied to vulnerabilities."
+        }
+      ]
+    },
+    {
+      "code": "2403",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Penetration testing",
+      "text": "The Supplier shall conduct penetration testing (minimum every 12 months) against externally facing systems used to support the operation of Functions and that protect Data. The penetration testing programme shall be based upon industry standards and performed by subject matter experts. The Supplier shall ensure that any deficiencies identified are remediated in a timely manner in line with their risk to the network. The Supplier shall retain records including:\ni) The scope and methodology utilised\nii) The number of critical, high, and medium severity findings\niii) The name of the tester\niv) The date of the testing\nv) Timelines and actions for a remedial plan.",
+      "mappings": [
+        {
+          "control": "A.8.8",
+          "coverage": "PARTIAL",
+          "rationale": "ISO 27002 guidance on vulnerability management mentions penetration testing; it does not set a 12-month interval or the records to keep."
+        },
+        {
+          "control": "A.8.29",
+          "coverage": "PARTIAL",
+          "rationale": "Security testing processes are defined for development and acceptance; this is not testing of externally facing production systems."
+        },
+        {
+          "control": "A.5.35",
+          "coverage": "PARTIAL",
+          "rationale": "Independent review of the security approach, of which a penetration test is one form."
+        }
+      ]
+    },
+    {
+      "code": "2404",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Change management",
+      "text": "The Supplier shall formally document, publish and review (minimum every 12 months) the change control procedures to manage changes to information systems, supporting infrastructure and facilities. The change management policy includes:\ni) Definitions of the types of change (e.g. standard, critical, emergency) with associated processes\nii) Roles and responsibilities for those involved in the change or approving the change.\nPrior to implementing any changes, Supplier shall:\ni) Establish acceptance criteria for production change approval and implementation\nii) Require stakeholder approval prior to any change implementation\niii) Formally record the change in a centralised repository\niv) Document business impact analysis outcomes and document back-out procedures should the change fail\nv) Keep a full audit trail of the change request, testing conducted, associated documentation, approvals and outcomes\nvi) Document and record security impact analysis outcomes along with any mitigating actions.",
+      "mappings": [
+        {
+          "control": "A.8.32",
+          "coverage": "FULL",
+          "rationale": "Changes to information processing facilities and information systems are subject to change management procedures: documented, approved, impact-assessed, tested and recorded with back-out plans."
+        },
+        {
+          "control": "A.5.37",
+          "coverage": "PARTIAL",
+          "rationale": "Operating procedures, including change procedures, are documented and kept current, which covers the 12-month review."
+        }
+      ]
+    },
+    {
+      "code": "2405",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Patch management",
+      "text": "The Supplier shall develop and maintain an appropriately robust patch management programme to address known vulnerabilities on its network within industry best-practice timelines. The Supplier shall take appropriate steps to identify, assess, test and implement patches for endpoints, network devices and software which address known vulnerabilities within industry best practice timeline. The Supplier shall have appropriate processes in place to address out-of-band emergency patching and/or mitigating actions.",
+      "mappings": [
+        {
+          "control": "A.8.8",
+          "coverage": "FULL",
+          "rationale": "Patches are applied to address technical vulnerabilities within a defined time; ISO 27002 guidance covers testing, emergency patching and alternative measures when no patch is available."
+        }
+      ]
+    },
+    {
+      "code": "2406",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Privacy warning notices - prior to access",
+      "text": "The Supplier shall ensure that mechanisms are in place to ensure users accept appropriate warning notices prior to information system access. At a minimum users must be warned that:\ni) Use of the information system is monitored, recorded and subject to audit\nii) Unauthorised usage of the information system is prohibited\niii) Unauthorised usage of the information system use is subject to criminal and civil penalties\niv) In continuing, the user affirms consent to monitoring and recording of their activities",
+      "mappings": [
+        {
+          "control": "DEFSTAN-SUP-05",
+          "coverage": "FULL",
+          "rationale": "The Supplementary Control is this obligation: show a general warning notice that users must accept before access, covering monitoring and recording, unauthorised use and consent."
+        }
+      ]
+    },
+    {
+      "code": "2407",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Privacy warning notices - specific handling",
+      "text": "The Supplier shall ensure that users accept appropriate warning notices prior to information system access where information systems contain information with specific handling requirements imposed by the UK or its International Partners. Such warnings must only be provided to authenticated users. At a minimum users must be warned that:\ni) The information system contains information with specific requirements imposed by the UK and/or international partner nations.\nii) Use of the information system may be subject to other specified requirements associated with certain types of information, such as that subject to Export Controls or licences.",
+      "mappings": [
+        {
+          "control": "DEFSTAN-SUP-03",
+          "coverage": "FULL",
+          "rationale": "The Supplementary Control is this obligation: show authenticated users a notice, which they must accept before access, about information with specific handling requirements imposed by the UK or its International Partners."
+        }
+      ]
+    },
+    {
+      "code": "2408",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Screen locking/timeouts",
+      "text": "The Supplier shall have controls in place to automatically lock user sessions after a predefined period. The lock screen shall conceal all information previously displayed on the screen and prevent unauthorised viewing of data.",
+      "mappings": [
+        {
+          "control": "A.7.7",
+          "coverage": "FULL",
+          "rationale": "Clear screen rules lock sessions after a defined period of inactivity and hide the information shown."
+        },
+        {
+          "control": "A.8.1",
+          "coverage": "PARTIAL",
+          "rationale": "Endpoint devices are configured with session time-out."
+        }
+      ]
+    },
+    {
+      "code": "2409",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Identify allowed programs",
+      "text": "The Supplier shall identify software programs authorised to execute on the corporate environment. For all other programs employ a block by default, permit-by-exception policy.",
+      "mappings": [
+        {
+          "control": "A.8.19",
+          "coverage": "PARTIAL",
+          "rationale": "Rules for installing software on operational systems; ISO 27001 does not require block-by-default and permit-by-exception."
+        },
+        {
+          "control": "A.8.7",
+          "coverage": "PARTIAL",
+          "rationale": "Allowing only approved applications is one way of protecting against malware."
+        }
+      ]
+    },
+    {
+      "code": "2410",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Review the list of approved software",
+      "text": "The Supplier shall review and manage the list of authorised software programs at least every 90 days.",
+      "mappings": [
+        {
+          "control": "A.8.19",
+          "coverage": "PARTIAL",
+          "rationale": "Rules governing software installation are kept current; a 90-day review is a specific the standard adds."
+        },
+        {
+          "control": "A.5.9",
+          "coverage": "PARTIAL",
+          "rationale": "The list of authorised software is part of the inventory of assets, reviewed on a cycle."
+        }
+      ]
+    },
+    {
+      "code": "2411",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Secured Internet access",
+      "text": "The Supplier shall ensure the following internet controls are enforced on endpoints:\ni) Technical controls to prevent malware infection from internet browsing are in place\nii) Block undesirable websites from being accessed (e.g. malicious sites, inappropriate content etc.)\niii) Prevent code being launched on the corporate host\niv) Prevent downloads to the corporate host from the internet without sandboxing and anti-malware scan\nv) Automatically block suspicious traffic and communications\nvi) Terminate network connections associated with communications sessions at the end of the sessions or after a defined period of inactivity.\nEnsure auditing is enabled for these controls and security operators are notified of the attempted above actions. Where users have a necessity to perform the above activities, ensure a robust model and supporting processes and technologies are employed to mitigate the additional risk (e.g. allow/block listing, network monitoring, vulnerability scanning etc.)",
+      "mappings": [
+        {
+          "control": "A.8.23",
+          "coverage": "PARTIAL",
+          "rationale": "Web filtering blocks access to malicious and inappropriate sites; the sandboxing, code and download controls and the operator alerts are further measures."
+        },
+        {
+          "control": "A.8.7",
+          "coverage": "PARTIAL",
+          "rationale": "Protection against malware covers scanning of downloads."
+        },
+        {
+          "control": "A.8.20",
+          "coverage": "PARTIAL",
+          "rationale": "Network controls block suspicious traffic and end idle sessions."
+        },
+        {
+          "control": "A.8.15",
+          "coverage": "PARTIAL",
+          "rationale": "Logging records the blocked actions the operators are notified of."
+        }
+      ]
+    },
+    {
+      "code": "2412",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Voice over Internet Protocol (VoIP)",
+      "text": "The Supplier should establish usage restrictions and implementation guidance for Voice over Internet Protocol (VoIP) technologies based on the potential to cause damage to the information system if used maliciously; and ensure controls are in place to authorise, monitor, and control the use of VoIP within the information system.",
+      "mappings": [
+        {
+          "control": "A.8.20",
+          "coverage": "PARTIAL",
+          "rationale": "Networks are secured, which covers voice over IP traffic; usage restrictions and implementation guidance for VoIP are not named in ISO 27001."
+        },
+        {
+          "control": "A.8.21",
+          "coverage": "PARTIAL",
+          "rationale": "Security mechanisms for network services apply to a VoIP service."
+        }
+      ]
+    },
+    {
+      "code": "2413",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Mobile code management",
+      "text": "The Supplier shall define acceptable and unacceptable mobile code, and ensure controls are in place to identify, authorise, monitor, review and control the use of mobile code within the organisation.",
+      "mappings": [
+        {
+          "control": "A.8.7",
+          "coverage": "PARTIAL",
+          "rationale": "Protection against malware covers mobile code; defining acceptable and unacceptable mobile code is a specific the standard adds."
+        },
+        {
+          "control": "A.8.9",
+          "coverage": "PARTIAL",
+          "rationale": "Secure configuration of software can restrict mobile code execution."
+        }
+      ]
+    },
+    {
+      "code": "2414",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Communication authenticity protection",
+      "text": "The Supplier shall use secure network management and communication protocols to protect session authenticity addressing communications protection at the session level.",
+      "mappings": [
+        {
+          "control": "A.8.20",
+          "coverage": "PARTIAL",
+          "rationale": "Network security includes protecting the sessions that carry information."
+        },
+        {
+          "control": "A.8.21",
+          "coverage": "PARTIAL",
+          "rationale": "Security mechanisms of network services include secure management protocols."
+        },
+        {
+          "control": "A.8.24",
+          "coverage": "PARTIAL",
+          "rationale": "Cryptography supports session authenticity."
+        }
+      ]
+    },
+    {
+      "code": "2415",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Automatically identify and address misconfigurations and unauthorised components",
+      "text": "The Supplier shall employ automated mechanisms to detect misconfigured or unauthorised system components.",
+      "mappings": [
+        {
+          "control": "A.8.9",
+          "coverage": "PARTIAL",
+          "rationale": "Configurations are monitored and reviewed; automated detection of misconfiguration is not required by name."
+        },
+        {
+          "control": "A.8.16",
+          "coverage": "PARTIAL",
+          "rationale": "Networks and systems are monitored for anomalous behaviour."
+        },
+        {
+          "control": "A.5.9",
+          "coverage": "PARTIAL",
+          "rationale": "An up to date inventory is the reference against which unauthorised components are spotted."
+        }
+      ]
+    },
+    {
+      "code": "2416",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Shared system resources",
+      "text": "The supplier shall prevent unauthorised and unintended information transfer via shared system resources (e.g. registers, cache memory, main memory, hard disks).",
+      "mappings": [
+        {
+          "control": "A.8.27",
+          "coverage": "PARTIAL",
+          "rationale": "Systems are built on secure engineering principles, which include isolating processing resources; preventing information transfer through shared resources is not named."
+        },
+        {
+          "control": "A.8.3",
+          "coverage": "PARTIAL",
+          "rationale": "Information access restriction limits who can read information, and the same logic applies to shared resources."
+        }
+      ]
+    },
+    {
+      "code": "2417",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Authorise remote execution of privileged commands",
+      "text": "The Supplier shall ensure that all remote users acquire appropriate authorisation prior to accessing and/or executing privileged functions.",
+      "mappings": [
+        {
+          "control": "A.8.2",
+          "coverage": "FULL",
+          "rationale": "Privileged access rights are allocated only to authorised users and on a need-to-use basis, which covers authorisation before remote users reach privileged functions."
+        },
+        {
+          "control": "A.6.7",
+          "coverage": "PARTIAL",
+          "rationale": "Remote working is secured, with authorisation as one part."
+        }
+      ]
+    },
+    {
+      "code": "2418",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Baseline configurations and inventories",
+      "text": "The Supplier shall implement, update and document system hardening procedures. Implement, update and document baseline configurations settings for all information technology products deployed in organisational systems; this shall include the restriction of user actions and of unsupported software and hardware.",
+      "mappings": [
+        {
+          "control": "A.8.9",
+          "coverage": "FULL",
+          "rationale": "Hardening and baseline configurations are established, documented, implemented, monitored and reviewed for hardware, software, services and networks."
+        },
+        {
+          "control": "A.8.19",
+          "coverage": "PARTIAL",
+          "rationale": "Software installed on operational systems is controlled, including the use of unsupported software."
+        }
+      ]
+    },
+    {
+      "code": "2419",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Obscure authentication information",
+      "text": "The Supplier shall configure systems to obscure authentication information, for example, passwords to ensure that they are not displayed as cleartext when a user is inputting their credentials.",
+      "mappings": [
+        {
+          "control": "A.8.5",
+          "coverage": "FULL",
+          "rationale": "ISO 27002 guidance asks that the password is not displayed as it is entered, which is the requirement."
+        }
+      ]
+    },
+    {
+      "code": "2420",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Authentication feedback",
+      "text": "The Supplier shall configure systems to minimise feedback information from failed logons to ensure that the system does not provide any information that would allow unauthorised individuals to compromise authentication mechanisms. e.g. explicitly stating that the password is the incorrect authentication component.",
+      "mappings": [
+        {
+          "control": "A.8.5",
+          "coverage": "FULL",
+          "rationale": "ISO 27002 guidance asks that the log-on procedure gives no information about which part of the credentials is wrong, which is the requirement."
+        }
+      ]
+    },
+    {
+      "code": "2421",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Network Time Protocol (NTP)",
+      "text": "The Supplier shall implement a Network Time Protocol (NTP) to a recognised authoritative source, to synchronise the clocks of every network device to ensure accurate and consistent timestamps for audit records on associated system logs.",
+      "mappings": [
+        {
+          "control": "A.8.17",
+          "coverage": "FULL",
+          "rationale": "Clocks of information processing systems are synchronised to approved time sources, which is the requirement."
+        }
+      ]
+    },
+    {
+      "code": "2422",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Physical and logical access restrictions",
+      "text": "The Supplier shall define, document, approve, and enforce physical and logical access restrictions associated with changes to organisational systems.",
+      "mappings": [
+        {
+          "control": "A.8.32",
+          "coverage": "PARTIAL",
+          "rationale": "Changes to systems are managed through a change procedure; the requirement asks for access restrictions on who may make them."
+        },
+        {
+          "control": "A.8.19",
+          "coverage": "PARTIAL",
+          "rationale": "Software installation on operational systems is controlled."
+        },
+        {
+          "control": "A.5.15",
+          "coverage": "PARTIAL",
+          "rationale": "Access control rules determine who may make changes."
+        }
+      ]
+    },
+    {
+      "code": "2423",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Trusted source repository",
+      "text": "The Supplier shall identify, register and maintain an inventory of system components using automated tooling for those assets that support business Functions and protect Data in an asset register, and at a minimum, include data location and asset ownership information.",
+      "mappings": [
+        {
+          "control": "A.5.9",
+          "coverage": "PARTIAL",
+          "rationale": "An inventory of assets, with owners, is maintained; location data and automated tooling are not required by ISO 27001."
+        },
+        {
+          "control": "A.8.9",
+          "coverage": "PARTIAL",
+          "rationale": "Configuration management includes records of components."
+        }
+      ]
+    },
+    {
+      "code": "2424",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Implement audit for stored credentials outside policy",
+      "text": "The Supplier shall ensure administrator credentials are stored through an approved and secured storage mechanism (process/location/tools etc.) and quarterly audits are performed to ensure the control is consistently applied and functions appropriately.",
+      "mappings": [
+        {
+          "control": "A.5.17",
+          "coverage": "PARTIAL",
+          "rationale": "Authentication information is managed and protected; the quarterly audit of where administrator credentials are stored is a specific the standard adds."
+        },
+        {
+          "control": "A.8.2",
+          "coverage": "PARTIAL",
+          "rationale": "Privileged access, including administrator credentials, is managed."
+        },
+        {
+          "control": "A.5.18",
+          "coverage": "PARTIAL",
+          "rationale": "Access rights are reviewed at regular intervals."
+        }
+      ]
+    },
+    {
+      "code": "2425",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Use integrity verification tools",
+      "text": "The Supplier shall implement an integrity verification tool to detect unauthorised changes to web-facing, critical software and firmware. Upon discovering discrepancies, the tool should automatically trigger the incident response process.",
+      "mappings": [
+        {
+          "control": "A.8.16",
+          "coverage": "PARTIAL",
+          "rationale": "Monitoring for anomalous behaviour can detect unauthorised changes; integrity verification of web-facing software and firmware is not named."
+        },
+        {
+          "control": "A.5.26",
+          "coverage": "PARTIAL",
+          "rationale": "Information security incidents are responded to; the requirement asks for the tool to trigger the response automatically."
+        }
+      ]
+    },
+    {
+      "code": "2426",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Anti-malware capabilities",
+      "text": "The Supplier shall ensure that anti-malware capabilities are regularly audited, to verify they are up to date, functional (e.g. performing real-time scans as well as periodic scans), managed, detect malware, report detections and update both malware signatures and software when new releases are available.",
+      "mappings": [
+        {
+          "control": "A.8.7",
+          "coverage": "FULL",
+          "rationale": "Protection against malware is implemented and supported by appropriate user awareness, which includes keeping detection and repair software up to date and running scans."
+        }
+      ]
+    },
+    {
+      "code": "2427",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Monitor/protect communications at boundaries",
+      "text": "The Supplier shall monitor, control, and protect communications (information transmitted or received by organisational systems) at the external boundaries except as prohibited by Applicable Law and key internal boundaries of those organisational systems. This includes all staff including all remote workers to carry out their duties.",
+      "mappings": [
+        {
+          "control": "A.8.20",
+          "coverage": "FULL",
+          "rationale": "Networks and network devices are secured, managed and controlled to protect information in systems and applications, which includes the boundaries."
+        },
+        {
+          "control": "A.8.16",
+          "coverage": "PARTIAL",
+          "rationale": "Networks are monitored for anomalous behaviour."
+        },
+        {
+          "control": "A.8.22",
+          "coverage": "PARTIAL",
+          "rationale": "Groups of services and systems are segregated, which sets the key internal boundaries."
+        }
+      ]
+    },
+    {
+      "code": "2428",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Verify/limit access to external system connections",
+      "text": "The Supplier shall control and limit connections to external systems by an allow-list on the network boundary.",
+      "mappings": [
+        {
+          "control": "A.8.20",
+          "coverage": "PARTIAL",
+          "rationale": "Networks are controlled; an allow-list for external connections at the network boundary is a specific the standard adds."
+        },
+        {
+          "control": "A.8.22",
+          "coverage": "PARTIAL",
+          "rationale": "Segregation of networks sets the boundary the allow-list is applied to."
+        }
+      ]
+    },
+    {
+      "code": "2429",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Verify/limit access from external system connections",
+      "text": "The Supplier shall block unauthorised inbound connections by default. Inbound firewall rules are approved and documented by an authorised person, and include the business need with in the documentation.",
+      "mappings": [
+        {
+          "control": "A.8.20",
+          "coverage": "PARTIAL",
+          "rationale": "Network controls include firewalls; blocking inbound connections by default and documented approval of rules are specifics the standard adds."
+        },
+        {
+          "control": "A.8.22",
+          "coverage": "PARTIAL",
+          "rationale": "Segregation of networks sets the boundary the rules apply to."
+        }
+      ]
+    },
+    {
+      "code": "2430",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "External system connection review",
+      "text": "The Supplier shall promptly remove or disable unnecessary firewall rules when they are no longer required or fulfil no business need.",
+      "mappings": [
+        {
+          "control": "A.8.20",
+          "coverage": "PARTIAL",
+          "rationale": "Network controls include firewall rule management; promptly removing unneeded rules is a specific the standard adds."
+        },
+        {
+          "control": "A.8.9",
+          "coverage": "PARTIAL",
+          "rationale": "Configurations are reviewed, which includes rules that are no longer needed."
+        }
+      ]
+    },
+    {
+      "code": "2500",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Resilient networks and systems",
+      "text": "The Supplier shall build resilience against cyber-attack and system failure into their design, implementation, operation and management of systems that support the operation of business Functions and protection of Data.",
+      "mappings": [
+        {
+          "control": "A.5.29",
+          "coverage": "PARTIAL",
+          "rationale": "Information security during disruption is maintained."
+        },
+        {
+          "control": "A.5.30",
+          "coverage": "PARTIAL",
+          "rationale": "ICT readiness supports continuity."
+        },
+        {
+          "control": "A.8.14",
+          "coverage": "PARTIAL",
+          "rationale": "Information processing facilities have redundancy."
+        },
+        {
+          "control": "A.8.27",
+          "coverage": "PARTIAL",
+          "rationale": "Systems are built on secure engineering principles. Together they build resilience into design and operation; none covers it alone."
+        }
+      ]
+    },
+    {
+      "code": "2501",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Design for resilience",
+      "text": "The Supplier shall design the network and information systems supporting their Functions and protect Data to be resilient to cyber security incidents and system failure. Systems shall be appropriately segregated and resource limitations mitigated.",
+      "mappings": [
+        {
+          "control": "A.8.27",
+          "coverage": "PARTIAL",
+          "rationale": "Secure system architecture and engineering principles, including defence in depth and resilience, are applied to the design of systems; segregation and mitigating resource limitations are covered by the other Controls mapped here."
+        },
+        {
+          "control": "A.8.22",
+          "coverage": "PARTIAL",
+          "rationale": "Segregation of networks is the segregation the requirement asks for."
+        },
+        {
+          "control": "A.8.6",
+          "coverage": "PARTIAL",
+          "rationale": "Capacity management addresses resource limitations."
+        },
+        {
+          "control": "A.8.14",
+          "coverage": "PARTIAL",
+          "rationale": "Redundancy supports resilience to system failure."
+        }
+      ]
+    },
+    {
+      "code": "2503",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Resilience preparation with testing",
+      "text": "The Supplier shall develop recovery plans for all systems that deliver Functions and protect Data. Recovery plans must also be tested at least annually with any deficiencies being recorded, risk assessed and resolved within defined timelines.",
+      "mappings": [
+        {
+          "control": "A.5.30",
+          "coverage": "FULL",
+          "rationale": "ICT readiness is planned, implemented, maintained and tested against business continuity objectives; the annual test and the handling of findings are parameters the Supplier sets."
+        },
+        {
+          "control": "A.5.29",
+          "coverage": "PARTIAL",
+          "rationale": "Information security is maintained during disruption."
+        },
+        {
+          "control": "ISMS-10.2",
+          "coverage": "PARTIAL",
+          "rationale": "Deficiencies found in a test are corrected through the corrective action process."
+        }
+      ]
+    },
+    {
+      "code": "2505",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Resilient backups",
+      "text": "The Supplier shall hold accessible and secured current backups of data and information needed to recover operation of their Functions and protect Data. Backup procedures and media shall include:\ni) Appropriate encryption technology\nii) Integrity validation\niii) Secure offsite storage supporting availability requirements\niv) Regular backup recovery testing.",
+      "mappings": [
+        {
+          "control": "A.8.13",
+          "coverage": "FULL",
+          "rationale": "Backup copies are maintained and regularly tested for recovery, and ISO 27002 guidance asks for a copy at a remote location and for protection of the backups."
+        }
+      ]
+    },
+    {
+      "code": "2506",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Physical transport of backups",
+      "text": "The Supplier shall protect the physical movement of media containing Data in transit using the following methodologies:\ni) Store backup media within a secured and locked container prior to transport.\nii) Utilise a certified backup courier to transport backup drives/tapes.\niii) Maintain a full chain of custody record.\niv) Ensure that tracking information is recorded for all drives being transported.\nv) Implement appropriate cryptographic mechanisms to protect confidentiality.",
+      "mappings": [
+        {
+          "control": "A.7.10",
+          "coverage": "PARTIAL",
+          "rationale": "Storage media in transit are protected against unauthorised access, misuse or corruption; ISO 27001 does not require a certified courier, a chain of custody and tracking."
+        },
+        {
+          "control": "A.8.13",
+          "coverage": "PARTIAL",
+          "rationale": "Backups are protected, which includes backups that are moved."
+        },
+        {
+          "control": "A.8.24",
+          "coverage": "PARTIAL",
+          "rationale": "Cryptography protects the confidentiality of the media."
+        }
+      ]
+    },
+    {
+      "code": "2507",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Deny traffic by default at interfaces",
+      "text": "The Supplier shall ensure that firewalls must block every network connectivity path and network service not explicitly authorised by the appropriate Change Advisory Board (CAB). Traffic flow policy exceptions that are no longer supported by an explicit business need must be removed.",
+      "mappings": [
+        {
+          "control": "A.8.20",
+          "coverage": "PARTIAL",
+          "rationale": "Network devices such as firewalls are managed and controlled; deny by default is a specific the standard adds."
+        },
+        {
+          "control": "A.8.32",
+          "coverage": "PARTIAL",
+          "rationale": "Changes, including firewall rule changes, go through change management; the requirement names the Change Advisory Board."
+        }
+      ]
+    },
+    {
+      "code": "2508",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Separate public and internal subnetworks",
+      "text": "The Supplier shall implement network segmentation for publicly accessible system components to ensure logical and/or physical separation from internal network components.",
+      "mappings": [
+        {
+          "control": "A.8.22",
+          "coverage": "FULL",
+          "rationale": "Groups of information services, users and systems are segregated on the network, which is separating publicly accessible components from internal ones."
+        }
+      ]
+    },
+    {
+      "code": "2509",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Managed email filtering",
+      "text": "The Supplier shall implement appropriate tooling or methods to detect, block and report malicious or spam emails coming into the network. Such tooling or methods may include learning capabilities for more effectively identifying legitimate communications.",
+      "mappings": [
+        {
+          "control": "A.8.7",
+          "coverage": "PARTIAL",
+          "rationale": "Protection against malware covers email; filtering of spam is not part of it."
+        },
+        {
+          "control": "A.8.20",
+          "coverage": "PARTIAL",
+          "rationale": "Network and email security tooling is part of securing networks."
+        }
+      ]
+    },
+    {
+      "code": "2510",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Diagnostic programmes",
+      "text": "The Supplier shall check all media containing diagnostic and/or test programs for malicious code prior to use on the organisational network.",
+      "mappings": [
+        {
+          "control": "A.8.7",
+          "coverage": "PARTIAL",
+          "rationale": "Protection against malware includes scanning media before use; diagnostic and test media are a specific case."
+        },
+        {
+          "control": "A.7.13",
+          "coverage": "PARTIAL",
+          "rationale": "Equipment maintenance covers diagnostic tools used on equipment."
+        }
+      ]
+    },
+    {
+      "code": "2511",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Maintenance activities",
+      "text": "The Supplier shall ensure that relevant good practice tooling, techniques and mechanisms are authorised or provided to maintenance personnel in order to carry out their duties",
+      "mappings": [
+        {
+          "control": "A.7.13",
+          "coverage": "FULL",
+          "rationale": "Equipment is maintained correctly to preserve its availability, integrity and confidentiality, including the authorisation of maintenance personnel and their tools."
+        }
+      ]
+    },
+    {
+      "code": "2512",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "MFA for remote maintenance activities",
+      "text": "The Supplier shall require multi-factor authentication to establish non local maintenance sessions via external network connections and terminate such connections when nonlocal maintenance is complete.",
+      "mappings": [
+        {
+          "control": "A.8.5",
+          "coverage": "PARTIAL",
+          "rationale": "Secure authentication, with MFA, applies to the maintenance session; ISO 27001 does not name non-local maintenance."
+        },
+        {
+          "control": "A.7.13",
+          "coverage": "PARTIAL",
+          "rationale": "Equipment maintenance includes remote maintenance sessions."
+        }
+      ]
+    },
+    {
+      "code": "2513",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Maintenance personnel supervision",
+      "text": "The Supplier shall designate authorised, suitably qualified and experienced personnel to supervise maintenance personnel who do not possess the required physical access authorisations.",
+      "mappings": [
+        {
+          "control": "A.7.13",
+          "coverage": "PARTIAL",
+          "rationale": "Maintenance is carried out by authorised personnel; supervision of those without physical access authorisation is not named."
+        },
+        {
+          "control": "A.7.2",
+          "coverage": "PARTIAL",
+          "rationale": "Entry controls cover supervision of people without access rights."
+        }
+      ]
+    },
+    {
+      "code": "2600",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Staff awareness and training",
+      "text": "The Supplier shall ensure that staff have appropriate awareness, knowledge and skills to carry out their organisational roles effectively in relation to the security of network and information systems supporting the operation of business Functions and protection of Data.",
+      "mappings": [
+        {
+          "control": "A.6.3",
+          "coverage": "FULL",
+          "rationale": "Personnel and relevant interested parties receive appropriate awareness, education and training, with regular updates, which is staff awareness and skills."
+        },
+        {
+          "control": "ISMS-7.3",
+          "coverage": "PARTIAL",
+          "rationale": "Persons doing work under the organisation control are aware of the policy and their contribution."
+        }
+      ]
+    },
+    {
+      "code": "2601",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Cyber security culture",
+      "text": "The Supplier shall develop and maintain a positive cyber security culture which encourages employees to make information security part of their day-to-day activities and incentivises them for doing so.",
+      "mappings": [
+        {
+          "control": "A.6.3",
+          "coverage": "PARTIAL",
+          "rationale": "Awareness training supports a positive security culture; incentives are not required."
+        },
+        {
+          "control": "A.5.4",
+          "coverage": "PARTIAL",
+          "rationale": "Management requires personnel to apply information security, which shapes culture."
+        },
+        {
+          "control": "ISMS-7.3",
+          "coverage": "PARTIAL",
+          "rationale": "Awareness of the policy and of the contribution to the ISMS."
+        }
+      ]
+    },
+    {
+      "code": "2602",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Cyber security training",
+      "text": "The Supplier shall ensure that people who support the operation of Functions and protection of Data are appropriately trained in cyber security. The Supplier shall conduct awareness training at least every 12 months to recognise and respond to the following topics:\ni) Social engineering and phishing\nii) Advanced persistent threats\niii) Suspected breaches\niv) Suspicious behaviours.\nA range of approaches to cyber security training, awareness and communications shall be employed and the Supplier shall update the training every 12 months or when there are significant changes to the threat.",
+      "mappings": [
+        {
+          "control": "A.6.3",
+          "coverage": "FULL",
+          "rationale": "Personnel receive awareness, education and training and regular updates, which covers the topics and the 12-month cycle."
+        },
+        {
+          "control": "ISMS-7.2",
+          "coverage": "PARTIAL",
+          "rationale": "Competence of persons is ensured through training."
+        }
+      ]
+    },
+    {
+      "code": "2603",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Staff risk awareness",
+      "text": "The Supplier shall ensure that managers, systems administrators, and users of organisational information systems are made aware of the security risks associated with their activities and of the applicable policies, standards, and procedures related to the security of organisational information systems. The Supplier shall review and update these security risks at least every 12 months or when there is significant change within the organisation or threat.",
+      "mappings": [
+        {
+          "control": "A.6.3",
+          "coverage": "PARTIAL",
+          "rationale": "Personnel are made aware of the policies and of the risks of their activities; the 12-month review of the risks is a specific the standard adds."
+        },
+        {
+          "control": "ISMS-7.3",
+          "coverage": "PARTIAL",
+          "rationale": "Awareness of the policy and of the implications of not conforming."
+        }
+      ]
+    },
+    {
+      "code": "2604",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Acceptable Use Policy",
+      "text": "The Supplier’s Acceptable Use Policy shall consider and include appropriate enforcement of restrictions on:\ni) Use of social media, social networking sites, and external sites/applications\nii) Posting organisational information on public websites\niii) Use of organisation-provided identifiers (e.g. email addresses) and authentication secrets (e.g. passwords) for creating accounts on external sites/applications\niv) Enforce clear desk and clear screen requirements\nv) Handling of physical corporate assets outside the office environment\nvi) Locations for conducting duties\nvii) Remote activation of collaborative computing devices\nviii) Prohibit remote activation of collaborative computing devices and provide indication of devices in use to users present at the device.",
+      "mappings": [
+        {
+          "control": "A.5.10",
+          "coverage": "FULL",
+          "rationale": "Rules for the acceptable use of information and other associated assets are identified, documented and implemented, which is the acceptable use policy and the matters it must cover."
+        },
+        {
+          "control": "A.7.7",
+          "coverage": "PARTIAL",
+          "rationale": "Clear desk and clear screen rules are one of the listed matters."
+        },
+        {
+          "control": "A.7.9",
+          "coverage": "PARTIAL",
+          "rationale": "Assets off premises are protected, one of the listed matters."
+        }
+      ]
+    },
+    {
+      "code": "2605",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Annual threat focused training feedback",
+      "text": "The Supplier shall conduct practical exercises in awareness training for their organisation that are aligned with current threat scenarios and provide feedback to individuals involved in the training and their supervisors.",
+      "mappings": [
+        {
+          "control": "A.6.3",
+          "coverage": "PARTIAL",
+          "rationale": "Awareness training is delivered; practical exercises aligned to current threats and feedback to supervisors are not named."
+        }
+      ]
+    },
+    {
+      "code": "2700",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Personnel pre-employment checks",
+      "text": "The Supplier shall, unless prohibited by Applicable Law, perform appropriate background verification checks on Personnel that have access to Data upon hire. The verification checks shall include:\ni) Verifying credentials\nii) Employment history\niii) Qualification checks\niv) Application or verification of BPSS (Baseline Personnel Security Standard)",
+      "mappings": [
+        {
+          "control": "A.6.1",
+          "coverage": "FULL",
+          "rationale": "Background verification checks on candidates are carried out before they join, covering identity, history and qualifications; BPSS is the UK form of those checks."
+        }
+      ]
+    },
+    {
+      "code": "2701",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Personnel security vetting*",
+      "text": "The Supplier shall define and implement a policy for applying BPSS and National Security Vetting (NSV) checks as appropriate for employees that support Functions and the protection of Data.\n*(It is recognised that application of NSV is normally only possible once a contract requiring such is in place. Potential suppliers who do not meet this requirement at time of submission must, however, be willing and be able to enforce their staff through appropriate levels of vetting within a timescale agreed with the project delivery team following contract award).",
+      "mappings": [
+        {
+          "control": "A.6.1",
+          "coverage": "PARTIAL",
+          "rationale": "Screening is carried out to a level proportionate to the information and the risks; ISO 27001 does not require BPSS or National Security Vetting."
+        }
+      ]
+    },
+    {
+      "code": "2702",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Joiners, movers and leavers",
+      "text": "The Supplier shall define and implement a joiners, movers and leavers policy to secure organisational hardware, software and systems.",
+      "mappings": [
+        {
+          "control": "A.5.18",
+          "coverage": "PARTIAL",
+          "rationale": "Access rights are changed or removed when employment changes or ends."
+        },
+        {
+          "control": "A.6.5",
+          "coverage": "PARTIAL",
+          "rationale": "Information security responsibilities that stay valid after termination or change of employment are defined."
+        },
+        {
+          "control": "A.5.11",
+          "coverage": "PARTIAL",
+          "rationale": "Assets are returned when employment ends or changes. Together they make up a joiners, movers and leavers process; the policy itself is not required."
+        }
+      ]
+    },
+    {
+      "code": "2703",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Whistleblowing",
+      "text": "The Supplier shall define and implement training and processes for employees and contractors to identify and report suspicious activities and/or behaviour including violations of information security policies and procedures without fear of recrimination. The Supplier shall define and implement a disciplinary process to take action against employees who violate information security policies or procedures.",
+      "mappings": [
+        {
+          "control": "A.6.8",
+          "coverage": "PARTIAL",
+          "rationale": "A mechanism is provided for personnel to report observed or suspected security events; reporting without fear of recrimination is not named."
+        },
+        {
+          "control": "A.6.4",
+          "coverage": "PARTIAL",
+          "rationale": "A disciplinary process is formalised for personnel who violate the policy."
+        },
+        {
+          "control": "A.6.3",
+          "coverage": "PARTIAL",
+          "rationale": "Training of personnel to recognise and report suspicious activity."
+        }
+      ]
+    },
+    {
+      "code": "2704",
+      "section": "Objective B: Protecting against cyber attack",
+      "title": "Environmental controls",
+      "text": "The Supplier shall, where appropriate, implement, install, and maintain the following environmental controls supporting Functions and protection of Data:\ni) Fire suppression systems\nii) Temperature and humidity controls within a data centre or server room environment\niii) Backup power technology (e.g. uninterruptible power supply, diesel generator, separate grid connection, etc.).",
+      "mappings": [
+        {
+          "control": "A.7.5",
+          "coverage": "PARTIAL",
+          "rationale": "Protection against physical and environmental threats such as fire and flooding is designed and implemented; temperature and humidity control and backup power are not named."
+        },
+        {
+          "control": "A.7.11",
+          "coverage": "PARTIAL",
+          "rationale": "Information processing facilities are protected from power failures, with ISO 27002 guidance on backup power and air conditioning."
+        },
+        {
+          "control": "A.7.8",
+          "coverage": "PARTIAL",
+          "rationale": "Equipment is sited and protected to reduce environmental risks."
+        }
+      ]
+    },
+    {
+      "code": "3100",
+      "section": "Objective C: Detecting cyber security events",
+      "title": "Security monitoring",
+      "text": "The Supplier shall monitor the security status of the networks and systems supporting the operation of business Functions and protection of Data in order to detect potential security problems and to track the ongoing effectiveness of protective security measures.",
+      "mappings": [
+        {
+          "control": "A.8.16",
+          "coverage": "FULL",
+          "rationale": "Networks, systems and applications are monitored for anomalous behaviour, with appropriate action to evaluate potential incidents."
+        }
+      ]
+    },
+    {
+      "code": "3102",
+      "section": "Objective C: Detecting cyber security events",
+      "title": "Continuously monitor security controls",
+      "text": "The Supplier shall establish and document security event monitoring which at a minimum covers the following:\ni) 24x7x365 monitoring of all identified Information Systems in Production and non-Production environments\nii) Tools used for 24x7x365 monitoring and correlation\niii) Security events covered\niv) Frequency of monitoring\nv) Clearly defined roles and responsibilities\nvi) Escalation matrix.",
+      "mappings": [
+        {
+          "control": "A.8.16",
+          "coverage": "PARTIAL",
+          "rationale": "Monitoring of networks and systems; continuous 24x7x365 monitoring of production and non-production environments is a specific the standard adds."
+        },
+        {
+          "control": "A.5.37",
+          "coverage": "PARTIAL",
+          "rationale": "Operating procedures for monitoring are documented."
+        },
+        {
+          "control": "A.8.15",
+          "coverage": "PARTIAL",
+          "rationale": "Logs feed the monitoring and correlation tools."
+        }
+      ]
+    },
+    {
+      "code": "3103",
+      "section": "Objective C: Detecting cyber security events",
+      "title": "Securing logs",
+      "text": "The Supplier shall hold logging data securely and grant read access only to accounts with business needs. The Supplier shall protect audit tools from unauthorised access, modification and deletion. Logging data shall be retained and protected from deletion to a documented retention period, after which it shall be deleted.",
+      "mappings": [
+        {
+          "control": "A.8.15",
+          "coverage": "FULL",
+          "rationale": "Logs are protected against tampering and unauthorised access, which includes who can read them and their retention."
+        },
+        {
+          "control": "A.5.33",
+          "coverage": "PARTIAL",
+          "rationale": "Records are protected and retained for a defined period."
+        }
+      ]
+    },
+    {
+      "code": "3104",
+      "section": "Objective C: Detecting cyber security events",
+      "title": "Security event triage",
+      "text": "The Supplier shall provide evidence from their monitoring tool of security incidents to verify the reliability of identified and triggered alerts for triage.",
+      "mappings": [
+        {
+          "control": "A.5.25",
+          "coverage": "PARTIAL",
+          "rationale": "Information security events are assessed and decided on as incidents, which is the triage; evidence from the monitoring tool is a specific the standard adds."
+        },
+        {
+          "control": "A.8.16",
+          "coverage": "PARTIAL",
+          "rationale": "Monitoring produces the alerts that are triaged."
+        }
+      ]
+    },
+    {
+      "code": "3105",
+      "section": "Objective C: Detecting cyber security events",
+      "title": "Identifying security incidents",
+      "text": "The Supplier shall contextualise alerts with knowledge of the threat and their systems, and engage Incident Response when an incident (confirmed or otherwise) is identified.",
+      "mappings": [
+        {
+          "control": "A.5.25",
+          "coverage": "FULL",
+          "rationale": "Information security events are assessed to decide whether they are to be categorised as incidents, using knowledge of the threat and the systems."
+        },
+        {
+          "control": "A.5.26",
+          "coverage": "PARTIAL",
+          "rationale": "Information security incidents are responded to in accordance with the documented procedures."
+        }
+      ]
+    },
+    {
+      "code": "3106",
+      "section": "Objective C: Detecting cyber security events",
+      "title": "Monitoring tools and skills",
+      "text": "The Supplier shall ensure that monitoring staff skills, tools and roles, including any that are outsourced, reflect governance and reporting requirements, expected threats and the complexities of the network or system data they need to use. Monitoring staff have contextual knowledge of the Functions and requirements for the protection of Data.",
+      "mappings": [
+        {
+          "control": "A.8.16",
+          "coverage": "PARTIAL",
+          "rationale": "Monitoring activities include the tools used; the skills and roles of monitoring staff are not covered."
+        },
+        {
+          "control": "A.6.3",
+          "coverage": "PARTIAL",
+          "rationale": "Personnel receive training for their roles."
+        },
+        {
+          "control": "ISMS-7.2",
+          "coverage": "PARTIAL",
+          "rationale": "Competence of persons doing the work is ensured."
+        }
+      ]
+    },
+    {
+      "code": "3107",
+      "section": "Objective C: Detecting cyber security events",
+      "title": "Create, retain and correlate audit logs",
+      "text": "The Supplier shall generate event logs for systems that support the operation of Functions and protection of Data. The following criteria apply:\ni) Logs are archived for a minimum of 12 months\nii) Logs capture (as a minimum) date, time (from a single NTP source), user ID, device accessed and port used\niii) Logs capture key security event types (e.g. critical files accessed, user accounts generated, multiple failed login attempts, logging failures from devices, events related to systems that have an internet connection)\niv) Access to modify system logs is restricted\nv) Logs and security event logs can be made available upon request\nvi) Store audit records in a repository that is part of a physically different system\nvii) The Supplier shall ensure that systems logs are reviewed at least weekly to identify system failures, faults, or potential security incidents and corrective actions are taken to resolve or address issues within a reasonable timeframe\nviii) Review, at least every 6 months the event types selected for logging purposes to ensure these still meet business requirements\nix) Capture the operational status of the logging system and alert on any failures which impact the system's operational capacity.",
+      "mappings": [
+        {
+          "control": "A.8.15",
+          "coverage": "PARTIAL",
+          "rationale": "Logs that record activities, exceptions and events are produced, stored, protected and analysed; the fields, 12-month archiving, weekly review and separate repository are specifics the standard adds."
+        },
+        {
+          "control": "A.8.17",
+          "coverage": "PARTIAL",
+          "rationale": "Clocks are synchronised, which supplies the single NTP time source."
+        },
+        {
+          "control": "A.8.16",
+          "coverage": "PARTIAL",
+          "rationale": "Logs are reviewed for anomalous behaviour."
+        }
+      ]
+    },
+    {
+      "code": "3108",
+      "section": "Objective C: Detecting cyber security events",
+      "title": "Audit reduction and report generation",
+      "text": "The Supplier shall provide and implement an appropriate audit record reduction and report generation capability that:\ni) supports on-demand audit record review, analysis, and reporting requirements and after-the-fact investigations of incidents; and\nii) does not alter the original content or time ordering of audit records.",
+      "mappings": [
+        {
+          "control": "A.8.15",
+          "coverage": "PARTIAL",
+          "rationale": "Logs are analysed; a reduction and report capability that leaves the original records unaltered is not named."
+        },
+        {
+          "control": "A.8.16",
+          "coverage": "PARTIAL",
+          "rationale": "Monitoring uses the reports for investigation."
+        }
+      ]
+    },
+    {
+      "code": "3109",
+      "section": "Objective C: Detecting cyber security events",
+      "title": "Integration of records with incident management",
+      "text": "The Supplier shall integrate audit record review, triage, analysis, and reporting processes with organisational governance and incident management structure.",
+      "mappings": [
+        {
+          "control": "A.5.24",
+          "coverage": "PARTIAL",
+          "rationale": "Incident management planning covers the roles, responsibilities and processes that audit review feeds."
+        },
+        {
+          "control": "A.8.15",
+          "coverage": "PARTIAL",
+          "rationale": "Logs are analysed, which is the audit record review that the incident process takes in."
+        }
+      ]
+    },
+    {
+      "code": "3110",
+      "section": "Objective C: Detecting cyber security events",
+      "title": "Monitor alerts/advisories and take action",
+      "text": "The Supplier shall monitor system security alerts and advisories and take action in response.",
+      "mappings": [
+        {
+          "control": "A.5.7",
+          "coverage": "FULL",
+          "rationale": "Information about security threats is collected and analysed so that appropriate action can be taken, which includes alerts and advisories."
+        },
+        {
+          "control": "A.8.8",
+          "coverage": "PARTIAL",
+          "rationale": "Vulnerability advisories are monitored and acted on."
+        }
+      ]
+    },
+    {
+      "code": "3200",
+      "section": "Objective C: Detecting cyber security events",
+      "title": "Proactive security event discovery",
+      "text": "The Supplier shall detect, within networks and information systems, malicious activity affecting, or with the potential to affect, the operation of business Functions and protection of Data even when the activity evades standard signature-based security prevent/detect solutions (or when standard solutions are not deployable).",
+      "mappings": [
+        {
+          "control": "A.8.16",
+          "coverage": "FULL",
+          "rationale": "Networks, systems and applications are monitored for anomalous behaviour, which is how malicious activity that evades signatures is detected."
+        }
+      ]
+    },
+    {
+      "code": "3201",
+      "section": "Objective C: Detecting cyber security events",
+      "title": "System abnormalities for attack detection",
+      "text": "The Supplier shall define examples of abnormal system behaviour to aid in detecting malicious activity that is otherwise hard to identify. The Supplier shall take appropriate action upon identifying this behaviour.",
+      "mappings": [
+        {
+          "control": "A.8.16",
+          "coverage": "FULL",
+          "rationale": "ISO 27002 guidance asks for a baseline of normal behaviour so that anomalies can be recognised and acted on."
+        },
+        {
+          "control": "A.5.25",
+          "coverage": "PARTIAL",
+          "rationale": "Events are assessed to decide whether they are incidents."
+        }
+      ]
+    },
+    {
+      "code": "3202",
+      "section": "Objective C: Detecting cyber security events",
+      "title": "Proactive attack discovery",
+      "text": "The Supplier shall implement reasonable and proportionate measures to detect malicious activity affecting, or with the potential to affect, the operation of Functions and protection of Data.",
+      "mappings": [
+        {
+          "control": "A.8.16",
+          "coverage": "FULL",
+          "rationale": "Networks, systems and applications are monitored for anomalous behaviour, with measures proportionate to the risk."
+        }
+      ]
+    },
+    {
+      "code": "3203",
+      "section": "Objective C: Detecting cyber security events",
+      "title": "Use indicators of compromise from alerts",
+      "text": "The Supplier shall monitor system security alerts and advisories and take action in response using agreed and managed indicators of compromise.",
+      "mappings": [
+        {
+          "control": "A.5.7",
+          "coverage": "PARTIAL",
+          "rationale": "Threat intelligence includes indicators of compromise; agreeing and managing them is not named."
+        },
+        {
+          "control": "A.8.16",
+          "coverage": "PARTIAL",
+          "rationale": "Monitoring can use indicators of compromise to find activity."
+        }
+      ]
+    },
+    {
+      "code": "3204",
+      "section": "Objective C: Detecting cyber security events",
+      "title": "Presence of unauthorised system components",
+      "text": "The Supplier shall implement proportionate measures to:\ni) Detect the presence of unauthorised hardware, software, and firmware components within the system using tooling\nii) Take the following actions when unauthorised components are detected: disable network access by such components; isolate the components; notify systems administrators and/or security operations teams.",
+      "mappings": [
+        {
+          "control": "A.8.9",
+          "coverage": "PARTIAL",
+          "rationale": "Configurations, including the approved components of systems, are monitored; detection of unauthorised hardware, software and firmware is not named."
+        },
+        {
+          "control": "A.8.16",
+          "coverage": "PARTIAL",
+          "rationale": "Monitoring can detect the presence of unauthorised components."
+        },
+        {
+          "control": "A.5.9",
+          "coverage": "PARTIAL",
+          "rationale": "The inventory is the reference for what is authorised."
+        },
+        {
+          "control": "A.5.26",
+          "coverage": "PARTIAL",
+          "rationale": "Response to the finding of an unauthorised component follows incident procedures."
+        }
+      ]
+    },
+    {
+      "code": "4100",
+      "section": "Objective D: Minimising the impact of cyber security incidents",
+      "title": "Response and recovery planning",
+      "text": "The Supplier shall implement well-defined and tested incident management processes that aim to ensure continuity of business Functions and protection of Data in the event of system or service failure. Mitigation activities are designed and where possible automated to contain or limit the impact of a compromise.",
+      "mappings": [
+        {
+          "control": "A.5.24",
+          "coverage": "FULL",
+          "rationale": "Information security incident management processes, roles and responsibilities are defined, established and communicated, which is the response and recovery planning."
+        },
+        {
+          "control": "A.5.30",
+          "coverage": "PARTIAL",
+          "rationale": "ICT readiness covers continuity of the business functions after a failure."
+        }
+      ]
+    },
+    {
+      "code": "4101",
+      "section": "Objective D: Minimising the impact of cyber security incidents",
+      "title": "Response plan",
+      "text": "The Supplier shall have an up-to-date incident response plan that is grounded in a thorough risk assessment that takes account of business Functions and protection of Data and covers a range of incident scenarios.",
+      "mappings": [
+        {
+          "control": "A.5.24",
+          "coverage": "FULL",
+          "rationale": "The organisation plans and prepares for incident management by defining a plan for a range of incident scenarios."
+        }
+      ]
+    },
+    {
+      "code": "4102",
+      "section": "Objective D: Minimising the impact of cyber security incidents",
+      "title": "Response and recovery capability",
+      "text": "The Supplier shall have the capability to enact their incident response plan, including effective limitation of impact on the operation of Functions and protection of Data. During an incident, the Supplier shall enact processes and capabilities to provide access to information sources on which to base their response decisions to coordinate incident handling activities with contingency planning activities.",
+      "mappings": [
+        {
+          "control": "A.5.26",
+          "coverage": "FULL",
+          "rationale": "Information security incidents are responded to in accordance with the documented procedures, with access to the information needed."
+        },
+        {
+          "control": "A.5.24",
+          "coverage": "PARTIAL",
+          "rationale": "The capability is prepared in planning."
+        }
+      ]
+    },
+    {
+      "code": "4103",
+      "section": "Objective D: Minimising the impact of cyber security incidents",
+      "title": "Testing and exercising",
+      "text": "The Supplier shall carry out exercises to test response plans at least every 12 months, using past incidents that affected their (and other’s) organisation, and scenarios that draw on threat intelligence and risk assessments.",
+      "mappings": [
+        {
+          "control": "A.5.24",
+          "coverage": "PARTIAL",
+          "rationale": "Preparation for incident management includes testing the plan; the 12-month cycle and use of past incidents and threat intelligence are specifics the standard adds."
+        },
+        {
+          "control": "A.5.30",
+          "coverage": "PARTIAL",
+          "rationale": "ICT continuity plans are tested."
+        },
+        {
+          "control": "A.5.7",
+          "coverage": "PARTIAL",
+          "rationale": "Threat intelligence is available to base scenarios on."
+        }
+      ]
+    },
+    {
+      "code": "4104",
+      "section": "Objective D: Minimising the impact of cyber security incidents",
+      "title": "Incident handling capability",
+      "text": "The Supplier shall establish an operational incident handling capability for organisational information systems that is consistently applied across the organisation and includes:\ni) Adequate preparation, detection, forensic analysis, containment, recovery, and user response activities\nii) Tracking, documenting, and reporting incidents to appropriate organisational officials and/or authorities\niii) Sufficient rigour, intensity and scope.",
+      "mappings": [
+        {
+          "control": "A.5.26",
+          "coverage": "FULL",
+          "rationale": "Incidents are responded to, contained, recovered from and communicated according to the documented procedure."
+        },
+        {
+          "control": "A.5.28",
+          "coverage": "PARTIAL",
+          "rationale": "Evidence collection covers forensic analysis."
+        },
+        {
+          "control": "A.6.8",
+          "coverage": "PARTIAL",
+          "rationale": "Reporting of events to the right people."
+        }
+      ]
+    },
+    {
+      "code": "4105",
+      "section": "Objective D: Minimising the impact of cyber security incidents",
+      "title": "Exfiltration tests",
+      "text": "The Supplier shall conduct data exfiltration tests at the network boundaries at least every 12 months. These tests must be conducted against both authorised and covert channels.",
+      "mappings": [
+        {
+          "control": "A.8.12",
+          "coverage": "PARTIAL",
+          "rationale": "Data leakage prevention covers the channels data could leave through; testing the boundaries for exfiltration over authorised and covert channels is not named."
+        },
+        {
+          "control": "A.8.16",
+          "coverage": "PARTIAL",
+          "rationale": "Monitoring for anomalous behaviour supports finding exfiltration."
+        }
+      ]
+    },
+    {
+      "code": "4106",
+      "section": "Objective D: Minimising the impact of cyber security incidents",
+      "title": "Attempted unauthorised connections from staff",
+      "text": "The Supplier shall audit the identity of internal users associated with denied communications.",
+      "mappings": [
+        {
+          "control": "A.8.15",
+          "coverage": "PARTIAL",
+          "rationale": "Logs record user activity, including denied connections."
+        },
+        {
+          "control": "A.8.16",
+          "coverage": "PARTIAL",
+          "rationale": "Monitoring of networks for anomalous behaviour includes attempted connections."
+        }
+      ]
+    },
+    {
+      "code": "4200",
+      "section": "Objective D: Minimising the impact of cyber security incidents",
+      "title": "Lessons learned",
+      "text": "The Supplier shall, when an incident occurs, incorporate root cause analysis and lessons learned information from incident response activities into incident response procedures, training and testing. The Supplier shall implement the resulting improvements immediately or, at minimum, within 30 days of the completion of the root cause analysis.",
+      "mappings": [
+        {
+          "control": "A.5.27",
+          "coverage": "FULL",
+          "rationale": "Knowledge gained from incidents is used to strengthen and improve the controls, which is the root cause analysis and lessons learned; the 30-day limit is a parameter the Supplier sets."
+        },
+        {
+          "control": "ISMS-10.2",
+          "coverage": "PARTIAL",
+          "rationale": "The corrective action process determines the causes of a nonconformity and acts on them."
+        }
+      ]
+    },
+    {
+      "code": "4201",
+      "section": "Objective D: Minimising the impact of cyber security incidents",
+      "title": "Business Continuity Risk Assessments",
+      "text": "The Supplier shall perform Business Continuity Risk Assessments to determine relevant risks, threats, and likelihood & impact of a service outage or Data Breach. The Supplier shall record the output of these Risk Assessments within a risk register along with the required controls and/or procedures to mitigate or remove the risk and/or threat.",
+      "mappings": [
+        {
+          "control": "A.5.30",
+          "coverage": "PARTIAL",
+          "rationale": "ICT readiness is planned from business impact analysis and requirements; a risk register of continuity risks is not required."
+        },
+        {
+          "control": "ISMS-8.2",
+          "coverage": "PARTIAL",
+          "rationale": "Information security risk assessments are performed, here for continuity."
+        },
+        {
+          "control": "A.5.29",
+          "coverage": "PARTIAL",
+          "rationale": "Information security during disruption is addressed."
+        }
+      ]
+    },
+    {
+      "code": "4202",
+      "section": "Objective D: Minimising the impact of cyber security incidents",
+      "title": "Operation resilience for equipment",
+      "text": "The Supplier shall assess the requirement for redundant networking and telecommunication systems to protect Functions and Data. Where required, the Supplier shall implement and protect these systems.",
+      "mappings": [
+        {
+          "control": "A.8.14",
+          "coverage": "FULL",
+          "rationale": "Information processing facilities are implemented with redundancy sufficient to meet availability requirements, which is assessing the need for redundant networking and telecommunications and implementing it."
+        },
+        {
+          "control": "A.7.11",
+          "coverage": "PARTIAL",
+          "rationale": "Supporting utilities, including telecommunications, are protected from failure."
+        }
+      ]
+    }
+  ]
+}

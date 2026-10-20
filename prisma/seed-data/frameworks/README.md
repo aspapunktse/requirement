@@ -8,7 +8,7 @@ npm run frameworks:load                           load every *.json in this fold
 npm run frameworks:load -- --allow-published ...  also update a Framework that is already Published
 ```
 
-The command prints a summary per file and exits 1 if any file was refused, invalid or failed. The other files are still processed. It runs against the database `DATABASE_URL` (or `.env`) names. A real content file here is loaded by every run of the command, so only commit content that is meant to exist as a Draft in every environment. Sample files for tests live in `src/test/fixtures/frameworks/`.
+Files load in file-name order. A file whose Requirements map to Supplementary Controls defined by another file must sort after it, which is why the DEF STAN 05-138 files are numbered by level (a higher level maps to Supplementary Controls the lower level defines). The command prints a summary per file and exits 1 if any file was refused, invalid or failed. The other files are still processed. It runs against the database `DATABASE_URL` (or `.env`) names. A real content file here is loaded by every run of the command, so only commit content that is meant to exist as a Draft in every environment. Sample files for tests live in `src/test/fixtures/frameworks/`.
 
 ## Format
 
