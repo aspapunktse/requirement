@@ -5,12 +5,12 @@ Follow-up to #219. Document F ([Hybrid Control Matrix](https://www.aspa.se/grc/f
 | Theme | Issue | Uncovered items | New controls | Document F controls extended |
 | --- | --- | --- | --- | --- |
 | [A.5 Organizational controls](a5-organizational.md) | #221 | 23 | 13 | 1 |
-| [A.6 People controls](a6-people.md) | #222 | 7 | 3 | 1 |
-| [A.7 Physical controls](a7-physical.md) | #223 | 14 | 5 | 0 |
-| [A.8 Technological controls](a8-technological.md) | #224 | 18 | 7 | 3 |
-| **Total** | | **62** | **28** | **5** |
+| [A.6 People controls](a6-people.md) | #222 | 7 | 5 | 1 |
+| [A.7 Physical controls](a7-physical.md) | #223 | 14 | 8 | 0 |
+| [A.8 Technological controls](a8-technological.md) | #224 | 18 | 9 | 2 |
+| **Total** | | **62** | **35** | **4** |
 
-Result if accepted: 54 Enterprise Controls cover all 93 Annex A items, against 93 base Controls today.
+Result if accepted: 61 Enterprise Controls cover all 93 Annex A items, against 93 base Controls today.
 
 ## Conventions
 
@@ -24,9 +24,9 @@ Result if accepted: 54 Enterprise Controls cover all 93 Annex A items, against 9
 
 ## Open questions for the product owner
 
-1. **Organization-wide controls in a per-environment matrix.** Document F's six environment columns fit technical controls. The governance, people and training controls proposed here (CTL-PM-002, CTL-PM-003, CTL-PM-004, CTL-CA-001, CTL-SI-002, CTL-IR-003, CTL-PS-001, CTL-AT-001) have one organization-wide record. Proposal: give them a single "Organization" cell instead of six. Alternative: keep these items as Annex A Controls, as Document F assumes.
-2. **Hybrid or full replacement.** With these proposals every one of the 93 Annex A items is covered by 54 Enterprise Controls (26 from Document F, 28 new), and the "uncovered items stay as Annex A Controls" assumption on the crosswalk would go.
-3. **Changing Document F's controls.** 5 proposals extend a Document F control's statement and mapping (CTL-AC-004, CTL-IR-001, CTL-AU-001, CTL-CM-004, CTL-VR-002). Document F is an external draft (GERA-006); are these local changes, or fed back to its authors?
+1. **Organization-wide controls in a per-environment matrix.** Document F's six environment columns fit technical controls. The governance, people and training controls proposed here (CTL-PM-002, CTL-PM-003, CTL-PM-004, CTL-CA-001, CTL-SI-002, CTL-IR-003, CTL-PS-001, CTL-PS-002, CTL-PS-003, CTL-AT-001) have one organization-wide record. Proposal: give them a single "Organization" cell instead of six. Alternative: keep these items as Annex A Controls, as Document F assumes.
+2. **Hybrid or full replacement.** With these proposals every one of the 93 Annex A items is covered by 61 Enterprise Controls (26 from Document F, 35 new), and the "uncovered items stay as Annex A Controls" assumption on the crosswalk would go.
+3. **Changing Document F's controls.** 4 proposals extend a Document F control's statement and mapping (CTL-AC-004, CTL-IR-001, CTL-AU-001, CTL-CM-004). Document F is an external draft (GERA-006); are these local changes, or fed back to its authors?
 4. **New domain groups.** Document F has nine groups. These proposals add four: Governance and assurance, People, Physical and media, Secure development.
 5. **Roles to define.** Some owner roles do not exist yet in Document F (head of information management, head of end-user computing).
 6. **Physical controls in the cloud columns** are proposed as party P, inherited from the provider and evidenced through CTL-SR-001. Is that acceptable, or should those cells be n/a?
@@ -61,24 +61,24 @@ Result if accepted: 54 Enterprise Controls cover all 93 Annex A items, against 9
 | A.6.1 Screening | [CTL-PS-001](a6-people.md#ctl-ps-001) Personnel screening and terms of employment | New |
 | A.6.2 Terms and conditions of employment | [CTL-PS-001](a6-people.md#ctl-ps-001) Personnel screening and terms of employment | New |
 | A.6.3 IS awareness, education and training | [CTL-AT-001](a6-people.md#ctl-at-001) Security awareness and training | New |
-| A.6.4 Disciplinary process | [CTL-PS-001](a6-people.md#ctl-ps-001) Personnel screening and terms of employment | New |
-| A.6.6 Confidentiality or non-disclosure agreements | [CTL-PS-001](a6-people.md#ctl-ps-001) Personnel screening and terms of employment | New |
-| A.6.7 Remote working | [CTL-AC-006](a6-people.md#ctl-ac-006) Remote working and off-premises devices | New |
+| A.6.4 Disciplinary process | [CTL-PS-003](a6-people.md#ctl-ps-003) Disciplinary process | New |
+| A.6.6 Confidentiality or non-disclosure agreements | [CTL-PS-002](a6-people.md#ctl-ps-002) Confidentiality and non-disclosure agreements | New |
+| A.6.7 Remote working | [CTL-AC-006](a6-people.md#ctl-ac-006) Remote working and remote access | New |
 | A.6.8 Information security event reporting | [CTL-IR-001](a6-people.md#ctl-ir-001) Incident response handling | Extend |
 | A.7.1 Physical security perimeters | [CTL-PE-001](a7-physical.md#ctl-pe-001) Physical perimeter and entry control | New |
 | A.7.2 Physical entry controls | [CTL-PE-001](a7-physical.md#ctl-pe-001) Physical perimeter and entry control | New |
 | A.7.3 Securing offices, rooms and facilities | [CTL-PE-001](a7-physical.md#ctl-pe-001) Physical perimeter and entry control | New |
 | A.7.4 Physical security monitoring | [CTL-PE-002](a7-physical.md#ctl-pe-002) Physical security monitoring | New |
-| A.7.5 Protecting against physical and environmental threats | [CTL-PE-003](a7-physical.md#ctl-pe-003) Facility environment, utilities and equipment | New |
+| A.7.5 Protecting against physical and environmental threats | [CTL-PE-003](a7-physical.md#ctl-pe-003) Environmental protection and supporting utilities | New |
 | A.7.6 Working in secure areas | [CTL-PE-001](a7-physical.md#ctl-pe-001) Physical perimeter and entry control | New |
 | A.7.7 Clear desk and clear screen | [CTL-AC-007](a7-physical.md#ctl-ac-007) Clear desk and clear screen | New |
-| A.7.8 Equipment siting and protection | [CTL-PE-003](a7-physical.md#ctl-pe-003) Facility environment, utilities and equipment | New |
-| A.7.9 Security of assets off-premises | [CTL-AC-006](a6-people.md#ctl-ac-006) Remote working and off-premises devices | New |
-| A.7.10 Storage media | [CTL-MP-001](a7-physical.md#ctl-mp-001) Storage media and secure disposal | New |
-| A.7.11 Supporting utilities | [CTL-PE-003](a7-physical.md#ctl-pe-003) Facility environment, utilities and equipment | New |
-| A.7.12 Cabling security | [CTL-PE-003](a7-physical.md#ctl-pe-003) Facility environment, utilities and equipment | New |
-| A.7.13 Equipment maintenance | [CTL-PE-003](a7-physical.md#ctl-pe-003) Facility environment, utilities and equipment | New |
-| A.7.14 Secure disposal or re-use of equipment | [CTL-MP-001](a7-physical.md#ctl-mp-001) Storage media and secure disposal | New |
+| A.7.8 Equipment siting and protection | [CTL-PE-003](a7-physical.md#ctl-pe-003) Environmental protection and supporting utilities | New |
+| A.7.9 Security of assets off-premises | [CTL-PE-004](a7-physical.md#ctl-pe-004) Assets off-premises | New |
+| A.7.10 Storage media | [CTL-MP-001](a7-physical.md#ctl-mp-001) Storage media lifecycle and secure disposal | New |
+| A.7.11 Supporting utilities | [CTL-PE-003](a7-physical.md#ctl-pe-003) Environmental protection and supporting utilities | New |
+| A.7.12 Cabling security | [CTL-PE-005](a7-physical.md#ctl-pe-005) Cabling security | New |
+| A.7.13 Equipment maintenance | [CTL-MA-001](a7-physical.md#ctl-ma-001) Equipment maintenance | New |
+| A.7.14 Secure disposal or re-use of equipment | [CTL-MP-001](a7-physical.md#ctl-mp-001) Storage media lifecycle and secure disposal | New |
 | A.8.4 Access to source code | [CTL-SA-003](a8-technological.md#ctl-sa-003) Source code and pipeline protection | New |
 | A.8.6 Capacity management | [CTL-CP-004](a8-technological.md#ctl-cp-004) Capacity management | New |
 | A.8.10 Information deletion | [CTL-SI-003](a5-organizational.md#ctl-si-003) Records retention and information deletion | New |
@@ -93,7 +93,7 @@ Result if accepted: 54 Enterprise Controls cover all 93 Annex A items, against 9
 | A.8.26 Application security requirements | [CTL-SA-001](a5-organizational.md#ctl-sa-001) Security requirements in projects and acquisitions | New |
 | A.8.27 Secure system architecture and engineering principles | [CTL-SA-002](a8-technological.md#ctl-sa-002) Secure development lifecycle | New |
 | A.8.28 Secure coding | [CTL-SA-002](a8-technological.md#ctl-sa-002) Secure development lifecycle | New |
-| A.8.30 Outsourced development | [CTL-SA-002](a8-technological.md#ctl-sa-002) Secure development lifecycle | New |
+| A.8.30 Outsourced development | [CTL-SR-003](a8-technological.md#ctl-sr-003) Outsourced development oversight | New |
 | A.8.31 Separation of development, test and production environments | [CTL-CM-005](a8-technological.md#ctl-cm-005) Separation of environments | New |
 | A.8.33 Test information | [CTL-PT-002](a8-technological.md#ctl-pt-002) Data masking and test data protection | New |
-| A.8.34 Protection of information systems during audit testing | [CTL-VR-002](a8-technological.md#ctl-vr-002) Security testing | Extend |
+| A.8.34 Protection of information systems during audit testing | [CTL-CA-002](a8-technological.md#ctl-ca-002) Protection of systems during audit testing | New |

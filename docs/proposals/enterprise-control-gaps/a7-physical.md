@@ -7,9 +7,8 @@ This is a proposal for review by the product owner, not a change to the app, the
 ## Summary
 
 - 14 uncovered items in A.7.
-- 5 new Enterprise Controls proposed here: CTL-PE-001, CTL-PE-002, CTL-PE-003, CTL-AC-007, CTL-MP-001.
+- 8 new Enterprise Controls proposed here: CTL-PE-001, CTL-PE-002, CTL-PE-003, CTL-PE-004, CTL-PE-005, CTL-MA-001, CTL-AC-007, CTL-MP-001.
 - 0 Document F controls extended here.
-- 1 item absorbed by a control proposed in another theme: A.7.9.
 
 ## Mapping decisions
 
@@ -22,12 +21,12 @@ This is a proposal for review by the product owner, not a change to the app, the
 | A.7.5 Protecting against physical and environmental threats | [CTL-PE-003](#ctl-pe-003) | New Enterprise Control | Protection against physical and environmental threats (fire, flood, temperature). |
 | A.7.6 Working in secure areas | [CTL-PE-001](#ctl-pe-001) | New Enterprise Control | Working in secure areas is enforced by the same zone rules (who may enter, escort, no lone working where required) and evidenced by the same access log. |
 | A.7.7 Clear desk and clear screen | [CTL-AC-007](#ctl-ac-007) | New Enterprise Control | Clear desk and clear screen: the screen lock is technical and automatable; the clear desk part is a sampled check. |
-| A.7.8 Equipment siting and protection | [CTL-PE-003](#ctl-pe-003) | New Enterprise Control | Equipment siting is part of the same room design and inspection. |
-| A.7.9 Security of assets off-premises | [CTL-AC-006](a6-people.md#ctl-ac-006) (proposed in the A.6 document) | New, from another theme | Security of assets off-premises applies to the same laptops and phones, managed by the same tooling and evidenced by the same compliance report. |
-| A.7.10 Storage media | [CTL-MP-001](#ctl-mp-001) | New Enterprise Control | Storage media: use is restricted and media are handled through their lifecycle. |
-| A.7.11 Supporting utilities | [CTL-PE-003](#ctl-pe-003) | New Enterprise Control | Supporting utilities (power, cooling) are tested in the same maintenance programme. |
-| A.7.12 Cabling security | [CTL-PE-003](#ctl-pe-003) | New Enterprise Control | Cabling security is inspected in the same walk-through of the same rooms. |
-| A.7.13 Equipment maintenance | [CTL-PE-003](#ctl-pe-003) | New Enterprise Control | Equipment maintenance is the schedule the statement refers to; its evidence is the same maintenance log. |
+| A.7.8 Equipment siting and protection | [CTL-PE-003](#ctl-pe-003) | New Enterprise Control | Equipment siting is checked in the same room inspection: placed away from environmental hazards and out of view of unauthorized persons. |
+| A.7.9 Security of assets off-premises | [CTL-PE-004](#ctl-pe-004) | New Enterprise Control | Security of assets off-premises: the device part is automatable (compliance report), the other assets are tested by reconciling the off-site record. |
+| A.7.10 Storage media | [CTL-MP-001](#ctl-mp-001) | New Enterprise Control | Storage media through their lifecycle: acquisition (approved media only), accountability (recorded owner), storage, transport and use are each in the statement. |
+| A.7.11 Supporting utilities | [CTL-PE-003](#ctl-pe-003) | New Enterprise Control | Supporting utilities (power, cooling) are tested on the same schedule as the protection systems and evidenced by the same test reports. |
+| A.7.12 Cabling security | [CTL-PE-005](#ctl-pe-005) | New Enterprise Control | Cabling security: protection against interception, interference and damage, tested by inspection. |
+| A.7.13 Equipment maintenance | [CTL-MA-001](#ctl-ma-001) | New Enterprise Control | Equipment maintenance: schedule, authorized maintainers and records are all tested from the maintenance log. |
 | A.7.14 Secure disposal or re-use of equipment | [CTL-MP-001](#ctl-mp-001) | New Enterprise Control | Secure disposal or re-use is the end of the same lifecycle and is evidenced by the same disposal certificates. |
 
 ## Proposed new Enterprise Controls
@@ -44,8 +43,8 @@ This is a proposal for review by the product owner, not a change to the app, the
 | Domain group | Physical and media |
 | Owner role | Head of facilities |
 | ISO 27001 Annex A | A.7.1; A.7.2; A.7.3; A.7.6 |
-| NIST SP 800-53 Rev. 5 | PE-2; PE-3; PE-4 (to verify) |
-| NIS2 Art. 21(2) | Art. 21(1) all-hazards approach (to verify) |
+| NIST SP 800-53 Rev. 5 | PE-2; PE-3; PE-8 |
+| NIS2 Art. 21(2) point (other articles named) | no direct point (the Art. 21(1) all-hazards approach applies) |
 | Environments (illustrative) | On-premises and Legacy: C/S. SaaS, Azure and AWS: P, inherited from the provider's data centres and evidenced through CTL-SR-001 (SOC 2 or ISO 27001 reports). |
 
 Why each Annex A item maps here:
@@ -70,7 +69,7 @@ Why each Annex A item maps here:
 | Owner role | Head of facilities |
 | ISO 27001 Annex A | A.7.4 |
 | NIST SP 800-53 Rev. 5 | PE-6 |
-| NIS2 Art. 21(2) | Art. 21(1) all-hazards approach (to verify) |
+| NIS2 Art. 21(2) point (other articles named) | no direct point (the Art. 21(1) all-hazards approach applies) |
 | Environments (illustrative) | On-premises and Legacy: C/S. Cloud columns: P, inherited via CTL-SR-001. |
 
 Why each Annex A item maps here:
@@ -81,29 +80,93 @@ Why each Annex A item maps here:
 
 ### CTL-PE-003
 
-**Facility environment, utilities and equipment**
+**Environmental protection and supporting utilities**
 
 | Field | Value |
 | --- | --- |
-| Statement | Equipment rooms that house in-scope systems are protected against fire, water, temperature and power failure, with supporting utilities, cabling and equipment sited and maintained according to {maintenance_schedule}, and protection systems tested at least every {utility_test_interval}. |
-| Parameters (illustrative) | maintenance_schedule = the supplier-recommended schedule per equipment type; utility_test_interval = 6 months for UPS and generator, 12 months for fire suppression |
+| Statement | Equipment rooms that house in-scope systems have equipment sited to reduce environmental risk and unauthorized viewing or access, are protected against fire, water, temperature and power failure, and their protection systems and supporting utilities are tested at least every {utility_test_interval}. |
+| Parameters (illustrative) | utility_test_interval = 6 months for UPS and generator, 12 months for fire suppression and cooling |
 | Control behaviour | PREVENTIVE |
 | Domain group | Physical and media |
 | Owner role | Head of facilities |
-| ISO 27001 Annex A | A.7.5; A.7.8; A.7.11; A.7.12; A.7.13 |
-| NIST SP 800-53 Rev. 5 | PE-9; PE-10; PE-11; PE-12; PE-13; PE-14; PE-15; PE-18; MA-2; MA-6 |
-| NIS2 Art. 21(2) | Art. 21(1) all-hazards approach (to verify) |
+| ISO 27001 Annex A | A.7.5; A.7.8; A.7.11 |
+| NIST SP 800-53 Rev. 5 | PE-10; PE-11; PE-12; PE-13; PE-14; PE-15; PE-18 |
+| NIS2 Art. 21(2) point (other articles named) | no direct point (the Art. 21(1) all-hazards approach applies) |
 | Environments (illustrative) | On-premises and Legacy: C/S. Cloud columns: P, inherited via CTL-SR-001. |
 
 Why each Annex A item maps here:
 
 - **A.7.5 Protecting against physical and environmental threats.** Protection against physical and environmental threats (fire, flood, temperature).
-- **A.7.8 Equipment siting and protection.** Equipment siting is part of the same room design and inspection.
-- **A.7.11 Supporting utilities.** Supporting utilities (power, cooling) are tested in the same maintenance programme.
-- **A.7.12 Cabling security.** Cabling security is inspected in the same walk-through of the same rooms.
-- **A.7.13 Equipment maintenance.** Equipment maintenance is the schedule the statement refers to; its evidence is the same maintenance log.
+- **A.7.8 Equipment siting and protection.** Equipment siting is checked in the same room inspection: placed away from environmental hazards and out of view of unauthorized persons.
+- **A.7.11 Supporting utilities.** Supporting utilities (power, cooling) are tested on the same schedule as the protection systems and evidenced by the same test reports.
 
-**Rationale.** Five items with one owner, one set of rooms and one evidence source (the facilities maintenance and test log). Five separate controls would multiply records without adding a different test.
+**Rationale.** Three items share one owner, the same rooms and one evidence source (the room inspection and the protection and utility test reports). Cabling security (A.7.12) and equipment maintenance (A.7.13) were first grouped here as well; after review they got their own controls (CTL-PE-005, CTL-MA-001), because a maintenance log does not show that cables are protected against interception or that maintenance is done by authorized people.
+
+### CTL-PE-004
+
+**Assets off-premises**
+
+| Field | Value |
+| --- | --- |
+| Statement | Assets that hold or process in-scope information (devices, removable media, paper, specialist equipment) are taken off-premises only under the rules {offsite_asset_rules}, which set protection by asset type and by the risk of the location and journey; every managed device used off-premises has full-disk encryption and can be located, locked and wiped remotely, and the record of other assets taken off-site is reconciled at least every {offsite_reconciliation_period}. |
+| Parameters (illustrative) | offsite_asset_rules = the topic-specific policy on assets off-premises (authorization for non-standard assets, never left unattended in transit, locked storage); offsite_reconciliation_period = 6 months |
+| Control behaviour | PREVENTIVE |
+| Domain group | Physical and media |
+| Owner role | Head of IT operations |
+| ISO 27001 Annex A | A.7.9 |
+| NIST SP 800-53 Rev. 5 | PE-17; AC-19; MP-5 (to verify) |
+| NIS2 Art. 21(2) point (other articles named) | (i) (to verify) |
+| Environments (illustrative) | Endpoint fleet (Intune compliance report) and the off-site asset record; n/a for the cloud columns. |
+
+Why each Annex A item maps here:
+
+- **A.7.9 Security of assets off-premises.** Security of assets off-premises: the device part is automatable (compliance report), the other assets are tested by reconciling the off-site record.
+
+**Rationale.** Codex review on #225 noted that mapping A.7.9 to the remote access control (CTL-AC-006) left paper, media and other equipment untested. A separate control covers all asset types, keeps the automatable device check, and leaves remote access conditions in CTL-AC-006.
+
+### CTL-PE-005
+
+**Cabling security**
+
+| Field | Value |
+| --- | --- |
+| Statement | Power and telecommunications cabling that carries in-scope data or supplies in-scope systems runs in conduits, trays or locked areas, patch panels and network cabinets are locked, and cabling is inspected for damage, tampering and unauthorized devices at least every {cabling_inspection_interval}. |
+| Parameters (illustrative) | cabling_inspection_interval = 12 months, and after building work |
+| Control behaviour | PREVENTIVE |
+| Domain group | Physical and media |
+| Owner role | Head of network engineering |
+| ISO 27001 Annex A | A.7.12 |
+| NIST SP 800-53 Rev. 5 | PE-4; PE-9 |
+| NIS2 Art. 21(2) point (other articles named) | no direct point (the Art. 21(1) all-hazards approach applies) |
+| Environments (illustrative) | On-premises and Legacy: C/S. Cloud columns: P, inherited via CTL-SR-001. |
+
+Why each Annex A item maps here:
+
+- **A.7.12 Cabling security.** Cabling security: protection against interception, interference and damage, tested by inspection.
+
+**Rationale.** Split from CTL-PE-003 after Codex review on #225: the cabling test (protected routes, locked cabinets, inspection for tampering) has nothing in common with utility tests. Owned by network engineering, who run the cabling.
+
+### CTL-MA-001
+
+**Equipment maintenance**
+
+| Field | Value |
+| --- | --- |
+| Statement | Equipment of in-scope systems is maintained according to the supplier-recommended schedule by authorized personnel or suppliers, every maintenance is recorded, and equipment sent off-site for repair is sanitised first or covered by a confidentiality agreement. |
+| Parameters (illustrative) | none |
+| Control behaviour | PREVENTIVE |
+| Domain group | Physical and media |
+| Owner role | Head of IT operations |
+| ISO 27001 Annex A | A.7.13 |
+| NIST SP 800-53 Rev. 5 | MA-2; MA-5; MA-6 |
+| NIS2 Art. 21(2) point (other articles named) | no direct point (the Art. 21(1) all-hazards approach applies) |
+| Environments (illustrative) | On-premises and Legacy: C/S. Cloud columns: P, inherited via CTL-SR-001. |
+
+Why each Annex A item maps here:
+
+- **A.7.13 Equipment maintenance.** Equipment maintenance: schedule, authorized maintainers and records are all tested from the maintenance log.
+
+**Rationale.** Split from CTL-PE-003 after Codex review on #225. Maintenance applies to all equipment of in-scope systems, not only equipment rooms, and its prefix follows the NIST maintenance family (MA).
 
 ### CTL-AC-007
 
@@ -118,7 +181,7 @@ Why each Annex A item maps here:
 | Owner role | Head of facilities, with the head of end-user computing |
 | ISO 27001 Annex A | A.7.7 |
 | NIST SP 800-53 Rev. 5 | AC-11; AC-11(1) (to verify) |
-| NIS2 Art. 21(2) | (g) (to verify) |
+| NIS2 Art. 21(2) point (other articles named) | (g) (to verify) |
 | Environments (illustrative) | Endpoint fleet (on-premises and Legacy columns as Document F places endpoints); the screen lock is enforced by Intune or Group Policy. |
 
 Why each Annex A item maps here:
@@ -129,30 +192,26 @@ Why each Annex A item maps here:
 
 ### CTL-MP-001
 
-**Storage media and secure disposal**
+**Storage media lifecycle and secure disposal**
 
 | Field | Value |
 | --- | --- |
-| Statement | Removable storage media are blocked on managed devices except for approved exceptions, and every storage medium and device holding in-scope information is sanitised to {sanitisation_standard} with a recorded certificate before disposal or re-use. |
-| Parameters (illustrative) | sanitisation_standard = NIST SP 800-88 Rev. 1 (clear, purge or destroy according to classification) |
+| Statement | Removable storage media are blocked on managed devices except for approved media, which are recorded with an owner, encrypted, stored according to their classification and transported only by the approved means {media_transport_rules}; every storage medium and device holding in-scope information is sanitised to {sanitisation_standard} with a recorded certificate before disposal or re-use. |
+| Parameters (illustrative) | media_transport_rules = tracked courier or hand carry, encrypted, logged; sanitisation_standard = NIST SP 800-88 Rev. 1 (clear, purge or destroy according to classification) |
 | Control behaviour | PREVENTIVE |
 | Domain group | Physical and media |
 | Owner role | Head of IT operations |
 | ISO 27001 Annex A | A.7.10; A.7.14 |
-| NIST SP 800-53 Rev. 5 | MP-2; MP-4; MP-6; MP-7 |
-| NIS2 Art. 21(2) | (i) (to verify) |
+| NIST SP 800-53 Rev. 5 | MP-2; MP-4; MP-5; MP-6; MP-7 |
+| NIS2 Art. 21(2) point (other articles named) | (i) (to verify) |
 | Environments (illustrative) | On-premises and Legacy: C/S. Endpoint fleet: removable media block by Intune or Group Policy. Cloud columns: P, inherited via CTL-SR-001 (provider media destruction). |
 
 Why each Annex A item maps here:
 
-- **A.7.10 Storage media.** Storage media: use is restricted and media are handled through their lifecycle.
+- **A.7.10 Storage media.** Storage media through their lifecycle: acquisition (approved media only), accountability (recorded owner), storage, transport and use are each in the statement.
 - **A.7.14 Secure disposal or re-use of equipment.** Secure disposal or re-use is the end of the same lifecycle and is evidenced by the same disposal certificates.
 
-**Rationale.** Both items follow one physical medium from use to destruction. Information deletion (A.8.10) was kept out: it is about records in a system, not the device, and is CTL-SI-003.
-
-## Items absorbed by controls proposed in another theme
-
-- **A.7.9 Security of assets off-premises** → CTL-AC-006 Remote working and off-premises devices (see [a6-people.md](a6-people.md#ctl-ac-006)). Security of assets off-premises applies to the same laptops and phones, managed by the same tooling and evidenced by the same compliance report. Listed by reference in the A.7 issue.
+**Rationale.** Both items follow one physical medium from use to destruction. Information deletion (A.8.10) was kept out: it is about records in a system, not the device, and is CTL-SI-003. After Codex review on #225 the statement covers the full lifecycle, including recording and transport (NIST MP-5), not only blocking and disposal.
 
 ## Out of scope
 

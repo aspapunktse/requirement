@@ -7,7 +7,7 @@ This is a proposal for review by the product owner, not a change to the app, the
 ## Summary
 
 - 7 uncovered items in A.6.
-- 3 new Enterprise Controls proposed here: CTL-PS-001, CTL-AT-001, CTL-AC-006.
+- 5 new Enterprise Controls proposed here: CTL-PS-001, CTL-PS-002, CTL-PS-003, CTL-AT-001, CTL-AC-006.
 - 1 Document F control extended here: CTL-IR-001.
 
 ## Mapping decisions
@@ -15,10 +15,10 @@ This is a proposal for review by the product owner, not a change to the app, the
 | Annex A item | Mapped to | Decision | Why |
 | --- | --- | --- | --- |
 | A.6.1 Screening | [CTL-PS-001](#ctl-ps-001) | New Enterprise Control | Screening, tested at the joiner step before an account is created. |
-| A.6.2 Terms and conditions of employment | [CTL-PS-001](#ctl-ps-001) | New Enterprise Control | Terms and conditions are signed at the same step and are the carrier of the other obligations. |
+| A.6.2 Terms and conditions of employment | [CTL-PS-001](#ctl-ps-001) | New Enterprise Control | Terms and conditions are signed at the same step and checked against the same HR record. |
 | A.6.3 IS awareness, education and training | [CTL-AT-001](#ctl-at-001) | New Enterprise Control | Awareness, education and training: measurable through completion records. |
-| A.6.4 Disciplinary process | [CTL-PS-001](#ctl-ps-001) | New Enterprise Control | The disciplinary process needs to be formalized and communicated. Communication is evidenced through the signed terms; the process document itself is in the policy register of CTL-PM-002. A separate control would have no test of its own. |
-| A.6.6 Confidentiality or non-disclosure agreements | [CTL-PS-001](#ctl-ps-001) | New Enterprise Control | A confidentiality clause in the terms covers personnel; external parties sign separate agreements, kept in the same HR or contract record and tested the same way (signed before access). |
+| A.6.4 Disciplinary process | [CTL-PS-003](#ctl-ps-003) | New Enterprise Control | Disciplinary process: tested by sampling confirmed violations (from incidents under CTL-IR-001 and nonconformities under CTL-CA-001) for a recorded decision. |
+| A.6.6 Confidentiality or non-disclosure agreements | [CTL-PS-002](#ctl-ps-002) | New Enterprise Control | Confidentiality or non-disclosure agreements: the periodic review of the requirements and a signed, current agreement per person or party are both tested. |
 | A.6.7 Remote working | [CTL-AC-006](#ctl-ac-006) | New Enterprise Control | Remote working: access is conditioned on a compliant device. |
 | A.6.8 Information security event reporting | [CTL-IR-001](#ctl-ir-001) | Extend Document F control | Event reporting by personnel is the entry point of the incident process this control already tests (A.5.24 to A.5.26). Reports and their acknowledgement live in the same case tool. |
 
@@ -30,24 +30,66 @@ This is a proposal for review by the product owner, not a change to the app, the
 
 | Field | Value |
 | --- | --- |
-| Statement | Before access is granted, every employee and contractor has been screened to the level {screening_level} required for their role and has signed terms that state their information security responsibilities, the confidentiality obligation, the acceptable use rules and the disciplinary process. |
+| Statement | Before access is granted, every employee and contractor has been screened to the level {screening_level} required for their role and has signed terms of employment or engagement that state their information security responsibilities and the acceptable use rules. |
 | Parameters (illustrative) | screening_level = identity, right to work and references for all; criminal record and credit check for roles marked sensitive |
 | Control behaviour | PREVENTIVE |
 | Domain group | People |
 | Owner role | Head of human resources |
-| ISO 27001 Annex A | A.6.1; A.6.2; A.6.4; A.6.6 |
-| NIST SP 800-53 Rev. 5 | PS-3; PS-6; PS-7 (to verify); PS-8 |
-| NIS2 Art. 21(2) | (i) |
+| ISO 27001 Annex A | A.6.1; A.6.2 |
+| NIST SP 800-53 Rev. 5 | PS-3; PS-7 (to verify) |
+| NIS2 Art. 21(2) point (other articles named) | (i) |
 | Environments (illustrative) | Organization-wide, evidenced by the HR system and the joiner step that also triggers CTL-AC-004. |
 
 Why each Annex A item maps here:
 
 - **A.6.1 Screening.** Screening, tested at the joiner step before an account is created.
-- **A.6.2 Terms and conditions of employment.** Terms and conditions are signed at the same step and are the carrier of the other obligations.
-- **A.6.4 Disciplinary process.** The disciplinary process needs to be formalized and communicated. Communication is evidenced through the signed terms; the process document itself is in the policy register of CTL-PM-002. A separate control would have no test of its own.
-- **A.6.6 Confidentiality or non-disclosure agreements.** A confidentiality clause in the terms covers personnel; external parties sign separate agreements, kept in the same HR or contract record and tested the same way (signed before access).
+- **A.6.2 Terms and conditions of employment.** Terms and conditions are signed at the same step and checked against the same HR record.
 
-**Rationale.** All four items are evidenced by one record per person at one moment: before the first account is created. The joiner process of CTL-AC-004 is the natural test point (no account without a completed HR record).
+**Rationale.** Both items are evidenced by one record per person at one moment: before the first account is created. The joiner process of CTL-AC-004 is the natural test point (no account without a completed HR record). Confidentiality agreements (A.6.6) and the disciplinary process (A.6.4) were first grouped here too; after review they got their own controls (CTL-PS-002, CTL-PS-003), because both need tests after onboarding that this joiner gate cannot give.
+
+### CTL-PS-002
+
+**Confidentiality and non-disclosure agreements**
+
+| Field | Value |
+| --- | --- |
+| Statement | The confidentiality requirements for personnel and external parties are documented and reviewed at least every {nda_review_period} and when protection needs change, and every person and external party with access to confidential information has a signed agreement that matches the current requirements before access is granted. |
+| Parameters (illustrative) | nda_review_period = 24 months |
+| Control behaviour | PREVENTIVE |
+| Domain group | People |
+| Owner role | Head of legal and compliance |
+| ISO 27001 Annex A | A.6.6 |
+| NIST SP 800-53 Rev. 5 | PS-6 |
+| NIS2 Art. 21(2) point (other articles named) | (i) (to verify) |
+| Environments (illustrative) | Organization-wide, evidenced by the HR system and the contract register. |
+
+Why each Annex A item maps here:
+
+- **A.6.6 Confidentiality or non-disclosure agreements.** Confidentiality or non-disclosure agreements: the periodic review of the requirements and a signed, current agreement per person or party are both tested.
+
+**Rationale.** Codex review on #225 pointed out that a clause signed at onboarding does not test that agreements are reviewed when protection needs change, nor that external parties sign them. A separate control gives both their own test and owner (legal, who keeps the templates and the contract register).
+
+### CTL-PS-003
+
+**Disciplinary process**
+
+| Field | Value |
+| --- | --- |
+| Statement | A formal disciplinary process for information security policy violations is approved and communicated to all personnel, and every confirmed violation has a recorded disciplinary decision within {disciplinary_decision_sla}. |
+| Parameters (illustrative) | disciplinary_decision_sla = 30 days after the violation is confirmed |
+| Control behaviour | CORRECTIVE |
+| Domain group | People |
+| Owner role | Head of human resources |
+| ISO 27001 Annex A | A.6.4 |
+| NIST SP 800-53 Rev. 5 | PS-8 |
+| NIS2 Art. 21(2) point (other articles named) | (i) (to verify) |
+| Environments (illustrative) | Organization-wide (HR case records). |
+
+Why each Annex A item maps here:
+
+- **A.6.4 Disciplinary process.** Disciplinary process: tested by sampling confirmed violations (from incidents under CTL-IR-001 and nonconformities under CTL-CA-001) for a recorded decision.
+
+**Rationale.** Mapping it to CTL-PS-001 only tested that the process is mentioned in signed terms, not that it exists and is applied (Codex review on #225). Sampling confirmed violations tests that it is applied, which is what an auditor asks for.
 
 ### CTL-AT-001
 
@@ -62,7 +104,7 @@ Why each Annex A item maps here:
 | Owner role | Chief information security officer |
 | ISO 27001 Annex A | A.6.3 |
 | NIST SP 800-53 Rev. 5 | AT-2; AT-3 |
-| NIS2 Art. 21(2) | (g) |
+| NIS2 Art. 21(2) point (other articles named) | (g) |
 | Environments (illustrative) | Organization-wide (learning platform). |
 
 Why each Annex A item maps here:
@@ -73,26 +115,25 @@ Why each Annex A item maps here:
 
 ### CTL-AC-006
 
-**Remote working and off-premises devices**
+**Remote working and remote access**
 
 | Field | Value |
 | --- | --- |
-| Statement | Remote access to in-scope systems is allowed only from managed devices that meet the device compliance policy {device_compliance_policy}, and every managed device used off-premises has full-disk encryption and can be located, locked and wiped remotely. |
-| Parameters (illustrative) | device_compliance_policy = Intune compliance (encryption, OS version, EDR active), enforced by Conditional Access |
+| Statement | Remote working follows the remote working rules {remote_working_rules}, and remote access to in-scope systems is allowed only from managed devices that meet the device compliance policy {device_compliance_policy}. |
+| Parameters (illustrative) | remote_working_rules = the topic-specific policy on remote working (location, screen privacy, home network, printing); device_compliance_policy = Intune compliance (encryption, OS version, EDR active), enforced by Conditional Access |
 | Control behaviour | PREVENTIVE |
 | Domain group | Identity and access |
 | Owner role | Head of end-user computing (role to define) |
-| ISO 27001 Annex A | A.6.7; A.7.9 |
-| NIST SP 800-53 Rev. 5 | AC-17; AC-19; PE-17 |
-| NIS2 Art. 21(2) | (j) (to verify) |
+| ISO 27001 Annex A | A.6.7 |
+| NIST SP 800-53 Rev. 5 | AC-17; AC-19 |
+| NIS2 Art. 21(2) point (other articles named) | (j) (to verify) |
 | Environments (illustrative) | SaaS and the Azure columns (Conditional Access device compliance), on-premises (VPN with device check), AWS (access through IAM Identity Center federated to Entra), Legacy (COMPENSATING: VPN plus jump host). |
 
 Why each Annex A item maps here:
 
 - **A.6.7 Remote working.** Remote working: access is conditioned on a compliant device.
-- **A.7.9 Security of assets off-premises.** Security of assets off-premises applies to the same laptops and phones, managed by the same tooling and evidenced by the same compliance report. Listed by reference in the A.7 issue.
 
-**Rationale.** Remote working and off-premises equipment are one technical problem today: the managed endpoint outside the office. CTL-SI-001 (endpoint protection) was considered, but it tests the agent, not access conditions or encryption.
+**Rationale.** Remote working is mostly enforced through the access conditions for the device. CTL-SI-001 (endpoint protection) was considered, but it tests the agent, not access conditions. Security of assets off-premises (A.7.9) was first grouped here; after review it got its own control (CTL-PE-004), because it also covers paper, media and other equipment, not only managed devices.
 
 ## Proposed extensions of Document F controls
 
@@ -107,7 +148,7 @@ Why each Annex A item maps here:
 | Added parameters (illustrative) | reporting_channel = the service desk security category and the phishing report button; report_ack_sla = 1 working day |
 | Added Annex A | A.6.8 |
 | NIST SP 800-53 Rev. 5 | adds IR-6 (to verify: IR-6 also covers external reporting, which CTL-IR-002 holds); IR-7 (to verify) |
-| NIS2 Art. 21(2) | unchanged ((b)) |
+| NIS2 Art. 21(2) point (other articles named) | unchanged ((b)) |
 
 Why each Annex A item maps here:
 

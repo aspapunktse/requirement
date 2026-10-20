@@ -21,7 +21,7 @@ This is a proposal for review by the product owner, not a change to the app, the
 | A.5.6 Contact with special interest groups | [CTL-SI-002](#ctl-si-002) | New Enterprise Control | Contact with special interest groups is valued mainly as a source of threat information and warnings; membership is evidenced in the source list and the test checks that each listed group is active. |
 | A.5.7 Threat intelligence | [CTL-SI-002](#ctl-si-002) | New Enterprise Control | Collecting and analysing threat information is the control itself. |
 | A.5.8 Information security in project management | [CTL-SA-001](#ctl-sa-001) | New Enterprise Control | Security in project management is evidenced by the gate records. |
-| A.5.10 Acceptable use of information and other assets | [CTL-PM-002](#ctl-pm-002) | New Enterprise Control | Acceptable use rules are a topic-specific policy with the same approve, publish and review lifecycle and the same evidence (document register, read receipts). Personnel acknowledging them is tested under CTL-PS-001 (terms of employment). |
+| A.5.10 Acceptable use of information and other assets | [CTL-PM-002](#ctl-pm-002) | New Enterprise Control | Acceptable use rules are a topic-specific policy with the same approve, publish and review lifecycle and the same evidence (document register, read receipts). Personnel acknowledging them is tested under CTL-PS-001 (terms of employment or engagement). |
 | A.5.11 Return of assets | [CTL-AC-004](#ctl-ac-004) | Extend Document F control | Return of assets happens at the same trigger (HR termination date) and is checked against the same HR record. NIST PS-4, which CTL-AC-004 already maps, explicitly includes retrieving organizational property. |
 | A.5.12 Classification of information | [CTL-RA-001](#ctl-ra-001) | New Enterprise Control | Classification is the first half of the statement; the System's confidentiality, integrity and availability classification in this app is part of the evidence. |
 | A.5.13 Labelling of information | [CTL-RA-001](#ctl-ra-001) | New Enterprise Control | Labelling is how a classification becomes visible and machine-enforceable (it drives CTL-SC-005, data leakage prevention). Separating them would leave a label control without a scheme to test against. |
@@ -53,13 +53,13 @@ This is a proposal for review by the product owner, not a change to the app, the
 | Owner role | Chief information security officer |
 | ISO 27001 Annex A | A.5.1; A.5.10; A.5.37 |
 | NIST SP 800-53 Rev. 5 | PM-1; PL-4; the -1 policy and procedure control of each family (to verify) |
-| NIS2 Art. 21(2) | (a) |
+| NIS2 Art. 21(2) point (other articles named) | (a) |
 | Environments (illustrative) | Organization-wide: one record, no per-environment cells. Procedures are per System but held in the same register. |
 
 Why each Annex A item maps here:
 
 - **A.5.1 Policies for information security.** The core of the control: an approved, communicated and periodically reviewed policy set.
-- **A.5.10 Acceptable use of information and other assets.** Acceptable use rules are a topic-specific policy with the same approve, publish and review lifecycle and the same evidence (document register, read receipts). Personnel acknowledging them is tested under CTL-PS-001 (terms of employment).
+- **A.5.10 Acceptable use of information and other assets.** Acceptable use rules are a topic-specific policy with the same approve, publish and review lifecycle and the same evidence (document register, read receipts). Personnel acknowledging them is tested under CTL-PS-001 (terms of employment or engagement).
 - **A.5.37 Documented operating procedures.** Operating procedures are the lowest tier of the same document hierarchy. One register and one review cycle test all three; a separate control would duplicate the evidence.
 
 **Rationale.** Document F leaves policies out because they are not implemented per environment. They still have a single testable property, "approved, published and current", with one owner and one evidence source, which is what an Enterprise Control needs. Grouping the three document tiers keeps the library from carrying three controls that share a register, a reviewer and a test.
@@ -77,7 +77,7 @@ Why each Annex A item maps here:
 | Owner role | Chief information security officer |
 | ISO 27001 Annex A | A.5.2; A.5.4 |
 | NIST SP 800-53 Rev. 5 | PM-2; PM-29 (to verify); PS-9 |
-| NIS2 Art. 21(2) | Art. 20 (management accountability); (a) |
+| NIS2 Art. 21(2) point (other articles named) | (a); Art. 20 (management accountability) applies as well |
 | Environments (illustrative) | Organization-wide. |
 
 Why each Annex A item maps here:
@@ -100,7 +100,7 @@ Why each Annex A item maps here:
 | Owner role | Head of identity and access management |
 | ISO 27001 Annex A | A.5.3; A.5.15 |
 | NIST SP 800-53 Rev. 5 | AC-3; AC-5; AC-6 |
-| NIS2 Art. 21(2) | (i) |
+| NIS2 Art. 21(2) point (other articles named) | (i) |
 | Environments (illustrative) | All six columns. SaaS and the Azure columns via Entra roles and vendor RBAC; AWS via IAM Identity Center permission sets; on-premises via Active Directory groups; Legacy via native roles, often COMPENSATING (periodic conflict report). |
 
 Why each Annex A item maps here:
@@ -123,7 +123,7 @@ Why each Annex A item maps here:
 | Owner role | Head of security operations |
 | ISO 27001 Annex A | A.5.6; A.5.7 |
 | NIST SP 800-53 Rev. 5 | PM-16; SI-5; PM-15 |
-| NIS2 Art. 21(2) | to verify ((e) and (g) are the nearest points) |
+| NIS2 Art. 21(2) point (other articles named) | to verify ((e) and (g) are the nearest points) |
 | Environments (illustrative) | Organization-wide process; the resulting actions land in the per-environment cells of CTL-AU-002 and CTL-VR-001. |
 
 Why each Annex A item maps here:
@@ -146,7 +146,7 @@ Why each Annex A item maps here:
 | Owner role | Head of enterprise architecture |
 | ISO 27001 Annex A | A.5.8; A.8.26 |
 | NIST SP 800-53 Rev. 5 | SA-3; SA-4; RA-3 (to verify) |
-| NIS2 Art. 21(2) | (e) |
+| NIS2 Art. 21(2) point (other articles named) | (e) |
 | Environments (illustrative) | Per System rather than per environment: the gate runs once per project. It matches what this app already does at System onboarding. |
 
 Why each Annex A item maps here:
@@ -169,7 +169,7 @@ Why each Annex A item maps here:
 | Owner role | Head of information management (role to define) |
 | ISO 27001 Annex A | A.5.12; A.5.13 |
 | NIST SP 800-53 Rev. 5 | RA-2; MP-3; AC-16 (to verify) |
-| NIS2 Art. 21(2) | (i) (to verify) |
+| NIS2 Art. 21(2) point (other articles named) | (i) (to verify) |
 | Environments (illustrative) | SaaS (sensitivity labels), Azure platform and workload and AWS (classification tags on resources, enforced by policy), on-premises (file server classification, often COMPENSATING), Legacy (classification recorded at System level only). |
 
 Why each Annex A item maps here:
@@ -192,7 +192,7 @@ Why each Annex A item maps here:
 | Owner role | Head of security operations |
 | ISO 27001 Annex A | A.5.14; A.8.12 |
 | NIST SP 800-53 Rev. 5 | AC-4; CA-3; SC-7(10) (to verify) |
-| NIS2 Art. 21(2) | (j) (to verify) |
+| NIS2 Art. 21(2) point (other articles named) | (j) (to verify) |
 | Environments (illustrative) | SaaS (Microsoft Purview DLP), on-premises (mail and web gateway), Azure platform and AWS (egress control on storage and network), Azure workload (inherited), Legacy (COMPENSATING: egress filtering only). |
 
 Why each Annex A item maps here:
@@ -214,8 +214,8 @@ Why each Annex A item maps here:
 | Domain group | Supplier and provider assurance |
 | Owner role | Head of procurement and vendor risk, with the head of platform engineering |
 | ISO 27001 Annex A | A.5.23 |
-| NIST SP 800-53 Rev. 5 | SA-9 (to verify: SA-9(2), SA-9(5)); SR-6 (to verify) |
-| NIS2 Art. 21(2) | (d) |
+| NIST SP 800-53 Rev. 5 | SA-9 (responsibility split); no direct control for exit planning |
+| NIS2 Art. 21(2) point (other articles named) | (d) |
 | Environments (illustrative) | SaaS, Azure platform, Azure workload and AWS. n/a on-premises and Legacy. |
 
 Why each Annex A item maps here:
@@ -237,7 +237,7 @@ Why each Annex A item maps here:
 | Owner role | Head of security operations |
 | ISO 27001 Annex A | A.5.27; A.5.28 |
 | NIST SP 800-53 Rev. 5 | IR-4 (lessons learned); IR-8; AU-9 (to verify: chain of custody has no direct control) |
-| NIS2 Art. 21(2) | (b) |
+| NIS2 Art. 21(2) point (other articles named) | (b) |
 | Environments (illustrative) | Organization-wide process. Evidence sources differ per environment (Sentinel, CloudTrail, EDR, on-premises SIEM), which Document F's logging controls already cover. |
 
 Why each Annex A item maps here:
@@ -260,7 +260,7 @@ Why each Annex A item maps here:
 | Owner role | Head of IT operations |
 | ISO 27001 Annex A | A.5.29; A.8.14 |
 | NIST SP 800-53 Rev. 5 | CP-2; CP-7; SC-36 (to verify) |
-| NIS2 Art. 21(2) | (c) |
+| NIS2 Art. 21(2) point (other articles named) | (c) |
 | Environments (illustrative) | All six. SaaS and Azure platform: mostly P (provider), inherited via CTL-SR-001; Azure workload and AWS: zone or region redundancy; on-premises: second site; Legacy: often COMPENSATING (manual fallback). |
 
 Why each Annex A item maps here:
@@ -282,8 +282,8 @@ Why each Annex A item maps here:
 | Domain group | Governance and assurance |
 | Owner role | Head of legal and compliance |
 | ISO 27001 Annex A | A.5.31; A.5.32 |
-| NIST SP 800-53 Rev. 5 | CM-10 (for A.5.32); no direct control for the register (to verify: PM-28) |
-| NIS2 Art. 21(2) | to verify |
+| NIST SP 800-53 Rev. 5 | CM-10 (for A.5.32); no direct control for the obligations register |
+| NIS2 Art. 21(2) point (other articles named) | to verify |
 | Environments (illustrative) | Organization-wide; licence reconciliation draws on the SaaS admin portals and the software inventory of CTL-CM-002. |
 
 Why each Annex A item maps here:
@@ -306,7 +306,7 @@ Why each Annex A item maps here:
 | Owner role | Head of information management (role to define) |
 | ISO 27001 Annex A | A.5.33; A.8.10 |
 | NIST SP 800-53 Rev. 5 | SI-12 (to verify: SI-12(3)); AU-11 |
-| NIS2 Art. 21(2) | to verify |
+| NIS2 Art. 21(2) point (other articles named) | to verify |
 | Environments (illustrative) | SaaS (retention policies), Azure and AWS (lifecycle and immutability policies on storage), on-premises (backup and archive platform), Legacy (often COMPENSATING: manual deletion runs). |
 
 Why each Annex A item maps here:
@@ -329,7 +329,7 @@ Why each Annex A item maps here:
 | Owner role | Head of internal audit |
 | ISO 27001 Annex A | A.5.35; A.5.36 |
 | NIST SP 800-53 Rev. 5 | CA-2 (to verify: CA-2(1)); CA-5; CA-7 |
-| NIS2 Art. 21(2) | (f) |
+| NIS2 Art. 21(2) point (other articles named) | (f) |
 | Environments (illustrative) | Organization-wide. |
 
 Why each Annex A item maps here:
@@ -337,7 +337,7 @@ Why each Annex A item maps here:
 - **A.5.35 Independent review of information security.** Independent review: in this app, an Internal Audit is the evidence.
 - **A.5.36 Compliance with policies, rules and standards.** Compliance with policies and standards is the first-line check that feeds the same nonconformity list. Same follow-up, same register, so one control.
 
-**Rationale.** The two items are the second and first line of the same assurance loop, and both end in tracked nonconformities. Protection of systems during audit testing (A.8.34) went to CTL-VR-002 instead, because it concerns technical testing.
+**Rationale.** The two items are the second and first line of the same assurance loop, and both end in tracked nonconformities. Protection of systems during audit testing (A.8.34) is a separate control (CTL-CA-002), because it constrains how tests are run rather than following up their results.
 
 ## Proposed extensions of Document F controls
 
@@ -352,7 +352,7 @@ Why each Annex A item maps here:
 | Added parameters (illustrative) | asset_return_sla = 5 working days |
 | Added Annex A | A.5.11 |
 | NIST SP 800-53 Rev. 5 | unchanged (PS-4 already covers asset return) |
-| NIS2 Art. 21(2) | unchanged ((i)) |
+| NIS2 Art. 21(2) point (other articles named) | unchanged ((i)) |
 
 Why each Annex A item maps here:
 

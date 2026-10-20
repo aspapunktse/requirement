@@ -7,8 +7,8 @@ This is a proposal for review by the product owner, not a change to the app, the
 ## Summary
 
 - 18 uncovered items in A.8.
-- 7 new Enterprise Controls proposed here: CTL-SA-002, CTL-SA-003, CTL-CM-005, CTL-PT-002, CTL-CP-004, CTL-SC-006, CTL-SC-007.
-- 3 Document F controls extended here: CTL-AU-001, CTL-CM-004, CTL-VR-002.
+- 9 new Enterprise Controls proposed here: CTL-SA-002, CTL-SR-003, CTL-SA-003, CTL-CM-005, CTL-PT-002, CTL-CP-004, CTL-SC-006, CTL-SC-007, CTL-CA-002.
+- 2 Document F controls extended here: CTL-AU-001, CTL-CM-004.
 - 4 items absorbed by a control proposed in another theme: A.8.10, A.8.12, A.8.14, A.8.26.
 
 ## Mapping decisions
@@ -29,10 +29,10 @@ This is a proposal for review by the product owner, not a change to the app, the
 | A.8.26 Application security requirements | [CTL-SA-001](a5-organizational.md#ctl-sa-001) (proposed in the A.5 document) | New, from another theme | Application security requirements are the content of the same gate: they are identified when a system is developed or acquired. One gate, one record and one owner cover both, so they share a control. |
 | A.8.27 Secure system architecture and engineering principles | [CTL-SA-002](#ctl-sa-002) | New Enterprise Control | Secure architecture and engineering principles are applied at the design review step of the same lifecycle. |
 | A.8.28 Secure coding | [CTL-SA-002](#ctl-sa-002) | New Enterprise Control | Secure coding is the build step of the same lifecycle; the pipeline scans are its evidence. |
-| A.8.30 Outsourced development | [CTL-SA-002](#ctl-sa-002) | New Enterprise Control | Outsourced development must meet the same lifecycle, imposed by contract, with the same pipeline checks at acceptance. Mapping it to CTL-SR-001 was considered, but SR-001 checks a provider's assurance report, not the code delivered. |
+| A.8.30 Outsourced development | [CTL-SR-003](#ctl-sr-003) | New Enterprise Control | Outsourced development: the organization directs (contract), monitors (supplier review) and accepts (acceptance test) the supplier's work. |
 | A.8.31 Separation of development, test and production environments | [CTL-CM-005](#ctl-cm-005) | New Enterprise Control | Separation of development, test and production environments. |
 | A.8.33 Test information | [CTL-PT-002](#ctl-pt-002) | New Enterprise Control | Test information is the most common use of masking: test data selected, protected and managed. The same tooling and the same standard apply. |
-| A.8.34 Protection of information systems during audit testing | [CTL-VR-002](#ctl-vr-002) | Extend Document F control | Protection of information systems during audit testing applies to the same tests: their rules of engagement are the agreed test plan, so the evidence is already produced. |
+| A.8.34 Protection of information systems during audit testing | [CTL-CA-002](#ctl-ca-002) | New Enterprise Control | Protection of information systems during audit testing: every assurance activity on operational systems, not only security tests. |
 
 ## Proposed new Enterprise Controls
 
@@ -47,9 +47,9 @@ This is a proposal for review by the product owner, not a change to the app, the
 | Control behaviour | PREVENTIVE |
 | Domain group | Secure development |
 | Owner role | Head of software engineering |
-| ISO 27001 Annex A | A.8.25; A.8.27; A.8.28; A.8.30 |
+| ISO 27001 Annex A | A.8.25; A.8.27; A.8.28 |
 | NIST SP 800-53 Rev. 5 | SA-8; SA-11; SA-15; PL-8 (to verify) |
-| NIS2 Art. 21(2) | (e) |
+| NIS2 Art. 21(2) point (other articles named) | (e) |
 | Environments (illustrative) | Azure workload, AWS and on-premises where code is built; SaaS: P (vendor's lifecycle, via CTL-SR-001); Azure platform: infrastructure as code goes through the same pipeline; Legacy: often n/a (no active development) or COMPENSATING. |
 
 Why each Annex A item maps here:
@@ -57,9 +57,30 @@ Why each Annex A item maps here:
 - **A.8.25 Secure development life cycle.** The lifecycle itself.
 - **A.8.27 Secure system architecture and engineering principles.** Secure architecture and engineering principles are applied at the design review step of the same lifecycle.
 - **A.8.28 Secure coding.** Secure coding is the build step of the same lifecycle; the pipeline scans are its evidence.
-- **A.8.30 Outsourced development.** Outsourced development must meet the same lifecycle, imposed by contract, with the same pipeline checks at acceptance. Mapping it to CTL-SR-001 was considered, but SR-001 checks a provider's assurance report, not the code delivered.
 
-**Rationale.** Four items are steps of one pipeline with one owner. CTL-VR-002 (security testing) stays separate: it tests the running application periodically, while this control gates each release.
+**Rationale.** Three items are steps of one pipeline with one owner. CTL-VR-002 (security testing) stays separate: it tests the running application periodically, while this control gates each release. Outsourced development (A.8.30) was first grouped here; after review it got its own control (CTL-SR-003), because overseeing a supplier needs contract and supplier-review evidence, not pipeline evidence.
+
+### CTL-SR-003
+
+**Outsourced development oversight**
+
+| Field | Value |
+| --- | --- |
+| Statement | Every outsourced development of in-scope software has a contract that sets its security requirements (including the secure development lifecycle of CTL-SA-002), the supplier's development activities are reviewed at least every {supplier_dev_review_period}, and delivered software passes acceptance testing, including security testing, before deployment. |
+| Parameters (illustrative) | supplier_dev_review_period = 12 months, and at each major delivery |
+| Control behaviour | DETECTIVE |
+| Domain group | Supplier and provider assurance |
+| Owner role | Head of procurement and vendor risk, with the head of software engineering |
+| ISO 27001 Annex A | A.8.30 |
+| NIST SP 800-53 Rev. 5 | SA-4; SA-11 (to verify); SR-6 (to verify) |
+| NIS2 Art. 21(2) point (other articles named) | (d); (e) |
+| Environments (illustrative) | Per supplier and System rather than per environment. |
+
+Why each Annex A item maps here:
+
+- **A.8.30 Outsourced development.** Outsourced development: the organization directs (contract), monitors (supplier review) and accepts (acceptance test) the supplier's work.
+
+**Rationale.** Codex review on #225 pointed out that mapping A.8.30 to CTL-SA-002 tested the supplier's pipeline but not the organization's oversight of it. CTL-SR-001 was also considered, but it checks a provider's general assurance report, not a specific development engagement.
 
 ### CTL-SA-003
 
@@ -74,7 +95,7 @@ Why each Annex A item maps here:
 | Owner role | Head of platform engineering |
 | ISO 27001 Annex A | A.8.4 |
 | NIST SP 800-53 Rev. 5 | CM-5; SA-10 (to verify) |
-| NIS2 Art. 21(2) | (e) |
+| NIS2 Art. 21(2) point (other articles named) | (e) |
 | Environments (illustrative) | Source platform (GitHub or Azure DevOps), which sits under the Azure workload and AWS columns where those build; on-premises source servers; SaaS: n/a. |
 
 Why each Annex A item maps here:
@@ -96,7 +117,7 @@ Why each Annex A item maps here:
 | Owner role | Head of platform engineering |
 | ISO 27001 Annex A | A.8.31 |
 | NIST SP 800-53 Rev. 5 | SA-3(1); CM-4(1) (to verify) |
-| NIS2 Art. 21(2) | (e) |
+| NIS2 Art. 21(2) point (other articles named) | (e) |
 | Environments (illustrative) | Azure platform (subscription structure), Azure workload (inherited), AWS (separate accounts), on-premises (network zones), Legacy (often COMPENSATING: shared host with separate instances); SaaS: n/a or vendor sandbox tenant. |
 
 Why each Annex A item maps here:
@@ -118,7 +139,7 @@ Why each Annex A item maps here:
 | Owner role | Data protection officer |
 | ISO 27001 Annex A | A.8.11; A.8.33 |
 | NIST SP 800-53 Rev. 5 | SA-3(2); SI-19 (to verify) |
-| NIS2 Art. 21(2) | n/a (GDPR Art. 25 and Art. 32 pseudonymisation) |
+| NIS2 Art. 21(2) point (other articles named) | n/a (GDPR Art. 25 and Art. 32 pseudonymisation) |
 | Environments (illustrative) | Azure workload, AWS and on-premises where production data is copied; SaaS: vendor features (often n/a); Legacy: often COMPENSATING (synthetic data or approved exception). |
 
 Why each Annex A item maps here:
@@ -141,7 +162,7 @@ Why each Annex A item maps here:
 | Owner role | Head of IT operations |
 | ISO 27001 Annex A | A.8.6 |
 | NIST SP 800-53 Rev. 5 | CP-2(2); SC-5(2) (to verify) |
-| NIS2 Art. 21(2) | (c) (to verify) |
+| NIS2 Art. 21(2) point (other articles named) | (c) (to verify) |
 | Environments (illustrative) | Azure platform and workload (Azure Monitor), AWS (CloudWatch), on-premises (monitoring platform), Legacy (often manual); SaaS: P (vendor), licence capacity C. |
 
 Why each Annex A item maps here:
@@ -163,7 +184,7 @@ Why each Annex A item maps here:
 | Owner role | Head of network engineering |
 | ISO 27001 Annex A | A.8.21 |
 | NIST SP 800-53 Rev. 5 | SA-9; SC-5; SC-20 (to verify) |
-| NIS2 Art. 21(2) | to verify |
+| NIS2 Art. 21(2) point (other articles named) | to verify |
 | Environments (illustrative) | Azure platform (hub network services, inherited by workloads), AWS, on-premises (WAN and internet providers); SaaS: P. |
 
 Why each Annex A item maps here:
@@ -185,7 +206,7 @@ Why each Annex A item maps here:
 | Owner role | Head of network engineering |
 | ISO 27001 Annex A | A.8.23 |
 | NIST SP 800-53 Rev. 5 | SC-7 (to verify: SC-7(8)); SI-3 (to verify) |
-| NIS2 Art. 21(2) | (g) (to verify) |
+| NIS2 Art. 21(2) point (other articles named) | (g) (to verify) |
 | Environments (illustrative) | Endpoint fleet and on-premises (secure web gateway or endpoint network protection), Azure platform and AWS (egress firewall for servers); SaaS: n/a. |
 
 Why each Annex A item maps here:
@@ -193,6 +214,28 @@ Why each Annex A item maps here:
 - **A.8.23 Web filtering.** Web filtering.
 
 **Rationale.** Extending CTL-SI-001 (endpoint protection) was considered, since many endpoint agents now filter web traffic, but filtering for servers runs at the egress firewall, outside that control. A new control keeps the test independent of the product used.
+
+### CTL-CA-002
+
+**Protection of systems during audit testing**
+
+| Field | Value |
+| --- | --- |
+| Statement | Every audit test and other assurance activity on in-scope operational systems (including security tests, auditor queries and assessment tools) runs under a plan agreed with the system owner before it starts, uses read-only access where possible, schedules tests that can affect availability outside business hours, and has its access removed when it ends. |
+| Parameters (illustrative) | none |
+| Control behaviour | PREVENTIVE |
+| Domain group | Governance and assurance |
+| Owner role | Head of internal audit |
+| ISO 27001 Annex A | A.8.34 |
+| NIST SP 800-53 Rev. 5 | CA-2 (to verify); CA-8 (rules of engagement for penetration tests) |
+| NIS2 Art. 21(2) point (other articles named) | (f) (to verify) |
+| Environments (illustrative) | Per System, whatever the environment; evidenced by test plans and access records. |
+
+Why each Annex A item maps here:
+
+- **A.8.34 Protection of information systems during audit testing.** Protection of information systems during audit testing: every assurance activity on operational systems, not only security tests.
+
+**Rationale.** First proposed as an extension of CTL-VR-002 (security testing). Codex review on #225 noted that its population is application security tests, so an auditor querying a production database was not covered. A separate control, owned by internal audit, covers all assurance work and still applies to the tests of CTL-VR-002.
 
 ## Proposed extensions of Document F controls
 
@@ -207,7 +250,7 @@ Why each Annex A item maps here:
 | Added parameters (illustrative) | time_source = the approved NTP hierarchy (provider time service in cloud); max_clock_drift = 1 second |
 | Added Annex A | A.8.17 |
 | NIST SP 800-53 Rev. 5 | adds AU-8; SC-45 (to verify) |
-| NIS2 Art. 21(2) | unchanged (to verify) |
+| NIS2 Art. 21(2) point (other articles named) | unchanged (to verify) |
 
 Why each Annex A item maps here:
 
@@ -226,32 +269,13 @@ Why each Annex A item maps here:
 | Added parameters (illustrative) | privileged_utility_groups = named administrator groups per platform |
 | Added Annex A | A.8.18 |
 | NIST SP 800-53 Rev. 5 | adds AC-6 (to verify: AC-6(10)) |
-| NIS2 Art. 21(2) | unchanged (to verify) |
+| NIS2 Art. 21(2) point (other articles named) | unchanged (to verify) |
 
 Why each Annex A item maps here:
 
 - **A.8.18 Use of privileged utility programs.** Privileged utility programs are a subset of the software this control already restricts through application allow-listing (NIST CM-7). Adding who may run them uses the same mechanism.
 
 **Rationale.** CTL-AC-001 (privileged access) was considered, since utilities run under privileged accounts, but it controls who is privileged, not which tools they can run. The allow-listing mechanism is where the restriction is enforced.
-
-### CTL-VR-002
-
-**Security testing** (Document F; today maps A.8.29)
-
-| Field | Value |
-| --- | --- |
-| Statement today | Each in-scope application and the external attack surface undergo a security test at least every {security_test_interval} and critical findings are tracked to closure. |
-| Proposed statement | Each in-scope application and the external attack surface undergo a security test at least every {security_test_interval}, under a test plan agreed with the system owner that limits the impact on production, and critical findings are tracked to closure. |
-| Added parameters (illustrative) | none added |
-| Added Annex A | A.8.34 |
-| NIST SP 800-53 Rev. 5 | unchanged (CA-8 rules of engagement; to verify: CA-2) |
-| NIS2 Art. 21(2) | unchanged ((f)) |
-
-Why each Annex A item maps here:
-
-- **A.8.34 Protection of information systems during audit testing.** Protection of information systems during audit testing applies to the same tests: their rules of engagement are the agreed test plan, so the evidence is already produced.
-
-**Rationale.** The item constrains how this control's tests are run; a separate control would test a property of every execution of this one.
 
 ## Items absorbed by controls proposed in another theme
 
