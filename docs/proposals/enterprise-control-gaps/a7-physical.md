@@ -7,7 +7,7 @@ This is a proposal for review by the product owner, not a change to the app, the
 ## Summary
 
 - 14 uncovered items in A.7.
-- 8 new Enterprise Controls proposed here: CTL-PE-001, CTL-PE-002, CTL-PE-003, CTL-PE-004, CTL-PE-005, CTL-MA-001, CTL-AC-007, CTL-MP-001.
+- 10 new Enterprise Controls proposed here: CTL-PE-001, CTL-PE-002, CTL-PE-003, CTL-PE-006, CTL-PE-007, CTL-PE-004, CTL-PE-005, CTL-MA-001, CTL-AC-007, CTL-MP-001.
 - 0 Document F controls extended here.
 
 ## Mapping decisions
@@ -19,9 +19,9 @@ This is a proposal for review by the product owner, not a change to the app, the
 | A.7.3 Securing offices, rooms and facilities | [CTL-PE-001](#ctl-pe-001) | New Enterprise Control | Securing offices, rooms and facilities is the same zoning applied inside the perimeter. |
 | A.7.4 Physical security monitoring | [CTL-PE-002](#ctl-pe-002) | New Enterprise Control | Physical security monitoring. |
 | A.7.5 Protecting against physical and environmental threats | [CTL-PE-003](#ctl-pe-003) | New Enterprise Control | Protection against physical and environmental threats (fire, flood, temperature). |
-| A.7.6 Working in secure areas | [CTL-PE-001](#ctl-pe-001) | New Enterprise Control | Working in secure areas is enforced by the same zone rules (who may enter, escort, no lone working where required) and evidenced by the same access log. |
+| A.7.6 Working in secure areas | [CTL-PE-006](#ctl-pe-006) | New Enterprise Control | Working in secure areas: the procedures and evidence that they are enforced (spot checks and recorded violations). |
 | A.7.7 Clear desk and clear screen | [CTL-AC-007](#ctl-ac-007) | New Enterprise Control | Clear desk and clear screen: the screen lock is technical and automatable; the clear desk part is a sampled check. |
-| A.7.8 Equipment siting and protection | [CTL-PE-003](#ctl-pe-003) | New Enterprise Control | Equipment siting is checked in the same room inspection: placed away from environmental hazards and out of view of unauthorized persons. |
+| A.7.8 Equipment siting and protection | [CTL-PE-007](#ctl-pe-007) | New Enterprise Control | Equipment siting and protection: placement against environmental hazards and unauthorized access, for all equipment, not only equipment rooms. |
 | A.7.9 Security of assets off-premises | [CTL-PE-004](#ctl-pe-004) | New Enterprise Control | Security of assets off-premises: the device part is automatable (compliance report), the other assets are tested by reconciling the off-site record. |
 | A.7.10 Storage media | [CTL-MP-001](#ctl-mp-001) | New Enterprise Control | Storage media through their lifecycle: acquisition (approved media only), accountability (recorded owner), storage, transport and use are each in the statement. |
 | A.7.11 Supporting utilities | [CTL-PE-003](#ctl-pe-003) | New Enterprise Control | Supporting utilities (power, cooling) are tested on the same schedule as the protection systems and evidenced by the same test reports. |
@@ -42,7 +42,7 @@ This is a proposal for review by the product owner, not a change to the app, the
 | Control behaviour | PREVENTIVE |
 | Domain group | Physical and media |
 | Owner role | Head of facilities |
-| ISO 27001 Annex A | A.7.1; A.7.2; A.7.3; A.7.6 |
+| ISO 27001 Annex A | A.7.1; A.7.2; A.7.3 |
 | NIST SP 800-53 Rev. 5 | PE-2; PE-3; PE-8 |
 | NIS2 Art. 21(2) point (other articles named) | no direct point (the Art. 21(1) all-hazards approach applies) |
 | Environments (illustrative) | On-premises and Legacy: C/S. SaaS, Azure and AWS: P, inherited from the provider's data centres and evidenced through CTL-SR-001 (SOC 2 or ISO 27001 reports). |
@@ -52,9 +52,8 @@ Why each Annex A item maps here:
 - **A.7.1 Physical security perimeters.** The defined perimeter.
 - **A.7.2 Physical entry controls.** Entry controls at the perimeter: the badge system and its access list are the main evidence.
 - **A.7.3 Securing offices, rooms and facilities.** Securing offices, rooms and facilities is the same zoning applied inside the perimeter.
-- **A.7.6 Working in secure areas.** Working in secure areas is enforced by the same zone rules (who may enter, escort, no lone working where required) and evidenced by the same access log.
 
-**Rationale.** Four items share the badge system, the zone model and the facilities owner. The cloud columns show why the hybrid assumption was attractive: there the control is entirely the provider's. Making it an Enterprise Control still works, because Document F's party code P plus inherited evidence expresses exactly that.
+**Rationale.** Three items share the badge system, the zone model and the facilities owner. Working in secure areas (A.7.6) was first grouped here; Codex review on #225 pointed out that entry control does not test behaviour inside, so it is now CTL-PE-006. The cloud columns show why the hybrid assumption was attractive: there the control is entirely the provider's. Document F's party code P plus inherited evidence expresses exactly that.
 
 ### CTL-PE-002
 
@@ -84,12 +83,12 @@ Why each Annex A item maps here:
 
 | Field | Value |
 | --- | --- |
-| Statement | Equipment rooms that house in-scope systems have equipment sited to reduce environmental risk and unauthorized viewing or access, are protected against fire, water, temperature and power failure, and their protection systems and supporting utilities are tested at least every {utility_test_interval}. |
+| Statement | Sites and rooms that house in-scope equipment, wherever it is located (equipment rooms, wiring cupboards, offices), are protected against fire, water, temperature and power failure in proportion to the equipment there, and their protection systems and supporting utilities are tested at least every {utility_test_interval}. |
 | Parameters (illustrative) | utility_test_interval = 6 months for UPS and generator, 12 months for fire suppression and cooling |
 | Control behaviour | PREVENTIVE |
 | Domain group | Physical and media |
 | Owner role | Head of facilities |
-| ISO 27001 Annex A | A.7.5; A.7.8; A.7.11 |
+| ISO 27001 Annex A | A.7.5; A.7.11 |
 | NIST SP 800-53 Rev. 5 | PE-10; PE-11; PE-12; PE-13; PE-14; PE-15; PE-18 |
 | NIS2 Art. 21(2) point (other articles named) | no direct point (the Art. 21(1) all-hazards approach applies) |
 | Environments (illustrative) | On-premises and Legacy: C/S. Cloud columns: P, inherited via CTL-SR-001. |
@@ -97,10 +96,53 @@ Why each Annex A item maps here:
 Why each Annex A item maps here:
 
 - **A.7.5 Protecting against physical and environmental threats.** Protection against physical and environmental threats (fire, flood, temperature).
-- **A.7.8 Equipment siting and protection.** Equipment siting is checked in the same room inspection: placed away from environmental hazards and out of view of unauthorized persons.
 - **A.7.11 Supporting utilities.** Supporting utilities (power, cooling) are tested on the same schedule as the protection systems and evidenced by the same test reports.
 
-**Rationale.** Three items share one owner, the same rooms and one evidence source (the room inspection and the protection and utility test reports). Cabling security (A.7.12) and equipment maintenance (A.7.13) were first grouped here as well; after review they got their own controls (CTL-PE-005, CTL-MA-001), because a maintenance log does not show that cables are protected against interception or that maintenance is done by authorized people.
+**Rationale.** Two items share one owner and one evidence source (the protection and utility test reports). Equipment siting (A.7.8), cabling (A.7.12) and maintenance (A.7.13) were first grouped here as well; after review they got their own controls (CTL-PE-007, CTL-PE-005, CTL-MA-001), because their evidence is an inspection or a maintenance log, not a test report. The statement now covers equipment outside dedicated equipment rooms too (Codex review on #225).
+
+### CTL-PE-006
+
+**Working in secure areas**
+
+| Field | Value |
+| --- | --- |
+| Statement | The rules for working in secure areas {secure_area_rules} are posted at each secure area and briefed to everyone authorized to enter, and compliance is spot-checked at least every {secure_area_check_interval}, with each violation recorded as a finding. |
+| Parameters (illustrative) | secure_area_rules = no unauthorized photography or recording devices, lone working only where permitted, supervision of external parties, vacant secure areas locked; secure_area_check_interval = quarterly |
+| Control behaviour | PREVENTIVE |
+| Domain group | Physical and media |
+| Owner role | Head of facilities |
+| ISO 27001 Annex A | A.7.6 |
+| NIST SP 800-53 Rev. 5 | PE-2 (to verify); PE-3 (to verify) |
+| NIS2 Art. 21(2) point (other articles named) | no direct point (the Art. 21(1) all-hazards approach applies) |
+| Environments (illustrative) | On-premises and Legacy: C/S. Cloud columns: P, inherited via CTL-SR-001. |
+
+Why each Annex A item maps here:
+
+- **A.7.6 Working in secure areas.** Working in secure areas: the procedures and evidence that they are enforced (spot checks and recorded violations).
+
+**Rationale.** Split from CTL-PE-001 after Codex review on #225: an authorized person breaking the rules inside a secure area passes every entry test, so the procedures need their own test.
+
+### CTL-PE-007
+
+**Equipment siting and protection**
+
+| Field | Value |
+| --- | --- |
+| Statement | Every piece of in-scope equipment, wherever it is located, is installed in a locked rack, cabinet or room, away from public areas and visitor routes and out of view from outside, with environmental sensors where hazards exist, and siting is checked at the site inspection at least every {siting_inspection_interval}. |
+| Parameters (illustrative) | siting_inspection_interval = 12 months, and when equipment is moved or added |
+| Control behaviour | PREVENTIVE |
+| Domain group | Physical and media |
+| Owner role | Head of facilities, with the head of network engineering |
+| ISO 27001 Annex A | A.7.8 |
+| NIST SP 800-53 Rev. 5 | PE-18; PE-5 (to verify) |
+| NIS2 Art. 21(2) point (other articles named) | no direct point (the Art. 21(1) all-hazards approach applies) |
+| Environments (illustrative) | On-premises and Legacy: C/S. Cloud columns: P, inherited via CTL-SR-001. |
+
+Why each Annex A item maps here:
+
+- **A.7.8 Equipment siting and protection.** Equipment siting and protection: placement against environmental hazards and unauthorized access, for all equipment, not only equipment rooms.
+
+**Rationale.** Split from CTL-PE-003 after Codex review on #225 noted that equipment outside equipment rooms was not covered. Its evidence is the site inspection, not the protection test reports, so it is a control of its own.
 
 ### CTL-PE-004
 

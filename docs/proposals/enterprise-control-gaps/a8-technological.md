@@ -7,7 +7,7 @@ This is a proposal for review by the product owner, not a change to the app, the
 ## Summary
 
 - 18 uncovered items in A.8.
-- 9 new Enterprise Controls proposed here: CTL-SA-002, CTL-SR-003, CTL-SA-003, CTL-CM-005, CTL-PT-002, CTL-CP-004, CTL-SC-006, CTL-SC-007, CTL-CA-002.
+- 10 new Enterprise Controls proposed here: CTL-SA-002, CTL-SR-003, CTL-SA-003, CTL-CM-005, CTL-SA-004, CTL-PT-002, CTL-CP-004, CTL-SC-006, CTL-SC-007, CTL-CA-002.
 - 2 Document F controls extended here: CTL-AU-001, CTL-CM-004.
 - 4 items absorbed by a control proposed in another theme: A.8.10, A.8.12, A.8.14, A.8.26.
 
@@ -18,7 +18,7 @@ This is a proposal for review by the product owner, not a change to the app, the
 | A.8.4 Access to source code | [CTL-SA-003](#ctl-sa-003) | New Enterprise Control | Access to source code, development tools and software libraries. |
 | A.8.6 Capacity management | [CTL-CP-004](#ctl-cp-004) | New Enterprise Control | Capacity management. |
 | A.8.10 Information deletion | [CTL-SI-003](a5-organizational.md#ctl-si-003) (proposed in the A.5 document) | New, from another theme | Information deletion is the other end of the same schedule. A retention policy that is never enforced at the end is the most common audit finding, so testing both ends in one control is intended. |
-| A.8.11 Data masking | [CTL-PT-002](#ctl-pt-002) | New Enterprise Control | Data masking, both in production views and for copies. |
+| A.8.11 Data masking | [CTL-PT-002](#ctl-pt-002) | New Enterprise Control | Data masking in line with access control and legal requirements, in production views and in copies. |
 | A.8.12 Data leakage prevention | [CTL-SC-005](a5-organizational.md#ctl-sc-005) (proposed in the A.5 document) | New, from another theme | Data leakage prevention is the technical enforcement of the same rules, applied to the same labels. |
 | A.8.14 Redundancy of information processing facilities | [CTL-CP-003](a5-organizational.md#ctl-cp-003) (proposed in the A.5 document) | New, from another theme | Redundancy of facilities is how the plan is met for the same systems, and a failover exercise tests both at once. |
 | A.8.17 Clock synchronisation | [CTL-AU-001](#ctl-au-001) | Extend Document F control | Clock synchronisation matters because logs from different systems must line up. NIST AU-8 (time stamps) sits in the same family as this control's mappings, and the drift is measurable on the log platform the control already tests. |
@@ -31,7 +31,7 @@ This is a proposal for review by the product owner, not a change to the app, the
 | A.8.28 Secure coding | [CTL-SA-002](#ctl-sa-002) | New Enterprise Control | Secure coding is the build step of the same lifecycle; the pipeline scans are its evidence. |
 | A.8.30 Outsourced development | [CTL-SR-003](#ctl-sr-003) | New Enterprise Control | Outsourced development: the organization directs (contract), monitors (supplier review) and accepts (acceptance test) the supplier's work. |
 | A.8.31 Separation of development, test and production environments | [CTL-CM-005](#ctl-cm-005) | New Enterprise Control | Separation of development, test and production environments. |
-| A.8.33 Test information | [CTL-PT-002](#ctl-pt-002) | New Enterprise Control | Test information is the most common use of masking: test data selected, protected and managed. The same tooling and the same standard apply. |
+| A.8.33 Test information | [CTL-SA-004](#ctl-sa-004) | New Enterprise Control | Test information: selection (synthetic or masked), protection (access control, exceptions) and management (refresh and deletion) of all test data. |
 | A.8.34 Protection of information systems during audit testing | [CTL-CA-002](#ctl-ca-002) | New Enterprise Control | Protection of information systems during audit testing: every assurance activity on operational systems, not only security tests. |
 
 ## Proposed new Enterprise Controls
@@ -42,8 +42,8 @@ This is a proposal for review by the product owner, not a change to the app, the
 
 | Field | Value |
 | --- | --- |
-| Statement | Every in-scope application developed in-house or by an outsourced developer follows the approved secure development lifecycle: its design is reviewed against {architecture_principles}, its code is checked against the secure coding standard by static analysis and dependency scanning in the pipeline, and findings of severity {blocking_severity} block release. |
-| Parameters (illustrative) | architecture_principles = the approved secure architecture principles (threat model for significant changes); blocking_severity = critical and high |
+| Statement | Every in-scope application developed in-house or by an outsourced developer follows the approved secure development lifecycle: its design is reviewed against {architecture_principles} (with a threat model for significant changes), every code change is peer reviewed and checked against the secure coding standard by static analysis, dependency and secrets scanning in the pipeline, findings of severity {blocking_severity} block release, and developers complete secure coding training at least every {secure_coding_training_interval}. |
+| Parameters (illustrative) | architecture_principles = the approved secure architecture principles; blocking_severity = critical and high; secure_coding_training_interval = 12 months |
 | Control behaviour | PREVENTIVE |
 | Domain group | Secure development |
 | Owner role | Head of software engineering |
@@ -88,7 +88,7 @@ Why each Annex A item maps here:
 
 | Field | Value |
 | --- | --- |
-| Statement | Write access to source repositories and build pipelines of in-scope applications is limited to members of the owning team, changes to protected branches require review by a second person, and repository access is reviewed at least every {repo_access_review_period}. |
+| Statement | Read and write access to source repositories, development tools and build pipelines of in-scope applications is limited to the people who need it and ends with their engagement, changes to protected branches require review by a second person, commits are scanned for secrets, and repository access is reviewed at least every {repo_access_review_period}. |
 | Parameters (illustrative) | repo_access_review_period = 90 days |
 | Control behaviour | PREVENTIVE |
 | Domain group | Secure development |
@@ -110,7 +110,7 @@ Why each Annex A item maps here:
 
 | Field | Value |
 | --- | --- |
-| Statement | Development, test and production environments of in-scope systems are separated into different subscriptions, accounts or networks, and standing access to production for developers is not granted. |
+| Statement | Development, test and production environments of in-scope systems are separated into different subscriptions, accounts or networks with no network path from non-production into production, production credentials are not stored in non-production, changes reach production only through the pipeline's promotion step, and standing access to production for developers is not granted. |
 | Parameters (illustrative) | none |
 | Control behaviour | PREVENTIVE |
 | Domain group | Secure development |
@@ -124,7 +124,29 @@ Why each Annex A item maps here:
 
 - **A.8.31 Separation of development, test and production environments.** Separation of development, test and production environments.
 
-**Rationale.** Test data (A.8.33) was considered for this control, since it concerns non-production. It went with data masking instead (CTL-PT-002), because protecting test data is about the data, not the environment, and shares its mechanism with masking.
+**Rationale.** Test data (A.8.33) was considered for this control, since it concerns non-production, but protecting test data is about the data, not the environment, and is CTL-SA-004.
+
+### CTL-SA-004
+
+**Test information**
+
+| Field | Value |
+| --- | --- |
+| Statement | Test data for in-scope systems is synthetic or masked under CTL-PT-002, real personal or confidential data is used in testing only with an approved exception that includes a data protection impact assessment and production-level access control, access to test data is limited to the project team, and test data is deleted when no longer needed or at least every {test_data_refresh_period}. |
+| Parameters (illustrative) | test_data_refresh_period = 6 months |
+| Control behaviour | PREVENTIVE |
+| Domain group | Secure development |
+| Owner role | Head of software engineering |
+| ISO 27001 Annex A | A.8.33 |
+| NIST SP 800-53 Rev. 5 | SA-3(2); SI-12 (to verify) |
+| NIS2 Art. 21(2) point (other articles named) | (e) (to verify) |
+| Environments (illustrative) | Azure workload, AWS and on-premises test environments; Legacy: often COMPENSATING (approved exception); SaaS: vendor sandbox, often n/a. |
+
+Why each Annex A item maps here:
+
+- **A.8.33 Test information.** Test information: selection (synthetic or masked), protection (access control, exceptions) and management (refresh and deletion) of all test data.
+
+**Rationale.** Split from CTL-PT-002 after Codex review on #225. Its prefix follows the primary NIST mapping (SA-3(2), use of live data). It is owned by engineering, who create and manage test environments, and depends on CTL-PT-002 for the masking standard.
 
 ### CTL-PT-002
 
@@ -132,22 +154,21 @@ Why each Annex A item maps here:
 
 | Field | Value |
 | --- | --- |
-| Statement | Personal and confidential data copied out of production is masked or pseudonymised under the masking standard {masking_standard} before use in non-production, and production views show only the data fields each role needs. |
-| Parameters (illustrative) | masking_standard = the approved data masking standard; unmasked production data in test only with an approved exception |
+| Statement | Personal and confidential data is masked, pseudonymised or tokenised under the masking standard {masking_standard} wherever a role or environment does not need the real values: in production views and exports, and in every copy made out of production. |
+| Parameters (illustrative) | masking_standard = the approved data masking standard (fields to mask per classification, masking technique per field type) |
 | Control behaviour | PREVENTIVE |
 | Domain group | Data protection and AI |
 | Owner role | Data protection officer |
-| ISO 27001 Annex A | A.8.11; A.8.33 |
+| ISO 27001 Annex A | A.8.11 |
 | NIST SP 800-53 Rev. 5 | SA-3(2); SI-19 (to verify) |
 | NIS2 Art. 21(2) point (other articles named) | n/a (GDPR Art. 25 and Art. 32 pseudonymisation) |
 | Environments (illustrative) | Azure workload, AWS and on-premises where production data is copied; SaaS: vendor features (often n/a); Legacy: often COMPENSATING (synthetic data or approved exception). |
 
 Why each Annex A item maps here:
 
-- **A.8.11 Data masking.** Data masking, both in production views and for copies.
-- **A.8.33 Test information.** Test information is the most common use of masking: test data selected, protected and managed. The same tooling and the same standard apply.
+- **A.8.11 Data masking.** Data masking in line with access control and legal requirements, in production views and in copies.
 
-**Rationale.** One masking standard and one tool serve both items. Its prefix follows Document F's use of PT for personal data protection (CTL-PT-001).
+**Rationale.** One masking standard serves production views and copies. Test information (A.8.33) was first grouped here; Codex review on #225 pointed out that test data can be created or imported without ever being copied from production, and must also be access-controlled and deleted, so it is now CTL-SA-004, which uses this masking standard. The prefix follows Document F's use of PT for personal data protection (CTL-PT-001).
 
 ### CTL-CP-004
 
@@ -177,7 +198,7 @@ Why each Annex A item maps here:
 
 | Field | Value |
 | --- | --- |
-| Statement | Every network service used by in-scope systems (connectivity, DNS, DDoS protection, VPN, firewall service) has documented security requirements and service levels, and the security features required by {network_service_baseline} are enabled and monitored. |
+| Statement | Every network service used by in-scope systems, provided or in-house (connectivity, DNS, DDoS protection, VPN, firewall service, service-to-service connections), has documented security requirements and service levels, the security features required by {network_service_baseline} are enabled and monitored, and internal service-to-service connections are authenticated. |
 | Parameters (illustrative) | network_service_baseline = DDoS protection on internet-facing endpoints, protective DNS, encrypted management, provider security report reviewed yearly |
 | Control behaviour | PREVENTIVE |
 | Domain group | Protection |
@@ -199,7 +220,7 @@ Why each Annex A item maps here:
 
 | Field | Value |
 | --- | --- |
-| Statement | Web access from managed devices and servers to the categories and indicators listed in {web_filter_policy} is blocked, on and off the corporate network, and the block list is updated from threat intelligence within {web_filter_update_age}. |
+| Statement | Web access from managed devices to the categories and indicators listed in {web_filter_policy} is blocked on and off the corporate network, production servers reach only allowlisted external destinations with unexpected outbound connections alerted, and the block list is updated from threat intelligence within {web_filter_update_age}. |
 | Parameters (illustrative) | web_filter_policy = malicious, newly registered and uncategorised domains, plus categories set by policy; web_filter_update_age = 24 hours |
 | Control behaviour | PREVENTIVE |
 | Domain group | Protection |
@@ -265,7 +286,7 @@ Why each Annex A item maps here:
 | Field | Value |
 | --- | --- |
 | Statement today | Only software and machine images from the approved catalog {approved_catalog} run on in-scope systems. |
-| Proposed statement | Only software and machine images from the approved catalog {approved_catalog} run on in-scope systems, and utility programs that can override system or application controls are restricted to {privileged_utility_groups} and their use is logged. |
+| Proposed statement | Only software and machine images from the approved catalog {approved_catalog} run on in-scope systems, and utility programs that can override system or application controls are not installed by default, can be run only by {privileged_utility_groups} with separate elevated credentials, and every use is logged. |
 | Added parameters (illustrative) | privileged_utility_groups = named administrator groups per platform |
 | Added Annex A | A.8.18 |
 | NIST SP 800-53 Rev. 5 | adds AC-6 (to verify: AC-6(10)) |

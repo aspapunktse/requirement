@@ -7,7 +7,7 @@ This is a proposal for review by the product owner, not a change to the app, the
 ## Summary
 
 - 23 uncovered items in A.5.
-- 13 new Enterprise Controls proposed here: CTL-PM-002, CTL-PM-003, CTL-AC-005, CTL-SI-002, CTL-SA-001, CTL-RA-001, CTL-SC-005, CTL-SR-002, CTL-IR-003, CTL-CP-003, CTL-PM-004, CTL-SI-003, CTL-CA-001.
+- 15 new Enterprise Controls proposed here: CTL-PM-002, CTL-PM-003, CTL-AC-005, CTL-SI-002, CTL-SA-001, CTL-RA-001, CTL-SC-005, CTL-SR-002, CTL-IR-003, CTL-CP-003, CTL-PM-004, CTL-CM-006, CTL-SI-003, CTL-CA-001, CTL-CA-003.
 - 1 Document F control extended here: CTL-AC-004.
 
 ## Mapping decisions
@@ -15,9 +15,9 @@ This is a proposal for review by the product owner, not a change to the app, the
 | Annex A item | Mapped to | Decision | Why |
 | --- | --- | --- | --- |
 | A.5.1 Policies for information security | [CTL-PM-002](#ctl-pm-002) | New Enterprise Control | The core of the control: an approved, communicated and periodically reviewed policy set. |
-| A.5.2 Information security roles and responsibilities | [CTL-PM-003](#ctl-pm-003) | New Enterprise Control | Defined and allocated roles are directly testable: every role and every control owner field has a named, current holder. |
+| A.5.2 Information security roles and responsibilities | [CTL-PM-003](#ctl-pm-003) | New Enterprise Control | Defined and allocated roles are directly testable: every role and every control owner field has a named, current and informed holder. |
 | A.5.3 Segregation of duties | [CTL-AC-005](#ctl-ac-005) | New Enterprise Control | Segregation of duties is a property of the same role model: the conflict matrix is checked against the same role assignments, in the same identity systems, by the same team. |
-| A.5.4 Management responsibilities | [CTL-PM-003](#ctl-pm-003) | New Enterprise Control | Management responsibility is evidenced by the same review: line managers confirm that their people follow the policies. It has no separate artefact worth its own control. |
+| A.5.4 Management responsibilities | [CTL-CA-003](#ctl-ca-003) | New Enterprise Control | Management responsibilities: managers requiring their people to follow the policies is evidenced by the same recorded checks, made by the same managers. A control of its own would have no other evidence. |
 | A.5.6 Contact with special interest groups | [CTL-SI-002](#ctl-si-002) | New Enterprise Control | Contact with special interest groups is valued mainly as a source of threat information and warnings; membership is evidenced in the source list and the test checks that each listed group is active. |
 | A.5.7 Threat intelligence | [CTL-SI-002](#ctl-si-002) | New Enterprise Control | Collecting and analysing threat information is the control itself. |
 | A.5.8 Information security in project management | [CTL-SA-001](#ctl-sa-001) | New Enterprise Control | Security in project management is evidenced by the gate records. |
@@ -31,11 +31,11 @@ This is a proposal for review by the product owner, not a change to the app, the
 | A.5.27 Learning from information security incidents | [CTL-IR-003](#ctl-ir-003) | New Enterprise Control | Learning from incidents is the post-incident review and its tracked actions. |
 | A.5.28 Collection of evidence | [CTL-IR-003](#ctl-ir-003) | New Enterprise Control | Collection of evidence happens in the same incidents and is checked in the same review (was custody recorded?). It has the same owner and the same case records. |
 | A.5.29 Information security during disruption | [CTL-CP-003](#ctl-cp-003) | New Enterprise Control | Keeping security at the agreed level during a disruption is the plan part of the statement. CTL-CP-002 (A.5.30) tests restoring from backup, not operating securely while degraded. |
-| A.5.31 Legal, statutory and regulatory requirements | [CTL-PM-004](#ctl-pm-004) | New Enterprise Control | The obligations register is the control; in this app, the Frameworks in scope of a System are part of it. |
-| A.5.32 Intellectual property rights | [CTL-PM-004](#ctl-pm-004) | New Enterprise Control | Intellectual property rights are one kind of legal obligation, held in the same register; the licence reconciliation gives them a measurable test. CTL-CM-004 (approved software) was considered, but it tests what may run, not whether its use is licensed. |
+| A.5.31 Legal, statutory and regulatory requirements | [CTL-PM-004](#ctl-pm-004) | New Enterprise Control | The obligations register is the control. |
+| A.5.32 Intellectual property rights | [CTL-CM-006](#ctl-cm-006) | New Enterprise Control | Intellectual property rights: legitimate acquisition, use within licence terms, and a measurable reconciliation. |
 | A.5.33 Protection of records | [CTL-SI-003](#ctl-si-003) | New Enterprise Control | Protection of records is the retention half: kept for the required time, integrity protected. |
-| A.5.35 Independent review of information security | [CTL-CA-001](#ctl-ca-001) | New Enterprise Control | Independent review: in this app, an Internal Audit is the evidence. |
-| A.5.36 Compliance with policies, rules and standards | [CTL-CA-001](#ctl-ca-001) | New Enterprise Control | Compliance with policies and standards is the first-line check that feeds the same nonconformity list. Same follow-up, same register, so one control. |
+| A.5.35 Independent review of information security | [CTL-CA-001](#ctl-ca-001) | New Enterprise Control | Independent review at planned intervals and after significant change. |
+| A.5.36 Compliance with policies, rules and standards | [CTL-CA-003](#ctl-ca-003) | New Enterprise Control | Compliance with policies, rules and standards: the recorded checks and the findings and exceptions register are the evidence. |
 | A.5.37 Documented operating procedures | [CTL-PM-002](#ctl-pm-002) | New Enterprise Control | Operating procedures are the lowest tier of the same document hierarchy. One register and one review cycle test all three; a separate control would duplicate the evidence. |
 
 ## Proposed new Enterprise Controls
@@ -70,22 +70,21 @@ Why each Annex A item maps here:
 
 | Field | Value |
 | --- | --- |
-| Statement | Every information security role in the role catalog, including the owner of every Enterprise Control and every in-scope System, is assigned to a named person, and management confirms at least every {role_review_period} that personnel apply the policies in their area. |
+| Statement | Every information security role in the role catalog, including the owner of every Enterprise Control and every in-scope System, is assigned to a named person who has been told of the role, and the catalog is reviewed at least every {role_review_period} and when people leave. |
 | Parameters (illustrative) | role_review_period = 12 months |
 | Control behaviour | PREVENTIVE |
 | Domain group | Governance and assurance |
 | Owner role | Chief information security officer |
-| ISO 27001 Annex A | A.5.2; A.5.4 |
+| ISO 27001 Annex A | A.5.2 |
 | NIST SP 800-53 Rev. 5 | PM-2; PM-29 (to verify); PS-9 |
 | NIS2 Art. 21(2) point (other articles named) | (a); Art. 20 (management accountability) applies as well |
 | Environments (illustrative) | Organization-wide. |
 
 Why each Annex A item maps here:
 
-- **A.5.2 Information security roles and responsibilities.** Defined and allocated roles are directly testable: every role and every control owner field has a named, current holder.
-- **A.5.4 Management responsibilities.** Management responsibility is evidenced by the same review: line managers confirm that their people follow the policies. It has no separate artefact worth its own control.
+- **A.5.2 Information security roles and responsibilities.** Defined and allocated roles are directly testable: every role and every control owner field has a named, current and informed holder.
 
-**Rationale.** Roles and management commitment are two sides of the same governance record. In this app the owner fields of Systems and Controls already hold part of the evidence, so the test can be partly automated (no empty or departed owner).
+**Rationale.** In this app the owner fields of Systems and Controls already hold part of the evidence, so the test can be partly automated (no empty or departed owner). Management responsibility (A.5.4) was first grouped here; after review it went to CTL-CA-003, because its evidence is the managers' compliance checks, not the role catalog.
 
 ### CTL-AC-005
 
@@ -208,7 +207,7 @@ Why each Annex A item maps here:
 
 | Field | Value |
 | --- | --- |
-| Statement | Every in-scope cloud service has a recorded split of security responsibilities between provider and customer for each applicable control, and an exit plan that is reviewed at least every {exit_review_period}. |
+| Statement | Every in-scope cloud service has a recorded split of security responsibilities between provider and customer for each applicable control, confirmed data processing and storage locations in its agreement, and an exit plan that is reviewed at least every {exit_review_period}. |
 | Parameters (illustrative) | exit_review_period = 24 months, and at contract renewal |
 | Control behaviour | PROACTIVE |
 | Domain group | Supplier and provider assurance |
@@ -253,7 +252,7 @@ Why each Annex A item maps here:
 
 | Field | Value |
 | --- | --- |
-| Statement | Every in-scope system with availability class {availability_class} or higher has a continuity plan that keeps its security controls in force during a disruption, runs with redundancy that meets its availability requirement, and has its failover exercised at least every {failover_test_interval}. |
+| Statement | Every in-scope system with availability class {availability_class} or higher has a continuity plan that keeps its security controls in force during a disruption (emergency and break-glass access still logged and reviewed after use, security monitoring active during failover), runs with redundancy that meets its availability requirement, and has its failover exercised at least every {failover_test_interval}. |
 | Parameters (illustrative) | availability_class = high; failover_test_interval = 12 months |
 | Control behaviour | PROACTIVE |
 | Domain group | Resilience |
@@ -276,22 +275,43 @@ Why each Annex A item maps here:
 
 | Field | Value |
 | --- | --- |
-| Statement | The legal, statutory, regulatory and contractual requirements that apply to in-scope systems, including intellectual property and software licence terms, are recorded in the obligations register, reviewed at least every {obligations_review_period}, and licence use is reconciled with entitlements at least every {licence_reconciliation_period}. |
-| Parameters (illustrative) | obligations_review_period = 12 months; licence_reconciliation_period = 12 months |
+| Statement | The legal, statutory, regulatory and contractual requirements that apply to in-scope systems are recorded in the obligations register with the approach to meet each one, and the register is reviewed at least every {obligations_review_period} and when a law, regulation or contract changes. |
+| Parameters (illustrative) | obligations_review_period = 12 months |
 | Control behaviour | DETECTIVE |
 | Domain group | Governance and assurance |
 | Owner role | Head of legal and compliance |
-| ISO 27001 Annex A | A.5.31; A.5.32 |
+| ISO 27001 Annex A | A.5.31 |
 | NIST SP 800-53 Rev. 5 | CM-10 (for A.5.32); no direct control for the obligations register |
 | NIS2 Art. 21(2) point (other articles named) | to verify |
-| Environments (illustrative) | Organization-wide; licence reconciliation draws on the SaaS admin portals and the software inventory of CTL-CM-002. |
+| Environments (illustrative) | Organization-wide. |
 
 Why each Annex A item maps here:
 
-- **A.5.31 Legal, statutory and regulatory requirements.** The obligations register is the control; in this app, the Frameworks in scope of a System are part of it.
-- **A.5.32 Intellectual property rights.** Intellectual property rights are one kind of legal obligation, held in the same register; the licence reconciliation gives them a measurable test. CTL-CM-004 (approved software) was considered, but it tests what may run, not whether its use is licensed.
+- **A.5.31 Legal, statutory and regulatory requirements.** The obligations register is the control.
 
-**Rationale.** Grouped because both are owned by legal and compliance and evidenced by one register. A.5.33 (records) and A.5.34 (privacy) were left out: A.5.34 is already CTL-PT-001, and records retention is technical enough to deserve its own control (CTL-SI-003).
+**Rationale.** In this app, the Frameworks in scope of a System are part of the register. Intellectual property (A.5.32) was first grouped here with a licence reconciliation; on our own re-check against the grouping rule it got its own control (CTL-CM-006), because the reconciliation has a different owner and evidence from the register.
+
+### CTL-CM-006
+
+**Software licences and intellectual property**
+
+| Field | Value |
+| --- | --- |
+| Statement | Software, open-source components and third-party content used in in-scope systems are acquired from legitimate sources and used within their licence terms, licence use is reconciled with entitlements at least every {licence_reconciliation_period}, and open-source licence obligations are checked in the build pipeline. |
+| Parameters (illustrative) | licence_reconciliation_period = 12 months |
+| Control behaviour | DETECTIVE |
+| Domain group | Asset and configuration |
+| Owner role | Head of IT operations |
+| ISO 27001 Annex A | A.5.32 |
+| NIST SP 800-53 Rev. 5 | CM-10 |
+| NIS2 Art. 21(2) point (other articles named) | to verify |
+| Environments (illustrative) | SaaS (admin portal licence counts), on-premises and the endpoint fleet (software inventory of CTL-CM-002), Azure and AWS (marketplace and bring-your-own licences), build pipelines (open-source licence scan). |
+
+Why each Annex A item maps here:
+
+- **A.5.32 Intellectual property rights.** Intellectual property rights: legitimate acquisition, use within licence terms, and a measurable reconciliation.
+
+**Rationale.** CTL-CM-004 (approved software) was considered, but it tests what may run, not whether its use is licensed. Kept apart from CTL-PM-004 because licence counts and pipeline scans are IT evidence, not a legal register.
 
 ### CTL-SI-003
 
@@ -299,7 +319,7 @@ Why each Annex A item maps here:
 
 | Field | Value |
 | --- | --- |
-| Statement | Records in in-scope systems are kept for the period set in the retention schedule {retention_schedule}, protected against loss and unauthorized change during that period, and deleted within {deletion_sla} after it ends or when deletion is requested. |
+| Statement | Records in in-scope systems are kept for the period set in the retention schedule {retention_schedule}, protected against loss, unauthorized change and deletion during that period, and deleted, including from backups, within {deletion_sla} after it ends or when deletion is requested. |
 | Parameters (illustrative) | retention_schedule = the approved records retention schedule; deletion_sla = 30 days |
 | Control behaviour | CORRECTIVE |
 | Domain group | Data protection and AI |
@@ -322,22 +342,44 @@ Why each Annex A item maps here:
 
 | Field | Value |
 | --- | --- |
-| Statement | The information security management system is reviewed by a party independent of the area under review at least every {independent_review_interval}, control owners check compliance with the policies in their area at least every {compliance_check_interval}, and every nonconformity is tracked to closure. |
-| Parameters (illustrative) | independent_review_interval = 12 months; compliance_check_interval = 6 months |
+| Statement | The information security management system and its controls are reviewed by a party independent of the area under review at least every {independent_review_interval} and after significant changes, and every nonconformity found is tracked to closure. |
+| Parameters (illustrative) | independent_review_interval = 12 months |
 | Control behaviour | DETECTIVE |
 | Domain group | Governance and assurance |
 | Owner role | Head of internal audit |
-| ISO 27001 Annex A | A.5.35; A.5.36 |
+| ISO 27001 Annex A | A.5.35 |
 | NIST SP 800-53 Rev. 5 | CA-2 (to verify: CA-2(1)); CA-5; CA-7 |
 | NIS2 Art. 21(2) point (other articles named) | (f) |
 | Environments (illustrative) | Organization-wide. |
 
 Why each Annex A item maps here:
 
-- **A.5.35 Independent review of information security.** Independent review: in this app, an Internal Audit is the evidence.
-- **A.5.36 Compliance with policies, rules and standards.** Compliance with policies and standards is the first-line check that feeds the same nonconformity list. Same follow-up, same register, so one control.
+- **A.5.35 Independent review of information security.** Independent review at planned intervals and after significant change.
 
-**Rationale.** The two items are the second and first line of the same assurance loop, and both end in tracked nonconformities. Protection of systems during audit testing (A.8.34) is a separate control (CTL-CA-002), because it constrains how tests are run rather than following up their results.
+**Rationale.** In this app, an Internal Audit is the evidence. The first-line compliance checks (A.5.36) were first grouped here; Codex review on #225 pointed out that an audit report cannot show that every owner did their check, and the reverse, so they are now CTL-CA-003. Protection of systems during audit testing (A.8.34) is CTL-CA-002, because it constrains how tests are run.
+
+### CTL-CA-003
+
+**Compliance with policies**
+
+| Field | Value |
+| --- | --- |
+| Statement | Managers and control owners check that the policies, rules and standards in their area are followed at least every {compliance_check_interval}, record the result, document each deviation as a finding with an owner and due date or as an approved exception with a risk acceptance, and track it to closure. |
+| Parameters (illustrative) | compliance_check_interval = 6 months; automated policy-as-code checks count as continuous checks for cloud baselines |
+| Control behaviour | DETECTIVE |
+| Domain group | Governance and assurance |
+| Owner role | Chief information security officer |
+| ISO 27001 Annex A | A.5.4; A.5.36 |
+| NIST SP 800-53 Rev. 5 | CA-7; CA-5; PM-2 (to verify) |
+| NIS2 Art. 21(2) point (other articles named) | (f) |
+| Environments (illustrative) | Organization-wide; cloud baselines checked continuously through CTL-CM-001. |
+
+Why each Annex A item maps here:
+
+- **A.5.4 Management responsibilities.** Management responsibilities: managers requiring their people to follow the policies is evidenced by the same recorded checks, made by the same managers. A control of its own would have no other evidence.
+- **A.5.36 Compliance with policies, rules and standards.** Compliance with policies, rules and standards: the recorded checks and the findings and exceptions register are the evidence.
+
+**Rationale.** Split from CTL-CA-001 after Codex review on #225: first-line checks have different owners and evidence from an independent review. A.5.4 joins it because a manager's responsibility for policy compliance is shown by doing these checks.
 
 ## Proposed extensions of Document F controls
 
