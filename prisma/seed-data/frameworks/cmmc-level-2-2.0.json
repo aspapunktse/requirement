@@ -24,6 +24,86 @@
         "Procedure to take down an improper posting and alert the people who need to know, including the contracting officer where the contract requires it",
         "Guidance to staff that CUI, and contract documents that carry CUI markings, are not posted publicly"
       ]
+    },
+    {
+      "code": "CMMC-L2-SUP-02",
+      "title": "System use notification for CUI",
+      "description": "Identify the privacy and security notices that the applicable Controlled Unclassified Information (CUI) rules require, make them consistent and tied to the specific CUI category, and display them to users, for example as a warning banner before log-on or as a posted notice where a banner is not possible",
+      "category": "CMMC Level 2 obligations",
+      "mandatory": true,
+      "applicability": "PER_SYSTEM",
+      "question": "For this system that processes, stores or transmits Controlled Unclassified Information (CUI): are the privacy and security notices required by the applicable CUI rules identified, consistent and associated with the CUI category, and are they displayed to users?",
+      "intent": "Users of a system that holds CUI need to be told, before they use it, that it is monitored, that use is limited to authorized purposes and that CUI rules apply. A general log-on banner does not by itself carry the notices the CUI rules specify, or show that legal counsel approved their wording.",
+      "examples": [
+        "Log-on banner on each system with human log-on interfaces, with wording taken from the applicable CUI rules and approved by legal counsel",
+        "Register of the notices required for each CUI category in the contract, with the system and place where each is shown",
+        "Posters or printed notices where an automated banner is not possible",
+        "Periodic check, and after a contract or CUI category change, that the displayed notices still match the required wording"
+      ]
+    },
+    {
+      "code": "CMMC-L2-SUP-03",
+      "title": "FIPS-validated cryptography for CUI",
+      "description": "Use cryptography that has been validated under the Federal Information Processing Standards (FIPS) wherever cryptography protects the confidentiality of Controlled Unclassified Information (CUI), and keep a list of the validated modules and their validation certificates",
+      "category": "CMMC Level 2 obligations",
+      "mandatory": true,
+      "applicability": "PER_SYSTEM",
+      "question": "For this system: wherever cryptography protects the confidentiality of Controlled Unclassified Information (CUI), in transit or at rest, is it FIPS-validated and is the validated module and its certificate recorded?",
+      "intent": "Strong algorithms are not enough for CUI: the cryptographic module has to have been validated under FIPS. A product that merely implements an approved algorithm, or whose validation has lapsed or does not cover the configuration in use, does not meet the practice.",
+      "examples": [
+        "List of the cryptographic modules protecting CUI, with their FIPS validation certificate numbers and status",
+        "Operating systems, VPNs and storage encryption run in their FIPS-validated mode, with the configuration setting recorded",
+        "Check of the validation status when a module is bought, updated or reaches the end of its validation",
+        "Procurement requirement that products protecting CUI use FIPS-validated modules"
+      ]
+    },
+    {
+      "code": "CMMC-L2-SUP-04",
+      "title": "Collaborative computing devices: no remote activation, use indicated",
+      "description": "Identify the collaborative computing devices (networked whiteboards, cameras, microphones) in places where Controlled Unclassified Information (CUI) is discussed or shown, prohibit their remote activation, and make sure each shows the people present when it is in use",
+      "category": "CMMC Level 2 obligations",
+      "mandatory": true,
+      "applicability": "PER_SYSTEM",
+      "question": "For the collaborative computing devices connected to this system: are they identified, is remote activation prohibited, and does each device indicate to users present that it is in use?",
+      "intent": "A conference-room camera, microphone or whiteboard that can be switched on from elsewhere can capture CUI without anyone present knowing. Dedicated video conferencing systems that are activated only by a participant calling or connecting are outside the practice.",
+      "examples": [
+        "Inventory of cameras, microphones, smart speakers and networked whiteboards, with their location",
+        "Remote-activation and auto-answer features disabled in device or management-console configuration",
+        "Indicator lights or on-screen signals shown when a camera or microphone is active, tested periodically",
+        "Physical shutters or disconnected microphones for devices in rooms where CUI is discussed and the indicator cannot be relied on"
+      ]
+    },
+    {
+      "code": "CMMC-L2-SUP-05",
+      "title": "Insider threat awareness training",
+      "description": "Identify the potential indicators of insider threat and train managers and employees to recognize them and to report them through the organization's channels, tailoring the content to role, to protect Controlled Unclassified Information (CUI)",
+      "category": "CMMC Level 2 obligations",
+      "mandatory": true,
+      "applicability": "ORGANIZATIONAL",
+      "intent": "People with access to CUI are the most likely place a misuse of it starts or is first noticed. General security awareness training does not by itself teach what insider threat indicators look like or how to raise a concern about a colleague.",
+      "examples": [
+        "Documented list of insider threat indicators, such as attempts to reach information not needed for the job and serious policy violations",
+        "Training module for employees and a separate one for managers on changes in the behaviour of team members",
+        "Reporting channel and procedure for concerns about a possible insider, with feedback that reports are handled",
+        "Training records showing managers and employees completed it, repeated on a set interval and for new joiners"
+      ]
+    },
+    {
+      "code": "CMMC-L2-SUP-06",
+      "title": "System security plan for systems handling CUI",
+      "description": "Develop and document a system security plan for each system that handles Controlled Unclassified Information (CUI), describing its boundary, its environment of operation, how each security requirement is implemented, which requirements are approved as not applicable, and its relationships with and connections to other systems, and update it at a defined frequency",
+      "category": "CMMC Level 2 obligations",
+      "mandatory": true,
+      "applicability": "PER_SYSTEM",
+      "question": "For this system that handles Controlled Unclassified Information (CUI): is there a system security plan that describes the boundary, environment of operation, how each requirement is implemented, requirements approved as not applicable, and connections to other systems, and is it updated at a defined frequency?",
+      "intent": "The plan is the document an assessor reads first and the record of what the CUI system is. The ISMS scope and the Statement of Applicability describe parts of it, but neither defines a system boundary, its environment and its connections, or states an update frequency.",
+      "examples": [
+        "System security plan per CUI system, with boundary diagram and asset inventory",
+        "Description of the environment: hosting, locations, enclaves, external service providers and the CUI they handle",
+        "Implementation statement for each security requirement, and a record of those approved as not applicable and by whom",
+        "Table of connections to other systems with the interface and data exchanged",
+        "Stated update frequency (at least yearly, and after significant change) with review and approval records"
+      ]
     }
   ],
   "requirements": [
@@ -202,6 +282,11 @@
       "title": "Privacy & Security Notices",
       "text": "Provide privacy and security notices consistent with applicable CUI rules. (NIST SP 800-171 Rev. 2 3.1.9.)",
       "mappings": [
+        {
+          "control": "CMMC-L2-SUP-02",
+          "coverage": "FULL",
+          "rationale": "Covers both assessment objectives: [a] the notices required by the CUI rules are identified, consistent and associated with the CUI category; [b] the notices are displayed."
+        },
         {
           "control": "A.8.5",
           "coverage": "PARTIAL",
@@ -545,6 +630,11 @@
       "title": "Insider Threat Awareness",
       "text": "Provide security awareness training on recognizing and reporting potential indicators of insider threat. (NIST SP 800-171 Rev. 2 3.2.3.)",
       "mappings": [
+        {
+          "control": "CMMC-L2-SUP-05",
+          "coverage": "FULL",
+          "rationale": "Covers both assessment objectives: [a] the potential indicators of insider threat are identified; [b] training on recognizing and reporting them is provided to managers and employees."
+        },
         {
           "control": "A.6.3",
           "coverage": "PARTIAL",
@@ -1652,6 +1742,11 @@
       "text": "Develop, document, and periodically update system security plans that describe system boundaries, system environments of operation, how security requirements are implemented, and the relationships with or connections to other systems. (NIST SP 800-171 Rev. 2 3.12.4.)",
       "mappings": [
         {
+          "control": "CMMC-L2-SUP-06",
+          "coverage": "FULL",
+          "rationale": "Covers all eight assessment objectives: [a] a plan is developed; [b] boundary, [c] environment of operation, [e] implementation method and [f] connections are described and documented in it; [d] requirements approved as not applicable are identified; [g] an update frequency is defined; [h] the plan is updated at that frequency."
+        },
+        {
           "control": "ISMS-4.3",
           "coverage": "PARTIAL",
           "rationale": "Defines and documents the ISMS scope and boundaries; system environments and connections are not required."
@@ -1865,6 +1960,11 @@
       "text": "Employ FIPS-validated cryptography when used to protect the confidentiality of CUI. (NIST SP 800-171 Rev. 2 3.13.11.)",
       "mappings": [
         {
+          "control": "CMMC-L2-SUP-03",
+          "coverage": "FULL",
+          "rationale": "Covers the single assessment objective [a]: FIPS-validated cryptography is employed to protect the confidentiality of CUI."
+        },
+        {
           "control": "A.8.24",
           "coverage": "PARTIAL",
           "rationale": "Cryptography rules require suitable algorithms and key lengths; FIPS-validated cryptography is not required."
@@ -1877,6 +1977,11 @@
       "title": "Collaborative Device Control",
       "text": "Prohibit remote activation of collaborative computing devices and provide indication of devices in use to users present at the device. (NIST SP 800-171 Rev. 2 3.13.12.)",
       "mappings": [
+        {
+          "control": "CMMC-L2-SUP-04",
+          "coverage": "FULL",
+          "rationale": "Covers all three assessment objectives: [a] collaborative computing devices are identified; [b] devices indicate to users when in use; [c] remote activation is prohibited."
+        },
         {
           "control": "A.8.1",
           "coverage": "PARTIAL",
