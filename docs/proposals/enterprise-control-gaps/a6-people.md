@@ -45,7 +45,7 @@ Why each Annex A item maps here:
 - **A.6.1 Screening.** Screening, completed before employment or engagement starts and tested against the start date in the HR record.
 - **A.6.2 Terms and conditions of employment.** Terms and conditions are signed at the same step and checked against the same HR record.
 
-**Rationale.** Both items are evidenced by one record per person at one moment: before the start date. The HR joiner step is the test point; the joiner process of CTL-AC-004 adds a second check (no account without a completed HR record), which also catches late screening for staff who never get an account only through the start-date check. Confidentiality agreements (A.6.6) and the disciplinary process (A.6.4) were first grouped here too; after review they got their own controls (CTL-PS-002, CTL-PS-003), because both need tests after onboarding that this joiner gate cannot give.
+**Rationale.** Both items are evidenced by one record per person at one moment: before the start date. The HR joiner step is the test point, checked against the start date; for staff who get accounts, the joiner process of CTL-AC-004 adds a second check (no account without a completed HR record). Confidentiality agreements (A.6.6) and the disciplinary process (A.6.4) were first grouped here too; after review they got their own controls (CTL-PS-002, CTL-PS-003), because both need tests after onboarding that this joiner gate cannot give.
 
 ### CTL-PS-002
 
