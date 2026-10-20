@@ -42,7 +42,7 @@ This is a proposal for review by the product owner, not a change to the app, the
 
 | Field | Value |
 | --- | --- |
-| Statement | Every in-scope application developed in-house or by an outsourced developer follows the approved secure development lifecycle: its design is reviewed against {architecture_principles} (with a threat model for significant changes), every code change is peer reviewed and checked against the secure coding standard by static analysis, dependency and secrets scanning in the pipeline, findings of severity {blocking_severity} block release, and developers complete secure coding training at least every {secure_coding_training_interval}. |
+| Statement | Every in-scope application and system component developed in-house or by an outsourced developer, including infrastructure as code, platform components, network configuration and firmware, follows the approved secure development lifecycle: its design is reviewed against {architecture_principles} (with a threat model for significant changes), every change is peer reviewed and checked against the secure coding standard by static analysis, dependency and secrets scanning in the pipeline, findings of severity {blocking_severity} block release, and developers complete secure coding training at least every {secure_coding_training_interval}. |
 | Parameters (illustrative) | architecture_principles = the approved secure architecture principles; blocking_severity = critical and high; secure_coding_training_interval = 12 months |
 | Control behaviour | PREVENTIVE |
 | Domain group | Secure development |

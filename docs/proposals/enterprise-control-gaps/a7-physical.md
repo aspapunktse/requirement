@@ -37,8 +37,8 @@ This is a proposal for review by the product owner, not a change to the app, the
 
 | Field | Value |
 | --- | --- |
-| Statement | Every site that houses in-scope systems or information has a defined security perimeter and secure areas, entry is restricted to authorized persons by {entry_mechanism}, visitors are escorted, and the access list for secure areas is reviewed at least every {physical_access_review_period}. |
-| Parameters (illustrative) | entry_mechanism = badge plus PIN for secure areas, badge for offices; physical_access_review_period = 90 days for secure areas |
+| Statement | Every site that houses in-scope systems or information has a defined security perimeter and secure areas, entry is restricted to authorized persons by {entry_mechanism}, visitors are escorted, entries of personnel and visitors are recorded and the records kept for {entry_log_retention}, and the access list for secure areas is reviewed at least every {physical_access_review_period}. |
+| Parameters (illustrative) | entry_mechanism = badge plus PIN for secure areas, badge for offices; entry_log_retention = 12 months; physical_access_review_period = 90 days for secure areas |
 | Control behaviour | PREVENTIVE |
 | Domain group | Physical and media |
 | Owner role | Head of facilities |
@@ -83,7 +83,7 @@ Why each Annex A item maps here:
 
 | Field | Value |
 | --- | --- |
-| Statement | Sites and rooms that house in-scope equipment, wherever it is located (equipment rooms, wiring cupboards, offices), are protected against fire, water, temperature and power failure in proportion to the equipment there, and their protection systems and supporting utilities are tested at least every {utility_test_interval}. |
+| Statement | Sites and rooms that house in-scope equipment, wherever it is located (equipment rooms, wiring cupboards, offices), have a site risk assessment of physical and environmental threats (at least fire, water, temperature and power failure, plus location-specific threats such as earthquake, storm or hazardous materials), are protected against each applicable threat, and their protection systems and supporting utilities are tested at least every {utility_test_interval}. |
 | Parameters (illustrative) | utility_test_interval = 6 months for UPS and generator, 12 months for fire suppression and cooling |
 | Control behaviour | PREVENTIVE |
 | Domain group | Physical and media |
@@ -216,7 +216,7 @@ Why each Annex A item maps here:
 
 | Field | Value |
 | --- | --- |
-| Statement | Managed devices lock the screen after at most {screen_lock_timeout} of inactivity through the configuration baseline, and desks in offices pass the clear desk check run at least every {clear_desk_check_interval}. |
+| Statement | Managed devices lock the screen after at most {screen_lock_timeout} of inactivity through the configuration baseline; the clear desk rules apply in offices, at home and at temporary work locations, office desks pass the clear desk check run at least every {clear_desk_check_interval}, and personnel working elsewhere confirm the rules each year in their awareness training. |
 | Parameters (illustrative) | screen_lock_timeout = 10 minutes; clear_desk_check_interval = quarterly, sampled |
 | Control behaviour | PREVENTIVE |
 | Domain group | Physical and media |

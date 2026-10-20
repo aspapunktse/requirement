@@ -340,7 +340,7 @@ Why each Annex A item maps here:
 
 | Field | Value |
 | --- | --- |
-| Statement | Records in in-scope systems are kept for the period set in the retention schedule {retention_schedule}, protected against loss, unauthorized change and deletion during that period, and deleted, including from backups, within {deletion_sla} after it ends or when deletion is requested; other in-scope information (exports, caches, uploads, temporary files) is deleted when no longer needed and at the latest after {temporary_data_max_age}. |
+| Statement | Records in in-scope systems are kept for the period set in the retention schedule {retention_schedule} and protected against loss, unauthorized change and deletion during that period; they are deleted, including from backups, within {deletion_sla} after the period ends, or on a valid deletion request once no retention requirement or legal hold applies; and other in-scope information (exports, caches, uploads, temporary files) is deleted when no longer needed and at the latest after {temporary_data_max_age}. |
 | Parameters (illustrative) | retention_schedule = the approved records retention schedule; deletion_sla = 30 days; temporary_data_max_age = 90 days |
 | Control behaviour | CORRECTIVE |
 | Domain group | Data protection and AI |

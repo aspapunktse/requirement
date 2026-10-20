@@ -97,7 +97,7 @@ Why each Annex A item maps here:
 
 | Field | Value |
 | --- | --- |
-| Statement | Every person with access to in-scope systems completes security awareness training within {onboarding_training_deadline} of joining and at least every {training_interval}, and staff in roles marked sensitive complete role-based training, with completion above {completion_target}. |
+| Statement | All personnel and relevant external parties (contractors, temporary staff) complete security awareness training within {onboarding_training_deadline} of joining and at least every {training_interval}, with content for their role (for example reception and facilities staff on visitors and physical information, administrators and developers on their technical duties), and completion stays above {completion_target}. |
 | Parameters (illustrative) | onboarding_training_deadline = 30 days; training_interval = 12 months; completion_target = 95% |
 | Control behaviour | PREVENTIVE |
 | Domain group | People |
