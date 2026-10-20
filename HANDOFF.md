@@ -14,7 +14,7 @@ This file holds current state and the queue, and nothing else. The rule is in th
 **Where the last session stopped (2026-10-19). Do this first.**
 1. **PRD 0001 · M5 Internal audit is complete** with #158 (PR #177). Close the GitHub milestone once #158 is closed.
 2. **M4:** #149 is done (PR #178). The product owner loaded CSA CCM 4.1.1 into production as a Draft on 2026-10-14; CD and the seed don't run the loader, so a later content file needs the same manual load. #148 waits on the product owner (`ready-for-human`) until the source documents are attached. Nothing else in PRD 0001 is cut into issues.
-   CMMC Level 1 (#209) is done (PR #213): a Draft content file, to be loaded into production by hand like CSA CCM. CMMC Level 2 (#210) is done (PR #216), kept separate from Level 1 (own Supplementary Control `CMMC-L2-SUP-01`, no dependency on Level 1) and loaded by hand the same way.
+   CMMC Level 1 (#209) is done (PR #213): a Draft content file, to be loaded into production by hand like CSA CCM. CMMC Level 2 (#210) is done (PR #216), kept separate from Level 1 (own Supplementary Control `CMMC-L2-SUP-01`, no dependency on Level 1) and loaded by hand the same way. #217 (PR #218) added five more Level 2 Supplementary Controls (`CMMC-L2-SUP-02`–`06`); reload the file after it merges.
    DEF STAN 05-138 Issue 4 Levels 0–3 (#211) is done (PR #215): four Draft content files, to be loaded into production by hand in level order (Level 0 first).
 3. **Design:** #181 moved the app to the Register design system (PR #182). Follow-ups: list components to RegisterRow, filter panels to FilterFields, the header tab row. New code uses the `--rg-*` tokens and `rg-*` Tailwind colours, not `--ems-*`.
    Design proposals are listed at `/design` with thumbs-up voting (#186). Each new proposal adds its entry to `public/design/proposals.js` (rule in `AGENTS.md`).
@@ -34,6 +34,7 @@ PRD 0001 · M4 Content & SoA:
 8. #209 CMMC Level 1 content as a Framework import file. **Done: PR #213.**
 9. #210 CMMC Level 2 content as a Framework import file. **Done: PR #216.**
 10. #211 DEF STAN 05-138 Levels 0-3 content as Framework import files. **Done: PR #215.**
+11. #217 CMMC Level 2: Supplementary Controls for five uncovered practices. **Done: PR #218.**
 
 PRD 0001 · M5 Internal audit:
 1. #147 Add the Internal Auditor role. **Done: PR #168.**
