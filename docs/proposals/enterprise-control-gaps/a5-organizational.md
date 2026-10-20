@@ -229,7 +229,7 @@ Why each Annex A item maps here:
 
 | Field | Value |
 | --- | --- |
-| Statement | Every in-scope cloud service is acquired only after a security review, has a recorded split of security responsibilities between provider and customer for each applicable control, confirmed data processing and storage locations in its agreement, is configured and continuously checked against the cloud security baseline by posture management, and has an exit plan that is reviewed at least every {exit_review_period}. |
+| Statement | Every in-scope cloud service is acquired only after a security review, has a recorded split of security responsibilities between provider and customer for each applicable control, confirmed data processing and storage locations in its agreement, is configured and continuously checked against the cloud security baseline by posture management, and has an exit plan that is reviewed at least every {exit_review_period}; when a service is exited, data export, revocation of access and provider-side deletion are completed and recorded. |
 | Parameters (illustrative) | exit_review_period = 24 months, and at contract renewal |
 | Control behaviour | PROACTIVE |
 | Domain group | Supplier and provider assurance |

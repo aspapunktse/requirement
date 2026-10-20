@@ -110,7 +110,7 @@ Why each Annex A item maps here:
 
 | Field | Value |
 | --- | --- |
-| Statement | Development, test and production environments of in-scope systems are separated into different subscriptions, accounts or networks with no network path from non-production into production, production credentials are not stored in non-production, changes reach production only through the pipeline's promotion step, and standing access to production for developers is not granted. |
+| Statement | Development, test and production environments of in-scope systems are separated into different subscriptions, accounts or networks with no general or uncontrolled network path from non-production into production (only a narrowly scoped, authenticated deployment channel for the pipeline), production credentials are not stored in non-production, changes reach production only through the pipeline's promotion step, and standing access to production for developers is not granted. |
 | Parameters (illustrative) | none |
 | Control behaviour | PREVENTIVE |
 | Domain group | Secure development |
@@ -308,7 +308,7 @@ Why each Annex A item maps here:
 | Field | Value |
 | --- | --- |
 | Statement today | Only software and machine images from the approved catalog {approved_catalog} run on in-scope systems. |
-| Proposed statement | Only software and machine images from the approved catalog {approved_catalog} run on in-scope systems, and utility programs that can override system or application controls are not installed by default, can be run only by {privileged_utility_groups} with separate elevated credentials, and every use is logged. |
+| Proposed statement | Only software and machine images from the approved catalog {approved_catalog} run on in-scope systems, and utility programs that can override system or application controls are restricted: nonessential ones are not installed by default, and both those and the utilities built into the operating system can be run only by {privileged_utility_groups} with separate elevated credentials, with every use logged. |
 | Added parameters (illustrative) | privileged_utility_groups = named administrator groups per platform |
 | Added Annex A | A.8.18 |
 | NIST SP 800-53 Rev. 5 | adds AC-6 (to verify: AC-6(10)) |

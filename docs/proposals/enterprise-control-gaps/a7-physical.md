@@ -238,7 +238,7 @@ Why each Annex A item maps here:
 
 | Field | Value |
 | --- | --- |
-| Statement | Removable storage media are blocked on managed devices except for approved media, which are recorded with an owner, encrypted, stored according to their classification and transported only by the approved means {media_transport_rules}; every storage medium and device holding in-scope information is sanitised to {sanitisation_standard} with a recorded certificate before disposal or re-use. |
+| Statement | Every storage medium holding in-scope information, fixed (internal drives, storage arrays) or removable, is recorded with an owner, encrypted, stored according to its classification and transported only by the approved means {media_transport_rules}; removable storage media are blocked on managed devices except for approved media; and every storage medium and device holding in-scope information is sanitised to {sanitisation_standard} with a recorded certificate before disposal or re-use. |
 | Parameters (illustrative) | media_transport_rules = tracked courier or hand carry, encrypted, logged; sanitisation_standard = NIST SP 800-88 Rev. 1 (clear, purge or destroy according to classification) |
 | Control behaviour | PREVENTIVE |
 | Domain group | Physical and media |
