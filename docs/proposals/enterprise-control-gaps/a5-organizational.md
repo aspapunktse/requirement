@@ -115,8 +115,8 @@ Why each Annex A item maps here:
 
 | Field | Value |
 | --- | --- |
-| Statement | Threat intelligence from the approved sources, including the special interest groups and authorities listed in {ti_sources}, is assessed at least every {ti_review_interval}, and each relevant item is turned into a detection, vulnerability or risk action within {ti_action_sla}. |
-| Parameters (illustrative) | ti_sources = national CSIRT, sector ISAC, vendor advisories, commercial feed; ti_review_interval = 1 week; ti_action_sla = 10 working days |
+| Statement | The organization maintains active contact with the special interest groups, forums and authorities listed in {ti_sources} (current membership or a named contact, confirmed at least every {contact_review_period}), threat intelligence from these and the other approved sources is assessed at least every {ti_review_interval}, and each relevant item is turned into a detection, vulnerability or risk action within {ti_action_sla}. |
+| Parameters (illustrative) | ti_sources = national CSIRT, sector ISAC, vendor advisories, commercial feed; contact_review_period = 12 months; ti_review_interval = 1 week; ti_action_sla = 10 working days |
 | Control behaviour | PROACTIVE |
 | Domain group | Logging and detection |
 | Owner role | Head of security operations |
@@ -340,7 +340,7 @@ Why each Annex A item maps here:
 
 | Field | Value |
 | --- | --- |
-| Statement | Records in in-scope systems are kept for the period set in the retention schedule {retention_schedule} and protected during that period against loss, unauthorized change and deletion, and against access beyond what their classification allows; they are deleted, including from backups, within {deletion_sla} after the period ends, or on a valid deletion request once no retention requirement or legal hold applies; and other in-scope information (exports, caches, uploads, temporary files) is deleted when no longer needed and at the latest after {temporary_data_max_age}. |
+| Statement | Records, whether held in in-scope systems or on paper and in physical archives, are kept for the period set in the retention schedule {retention_schedule} and protected during that period against loss, unauthorized change and deletion, and against access beyond what their classification allows; they are deleted or destroyed, including from backups, within {deletion_sla} after the period ends, or on a valid deletion request once no retention requirement or legal hold applies; and other in-scope information (exports, caches, uploads, temporary files) is deleted when no longer needed and at the latest after {temporary_data_max_age}. |
 | Parameters (illustrative) | retention_schedule = the approved records retention schedule; deletion_sla = 30 days; temporary_data_max_age = 90 days |
 | Control behaviour | CORRECTIVE |
 | Domain group | Data protection and AI |

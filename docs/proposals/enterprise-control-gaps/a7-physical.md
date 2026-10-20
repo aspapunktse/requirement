@@ -61,8 +61,8 @@ Why each Annex A item maps here:
 
 | Field | Value |
 | --- | --- |
-| Statement | Sites that house in-scope systems or information are monitored for unauthorized entry by {monitoring_mechanism}, and alarms are responded to within {alarm_response_time}. |
-| Parameters (illustrative) | monitoring_mechanism = intrusion alarm and CCTV at entry points and secure areas; alarm_response_time = 15 minutes |
+| Statement | Sites that house in-scope systems or information are monitored continuously for unauthorized entry by {monitoring_mechanism}, every outage or gap in monitoring coverage is recorded and fixed within {monitoring_gap_sla}, and alarms are responded to within {alarm_response_time}. |
+| Parameters (illustrative) | monitoring_mechanism = intrusion alarm and CCTV at entry points and secure areas, monitored 24/7; monitoring_gap_sla = 24 hours; alarm_response_time = 15 minutes |
 | Control behaviour | DETECTIVE |
 | Domain group | Physical and media |
 | Owner role | Head of facilities |
