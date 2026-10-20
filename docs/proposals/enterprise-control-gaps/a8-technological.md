@@ -190,7 +190,7 @@ Why each Annex A item maps here:
 
 - **A.8.6 Capacity management.** Capacity management.
 
-**Rationale.** Considered for CTL-CP-003, but capacity is a continuous monitoring control on every in-scope system, while continuity is scoped to the high-availability systems and tested by exercise.
+**Rationale.** Considered for CTL-CP-005 (redundancy), but capacity is a continuous monitoring control on every in-scope system, while redundancy is scoped to the high-availability systems and tested by failover.
 
 ### CTL-CP-005
 
