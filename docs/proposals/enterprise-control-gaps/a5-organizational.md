@@ -70,7 +70,7 @@ Why each Annex A item maps here:
 
 | Field | Value |
 | --- | --- |
-| Statement | Every information security role in the role catalog, including the owner of every Enterprise Control and every in-scope System, is assigned to a named person who has been told of the role, and the catalog is reviewed at least every {role_review_period} and when people leave. |
+| Statement | Every information security role in the role catalog, including the owner of every Enterprise Control and every in-scope System, has its responsibilities documented and is assigned to a named person to whom those responsibilities have been communicated, and the catalog is reviewed at least every {role_review_period} and when people leave. |
 | Parameters (illustrative) | role_review_period = 12 months |
 | Control behaviour | PREVENTIVE |
 | Domain group | Governance and assurance |
@@ -92,7 +92,7 @@ Why each Annex A item maps here:
 
 | Field | Value |
 | --- | --- |
-| Statement | Access to in-scope systems is granted only through roles in an approved role model based on least privilege and need-to-know, and the conflicting role combinations listed in {sod_matrix} are blocked at assignment or detected within {sod_detection_period}. |
+| Statement | Access to in-scope systems is granted only through roles in an approved role model based on least privilege and need-to-know, and the conflicting duties listed in {sod_matrix}, both role combinations in systems and steps of business workflows such as raising and approving a payment, are blocked by the system or workflow or detected within {sod_detection_period}. |
 | Parameters (illustrative) | sod_matrix = the approved segregation-of-duties matrix; sod_detection_period = 7 days |
 | Control behaviour | PREVENTIVE |
 | Domain group | Identity and access |
@@ -138,7 +138,7 @@ Why each Annex A item maps here:
 
 | Field | Value |
 | --- | --- |
-| Statement | Every project with information security implications (a new or changed system, but also process, facility, supplier and organizational changes) records its security requirements and a risk assessment at start and passes a security gate before go-live or completion in which every requirement is met or has an approved exception; application changes delivered through the regular backlog or release outside a project record their security requirements as acceptance criteria, which are checked before release. |
+| Statement | Every project with information security implications (a new or changed system, but also process, facility, supplier and organizational changes) records its security requirements and a risk assessment at start and passes a security gate before go-live or completion in which every requirement is met or has an approved exception; outside projects, every application acquisition records its security requirements and passes the same gate before use, and application changes delivered through the regular backlog or release record their security requirements as acceptance criteria, which are checked before release. |
 | Parameters (illustrative) | none |
 | Control behaviour | PREVENTIVE |
 | Domain group | Secure development |
