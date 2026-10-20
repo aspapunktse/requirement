@@ -46,7 +46,7 @@ This is a proposal for review by the product owner, not a change to the app, the
 
 | Field | Value |
 | --- | --- |
-| Statement | The information security policy, the topic-specific policies (including acceptable use) and the operating procedures for in-scope systems are approved by {policy_approver}, published to the personnel they apply to, and reviewed at least every {policy_review_period} and after a significant change. |
+| Statement | The information security policy, the topic-specific policies (including acceptable use) and the operating procedures for security-relevant activities, both for in-scope systems and organization-wide (for example screening, physical entry and evidence handling), are approved by {policy_approver}, published to the personnel they apply to, and reviewed at least every {policy_review_period} and after a significant change. |
 | Parameters (illustrative) | policy_approver = top management for the policy, the CISO for topic-specific policies, the System owner for procedures; policy_review_period = 12 months |
 | Control behaviour | PREVENTIVE |
 | Domain group | Governance and assurance |
@@ -296,7 +296,7 @@ Why each Annex A item maps here:
 
 | Field | Value |
 | --- | --- |
-| Statement | The legal, statutory, regulatory and contractual requirements that apply to in-scope systems are recorded in the obligations register with the approach to meet each one, and the register is reviewed at least every {obligations_review_period} and when a law, regulation or contract changes. |
+| Statement | The legal, statutory, regulatory and contractual information security requirements that apply to the organization and to its in-scope systems are recorded in the obligations register with the approach to meet each one, and the register is reviewed at least every {obligations_review_period} and when a law, regulation or contract changes. |
 | Parameters (illustrative) | obligations_review_period = 12 months |
 | Control behaviour | DETECTIVE |
 | Domain group | Governance and assurance |

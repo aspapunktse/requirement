@@ -14,7 +14,7 @@ This is a proposal for review by the product owner, not a change to the app, the
 
 | Annex A item | Mapped to | Decision | Why |
 | --- | --- | --- | --- |
-| A.6.1 Screening | [CTL-PS-001](#ctl-ps-001) | New Enterprise Control | Screening, tested at the joiner step before an account is created. |
+| A.6.1 Screening | [CTL-PS-001](#ctl-ps-001) | New Enterprise Control | Screening, completed before employment or engagement starts and tested against the start date in the HR record. |
 | A.6.2 Terms and conditions of employment | [CTL-PS-001](#ctl-ps-001) | New Enterprise Control | Terms and conditions are signed at the same step and checked against the same HR record. |
 | A.6.3 IS awareness, education and training | [CTL-AT-001](#ctl-at-001) | New Enterprise Control | Awareness, education and training: measurable through completion records. |
 | A.6.4 Disciplinary process | [CTL-PS-003](#ctl-ps-003) | New Enterprise Control | Disciplinary process: tested by sampling confirmed violations (from incidents under CTL-IR-001 and nonconformities under CTL-CA-001) for a recorded decision. |
@@ -30,7 +30,7 @@ This is a proposal for review by the product owner, not a change to the app, the
 
 | Field | Value |
 | --- | --- |
-| Statement | Before access is granted, every employee and contractor has been screened to the level {screening_level} required for their role and has signed terms of employment or engagement that state their information security responsibilities and the acceptable use rules. |
+| Statement | Before employment or engagement starts, and so before any access is granted, every employee and contractor has been screened to the level {screening_level} required for their role and has signed terms of employment or engagement that state their information security responsibilities and the acceptable use rules. |
 | Parameters (illustrative) | screening_level = identity, right to work and references for all; criminal record and credit check for roles marked sensitive |
 | Control behaviour | PREVENTIVE |
 | Domain group | People |
@@ -42,10 +42,10 @@ This is a proposal for review by the product owner, not a change to the app, the
 
 Why each Annex A item maps here:
 
-- **A.6.1 Screening.** Screening, tested at the joiner step before an account is created.
+- **A.6.1 Screening.** Screening, completed before employment or engagement starts and tested against the start date in the HR record.
 - **A.6.2 Terms and conditions of employment.** Terms and conditions are signed at the same step and checked against the same HR record.
 
-**Rationale.** Both items are evidenced by one record per person at one moment: before the first account is created. The joiner process of CTL-AC-004 is the natural test point (no account without a completed HR record). Confidentiality agreements (A.6.6) and the disciplinary process (A.6.4) were first grouped here too; after review they got their own controls (CTL-PS-002, CTL-PS-003), because both need tests after onboarding that this joiner gate cannot give.
+**Rationale.** Both items are evidenced by one record per person at one moment: before the start date. The HR joiner step is the test point; the joiner process of CTL-AC-004 adds a second check (no account without a completed HR record), which also catches late screening for staff who never get an account only through the start-date check. Confidentiality agreements (A.6.6) and the disciplinary process (A.6.4) were first grouped here too; after review they got their own controls (CTL-PS-002, CTL-PS-003), because both need tests after onboarding that this joiner gate cannot give.
 
 ### CTL-PS-002
 

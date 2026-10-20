@@ -128,7 +128,7 @@ Why each Annex A item maps here:
 
 | Field | Value |
 | --- | --- |
-| Statement | Every piece of in-scope equipment, wherever it is located, is installed in a locked rack, cabinet or room, away from public areas and visitor routes and out of view from outside, with environmental sensors where hazards exist, and siting is checked at the site inspection at least every {siting_inspection_interval}. |
+| Statement | Fixed in-scope equipment (servers, network and storage equipment, printers handling in-scope information), wherever it is located, is installed in a locked rack, cabinet or room, away from public areas and visitor routes and out of view from outside, with environmental sensors where hazards exist; movable and end-user equipment is protected according to its risk (cable locks or locked storage when unattended, screens out of public view); and siting is checked at the site inspection at least every {siting_inspection_interval}. |
 | Parameters (illustrative) | siting_inspection_interval = 12 months, and when equipment is moved or added |
 | Control behaviour | PREVENTIVE |
 | Domain group | Physical and media |
