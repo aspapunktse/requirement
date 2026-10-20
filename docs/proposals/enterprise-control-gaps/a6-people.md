@@ -97,8 +97,8 @@ Why each Annex A item maps here:
 
 | Field | Value |
 | --- | --- |
-| Statement | All personnel and relevant external parties (contractors, temporary staff) complete security awareness training within {onboarding_training_deadline} of joining and at least every {training_interval}, with content for their role (for example reception and facilities staff on visitors and physical information, administrators and developers on their technical duties), and completion stays above {completion_target}. |
-| Parameters (illustrative) | onboarding_training_deadline = 30 days; training_interval = 12 months; completion_target = 95% |
+| Statement | All personnel and relevant external parties (contractors, temporary staff) complete security awareness training within {onboarding_training_deadline} of joining and at least every {training_interval}, with content for their role (for example reception and facilities staff on visitors and physical information, administrators and developers on their technical duties); every person overdue is a failure that is followed up with the person and their manager. |
+| Parameters (illustrative) | onboarding_training_deadline = 30 days; training_interval = 12 months |
 | Control behaviour | PREVENTIVE |
 | Domain group | People |
 | Owner role | Chief information security officer |

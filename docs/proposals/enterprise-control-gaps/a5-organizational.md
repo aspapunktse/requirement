@@ -183,8 +183,8 @@ Why each Annex A item maps here:
 
 | Field | Value |
 | --- | --- |
-| Statement | Every in-scope system and information repository has a classification under the approved scheme {classification_scheme}, information in it is labelled by {labelling_mechanism} with unlabelled content below {unlabelled_tolerance}, and any item found by content inspection to fall within {dlp_scope} without a matching label counts as a failure, not as part of the tolerance. |
-| Parameters (illustrative) | classification_scheme = the four-level scheme; labelling_mechanism = sensitivity labels (default label applied automatically in Microsoft 365); unlabelled_tolerance = 5% of new documents, for information below the DLP scope only; dlp_scope = as in CTL-SC-005 (Confidential and above) |
+| Statement | Every in-scope system and information repository has a classification under the approved scheme {classification_scheme}, assigned against the scheme's criteria (legal requirements, value, sensitivity) and confirmed by the information owner at least every {classification_review_period}; information in it is labelled by {labelling_mechanism} with unlabelled content below {unlabelled_tolerance}; and any item found by content inspection to fall within {dlp_scope} without a matching label counts as a failure, not as part of the tolerance. |
+| Parameters (illustrative) | classification_scheme = the four-level scheme; classification_review_period = 12 months, and when the content or use changes; labelling_mechanism = sensitivity labels (default label applied automatically in Microsoft 365); unlabelled_tolerance = 5% of new documents, for information below the DLP scope only; dlp_scope = as in CTL-SC-005 (Confidential and above) |
 | Control behaviour | PREVENTIVE |
 | Domain group | Asset and configuration |
 | Owner role | Head of information management (role to define) |
@@ -318,7 +318,7 @@ Why each Annex A item maps here:
 
 | Field | Value |
 | --- | --- |
-| Statement | Software, open-source components and third-party content used in in-scope systems are acquired from legitimate sources and used within their licence terms, with licence use reconciled with entitlements at least every {licence_reconciliation_period} and open-source licence obligations checked in the build pipeline; and the organization's own intellectual property is recorded and protected according to its type: confidential IP (source code, designs, trade secrets) by access restriction and confidentiality agreements, and registered IP (trademarks, patents) by maintained registrations and renewals, usage rules and an infringement response. |
+| Statement | Software, open-source components and third-party content used in in-scope systems are acquired from legitimate sources and used within their licence terms, with licence use reconciled with entitlements at least every {licence_reconciliation_period} and open-source licence obligations checked in the build pipeline; and the organization's own intellectual property is recorded and protected according to its type: confidential IP (source code, designs, trade secrets) by access restriction and confidentiality agreements; registered IP (trademarks, patents) by maintained registrations and renewals and usage rules; published, unregistered material (documentation, website content, open-source releases) by copyright notices, licence terms and attribution rules; and suspected infringement of any own IP is handled through a defined response. |
 | Parameters (illustrative) | licence_reconciliation_period = 12 months |
 | Control behaviour | DETECTIVE |
 | Domain group | Asset and configuration |
