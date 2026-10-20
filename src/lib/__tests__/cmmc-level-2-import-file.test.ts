@@ -212,6 +212,13 @@ describe("CMMC Level 2 2.0 import file", () => {
     }
   });
 
+  it("puts each practice's qualifying conditions in the question an assessor answers", () => {
+    const question = (code: string) => data.supplementaryControls.find((control) => control.code === code)?.question ?? "";
+    expect(question("CMMC-L2-SUP-02")).toMatch(/no human logon interface/);
+    expect(question("CMMC-L2-SUP-04")).toMatch(/Dedicated video conferencing systems .* are excluded/);
+    expect(question("CMMC-L2-SUP-06")).toMatch(/approved as not applicable by the designated authority/);
+  });
+
   it("counts 43 practices as Covered (at least one FULL mapping) and 67 as Coverage Gaps", () => {
     const covered = data.requirements.filter((requirement) => requirement.mappings.some((m) => m.coverage === "FULL"));
     expect(covered).toHaveLength(43);

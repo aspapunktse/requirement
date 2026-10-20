@@ -28,11 +28,11 @@
     {
       "code": "CMMC-L2-SUP-02",
       "title": "System use notification for CUI",
-      "description": "Identify the privacy and security notices that the applicable Controlled Unclassified Information (CUI) rules require, make them consistent and tied to the specific CUI category, and display them to users, for example as a warning banner before log-on or as a posted notice where a banner is not possible",
+      "description": "Identify the privacy and security notices that the applicable Controlled Unclassified Information (CUI) rules require, make them consistent and tied to the specific CUI category, and display them to users, for example as a warning banner before log-on or as a posted notice where a banner is not possible. Notices are needed only where people log on; a system with no human logon interface needs none",
       "category": "CMMC Level 2 obligations",
       "mandatory": true,
       "applicability": "PER_SYSTEM",
-      "question": "For this system that processes, stores or transmits Controlled Unclassified Information (CUI): are the privacy and security notices required by the applicable CUI rules identified, consistent and associated with the CUI category, and are they displayed to users?",
+      "question": "For this system that processes, stores or transmits Controlled Unclassified Information (CUI): if people log on to it, are the privacy and security notices required by the applicable CUI rules identified, consistent and associated with the CUI category, and are they displayed to users? A system with no human logon interface meets this without a notice.",
       "intent": "Users of a system that holds CUI need to be told, before they use it, that it is monitored, that use is limited to authorized purposes and that CUI rules apply. A general log-on banner does not by itself carry the notices the CUI rules specify, or show that legal counsel approved their wording.",
       "examples": [
         "Log-on banner on each system with human log-on interfaces, with wording taken from the applicable CUI rules and approved by legal counsel",
@@ -49,7 +49,7 @@
       "mandatory": true,
       "applicability": "PER_SYSTEM",
       "question": "For this system: wherever cryptography protects the confidentiality of Controlled Unclassified Information (CUI), in transit or at rest, is it FIPS-validated and is the validated module and its certificate recorded?",
-      "intent": "Strong algorithms are not enough for CUI: the cryptographic module has to have been validated under FIPS. A product that merely implements an approved algorithm, or whose validation has lapsed or does not cover the configuration in use, does not meet the practice.",
+      "intent": "Strong algorithms are not enough for CUI: the cryptographic module has to have been validated under FIPS. A product that merely implements an approved algorithm, or whose validation was revoked or does not cover the configuration in use, does not meet the practice. A module whose certificate has moved to the CMVP Historical list is not revoked; keeping it in an existing system needs a documented risk decision.",
       "examples": [
         "List of the cryptographic modules protecting CUI, with their FIPS validation certificate numbers and status",
         "Operating systems, VPNs and storage encryption run in their FIPS-validated mode, with the configuration setting recorded",
@@ -64,7 +64,7 @@
       "category": "CMMC Level 2 obligations",
       "mandatory": true,
       "applicability": "PER_SYSTEM",
-      "question": "For the collaborative computing devices connected to this system: are they identified, is remote activation prohibited, and does each device indicate to users present that it is in use?",
+      "question": "For the collaborative computing devices connected to this system: are they identified, is remote activation prohibited, and does each device indicate to users present that it is in use? Dedicated video conferencing systems that are activated only by a participant calling or connecting are excluded.",
       "intent": "A conference-room camera, microphone or whiteboard that can be switched on from elsewhere can capture CUI without anyone present knowing. Dedicated video conferencing systems that are activated only by a participant calling or connecting are outside the practice.",
       "examples": [
         "Inventory of cameras, microphones, smart speakers and networked whiteboards, with their location",
@@ -91,11 +91,11 @@
     {
       "code": "CMMC-L2-SUP-06",
       "title": "System security plan for systems handling CUI",
-      "description": "Develop and document a system security plan for each system that handles Controlled Unclassified Information (CUI), describing its boundary, its environment of operation, how each security requirement is implemented, which requirements are approved as not applicable, and its relationships with and connections to other systems, and update it at a defined frequency",
+      "description": "Develop and document a system security plan for each system that handles Controlled Unclassified Information (CUI), describing its boundary, its environment of operation, how each security requirement is implemented, which requirements the designated authority has approved as not applicable, and its relationships with and connections to other systems, and update it at a defined frequency",
       "category": "CMMC Level 2 obligations",
       "mandatory": true,
       "applicability": "PER_SYSTEM",
-      "question": "For this system that handles Controlled Unclassified Information (CUI): is there a system security plan that describes the boundary, environment of operation, how each requirement is implemented, requirements approved as not applicable, and connections to other systems, and is it updated at a defined frequency?",
+      "question": "For this system that handles Controlled Unclassified Information (CUI): is there a system security plan that describes the boundary, environment of operation, how each requirement is implemented, requirements approved as not applicable by the designated authority, and connections to other systems, and is it updated at a defined frequency?",
       "intent": "The plan is the document an assessor reads first and the record of what the CUI system is. The ISMS scope and the Statement of Applicability describe parts of it, but neither defines a system boundary, its environment and its connections, or states an update frequency.",
       "examples": [
         "System security plan per CUI system, with boundary diagram and asset inventory",
