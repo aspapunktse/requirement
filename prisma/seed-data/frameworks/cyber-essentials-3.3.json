@@ -1,0 +1,1021 @@
+{
+  "framework": {
+    "name": "Cyber Essentials",
+    "version": "3.3",
+    "description": "Cyber Essentials: Requirements for IT Infrastructure v3.3 (UK National Cyber Security Centre, April 2026). The scoping rules of section D and the requirements of the five technical control themes in section E. Codes: CE-SC (Scope), CE-FW (Firewalls), CE-CFG (Secure Configuration), CE-SUM (Security Update Management), CE-UAC (User Access Control), CE-MP (Malware Protection), numbered in source order; CE-SUP are Supplementary Controls that carry the Cyber Essentials thresholds and the either/or malware protection options; where the source offers alternatives, one Requirement holds them all and the System answers for the option it uses. Where the source phrases a tested measure as 'should', the text keeps 'should' and says why it is included. Backup (section C), asset management and zero trust guidance (section F), statements the source marks as recommended or advised, and the passwordless authentication and MFA factor guidance impose no requirement and are not listed. Material is UK Crown Copyright and is quoted.",
+    "licensing": "QUOTABLE",
+    "strictComplianceRequired": true
+  },
+  "supplementaryControls": [
+    {
+      "code": "CE-SUP-01",
+      "title": "Fix critical and high-risk vulnerabilities within 14 days",
+      "description": "Apply vendor updates that fix critical or high-risk vulnerabilities (vendor rating, CVSS v3 base score of 7 or above, or no severity given by the vendor) within 14 days of release, including bundled updates where any issue is critical or high",
+      "category": "Cyber Essentials thresholds",
+      "mandatory": true,
+      "applicability": "PER_SYSTEM",
+      "question": "For this system: are updates that fix critical or high-risk vulnerabilities (vendor critical or high, CVSS v3 of 7 or above, or no severity stated) applied within 14 days of release, including updates that bundle such an issue with lower-severity ones?",
+      "intent": "ISO/IEC 27001 asks for technical vulnerabilities to be evaluated and addressed but sets no deadline. Cyber Essentials sets 14 days as the longest reasonable period, so a Compliance Manager needs a concrete deadline to assess.",
+      "examples": [
+        "Patch report showing the release date and the install date of each critical or high update",
+        "Automatic updates enabled, with a monthly check of devices that missed them",
+        "Process that treats a bundled update as critical if any of its fixes is critical or high",
+        "Record of the CVSS v3 score or vendor rating used for each update"
+      ]
+    },
+    {
+      "code": "CE-SUP-02",
+      "title": "Device unlocking credentials: length and brute-force protection",
+      "description": "A credential used only to unlock a device (PIN or password) has at least 6 characters, and the unlock method is protected against brute-force attacks by throttling (no more than 10 guesses in 5 minutes) or by locking the device after no more than 10 unsuccessful attempts, or by the vendor's default setting where neither can be configured. Multi-factor authentication is not an alternative here",
+      "category": "Cyber Essentials thresholds",
+      "mandatory": true,
+      "applicability": "PER_SYSTEM",
+      "question": "For the devices of this system that need a user's physical presence to unlock: is a credential (biometric, password or PIN) required, is a credential used only to unlock at least 6 characters, and is it protected by throttling to no more than 10 guesses in 5 minutes or by locking after no more than 10 unsuccessful attempts (or the vendor's default where neither can be configured)? If the system has no such device, answer Yes: Not Applicable does not count as Fulfilled on this strict Framework.",
+      "intent": "ISO/IEC 27001 asks for secure authentication without figures. Cyber Essentials fixes the minimum length for an unlock credential and the attempt limits, and a Compliance Manager needs these thresholds to assess.",
+      "examples": [
+        "Device management profile with a minimum unlock PIN length of 6",
+        "Lockout after 10 failed attempts, or an escalating delay between attempts",
+        "Vendor documentation where throttling or lockout cannot be configured, with the default setting noted"
+      ]
+    },
+    {
+      "code": "CE-SUP-03",
+      "title": "Multi-factor authentication: password element of at least 8 characters",
+      "description": "Where multi-factor authentication includes a password, the password element has at least 8 characters, with no maximum length restriction",
+      "category": "Cyber Essentials thresholds",
+      "mandatory": true,
+      "applicability": "PER_SYSTEM",
+      "question": "For this system: where multi-factor authentication includes a password, does the password element have a minimum length of at least 8 characters, with no maximum length restriction? If the system uses no MFA with a password element (for example passwordless only), answer Yes: Not Applicable does not count as Fulfilled on this strict Framework.",
+      "intent": "ISO/IEC 27001 asks for secure authentication without figures. Cyber Essentials sets 8 characters for the password element of MFA, so a Compliance Manager needs this threshold to assess.",
+      "examples": [
+        "Identity provider setting showing a minimum of 8 characters and no maximum for the password used with MFA",
+        "Policy stating the password element of MFA follows the 8-character minimum"
+      ]
+    },
+    {
+      "code": "CE-SUP-04",
+      "title": "Password-based authentication: brute-force protection and password quality",
+      "description": "Where a password is used to authenticate, it is protected against brute-force guessing by multi-factor authentication, throttling (no more than 10 guesses in 5 minutes) or lockout after no more than 10 unsuccessful attempts, and its quality is managed technically by multi-factor authentication, a minimum length of at least 12 characters, or a minimum of at least 8 characters with a deny list of common passwords, with no maximum length",
+      "category": "Cyber Essentials thresholds",
+      "mandatory": true,
+      "applicability": "PER_SYSTEM",
+      "question": "For this system: where a password is used to authenticate, is it protected against brute-force guessing by MFA, by throttling to no more than 10 guesses in 5 minutes, or by lockout after no more than 10 unsuccessful attempts; and is its quality managed by MFA, a minimum of 12 characters, or a minimum of 8 characters with a deny list of common passwords, with no maximum length? If the system uses no passwords to authenticate (for example passwordless only), answer Yes: Not Applicable does not count as Fulfilled on this strict Framework.",
+      "intent": "ISO/IEC 27001 asks for secure authentication and good-quality authentication information without figures. Cyber Essentials fixes the minimum lengths and attempt limits, and a Compliance Manager needs these thresholds to assess.",
+      "examples": [
+        "Password policy or identity provider setting showing a minimum length of 12 (or 8 with a deny list) and no maximum",
+        "Conditional access or MFA policy showing MFA on the account",
+        "Account lockout or throttling setting showing no more than 10 attempts",
+        "Banned-password list enabled in the identity provider"
+      ]
+    },
+    {
+      "code": "CE-SUP-05",
+      "title": "Malware protection: anti-malware or application allow-listing configured as Cyber Essentials requires",
+      "description": "Every in-scope device uses at least one of anti-malware software or application allow listing, active and kept up to date per the vendor. Anti-malware software prevents malware from running, prevents execution of malicious code and prevents connections to malicious websites. Application allow listing allows only approved, code-signed applications, with approval before deployment, a current list of approved applications, and no installation of unsigned applications or applications with an invalid signature",
+      "category": "Cyber Essentials thresholds",
+      "mandatory": true,
+      "applicability": "PER_SYSTEM",
+      "question": "For this system: is each in-scope device protected by anti-malware software or by application allow listing, active and kept up to date per the vendor? If anti-malware software is used, is it configured to prevent malware from running, prevent execution of malicious code and prevent connections to malicious websites? If application allow listing is used, are only approved, code-signed applications allowed to run, approved before deployment, on a current approved list, with users unable to install unsigned applications or applications with an invalid signature? Answer for whichever option the system uses.",
+      "intent": "ISO/IEC 27001 asks for protection against malware without naming the two Cyber Essentials options or their configuration. The options are alternatives, so one Control lets a System answer for the option it uses.",
+      "examples": [
+        "Endpoint protection console showing real-time protection, automatic updates and web protection on",
+        "Allow-listing policy (for example application control) restricting execution to signed, approved applications",
+        "Current list of approved applications with the approval record",
+        "Device management setting that blocks installation of unsigned applications"
+      ]
+    }
+  ],
+  "requirements": [
+    {
+      "code": "CE-SC-01",
+      "section": "Scope",
+      "title": "Define the scope boundary",
+      "text": "The assessment and certification should cover the whole of the IT infrastructure used to carry out the organisation's business or, if necessary, a well-defined and separately managed sub-set. Either way, the scope boundary must be clearly defined: the business unit managing it, the network boundary and the physical location. A sub-set may define what is in scope or what is out of scope. (Section D, Cyber Essentials scope overview.)",
+      "mappings": [
+        {
+          "control": "ISMS-4.3",
+          "coverage": "PARTIAL",
+          "rationale": "Defining the boundaries and applicability of the ISMS is the same kind of act as defining the Cyber Essentials scope boundary; it does not require the three named elements (business unit, network boundary, physical location)."
+        },
+        {
+          "control": "A.5.9",
+          "coverage": "PARTIAL",
+          "rationale": "An inventory of information and other assets is what the boundary is drawn around; the control does not require the boundary itself."
+        }
+      ]
+    },
+    {
+      "code": "CE-SC-02",
+      "section": "Scope",
+      "title": "Agree the scope with the Certification Body",
+      "text": "The scope must be agreed with the Certification Body before the assessment begins. (Section D, Cyber Essentials scope overview.)",
+      "mappings": [
+        {
+          "control": "ISMS-4.3",
+          "coverage": "PARTIAL",
+          "rationale": "The ISMS scope is documented and open to the certification body's review, but ISO 27001 does not require agreeing it with the body before the assessment starts."
+        }
+      ]
+    },
+    {
+      "code": "CE-SC-03",
+      "section": "Scope",
+      "title": "Justify a partial scope",
+      "text": "Where parts of the organisation's infrastructure are excluded from scope, the reason for a partial scope must be justified to the assessor. Choosing a scope that includes the whole IT infrastructure is recommended but not required. (Section D, Cyber Essentials scope overview.)",
+      "mappings": [
+        {
+          "control": "ISMS-4.3",
+          "coverage": "PARTIAL",
+          "rationale": "Requires the scope and its boundaries to be determined and documented; it does not require every exclusion to be justified, which the Statement of Applicability does for Controls rather than for assets."
+        }
+      ]
+    },
+    {
+      "code": "CE-SC-04",
+      "section": "Scope",
+      "title": "Apply the requirements to internet-facing devices and software",
+      "text": "The requirements apply to all devices and software in scope that can accept incoming network connections from internet-connected devices, can establish outbound connections to devices via the internet, or control the flow of data between any of those devices and the internet. (Section D, Cyber Essentials scope overview.)",
+      "mappings": [
+        {
+          "control": "A.5.9",
+          "coverage": "PARTIAL",
+          "rationale": "Knowing which devices and software exist and how they connect is needed to apply the requirements to the right ones; the control does not define the internet-facing criteria."
+        },
+        {
+          "control": "A.8.20",
+          "coverage": "PARTIAL",
+          "rationale": "Network security covers the connections to the internet that decide which devices fall under this criterion, but it does not set the applicability rule."
+        }
+      ]
+    },
+    {
+      "code": "CE-SC-05",
+      "section": "Scope",
+      "title": "Include end-user devices in scope",
+      "text": "A scope that does not include end-user devices is not acceptable. (Section D, Cyber Essentials scope overview.)",
+      "mappings": [
+        {
+          "control": "A.8.1",
+          "coverage": "PARTIAL",
+          "rationale": "Protects information on user endpoint devices; says nothing about which devices must be inside a certification scope."
+        },
+        {
+          "control": "A.5.9",
+          "coverage": "PARTIAL",
+          "rationale": "End-user devices are assets that must be inventoried; the control does not state that they must all be in scope."
+        }
+      ]
+    },
+    {
+      "code": "CE-SC-06",
+      "section": "Scope",
+      "title": "Include cloud services in scope",
+      "text": "If the organisation's data or services are hosted on cloud services, those services must be in scope. Cloud services cannot be excluded from scope. (Section D, Cyber Essentials scope overview and (iv) Cloud services.)",
+      "mappings": [
+        {
+          "control": "A.5.23",
+          "coverage": "PARTIAL",
+          "rationale": "Requires information security to be managed for the use of cloud services, which they must be to be in scope; it does not forbid excluding a cloud service from an assessment scope."
+        },
+        {
+          "control": "A.5.9",
+          "coverage": "PARTIAL",
+          "rationale": "Cloud-hosted information and services belong in the asset inventory; the control does not set the scope rule."
+        }
+      ]
+    },
+    {
+      "code": "CE-SC-07",
+      "section": "Scope",
+      "title": "Bring user-owned devices into scope (BYOD)",
+      "text": "User-owned devices that access organisational data or services are in scope, in addition to mobile or remote devices owned by the organisation. Mobile or remote devices used only for native voice applications, native text applications or multi-factor authentication applications are out of scope. (Section D, (i) Bring your own device.)",
+      "mappings": [
+        {
+          "control": "A.8.1",
+          "coverage": "PARTIAL",
+          "rationale": "Covers protection of information on user endpoint devices, including personal ones in the Annex A guidance; it does not set which devices are in a certification scope."
+        },
+        {
+          "control": "A.5.10",
+          "coverage": "PARTIAL",
+          "rationale": "Acceptable use rules for assets can include use of personal devices; the control does not define what is in scope."
+        }
+      ]
+    },
+    {
+      "code": "CE-SC-08",
+      "section": "Scope",
+      "title": "Include home and remote working devices and routers",
+      "text": "All corporate or BYOD home or remote working devices used for the organisation's business are in scope. A router the organisation gives to a home or remote worker is also in scope; all other routers are out of scope, so the firewall controls (such as a software firewall) must be applied on user devices. A remote worker using a corporate VPN has the internet boundary at the company firewall or virtual or cloud firewall. (Section D, (ii) Home and remote working.)",
+      "mappings": [
+        {
+          "control": "A.6.7",
+          "coverage": "PARTIAL",
+          "rationale": "Security measures for people working remotely are the setting this rule applies to; the control does not state which devices and routers are in scope."
+        },
+        {
+          "control": "A.8.1",
+          "coverage": "PARTIAL",
+          "rationale": "Protection of information on endpoint devices used away from the premises, without the scoping rule."
+        },
+        {
+          "control": "A.7.9",
+          "coverage": "PARTIAL",
+          "rationale": "Covers assets used off the organisation's premises; does not address the router or VPN boundary rules."
+        }
+      ]
+    },
+    {
+      "code": "CE-SC-09",
+      "section": "Scope",
+      "title": "Bring wireless devices into scope",
+      "text": "Wireless devices, including wireless access points, are in scope if they can communicate with other devices via the internet. They are out of scope if an attacker cannot attack them directly via the internet (attacks that can only be launched within signal range are not of concern to the scheme), or if they are part of an ISP router at a home or remote location. (Section D, (iii) Wireless devices.)",
+      "mappings": [
+        {
+          "control": "A.8.20",
+          "coverage": "PARTIAL",
+          "rationale": "Network security covers wireless devices as network components; the in-scope and out-of-scope test is specific to Cyber Essentials."
+        }
+      ]
+    },
+    {
+      "code": "CE-SC-10",
+      "section": "Scope",
+      "title": "Cloud services: the organisation stays responsible; provider commitments are contractual",
+      "text": "For cloud services (IaaS, PaaS and SaaS) the organisation is always responsible for ensuring all controls are implemented, though the provider may implement some of them depending on the type of service (Table 1). Where the cloud provider implements a control on the organisation's behalf, the organisation must make sure the provider has committed to it in contractual clauses or in documents referenced by the contract, such as security or privacy statements. (Section D, (iv) Cloud services.)",
+      "mappings": [
+        {
+          "control": "A.5.23",
+          "coverage": "PARTIAL",
+          "rationale": "Requires the organisation to specify and manage security for cloud services, including who is responsible for what; it does not state that the organisation remains accountable for every Cyber Essentials control."
+        },
+        {
+          "control": "A.5.20",
+          "coverage": "PARTIAL",
+          "rationale": "Information security requirements are agreed in supplier agreements, which is the contractual commitment this rule asks for."
+        },
+        {
+          "control": "A.5.22",
+          "coverage": "PARTIAL",
+          "rationale": "Monitoring and review of the supplier's service is how the organisation confirms the provider keeps the commitment."
+        }
+      ]
+    },
+    {
+      "code": "CE-SC-11",
+      "section": "Scope",
+      "title": "Include accounts used by third parties and externally managed services",
+      "text": "All accounts the organisation owns are in scope, even when a third party such as a supplier, contractor or Managed Service Provider uses them to manage or support the infrastructure. With externally managed services (such as remote administration), the organisation must be able to confirm that the Cyber Essentials technical controls are met and demonstrate this in its assessment answers. (Section D, (v) Accounts used by third parties and managed infrastructure.)",
+      "mappings": [
+        {
+          "control": "A.5.19",
+          "coverage": "PARTIAL",
+          "rationale": "Security in supplier relationships covers the use of third parties on the organisation's systems; it does not state that every account the organisation owns is in scope."
+        },
+        {
+          "control": "A.5.20",
+          "coverage": "PARTIAL",
+          "rationale": "Security requirements in supplier agreements can require the controls to be met by an MSP."
+        },
+        {
+          "control": "A.5.22",
+          "coverage": "PARTIAL",
+          "rationale": "Monitoring and reviewing the supplier's service is how the organisation can confirm the controls are met and demonstrate it."
+        },
+        {
+          "control": "A.5.16",
+          "coverage": "PARTIAL",
+          "rationale": "Identity management covers the accounts the organisation owns, including those a third party uses."
+        }
+      ]
+    },
+    {
+      "code": "CE-SC-12",
+      "section": "Scope",
+      "title": "Include devices loaned to third parties",
+      "text": "All end-user devices the organisation owns that are loaned to a third party must be included in the assessment scope. For devices the organisation does not own, Table 2 of the source sets what is in and out of scope, by role and by who owns the device. Organisation-owned device / third-party-owned device / BYOD: Employee in / N/A / in; Volunteer in / N/A / in; Trustee in / N/A / in; University research assistant in / N/A / in; Student in / N/A / out; MSP administrator in / out / out; Third party contractor in / out / out; Customer in / out / out. (Section D, (vi) Devices used by third parties, Table 2.)",
+      "mappings": [
+        {
+          "control": "A.5.9",
+          "coverage": "PARTIAL",
+          "rationale": "Devices loaned out are assets that stay in the inventory; the control does not decide the scope."
+        },
+        {
+          "control": "A.8.1",
+          "coverage": "PARTIAL",
+          "rationale": "Endpoint device protection applies to devices used by others on the organisation's behalf; it does not set the scope by role."
+        }
+      ]
+    },
+    {
+      "code": "CE-SC-13",
+      "section": "Scope",
+      "title": "Confirm correct configuration of out-of-scope devices that use organisational services",
+      "text": "For devices that are out of scope of the assessment, the organisation is still responsible for confirming that the devices interacting with its services and data are configured correctly. How it does this is for the organisation to decide. (Section D, (vi) Devices used by third parties.)",
+      "mappings": [
+        {
+          "control": "A.8.1",
+          "coverage": "PARTIAL",
+          "rationale": "Endpoint security for devices that access the organisation's information; no explicit duty to confirm devices that are outside the assessment."
+        },
+        {
+          "control": "A.5.19",
+          "coverage": "PARTIAL",
+          "rationale": "Covers assurance for third parties that interact with the organisation's information, which includes their devices."
+        },
+        {
+          "control": "A.5.15",
+          "coverage": "PARTIAL",
+          "rationale": "Access control rules can make access conditional on device configuration, which is one way to meet this."
+        }
+      ]
+    },
+    {
+      "code": "CE-SC-14",
+      "section": "Scope",
+      "title": "Treat publicly available web applications as in scope; bespoke components are out",
+      "text": "Publicly available commercial web applications (rather than apps developed in-house) are in scope by default. Bespoke and custom components of web applications are out of scope. The source recommends robust development and testing in line with commercial best practice (see the Software Security Code of Practice), but does not require it. (Section D, (vii) Software development.)",
+      "mappings": [
+        {
+          "control": "A.8.25",
+          "coverage": "PARTIAL",
+          "rationale": "Secure development life cycle is the recommended practice for bespoke components, which the scheme leaves out of scope; the recommendation is not a requirement."
+        },
+        {
+          "control": "A.8.29",
+          "coverage": "PARTIAL",
+          "rationale": "Security testing in development is the testing the source recommends for bespoke components; recommended, not required."
+        }
+      ]
+    },
+    {
+      "code": "CE-FW-01",
+      "section": "Firewalls",
+      "title": "Protect every in-scope device with a firewall",
+      "text": "Every device in scope must be protected with a correctly configured firewall (or network device with firewall functionality). For cloud services this can be achieved with data flow policies. (Theme 1, Firewalls.)",
+      "mappings": [
+        {
+          "control": "A.8.20",
+          "coverage": "PARTIAL",
+          "rationale": "Networks and network devices must be secured, managed and controlled; firewalls are one means and the control does not require one on every device."
+        },
+        {
+          "control": "A.8.9",
+          "coverage": "PARTIAL",
+          "rationale": "Configurations of network devices must be established and kept; correct configuration of the firewall is part of it."
+        }
+      ]
+    },
+    {
+      "code": "CE-FW-02",
+      "section": "Firewalls",
+      "title": "Use a software firewall where the organisation does not control the network",
+      "text": "If the organisation does not control the network to which a device connects, it must configure a software firewall on the device. A software firewall must be used on devices used on untrusted networks, such as public wifi hotspots. (Theme 1, Firewalls: Introduction and Requirements.)",
+      "mappings": [
+        {
+          "control": "A.8.20",
+          "coverage": "PARTIAL",
+          "rationale": "Network security covers protecting devices on networks the organisation does not control only in general terms."
+        },
+        {
+          "control": "A.8.1",
+          "coverage": "PARTIAL",
+          "rationale": "Endpoint protection can include a host firewall, but the control does not state it."
+        },
+        {
+          "control": "A.6.7",
+          "coverage": "PARTIAL",
+          "rationale": "Remote working security measures cover use of untrusted networks."
+        }
+      ]
+    },
+    {
+      "code": "CE-FW-03",
+      "section": "Firewalls",
+      "title": "Change default administrative passwords on firewalls",
+      "text": "For all firewalls (or network devices with firewall functionality), default administrative passwords must be changed to a strong and unique password (see password-based authentication), or remote administrative access must be disabled entirely. (Theme 1, Firewalls.)",
+      "mappings": [
+        {
+          "control": "A.5.17",
+          "coverage": "PARTIAL",
+          "rationale": "Management of authentication information includes changing vendor defaults; it does not set the strength rules the source refers to (those are in CE-SUP-02)."
+        },
+        {
+          "control": "A.8.9",
+          "coverage": "PARTIAL",
+          "rationale": "A secure configuration removes default credentials from network devices."
+        }
+      ]
+    },
+    {
+      "code": "CE-FW-04",
+      "section": "Firewalls",
+      "title": "Keep the firewall administrative interface off the internet",
+      "text": "Access to the administrative interface used to manage firewall configuration must be prevented from the internet, unless there is a clear and documented business need and the interface is protected by multi-factor authentication or by an IP allow list limited to a small range of trusted addresses combined with a properly managed password approach. (Theme 1, Firewalls.)",
+      "mappings": [
+        {
+          "control": "A.8.20",
+          "coverage": "PARTIAL",
+          "rationale": "Secures management access to network devices in general; the specific rule that the interface is not exposed to the internet without documented need and MFA or an IP allow list is stricter than the control."
+        },
+        {
+          "control": "A.8.9",
+          "coverage": "PARTIAL",
+          "rationale": "Secure configuration of the device includes restricting its management interface; no internet-exposure threshold."
+        },
+        {
+          "control": "A.8.5",
+          "coverage": "PARTIAL",
+          "rationale": "Secure authentication covers the MFA alternative; it does not choose between MFA and an IP allow list."
+        }
+      ]
+    },
+    {
+      "code": "CE-FW-05",
+      "section": "Firewalls",
+      "title": "Block unauthenticated inbound connections by default",
+      "text": "Unauthenticated inbound connections must be blocked by default on all firewalls. (Theme 1, Firewalls.)",
+      "mappings": [
+        {
+          "control": "A.8.20",
+          "coverage": "PARTIAL",
+          "rationale": "Controls network traffic in general; a default-deny rule for inbound connections is a specific configuration."
+        },
+        {
+          "control": "A.8.9",
+          "coverage": "PARTIAL",
+          "rationale": "Default-deny is a configuration setting the baseline should hold."
+        }
+      ]
+    },
+    {
+      "code": "CE-FW-06",
+      "section": "Firewalls",
+      "title": "Approve and document inbound firewall rules",
+      "text": "Inbound firewall rules must be approved and documented by an authorised person, and the documentation must include the business need. (Theme 1, Firewalls.)",
+      "mappings": [
+        {
+          "control": "A.8.32",
+          "coverage": "PARTIAL",
+          "rationale": "Changes to network devices are authorised and recorded under change management; a rule change is one such change, but the control does not require the business need to be recorded."
+        },
+        {
+          "control": "A.8.9",
+          "coverage": "PARTIAL",
+          "rationale": "Configurations are documented and reviewed; covers the record of the rules."
+        },
+        {
+          "control": "A.5.37",
+          "coverage": "PARTIAL",
+          "rationale": "Documented operating procedures include firewall operation; no approval of individual rules."
+        }
+      ]
+    },
+    {
+      "code": "CE-FW-07",
+      "section": "Firewalls",
+      "title": "Remove or disable unnecessary firewall rules",
+      "text": "Unnecessary firewall rules must be removed or disabled when they are no longer needed. (Theme 1, Firewalls.)",
+      "mappings": [
+        {
+          "control": "A.8.9",
+          "coverage": "PARTIAL",
+          "rationale": "Configurations are reviewed and kept at what is needed; removal of obsolete rules is part of that review."
+        },
+        {
+          "control": "A.8.20",
+          "coverage": "PARTIAL",
+          "rationale": "Network security covers keeping network controls limited to what is required."
+        }
+      ]
+    },
+    {
+      "code": "CE-CFG-01",
+      "section": "Secure Configuration",
+      "title": "Remove and disable unnecessary user accounts",
+      "text": "The organisation must proactively manage its computers and network devices and must regularly remove and disable unnecessary user accounts, such as guest accounts and administrative accounts that will not be used. (Theme 2, Secure Configuration.)",
+      "mappings": [
+        {
+          "control": "A.5.18",
+          "coverage": "PARTIAL",
+          "rationale": "Access rights are removed when no longer needed; the control is about rights of people and does not name built-in guest or unused administrative accounts."
+        },
+        {
+          "control": "A.5.16",
+          "coverage": "PARTIAL",
+          "rationale": "Identity management covers the lifecycle of accounts, including deregistration."
+        },
+        {
+          "control": "A.8.9",
+          "coverage": "PARTIAL",
+          "rationale": "A secure baseline disables accounts that are not needed."
+        }
+      ]
+    },
+    {
+      "code": "CE-CFG-02",
+      "section": "Secure Configuration",
+      "title": "Change default or guessable account passwords",
+      "text": "Any default or guessable account passwords must be changed regularly (see password-based authentication). (Theme 2, Secure Configuration.)",
+      "mappings": [
+        {
+          "control": "A.5.17",
+          "coverage": "PARTIAL",
+          "rationale": "Authentication information management includes changing defaults; guessable passwords are handled through the quality rules in CE-SUP-02."
+        },
+        {
+          "control": "A.8.9",
+          "coverage": "PARTIAL",
+          "rationale": "A secure baseline replaces vendor default credentials."
+        }
+      ]
+    },
+    {
+      "code": "CE-CFG-03",
+      "section": "Secure Configuration",
+      "title": "Remove or disable unnecessary software",
+      "text": "Unnecessary software, including applications, system utilities and network services, must be removed or disabled regularly. (Theme 2, Secure Configuration.)",
+      "mappings": [
+        {
+          "control": "A.8.9",
+          "coverage": "PARTIAL",
+          "rationale": "Configuration management sets the services and software that should be present; removal of what is not needed is part of it."
+        },
+        {
+          "control": "A.8.19",
+          "coverage": "PARTIAL",
+          "rationale": "Controls installation of software on operational systems, not removal of what is already installed."
+        }
+      ]
+    },
+    {
+      "code": "CE-CFG-04",
+      "section": "Secure Configuration",
+      "title": "Disable auto-run",
+      "text": "Any auto-run feature that allows file execution without user authorisation, such as when files are downloaded, must be disabled regularly. (Theme 2, Secure Configuration.)",
+      "mappings": [
+        {
+          "control": "A.8.9",
+          "coverage": "PARTIAL",
+          "rationale": "Auto-run is a configuration setting the baseline should switch off."
+        },
+        {
+          "control": "A.8.7",
+          "coverage": "PARTIAL",
+          "rationale": "Protection against malware includes preventing automatic execution, though not by naming auto-run."
+        }
+      ]
+    },
+    {
+      "code": "CE-CFG-05",
+      "section": "Secure Configuration",
+      "title": "Authenticate users before access to organisational data or services",
+      "text": "Users must be authenticated before they are allowed access to organisational data or services. (Theme 2, Secure Configuration.)",
+      "mappings": [
+        {
+          "control": "A.8.5",
+          "coverage": "FULL",
+          "rationale": "Secure authentication technologies and procedures based on information access restrictions are exactly authenticating users before granting access."
+        },
+        {
+          "control": "A.5.16",
+          "coverage": "PARTIAL",
+          "rationale": "Identification of users is the precondition for authentication; the control does not require authentication itself."
+        }
+      ]
+    },
+    {
+      "code": "CE-CFG-06",
+      "section": "Secure Configuration",
+      "title": "Apply device locking controls for users who are physically present",
+      "text": "Appropriate device locking controls must be in place for users who are physically present (see device unlocking credentials). (Theme 2, Secure Configuration.)",
+      "mappings": [
+        {
+          "control": "A.8.1",
+          "coverage": "PARTIAL",
+          "rationale": "Endpoint device protection includes locking; the control does not state a locking requirement."
+        },
+        {
+          "control": "A.7.7",
+          "coverage": "PARTIAL",
+          "rationale": "A clear screen rule covers locking an unattended device, not unlocking credentials."
+        }
+      ]
+    },
+    {
+      "code": "CE-CFG-07",
+      "section": "Secure Configuration",
+      "title": "Require a credential to unlock a device",
+      "text": "If a device requires a user's physical presence to access its services (such as logging on to a laptop or unlocking a mobile phone), a credential such as a biometric, password or PIN must be in place before the user can gain access to the services. (Theme 2, Secure Configuration: Device unlocking credentials.)",
+      "mappings": [
+        {
+          "control": "A.8.5",
+          "coverage": "FULL",
+          "rationale": "Requires an authentication method before access to the information and services on the device, which is a credential at unlock."
+        },
+        {
+          "control": "A.8.1",
+          "coverage": "PARTIAL",
+          "rationale": "Endpoint protection supports the control; it does not state the unlock requirement."
+        }
+      ]
+    },
+    {
+      "code": "CE-CFG-08",
+      "section": "Secure Configuration",
+      "title": "Protect the device unlock method against brute-force attacks",
+      "text": "The chosen authentication method for device unlocking (biometric, password or PIN) must be protected against brute-force attacks. When it is possible to configure, you should apply one of: throttling the rate of attempts so the wait grows with each failure, allowing no more than 10 guesses in 5 minutes; or locking the device after no more than 10 unsuccessful attempts. When the vendor does not allow this to be configured, use the vendor's default setting. Curatorial note: the source phrases the choice of throttling or lockout as 'should' (when configurable); it is included as a Requirement because it is a tested measure of the protection that must be in place. (Theme 2, Secure Configuration: Device unlocking credentials.)",
+      "mappings": [
+        {
+          "control": "CE-SUP-02",
+          "coverage": "FULL",
+          "rationale": "Holds the throttling and lockout thresholds (no more than 10 guesses in 5 minutes, or lock after no more than 10 failures, with the vendor-default fallback). Multi-factor authentication is not an alternative for device unlocking."
+        },
+        {
+          "control": "A.8.5",
+          "coverage": "PARTIAL",
+          "rationale": "Secure authentication can include limiting failed attempts; the control sets no number."
+        },
+        {
+          "control": "A.8.1",
+          "coverage": "PARTIAL",
+          "rationale": "Endpoint protection covers unlock protections in general."
+        }
+      ]
+    },
+    {
+      "code": "CE-CFG-09",
+      "section": "Secure Configuration",
+      "title": "Control the quality of device unlocking credentials",
+      "text": "Technical controls must be used to manage the quality of credentials. If credentials are just to unlock a device, use a minimum password or PIN length of at least 6 characters. When the device unlocking credentials are also used for authentication, you must apply the full password requirements to the credentials described in User Access Control (see CE-UAC-09 and CE-UAC-10). (Theme 2, Secure Configuration: Device unlocking credentials.)",
+      "mappings": [
+        {
+          "control": "CE-SUP-02",
+          "coverage": "FULL",
+          "rationale": "Holds the 6-character minimum for credentials used only to unlock a device. The full password requirements for credentials that also authenticate are assessed under CE-UAC-09 and CE-UAC-10."
+        },
+        {
+          "control": "A.5.17",
+          "coverage": "PARTIAL",
+          "rationale": "Management of authentication information covers credential quality in general terms."
+        },
+        {
+          "control": "A.8.5",
+          "coverage": "PARTIAL",
+          "rationale": "Secure authentication covers credential strength at unlock, with no length figures."
+        }
+      ]
+    },
+    {
+      "code": "CE-SUM-01",
+      "section": "Security Update Management",
+      "title": "Use licensed and supported software",
+      "text": "All software on in-scope devices must be licensed and supported: the organisation has a legal right to use it and the vendor has committed to provide regular vulnerability fixes and has stated the future date on which it will stop providing them. (Theme 3, Security Update Management; Definitions.)",
+      "mappings": [
+        {
+          "control": "A.8.8",
+          "coverage": "PARTIAL",
+          "rationale": "Management of technical vulnerabilities depends on using software for which fixes are available; the control does not forbid unsupported software."
+        },
+        {
+          "control": "A.5.32",
+          "coverage": "PARTIAL",
+          "rationale": "Respecting intellectual property rights covers using software under licence; supportability is not addressed."
+        },
+        {
+          "control": "A.8.19",
+          "coverage": "PARTIAL",
+          "rationale": "Managing software installed on operational systems includes using only supported, authorised software."
+        }
+      ]
+    },
+    {
+      "code": "CE-SUM-02",
+      "section": "Security Update Management",
+      "title": "Remove unsupported software, or take it out of scope behind a sub-set",
+      "text": "Software must be removed from devices when it becomes unsupported, or removed from scope by using a defined sub-set that prevents all traffic to or from the internet. (Theme 3, Security Update Management.)",
+      "mappings": [
+        {
+          "control": "A.8.8",
+          "coverage": "PARTIAL",
+          "rationale": "Technical vulnerabilities are managed, and unsupported software is a vulnerability that can no longer be fixed; removing it is not stated."
+        },
+        {
+          "control": "A.8.22",
+          "coverage": "PARTIAL",
+          "rationale": "Segregation of networks is the means by which an unsupported system can be isolated from the internet."
+        },
+        {
+          "control": "A.8.19",
+          "coverage": "PARTIAL",
+          "rationale": "Software installation is controlled, but removal of unsupported software is not stated."
+        }
+      ]
+    },
+    {
+      "code": "CE-SUM-03",
+      "section": "Security Update Management",
+      "title": "Enable automatic updates where possible",
+      "text": "Software on in-scope devices must have automatic updates enabled where possible. (Theme 3, Security Update Management.)",
+      "mappings": [
+        {
+          "control": "A.8.8",
+          "coverage": "PARTIAL",
+          "rationale": "Obtaining and applying fixes is part of vulnerability management; automatic updating is not required."
+        },
+        {
+          "control": "A.8.9",
+          "coverage": "PARTIAL",
+          "rationale": "Automatic updates are a configuration setting the baseline can hold."
+        }
+      ]
+    },
+    {
+      "code": "CE-SUM-04",
+      "section": "Security Update Management",
+      "title": "Apply critical and high-risk updates within 14 days",
+      "text": "Software must be updated, including vulnerability fixes, within 14 days of release where the update fixes vulnerabilities the vendor describes as critical or high risk, addresses vulnerabilities with a CVSS v3 base score of 7 or above, or the vendor gives no details of the level of the vulnerabilities fixed. An update that bundles several issues is installed within 14 days if it covers any critical or high-risk issue. Applying all released updates within 14 days is recommended but not mandatory. (Theme 3, Security Update Management.)",
+      "mappings": [
+        {
+          "control": "CE-SUP-01",
+          "coverage": "FULL",
+          "rationale": "Holds the 14-day deadline, the three triggers (vendor critical or high, CVSS v3 of 7 or above, no vendor severity) and the bundled-update rule."
+        },
+        {
+          "control": "A.8.8",
+          "coverage": "PARTIAL",
+          "rationale": "Requires vulnerabilities to be evaluated and addressed, but sets no deadline; the 14 days is stricter."
+        }
+      ]
+    },
+    {
+      "code": "CE-UAC-01",
+      "section": "User Access Control",
+      "title": "Stay in control of user accounts and access privileges, third-party accounts included",
+      "text": "The organisation must be in control of its user accounts and the access privileges that allow access to its organisational data and services, including third-party accounts such as those used by support services. It must understand how user accounts authenticate and manage the authentication accordingly. (Theme 4, User Access Control: Requirements.)",
+      "mappings": [
+        {
+          "control": "A.5.15",
+          "coverage": "PARTIAL",
+          "rationale": "Access control rules cover who may reach which information; control of every account and how it authenticates is wider."
+        },
+        {
+          "control": "A.5.16",
+          "coverage": "PARTIAL",
+          "rationale": "Identity management covers the lifecycle of the accounts."
+        },
+        {
+          "control": "A.5.18",
+          "coverage": "PARTIAL",
+          "rationale": "Access rights are provisioned, reviewed and removed, which is control of privileges."
+        },
+        {
+          "control": "A.5.19",
+          "coverage": "PARTIAL",
+          "rationale": "Security in supplier relationships covers third-party accounts."
+        }
+      ]
+    },
+    {
+      "code": "CE-UAC-02",
+      "section": "User Access Control",
+      "title": "Create and approve user accounts through a process",
+      "text": "There must be a process in place to create and approve user accounts. (Theme 4, User Access Control.)",
+      "mappings": [
+        {
+          "control": "A.5.16",
+          "coverage": "FULL",
+          "rationale": "Identity management with registration and approval before an account exists is this process."
+        },
+        {
+          "control": "A.5.18",
+          "coverage": "PARTIAL",
+          "rationale": "Provisioning of access rights after approval; wider than account creation."
+        }
+      ]
+    },
+    {
+      "code": "CE-UAC-03",
+      "section": "User Access Control",
+      "title": "Authenticate with unique credentials before access",
+      "text": "Users must be authenticated with unique credentials before they are granted access to applications or devices. (Theme 4, User Access Control.)",
+      "mappings": [
+        {
+          "control": "A.8.5",
+          "coverage": "FULL",
+          "rationale": "Secure authentication before access is granted."
+        },
+        {
+          "control": "A.5.16",
+          "coverage": "PARTIAL",
+          "rationale": "Unique identities for individuals support unique credentials."
+        },
+        {
+          "control": "A.5.17",
+          "coverage": "PARTIAL",
+          "rationale": "Authentication information is allocated to individuals and kept secret."
+        }
+      ]
+    },
+    {
+      "code": "CE-UAC-04",
+      "section": "User Access Control",
+      "title": "Remove or disable accounts no longer required",
+      "text": "User accounts must be removed or disabled when they are no longer required, for example when a user leaves the organisation or after a defined period of account inactivity. (Theme 4, User Access Control.)",
+      "mappings": [
+        {
+          "control": "A.5.18",
+          "coverage": "FULL",
+          "rationale": "Access rights are removed when no longer needed, including at leaving; inactivity-based removal is an implementation choice."
+        },
+        {
+          "control": "A.5.16",
+          "coverage": "PARTIAL",
+          "rationale": "Deregistration of identities."
+        },
+        {
+          "control": "A.6.5",
+          "coverage": "PARTIAL",
+          "rationale": "Covers what applies after termination or change of employment; accounts for people who are not employees are not covered."
+        }
+      ]
+    },
+    {
+      "code": "CE-UAC-05",
+      "section": "User Access Control",
+      "title": "Use multi-factor authentication, always for cloud services",
+      "text": "The organisation must implement multi-factor authentication where available; authentication to cloud services must always use MFA. (Theme 4, User Access Control.)",
+      "mappings": [
+        {
+          "control": "A.8.5",
+          "coverage": "PARTIAL",
+          "rationale": "Secure authentication can include MFA; the control does not require it, and does not make MFA mandatory for every cloud service as Cyber Essentials does."
+        },
+        {
+          "control": "A.5.23",
+          "coverage": "PARTIAL",
+          "rationale": "Security of cloud service use includes how the service is accessed."
+        }
+      ]
+    },
+    {
+      "code": "CE-UAC-06",
+      "section": "User Access Control",
+      "title": "Use separate accounts for administrative activities only",
+      "text": "Separate accounts must be used to perform administrative activities only, with no emailing, web browsing or other standard user activities that may expose administrative privileges to avoidable risks. (Theme 4, User Access Control.)",
+      "mappings": [
+        {
+          "control": "A.8.2",
+          "coverage": "PARTIAL",
+          "rationale": "Allocation and use of privileged access rights is restricted and managed; separate administrative accounts are the usual guidance but not the control text."
+        },
+        {
+          "control": "A.5.18",
+          "coverage": "PARTIAL",
+          "rationale": "Privileged rights are assigned separately from ordinary rights."
+        }
+      ]
+    },
+    {
+      "code": "CE-UAC-07",
+      "section": "User Access Control",
+      "title": "Remove or disable special access privileges when no longer required",
+      "text": "Special access privileges must be removed or disabled when no longer required, for example when a member of staff changes role. (Theme 4, User Access Control.)",
+      "mappings": [
+        {
+          "control": "A.5.18",
+          "coverage": "FULL",
+          "rationale": "Access rights are modified and removed when a role changes."
+        },
+        {
+          "control": "A.8.2",
+          "coverage": "PARTIAL",
+          "rationale": "Privileged access rights are reviewed; specific to privileged rights."
+        }
+      ]
+    },
+    {
+      "code": "CE-UAC-08",
+      "section": "User Access Control",
+      "title": "Give the password element of MFA at least 8 characters",
+      "text": "The password element of the multi-factor authentication approach must have a password length of at least 8 characters, with no maximum length restrictions. (Theme 4, User Access Control: Multi-factor authentication.)",
+      "mappings": [
+        {
+          "control": "CE-SUP-03",
+          "coverage": "FULL",
+          "rationale": "Holds the 8-character minimum and the no-maximum rule for the password element of MFA."
+        },
+        {
+          "control": "A.5.17",
+          "coverage": "PARTIAL",
+          "rationale": "Management of authentication information, with no length figure."
+        }
+      ]
+    },
+    {
+      "code": "CE-UAC-09",
+      "section": "User Access Control",
+      "title": "Protect passwords against brute-force guessing",
+      "text": "Where authentication is carried out using a password, you should put in place protection against brute-force password guessing by implementing at least one of: multi-factor authentication; throttling the rate of attempts so that the wait between attempts increases with each unsuccessful attempt, allowing no more than 10 guesses in 5 minutes; or locking devices after no more than 10 unsuccessful attempts. Curatorial note: the source phrases the protective measures as 'should'; this is included as a Requirement because it is a tested measure. (Theme 4, User Access Control: Password-based authentication.)",
+      "mappings": [
+        {
+          "control": "CE-SUP-04",
+          "coverage": "FULL",
+          "rationale": "Holds the three alternatives (MFA, throttling, lockout) and the 10-guess limits for password-based authentication."
+        },
+        {
+          "control": "A.5.17",
+          "coverage": "PARTIAL",
+          "rationale": "Authentication information is protected; no throttling or lockout number."
+        },
+        {
+          "control": "A.8.5",
+          "coverage": "PARTIAL",
+          "rationale": "Secure authentication can limit failed attempts; no number."
+        }
+      ]
+    },
+    {
+      "code": "CE-UAC-10",
+      "section": "User Access Control",
+      "title": "Control the quality of passwords",
+      "text": "Where authentication is carried out using a password, you should use technical controls to manage the quality of passwords. This will include one of the following: multi-factor authentication; a minimum password length of at least 12 characters, with no maximum length restrictions; or a minimum password length of at least 8 characters, with no maximum length restrictions, and automatic blocking of common passwords using a deny list. Curatorial note: the source phrases the protective measures as 'should'; this is included as a Requirement because it is a tested measure. (Theme 4, User Access Control: Password-based authentication.)",
+      "mappings": [
+        {
+          "control": "CE-SUP-04",
+          "coverage": "FULL",
+          "rationale": "Holds the three accepted options with the 12-character and 8-character-plus-deny-list thresholds for password-based authentication."
+        },
+        {
+          "control": "A.5.17",
+          "coverage": "PARTIAL",
+          "rationale": "Requires good-quality authentication information in general terms, with no minimum length or deny list."
+        },
+        {
+          "control": "A.8.5",
+          "coverage": "PARTIAL",
+          "rationale": "Secure authentication supports quality rules without the figures."
+        }
+      ]
+    },
+    {
+      "code": "CE-UAC-11",
+      "section": "User Access Control",
+      "title": "Support users to choose unique passwords",
+      "text": "Users should be supported to choose unique passwords for their work accounts: educate people about avoiding common passwords, encourage longer passwords of at least three words, provide usable secure storage such as a password manager or locked cabinet with clear information about use, and do not enforce regular password expiry or password complexity requirements. The source phrases this as 'should'; it is included as a requirement because it sits under the password-based authentication measures. (Theme 4, User Access Control: Password-based authentication.)",
+      "mappings": [
+        {
+          "control": "A.5.17",
+          "coverage": "PARTIAL",
+          "rationale": "Advises users on handling authentication information; the specific measures (no expiry, no complexity rules, secure storage) are not stated."
+        },
+        {
+          "control": "A.6.3",
+          "coverage": "PARTIAL",
+          "rationale": "Awareness and training can cover password choice."
+        }
+      ]
+    },
+    {
+      "code": "CE-UAC-12",
+      "section": "User Access Control",
+      "title": "Change passwords promptly after known or suspected compromise",
+      "text": "There should be an established process to change passwords promptly if the organisation knows or suspects a password or account has been compromised. The source phrases this as 'should'; it is included as a requirement because it sits under the password-based authentication measures. (Theme 4, User Access Control: Password-based authentication.)",
+      "mappings": [
+        {
+          "control": "A.5.17",
+          "coverage": "PARTIAL",
+          "rationale": "Authentication information is managed through its lifecycle, including replacement."
+        },
+        {
+          "control": "A.5.26",
+          "coverage": "PARTIAL",
+          "rationale": "Responding to incidents includes resetting compromised credentials, with no timeframe."
+        }
+      ]
+    },
+    {
+      "code": "CE-MP-01",
+      "section": "Malware Protection",
+      "title": "Keep a malware protection mechanism active on every in-scope device",
+      "text": "A malware protection mechanism must be active on all devices in scope. For each device, at least one of two options must be used: anti-malware software, or application allow listing. In all cases the software must be active, kept up to date in accordance with the vendor's instructions, and configured as follows. If anti-malware software is used (option for in-scope devices running Windows or macOS, including servers, desktop computers and laptops), it must be configured to: be updated in line with vendor recommendations; prevent malware from running; prevent the execution of malicious code; and prevent connections to malicious websites over the internet. If application allow listing is used (option for all in-scope devices), only approved applications, restricted by code signing, are allowed to execute on devices, and the organisation must: actively approve such applications before deploying them to devices; and maintain a current list of approved applications, where users must not be able to install any application that is unsigned or has an invalid signature. (Theme 5, Malware Protection: Requirements.)",
+      "mappings": [
+        {
+          "control": "CE-SUP-05",
+          "coverage": "FULL",
+          "rationale": "Holds the either/or rule and the full configuration of whichever option the System uses (anti-malware software or application allow listing)."
+        },
+        {
+          "control": "A.8.7",
+          "coverage": "PARTIAL",
+          "rationale": "Protection against malware must be implemented, but the control does not require either option, its configuration or code-signing."
+        },
+        {
+          "control": "A.8.19",
+          "coverage": "PARTIAL",
+          "rationale": "Managing software installation supports allow listing, but the control does not require a current approved list or refuse unsigned or invalidly signed applications."
+        }
+      ]
+    }
+  ]
+}
