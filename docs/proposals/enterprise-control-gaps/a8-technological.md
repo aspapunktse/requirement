@@ -289,7 +289,7 @@ Why each Annex A item maps here:
 | Field | Value |
 | --- | --- |
 | Statement today | Security-relevant events of every in-scope system are sent to the central log platform within {log_latency} and retained for {log_retention} with integrity protection. |
-| Proposed statement | Security-relevant events of every in-scope system are sent to the central log platform within {log_latency} with timestamps synchronised to {time_source} within {max_clock_drift}, and retained for {log_retention} with integrity protection. |
+| Proposed statement | The clock of every in-scope system (operating systems, containers, appliances and applications) is synchronised to {time_source} with drift monitored and kept within {max_clock_drift}, and security-relevant events are sent to the central log platform within {log_latency} with those timestamps, and retained for {log_retention} with integrity protection. |
 | Added parameters (illustrative) | time_source = the approved NTP hierarchy (provider time service in cloud); max_clock_drift = 1 second |
 | Added Annex A | A.8.17 |
 | NIST SP 800-53 Rev. 5 | adds AU-8; SC-45 (to verify) |
