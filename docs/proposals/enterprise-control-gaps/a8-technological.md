@@ -220,7 +220,7 @@ Why each Annex A item maps here:
 
 | Field | Value |
 | --- | --- |
-| Statement | Every network service used by in-scope systems, provided or in-house (connectivity, DNS, DDoS protection, VPN, firewall service, service-to-service connections), has documented security requirements and service levels, the security features required by {network_service_baseline} are enabled and monitored, and connections to and from these services are authenticated and protected with current, protocol-appropriate encryption: TLS {min_tls} or higher for APIs, databases, message queues and other TLS-capable services, and the equivalent for other protocols (for example IPsec or WireGuard for VPN, DNS over TLS or DNSSEC for DNS). |
+| Statement | Every network service used by in-scope systems, provided or in-house (connectivity, DNS, DDoS protection, VPN, firewall service, service-to-service connections), has documented security requirements and service levels, the security features required by {network_service_baseline} are enabled and monitored, and connections to and from these services are authenticated and protected with current, protocol-appropriate encryption: TLS {min_tls} or higher for APIs, databases, message queues and other TLS-capable services, and the equivalent for other protocols (for example IPsec or WireGuard for VPN, DNS over TLS or DNS over HTTPS for DNS queries, with DNSSEC validation for the integrity of DNS answers). |
 | Parameters (illustrative) | network_service_baseline = DDoS protection on internet-facing endpoints, protective DNS, provider security report reviewed yearly; min_tls = 1.2 (as CTL-SC-001) |
 | Control behaviour | PREVENTIVE |
 | Domain group | Protection |

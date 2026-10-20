@@ -28,7 +28,7 @@ This is a proposal for review by the product owner, not a change to the app, the
 | A.5.14 Information transfer | [CTL-SC-005](#ctl-sc-005) | New Enterprise Control | Rules and agreements for transfer define the allowed channels; Document F's CTL-SC-001 covers only encryption in transit, not which channels and recipients are allowed. |
 | A.5.15 Access control | [CTL-AC-005](#ctl-ac-005) | New Enterprise Control | A.5.15 asks for access rules based on business and security requirements. Document F tests the lifecycle around access (privileged access, reviews, joiners and leavers) but not the rule set itself; the role model is that rule set. |
 | A.5.23 Information security for use of cloud services | [CTL-SR-002](#ctl-sr-002) | New Enterprise Control | A.5.23 covers acquiring, using, configuring, managing and exiting cloud services. Assurance of the provider itself is already CTL-SR-001; this control tests the customer side: acquisition review, responsibility split, data location, configuration posture and exit. |
-| A.5.27 Learning from information security incidents | [CTL-IR-003](#ctl-ir-003) | New Enterprise Control | Learning from incidents is the post-incident review and its tracked actions. |
+| A.5.27 Learning from information security incidents | [CTL-IR-003](#ctl-ir-003) | New Enterprise Control | Learning from incidents: a review of each serious incident, a periodic trend review of the rest, and tracked actions from both. |
 | A.5.28 Collection of evidence | [CTL-IR-003](#ctl-ir-003) | New Enterprise Control | Collection of evidence happens in the same incidents and is checked in the same review (was custody recorded?). It has the same owner and the same case records. |
 | A.5.29 Information security during disruption | [CTL-CP-003](#ctl-cp-003) | New Enterprise Control | Keeping security at the agreed level during a disruption. CTL-CP-002 (A.5.30) tests restoring from backup, not operating securely while degraded. |
 | A.5.31 Legal, statutory and regulatory requirements | [CTL-PM-004](#ctl-pm-004) | New Enterprise Control | The obligations register is the control. |
@@ -251,8 +251,8 @@ Why each Annex A item maps here:
 
 | Field | Value |
 | --- | --- |
-| Statement | Every incident of severity {pir_severity} or higher has a post-incident review within {pir_deadline} whose actions are tracked to closure, and evidence for incidents that may lead to legal or disciplinary action is collected and kept under a recorded chain of custody. |
-| Parameters (illustrative) | pir_severity = high; pir_deadline = 10 working days |
+| Statement | Every incident of severity {pir_severity} or higher has a post-incident review within {pir_deadline}, incidents below that severity are reviewed together for trends and recurring causes at least every {incident_trend_review_interval}, the actions from both are tracked to closure, and evidence for incidents that may lead to legal or disciplinary action is collected and kept under a recorded chain of custody. |
+| Parameters (illustrative) | pir_severity = high; pir_deadline = 10 working days; incident_trend_review_interval = quarterly |
 | Control behaviour | CORRECTIVE |
 | Domain group | Incident management |
 | Owner role | Head of security operations |
@@ -263,7 +263,7 @@ Why each Annex A item maps here:
 
 Why each Annex A item maps here:
 
-- **A.5.27 Learning from information security incidents.** Learning from incidents is the post-incident review and its tracked actions.
+- **A.5.27 Learning from information security incidents.** Learning from incidents: a review of each serious incident, a periodic trend review of the rest, and tracked actions from both.
 - **A.5.28 Collection of evidence.** Collection of evidence happens in the same incidents and is checked in the same review (was custody recorded?). It has the same owner and the same case records.
 
 **Rationale.** Extending CTL-IR-001 was considered: it already maps A.5.24 to A.5.26. Its test, however, is "handled and closed under the process and exercised", while these two items happen after closure and need their own PASS/FAIL (a review exists, custody recorded). A separate control keeps each test single-purpose.
