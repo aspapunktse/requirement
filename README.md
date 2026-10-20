@@ -39,7 +39,7 @@ The queue and what to do next are in [`HANDOFF.md`](HANDOFF.md). The per-issue r
 - **Change Events:** a curated log of compliance-relevant changes. Nothing shows it in the UI yet.
 - **Admin catalogs:** Deployment Facets, Business Units, Frameworks, users and Business Risk Owner assignments.
 - **Review Groups:** an Admin creates named groups of Users (any role but Internal Auditor) and manages their members; an Admin or Compliance Manager ties a group to non-base Frameworks (a Framework has at most one group), and a tied group with no members is flagged. A tied group adds a Review Step to Systems In Review that have one of its Frameworks in scope, and its members can decide that step, see every System (any status) with one of its Frameworks in scope, and raise and resolve Assessment Queries on Controls in its remit; their Query Messages show as the group ("Base review" for a Reviewer), by the same rule as step decisions.
-- **Design proposals:** browsable at `/design`, with interactive alternatives for onboarding, the Systems list, System detail, the Control Library, the Statement of Applicability, Home by role and creating an Internal Audit, and anonymous thumbs-up voting per proposal.
+- **Design proposals:** browsable at `/design`, with interactive alternatives for onboarding, the Systems list, System detail, the Control Library, an Enterprise Control Library alternative, the Statement of Applicability, Home by role and creating an Internal Audit, and anonymous thumbs-up voting per proposal.
 - **Pipeline:** CI on every pull request, and CD to Vercel production gated on green CI (see CI/CD below).
 
 ### Not built yet
