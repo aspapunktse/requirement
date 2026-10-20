@@ -7,8 +7,8 @@ This is a proposal for review by the product owner, not a change to the app, the
 ## Summary
 
 - 23 uncovered items in A.5.
-- 15 new Enterprise Controls proposed here: CTL-PM-002, CTL-PM-003, CTL-AC-005, CTL-SI-002, CTL-SA-001, CTL-RA-001, CTL-SC-005, CTL-SR-002, CTL-IR-003, CTL-CP-003, CTL-PM-004, CTL-CM-006, CTL-SI-003, CTL-CA-001, CTL-CA-003.
-- 1 Document F control extended here: CTL-AC-004.
+- 16 new Enterprise Controls proposed here: CTL-PM-002, CTL-PM-003, CTL-AC-005, CTL-SI-002, CTL-SA-001, CTL-PS-004, CTL-RA-001, CTL-SC-005, CTL-SR-002, CTL-IR-003, CTL-CP-003, CTL-PM-004, CTL-CM-006, CTL-SI-003, CTL-CA-001, CTL-CA-003.
+- 0 Document F controls extended here.
 
 ## Mapping decisions
 
@@ -22,17 +22,17 @@ This is a proposal for review by the product owner, not a change to the app, the
 | A.5.7 Threat intelligence | [CTL-SI-002](#ctl-si-002) | New Enterprise Control | Collecting and analysing threat information is the control itself. |
 | A.5.8 Information security in project management | [CTL-SA-001](#ctl-sa-001) | New Enterprise Control | Security in project management is evidenced by the gate records. |
 | A.5.10 Acceptable use of information and other assets | [CTL-PM-002](#ctl-pm-002) | New Enterprise Control | Acceptable use rules are a topic-specific policy with the same approve, publish and review lifecycle and the same evidence (document register, read receipts). Personnel acknowledging them is tested under CTL-PS-001 (terms of employment or engagement). |
-| A.5.11 Return of assets | [CTL-AC-004](#ctl-ac-004) | Extend Document F control | Return of assets happens at the same trigger (HR termination date) and is checked against the same HR record. NIST PS-4, which CTL-AC-004 already maps, explicitly includes retrieving organizational property. |
+| A.5.11 Return of assets | [CTL-PS-004](#ctl-ps-004) | New Enterprise Control | Return of assets on leaving and on a role change, tested by reconciling the asset register against HR leaver and mover events. |
 | A.5.12 Classification of information | [CTL-RA-001](#ctl-ra-001) | New Enterprise Control | Classification is the first half of the statement; the System's confidentiality, integrity and availability classification in this app is part of the evidence. |
 | A.5.13 Labelling of information | [CTL-RA-001](#ctl-ra-001) | New Enterprise Control | Labelling is how a classification becomes visible and machine-enforceable (it drives CTL-SC-005, data leakage prevention). Separating them would leave a label control without a scheme to test against. |
 | A.5.14 Information transfer | [CTL-SC-005](#ctl-sc-005) | New Enterprise Control | Rules and agreements for transfer define the allowed channels; Document F's CTL-SC-001 covers only encryption in transit, not which channels and recipients are allowed. |
 | A.5.15 Access control | [CTL-AC-005](#ctl-ac-005) | New Enterprise Control | A.5.15 asks for access rules based on business and security requirements. Document F tests the lifecycle around access (privileged access, reviews, joiners and leavers) but not the rule set itself; the role model is that rule set. |
-| A.5.23 Information security for use of cloud services | [CTL-SR-002](#ctl-sr-002) | New Enterprise Control | A.5.23 covers acquiring, using, managing and exiting cloud services. Assurance of the provider itself is already CTL-SR-001; what is left is the responsibility split and the exit, which this control tests. |
+| A.5.23 Information security for use of cloud services | [CTL-SR-002](#ctl-sr-002) | New Enterprise Control | A.5.23 covers acquiring, using, configuring, managing and exiting cloud services. Assurance of the provider itself is already CTL-SR-001; this control tests the customer side: acquisition review, responsibility split, data location, configuration posture and exit. |
 | A.5.27 Learning from information security incidents | [CTL-IR-003](#ctl-ir-003) | New Enterprise Control | Learning from incidents is the post-incident review and its tracked actions. |
 | A.5.28 Collection of evidence | [CTL-IR-003](#ctl-ir-003) | New Enterprise Control | Collection of evidence happens in the same incidents and is checked in the same review (was custody recorded?). It has the same owner and the same case records. |
-| A.5.29 Information security during disruption | [CTL-CP-003](#ctl-cp-003) | New Enterprise Control | Keeping security at the agreed level during a disruption is the plan part of the statement. CTL-CP-002 (A.5.30) tests restoring from backup, not operating securely while degraded. |
+| A.5.29 Information security during disruption | [CTL-CP-003](#ctl-cp-003) | New Enterprise Control | Keeping security at the agreed level during a disruption. CTL-CP-002 (A.5.30) tests restoring from backup, not operating securely while degraded. |
 | A.5.31 Legal, statutory and regulatory requirements | [CTL-PM-004](#ctl-pm-004) | New Enterprise Control | The obligations register is the control. |
-| A.5.32 Intellectual property rights | [CTL-CM-006](#ctl-cm-006) | New Enterprise Control | Intellectual property rights: legitimate acquisition, use within licence terms, and a measurable reconciliation. |
+| A.5.32 Intellectual property rights | [CTL-CM-006](#ctl-cm-006) | New Enterprise Control | Intellectual property rights, both directions: others' IP used within licence terms (measurable by reconciliation), and the organization's own IP protected. |
 | A.5.33 Protection of records | [CTL-SI-003](#ctl-si-003) | New Enterprise Control | Protection of records is the retention half: kept for the required time, integrity protected. |
 | A.5.35 Independent review of information security | [CTL-CA-001](#ctl-ca-001) | New Enterprise Control | Independent review at planned intervals and after significant change. |
 | A.5.36 Compliance with policies, rules and standards | [CTL-CA-003](#ctl-ca-003) | New Enterprise Control | Compliance with policies, rules and standards: the recorded checks and the findings and exceptions register are the evidence. |
@@ -66,7 +66,7 @@ Why each Annex A item maps here:
 
 ### CTL-PM-003
 
-**Security roles and management accountability**
+**Security roles and responsibilities**
 
 | Field | Value |
 | --- | --- |
@@ -138,7 +138,7 @@ Why each Annex A item maps here:
 
 | Field | Value |
 | --- | --- |
-| Statement | Every project that introduces or significantly changes an in-scope system records its security requirements and a risk assessment before design approval, and passes a security gate before go-live in which every requirement is met or has an approved exception. |
+| Statement | Every project with information security implications (a new or changed system, but also process, facility, supplier and organizational changes) records its security requirements and a risk assessment at start, and passes a security gate before go-live or completion in which every requirement is met or has an approved exception. |
 | Parameters (illustrative) | none |
 | Control behaviour | PREVENTIVE |
 | Domain group | Secure development |
@@ -154,6 +154,28 @@ Why each Annex A item maps here:
 - **A.8.26 Application security requirements.** Application security requirements are the content of the same gate: they are identified when a system is developed or acquired. One gate, one record and one owner cover both, so they share a control. Listed by reference in the A.8 issue.
 
 **Rationale.** The app's onboarding of a System against its applicable Controls is the natural evidence for this control, which makes it one of the easiest to test continuously. Grouping A.5.8 with A.8.26 avoids testing the same gate twice.
+
+### CTL-PS-004
+
+**Return of assets**
+
+| Field | Value |
+| --- | --- |
+| Statement | Assets issued to a person (devices, tokens, keys, paper files, specialist equipment) are recorded in the asset register against the holder, and when the person leaves or changes role the assets they no longer need are returned, or remotely wiped where they cannot be recovered, within {asset_return_sla}, reconciled against the asset register. |
+| Parameters (illustrative) | asset_return_sla = 5 working days |
+| Control behaviour | CORRECTIVE |
+| Domain group | Asset and configuration |
+| Owner role | Head of IT operations |
+| ISO 27001 Annex A | A.5.11 |
+| NIST SP 800-53 Rev. 5 | PS-4; PS-5 |
+| NIS2 Art. 21(2) point (other articles named) | (i) |
+| Environments (illustrative) | Organization-wide, evidenced by the asset register and HR events; device wipe through the endpoint management of each environment. |
+
+Why each Annex A item maps here:
+
+- **A.5.11 Return of assets.** Return of assets on leaving and on a role change, tested by reconciling the asset register against HR leaver and mover events.
+
+**Rationale.** First proposed as an extension of CTL-AC-004 (joiner, mover and leaver deprovisioning), which shares the HR trigger. Codex review on #225 pointed out that it needs a second evidence source (the asset register) and owner, which breaks the grouping rule, and that movers were left out. A control of its own covers both.
 
 ### CTL-RA-001
 
@@ -184,7 +206,7 @@ Why each Annex A item maps here:
 
 | Field | Value |
 | --- | --- |
-| Statement | Information leaves the organization only through approved transfer channels under the transfer rules {transfer_rules}, and data leakage prevention policies block or alert on transfers of information labelled {dlp_scope} outside them, with alerts triaged within {dlp_triage_sla}. |
+| Statement | Every transfer of in-scope information, between internal systems and units as well as to external parties, uses an approved channel under the transfer rules {transfer_rules}, and data leakage prevention policies block or alert on transfers of information labelled {dlp_scope} outside them, with alerts triaged within {dlp_triage_sla}. |
 | Parameters (illustrative) | transfer_rules = the topic-specific policy on information transfer, including transfer agreements with external parties; dlp_scope = Confidential and above; dlp_triage_sla = 1 working day |
 | Control behaviour | PREVENTIVE |
 | Domain group | Protection |
@@ -203,23 +225,23 @@ Why each Annex A item maps here:
 
 ### CTL-SR-002
 
-**Cloud service responsibility and exit**
+**Cloud service security**
 
 | Field | Value |
 | --- | --- |
-| Statement | Every in-scope cloud service has a recorded split of security responsibilities between provider and customer for each applicable control, confirmed data processing and storage locations in its agreement, and an exit plan that is reviewed at least every {exit_review_period}. |
+| Statement | Every in-scope cloud service is acquired only after a security review, has a recorded split of security responsibilities between provider and customer for each applicable control, confirmed data processing and storage locations in its agreement, is configured and continuously checked against the cloud security baseline by posture management, and has an exit plan that is reviewed at least every {exit_review_period}. |
 | Parameters (illustrative) | exit_review_period = 24 months, and at contract renewal |
 | Control behaviour | PROACTIVE |
 | Domain group | Supplier and provider assurance |
 | Owner role | Head of procurement and vendor risk, with the head of platform engineering |
 | ISO 27001 Annex A | A.5.23 |
-| NIST SP 800-53 Rev. 5 | SA-9 (responsibility split); no direct control for exit planning |
+| NIST SP 800-53 Rev. 5 | SA-9 (responsibility split); SA-4 (acquisition); CM-6 (to verify: baseline); no direct control for exit planning |
 | NIS2 Art. 21(2) point (other articles named) | (d) |
 | Environments (illustrative) | SaaS, Azure platform, Azure workload and AWS. n/a on-premises and Legacy. |
 
 Why each Annex A item maps here:
 
-- **A.5.23 Information security for use of cloud services.** A.5.23 covers acquiring, using, managing and exiting cloud services. Assurance of the provider itself is already CTL-SR-001; what is left is the responsibility split and the exit, which this control tests.
+- **A.5.23 Information security for use of cloud services.** A.5.23 covers acquiring, using, configuring, managing and exiting cloud services. Assurance of the provider itself is already CTL-SR-001; this control tests the customer side: acquisition review, responsibility split, data location, configuration posture and exit.
 
 **Rationale.** Mapping A.5.23 into CTL-SR-001 was considered and rejected: SR-001 tests a provider's evidence, not the customer's side of the shared responsibility or the exit. The responsibility split is what this app models as Control Offerings (Full or Shared) on a Provider (ADR 0008), so the evidence already has a home.
 
@@ -248,26 +270,25 @@ Why each Annex A item maps here:
 
 ### CTL-CP-003
 
-**Continuity and redundancy of critical systems**
+**Security during disruption**
 
 | Field | Value |
 | --- | --- |
-| Statement | Every in-scope system with availability class {availability_class} or higher has a continuity plan that keeps its security controls in force during a disruption (emergency and break-glass access still logged and reviewed after use, security monitoring active during failover), runs with redundancy that meets its availability requirement, and has its failover exercised at least every {failover_test_interval}. |
-| Parameters (illustrative) | availability_class = high; failover_test_interval = 12 months |
+| Statement | Every in-scope system has disruption procedures that keep a defined minimum security baseline in force in emergency and degraded operation (emergency and break-glass access still authenticated, logged and reviewed after use; security monitoring active during failover and maintenance), and the procedures are exercised with the continuity tests at least every {disruption_exercise_interval}. |
+| Parameters (illustrative) | disruption_exercise_interval = 12 months for availability class high, 24 months otherwise |
 | Control behaviour | PROACTIVE |
 | Domain group | Resilience |
 | Owner role | Head of IT operations |
-| ISO 27001 Annex A | A.5.29; A.8.14 |
-| NIST SP 800-53 Rev. 5 | CP-2; CP-7; SC-36 (to verify) |
+| ISO 27001 Annex A | A.5.29 |
+| NIST SP 800-53 Rev. 5 | CP-2; AC-2 (to verify: break-glass accounts); SI-4 (to verify) |
 | NIS2 Art. 21(2) point (other articles named) | (c) |
-| Environments (illustrative) | All six. SaaS and Azure platform: mostly P (provider), inherited via CTL-SR-001; Azure workload and AWS: zone or region redundancy; on-premises: second site; Legacy: often COMPENSATING (manual fallback). |
+| Environments (illustrative) | All six. Break-glass accounts per platform (Entra, AWS root and break-glass roles, Active Directory), monitoring by CTL-AU-002. |
 
 Why each Annex A item maps here:
 
-- **A.5.29 Information security during disruption.** Keeping security at the agreed level during a disruption is the plan part of the statement. CTL-CP-002 (A.5.30) tests restoring from backup, not operating securely while degraded.
-- **A.8.14 Redundancy of information processing facilities.** Redundancy of facilities is how the plan is met for the same systems, and a failover exercise tests both at once. Listed by reference in the A.8 issue.
+- **A.5.29 Information security during disruption.** Keeping security at the agreed level during a disruption. CTL-CP-002 (A.5.30) tests restoring from backup, not operating securely while degraded.
 
-**Rationale.** Both items are scoped by the System's availability classification and evidenced by the same exercise. Splitting them would require two tests of one failover.
+**Rationale.** A.5.29 applies to every system that keeps running during a disruption, not only highly available ones. Redundancy (A.8.14) was first grouped here; Codex review on #225 pointed out that the availability threshold excluded lower-class systems from the security requirements, so redundancy is now CTL-CP-005 and keeps that threshold.
 
 ### CTL-PM-004
 
@@ -281,7 +302,7 @@ Why each Annex A item maps here:
 | Domain group | Governance and assurance |
 | Owner role | Head of legal and compliance |
 | ISO 27001 Annex A | A.5.31 |
-| NIST SP 800-53 Rev. 5 | CM-10 (for A.5.32); no direct control for the obligations register |
+| NIST SP 800-53 Rev. 5 | no direct control for the obligations register |
 | NIS2 Art. 21(2) point (other articles named) | to verify |
 | Environments (illustrative) | Organization-wide. |
 
@@ -293,23 +314,23 @@ Why each Annex A item maps here:
 
 ### CTL-CM-006
 
-**Software licences and intellectual property**
+**Intellectual property rights**
 
 | Field | Value |
 | --- | --- |
-| Statement | Software, open-source components and third-party content used in in-scope systems are acquired from legitimate sources and used within their licence terms, licence use is reconciled with entitlements at least every {licence_reconciliation_period}, and open-source licence obligations are checked in the build pipeline. |
+| Statement | Software, open-source components and third-party content used in in-scope systems are acquired from legitimate sources and used within their licence terms, with licence use reconciled with entitlements at least every {licence_reconciliation_period} and open-source licence obligations checked in the build pipeline; and the organization's own intellectual property (source code, designs, trade secrets, trademarks) is recorded, marked and protected by access restriction and confidentiality agreements. |
 | Parameters (illustrative) | licence_reconciliation_period = 12 months |
 | Control behaviour | DETECTIVE |
 | Domain group | Asset and configuration |
-| Owner role | Head of IT operations |
+| Owner role | Head of legal and compliance, with the head of IT operations |
 | ISO 27001 Annex A | A.5.32 |
-| NIST SP 800-53 Rev. 5 | CM-10 |
+| NIST SP 800-53 Rev. 5 | CM-10; no direct control for protecting own intellectual property |
 | NIS2 Art. 21(2) point (other articles named) | to verify |
 | Environments (illustrative) | SaaS (admin portal licence counts), on-premises and the endpoint fleet (software inventory of CTL-CM-002), Azure and AWS (marketplace and bring-your-own licences), build pipelines (open-source licence scan). |
 
 Why each Annex A item maps here:
 
-- **A.5.32 Intellectual property rights.** Intellectual property rights: legitimate acquisition, use within licence terms, and a measurable reconciliation.
+- **A.5.32 Intellectual property rights.** Intellectual property rights, both directions: others' IP used within licence terms (measurable by reconciliation), and the organization's own IP protected.
 
 **Rationale.** CTL-CM-004 (approved software) was considered, but it tests what may run, not whether its use is licensed. Kept apart from CTL-PM-004 because licence counts and pipeline scans are IT evidence, not a legal register.
 
@@ -319,8 +340,8 @@ Why each Annex A item maps here:
 
 | Field | Value |
 | --- | --- |
-| Statement | Records in in-scope systems are kept for the period set in the retention schedule {retention_schedule}, protected against loss, unauthorized change and deletion during that period, and deleted, including from backups, within {deletion_sla} after it ends or when deletion is requested. |
-| Parameters (illustrative) | retention_schedule = the approved records retention schedule; deletion_sla = 30 days |
+| Statement | Records in in-scope systems are kept for the period set in the retention schedule {retention_schedule}, protected against loss, unauthorized change and deletion during that period, and deleted, including from backups, within {deletion_sla} after it ends or when deletion is requested; other in-scope information (exports, caches, uploads, temporary files) is deleted when no longer needed and at the latest after {temporary_data_max_age}. |
+| Parameters (illustrative) | retention_schedule = the approved records retention schedule; deletion_sla = 30 days; temporary_data_max_age = 90 days |
 | Control behaviour | CORRECTIVE |
 | Domain group | Data protection and AI |
 | Owner role | Head of information management (role to define) |
@@ -338,7 +359,7 @@ Why each Annex A item maps here:
 
 ### CTL-CA-001
 
-**Independent review and compliance checks**
+**Independent review of information security**
 
 | Field | Value |
 | --- | --- |
@@ -348,7 +369,7 @@ Why each Annex A item maps here:
 | Domain group | Governance and assurance |
 | Owner role | Head of internal audit |
 | ISO 27001 Annex A | A.5.35 |
-| NIST SP 800-53 Rev. 5 | CA-2 (to verify: CA-2(1)); CA-5; CA-7 |
+| NIST SP 800-53 Rev. 5 | CA-2 (to verify: CA-2(1)); CA-5 |
 | NIS2 Art. 21(2) point (other articles named) | (f) |
 | Environments (illustrative) | Organization-wide. |
 
@@ -380,27 +401,6 @@ Why each Annex A item maps here:
 - **A.5.36 Compliance with policies, rules and standards.** Compliance with policies, rules and standards: the recorded checks and the findings and exceptions register are the evidence.
 
 **Rationale.** Split from CTL-CA-001 after Codex review on #225: first-line checks have different owners and evidence from an independent review. A.5.4 joins it because a manager's responsibility for policy compliance is shown by doing these checks.
-
-## Proposed extensions of Document F controls
-
-### CTL-AC-004
-
-**Joiner, mover and leaver deprovisioning** (Document F; today maps A.5.16; A.5.18; A.6.5)
-
-| Field | Value |
-| --- | --- |
-| Statement today | Access of a leaver is disabled within {leaver_sla} of the HR termination date and access of a mover is re-approved within {mover_sla}. |
-| Proposed statement | Access of a leaver is disabled within {leaver_sla} of the HR termination date, assets issued to the leaver are returned or remotely wiped within {asset_return_sla}, and access of a mover is re-approved within {mover_sla}. |
-| Added parameters (illustrative) | asset_return_sla = 5 working days |
-| Added Annex A | A.5.11 |
-| NIST SP 800-53 Rev. 5 | unchanged (PS-4 already covers asset return) |
-| NIS2 Art. 21(2) point (other articles named) | unchanged ((i)) |
-
-Why each Annex A item maps here:
-
-- **A.5.11 Return of assets.** Return of assets happens at the same trigger (HR termination date) and is checked against the same HR record. NIST PS-4, which CTL-AC-004 already maps, explicitly includes retrieving organizational property.
-
-**Rationale.** A new control would duplicate the leaver trigger and evidence. The cost is a second evidence source (asset register), and the owner may need to share the control with IT operations.
 
 ## Out of scope
 

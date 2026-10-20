@@ -7,9 +7,9 @@ This is a proposal for review by the product owner, not a change to the app, the
 ## Summary
 
 - 18 uncovered items in A.8.
-- 10 new Enterprise Controls proposed here: CTL-SA-002, CTL-SR-003, CTL-SA-003, CTL-CM-005, CTL-SA-004, CTL-PT-002, CTL-CP-004, CTL-SC-006, CTL-SC-007, CTL-CA-002.
+- 11 new Enterprise Controls proposed here: CTL-SA-002, CTL-SR-003, CTL-SA-003, CTL-CM-005, CTL-SA-004, CTL-PT-002, CTL-CP-004, CTL-CP-005, CTL-SC-006, CTL-SC-007, CTL-CA-002.
 - 2 Document F controls extended here: CTL-AU-001, CTL-CM-004.
-- 4 items absorbed by a control proposed in another theme: A.8.10, A.8.12, A.8.14, A.8.26.
+- 3 items absorbed by a control proposed in another theme: A.8.10, A.8.12, A.8.26.
 
 ## Mapping decisions
 
@@ -20,7 +20,7 @@ This is a proposal for review by the product owner, not a change to the app, the
 | A.8.10 Information deletion | [CTL-SI-003](a5-organizational.md#ctl-si-003) (proposed in the A.5 document) | New, from another theme | Information deletion is the other end of the same schedule. A retention policy that is never enforced at the end is the most common audit finding, so testing both ends in one control is intended. |
 | A.8.11 Data masking | [CTL-PT-002](#ctl-pt-002) | New Enterprise Control | Data masking in line with access control and legal requirements, in production views and in copies. |
 | A.8.12 Data leakage prevention | [CTL-SC-005](a5-organizational.md#ctl-sc-005) (proposed in the A.5 document) | New, from another theme | Data leakage prevention is the technical enforcement of the same rules, applied to the same labels. |
-| A.8.14 Redundancy of information processing facilities | [CTL-CP-003](a5-organizational.md#ctl-cp-003) (proposed in the A.5 document) | New, from another theme | Redundancy of facilities is how the plan is met for the same systems, and a failover exercise tests both at once. |
+| A.8.14 Redundancy of information processing facilities | [CTL-CP-005](#ctl-cp-005) | New Enterprise Control | Redundancy of information processing facilities, scoped by the availability requirement and evidenced by the failover test. |
 | A.8.17 Clock synchronisation | [CTL-AU-001](#ctl-au-001) | Extend Document F control | Clock synchronisation matters because logs from different systems must line up. NIST AU-8 (time stamps) sits in the same family as this control's mappings, and the drift is measurable on the log platform the control already tests. |
 | A.8.18 Use of privileged utility programs | [CTL-CM-004](#ctl-cm-004) | Extend Document F control | Privileged utility programs are a subset of the software this control already restricts through application allow-listing (NIST CM-7). Adding who may run them uses the same mechanism. |
 | A.8.21 Security of network services | [CTL-SC-006](#ctl-sc-006) | New Enterprise Control | Security of network services, in-house and provided. |
@@ -88,7 +88,7 @@ Why each Annex A item maps here:
 
 | Field | Value |
 | --- | --- |
-| Statement | Read and write access to source repositories, development tools and build pipelines of in-scope applications is limited to the people who need it and ends with their engagement, changes to protected branches require review by a second person, commits are scanned for secrets, and repository access is reviewed at least every {repo_access_review_period}. |
+| Statement | Read and write access to source repositories, development tools, build pipelines and package, dependency and artifact libraries (internal registries) of in-scope applications is limited to the people who need it and ends with their engagement, changes to protected branches require review by a second person, commits are scanned for secrets, and access is reviewed at least every {repo_access_review_period}. |
 | Parameters (illustrative) | repo_access_review_period = 90 days |
 | Control behaviour | PREVENTIVE |
 | Domain group | Secure development |
@@ -150,7 +150,7 @@ Why each Annex A item maps here:
 
 ### CTL-PT-002
 
-**Data masking and test data protection**
+**Data masking**
 
 | Field | Value |
 | --- | --- |
@@ -192,14 +192,36 @@ Why each Annex A item maps here:
 
 **Rationale.** Considered for CTL-CP-003, but capacity is a continuous monitoring control on every in-scope system, while continuity is scoped to the high-availability systems and tested by exercise.
 
+### CTL-CP-005
+
+**Redundancy of information processing facilities**
+
+| Field | Value |
+| --- | --- |
+| Statement | Every in-scope system with availability class {availability_class} or higher runs with redundancy that meets its availability requirement (zone or region redundancy, clustering, health-checked load balancing), and its failover is tested at least every {failover_test_interval}. |
+| Parameters (illustrative) | availability_class = high; failover_test_interval = 12 months |
+| Control behaviour | PROACTIVE |
+| Domain group | Resilience |
+| Owner role | Head of IT operations |
+| ISO 27001 Annex A | A.8.14 |
+| NIST SP 800-53 Rev. 5 | CP-7; SC-36 (to verify) |
+| NIS2 Art. 21(2) point (other articles named) | (c) |
+| Environments (illustrative) | Azure workload and AWS (zone or region redundancy), on-premises (second site or cluster), Azure platform (hub redundancy, inherited); SaaS: P, inherited via CTL-SR-001; Legacy: often COMPENSATING (manual fallback). |
+
+Why each Annex A item maps here:
+
+- **A.8.14 Redundancy of information processing facilities.** Redundancy of information processing facilities, scoped by the availability requirement and evidenced by the failover test.
+
+**Rationale.** Split from CTL-CP-003 after Codex review on #225. Redundancy is only required where the availability requirement asks for it, while security during disruption applies to every system, so they need different populations.
+
 ### CTL-SC-006
 
 **Network service security**
 
 | Field | Value |
 | --- | --- |
-| Statement | Every network service used by in-scope systems, provided or in-house (connectivity, DNS, DDoS protection, VPN, firewall service, service-to-service connections), has documented security requirements and service levels, the security features required by {network_service_baseline} are enabled and monitored, and internal service-to-service connections are authenticated. |
-| Parameters (illustrative) | network_service_baseline = DDoS protection on internet-facing endpoints, protective DNS, encrypted management, provider security report reviewed yearly |
+| Statement | Every network service used by in-scope systems, provided or in-house (connectivity, DNS, DDoS protection, VPN, firewall service, service-to-service connections), has documented security requirements and service levels, the security features required by {network_service_baseline} are enabled and monitored, and every connection to and from these services is authenticated and encrypted with TLS {min_tls} or higher. |
+| Parameters (illustrative) | network_service_baseline = DDoS protection on internet-facing endpoints, protective DNS, provider security report reviewed yearly; min_tls = 1.2 (as CTL-SC-001) |
 | Control behaviour | PREVENTIVE |
 | Domain group | Protection |
 | Owner role | Head of network engineering |
@@ -302,7 +324,6 @@ Why each Annex A item maps here:
 
 - **A.8.10 Information deletion** → CTL-SI-003 Records retention and information deletion (see [a5-organizational.md](a5-organizational.md#ctl-si-003)). Information deletion is the other end of the same schedule. A retention policy that is never enforced at the end is the most common audit finding, so testing both ends in one control is intended. Listed by reference in the A.8 issue.
 - **A.8.12 Data leakage prevention** → CTL-SC-005 Information transfer and data leakage prevention (see [a5-organizational.md](a5-organizational.md#ctl-sc-005)). Data leakage prevention is the technical enforcement of the same rules, applied to the same labels. Listed by reference in the A.8 issue.
-- **A.8.14 Redundancy of information processing facilities** → CTL-CP-003 Continuity and redundancy of critical systems (see [a5-organizational.md](a5-organizational.md#ctl-cp-003)). Redundancy of facilities is how the plan is met for the same systems, and a failover exercise tests both at once. Listed by reference in the A.8 issue.
 - **A.8.26 Application security requirements** → CTL-SA-001 Security requirements in projects and acquisitions (see [a5-organizational.md](a5-organizational.md#ctl-sa-001)). Application security requirements are the content of the same gate: they are identified when a system is developed or acquired. One gate, one record and one owner cover both, so they share a control. Listed by reference in the A.8 issue.
 
 ## Out of scope

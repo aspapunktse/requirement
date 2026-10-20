@@ -144,7 +144,7 @@ Why each Annex A item maps here:
 | Field | Value |
 | --- | --- |
 | Statement today | Security incidents are classified, handled and closed under the approved incident process, and the process is exercised at least every {ir_exercise_interval}. |
-| Proposed statement | Personnel can report observed or suspected security events through {reporting_channel}, reports are acknowledged within {report_ack_sla}, security incidents are classified, handled and closed under the approved incident process, and the process is exercised at least every {ir_exercise_interval}. |
+| Proposed statement | All personnel are required by policy, and told in awareness training, to report observed or suspected security events through {reporting_channel}, reports are acknowledged within {report_ack_sla}, security incidents are classified, handled and closed under the approved incident process, and the process is exercised at least every {ir_exercise_interval}. |
 | Added parameters (illustrative) | reporting_channel = the service desk security category and the phishing report button; report_ack_sla = 1 working day |
 | Added Annex A | A.6.8 |
 | NIST SP 800-53 Rev. 5 | adds IR-6 (to verify: IR-6 also covers external reporting, which CTL-IR-002 holds); IR-7 (to verify) |
