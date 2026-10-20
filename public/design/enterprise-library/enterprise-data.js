@@ -4822,12 +4822,7 @@ window.ENTERPRISE = {
    "iso": "none direct (A.5.9 covers assets generally)",
    "nist": "PM-5 (to verify)",
    "nis2": "n/a (AI Act obligations: see 0.4)",
-   "annexA": [
-    {
-     "code": "A.5.9",
-     "verify": false
-    }
-   ],
+   "annexA": [],
    "overview": {
     "SAAS": "SD/S 0>3",
     "AZP": "C/S 0>4",
