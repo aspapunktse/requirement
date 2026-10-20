@@ -3,6 +3,21 @@
 // `id` is the vote key: keep it stable once people have voted, or the votes are orphaned.
 window.DESIGN_PARTS = [
   {
+    id: "enterprise-library",
+    name: "Enterprise Control Library",
+    added: "2026-10-20",
+    question: "Should the Control Library be ~26 Enterprise Controls implemented per environment, instead of one Control per Annex A item?",
+    proposals: [
+      {
+        id: "enterprise-library-a",
+        label: "A",
+        title: "Enterprise matrix",
+        href: "/design/enterprise-library/proposal-a.html",
+        summary: "A header switch between today's Annex A Controls and 26 Enterprise Controls in one layout: a domain-grouped matrix over six environments, a detail panel per cell, a crosswalk to Annex A and a note on our model.",
+      },
+    ],
+  },
+  {
     id: "audit-new",
     name: "New Internal Audit",
     added: "2026-10-18",

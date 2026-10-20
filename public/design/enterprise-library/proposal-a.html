@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Enterprise Control Library</title>
+<link rel="stylesheet" href="../controls/library.css">
+<link rel="stylesheet" href="enterprise.css">
+</head>
+<body>
+<div class="app">
+  <div class="top">
+    <div>
+      <p class="crumb">Admin / Control Library</p>
+      <h1>Control Library</h1>
+    </div>
+    <div class="switch" id="switch" role="group" aria-label="Which library to show"></div>
+  </div>
+
+  <div class="banner" id="banner"></div>
+  <div class="tabs" id="tabs" role="tablist"></div>
+
+  <div class="body">
+    <div class="main" id="main"></div>
+    <aside class="panel" id="panel" aria-label="Details">
+      <div class="panel-head"><span class="label">Details</span><button type="button" class="btn" id="closePanel">Close</button></div>
+      <div class="panel-body" id="panelBody"></div>
+    </aside>
+  </div>
+</div>
+<script src="../controls/data.js"></script>
+<script src="../controls/library.js"></script>
+<script src="enterprise-data.js"></script>
+<script src="enterprise.js"></script>
+</body>
+</html>
