@@ -221,8 +221,8 @@ Why each Annex A item maps here:
 
 | Field | Value |
 | --- | --- |
-| Statement | Every audit test and other assurance activity on in-scope operational systems (including security tests, auditor queries and assessment tools) runs under a plan agreed with the system owner before it starts, uses read-only access where possible, schedules tests that can affect availability outside business hours, and has its access removed when it ends. |
-| Parameters (illustrative) | none |
+| Statement | Every audit test and other assurance activity on in-scope operational systems (including security tests, auditor queries and assessment tools) runs under a plan agreed with the system owner before it starts, uses dedicated, time-limited and read-only access where possible, schedules tests that can affect availability in an agreed window, is logged and its activity log kept after the audit for {audit_log_retention}, and has its access removed when it ends. |
+| Parameters (illustrative) | audit_log_retention = 12 months |
 | Control behaviour | PREVENTIVE |
 | Domain group | Governance and assurance |
 | Owner role | Head of internal audit |

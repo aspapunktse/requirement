@@ -25,8 +25,8 @@ This is a proposal for review by the product owner, not a change to the app, the
 | A.7.9 Security of assets off-premises | [CTL-PE-004](#ctl-pe-004) | New Enterprise Control | Security of assets off-premises: the device part is automatable (compliance report), the other assets are tested by reconciling the off-site record. |
 | A.7.10 Storage media | [CTL-MP-001](#ctl-mp-001) | New Enterprise Control | Storage media through their lifecycle: acquisition (approved media only), accountability (recorded owner), storage, transport and use are each in the statement. |
 | A.7.11 Supporting utilities | [CTL-PE-003](#ctl-pe-003) | New Enterprise Control | Supporting utilities (power, cooling) are tested on the same schedule as the protection systems and evidenced by the same test reports. |
-| A.7.12 Cabling security | [CTL-PE-005](#ctl-pe-005) | New Enterprise Control | Cabling security: protection against interception, interference and damage, tested by inspection. |
-| A.7.13 Equipment maintenance | [CTL-MA-001](#ctl-ma-001) | New Enterprise Control | Equipment maintenance: schedule, authorized maintainers and records are all tested from the maintenance log. |
+| A.7.12 Cabling security | [CTL-PE-005](#ctl-pe-005) | New Enterprise Control | Cabling security: protection against interception, interference and damage. Prevention (enclosed routes, locked cabinets, disabled ports) is in the statement, not only detection by inspection. |
+| A.7.13 Equipment maintenance | [CTL-MA-001](#ctl-ma-001) | New Enterprise Control | Equipment maintenance: schedule, per-job approval, supervision, the post-maintenance check and the record are all fields of one maintenance log entry, so one sample test covers them. |
 | A.7.14 Secure disposal or re-use of equipment | [CTL-MP-001](#ctl-mp-001) | New Enterprise Control | Secure disposal or re-use is the end of the same lifecycle and is evidenced by the same disposal certificates. |
 
 ## Proposed new Enterprise Controls
@@ -130,7 +130,7 @@ Why each Annex A item maps here:
 
 | Field | Value |
 | --- | --- |
-| Statement | Power and telecommunications cabling that carries in-scope data or supplies in-scope systems runs in conduits, trays or locked areas, patch panels and network cabinets are locked, and cabling is inspected for damage, tampering and unauthorized devices at least every {cabling_inspection_interval}. |
+| Statement | Power and telecommunications cabling that carries in-scope data or supplies in-scope systems runs in access-controlled areas or in enclosed and secured conduits or ducts (always enclosed and locked in shared or public areas), is separated or shielded where interference is a risk, patch panels and network cabinets are locked, unused network ports are disabled, and cabling is inspected for damage, tampering and unauthorized devices at least every {cabling_inspection_interval}. |
 | Parameters (illustrative) | cabling_inspection_interval = 12 months, and after building work |
 | Control behaviour | PREVENTIVE |
 | Domain group | Physical and media |
@@ -142,7 +142,7 @@ Why each Annex A item maps here:
 
 Why each Annex A item maps here:
 
-- **A.7.12 Cabling security.** Cabling security: protection against interception, interference and damage, tested by inspection.
+- **A.7.12 Cabling security.** Cabling security: protection against interception, interference and damage. Prevention (enclosed routes, locked cabinets, disabled ports) is in the statement, not only detection by inspection.
 
 **Rationale.** Split from CTL-PE-003 after Codex review on #225: the cabling test (protected routes, locked cabinets, inspection for tampering) has nothing in common with utility tests. Owned by network engineering, who run the cabling.
 
@@ -152,7 +152,7 @@ Why each Annex A item maps here:
 
 | Field | Value |
 | --- | --- |
-| Statement | Equipment of in-scope systems is maintained according to the supplier-recommended schedule by authorized personnel or suppliers, every maintenance is recorded, and equipment sent off-site for repair is sanitised first or covered by a confidentiality agreement. |
+| Statement | Equipment of in-scope systems is maintained according to the supplier-recommended schedule by authorized personnel or suppliers, each maintenance job is approved beforehand and supervised when done by a supplier on site, affected security controls are checked to work afterwards, every job is recorded with who did what and when, and equipment sent off-site for repair is sanitised first or covered by a confidentiality agreement. |
 | Parameters (illustrative) | none |
 | Control behaviour | PREVENTIVE |
 | Domain group | Physical and media |
@@ -164,7 +164,7 @@ Why each Annex A item maps here:
 
 Why each Annex A item maps here:
 
-- **A.7.13 Equipment maintenance.** Equipment maintenance: schedule, authorized maintainers and records are all tested from the maintenance log.
+- **A.7.13 Equipment maintenance.** Equipment maintenance: schedule, per-job approval, supervision, the post-maintenance check and the record are all fields of one maintenance log entry, so one sample test covers them.
 
 **Rationale.** Split from CTL-PE-003 after Codex review on #225. Maintenance applies to all equipment of in-scope systems, not only equipment rooms, and its prefix follows the NIST maintenance family (MA).
 
