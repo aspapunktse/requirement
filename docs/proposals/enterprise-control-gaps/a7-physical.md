@@ -83,7 +83,7 @@ Why each Annex A item maps here:
 
 | Field | Value |
 | --- | --- |
-| Statement | Sites and rooms that house in-scope equipment, wherever it is located (equipment rooms, wiring cupboards, offices), have a site risk assessment of physical and environmental threats (at least fire, water, temperature and power failure, plus location-specific threats such as earthquake, storm or hazardous materials), are protected against each applicable threat, and their protection systems and supporting utilities are tested at least every {utility_test_interval}. |
+| Statement | Sites and rooms that house in-scope systems, equipment or information, wherever they are (equipment rooms, wiring cupboards, offices, archives), have a site risk assessment of physical and environmental threats (at least fire, water, temperature and power failure, plus location-specific threats such as earthquake, storm or hazardous materials), are protected against each applicable threat, and their protection systems and supporting utilities are tested at least every {utility_test_interval}. |
 | Parameters (illustrative) | utility_test_interval = 6 months for UPS and generator, 12 months for fire suppression and cooling |
 | Control behaviour | PREVENTIVE |
 | Domain group | Physical and media |

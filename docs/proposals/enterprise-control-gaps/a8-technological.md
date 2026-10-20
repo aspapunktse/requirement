@@ -88,7 +88,7 @@ Why each Annex A item maps here:
 
 | Field | Value |
 | --- | --- |
-| Statement | Read and write access to source repositories, development tools, build pipelines and package, dependency and artifact libraries (internal registries) of in-scope applications is limited to the people who need it and ends with their engagement, changes to protected branches require review by a second person, commits are scanned for secrets, and access is reviewed at least every {repo_access_review_period}. |
+| Statement | Read and write access to source repositories, development tools, build pipelines and package, dependency and artifact libraries (internal registries) of every in-scope application and system component (including infrastructure as code, platform, network configuration and firmware) is limited to the people who need it and ends with their engagement, changes to protected branches require review by a second person, commits are scanned for secrets, and access is reviewed at least every {repo_access_review_period}. |
 | Parameters (illustrative) | repo_access_review_period = 90 days |
 | Control behaviour | PREVENTIVE |
 | Domain group | Secure development |
@@ -242,7 +242,7 @@ Why each Annex A item maps here:
 
 | Field | Value |
 | --- | --- |
-| Statement | Web access from managed devices to the categories and indicators listed in {web_filter_policy} is blocked on and off the corporate network, production servers reach only allowlisted external destinations with unexpected outbound connections alerted, and the block list is updated from threat intelligence within {web_filter_update_age}. |
+| Statement | Web access from managed devices to the categories and indicators listed in {web_filter_policy} is blocked on and off the corporate network, every in-scope server (production and non-production, including build agents) reaches the internet only through egress filtering, with production limited to allowlisted destinations and unexpected outbound connections alerted, and the block list is updated from threat intelligence within {web_filter_update_age}. |
 | Parameters (illustrative) | web_filter_policy = malicious, newly registered and uncategorised domains, plus categories set by policy; web_filter_update_age = 24 hours |
 | Control behaviour | PREVENTIVE |
 | Domain group | Protection |
