@@ -91,6 +91,7 @@ model User {
   role      UserRole @default(VIEWER)
   createdAt DateTime @default(now())
 
+  statSnapshots                      StatSnapshot[]
   ownedSystems                       System[]                            @relation("SystemOwner")
   assessments                        ControlAssessment[]                 @relation("AssessedBy")
   riskActions                        Risk[]                              @relation("RiskOwner")
@@ -1007,4 +1008,20 @@ model DesignVote {
 
   @@unique([proposalId, voterId])
   @@index([voterId])
+}
+
+// One figure on a User's Home page as it stood on one UTC day (#227), recorded once a day by the
+// stat-snapshots cron so the stat cards' trend lines can be exact. Per User because the figures differ by
+// role and scope. `statKey` is the stat card's label and `value` its number ("Oldest waiting" is in days,
+// "none" is 0). No pruning today: see STAT_SNAPSHOT_RETENTION_DAYS in src/lib/stat-snapshots.ts.
+model StatSnapshot {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  statKey   String
+  value     Int
+  day       DateTime @db.Date
+  createdAt DateTime @default(now())
+
+  @@unique([userId, statKey, day])
 }

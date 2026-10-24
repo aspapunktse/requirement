@@ -26,6 +26,7 @@ import { frameworkLabel } from "@/lib/framework-label";
 import { BASE_REVIEW_STEP_NAME } from "@/lib/review-steps";
 import { loadRecentActivity } from "./home-activity";
 import { computeTrends } from "./home-trends";
+import { withSnapshotTrends } from "./home-snapshots";
 import {
   daysSince,
   loadAuditOverview,
@@ -292,12 +293,14 @@ export async function roleView(user: { id: string; name: string; role: UserRole 
     user.role === "REVIEWER" || user.role === "RISK_OWNER"
       ? undefined
       : { ownerId: user.id };
-  const trends = await computeTrends(
+  const derived = await computeTrends(
     user,
     stats.map((stat) => stat.label),
     { reviewStarts: view.reviewStarts, attentionSystemIds: [...pipelineFlags(owner.rows).keys()], queryScope },
     now,
   );
+  // Past points with a recorded daily snapshot (#227) replace the values derived from timestamps.
+  const trends = await withSnapshotTrends(user.id, derived, now);
   stats = stats.map((stat) => (trends[stat.label] ? { ...stat, trend: trends[stat.label] } : stat));
 
   const picture = isSystemOwnerRole ? await loadPipelinePicture(user.id, pipelineFlags(owner.rows)) : (view.picture ?? EMPTY_PICTURE);
