@@ -186,8 +186,10 @@ export const APPLICABILITY_SCOPING = (classification: Pick<SystemClassification,
 export async function getApplicableControls(
   classification: SystemClassification,
   options: { controlIds?: string[] } = {},
+  // Pass a transaction client to read in the caller's snapshot.
+  client: Pick<Prisma.TransactionClient, "control"> = prisma,
 ) {
-  const controls = await prisma.control.findMany({
+  const controls = await client.control.findMany({
     where: {
       ...(options.controlIds !== undefined && { id: { in: options.controlIds } }),
       applicability: { in: [...APPLICABLE_APPLICABILITIES] },

@@ -57,42 +57,48 @@ export function pipelineFlags(ownerRows: TaskRow[]): Map<string, string> {
 }
 
 export async function loadPipelinePicture(userId: string, flags: Map<string, string>): Promise<HomePicture> {
-  const systems = await prisma.system.findMany({
-    where: { ownerId: userId },
-    orderBy: { name: "asc" },
-    select: {
-      id: true,
-      name: true,
-      status: true,
-      confidentialityImpactLevel: true,
-      integrityImpactLevel: true,
-      availabilityImpactLevel: true,
-      deploymentFacets: { select: { id: true } },
-      frameworkScopes: { select: { id: true } },
+  // One snapshot for the Systems, their applicable Controls and their Assessments, every query on `tx`.
+  const { systems, items } = await prisma.$transaction(
+    async (tx) => {
+      const systems = await tx.system.findMany({
+        where: { ownerId: userId },
+        orderBy: { name: "asc" },
+        select: {
+          id: true,
+          name: true,
+          status: true,
+          confidentialityImpactLevel: true,
+          integrityImpactLevel: true,
+          availabilityImpactLevel: true,
+          deploymentFacets: { select: { id: true } },
+          frameworkScopes: { select: { id: true } },
+        },
+      });
+      const items = [];
+      for (const system of systems.slice(0, MAX_SYSTEMS_DRAWN)) {
+        // "% assessed": the applicable Controls that have been touched (not an untouched Not Started row).
+        const applicable = await getApplicableControls(system, {}, tx);
+        const touched =
+          applicable.length === 0
+            ? 0
+            : await tx.controlAssessment.count({
+                where: { systemId: system.id, controlId: { in: applicable.map((control) => control.id) }, NOT: UNTOUCHED_ASSESSMENT_WHERE },
+              });
+        const flag = system.status === "REJECTED" ? "Rejected" : flags.get(system.id);
+        items.push({
+          id: system.id,
+          name: system.name,
+          href: `/systems/${system.id}`,
+          stage: stageOf(system.status),
+          pct: applicable.length === 0 ? null : Math.round((touched / applicable.length) * 100),
+          ...(flag && { flag }),
+        });
+      }
+      return { systems, items };
     },
-  });
-  const shown = systems.slice(0, MAX_SYSTEMS_DRAWN);
-  const items = await Promise.all(
-    shown.map(async (system) => {
-      // "% assessed": the applicable Controls that have been touched (not an untouched Not Started row).
-      const applicable = await getApplicableControls(system);
-      const touched =
-        applicable.length === 0
-          ? 0
-          : await prisma.controlAssessment.count({
-              where: { systemId: system.id, controlId: { in: applicable.map((control) => control.id) }, NOT: UNTOUCHED_ASSESSMENT_WHERE },
-            });
-      const flag = system.status === "REJECTED" ? "Rejected" : flags.get(system.id);
-      return {
-        id: system.id,
-        name: system.name,
-        href: `/systems/${system.id}`,
-        stage: stageOf(system.status),
-        pct: applicable.length === 0 ? null : Math.round((touched / applicable.length) * 100),
-        ...(flag && { flag }),
-      };
-    }),
+    { isolationLevel: "RepeatableRead" },
   );
+  const shown = items;
   return {
     type: "pipeline",
     title: "Your Systems through onboarding",
@@ -189,12 +195,17 @@ const MAX_RINGS = 8;
 
 /** The share of each Framework's Requirements that are covered (a Full Control Mapping), the figure of the Coverage view. */
 export async function loadFrameworkRingsPicture(user: { role: UserRole }, limit = MAX_RINGS): Promise<HomePicture> {
-  const frameworks = await prisma.framework.findMany({
-    where: visibleFrameworksWhere(user),
-    orderBy: [{ isBase: "desc" }, { name: "asc" }, { version: "desc" }],
-    select: { id: true, name: true, version: true },
-  });
-  const summaries = await loadCoverageSummaries(frameworks.map((framework) => framework.id));
+  const { frameworks, summaries } = await prisma.$transaction(
+    async (tx) => {
+      const frameworks = await tx.framework.findMany({
+        where: visibleFrameworksWhere(user),
+        orderBy: [{ isBase: "desc" }, { name: "asc" }, { version: "desc" }],
+        select: { id: true, name: true, version: true },
+      });
+      return { frameworks, summaries: await loadCoverageSummaries(frameworks.map((framework) => framework.id), tx) };
+    },
+    { isolationLevel: "RepeatableRead" },
+  );
   const withRequirements = frameworks.filter((framework) => summaries[framework.id].total > 0);
   return {
     type: "rings",

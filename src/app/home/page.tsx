@@ -16,5 +16,6 @@ export default async function HomePage() {
     return <p className="p-6 text-rg-muted">Pick a user to act as first.</p>;
   }
 
-  return <HomeCommandCenter view={await homeView(user)} />;
+  // Keyed on the acting user, so switching user starts from a clean state: no tab, filter or sort carried over.
+  return <HomeCommandCenter key={user.id} view={await homeView(user)} />;
 }

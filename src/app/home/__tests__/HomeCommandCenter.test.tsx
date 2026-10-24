@@ -207,6 +207,30 @@ describe("HomeCommandCenter: My tasks", () => {
   });
 });
 
+describe("HomeCommandCenter: switching the acting user", () => {
+  it("starts clean for another user when keyed on the user, dropping tab, stat, filter, sort and palette", async () => {
+    const user = userEvent.setup();
+    function Page({ userId }: { userId: string }) {
+      return <HomeCommandCenter key={userId} view={view()} />;
+    }
+    const { rerender } = render(<Page userId="u1" />);
+    await user.click(screen.getByRole("button", { name: /Open questions/ }));
+    await user.type(screen.getByRole("searchbox"), "cloud");
+    await user.selectOptions(screen.getByRole("combobox", { name: "Order" }), "old");
+    await user.keyboard("{Control>}k{/Control}");
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    await user.keyboard("{Escape}");
+
+    rerender(<Page userId="u2" />);
+    expect(screen.getByRole("button", { name: /Open questions/ })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("tab", { name: /All/ })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("searchbox")).toHaveValue("");
+    expect(screen.getByRole("combobox", { name: "Order" })).toHaveValue("lane");
+    expect(rowTitles()).toHaveLength(5);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+});
+
 describe("HomeCommandCenter: side column", () => {
   it("shows the picture, the shortcuts with the primary one marked, and the activity with a link to the System", () => {
     render(<HomeCommandCenter view={view()} />);
