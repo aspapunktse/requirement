@@ -173,7 +173,7 @@ describe("Control Owner tasks (#120)", () => {
       await makeControl(otherOwner.id, "NOT_STARTED");
 
       const view = await roleView(bystander);
-      expect(view.tasks).toBeUndefined(); // a Viewer has no My tasks section
+      expect(view.tasks).toEqual([]); // a Viewer has no tasks
       for (const role of ROLES) {
         const user = await makeUser(role);
         expect(controlRows(await roleView(user)), role).toEqual([]);
@@ -185,7 +185,7 @@ describe("Control Owner tasks (#120)", () => {
       await makeControl(owner.id, "FULFILLED");
       await makeControl(owner.id, undefined, "PER_SYSTEM");
 
-      expect((await roleView(owner)).tasks).toBeUndefined();
+      expect((await roleView(owner)).tasks).toEqual([]);
     });
 
     it("puts the Organization Controls tile on the Compliance Manager's and the Admin's home, and on nobody else's", async () => {
