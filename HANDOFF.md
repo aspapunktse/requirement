@@ -18,7 +18,7 @@ This file holds current state and the queue, and nothing else. The rule is in th
    DEF STAN 05-138 Issue 4 Levels 0–3 (#211) is done (PR #215): four Draft content files, to be loaded into production by hand in level order (Level 0 first).
 3. **Design:** #181 moved the app to the Register design system (PR #182). Follow-ups: list components to RegisterRow, filter panels to FilterFields, the header tab row. New code uses the `--rg-*` tokens and `rg-*` Tailwind colours, not `--ems-*`.
    Design proposals are listed at `/design` with thumbs-up voting (#186). Each new proposal adds its entry to `public/design/proposals.js` (rule in `AGENTS.md`).
-   Home by role: proposal A (Command center) is applied to `/home` with #226 (PR pending). Its stat-card trends are rebuilt from timestamps; #227 (`needs-triage`, blocked by #226) records daily snapshots so they become exact.
+   Home by role: proposal A (Command center) is applied to `/home` with #226 (PR #228). #227 (PR pending) records daily per-user stat snapshots from a Vercel cron (`/api/cron/stat-snapshots`, 02:00 UTC), so trend points are exact from launch on; it needs `CRON_SECRET` in Vercel Production, set by the product owner, or the cron gets 401 every day.
 4. **Framework Review Groups (2026-10-18):** grilled with the product owner; the design is in `CONTEXT.md` (Review Group, Review Step, Review Round) and [ADR 0010](docs/adr/0010-onboarding-review-runs-as-parallel-review-steps.md), and cut into #197–#201 (queue below). #197 is done (PR #204), #198 is done (PR #205), #199 is done (PR #206), #200 is done (PR #207) and #201 is done (PR #208). All five issues are done; what is left is the future work listed under the queue.
 5. Nothing is in flight. The dev DB is in its seeded state (see below).
 
@@ -61,7 +61,7 @@ Not cut into issues: the PRD's two "could" features, F-OUT.6 (PDF export of the 
 
 **State as of 2026-10-14**
 - PRD 0001 milestones 1, 2 and 3 are complete, closed and in production. Milestone 5 is complete with #158. Milestone 4 has #148 left.
-- Production has every migration up to `20261019130000_add_query_attribution` (47 in all) once PR #208 is deployed.
+- Production has every migration up to `20261024120000_add_stat_snapshot` (48 in all) once #227's PR is deployed.
 - Other open issues:
   - #46 needs re-scoping against the PRD before anyone picks it up.
   - #61 is deferred.
@@ -114,9 +114,9 @@ Before M2: #91, unify the owner rule and restrict System creation (PR #96). Foll
 
 The dev DB is in its seeded state. When cleaning up after a browser check, compare with these counts.
 
-- 11 Systems (one is the Provider "Entra ID SSO"), 11 Users (the seed adds the Internal Auditor; run `npx prisma db seed` after pulling #147), 118 Controls, 527 Control Assessments, 2 Change Events, 4 Control Offerings, 2 Provider dependencies, and 92 Organization Control Implementations, all Not Started. No Control Owners.
+- 11 Systems (one is the Provider "Entra ID SSO"), 11 Users (the seed adds the Internal Auditor; run `npx prisma db seed` after pulling #147), 118 Controls (129 once the Draft content files are loaded with `npm run frameworks:load`: each adds its Supplementary Controls), 527 Control Assessments, 2 Change Events, 4 Control Offerings, 2 Provider dependencies, and 92 Organization Control Implementations, all Not Started. No Control Owners.
 - The two Change Events are seeded state (the `"system"` events on GitHub and Microsoft 365 from the Capability migration): do not delete them.
-- 47 rows in `_prisma_migrations` once PR #208 is merged and applied.
+- 48 rows in `_prisma_migrations` once #227's PR is merged and applied. `StatSnapshot` is empty until the cron runs.
 - 7 Approvals and 9 Review Rounds (one per Approval, plus an open one for each of the 2 Systems In Review).
 - Controls by applicability: 61 Organizational, 31 Both, 26 Per-System. All mandatory.
 - Frameworks: ISO/IEC 27001:2022, which is the base and Published. GDPR 1 and Export Control (EAR/ITAR) 1 are Published but have no Requirements yet. The seed doesn't load `prisma/seed-data/frameworks/`, so CSA CCM 4.1.1, CMMC Levels 1 and 2, Cyber Essentials 3.3 and DEF STAN 05-138 Levels 0–3 are absent until `npm run frameworks:load` is run.

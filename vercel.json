@@ -3,5 +3,6 @@
     "deploymentEnabled": {
       "main": false
     }
-  }
+  },
+  "crons": [{ "path": "/api/cron/stat-snapshots", "schedule": "0 2 * * *" }]
 }

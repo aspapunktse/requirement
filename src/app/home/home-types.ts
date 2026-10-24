@@ -39,7 +39,7 @@ export type HomeStat = {
   tone?: HomeStatTone;
   /** The task kind this card filters the task list by; a card without one is not a button. */
   filter?: string;
-  /** Oldest to newest. Nothing fills it today (no history exists); see `SHOW_STAT_TRENDS`. */
+  /** Oldest to newest. Weekly points, filled when `SHOW_STAT_TRENDS` is on; see `home-trends.ts` and `home-snapshots.ts`. */
   trend?: number[];
 };
 
