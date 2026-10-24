@@ -7,6 +7,7 @@ import {
   deriveFrameworkStatusesForSystems,
   emptyDerivedStatusCounts,
   isFrameworkInEffectiveScope,
+  type DerivationDb,
 } from "@/lib/requirement-status";
 
 /**
@@ -62,13 +63,15 @@ export type ScopeCompliance = {
 export async function getComplianceForSystems(
   where: Prisma.SystemWhereInput,
   options: { frameworkId?: string } = {},
+  // Pass a transaction client to read in the caller's snapshot.
+  db: DerivationDb = prisma,
 ): Promise<ScopeCompliance> {
   const [framework, systems] = await Promise.all([
-    prisma.framework.findFirst({
+    db.framework.findFirst({
       where: options.frameworkId ? { id: options.frameworkId } : { isBase: true },
       select: { id: true, name: true, version: true, isBase: true, status: true, strictComplianceRequired: true },
     }),
-    prisma.system.findMany({
+    db.system.findMany({
       where,
       select: {
         id: true,
@@ -93,7 +96,7 @@ export async function getComplianceForSystems(
   if (!framework) return { framework: null, met: 0, applicable: 0, percentage: null, bySystem: emptyBySystem };
 
   const inScope = systems.filter((s) => isFrameworkInEffectiveScope(framework, s.frameworkScopes));
-  const derived = await deriveFrameworkStatusesForSystems(framework.id, inScope);
+  const derived = await deriveFrameworkStatusesForSystems(framework.id, inScope, db);
 
   let pooled = emptyDerivedStatusCounts();
   const bySystem = systems.map((system): SystemCompliance => {

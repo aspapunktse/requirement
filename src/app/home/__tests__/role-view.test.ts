@@ -33,6 +33,8 @@ describe("roleView: owner tasks for any role (#98)", () => {
 
   const ids = (view: { tasks?: { id: string }[] }) => (view.tasks ?? []).map((t) => t.id);
   const labels = (view: { stats: { label: string }[] }) => view.stats.map((s) => s.label);
+  /** The stats without the interaction hints (`filter`, `tone`) the Home page adds. */
+  const figures = (view: { stats: { label: string; value: number | string }[] }) => view.stats.map(({ label, value }) => ({ label, value }));
 
   beforeAll(async () => {
     approverId = (await makeUser("approver", "REVIEWER")).id;
@@ -81,7 +83,7 @@ describe("roleView: owner tasks for any role (#98)", () => {
     expect(view.tasks?.find((t) => t.id === awaiting.id)?.status).toBe("Awaiting review");
 
     // Role stats kept; one owner stat added; "Open questions" not repeated.
-    expect(labels(view)).toEqual(["Awaiting review", "Open questions", "Your Systems needing attention"]);
+    expect(labels(view)).toEqual(["Awaiting review", "Open questions", "Oldest waiting", "Your Systems needing attention"]);
     expect(view.stats.find((s) => s.label === "Your Systems needing attention")?.value).toBe(1);
     expect(view.tiles.map((t) => t.title)).toEqual(["Browse Systems", "Control Library", "Statement of Applicability"]);
   });
@@ -120,7 +122,7 @@ describe("roleView: owner tasks for any role (#98)", () => {
       expect(ids(view).filter((id) => id.endsWith(":rejected")), role).toEqual([]);
     }
     const viewer = await roleView(await makeUser("none-viewer-2", "VIEWER"));
-    expect(viewer.tasks).toBeUndefined();
+    expect(viewer.tasks).toEqual([]);
     expect(labels(viewer)).toEqual(["Onboarded systems"]);
   });
 
@@ -128,7 +130,7 @@ describe("roleView: owner tasks for any role (#98)", () => {
     const manager = await makeUser("compliance", "COMPLIANCE_MANAGER");
     await ownedSystemWithQuery(manager.id, "compliance-owned");
     const view = await roleView(manager);
-    expect(view.tasks).toBeUndefined();
+    expect(view.tasks).toEqual([]);
     expect(labels(view)).toEqual(["Controls", "Frameworks"]);
   });
 
@@ -221,7 +223,7 @@ describe("roleView: owner tasks for any role (#98)", () => {
         status: "Awaiting your reply",
         subtitle: system.name,
       });
-      expect(view.stats).toEqual([
+      expect(figures(view)).toEqual([
         { label: "Needing attention", value: 1 },
         { label: "Open questions", value: 1 },
       ]);
@@ -232,7 +234,7 @@ describe("roleView: owner tasks for any role (#98)", () => {
       const owner = await makeUser("system-owner-empty", "SYSTEM_OWNER");
       const view = await roleView(owner);
       expect(view.tasks).toEqual([]);
-      expect(view.stats).toEqual([
+      expect(figures(view)).toEqual([
         { label: "Needing attention", value: 0 },
         { label: "Open questions", value: 0 },
       ]);

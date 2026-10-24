@@ -82,8 +82,11 @@ export async function loadFrameworkCoverage(frameworkId: string): Promise<Framew
  * Covered/gap/accepted counts for several Frameworks at once (the Framework
  * list, F-FW.6). A Framework with no Requirements gets all-zero counts.
  */
-export async function loadCoverageSummaries(frameworkIds: string[]): Promise<Record<string, CoverageSummary>> {
-  const rows = await prisma.requirement.findMany({
+export async function loadCoverageSummaries(
+  frameworkIds: string[],
+  client: Pick<Prisma.TransactionClient, "requirement"> = prisma,
+): Promise<Record<string, CoverageSummary>> {
+  const rows = await client.requirement.findMany({
     where: { frameworkId: { in: frameworkIds } },
     select: { frameworkId: true, gapAcceptedAt: true, mappings: { select: { coverage: true } } },
   });
