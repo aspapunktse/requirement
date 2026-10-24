@@ -161,10 +161,14 @@ export function riskHeatPicture(risks: { likelihood: RiskSeverity; severity: Ris
  */
 export async function loadPortfolioPicture(scope: AssignedScope, openRisks: { systemId: string | null }[]): Promise<HomePicture> {
   const where = scopedSystemsWhere(scope);
-  const [systems, compliance] = await Promise.all([
-    prisma.system.findMany({ where, orderBy: { name: "asc" }, select: { id: true, name: true, status: true } }),
-    getComplianceForSystems(where),
-  ]);
+  // One snapshot for the System list and the compliance derivation, every query on `tx`.
+  const { systems, compliance } = await prisma.$transaction(
+    async (tx) => ({
+      systems: await tx.system.findMany({ where, orderBy: { name: "asc" }, select: { id: true, name: true, status: true } }),
+      compliance: await getComplianceForSystems(where, {}, tx),
+    }),
+    { isolationLevel: "RepeatableRead" },
+  );
   const pctBySystem = new Map(compliance.bySystem.map((row) => [row.systemId, row.percentage]));
   const risksBySystem = new Map<string, number>();
   for (const risk of openRisks) if (risk.systemId) risksBySystem.set(risk.systemId, (risksBySystem.get(risk.systemId) ?? 0) + 1);

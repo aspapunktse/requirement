@@ -1,4 +1,4 @@
-import type { ControlAssessmentStatus, ControlApplicability, ImpactLevel } from "@prisma/client";
+import type { ControlAssessmentStatus, ControlApplicability, ImpactLevel, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { controlAppliesToSystem, type SystemClassification } from "@/lib/control-assessments";
 import { getSystemFrameworkScopes } from "@/lib/framework-scope";
@@ -56,6 +56,12 @@ export * from "@/lib/requirement-status-rules";
  *   outside the Framework's scope), so every Requirement comes out Not
  *   Applicable. Use `isFrameworkInEffectiveScope` to filter Systems first.
  */
+
+/** What the derivation reads through: the shared client, or a transaction client for one snapshot. */
+export type DerivationDb = Pick<
+  Prisma.TransactionClient,
+  "framework" | "system" | "controlAssessment" | "control" | "organizationControlImplementation" | "providerDependency" | "controlOffering"
+>;
 
 export type DerivationSystem = SystemClassification & { id: string };
 
@@ -163,8 +169,12 @@ const byNumericText = (a: string, b: string) => a.localeCompare(b, undefined, { 
  * Organization's implementation status of those Controls, in a constant number
  * of queries regardless of size.
  */
-export async function loadFrameworkDerivationData(frameworkId: string): Promise<FrameworkDerivationData | null> {
-  const framework = await prisma.framework.findUnique({
+export async function loadFrameworkDerivationData(
+  frameworkId: string,
+  // Pass a transaction client to read in the caller's snapshot.
+  db: DerivationDb = prisma,
+): Promise<FrameworkDerivationData | null> {
+  const framework = await db.framework.findUnique({
     where: { id: frameworkId },
     select: {
       id: true,
@@ -230,7 +240,7 @@ export async function loadFrameworkDerivationData(frameworkId: string): Promise<
     },
     requirements,
     controlIds,
-    organizationStatusByControlId: await loadOrganizationStatuses(controlIds),
+    organizationStatusByControlId: await loadOrganizationStatuses(controlIds, db),
   };
 }
 
@@ -312,19 +322,19 @@ export function deriveRequirementRowsForSystem(
  * Framework doesn't exist; otherwise a Map with an entry for every System given.
  * This is the function the Requirement-based Compliance Percentage (#90) builds on.
  */
-export async function deriveFrameworkStatusesForSystems(frameworkId: string, systems: DerivationSystem[]) {
-  const data = await loadFrameworkDerivationData(frameworkId);
+export async function deriveFrameworkStatusesForSystems(frameworkId: string, systems: DerivationSystem[], db: DerivationDb = prisma) {
+  const data = await loadFrameworkDerivationData(frameworkId, db);
   if (!data) return null;
 
   const systemIds = systems.map((s) => s.id);
   const [assessments, providerSources] = await Promise.all([
     systems.length === 0 || data.controlIds.length === 0
       ? []
-      : prisma.controlAssessment.findMany({
+      : db.controlAssessment.findMany({
           where: { systemId: { in: systemIds }, controlId: { in: data.controlIds } },
           select: { systemId: true, controlId: true, status: true, assessedById: true },
         }),
-    loadProviderSources(systemIds, data.controlIds),
+    loadProviderSources(systemIds, data.controlIds, db),
   ]);
   const assessmentsBySystem = new Map<string, Map<string, NonNullable<OwnAssessment>>>();
   for (const assessment of assessments) {
