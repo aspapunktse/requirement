@@ -9,7 +9,7 @@ import type { HomeActivity } from "./home-types";
 /**
  * The roles that also see the System-less Change Events (requirement-database changes, the
  * Organization's own Control implementations, Check-up evaluations): the ones that curate or read
- * the whole catalog. Conservative by design (product-owner answer pending on #226): every other role
+ * the whole catalog. Conservative by design (product-owner decision on #226, 2026-10-24): every other role
  * sees the events of the Systems it can see and nothing else.
  */
 export const CATALOG_ACTIVITY_ROLES: UserRole[] = ["ADMIN", "COMPLIANCE_MANAGER", "INTERNAL_AUDITOR"];

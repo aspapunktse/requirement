@@ -1,6 +1,6 @@
 /**
- * Switches for the parts of the Home page that wait for a product-owner answer (issue #226). Each is
- * one constant, so flipping or dropping a part is a one-line change.
+ * Switches for the optional parts of the Home page; the product owner chose to show all three
+ * (issue #226). Each is one constant, so flipping or dropping a part is a one-line change.
  */
 
 /** Sparklines on the stat cards: weekly trends rebuilt from existing timestamps (see `home-trends.ts`). */
