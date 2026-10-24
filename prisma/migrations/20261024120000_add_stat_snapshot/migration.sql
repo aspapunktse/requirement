@@ -7,6 +7,7 @@ CREATE TABLE "StatSnapshot" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
     "statKey" TEXT NOT NULL,
+    "role" "UserRole" NOT NULL,
     "value" INTEGER NOT NULL,
     "day" DATE NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,

@@ -1,3 +1,4 @@
+import type { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { HomeStat } from "./home-types";
 import { TREND_POINTS, weekEnds } from "./home-trends";
@@ -22,14 +23,14 @@ export function statNumber(stat: Pick<HomeStat, "value">): number {
 
 /**
  * Replaces the derived value of every past point of `trends` that has a snapshot for `userId`, in one query.
- * Only that User's own snapshots are read. Returns new arrays; `trends` is not changed.
+ * Only that User's own snapshots taken under their current role are read (a role change can change what a figure counts). Returns new arrays; `trends` is not changed.
  */
-export async function withSnapshotTrends(userId: string, trends: Record<string, number[]>, now: Date): Promise<Record<string, number[]>> {
+export async function withSnapshotTrends(user: { id: string; role: UserRole }, trends: Record<string, number[]>, now: Date): Promise<Record<string, number[]>> {
   const labels = Object.keys(trends);
   if (labels.length === 0) return trends;
   const days = weekEnds(now).map((end) => utcDay(end).getTime());
   const rows = await prisma.statSnapshot.findMany({
-    where: { userId, statKey: { in: labels }, day: { in: days.slice(0, TREND_POINTS - 1).map((ms) => new Date(ms)) } },
+    where: { userId: user.id, role: user.role, statKey: { in: labels }, day: { in: days.slice(0, TREND_POINTS - 1).map((ms) => new Date(ms)) } },
     select: { statKey: true, day: true, value: true },
   });
   if (rows.length === 0) return trends;

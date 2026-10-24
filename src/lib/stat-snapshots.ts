@@ -32,7 +32,7 @@ export async function recordStatSnapshots(now = new Date(), only?: { userIds: st
     try {
       const view = await roleView(user, now);
       const result = await prisma.statSnapshot.createMany({
-        data: view.stats.map((stat) => ({ userId: user.id, statKey: stat.label, value: statNumber(stat), day })),
+        data: view.stats.map((stat) => ({ userId: user.id, role: user.role, statKey: stat.label, value: statNumber(stat), day })),
         skipDuplicates: true,
       });
       recorded += result.count;

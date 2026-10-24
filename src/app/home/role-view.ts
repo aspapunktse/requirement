@@ -300,7 +300,7 @@ export async function roleView(user: { id: string; name: string; role: UserRole 
     now,
   );
   // Past points with a recorded daily snapshot (#227) replace the values derived from timestamps.
-  const trends = await withSnapshotTrends(user.id, derived, now);
+  const trends = await withSnapshotTrends(user, derived, now);
   stats = stats.map((stat) => (trends[stat.label] ? { ...stat, trend: trends[stat.label] } : stat));
 
   const picture = isSystemOwnerRole ? await loadPipelinePicture(user.id, pipelineFlags(owner.rows)) : (view.picture ?? EMPTY_PICTURE);

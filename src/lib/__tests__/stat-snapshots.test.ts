@@ -74,11 +74,11 @@ describe("trends read the snapshots (#227)", () => {
     const ends = weekEnds(now);
     await prisma.statSnapshot.createMany({
       data: [
-        { userId: a.id, statKey: stat.label, value: 987, day: utcDay(ends[3]) },
+        { userId: a.id, role: "VIEWER", statKey: stat.label, value: 987, day: utcDay(ends[3]) },
         // The live day's snapshot must not replace the live value.
-        { userId: a.id, statKey: stat.label, value: 654, day: utcDay(ends[6]) },
+        { userId: a.id, role: "VIEWER", statKey: stat.label, value: 654, day: utcDay(ends[6]) },
         // A day that is not a week end is ignored.
-        { userId: a.id, statKey: stat.label, value: 321, day: utcDay(new Date(ends[2].getTime() + 86_400_000)) },
+        { userId: a.id, role: "VIEWER", statKey: stat.label, value: 321, day: utcDay(new Date(ends[2].getTime() + 86_400_000)) },
       ],
     });
     const trend = (await roleView(a, now)).stats.find((s) => s.label === stat.label)?.trend as number[];
@@ -92,10 +92,28 @@ describe("trends read the snapshots (#227)", () => {
     const stat = (await roleView(a, now)).stats[0];
     const derived = stat.trend as number[];
     const ends = weekEnds(now);
-    await prisma.statSnapshot.create({ data: { userId: b.id, statKey: stat.label, value: 555, day: utcDay(ends[4]) } });
+    await prisma.statSnapshot.create({ data: { userId: b.id, role: "VIEWER", statKey: stat.label, value: 555, day: utcDay(ends[4]) } });
     const trend = (await roleView(a, now)).stats[0].trend as number[];
     expect(trend).toEqual(derived);
     const bTrend = (await roleView(b, now)).stats.find((s) => s.label === stat.label)?.trend as number[];
     expect(bTrend[4]).toBe(555);
+  });
+});
+
+describe("a role change (#227)", () => {
+  it("ignores snapshots recorded under another role and uses those of the current role", async () => {
+    await prisma.statSnapshot.deleteMany({ where: { userId: a.id } });
+    const stat = (await roleView(a, now)).stats[0];
+    const derived = stat.trend as number[];
+    const ends = weekEnds(now);
+    await prisma.statSnapshot.createMany({
+      data: [
+        { userId: a.id, role: "ADMIN", statKey: stat.label, value: 111, day: utcDay(ends[2]) },
+        { userId: a.id, role: "VIEWER", statKey: stat.label, value: 222, day: utcDay(ends[3]) },
+      ],
+    });
+    const trend = (await roleView(a, now)).stats.find((s) => s.label === stat.label)?.trend as number[];
+    expect(trend[2]).toBe(derived[2]);
+    expect(trend[3]).toBe(222);
   });
 });
