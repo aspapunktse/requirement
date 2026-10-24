@@ -202,7 +202,7 @@ describe("Answering a Check-up (#155)", () => {
       expect(admin.tiles.map((t) => t.title)).not.toContain("Your Check-ups");
 
       const viewer = await roleView({ id: roleUser.VIEWER, name: "V", role: "VIEWER" });
-      expect(viewer.tasks).toBeUndefined();
+      expect(viewer.tasks).toEqual([]);
 
       const auditor = await roleView({ id: iaOwner, name: "I", role: "INTERNAL_AUDITOR" });
       expect(auditor.tasks?.some((t) => t.kind === "Check-up")).toBeFalsy();
