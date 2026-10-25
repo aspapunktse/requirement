@@ -41,7 +41,7 @@ describe("saved views", () => {
     expect(roleViewOf("REVIEWER").label).toBe("Awaiting review");
     expect(roleViewOf("RISK_OWNER").label).toBe("With open Risks");
     expect(roleViewOf("BUSINESS_RISK_OWNER").label).toBe("In my scope");
-    for (const role of ["ADMIN", "COMPLIANCE_MANAGER", "INTERNAL_AUDITOR", "VIEWER"] as const) expect(roleViewOf(role).label).toBe("Under 70% fulfilled");
+    for (const role of ["ADMIN", "COMPLIANCE_MANAGER", "INTERNAL_AUDITOR", "VIEWER"] as const) expect(roleViewOf(role).label).toBe("Under 70% met");
     expect(roleViewNeedsFulfilment("ADMIN")).toBe(true);
     expect(roleViewNeedsFulfilment("REVIEWER")).toBe(false);
   });

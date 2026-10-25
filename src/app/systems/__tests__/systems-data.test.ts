@@ -144,7 +144,7 @@ describe("a row", () => {
     expect((await rowsOf(owner)).byId.get(s1)?.vendor).toBe("Vendor One");
   });
 
-  it("counts Controls fulfilled the way the compliance figure does (base Framework)", async () => {
+  it("counts Requirements met the way the compliance figure does (base Framework)", async () => {
     const row = (await rowsOf(owner)).byId.get(s2) as SystemRow;
     const direct = (await getComplianceForSystems({ id: s2 })).bySystem[0];
     expect(row.applicable).toBe(direct.applicable);
@@ -214,9 +214,9 @@ describe("the role view (decision 3a)", () => {
     expect([s2, s3].map((id) => byId.get(id)?.inRoleView)).toEqual([true, true]);
   });
 
-  it("every other role: Under 70% fulfilled, never a Draft, matching the compliance figure", async () => {
+  it("every other role: Under 70% met, never a Draft, matching the compliance figure", async () => {
     const { view, byId } = await rowsOf(manager);
-    expect(view.roleView).toEqual({ label: "Under 70% fulfilled", warn: true });
+    expect(view.roleView).toEqual({ label: "Under 70% met", warn: true });
     const compliance = await getComplianceForSystems({ id: { in: [s1, s2, s3, s4, s5] } });
     for (const figure of compliance.bySystem) {
       const row = byId.get(figure.systemId) as SystemRow;

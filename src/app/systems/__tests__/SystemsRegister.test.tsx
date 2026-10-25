@@ -217,7 +217,7 @@ describe("search and filters", () => {
 });
 
 describe("table", () => {
-  it("shows the System, Status, Owner, Deployment, C·I·A, Business Unit, Controls fulfilled and Updated", () => {
+  it("shows the System, Status, Owner, Deployment, C·I·A, Business Unit, Requirements met and Updated", () => {
     renderRegister();
     const jira = rowOf("Jira");
     expect(within(jira).getByRole("link", { name: "Jira" })).toHaveAttribute("href", "/systems/s-jira");
@@ -267,14 +267,14 @@ describe("table", () => {
     expect(names()).toEqual(["=HYPERLINK(hub)", "Billing engine", "Jira", "Legacy CRM", "Okta"]);
     const header = (name: string) => within(table()).getByRole("columnheader", { name: new RegExp(name) });
     expect(header("System")).toHaveAttribute("aria-sort", "ascending");
-    await userEvent.click(within(header("Controls fulfilled")).getByRole("button"));
+    await userEvent.click(within(header("Requirements met")).getByRole("button"));
     expect(names()).toEqual(["=HYPERLINK(hub)", "Billing engine", "Jira", "Okta", "Legacy CRM"]);
-    expect(header("Controls fulfilled")).toHaveAttribute("aria-sort", "ascending");
+    expect(header("Requirements met")).toHaveAttribute("aria-sort", "ascending");
     expect(header("System")).not.toHaveAttribute("aria-sort");
     expect(search()).toBe("?sort=prog");
-    await userEvent.click(within(header("Controls fulfilled")).getByRole("button"));
+    await userEvent.click(within(header("Requirements met")).getByRole("button"));
     expect(names()).toEqual(["Okta", "Jira", "Billing engine", "=HYPERLINK(hub)", "Legacy CRM"]);
-    expect(header("Controls fulfilled")).toHaveAttribute("aria-sort", "descending");
+    expect(header("Requirements met")).toHaveAttribute("aria-sort", "descending");
     expect(search()).toBe("?sort=prog&dir=desc");
   });
 
@@ -427,7 +427,7 @@ describe("state in the URL", () => {
   });
 
   it("for another role ?owner=me filters by the user as Owner", () => {
-    renderRegister({ role: "ADMIN", roleLabel: "Admin", userId: "u-elena", roleView: { label: "Under 70% fulfilled", warn: true } }, "owner=me");
+    renderRegister({ role: "ADMIN", roleLabel: "Admin", userId: "u-elena", roleView: { label: "Under 70% met", warn: true } }, "owner=me");
     expect(names()).toEqual(["Billing engine", "Legacy CRM"]);
     expect(screen.getByRole("button", { name: /Owner: Elena Voss/ })).toBeInTheDocument();
   });

@@ -15,7 +15,7 @@ export const SHOW_COMPACT_TOGGLE = true;
 /** A Draft that has not changed for this many days needs attention. */
 export const STALE_DRAFT_DAYS = 60;
 
-/** The "Under 70% fulfilled" view (every role without a view of its own): base-Framework fulfilment below this. */
+/** The "Under 70% met" view (every role without a view of its own): base-Framework fulfilment below this. */
 export const UNDER_FULFILLED_PERCENT = 70;
 
 /** Rows per page: the choices, and the one used until a choice is made. */

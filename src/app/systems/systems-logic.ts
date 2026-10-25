@@ -60,7 +60,7 @@ export function highestImpact(row: SystemRow): HighestImpact {
 
 // Fulfilment
 
-/** Controls fulfilled as a fraction of the applicable ones (base Framework); null when it cannot be measured. */
+/** Requirements met as a fraction of the applicable ones (base Framework); null when it cannot be measured. */
 export function fulfilment(row: Pick<SystemRow, "met" | "applicable">): number | null {
   return row.met === null || row.applicable === null || row.applicable === 0 ? null : row.met / row.applicable;
 }
@@ -199,9 +199,9 @@ export const CSV_HEADER = [
   "Integrity",
   "Availability",
   "Business Units",
-  "Controls fulfilled",
-  "Controls applicable",
-  "Controls fulfilled %",
+  "Requirements met",
+  "Requirements applicable",
+  "Requirements met %",
   "Updated",
 ] as const;
 
@@ -243,7 +243,7 @@ export const systemsCsvFilename = (scope: "register" | "selection", date: Date) 
 
 // The acting role's own saved view
 
-/** The roles with a view of their own; every other role gets "Under 70% fulfilled". */
+/** The roles with a view of their own; every other role gets "Under 70% met". */
 const OWN_VIEW_ROLES: UserRole[] = ["SYSTEM_OWNER", "REVIEWER", "RISK_OWNER", "BUSINESS_RISK_OWNER"];
 
 /** Does this role's own view need the base-Framework fulfilment figures? */
@@ -261,6 +261,6 @@ export function roleViewOf(role: UserRole): { label: string; warn: boolean } {
     case "BUSINESS_RISK_OWNER":
       return { label: "In my scope", warn: false };
     default:
-      return { label: `Under ${UNDER_FULFILLED_PERCENT}% fulfilled`, warn: true };
+      return { label: `Under ${UNDER_FULFILLED_PERCENT}% met`, warn: true };
   }
 }

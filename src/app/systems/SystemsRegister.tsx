@@ -66,7 +66,7 @@ const COLUMNS: { key: SortKey | "go" | "facets"; label: string; sortable: boolea
   { key: "facets", label: "Deployment", sortable: false, className: "c-facets" },
   { key: "cia", label: "C · I · A", sortable: true, className: "c-cia" },
   { key: "unit", label: "Business Unit", sortable: true, className: "c-unit" },
-  { key: "prog", label: "Controls fulfilled", sortable: true, className: "c-prog" },
+  { key: "prog", label: "Requirements met", sortable: true, className: "c-prog" },
   { key: "upd", label: "Updated", sortable: true, className: "c-upd" },
 ];
 const COLUMN_COUNT = COLUMNS.length + 2;
