@@ -18,7 +18,8 @@
 .sy .hc-move li button i { width: 9px; height: 9px; border-radius: 3px; }
 .sy .hc-move li button b { color: var(--rg-ink); font-variant-numeric: tabular-nums; min-width: 1.2em; }
 
-.sy-reg { overflow: clip; }
+/* Not clipped: a filter menu may reach below a short card (only the table wrapper scrolls). */
+.sy-reg { overflow: visible; }
 
 /* Toolbar and filter menus */
 .sy-toolbar .hc-search { flex: 1 1 260px; max-width: 380px; }
