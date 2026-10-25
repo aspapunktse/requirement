@@ -166,7 +166,7 @@ window.DESIGN_PARTS = [
         label: "A",
         title: "Register table",
         href: "/design/systems/proposal-a.html",
-        summary: "A filterable, sortable table with saved views, status tabs, grouping, paging and bulk select.",
+        summary: "A filterable, sortable table in the Home look: a status ring, stat cards as saved views (one per role), status tabs, grouping, paging, bulk select and the app nav bar.",
       },
       {
         id: "systems-b",
