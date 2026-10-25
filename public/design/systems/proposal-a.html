@@ -6,129 +6,123 @@
 <meta name="robots" content="noindex">
 <title>Systems Register Table</title>
 <link rel="stylesheet" href="systems.css">
+<link rel="stylesheet" href="../shared/appbar.css">
+<link rel="stylesheet" href="../shared/kit.css">
 <style>
-/* Proposal A: a filterable, sortable register table. Saved views and status tabs on top,
-   filter chips under them, then a dense table with sticky header, grouping and paging. */
-.page { max-width: 1320px; margin: 0 auto; padding: 24px 20px 64px; display: grid; gap: 16px; }
-.page > * { min-width: 0; }
-.head { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px; }
-.head p { color: var(--muted); margin-top: 4px; }
+/* Proposal A: a filterable, sortable register table, in the look Home shipped with (#226).
+   A hero with the status ring, stat cards that double as saved views (one follows the acting
+   role), then one card: status tabs, filter chips, a dense table with sticky header, grouping
+   and paging. Rows open the System page. */
+.reg { overflow: clip; }
+.hero .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
 
-.views { display: flex; gap: 6px; flex-wrap: wrap; }
-.view { border: 1px solid var(--line); background: var(--surface); border-radius: 99px; padding: 4px 12px; font-size: .84rem; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; }
-.view b { font-weight: 700; font-variant-numeric: tabular-nums; color: var(--muted); }
-.view[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
-.view[aria-pressed="true"] b { color: inherit; opacity: .7; }
-
-.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); overflow: clip; }
-.tabs { display: flex; gap: 2px; padding: 0 12px; border-bottom: 1px solid var(--line); overflow-x: auto; }
-.tab { border: 0; background: none; padding: 12px 10px 10px; cursor: pointer; color: var(--muted); font-weight: 600; border-bottom: 2px solid transparent; display: inline-flex; gap: 7px; align-items: center; white-space: nowrap; }
-.tab .n { font-size: .74rem; font-variant-numeric: tabular-nums; background: var(--raised); border: 1px solid var(--line-soft); padding: 0 6px; border-radius: 99px; }
-.tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
-.tab[aria-selected="true"] .n { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
-
-.toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 12px; border-bottom: 1px solid var(--line-soft); }
-.toolbar .search { flex: 1 1 260px; max-width: 360px; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--line-soft); }
+.toolbar .search { flex: 1 1 260px; max-width: 380px; }
 .filter { position: relative; }
-.filter > button { border: 1px dashed var(--line); background: transparent; border-radius: 7px; padding: 5px 10px; cursor: pointer; font-size: .84rem; color: var(--muted); display: inline-flex; gap: 6px; align-items: center; }
-.filter > button.on { border-style: solid; border-color: var(--accent); color: var(--accent); background: var(--accent-soft); font-weight: 650; }
-.menu { position: absolute; z-index: 20; top: calc(100% + 6px); left: 0; min-width: 220px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); padding: 6px; display: none; }
-.filter.open .menu { display: block; }
-.menu label { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px; cursor: pointer; font-size: .86rem; }
+.filter > button { border: 1px dashed var(--line); background: transparent; border-radius: 10px; padding: 6px 11px; cursor: pointer; font-size: .84rem; color: var(--muted); display: inline-flex; gap: 6px; align-items: center; font-weight: 600; }
+.filter > button:hover { border-color: var(--accent); color: var(--ink); }
+.filter > button.on { border-style: solid; border-color: var(--accent); color: var(--accent); background: var(--accent-soft); font-weight: 680; }
+.menu { position: absolute; z-index: 20; top: calc(100% + 6px); left: 0; min-width: 230px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 18px 48px rgba(10, 25, 35, .18); padding: 6px; display: none; }
+.filter.open .menu { display: block; animation: ab-pop .16s ease-out; }
+.menu label { display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 9px; cursor: pointer; font-size: .86rem; }
 .menu label:hover { background: var(--raised); }
 .menu label span:last-child { margin-left: auto; color: var(--faint); font-size: .76rem; font-variant-numeric: tabular-nums; }
 .menu input { accent-color: var(--accent); }
 .spacer { flex: 1; }
-.clear { border: 0; background: none; color: var(--accent); cursor: pointer; font-size: .84rem; font-weight: 600; }
+.clear { border: 0; background: none; color: var(--accent); cursor: pointer; font-size: .84rem; font-weight: 650; padding: 0; }
+.clear:hover { text-decoration: underline; }
+.grpby { font-size: .84rem; color: var(--muted); display: inline-flex; gap: 6px; align-items: center; }
 
-.tablewrap { overflow-x: auto; max-height: calc(100vh - 150px); }
-table { width: 100%; border-collapse: separate; border-spacing: 0; min-width: 960px; }
-thead th { position: sticky; top: 0; z-index: 2; background: var(--raised); text-align: left; font-size: .72rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); padding: 9px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.tablewrap { overflow-x: auto; max-height: calc(100vh - 140px); }
+table { width: 100%; border-collapse: separate; border-spacing: 0; min-width: 980px; }
+thead th { position: sticky; top: 0; z-index: 2; background: var(--raised); text-align: left; font-size: .72rem; font-weight: 750; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); padding: 9px 12px; border-bottom: 1px solid var(--line-soft); white-space: nowrap; }
+thead th:first-child { padding-left: 18px; }
 thead th button { all: unset; cursor: pointer; display: inline-flex; gap: 4px; align-items: center; }
 thead th button:focus-visible { outline: 2px solid var(--accent); }
 thead th .arr { opacity: .35; font-size: .7rem; }
 thead th[aria-sort] .arr { opacity: 1; color: var(--accent); }
-tbody td { padding: 10px 12px; border-bottom: 1px solid var(--line-soft); vertical-align: middle; }
+tbody td { padding: 11px 12px; border-bottom: 1px solid var(--line-soft); vertical-align: middle; }
+tbody td:first-child { padding-left: 18px; }
 body.compact tbody td { padding-block: 5px; }
-tbody tr { cursor: pointer; }
-tbody tr:hover td { background: var(--raised); }
+tbody tr[data-id] { cursor: pointer; }
+tbody tr.rise { animation: rise .35s both; animation-delay: var(--d, 0ms); }
+tbody tr[data-id]:hover td { background: var(--raised); }
 tbody tr.sel td { background: var(--accent-soft); }
-td.chk, th.chk { width: 36px; padding-right: 0; }
-td.chk input, th.chk input { accent-color: var(--accent); }
+td.chk, th.chk { width: 40px; padding-right: 0; }
+td.chk input, th.chk input { accent-color: var(--accent); width: 15px; height: 15px; }
 .name { display: flex; flex-direction: column; min-width: 0; }
 .name a { color: var(--ink); font-weight: 650; text-decoration: none; }
 .name a:hover { color: var(--accent); text-decoration: underline; }
 .name small { color: var(--faint); font-size: .78rem; }
 body.compact .name small { display: none; }
 .owner { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.owner .av { width: 28px; height: 28px; font-size: .68rem; }
+.owner.me .av { background: var(--accent); color: var(--on-accent); }
+body.compact .owner .av { width: 22px; height: 22px; font-size: .6rem; }
 .facets { display: flex; gap: 4px; }
-.grp td { background: var(--paper) !important; font-size: .78rem; font-weight: 700; color: var(--muted); padding: 7px 12px; cursor: default; position: sticky; top: 36px; z-index: 1; }
-.grp td .n { font-weight: 500; color: var(--faint); margin-left: 6px; }
-.empty { padding: 48px 20px; text-align: center; color: var(--muted); }
+td.go { width: 44px; text-align: right; padding-right: 16px; color: var(--accent); }
+td.go svg { opacity: 0; transform: translateX(-4px); transition: opacity .15s, transform .15s; }
+tbody tr:hover td.go svg, tbody tr:focus-within td.go svg { opacity: 1; transform: none; }
 
-.foot { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; padding: 10px 12px; border-top: 1px solid var(--line); font-size: .84rem; color: var(--muted); }
+/* Group rows use the Home lane header */
+.grp td { position: sticky; top: 35px; z-index: 1; padding: 10px 18px 6px; font-size: .74rem; font-weight: 750; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); background: var(--raised); border-top: 1px solid var(--line-soft); }
+.grp td i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); margin-right: 8px; }
+.grp td small { margin-left: 8px; text-transform: none; letter-spacing: 0; font-weight: 600; color: var(--faint); }
+
+.foot { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; padding: 10px 16px; border-top: 1px solid var(--line-soft); font-size: .84rem; color: var(--muted); }
 .pager { display: flex; gap: 4px; align-items: center; }
-.pager button { min-width: 30px; height: 30px; border: 1px solid var(--line); background: var(--surface); border-radius: 6px; cursor: pointer; }
-.pager button[aria-current] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 700; }
+.pager button { min-width: 32px; height: 32px; border: 1px solid var(--line); background: var(--surface); border-radius: 10px; cursor: pointer; font-weight: 600; }
+.pager button:hover:not(:disabled) { border-color: var(--accent); }
+.pager button[aria-current] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 750; }
 .pager button:disabled { opacity: .4; cursor: default; }
-
-.bulk { position: fixed; left: 50%; bottom: 20px; transform: translate(-50%, 140%); transition: transform .25s ease; background: var(--ink); color: var(--paper); border-radius: 12px; padding: 8px 8px 8px 16px; display: flex; gap: 10px; align-items: center; box-shadow: var(--shadow); z-index: 30; max-width: calc(100vw - 32px); }
-.bulk.show { transform: translate(-50%, 0); }
-.bulk button { background: transparent; color: inherit; border: 1px solid color-mix(in srgb, var(--paper) 30%, transparent); border-radius: 7px; padding: 5px 10px; cursor: pointer; white-space: nowrap; }
-@media (prefers-reduced-motion: reduce) { .bulk { transition: none; } }
-
-.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: .78rem; color: var(--muted); align-items: center; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: .76rem; color: var(--muted); align-items: center; }
+.legend > span { display: inline-flex; align-items: center; gap: 6px; }
 .legend .cia { height: 12px; }
+
+.bulk { position: fixed; left: 50%; bottom: 20px; transform: translate(-50%, 160%); transition: transform .25s ease; background: var(--ink); color: var(--paper); border-radius: 14px; padding: 8px 8px 8px 16px; display: flex; gap: 10px; align-items: center; box-shadow: 0 18px 48px rgba(10, 25, 35, .3); z-index: 36; max-width: calc(100vw - 32px); overflow-x: auto; }
+.bulk.show { transform: translate(-50%, 0); }
+.bulk button { background: transparent; color: inherit; border: 1px solid color-mix(in srgb, var(--paper) 30%, transparent); border-radius: 10px; padding: 6px 11px; cursor: pointer; white-space: nowrap; font-weight: 600; }
+.bulk button:hover { background: color-mix(in srgb, var(--paper) 12%, transparent); }
+@media (prefers-reduced-motion: reduce) { .bulk { transition: none; } tbody tr.rise { animation: none; } td.go svg { transition: none; } }
 
 /* Phones: the table turns into stacked rows */
 @media (max-width: 720px) {
-  .page { padding-inline: 16px; }
   .tablewrap { max-height: none; }
   table, tbody { display: block; min-width: 0; }
   thead { display: none; }
-  tbody tr:not(.grp) { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 6px 10px; padding: 12px; border-bottom: 1px solid var(--line-soft); }
-  tbody tr:not(.grp) td { display: block; padding: 0; border: 0; background: none !important; }
+  tbody tr[data-id] { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 6px 10px; padding: 12px 16px; border-bottom: 1px solid var(--line-soft); }
+  tbody tr[data-id] td { display: block; padding: 0; border: 0; background: none !important; }
   tbody td.chk { grid-row: 1 / span 3; }
   tbody td.c-name { grid-column: 2; }
   tbody td.c-status { grid-column: 3; grid-row: 1; }
   tbody td.c-owner, tbody td.c-prog { grid-column: 2 / span 2; }
-  tbody td.c-facets, tbody td.c-cia, tbody td.c-unit, tbody td.c-upd { display: none !important; }
+  tbody td.c-facets, tbody td.c-cia, tbody td.c-unit, tbody td.c-upd, tbody td.go { display: none !important; }
   .grp { display: block; } .grp td { display: block; top: 0; }
+  .toolbar .search { max-width: none; }
+  .card-h p, .search kbd { display: none; }
 }
 </style>
 </head>
 <body>
-<header class="topbar">
-  <div class="logo">IS</div>
-  <div><b>ISMS</b><small>System onboarding</small></div>
-  <nav aria-label="Main"><a href="#">Home</a><a href="#" aria-current="page">Systems</a><a href="#">Controls</a><a href="#">Risks</a><a href="#">Check-ups</a><a href="#">Frameworks</a></nav>
-  <div class="proposal-switch">Proposal A · <a href="proposal-b.html">see B</a></div>
-</header>
+<header id="appbar"></header>
 
-<main class="page">
-  <div class="head">
-    <div>
-      <div class="eyebrow">Proposal A · Register table</div>
-      <h1>Systems</h1>
-      <p><span id="total" class="num"></span> systems you can see. Filter, sort and group to find one.</p>
-    </div>
-    <a class="btn primary" href="#">+ New System</a>
-  </div>
+<main class="app">
+  <section class="hero" id="hero" aria-labelledby="pageH"></section>
+  <section class="stats" id="stats" aria-label="Saved views"></section>
 
-  <div class="views" role="group" aria-label="Saved views" id="views"></div>
-
-  <section class="card">
+  <section class="card reg" aria-labelledby="regH">
+    <div class="card-h"><h2 id="regH">Register</h2><p><span class="kbd">/</span> to search · <span class="kbd">Ctrl K</span> to jump to a System</p></div>
     <div class="tabs" role="tablist" aria-label="Status" id="tabs"></div>
     <div class="toolbar">
       <label class="search">
-        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="9" r="6"/><path d="m14 14 4 4"/></svg>
-        <input id="q" type="search" placeholder="Search name, vendor or owner" aria-label="Search systems">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="9" cy="9" r="6"/><path d="m14 14 4 4"/></svg>
+        <input id="q" type="search" placeholder="Search name, vendor or owner" aria-label="Search Systems" autocomplete="off">
         <kbd>/</kbd>
       </label>
       <div id="filters" style="display:contents"></div>
       <button class="clear" id="clear" hidden>Clear filters</button>
       <span class="spacer"></span>
-      <label class="muted" style="font-size:.84rem">Group by
+      <label class="grpby">Group by
         <select class="sel" id="group"><option value="">None</option><option value="owner">Owner</option><option value="unit">Business Unit</option><option value="facet">Deployment</option></select>
       </label>
       <button class="btn ghost" id="density" aria-pressed="false" title="Toggle compact rows">Compact</button>
@@ -159,31 +153,59 @@ body.compact .name small { display: none; }
 
 <div class="bulk" id="bulk" role="region" aria-label="Bulk actions">
   <span><b id="selN">0</b> selected</span>
-  <button>Change owner</button><button>Add to Check-up</button><button>Export CSV</button>
+  <button data-toast="Would change the owner of the selected Systems">Change owner</button>
+  <button data-toast="Would add the selected Systems to a Check-up">Add to Check-up</button>
+  <button data-toast="Would download the selected Systems as CSV">Export CSV</button>
   <button id="unsel" aria-label="Clear selection">✕</button>
 </div>
 
 <script src="data.js"></script>
+<script src="../shared/kit.js"></script>
+<script src="../shared/appbar.js"></script>
 <script>
 (function () {
   const { systems, STATUSES, FACETS, UNITS, OWNERS, LEVELS, fmtAgo, initials, esc, statusOf } = window.SYS;
-  const ME = 'Priya Shah';
+  const { ring, spark, toneColor, countUp, toast, CHECK } = window.Kit;
+  const SYSTEM_PAGE = '/design/system/proposal-a.html';
   const st = { view: 'all', status: '', q: '', sort: 'name', dir: 1, group: '', page: 1, per: 50, f: { owner: new Set(), unit: new Set(), facet: new Set(), impact: new Set() }, sel: new Set() };
 
-  const VIEWS = [
-    { key: 'all', label: 'All systems', test: () => true },
-    { key: 'mine', label: 'Owned by me', test: (s) => s.owner === ME },
-    { key: 'attention', label: 'Needs attention', test: (s) => s.questions > 0 || s.status === 'REJECTED' || (s.status === 'DRAFT' && (SYS.now - s.updated) > 60 * 864e5) },
-    { key: 'unclassified', label: 'Not classified', test: (s) => !s.c || !s.i || !s.a },
-    { key: 'providers', label: 'Providers', test: (s) => s.provider }
-  ];
   const lvl = (v) => LEVELS.indexOf(v) < 0 ? 0 : LEVELS.indexOf(v);
   const maxLvl = (s) => Math.max(lvl(s.c), lvl(s.i), lvl(s.a));
+  const STATUS_COLOR = { DRAFT: 'var(--faint)', IN_REVIEW: 'var(--gold)', APPROVED: 'var(--ok)', ONBOARDED: 'var(--done)', REJECTED: 'var(--bad)' };
+
+  // The first view follows the acting role, as Home does (#226).
+  function mineView(r) {
+    switch (r.key) {
+      case 'SYSTEM_OWNER': return { label: 'Owned by me', test: (s) => s.owner === r.person };
+      case 'REVIEWER': return { label: 'Awaiting review', tone: 'warn', test: (s) => s.status === 'IN_REVIEW' };
+      case 'RISK_OWNER': return { label: 'With open Risks', tone: 'warn', test: (s) => s.risks > 0 };
+      case 'BUSINESS_RISK_OWNER': return { label: 'In Finance and Legal', test: (s) => s.units.some((u) => u === 'Finance' || u === 'Legal') };
+      default: return { label: 'Under 70% fulfilled', tone: 'warn', test: (s) => s.status !== 'DRAFT' && s.fulfilled / s.controls < 0.7 };
+    }
+  }
+  function views() {
+    const m = mineView(Appbar.role());
+    return [
+      { key: 'all', label: 'All Systems', test: () => true },
+      { key: 'mine', label: m.label, tone: m.tone, test: m.test },
+      { key: 'attention', label: 'Needs attention', tone: 'danger', test: (s) => s.questions > 0 || s.status === 'REJECTED' || (s.status === 'DRAFT' && (SYS.now - s.updated) > 60 * 864e5) },
+      { key: 'unclassified', label: 'Not classified', tone: 'warn', test: (s) => !s.c || !s.i || !s.a },
+      { key: 'providers', label: 'Providers', test: (s) => s.provider },
+    ];
+  }
+  // Eight weekly points ending at today's value, from the daily snapshots (#227). Illustrative.
+  function trend(v, k) {
+    let seed = k * 7919 + v * 31 + 1; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+    const out = [v];
+    for (let i = 0; i < 7; i++) out.unshift(Math.max(0, Math.round(out[0] - (k === 0 || k === 4 ? rnd() * 3 : (rnd() - .45) * Math.max(2, v * .12)))));
+    return out;
+  }
+
   const FILTERS = [
     { key: 'owner', label: 'Owner', opts: OWNERS.slice().sort(), get: (s) => [s.owner] },
     { key: 'unit', label: 'Business Unit', opts: UNITS, get: (s) => s.units },
     { key: 'facet', label: 'Deployment', opts: FACETS.map((f) => f.label), get: (s) => s.facets.map((k) => SYS.facetOf(k).label) },
-    { key: 'impact', label: 'Highest impact', opts: ['Not classified', 'Low', 'Moderate', 'High', 'Critical'], get: (s) => [['Not classified', 'Low', 'Moderate', 'High', 'Critical'][maxLvl(s)]] }
+    { key: 'impact', label: 'Highest impact', opts: ['Not classified', 'Low', 'Moderate', 'High', 'Critical'], get: (s) => [['Not classified', 'Low', 'Moderate', 'High', 'Critical'][maxLvl(s)]] },
   ];
   const COLS = [
     { key: 'chk', cls: 'chk' },
@@ -194,21 +216,58 @@ body.compact .name small { display: none; }
     { key: 'cia', label: 'C · I · A', sort: (s) => -maxLvl(s) },
     { key: 'unit', label: 'Business Unit', sort: (s) => s.units[0] },
     { key: 'prog', label: 'Controls fulfilled', sort: (s) => s.fulfilled / s.controls },
-    { key: 'upd', label: 'Updated', sort: (s) => -s.updated }
+    { key: 'upd', label: 'Updated', sort: (s) => -s.updated },
+    { key: 'go' },
   ];
+  const NCOLS = COLS.length;
 
   const $ = (id) => document.getElementById(id);
-  const baseSet = () => systems.filter(VIEWS.find((v) => v.key === st.view).test).filter((s) => {
+  const sysHref = () => Appbar.withRole(SYSTEM_PAGE);
+  const baseSet = () => systems.filter(views().find((v) => v.key === st.view).test).filter((s) => {
     if (st.q) { const q = st.q.toLowerCase(); if (!(s.name + ' ' + (s.vendor || '') + ' ' + s.owner).toLowerCase().includes(q)) return false; }
     return FILTERS.every((f) => !st.f[f.key].size || f.get(s).some((v) => st.f[f.key].has(v)));
   });
 
-  function renderViews() {
-    $('views').innerHTML = VIEWS.map((v) => `<button class="view" aria-pressed="${st.view === v.key}" data-v="${v.key}">${v.label} <b>${systems.filter(v.test).length}</b></button>`).join('');
+  function renderHero() {
+    const r = Appbar.role();
+    const n = (k) => systems.filter((s) => s.status === k).length;
+    const attention = systems.filter(views()[2].test).length;
+    const m = views()[1], mine = systems.filter(m.test).length;
+    const onb = Math.round(100 * n('ONBOARDED') / systems.length);
+    $('hero').innerHTML = `<div>
+        <div class="eyebrow">Systems · ${esc(r.label)}</div>
+        <h1 id="pageH">Systems</h1>
+        <p class="lede"><span class="num">${systems.length}</span> Systems in the register, ${attention} of them need attention. Filter, sort and group to find one, or press <span class="kbd">Ctrl K</span> to jump straight to it.</p>
+        <div class="chips">
+          <span class="chip ${m.tone || 'done'}">${esc(m.label)}: ${mine}</span>
+          ${n('IN_REVIEW') && r.key !== 'REVIEWER' ? `<span class="chip warn">${n('IN_REVIEW')} in review</span>` : ''}
+          ${n('REJECTED') ? `<span class="chip danger">${n('REJECTED')} rejected</span>` : ''}
+        </div>
+        <div class="actions"><a class="btn primary" href="/design/onboarding/proposal-a.html">+ New System</a><button class="btn" data-toast="Would download the register as CSV">Export CSV</button></div>
+      </div>
+      <div class="move">${ring(STATUSES.map((s) => [n(s.key) / systems.length, STATUS_COLOR[s.key]]), 96, 10, onb + '%', 'onboarded')}
+        <ul>${STATUSES.map((s) => `<li><button data-s="${s.key}" aria-pressed="${st.status === s.key}"><i style="background:${STATUS_COLOR[s.key]}"></i><b>${n(s.key)}</b>${s.label}</button></li>`).join('')}</ul></div>`;
+  }
+  function renderStats() {
+    $('stats').innerHTML = views().map((v, i) => {
+      const val = systems.filter(v.test).length;
+      return `<button class="card stat spot ${v.tone || ''}" data-v="${v.key}" aria-pressed="${st.view === v.key}">
+        <span class="k">${esc(v.label)}<em>${st.view === v.key && v.key !== 'all' ? 'On ✕' : 'Filter →'}</em></span>
+        <span class="v" data-count="${val}">0</span>${spark(trend(val, i), 86, 30, toneColor(v.tone))}</button>`;
+    }).join('');
+    countUp($('stats'));
+  }
+  function syncStats() {
+    $('stats').querySelectorAll('[data-v]').forEach((b) => {
+      const on = b.dataset.v === st.view;
+      b.setAttribute('aria-pressed', on);
+      b.querySelector('em').textContent = on && b.dataset.v !== 'all' ? 'On ✕' : 'Filter →';
+    });
+    $('hero').querySelectorAll('[data-s]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.s === st.status));
   }
   function renderTabs(base) {
     const tabs = [{ key: '', label: 'All' }].concat(STATUSES);
-    $('tabs').innerHTML = tabs.map((t) => `<button class="tab" role="tab" aria-selected="${st.status === t.key}" data-s="${t.key}">${t.key ? `<span class="dot ${t.tone}"></span>` : ''}${t.label}<span class="n">${base.filter((s) => !t.key || s.status === t.key).length}</span></button>`).join('');
+    $('tabs').innerHTML = tabs.map((t) => `<button role="tab" aria-selected="${st.status === t.key}" data-s="${t.key}">${t.key ? `<span class="dot ${t.tone}"></span>` : ''}${t.label}<span class="n">${base.filter((s) => !t.key || s.status === t.key).length}</span></button>`).join('');
   }
   function renderFilters(base) {
     $('filters').innerHTML = FILTERS.map((f) => {
@@ -217,29 +276,32 @@ body.compact .name small { display: none; }
       const items = f.opts.map((o) => `<label><input type="checkbox" data-f="${f.key}" value="${esc(o)}" ${sel.has(o) ? 'checked' : ''}><span>${esc(o)}</span><span>${base.filter((s) => f.get(s).includes(o)).length}</span></label>`).join('');
       return `<div class="filter" data-filter="${f.key}"><button class="${sel.size ? 'on' : ''}" aria-haspopup="true">${label} ▾</button><div class="menu">${items}</div></div>`;
     }).join('');
-    $('clear').hidden = !FILTERS.some((f) => st.f[f.key].size) && !st.q;
+    $('clear').hidden = !FILTERS.some((f) => st.f[f.key].size) && !st.q && st.view === 'all' && !st.status;
   }
   function renderHead() {
     $('thead').innerHTML = COLS.map((c) => {
       if (c.key === 'chk') return `<th class="chk"><input type="checkbox" id="all" aria-label="Select all on page"></th>`;
+      if (c.key === 'go') return '<th><span class="sr-only" style="position:absolute;clip:rect(0 0 0 0)">Open</span></th>';
       if (!c.sort) return `<th>${c.label}</th>`;
       const on = st.sort === c.key;
       return `<th ${on ? `aria-sort="${st.dir > 0 ? 'ascending' : 'descending'}"` : ''}><button data-sort="${c.key}">${c.label}<span class="arr">${on && st.dir < 0 ? '▼' : '▲'}</span></button></th>`;
     }).join('');
   }
-  function row(s) {
+  function row(s, i, animate) {
     const so = statusOf(s.status);
     const pct = Math.round(100 * s.fulfilled / s.controls);
-    return `<tr class="${st.sel.has(s.id) ? 'sel' : ''}" data-id="${s.id}">
+    const me = s.owner === Appbar.role().person;
+    return `<tr class="${st.sel.has(s.id) ? 'sel' : ''}${animate ? ' rise' : ''}" data-id="${s.id}" style="--d:${Math.min(i, 20) * 14}ms">
       <td class="chk"><input type="checkbox" ${st.sel.has(s.id) ? 'checked' : ''} aria-label="Select ${esc(s.name)}"></td>
-      <td class="c-name"><div class="name"><a href="#" onclick="return false">${esc(s.name)}</a><small>${s.vendor ? esc(s.vendor) : 'Built in-house'}${s.provider ? ' · <span class="prov">Provider</span>' : ''}</small></div></td>
+      <td class="c-name"><div class="name"><a href="${sysHref()}">${esc(s.name)}</a><small>${s.vendor ? esc(s.vendor) : 'Built in-house'}${s.provider ? ' · <span class="prov">Provider</span>' : ''}</small></div></td>
       <td class="c-status"><span class="chip ${so.tone}">${so.label}</span>${s.questions ? ` <span class="qbadge" title="Open questions">? ${s.questions}</span>` : ''}</td>
-      <td class="c-owner"><span class="owner"><span class="av">${initials(s.owner)}</span>${esc(s.owner)}</span></td>
+      <td class="c-owner"><span class="owner${me ? ' me' : ''}"><span class="av">${initials(s.owner)}</span>${esc(s.owner)}${me ? ' <span class="muted">(you)</span>' : ''}</span></td>
       <td class="c-facets"><span class="facets">${s.facets.map((k) => `<span class="facet" title="${SYS.facetOf(k).label}">${{ S: 'SaaS', C: 'Cloud', O: 'On-prem' }[k]}</span>`).join('')}</span></td>
       <td class="c-cia"><span class="cia" title="C ${s.c || '—'} · I ${s.i || '—'} · A ${s.a || '—'}"><i data-l="${lvl(s.c)}"></i><i data-l="${lvl(s.i)}"></i><i data-l="${lvl(s.a)}"></i></span></td>
       <td class="c-unit muted">${esc(s.units[0])}${s.units.length > 1 ? ` <span style="color:var(--faint)">+${s.units.length - 1}</span>` : ''}</td>
       <td class="c-prog"><div class="prog"><div class="track"><div class="fill" style="width:${pct}%"></div></div><span>${s.fulfilled}/${s.controls}</span></div></td>
-      <td class="c-upd muted num">${fmtAgo(s.updated)}</td></tr>`;
+      <td class="c-upd muted num">${fmtAgo(s.updated)}</td>
+      <td class="go">${Appbar.icon('arrow', 16)}</td></tr>`;
   }
   function groupKey(s) {
     if (st.group === 'owner') return [s.owner];
@@ -247,24 +309,24 @@ body.compact .name small { display: none; }
     if (st.group === 'facet') return [s.facets.map((k) => SYS.facetOf(k).label).join(' + ')];
     return [''];
   }
-  function render() {
+  function render(animate) {
     const base = baseSet();
-    renderViews(); renderTabs(base); renderFilters(base); renderHead();
+    syncStats(); renderTabs(base); renderFilters(base); renderHead();
     let list = base.filter((s) => !st.status || s.status === st.status);
     const col = COLS.find((c) => c.key === st.sort);
     list.sort((a, b) => { const x = col.sort(a), y = col.sort(b); return (x < y ? -1 : x > y ? 1 : 0) * st.dir; });
-    $('total').textContent = systems.length;
     const pages = Math.max(1, Math.ceil(list.length / st.per));
     st.page = Math.min(st.page, pages);
     const from = (st.page - 1) * st.per;
     const pageItems = list.slice(from, from + st.per);
     let html = '';
-    if (!pageItems.length) html = `<tr><td colspan="9" class="empty">No systems match. <button class="clear" data-reset>Clear filters</button></td></tr>`;
-    else if (!st.group) html = pageItems.map(row).join('');
+    if (!pageItems.length) html = `<tr><td colspan="${NCOLS}"><div class="done-state">${CHECK}<h3>No Systems match</h3><p>Nothing in this view fits the search and filters. Loosen one, or start over.</p><button class="btn" data-reset>Clear filters</button></div></td></tr>`;
+    else if (!st.group) html = pageItems.map((s, i) => row(s, i, animate)).join('');
     else {
       const groups = new Map();
       pageItems.forEach((s) => groupKey(s).forEach((k) => { if (!groups.has(k)) groups.set(k, []); groups.get(k).push(s); }));
-      [...groups.keys()].sort().forEach((k) => { html += `<tr class="grp"><td colspan="9">${esc(k)}<span class="n">${groups.get(k).length}</span></td></tr>` + groups.get(k).map(row).join(''); });
+      let i = 0;
+      [...groups.keys()].sort().forEach((k) => { html += `<tr class="grp"><td colspan="${NCOLS}"><i></i>${esc(k)}<small>${groups.get(k).length}</small></td></tr>` + groups.get(k).map((s) => row(s, i++, animate)).join(''); });
     }
     $('rows').innerHTML = html;
     $('range').textContent = list.length ? `${from + 1}–${Math.min(from + st.per, list.length)} of ${list.length}` : '0 of 0';
@@ -273,42 +335,60 @@ body.compact .name small { display: none; }
     pg += `<button data-p="${st.page + 1}" ${st.page === pages ? 'disabled' : ''} aria-label="Next page">›</button>`;
     $('pager').innerHTML = pg;
     const all = $('all'); const ids = pageItems.map((s) => s.id);
-    all.checked = ids.length && ids.every((id) => st.sel.has(id));
+    all.checked = ids.length > 0 && ids.every((id) => st.sel.has(id));
     all.indeterminate = !all.checked && ids.some((id) => st.sel.has(id));
     all.onchange = () => { ids.forEach((id) => all.checked ? st.sel.add(id) : st.sel.delete(id)); render(); };
     $('selN').textContent = st.sel.size; $('bulk').classList.toggle('show', st.sel.size > 0);
   }
+  function renderAll() { renderHero(); renderStats(); render(true); }
+
+  Appbar.mount({
+    current: 'systems',
+    proposal: { label: 'A', siblings: [['B', 'proposal-b.html'], ['C', 'proposal-c.html']] },
+    items: () => [
+      { group: 'Actions', label: 'New System', icon: 'plus', sub: 'start onboarding', href: '/design/onboarding/proposal-a.html' },
+      ...systems.slice().sort((a, b) => a.name.localeCompare(b.name)).map((s) => ({ group: 'Systems', label: s.name, icon: 'system', sub: `${statusOf(s.status).label} · ${s.owner}`, href: sysHref() })),
+    ],
+  });
+  addEventListener('appbar:role', () => { if (st.view === 'mine') st.page = 1; renderAll(); });
 
   document.addEventListener('click', (e) => {
     const t = e.target;
-    const v = t.closest('[data-v]'); if (v) { st.view = v.dataset.v; st.page = 1; return render(); }
-    const s = t.closest('[data-s]'); if (s) { st.status = s.dataset.s; st.page = 1; return render(); }
-    const so = t.closest('[data-sort]'); if (so) { st.dir = st.sort === so.dataset.sort ? -st.dir : 1; st.sort = so.dataset.sort; return render(); }
-    const p = t.closest('[data-p]'); if (p && !p.disabled) { st.page = +p.dataset.p; return render(); }
-    if (t.closest('[data-reset]') || t.id === 'clear') { Object.values(st.f).forEach((x) => x.clear()); st.q = ''; $('q').value = ''; st.view = 'all'; st.status = ''; return render(); }
+    const tb = t.closest('[data-toast]'); if (tb) return toast(tb.dataset.toast);
+    const v = t.closest('[data-v]'); if (v) { st.view = st.view === v.dataset.v ? 'all' : v.dataset.v; st.page = 1; return render(true); }
+    const s = t.closest('[data-s]'); if (s) { st.status = s.closest('.move') && st.status === s.dataset.s ? '' : s.dataset.s; st.page = 1; return render(true); }
+    const so = t.closest('[data-sort]'); if (so) { st.dir = st.sort === so.dataset.sort ? -st.dir : 1; st.sort = so.dataset.sort; return render(true); }
+    const p = t.closest('[data-p]'); if (p && !p.disabled) { st.page = +p.dataset.p; render(true); return $('regH').scrollIntoView({ block: 'start', behavior: Kit.reduced ? 'auto' : 'smooth' }); }
+    if (t.closest('[data-reset]') || t.id === 'clear') { Object.values(st.f).forEach((x) => x.clear()); st.q = ''; $('q').value = ''; st.view = 'all'; st.status = ''; return render(true); }
     const fb = t.closest('.filter > button');
     document.querySelectorAll('.filter.open').forEach((f) => { if (!f.contains(t)) f.classList.remove('open'); });
     if (fb) { fb.parentElement.classList.toggle('open'); return; }
     if (t.closest('.menu')) return;
     const tr = t.closest('tbody tr[data-id]');
-    if (tr) { const id = tr.dataset.id; if (t.matches('input[type=checkbox]')) { st.sel.has(id) ? st.sel.delete(id) : st.sel.add(id); render(); } }
+    if (tr) {
+      const id = tr.dataset.id;
+      if (t.matches('input[type=checkbox]')) { st.sel.has(id) ? st.sel.delete(id) : st.sel.add(id); return render(); }
+      if (t.closest('td.chk') || t.closest('a')) return;
+      location.href = sysHref();
+    }
   });
   document.addEventListener('change', (e) => {
     const f = e.target.dataset.f; if (!f) return;
     e.target.checked ? st.f[f].add(e.target.value) : st.f[f].delete(e.target.value);
-    st.page = 1; render();
+    st.page = 1; render(true);
     document.querySelector(`[data-filter="${f}"]`).classList.add('open');
   });
   $('q').addEventListener('input', (e) => { st.q = e.target.value; st.page = 1; render(); });
-  $('group').addEventListener('change', (e) => { st.group = e.target.value; render(); });
-  $('per').addEventListener('change', (e) => { st.per = +e.target.value; st.page = 1; render(); });
+  $('group').addEventListener('change', (e) => { st.group = e.target.value; render(true); });
+  $('per').addEventListener('change', (e) => { st.per = +e.target.value; st.page = 1; render(true); });
   $('density').addEventListener('click', (e) => { const on = document.body.classList.toggle('compact'); e.currentTarget.setAttribute('aria-pressed', on); });
   $('unsel').addEventListener('click', () => { st.sel.clear(); render(); });
   document.addEventListener('keydown', (e) => {
-    if (e.key === '/' && document.activeElement.tagName !== 'INPUT') { e.preventDefault(); $('q').focus(); }
+    const typing = /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName);
+    if (e.key === '/' && !typing) { e.preventDefault(); $('q').focus(); }
     if (e.key === 'Escape') document.querySelectorAll('.filter.open').forEach((f) => f.classList.remove('open'));
   });
-  render();
+  renderAll();
 })();
 </script>
 </body>

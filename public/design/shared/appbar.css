@@ -1,0 +1,109 @@
+/* The app header every design proposal uses: the logo mark and wordmark from the real app
+   (src/components/AppHeader.tsx), the main navigation, a "Jump to" button for the Ctrl+K palette
+   and the acting-user chip. Rendered by appbar.js; sits on the Register tokens in
+   ../systems/systems.css. The "Proposal A · B · C" switch is prototype chrome, so it floats
+   bottom-left instead of taking room in the header. */
+.appbar { position: sticky; top: 0; z-index: 40; display: flex; align-items: center; gap: 10px; padding: 8px 20px; min-height: 56px;
+  background: color-mix(in srgb, var(--surface) 88%, transparent); backdrop-filter: saturate(1.4) blur(10px); border-bottom: 1px solid var(--line); }
+.appbar a { color: inherit; text-decoration: none; }
+.ab-ico { display: block; flex: none; }
+
+.ab-brand { display: flex; align-items: center; gap: 10px; color: var(--ink); margin-right: 8px; flex: none; }
+.ab-mark { width: 28px; height: 28px; border-radius: 8px; background: var(--accent); display: grid; place-items: center; flex: none; }
+.ab-mark span { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--on-accent); }
+.ab-word { display: flex; flex-direction: column; line-height: 1.15; }
+.ab-word b { font-size: .92rem; font-weight: 750; }
+.ab-word small { font-size: .72rem; color: var(--muted); }
+
+/* Main navigation: a row of pills, the current page tinted */
+.ab-nav { display: flex; align-items: center; gap: 2px; min-width: 0; }
+.ab-nav a, .ab-nav .ab-soon { display: inline-flex; align-items: center; gap: 7px; padding: 7px 11px; border-radius: 10px; font-size: .86rem; font-weight: 620; color: var(--muted); white-space: nowrap; transition: background .15s, color .15s; }
+.ab-nav a:hover { background: var(--raised); color: var(--ink); }
+.ab-nav a[aria-current="page"] { background: var(--accent-soft); color: var(--accent); font-weight: 720; }
+.ab-nav a[aria-current="page"] .ab-ico { color: var(--accent); }
+.ab-nav .ab-ico { color: var(--faint); }
+.ab-soon { cursor: default; opacity: .55; }
+
+.ab-spacer { flex: 1; }
+
+/* Compact menu, shown instead of the nav row on narrower screens */
+.ab-menu { position: relative; display: none; }
+.ab-menu > button, .ab-user > button, .ab-search { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 10px; padding: 6px 10px; font: inherit; font-size: .84rem; font-weight: 650; cursor: pointer; white-space: nowrap; }
+.ab-menu > button:hover, .ab-user > button:hover, .ab-search:hover { border-color: var(--accent); }
+.ab-caret { color: var(--faint); font-size: .7rem; }
+
+.ab-pop { position: absolute; top: calc(100% + 8px); z-index: 45; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 18px 48px rgba(10, 25, 35, .18); padding: 6px; animation: ab-pop .16s ease-out; }
+.ab-pop[hidden] { display: none; }
+@keyframes ab-pop { from { opacity: 0; transform: translateY(-4px); } }
+.ab-menu .ab-pop { left: 0; width: min(300px, calc(100vw - 32px)); display: grid; gap: 2px; }
+.ab-menu .ab-pop[hidden] { display: none; }
+.ab-pop a, .ab-pop .ab-soon, .ab-pop button { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 7px 8px; border-radius: 10px; font-size: .88rem; font-weight: 620; color: var(--ink); width: 100%; text-align: left; border: 0; background: none; font-family: inherit; cursor: pointer; }
+.ab-pop a:hover, .ab-pop button:hover { background: var(--raised); }
+.ab-pop a[aria-current="page"], .ab-pop button[aria-checked="true"] { background: var(--accent-soft); }
+.ab-pop .ab-soon { cursor: default; color: var(--muted); }
+.ab-pop small { color: var(--faint); font-size: .74rem; font-weight: 600; }
+.ab-ib { width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center; background: var(--raised); color: var(--accent); border: 1px solid var(--line-soft); }
+.ab-pop [aria-current="page"] .ab-ib { background: var(--accent); color: var(--on-accent); border-color: transparent; }
+
+/* Jump to (opens the palette) */
+.ab-search { color: var(--muted); font-weight: 600; min-width: 190px; }
+.ab-search span { flex: 1; text-align: left; }
+.ab-search kbd { font-family: var(--mono); font-size: .7rem; color: var(--faint); border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; background: var(--raised); }
+
+/* Acting user */
+.ab-user { position: relative; }
+.ab-user > button { padding: 4px 10px 4px 4px; border-radius: 99px; }
+.ab-av { display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-size: .7rem; font-weight: 760; flex: none; }
+.ab-who { display: flex; flex-direction: column; line-height: 1.15; text-align: left; }
+.ab-who b { font-size: .82rem; }
+.ab-who small { font-size: .7rem; color: var(--muted); font-weight: 600; }
+.ab-user .ab-pop { right: 0; width: 280px; }
+.ab-pop .ab-label { display: block; padding: 6px 8px 4px; font-size: .68rem; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; color: var(--faint); }
+.ab-pop .ab-av { width: 32px; height: 32px; background: var(--accent-soft); color: var(--accent); }
+.ab-pop button[aria-checked="true"] .ab-av { background: var(--accent); color: var(--on-accent); }
+
+/* Ctrl+K palette, as on Home (#226) */
+.ab-scrim { position: fixed; inset: 0; background: rgba(10, 25, 35, .4); backdrop-filter: blur(2px); z-index: 60; }
+.ab-pal { position: fixed; left: 50%; top: 12vh; transform: translateX(-50%); width: min(580px, calc(100vw - 32px)); background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 24px 60px rgba(10, 25, 35, .3); z-index: 61; overflow: hidden; animation: ab-pal .18s ease-out; }
+.ab-scrim[hidden], .ab-pal[hidden] { display: none; }
+@keyframes ab-pal { from { opacity: 0; transform: translateX(-50%) scale(.97); } }
+.ab-pal input { width: 100%; border: 0; border-bottom: 1px solid var(--line-soft); padding: 16px 18px; font: inherit; font-size: 1rem; background: transparent; color: var(--ink); outline: none; }
+.ab-pal ul { list-style: none; margin: 0; padding: 6px; max-height: 52vh; overflow-y: auto; }
+.ab-pal li[role="option"] { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 9px; cursor: pointer; font-size: .88rem; }
+.ab-pal li[role="option"] span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ab-pal li[role="option"] .ab-ico { color: var(--accent); }
+.ab-pal li[aria-selected="true"] { background: var(--accent-soft); }
+.ab-pal li small { color: var(--faint); font-size: .74rem; }
+.ab-pal .ab-grp { font-size: .68rem; text-transform: uppercase; letter-spacing: .06em; color: var(--faint); font-weight: 750; padding: 8px 10px 4px; }
+.ab-pal .ab-none { padding: 14px 10px; color: var(--muted); font-size: .88rem; }
+.ab-pal footer { display: flex; gap: 14px; padding: 8px 14px; border-top: 1px solid var(--line-soft); font-size: .74rem; color: var(--faint); }
+.ab-pal footer kbd { font-family: var(--mono); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; background: var(--raised); }
+
+/* Prototype chrome: which proposal this is and its siblings */
+.ab-proto { position: fixed; left: 16px; bottom: 16px; z-index: 35; display: inline-flex; align-items: center; gap: 4px; padding: 4px; border-radius: 99px; background: var(--ink); color: var(--paper); font-size: .76rem; font-weight: 650; box-shadow: var(--shadow); }
+.ab-proto a, .ab-proto span { white-space: nowrap; padding: 3px 9px; border-radius: 99px; color: inherit; text-decoration: none; }
+.ab-proto a:hover { background: color-mix(in srgb, var(--paper) 16%, transparent); }
+.ab-proto [aria-current] { background: var(--paper); color: var(--ink); }
+.ab-proto .ab-all { opacity: .75; }
+
+@media (max-width: 1240px) {
+  .ab-nav { display: none; }
+  .ab-menu { display: block; }
+}
+@media (max-width: 900px) {
+  .ab-search { min-width: 0; }
+  .ab-search span, .ab-search kbd { display: none; }
+  .ab-word small { display: none; }
+}
+@media (max-width: 640px) {
+  .appbar { padding: 8px 16px; gap: 8px; }
+  .ab-word { display: none; }
+  .ab-who, .ab-user .ab-caret { display: none; }
+  .ab-user > button { padding: 3px; }
+  .ab-menu-l { max-width: 34vw; overflow: hidden; text-overflow: ellipsis; }
+  .ab-proto { left: 50%; transform: translateX(-50%); bottom: 12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ab-pop, .ab-pal { animation: none; }
+  .ab-nav a { transition: none; }
+}
