@@ -20,6 +20,8 @@ import type { ControlAssessmentStatus, SelfAssessmentAnswer, UserRole } from "@p
  *   `isSystemOwnerOrAdmin` (#91), so there is one definition of "owner".
  * - Create a System: SYSTEM_OWNER, RISK_OWNER or ADMIN only (`canCreateSystem`);
  *   the creator becomes the System's owner.
+ * - Change a System's owner (#233): the current owner or an ADMIN (`canChangeOwner`), and the
+ *   new owner must be a user who could create a System (`canBeSystemOwner`).
  *
  * "The System's owner" is `system.ownerId`, whatever the owner's role — a
  * RISK_OWNER who owns the System is simply its owner. The exceptions are the
@@ -93,6 +95,22 @@ export function isSystemOwnerOrAdmin(user: Actor, system: OwnedSystem) {
   if (isReadOnlySystemRole(user)) return false;
   return system.ownerId === user.id;
 }
+
+/** May `user` hand `system` to another owner (#233)? The current owner or an ADMIN, as everywhere. */
+export function canChangeOwner(user: Actor, system: OwnedSystem) {
+  return isSystemOwnerOrAdmin(user, system);
+}
+
+/**
+ * May `user` become a System's owner by having it handed over (#233)? Product-owner decision of
+ * 2026-10-25: any user with a System-creating role, i.e. one who could have created the System.
+ */
+export function canBeSystemOwner(user: { role: UserRole }) {
+  return canCreateSystem(user);
+}
+
+/** The 400 text when the picked new owner has no System-creating role. */
+export const NEW_OWNER_REFUSAL = "The new owner must be a System Owner, Risk Owner or Admin";
 
 /**
  * The reach of `user`'s rights to edit Assessments / answer Self-Assessment

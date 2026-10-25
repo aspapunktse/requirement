@@ -10,7 +10,9 @@ import { Icon, Ring, Spark } from "@/app/home/HomeGraphics";
 import { JumpPalette, usePaletteToggle, useRegisterHotkeys, type PaletteItem } from "@/app/home/JumpPalette";
 import "@/app/home/home.css";
 import "./systems.css";
-import { BULK_ACTIONS } from "./bulk-actions";
+import { ChangeOwnerDialog } from "@/components/ChangeOwnerDialog";
+import { canChangeOwner } from "@/lib/system-permissions";
+import { BULK_ACTIONS, canChangeAnyOwner } from "./bulk-actions";
 import { PAGE_SIZES, SHOW_COMPACT_TOGGLE, SHOW_JUMP_PALETTE, SHOW_STAT_TRENDS } from "./systems-config";
 import { downloadCsv } from "./systems-download";
 import {
@@ -88,9 +90,11 @@ const levelText = (level: keyof typeof LEVEL_RANK | null) => (level === null ? "
 export function SystemsRegister({ view, initialQuery }: { view: SystemsView; initialQuery: string }) {
   const router = useRouter();
   const { rows, userId } = view;
+  const actor = { id: userId, role: view.role };
   const [state, setState] = useState<RegisterState>(() => parseRegisterState(new URLSearchParams(initialQuery), { id: userId, role: view.role }));
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [compact, setCompact] = useState(false);
+  const [changingOwner, setChangingOwner] = useState(false);
   const [openFilter, setOpenFilter] = useState<FilterKey | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const regRef = useRef<HTMLElement>(null);
@@ -653,10 +657,33 @@ export function SystemsRegister({ view, initialQuery }: { view: SystemsView; ini
               {action.label}
             </button>
           ))}
+          {canChangeAnyOwner(selectedRows, actor) && (
+            <button type="button" onClick={() => setChangingOwner(true)}>
+              Change owner
+            </button>
+          )}
           <button type="button" aria-label="Clear selection" onClick={() => setSelected(new Set())}>
             ✕
           </button>
         </div>
+      )}
+
+      {changingOwner && (
+        <ChangeOwnerDialog
+          systems={selectedRows.map((row) => ({
+            id: row.id,
+            name: row.name,
+            ownerId: row.ownerId,
+            ownerName: row.ownerName,
+            canChange: canChangeOwner(actor, row),
+          }))}
+          onClose={() => setChangingOwner(false)}
+          onDone={() => {
+            setChangingOwner(false);
+            setSelected(new Set());
+            router.refresh();
+          }}
+        />
       )}
 
       <p className="sr-only" role="status">

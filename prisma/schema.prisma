@@ -706,6 +706,10 @@ enum ChangeEventAction {
   // An approved Review Step went back to Open because a person edited a Control Assessment in its
   // remit (#200). System-scoped, actor the person who edited; the detail names the step and the Control.
   REVIEW_STEP_REOPENED
+  // The System's owner or an Admin handed the System to another owner (#233). System-scoped, one
+  // event per System changed, actor the User who changed it; the detail names the previous and the
+  // new owner. Changing a System's owner in bulk writes one event per System.
+  SYSTEM_OWNER_CHANGED
 }
 
 // A curated, System-lifecycle-relevant mutation record — feeds the landing

@@ -27,6 +27,7 @@ export const CHANGE_EVENT_ACTION_LABEL: Record<ChangeEventAction, string> = {
   SOA_JUSTIFICATION_CHANGED: "changed an exclusion justification on the Statement of Applicability",
   CHECK_UP_EVALUATED: "evaluated a Check-up",
   REVIEW_STEP_REOPENED: "reopened a Review Step",
+  SYSTEM_OWNER_CHANGED: "changed a System's owner",
 };
 
 export type ChangeEventTone = "ok" | "warn" | "danger" | "accent";
@@ -51,4 +52,5 @@ export const CHANGE_EVENT_ACTION_TONE: Record<ChangeEventAction, ChangeEventTone
   SOA_JUSTIFICATION_CHANGED: "warn",
   CHECK_UP_EVALUATED: "warn",
   REVIEW_STEP_REOPENED: "warn",
+  SYSTEM_OWNER_CHANGED: "accent",
 };
