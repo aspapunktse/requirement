@@ -14,8 +14,12 @@ export type AssignedScope = {
 };
 
 /** The Business Unit(s) and/or Framework(s) a BUSINESS_RISK_OWNER is assigned to. */
-export async function getAssignedScope(userId: string): Promise<AssignedScope> {
-  const user = await prisma.user.findUnique({
+export async function getAssignedScope(
+  userId: string,
+  // Pass a transaction client to read in the caller's snapshot.
+  db: Pick<Prisma.TransactionClient, "user"> = prisma,
+): Promise<AssignedScope> {
+  const user = await db.user.findUnique({
     where: { id: userId },
     include: { businessUnitScopes: true, frameworkScopes: true },
   });

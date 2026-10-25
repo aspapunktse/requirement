@@ -4,6 +4,10 @@ import { recordStatSnapshots } from "@/lib/stat-snapshots";
 import { roleView } from "@/app/home/role-view";
 import { statNumber, utcDay } from "@/app/home/home-snapshots";
 import { weekEnds } from "@/app/home/home-trends";
+import { loadSystemRowsForCounts } from "@/app/systems/systems-data";
+import { systemsStatKey } from "@/app/systems/systems-trends";
+import { viewCounts } from "@/app/systems/systems-logic";
+import { VIEW_KEYS } from "@/app/systems/systems-types";
 
 const suffix = `${process.pid}-${Date.now()}`;
 const emails = [`test-snap-a-${suffix}@example.com`, `test-snap-b-${suffix}@example.com`];
@@ -13,6 +17,9 @@ let b: Viewer;
 const now = new Date();
 
 const rows = (userId: string) => prisma.statSnapshot.findMany({ where: { userId }, orderBy: [{ statKey: "asc" }, { day: "asc" }] });
+// The Systems list's cards are recorded under `systems:` keys beside Home's (#232).
+const SYSTEMS_KEYS = VIEW_KEYS.length;
+const homeRows = async (userId: string) => (await rows(userId)).filter((row) => !row.statKey.startsWith("systems:"));
 
 beforeAll(async () => {
   a = (await prisma.user.create({ data: { email: emails[0], name: "Test Snapshot A", role: "VIEWER" } })) as Viewer;
@@ -28,9 +35,9 @@ describe("recording the daily stat snapshots (#227)", () => {
   it("stores the figures /home shows, per user, for today's UTC day", async () => {
     const run = await recordStatSnapshots(now, { userIds: [a.id] });
     const view = await roleView(a, now);
-    const stored = await rows(a.id);
+    const stored = await homeRows(a.id);
     expect(run.failedUsers).toBe(0);
-    expect(run.recorded).toBe(view.stats.length);
+    expect(run.recorded).toBe(view.stats.length + SYSTEMS_KEYS);
     expect(stored).toHaveLength(view.stats.length);
     for (const stat of view.stats) {
       const row = stored.find((r) => r.statKey === stat.label);
@@ -115,5 +122,82 @@ describe("a role change (#227)", () => {
     const trend = (await roleView(a, now)).stats.find((s) => s.label === stat.label)?.trend as number[];
     expect(trend[2]).toBe(derived[2]);
     expect(trend[3]).toBe(222);
+  });
+});
+
+describe("recording the Systems list's stat cards (#232)", () => {
+  const systemsRows = async (userId: string) => (await rows(userId)).filter((row) => row.statKey.startsWith("systems:"));
+  const names: string[] = [];
+  let ownerA: string;
+  let ownerB: string;
+  let systemIds: string[] = [];
+
+  beforeAll(async () => {
+    // Two System Owners: each sees their own Systems plus the Onboarded ones, so their counts differ.
+    const make = async (key: string) => {
+      const email = `test-snap-sys-${key}-${suffix}@example.com`;
+      names.push(email);
+      return (await prisma.user.create({ data: { email, name: `Test Snapshot Systems ${key}`, role: "SYSTEM_OWNER" } })).id;
+    };
+    ownerA = await make("a");
+    ownerB = await make("b");
+    const system = async (name: string, ownerId: string, status: "DRAFT" | "ONBOARDED", isProvider = false) =>
+      (await prisma.system.create({ data: { name: `Test Snapshot System ${name} ${suffix}`, ownerId, status, isProvider } })).id;
+    systemIds = [
+      await system("A1", ownerA, "DRAFT", true), // unclassified, provider
+      await system("A2", ownerA, "DRAFT"),
+      await system("B1", ownerB, "DRAFT"),
+    ];
+  });
+
+  afterAll(async () => {
+    await prisma.system.deleteMany({ where: { id: { in: systemIds } } });
+    await prisma.user.deleteMany({ where: { email: { in: names } } });
+  });
+
+  it("stores one row per saved view under its own systems: key, with the counts the page shows to that user", async () => {
+    const run = await recordStatSnapshots(now, { userIds: [ownerA] });
+    expect(run.failedUsers).toBe(0);
+    const counts = viewCounts(await loadSystemRowsForCounts({ id: ownerA, role: "SYSTEM_OWNER" }, now));
+    const stored = await systemsRows(ownerA);
+    expect(stored).toHaveLength(SYSTEMS_KEYS);
+    for (const view of VIEW_KEYS) {
+      const row = stored.find((r) => r.statKey === systemsStatKey(view));
+      expect(row?.value, view).toBe(counts[view]);
+      expect(row?.role).toBe("SYSTEM_OWNER");
+      expect(row?.day.getTime()).toBe(utcDay(now).getTime());
+    }
+    // Namespaced: none of them is a Home stat label.
+    const homeLabels = new Set((await roleView({ id: ownerA, name: "x", role: "SYSTEM_OWNER" }, now)).stats.map((s) => s.label));
+    expect(stored.some((r) => homeLabels.has(r.statKey))).toBe(false);
+  });
+
+  it("counts what that user can see: a Draft of another owner is not in the counts", async () => {
+    await recordStatSnapshots(now, { userIds: [ownerB] });
+    const a = (await systemsRows(ownerA)).find((r) => r.statKey === systemsStatKey("all"))?.value as number;
+    const b = (await systemsRows(ownerB)).find((r) => r.statKey === systemsStatKey("all"))?.value as number;
+    // A owns two Drafts and B one, and the Onboarded Systems are the same for both (other files may add
+    // Onboarded ones meanwhile, so only the order is asserted).
+    expect(a).toBeGreaterThanOrEqual(2);
+    expect(b).toBeGreaterThanOrEqual(1);
+    expect(a).toBeGreaterThan(b);
+    // A's Draft Provider counts for A and is invisible to B.
+    const providersOf = async (id: string) => (await systemsRows(id)).find((r) => r.statKey === systemsStatKey("providers"))?.value as number;
+    expect(await providersOf(ownerA)).toBeGreaterThan(await providersOf(ownerB));
+  });
+
+  it("changes nothing when run again on the same day, and records another set on another day", async () => {
+    const before = await systemsRows(ownerA);
+    const again = await recordStatSnapshots(now, { userIds: [ownerA] });
+    expect(again.recorded).toBe(0);
+    expect(await systemsRows(ownerA)).toEqual(before);
+
+    const first = before[0];
+    await prisma.statSnapshot.update({ where: { id: first.id }, data: { value: 4242 } });
+    await recordStatSnapshots(now, { userIds: [ownerA] });
+    expect((await prisma.statSnapshot.findUniqueOrThrow({ where: { id: first.id } })).value).toBe(4242);
+
+    await recordStatSnapshots(new Date(now.getTime() + 86_400_000), { userIds: [ownerA] });
+    expect(await systemsRows(ownerA)).toHaveLength(SYSTEMS_KEYS * 2);
   });
 });

@@ -30,15 +30,19 @@ export function canWriteSystems(user: { role: UserRole }) {
  * System, in any status, that has one of their groups' Frameworks in its declared
  * Framework Scope (`reviewGroupScopeWhere`, #201).
  */
-export async function visibleSystemsWhere(user: { id: string; role: UserRole }): Promise<Prisma.SystemWhereInput> {
+export async function visibleSystemsWhere(
+  user: { id: string; role: UserRole },
+  // Pass a transaction client to read in the caller's snapshot.
+  db: Pick<Prisma.TransactionClient, "reviewGroup" | "user"> = prisma,
+): Promise<Prisma.SystemWhereInput> {
   if (FULL_VISIBILITY_ROLES.includes(user.role)) {
     return {};
   }
   const ownedOrOnboarded: Prisma.SystemWhereInput[] = [{ ownerId: user.id }, { status: "ONBOARDED" }];
-  const throughReviewGroup = await reviewGroupScopeWhere(user.id);
+  const throughReviewGroup = await reviewGroupScopeWhere(user.id, db);
   if (throughReviewGroup) ownedOrOnboarded.push(throughReviewGroup);
   if (user.role === "BUSINESS_RISK_OWNER") {
-    const scope = await getAssignedScope(user.id);
+    const scope = await getAssignedScope(user.id, db);
     ownedOrOnboarded.push(scopedSystemsWhere(scope));
   }
   return { OR: ownedOrOnboarded };

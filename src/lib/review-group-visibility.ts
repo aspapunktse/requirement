@@ -1,4 +1,5 @@
 import type { Prisma } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 import { memberGroupIds } from "@/lib/approvals";
 
 /**
@@ -10,8 +11,12 @@ import { memberGroupIds } from "@/lib/approvals";
  * A base Framework can never have a Review Group, so it never widens anything. Null when the user is
  * in no group (nothing to add).
  */
-export async function reviewGroupScopeWhere(userId: string): Promise<Prisma.SystemWhereInput | null> {
-  const groupIds = await memberGroupIds(userId);
+export async function reviewGroupScopeWhere(
+  userId: string,
+  // Pass a transaction client to read in the caller's snapshot.
+  db: Pick<Prisma.TransactionClient, "reviewGroup"> = prisma,
+): Promise<Prisma.SystemWhereInput | null> {
+  const groupIds = await memberGroupIds(userId, db);
   if (groupIds.length === 0) return null;
   return { frameworkScopes: { some: { reviewGroupId: { in: groupIds } } } };
 }

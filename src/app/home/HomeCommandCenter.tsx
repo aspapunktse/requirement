@@ -1,13 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type KeyboardEvent } from "react";
+import { useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type KeyboardEvent } from "react";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { HOME_LANES, type HomeLane, type HomeStat, type HomeTask, type HomeView } from "./home-types";
 import { SHOW_ACTIVITY, SHOW_JUMP_PALETTE, SHOW_STAT_TRENDS } from "./home-config";
 import { Icon, kindOf, Ring, Spark } from "./HomeGraphics";
+import { ago, initialsOf } from "./home-format";
 import { HomePictureView } from "./HomePictures";
-import { JumpPalette } from "./JumpPalette";
+import { JumpPalette, paletteItems, usePaletteToggle, useRegisterHotkeys } from "./JumpPalette";
 import "./home.css";
 
 const LANE_COLOR: Record<HomeLane, string> = { you: "var(--rg-accent)", waiting: "var(--rg-muted)", soon: "var(--rg-gold)" };
@@ -15,24 +16,11 @@ const TONE_RANK: Record<string, number> = { danger: 0, warn: 1, accent: 2, succe
 const ACTIVITY_COLOR = { ok: "var(--rg-success)", warn: "var(--rg-gold)", danger: "var(--rg-danger)", accent: "var(--rg-accent)" };
 const STAT_COLOR: Record<string, string> = { warn: "var(--rg-gold)", danger: "var(--rg-danger)", ok: "var(--rg-success)" };
 
+export { ago };
+
 export type TaskSort = "lane" | "new" | "old";
 
 export const greetingFor = (hour: number) => (hour < 5 ? "Good evening" : hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening");
-
-/** "today", "yesterday", "5 d ago", "3 mo ago"; a task with no date shows a dash. */
-export function ago(days: number | null): string {
-  if (days === null) return "—";
-  if (days === 0) return "today";
-  if (days === 1) return "yesterday";
-  if (days < 30) return `${days} d ago`;
-  if (days < 365) return `${Math.round(days / 30)} mo ago`;
-  return `${Math.floor(days / 365)} y ago`;
-}
-
-const initialsOf = (name: string) => {
-  const words = name.split(/\s+/).filter(Boolean);
-  return (words.length > 1 ? words.map((word) => word[0]).join("") : name).slice(0, 2);
-};
 
 const noopSubscribe = () => () => {};
 
@@ -54,9 +42,7 @@ export function HomeCommandCenter({ view }: { view: HomeView }) {
   const [statIndex, setStatIndex] = useState<number | null>(null);
   const [q, setQ] = useState("");
   const [sort, setSort] = useState<TaskSort>("lane");
-  const [paletteOpen, setPaletteOpen] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
-  const returnFocusRef = useRef<HTMLElement | null>(null);
 
   // The server has no idea of the visitor's time zone: render "Welcome" there and the real greeting once hydrated.
   const greeting = useSyncExternalStore(noopSubscribe, () => greetingFor(new Date().getHours()), () => "Welcome");
@@ -70,34 +56,8 @@ export function HomeCommandCenter({ view }: { view: HomeView }) {
   const list = useMemo(() => visibleTasks(tasks, { kind, q, sort }), [tasks, kind, q, sort]);
   const primaryTile = tiles.find((tile) => tile.primary) ?? tiles[0];
 
-  function openPalette() {
-    returnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    setPaletteOpen(true);
-  }
-  function closePalette() {
-    setPaletteOpen(false);
-    returnFocusRef.current?.focus();
-  }
-
-  useEffect(() => {
-    function onKeyDown(event: globalThis.KeyboardEvent) {
-      if (SHOW_JUMP_PALETTE && (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
-        event.preventDefault();
-        if (paletteOpen) closePalette();
-        else openPalette();
-        return;
-      }
-      if (paletteOpen) return;
-      const target = event.target instanceof HTMLElement ? event.target : null;
-      const typing = !!target && (/^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName) || target.isContentEditable);
-      if (event.key === "/" && !typing && !event.ctrlKey && !event.metaKey && !event.altKey) {
-        event.preventDefault();
-        searchRef.current?.focus();
-      }
-    }
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  });
+  const { open: paletteOpen, openPalette, closePalette } = usePaletteToggle();
+  useRegisterHotkeys({ paletteEnabled: SHOW_JUMP_PALETTE, paletteOpen, openPalette, closePalette, searchRef });
 
   function toggleStat(index: number, stat: HomeStat) {
     const next = statIndex === index ? null : index;
@@ -398,7 +358,7 @@ export function HomeCommandCenter({ view }: { view: HomeView }) {
         </aside>
       </div>
 
-      {SHOW_JUMP_PALETTE && paletteOpen && <JumpPalette tasks={tasks} tiles={tiles} onClose={closePalette} />}
+      {SHOW_JUMP_PALETTE && paletteOpen && <JumpPalette items={paletteItems(tasks, tiles, "")} onClose={closePalette} />}
     </div>
   );
 }
