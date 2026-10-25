@@ -94,12 +94,13 @@ export function ChangeOwnerDialog({
         onKeyDown={(event) => {
           if (event.key === "Escape") onClose();
         }}
-        className="fixed left-1/2 top-[12vh] z-[51] flex w-[min(480px,calc(100vw-32px))] -translate-x-1/2 flex-col gap-3 rounded-2xl border border-rg-line bg-rg-surface p-5 text-sm text-rg-ink shadow-2xl"
+        className="fixed left-1/2 top-[12vh] z-[51] flex max-h-[76vh] w-[min(480px,calc(100vw-32px))] overflow-y-auto -translate-x-1/2 flex-col gap-3 rounded-2xl border border-rg-line bg-rg-surface p-5 text-sm text-rg-ink shadow-2xl"
       >
         <h2 id={titleId} className="text-lg font-semibold">
           Change owner{systems.length > 1 ? ` of ${systems.length} Systems` : ""}
         </h2>
-        <p className="text-rg-muted">
+        {/* A large bulk selection scrolls here, so the picker and buttons stay in view. */}
+        <p className="max-h-32 shrink-0 overflow-y-auto text-rg-muted">
           {systems.length === 1
             ? `${systems[0].name} is owned by ${systems[0].ownerName}.`
             : systems.map((system) => system.name).join(", ")}
