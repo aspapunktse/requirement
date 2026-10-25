@@ -1,36 +1,111 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Fragment, useId, useState, type KeyboardEvent } from "react";
+import { Fragment, useEffect, useId, useRef, useState, type KeyboardEvent, type RefObject } from "react";
 import { Icon, kindOf } from "./HomeGraphics";
 import type { HomeIconKey, HomeTask, HomeTile } from "./home-types";
 
-type Item = { group: "Tasks" | "Pages"; icon: HomeIconKey; label: string; meta: string; href: string };
+/**
+ * The Ctrl+K "jump to" palette, shared by the Home page and the Systems list (#232): the page builds its
+ * items, the palette filters, lists and opens them. Its styles (`hc-pal*`) are in `home.css`.
+ */
+export type PaletteItem = { group: string; icon: HomeIconKey; label: string; meta: string; href: string };
 
-/** The items the palette offers, narrowed by the typed text (a case-insensitive substring of label and meta). */
-export function paletteItems(tasks: HomeTask[], tiles: HomeTile[], query: string): Item[] {
+/** The items narrowed by the typed text (a case-insensitive substring of label and meta). */
+export function filterPaletteItems(items: PaletteItem[], query: string): PaletteItem[] {
   const q = query.trim().toLowerCase();
-  const all: Item[] = [
-    ...tasks.map((task): Item => ({ group: "Tasks", icon: kindOf(task.kind).icon, label: task.title, meta: task.status, href: task.href })),
-    ...tiles.map((tile): Item => ({ group: "Pages", icon: tile.icon, label: tile.title, meta: tile.foot ?? "", href: tile.href })),
-  ];
-  return q ? all.filter((item) => `${item.label} ${item.meta}`.toLowerCase().includes(q)) : all;
+  return q ? items.filter((item) => `${item.label} ${item.meta}`.toLowerCase().includes(q)) : items;
+}
+
+/** The Home page's items: its tasks, then its shortcuts, narrowed by the typed text. */
+export function paletteItems(tasks: HomeTask[], tiles: HomeTile[], query: string): PaletteItem[] {
+  return filterPaletteItems(
+    [
+      ...tasks.map((task): PaletteItem => ({ group: "Tasks", icon: kindOf(task.kind).icon, label: task.title, meta: task.status, href: task.href })),
+      ...tiles.map((tile): PaletteItem => ({ group: "Pages", icon: tile.icon, label: tile.title, meta: tile.foot ?? "", href: tile.href })),
+    ],
+    query,
+  );
 }
 
 /**
- * The Ctrl+K "jump to" palette: a modal dialog with a search field and a listbox over the role's tasks
- * and shortcuts. Arrow keys move, Enter opens, Escape closes; Tab stays in the field. Mounted only while
- * open, so it starts fresh each time. Role switching stays in the app header.
+ * The keyboard shortcuts of a Register page: Ctrl/Cmd+K toggles the palette (when `paletteEnabled`) and "/"
+ * focuses the search field unless the user is typing somewhere. Both are ignored while the palette is open,
+ * except Ctrl+K, which closes it.
  */
-export function JumpPalette({ tasks, tiles, onClose }: { tasks: HomeTask[]; tiles: HomeTile[]; onClose: () => void }) {
+export function useRegisterHotkeys({
+  paletteEnabled,
+  paletteOpen,
+  openPalette,
+  closePalette,
+  searchRef,
+}: {
+  paletteEnabled: boolean;
+  paletteOpen: boolean;
+  openPalette: () => void;
+  closePalette: () => void;
+  searchRef: RefObject<HTMLInputElement | null>;
+}) {
+  useEffect(() => {
+    function onKeyDown(event: globalThis.KeyboardEvent) {
+      if (paletteEnabled && (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        if (paletteOpen) closePalette();
+        else openPalette();
+        return;
+      }
+      if (paletteOpen) return;
+      const target = event.target instanceof HTMLElement ? event.target : null;
+      const typing = !!target && (/^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName) || target.isContentEditable);
+      if (event.key === "/" && !typing && !event.ctrlKey && !event.metaKey && !event.altKey) {
+        event.preventDefault();
+        searchRef.current?.focus();
+      }
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  });
+}
+
+/** Opens and closes the palette, giving focus back to what had it before. */
+export function usePaletteToggle() {
+  const [open, setOpen] = useState(false);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
+  return {
+    open,
+    openPalette() {
+      returnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      setOpen(true);
+    },
+    closePalette() {
+      setOpen(false);
+      returnFocusRef.current?.focus();
+    },
+  };
+}
+
+/**
+ * A modal dialog with a search field and a listbox over `items`. Arrow keys move, Enter opens, Escape
+ * closes; Tab stays in the field. Mounted only while open, so it starts fresh each time. Role switching
+ * stays in the app header.
+ */
+export function JumpPalette({
+  items: allItems,
+  onClose,
+  placeholder = "Jump to a task or a page…",
+}: {
+  items: PaletteItem[];
+  onClose: () => void;
+  placeholder?: string;
+}) {
   const router = useRouter();
   const listId = useId();
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState(0);
-  const items = paletteItems(tasks, tiles, query);
+  const items = filterPaletteItems(allItems, query);
   const active = Math.min(selected, Math.max(0, items.length - 1));
 
-  function open(item: Item | undefined) {
+  function open(item: PaletteItem | undefined) {
     if (!item) return;
     onClose();
     router.push(item.href);
@@ -64,8 +139,8 @@ export function JumpPalette({ tasks, tiles, onClose }: { tasks: HomeTask[]; tile
           aria-expanded="true"
           aria-controls={listId}
           aria-activedescendant={items.length > 0 ? `${listId}-${active}` : undefined}
-          aria-label="Jump to a task or a page"
-          placeholder="Jump to a task or a page…"
+          aria-label={placeholder.replace(/…$/, "")}
+          placeholder={placeholder}
           autoComplete="off"
           value={query}
           onChange={(event) => {

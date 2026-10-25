@@ -395,6 +395,9 @@ export function isQueryActionableBy(
   return false;
 }
 
+/** What the Query readers read through: a transaction client, when the caller reads in one snapshot. */
+export type QueryReadClient = Pick<Prisma.TransactionClient, "assessmentQuery" | "reviewGroup" | "system" | "control">;
+
 type OpenQueryForMembership = {
   controlAssessment: { systemId: string; controlId: string; system: { ownerId: string } };
 };
@@ -411,33 +414,34 @@ async function membershipQueryKeys(
   queries: OpenQueryForMembership[],
   // True computes the keys whatever the role (the role-based actionability then isn't what is being asked).
   regardlessOfRole = false,
+  // A caller already in a transaction passes its client: every read then happens on it, in the caller's snapshot.
+  tx?: QueryReadClient,
 ) {
   const keys = new Set<string>();
   if (!canActThroughMembership(user)) return keys;
   if (!regardlessOfRole && ROLES_ALLOWED_TO_MANAGE_QUERIES.includes(user.role)) return keys;
-  const groupIds = await memberGroupIds(user.id);
+  const groupIds = await memberGroupIds(user.id, tx ?? prisma);
   if (groupIds.length === 0) return keys;
   const systemIds = [
     ...new Set(queries.filter((q) => q.controlAssessment.system.ownerId !== user.id).map((q) => q.controlAssessment.systemId)),
   ];
   if (systemIds.length === 0) return keys;
-  await prisma.$transaction(
-    async (tx) => {
-      const systems = await tx.system.findMany({
-        where: { id: { in: systemIds }, frameworkScopes: { some: { reviewGroupId: { in: groupIds } } } },
-        include: SYSTEM_FOR_STEPS,
-      });
-      for (const system of systems) {
-        const remit = await remitGroupsByControl(tx, system);
-        for (const query of queries) {
-          const { systemId, controlId } = query.controlAssessment;
-          if (systemId !== system.id) continue;
-          if ([...(remit.get(controlId)?.keys() ?? [])].some((id) => groupIds.includes(id))) keys.add(`${systemId}:${controlId}`);
-        }
+  const collect = async (db: QueryReadClient) => {
+    const systems = await db.system.findMany({
+      where: { id: { in: systemIds }, frameworkScopes: { some: { reviewGroupId: { in: groupIds } } } },
+      include: SYSTEM_FOR_STEPS,
+    });
+    for (const system of systems) {
+      const remit = await remitGroupsByControl(db, system);
+      for (const query of queries) {
+        const { systemId, controlId } = query.controlAssessment;
+        if (systemId !== system.id) continue;
+        if ([...(remit.get(controlId)?.keys() ?? [])].some((id) => groupIds.includes(id))) keys.add(`${systemId}:${controlId}`);
       }
-    },
-    { isolationLevel: "RepeatableRead" },
-  );
+    }
+  };
+  if (tx) await collect(tx);
+  else await prisma.$transaction(collect, { isolationLevel: "RepeatableRead" });
   return keys;
 }
 
@@ -452,10 +456,12 @@ async function membershipQueryKeys(
 export async function getActionableQueryCountsBySystem(
   user: { id: string; role: UserRole },
   systemIds: string[],
+  // Pass a transaction client to read in the caller's snapshot (every read then uses it).
+  tx?: QueryReadClient,
 ) {
   if (systemIds.length === 0) return new Map<string, number>();
 
-  const openQueries = await prisma.assessmentQuery.findMany({
+  const openQueries = await (tx ?? prisma).assessmentQuery.findMany({
     where: { resolved: false, controlAssessment: { systemId: { in: systemIds } } },
     select: {
       resolved: true,
@@ -464,7 +470,7 @@ export async function getActionableQueryCountsBySystem(
     },
   });
 
-  const viaMembership = await membershipQueryKeys(user, openQueries);
+  const viaMembership = await membershipQueryKeys(user, openQueries, false, tx);
   const counts = new Map<string, number>();
   for (const query of openQueries) {
     const { systemId, controlId, system } = query.controlAssessment;
