@@ -3,7 +3,7 @@ import type { UserRole } from "@prisma/client";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
 import { ACTING_USER_COOKIE } from "@/lib/acting-user";
-import { mapControlsToBase } from "@/test/framework-fixtures";
+import { mapControlsToBase, cleanupFixtureRequirements } from "@/test/framework-fixtures";
 import { GET as listControls, POST as createControl } from "../../route";
 import { GET, PATCH } from "../route";
 
@@ -90,6 +90,7 @@ describe("Control Owner (#119)", () => {
   });
 
   afterAll(async () => {
+    await cleanupFixtureRequirements(); // before the Controls, so no fixture base Requirement is left unmapped (#231)
     await prisma.controlAssessment.deleteMany({ where: { systemId } });
     await prisma.system.deleteMany({ where: { id: systemId } });
     await prisma.control.deleteMany({ where: { id: scopedControlId } });

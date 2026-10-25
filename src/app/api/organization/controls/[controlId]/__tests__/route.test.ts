@@ -3,7 +3,7 @@ import type { UserRole } from "@prisma/client";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
 import { ACTING_USER_COOKIE } from "@/lib/acting-user";
-import { mapControlsToBase } from "@/test/framework-fixtures";
+import { mapControlsToBase, cleanupFixtureRequirements } from "@/test/framework-fixtures";
 import { PATCH } from "../route";
 
 /**
@@ -93,6 +93,7 @@ describe("PATCH /api/organization/controls/[controlId] (#120)", () => {
   });
 
   afterAll(async () => {
+    await cleanupFixtureRequirements(); // before the Controls, so no fixture base Requirement is left unmapped (#231)
     await prisma.controlAssessment.deleteMany({ where: { systemId } });
     await prisma.changeEvent.deleteMany({ where: { systemId } });
     // An Organizational Control's status change writes a System-less event (#122); it has no System to cascade from.

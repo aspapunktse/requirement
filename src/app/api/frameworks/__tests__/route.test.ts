@@ -181,13 +181,17 @@ describe("/api/frameworks: version, base Framework and supersedes rules", () => 
 
   it("the base Framework's Requirements are editable: add, edit, map and delete", async () => {
     const code = `TEST-BASE-${SUFFIX}`;
+    // A Per-System Control on a Deployment Facet no System has, so the base Requirement is Not Applicable
+    // everywhere once mapped. An Organizational one would count on every System, other test files' too (#231).
+    const facet = await prisma.deploymentFacet.create({ data: { name: `Test Base Editing Facet ${SUFFIX}` } });
     const control = await prisma.control.create({
       data: {
         code: `TEST-BASE-CTL-${SUFFIX}`,
         title: "Base editing control",
         description: "d",
         category: "Test",
-        applicability: "ORGANIZATIONAL",
+        applicability: "PER_SYSTEM",
+        deploymentFacets: { connect: { id: facet.id } },
       },
     });
     let requirementId: string | null = null;
@@ -200,13 +204,7 @@ describe("/api/frameworks: version, base Framework and supersedes rules", () => 
       requirementId = (await created.json()).requirement.id as string;
       const rctx = { params: Promise.resolve({ id: baseId, requirementId }) };
 
-      const edited = await patchRequirement(
-        req(`/api/frameworks/${baseId}/requirements/${requirementId}`, "PATCH", cmId, { title: "Edited" }),
-        rctx,
-      );
-      expect(edited.status).toBe(200);
-      expect((await edited.json()).requirement.title).toBe("Edited");
-
+      // Mapped straight away: until then it is Not Met on every System.
       const mapped = await createMapping(
         req(`/api/frameworks/${baseId}/requirements/${requirementId}/mappings`, "POST", cmId, {
           controlId: control.id,
@@ -215,6 +213,13 @@ describe("/api/frameworks: version, base Framework and supersedes rules", () => 
         rctx,
       );
       expect(mapped.status).toBe(201);
+
+      const edited = await patchRequirement(
+        req(`/api/frameworks/${baseId}/requirements/${requirementId}`, "PATCH", cmId, { title: "Edited" }),
+        rctx,
+      );
+      expect(edited.status).toBe(200);
+      expect((await edited.json()).requirement.title).toBe("Edited");
 
       const deleted = await deleteRequirement(
         req(`/api/frameworks/${baseId}/requirements/${requirementId}`, "DELETE", cmId),
@@ -227,6 +232,7 @@ describe("/api/frameworks: version, base Framework and supersedes rules", () => 
       if (requirementId) await prisma.requirement.deleteMany({ where: { id: requirementId } });
       await prisma.requirement.deleteMany({ where: { frameworkId: baseId, code } });
       await prisma.control.delete({ where: { id: control.id } });
+      await prisma.deploymentFacet.delete({ where: { id: facet.id } });
       await prisma.changeEvent.deleteMany({ where: { actorId: cmId, detail: { contains: code } } });
     }
     expect(await prisma.requirement.count({ where: { frameworkId: baseId, code } })).toBe(0);

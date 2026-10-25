@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import type { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { mapControlsToBase } from "@/test/framework-fixtures";
+import { mapControlsToBase, cleanupFixtureRequirements } from "@/test/framework-fixtures";
 import { ACTING_USER_COOKIE } from "@/lib/acting-user";
 import { getUnaddressedMandatoryControls } from "@/lib/control-assessments";
 import { PATCH as updateAssessment } from "../systems/[id]/assessments/[controlId]/route";
@@ -123,6 +123,7 @@ describe("System write permissions (#78)", () => {
   });
 
   afterAll(async () => {
+    await cleanupFixtureRequirements(); // before the Controls, so no fixture base Requirement is left unmapped (#231)
     await cleanSystemData();
     await prisma.system.deleteMany({ where: { id: { in: systemIds } } });
     await prisma.control.deleteMany({ where: { id: { in: [optionalControlId, mandatoryControlId] } } });

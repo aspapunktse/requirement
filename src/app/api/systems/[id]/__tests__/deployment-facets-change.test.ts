@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
-import { mapControlsToBase } from "@/test/framework-fixtures";
+import { mapControlsToBase, cleanupFixtureRequirements } from "@/test/framework-fixtures";
 import { ACTING_USER_COOKIE } from "@/lib/acting-user";
 import { PATCH } from "../route";
 
@@ -39,7 +39,9 @@ describe("PATCH /api/systems/[id] (Deployment Facet change)", () => {
   let onlyAId: string;
   // Control applicable only to Facet B
   let onlyBId: string;
-  // Control applicable regardless of facet (unscoped)
+  // Facet the "true union" test bootstraps the System onto
+  let bootstrapFacetId: string;
+  // Control applicable on every Facet this file uses (not unscoped: that would reach other files' Systems, #231)
   let bothId: string;
 
   beforeAll(async () => {
@@ -67,6 +69,7 @@ describe("PATCH /api/systems/[id] (Deployment Facet change)", () => {
     const typeB = await prisma.deploymentFacet.create({ data: { name: `Facet B ${suffix}` } });
     typeAId = typeA.id;
     typeBId = typeB.id;
+    bootstrapFacetId = (await prisma.deploymentFacet.create({ data: { name: `Facet Bootstrap ${suffix}` } })).id;
 
     const onlyA = await prisma.control.create({
       data: {
@@ -91,10 +94,11 @@ describe("PATCH /api/systems/[id] (Deployment Facet change)", () => {
     const both = await prisma.control.create({
       data: {
         code: `TC-BOTH-${suffix}`,
-        title: "Applies regardless of facet",
+        title: "Applies on every facet here",
         description: "desc",
         category: "Security",
         applicability: "PER_SYSTEM",
+        deploymentFacets: { connect: [{ id: typeAId }, { id: typeBId }, { id: bootstrapFacetId }] },
       },
     });
     onlyAId = onlyA.id;
@@ -104,9 +108,10 @@ describe("PATCH /api/systems/[id] (Deployment Facet change)", () => {
   });
 
   afterAll(async () => {
+    await cleanupFixtureRequirements(); // before the Controls, so no fixture base Requirement is left unmapped (#231)
     await prisma.system.deleteMany({ where: { id: systemId } });
     await prisma.control.deleteMany({ where: { id: { in: [onlyAId, onlyBId, bothId] } } });
-    await prisma.deploymentFacet.deleteMany({ where: { id: { in: [typeAId, typeBId] } } });
+    await prisma.deploymentFacet.deleteMany({ where: { id: { in: [typeAId, typeBId, bootstrapFacetId] } } });
     await prisma.user.deleteMany({ where: { email: { in: [OWNER_EMAIL, OTHER_OWNER_EMAIL, ADMIN_EMAIL] } } });
   });
 
@@ -288,7 +293,7 @@ describe("PATCH /api/systems/[id] (Deployment Facet change)", () => {
     // recompute against an empty starting Assessment set, then add the
     // second Facet — proving the union covers every already-applicable
     // Control too, not just the newly-added Facet's.
-    const other = await prisma.deploymentFacet.create({ data: { name: `Facet Bootstrap ${Date.now()}` } });
+    const other = { id: bootstrapFacetId };
     await PATCH(requestAs(systemId, ownerId, { deploymentFacetIds: [other.id] }), ctxFor(systemId));
 
     const response = await PATCH(
@@ -310,7 +315,5 @@ describe("PATCH /api/systems/[id] (Deployment Facet change)", () => {
     ]);
     expect(onlyAAssessment).toMatchObject({ status: "NOT_STARTED" });
     expect(onlyBAssessment).toMatchObject({ status: "NOT_STARTED" });
-
-    await prisma.deploymentFacet.delete({ where: { id: other.id } });
   });
 });

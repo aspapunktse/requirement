@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
-import { mapControlsToBase } from "@/test/framework-fixtures";
+import { mapControlsToBase, cleanupFixtureRequirements } from "@/test/framework-fixtures";
 import { ACTING_USER_COOKIE } from "@/lib/acting-user";
 import { PATCH as changeSystemType } from "@/app/api/systems/[id]/route";
 import { PATCH as patchAssessment } from "@/app/api/systems/[id]/assessments/[controlId]/route";
@@ -72,6 +72,7 @@ describe("Invariant: an out-of-scope Control never gets a ControlAssessment", ()
   });
 
   afterAll(async () => {
+    await cleanupFixtureRequirements(); // before the Controls, so no fixture base Requirement is left unmapped (#231)
     await prisma.control.deleteMany({ where: { id: scopedControlId } });
     await prisma.deploymentFacet.deleteMany({
       where: { id: { in: [scopedTypeId, outOfScopeTypeAId, outOfScopeTypeBId] } },

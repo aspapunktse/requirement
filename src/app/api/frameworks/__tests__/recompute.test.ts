@@ -6,7 +6,7 @@ import { ACTING_USER_COOKIE } from "@/lib/acting-user";
 import { getStaleAssessments } from "@/lib/control-assessments";
 import { getSystemsNeedingAttention } from "@/lib/dashboard";
 import { onFrameworkPublished } from "@/lib/frameworks";
-import { getBaseFramework, mapControlsToBase } from "@/test/framework-fixtures";
+import { getBaseFramework, mapControlsToBase, cleanupFixtureRequirements } from "@/test/framework-fixtures";
 import { POST as publishFramework } from "../[id]/publish/route";
 import { DELETE as deleteRequirement } from "../[id]/requirements/[requirementId]/route";
 import { POST as createMapping } from "../[id]/requirements/[requirementId]/mappings/route";
@@ -77,6 +77,7 @@ describe("Recompute affected Systems on catalog changes (#87)", { timeout: 60_00
   });
 
   afterAll(async () => {
+    await cleanupFixtureRequirements(); // before the Controls, so no fixture base Requirement is left unmapped (#231)
     await prisma.controlAssessment.deleteMany({ where: { systemId: { in: systemIds } } });
     await prisma.approval.deleteMany({ where: { systemId: { in: systemIds } } });
     await prisma.changeEvent.deleteMany({
@@ -352,7 +353,11 @@ describe("Recompute affected Systems on catalog changes (#87)", { timeout: 60_00
 
     it("on the base Framework it reaches every System (a facet-scoped Control keeps the fan-out harmless to other files)", async () => {
       const base = await getBaseFramework();
-      const requirementId = await mapControlsToBase([]); // a fixture Requirement of the base with no mappings yet
+      // A fixture base Requirement mapped only to a Control on a Facet no System has: Not Applicable everywhere.
+      // Unmapped it would be Not Met on every System, other test files' too (#231).
+      const unusedFacet = (await prisma.deploymentFacet.create({ data: { name: `Test Recompute Unused Facet ${SUFFIX}` } })).id;
+      facetIds.push(unusedFacet);
+      const requirementId = await mapControlsToBase([(await makeControl([unusedFacet])).id]);
       const control = await makeControl([facetA]);
       const a1 = await makeSystem({}); // no scope declared: the base is always in scope
       const a2 = await makeSystem({ scope: [], status: "APPROVED" });

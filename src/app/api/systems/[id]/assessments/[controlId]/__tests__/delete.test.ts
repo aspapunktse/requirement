@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { ACTING_USER_COOKIE } from "@/lib/acting-user";
 import { getSystemsNeedingAttention } from "@/lib/dashboard";
 import { REMOVED_ASSESSMENT_TEXT_LIMIT } from "@/lib/control-assessments";
-import { mapControlsToBase } from "@/test/framework-fixtures";
+import { mapControlsToBase, cleanupFixtureRequirements } from "@/test/framework-fixtures";
 import { PATCH as patchSystem } from "../../../route";
 import { DELETE } from "../route";
 
@@ -99,6 +99,7 @@ describe("DELETE /api/systems/[id]/assessments/[controlId] (#109)", { timeout: 3
   });
 
   afterAll(async () => {
+    await cleanupFixtureRequirements(); // before the Controls, so no fixture base Requirement is left unmapped (#231)
     await prisma.changeEvent.deleteMany({ where: { systemId: { in: systemIds } } });
     await prisma.system.deleteMany({ where: { id: { in: systemIds } } }); // Assessments and Queries cascade
     await prisma.control.deleteMany({ where: { id: { in: [staleControlId, liveControlId] } } });

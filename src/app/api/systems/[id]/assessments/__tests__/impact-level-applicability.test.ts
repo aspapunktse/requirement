@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
-import { mapControlsToBase } from "@/test/framework-fixtures";
+import { mapControlsToBase, cleanupFixtureRequirements } from "@/test/framework-fixtures";
 import { ACTING_USER_COOKIE } from "@/lib/acting-user";
 import { GET } from "../route";
 
@@ -62,6 +62,7 @@ describe("Impact Level threshold applicability", () => {
         description: "desc",
         category: "Security",
         applicability: "PER_SYSTEM",
+        deploymentFacets: { connect: [{ id: facetId }] }, // scoped, so it doesn't apply to other files' Systems (#231)
       },
     });
     const highConfidentiality = await prisma.control.create({
@@ -71,6 +72,7 @@ describe("Impact Level threshold applicability", () => {
         description: "desc",
         category: "Security",
         applicability: "PER_SYSTEM",
+        deploymentFacets: { connect: [{ id: facetId }] }, // scoped, so it doesn't apply to other files' Systems (#231)
         minConfidentialityImpactLevel: "HIGH",
       },
     });
@@ -81,6 +83,7 @@ describe("Impact Level threshold applicability", () => {
         description: "desc",
         category: "Security",
         applicability: "PER_SYSTEM",
+        deploymentFacets: { connect: [{ id: facetId }] }, // scoped, so it doesn't apply to other files' Systems (#231)
         minAvailabilityImpactLevel: "CRITICAL",
       },
     });
@@ -92,6 +95,7 @@ describe("Impact Level threshold applicability", () => {
   });
 
   afterAll(async () => {
+    await cleanupFixtureRequirements(); // before the Controls, so no fixture base Requirement is left unmapped (#231)
     await prisma.controlAssessment.deleteMany({ where: { systemId } });
     await prisma.system.deleteMany({ where: { id: systemId } });
     await prisma.control.deleteMany({ where: { id: { in: controlIds } } });

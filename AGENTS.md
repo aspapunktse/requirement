@@ -87,6 +87,7 @@ These guide automated PR reviews (Codex) and any agent asked to review a change.
 - New behaviour and every bug fix come with tests. Route tests call the exported handlers against real Postgres (the `requestAs` / `ctxFor` pattern); component tests use Testing Library with a stubbed `fetch`.
 - CI's test database is migrated but **not seeded**. A test that depends on seeded rows passes locally and fails in CI. Tests create their own uniquely named `Test …` fixtures and remove them in `afterAll`.
 - Tests never create, flip or delete a base Framework; they use `getBaseFramework()`. A fixture Organizational Control is never mapped to the base Framework. Unscoped `PER_SYSTEM` Control fixtures leak into other test files.
+- A base Framework Requirement with no Control Mappings is Not Met on every System, so it leaks into other test files too. Fixture base Requirements always have a mapping, and are deleted before their Controls: `cleanupFixtureRequirements()` first in the `afterAll` that deletes Controls, `deleteFixtureRequirement()` before deleting one mid-file.
 - Refused writes assert that nothing changed in the database, not only the status code.
 
 **Project rules a PR must keep**

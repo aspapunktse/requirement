@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
-import { mapControlsToBase } from "@/test/framework-fixtures";
+import { mapControlsToBase, cleanupFixtureRequirements } from "@/test/framework-fixtures";
 import { ACTING_USER_COOKIE } from "@/lib/acting-user";
 import { POST } from "../route";
 
@@ -33,6 +33,7 @@ describe("POST /api/systems/[id]/assessments/[controlId]/queries", () => {
   let viewerId: string;
   let systemId: string;
   let controlId: string;
+  let facetId: string;
 
   beforeAll(async () => {
     const owner = await prisma.user.upsert({
@@ -54,8 +55,11 @@ describe("POST /api/systems/[id]/assessments/[controlId]/queries", () => {
     reviewerId = reviewer.id;
     viewerId = viewer.id;
 
+    // A fixture Facet scopes the Control to this file's System: unscoped, on the base, it would apply to other
+    // files' Systems too (#231).
+    facetId = (await prisma.deploymentFacet.create({ data: { name: `Test Raise Query Facet ${Date.now()}` } })).id;
     const system = await prisma.system.create({
-      data: { name: `Raise Query System ${Date.now()}`, ownerId, status: "IN_REVIEW" },
+      data: { name: `Raise Query System ${Date.now()}`, ownerId, status: "IN_REVIEW", deploymentFacets: { connect: [{ id: facetId }] } },
     });
     systemId = system.id;
 
@@ -66,6 +70,7 @@ describe("POST /api/systems/[id]/assessments/[controlId]/queries", () => {
         description: "desc",
         category: "Security",
         applicability: "PER_SYSTEM",
+        deploymentFacets: { connect: [{ id: facetId }] },
       },
     });
     controlId = control.id;
@@ -73,10 +78,12 @@ describe("POST /api/systems/[id]/assessments/[controlId]/queries", () => {
   });
 
   afterAll(async () => {
+    await cleanupFixtureRequirements(); // before the Controls, so no fixture base Requirement is left unmapped (#231)
     await prisma.assessmentQuery.deleteMany({ where: { controlAssessment: { systemId } } });
     await prisma.controlAssessment.deleteMany({ where: { systemId } });
     await prisma.system.deleteMany({ where: { id: systemId } });
     await prisma.control.deleteMany({ where: { id: controlId } });
+    await prisma.deploymentFacet.deleteMany({ where: { id: facetId } });
     await prisma.user.deleteMany({ where: { email: { in: [OWNER_EMAIL, REVIEWER_EMAIL, VIEWER_EMAIL] } } });
   });
 

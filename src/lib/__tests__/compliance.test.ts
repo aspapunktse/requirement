@@ -1,6 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
-import { mapControlsToBase } from "@/test/framework-fixtures";
 import { getComplianceForSystems } from "../compliance";
 
 /**
@@ -11,7 +10,8 @@ import { getComplianceForSystems } from "../compliance";
  * Systems, and Assessments on one of them. Every figure is asserted for those
  * fixture Frameworks, which only the fixture Systems declare, so other files'
  * fixtures and the seeded catalog can't move them. Only the headline-is-the-base
- * test touches the base Framework, and it asserts a delta on it.
+ * test touches the base Framework: it asserts a delta on it inside one Repeatable
+ * Read transaction that it rolls back, so concurrent base fixtures can't move it.
  *
  * Layout (Lenient Framework L / Strict Framework S):
  *   Controls:  cA (Facet 1), cB (Facet 2), cC (Facet 2), cOrg (Organizational, no
@@ -221,23 +221,43 @@ describe("getComplianceForSystems", () => {
   });
 
   it("with no Framework filter the figures are for the base Framework, which is in every System's scope", async () => {
-    const base = await prisma.framework.findFirstOrThrow({ where: { isBase: true } });
-    const systems = { id: { in: [systemAId, systemBId, systemDId] } };
-    const before = await getComplianceForSystems(systems);
-    expect(before.framework).toMatchObject({ id: base.id, isBase: true });
-    // No stored scope row for the base on any fixture System, yet all three are measured against it.
-    expect(before.bySystem.map((s) => s.systemId).sort()).toEqual([systemAId, systemBId, systemDId].sort());
+    // Both reads and the extra base Requirement share one Repeatable Read snapshot, so other test files' base
+    // fixtures, committed meanwhile, can't move the delta (#231). The transaction is rolled back at the end.
+    const rolledBack = new Error("roll back the fixture base Requirement");
+    await expect(
+      prisma.$transaction(
+        async (tx) => {
+          const base = await tx.framework.findFirstOrThrow({ where: { isBase: true } });
+          const systems = { id: { in: [systemAId, systemBId, systemDId] } };
+          const before = await getComplianceForSystems(systems, {}, tx);
+          expect(before.framework).toMatchObject({ id: base.id, isBase: true });
+          // No stored scope row for the base on any fixture System, yet all three are measured against it.
+          expect(before.bySystem.map((s) => s.systemId).sort()).toEqual([systemAId, systemBId, systemDId].sort());
 
-    // One more base Requirement, mapped to cA (Facet 1): applicable on A, B and D, Met only on A (Fulfilled).
-    await mapControlsToBase([cA]);
-    const after = await getComplianceForSystems(systems);
-    expect(figure(after, systemAId)!.applicable).toBe(figure(before, systemAId)!.applicable + 1);
-    expect(figure(after, systemAId)!.met).toBe(figure(before, systemAId)!.met + 1);
-    expect(figure(after, systemBId)!.applicable).toBe(figure(before, systemBId)!.applicable + 1);
-    expect(figure(after, systemBId)!.met).toBe(figure(before, systemBId)!.met);
-    expect(figure(after, systemDId)!.applicable).toBe(figure(before, systemDId)!.applicable + 1);
-    expect(after.applicable).toBe(before.applicable + 3);
-    expect(after.met).toBe(before.met + 1);
+          // One more base Requirement, mapped to cA (Facet 1): applicable on A, B and D, Met only on A (Fulfilled).
+          await tx.requirement.create({
+            data: {
+              frameworkId: base.id,
+              code: `TEST-COMPLIANCE-BASE-${suffix}`,
+              section: "Test",
+              title: "Test compliance base Requirement",
+              text: "t",
+              mappings: { create: [{ controlId: cA, coverage: "FULL" }] },
+            },
+          });
+          const after = await getComplianceForSystems(systems, {}, tx);
+          expect(figure(after, systemAId)!.applicable).toBe(figure(before, systemAId)!.applicable + 1);
+          expect(figure(after, systemAId)!.met).toBe(figure(before, systemAId)!.met + 1);
+          expect(figure(after, systemBId)!.applicable).toBe(figure(before, systemBId)!.applicable + 1);
+          expect(figure(after, systemBId)!.met).toBe(figure(before, systemBId)!.met);
+          expect(figure(after, systemDId)!.applicable).toBe(figure(before, systemDId)!.applicable + 1);
+          expect(after.applicable).toBe(before.applicable + 3);
+          expect(after.met).toBe(before.met + 1);
+          throw rolledBack;
+        },
+        { isolationLevel: "RepeatableRead", timeout: 30_000 },
+      ),
+    ).rejects.toBe(rolledBack);
   });
 
   it("returns an empty, null-percentage result for no Systems, and for an unknown Framework", async () => {

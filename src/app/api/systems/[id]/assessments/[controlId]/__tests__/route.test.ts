@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
-import { mapControlsToBase } from "@/test/framework-fixtures";
+import { mapControlsToBase, cleanupFixtureRequirements } from "@/test/framework-fixtures";
 import { ACTING_USER_COOKIE } from "@/lib/acting-user";
 import { PATCH } from "../route";
 
@@ -121,6 +121,7 @@ describe("PATCH /api/systems/[id]/assessments/[controlId]", () => {
         description: "Must be justified to waive",
         category: "Security",
         applicability: "PER_SYSTEM",
+        deploymentFacets: { connect: [{ id: systemTypeId }] }, // scoped, so it doesn't apply to other files' Systems (#231)
         mandatory: true,
       },
     });
@@ -131,6 +132,7 @@ describe("PATCH /api/systems/[id]/assessments/[controlId]", () => {
         description: "No justification required",
         category: "Security",
         applicability: "PER_SYSTEM",
+        deploymentFacets: { connect: [{ id: systemTypeId }] }, // scoped, so it doesn't apply to other files' Systems (#231)
         mandatory: false,
       },
     });
@@ -152,6 +154,7 @@ describe("PATCH /api/systems/[id]/assessments/[controlId]", () => {
   });
 
   afterAll(async () => {
+    await cleanupFixtureRequirements(); // before the Controls, so no fixture base Requirement is left unmapped (#231)
     const systemIds = [systemId, riskOwnedSystemId, adminOwnedSystemId];
     await prisma.changeEvent.deleteMany({ where: { systemId: { in: systemIds } } });
     await prisma.controlAssessment.deleteMany({ where: { systemId: { in: systemIds } } });

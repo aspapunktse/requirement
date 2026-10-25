@@ -7,7 +7,7 @@ import { BASE_REVIEW_STEP_NAME, groupsWhoseRemitIncludes } from "@/lib/review-st
 import { getVisibleSystem, getVisibleSystems } from "@/lib/system-visibility";
 import { getActionableQueries, getActionableQueryCountsBySystem } from "@/lib/assessment-queries";
 import { roleView } from "@/app/home/role-view";
-import { createFixtureFramework, getBaseFramework, mapControlsToFramework } from "@/test/framework-fixtures";
+import { cleanupFixtureRequirements, createFixtureFramework, getBaseFramework, mapControlsToFramework } from "@/test/framework-fixtures";
 import { GET as listAssessments } from "../../../route";
 import { POST as raise } from "../route";
 import { POST as reply } from "../[queryId]/messages/route";
@@ -150,6 +150,7 @@ describe("Review Group members: visibility and Assessment Queries (#201)", () =>
   });
 
   afterAll(async () => {
+    await cleanupFixtureRequirements(); // before the Controls, so no fixture base Requirement is left unmapped (#231)
     const systemIds = Object.values(systems);
     await prisma.changeEvent.deleteMany({ where: { systemId: { in: systemIds } } });
     await prisma.system.deleteMany({ where: { id: { in: systemIds } } }); // assessments, queries and messages cascade

@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
-import { createFixtureFramework, mapControlsToBase, mapControlsToFramework } from "@/test/framework-fixtures";
+import { createFixtureFramework, mapControlsToBase, mapControlsToFramework, cleanupFixtureRequirements } from "@/test/framework-fixtures";
 import { ACTING_USER_COOKIE } from "@/lib/acting-user";
 import { GET } from "../route";
 
@@ -108,10 +108,13 @@ describe("GET /api/systems/[id]/assessments", () => {
     });
     controlIds.push(organizational.id, unscopedPerSystem.id, matchingScoped.id, otherScoped.id);
     await mapControlsToFramework(organizationalFramework.id, [organizational.id]);
-    await mapControlsToBase(controlIds.slice(1));
+    // The unscoped Control goes there too: on the base it would apply to every System, other files' included (#231).
+    await mapControlsToFramework(organizationalFramework.id, [unscopedPerSystem.id]);
+    await mapControlsToBase(controlIds.slice(2));
   });
 
   afterAll(async () => {
+    await cleanupFixtureRequirements(); // before the Controls, so no fixture base Requirement is left unmapped (#231)
     await prisma.controlAssessment.deleteMany({ where: { systemId } });
     await prisma.system.deleteMany({ where: { id: systemId } });
     await prisma.control.deleteMany({ where: { id: { in: controlIds } } });

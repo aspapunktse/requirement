@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
 import { BASE_REVIEW_STEP_NAME, loadReviewRounds } from "@/lib/review-steps";
-import { createFixtureFramework, mapControlsToBase, mapControlsToFramework } from "@/test/framework-fixtures";
+import { createFixtureFramework, mapControlsToBase, mapControlsToFramework, cleanupFixtureRequirements } from "@/test/framework-fixtures";
 
 /**
  * Review Steps derived from Framework Scope (#198), against real Postgres. CI's DB is migrated but not
@@ -92,6 +92,7 @@ describe("Review Steps derived from Framework Scope", () => {
   });
 
   afterAll(async () => {
+    await cleanupFixtureRequirements(); // before the Controls, so no fixture base Requirement is left unmapped (#231)
     await prisma.system.deleteMany({ where: { id: { in: systemIds } } }); // rounds and Approvals cascade
     await prisma.control.deleteMany({ where: { id: { in: controlIds } } });
     await prisma.framework.updateMany({

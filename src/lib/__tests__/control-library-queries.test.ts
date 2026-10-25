@@ -22,9 +22,11 @@ describe("loadControlLibrary: constant number of queries (#169)", () => {
   const db = prisma as PrismaClient;
   const controlIds: string[] = [];
   let frameworkId: string;
+  let ownerId: string;
+  let facetId: string;
   let next = 0;
 
-  async function addControl() {
+  async function addControl(related: Record<string, unknown> = {}) {
     const index = next++;
     const control = await db.control.create({
       data: {
@@ -33,6 +35,7 @@ describe("loadControlLibrary: constant number of queries (#169)", () => {
         description: "d",
         category: "Test",
         applicability: "ORGANIZATIONAL",
+        ...related,
       },
     });
     controlIds.push(control.id);
@@ -47,11 +50,21 @@ describe("loadControlLibrary: constant number of queries (#169)", () => {
 
   beforeAll(async () => {
     frameworkId = (await createFixtureFramework("169 queries")).id;
-    await addControl();
+    ownerId = (await db.user.create({ data: { email: `test-169-q-${suffix}@example.com`, name: "Test 169 owner", role: "ADMIN" } })).id;
+    facetId = (await db.deploymentFacet.create({ data: { name: `Test 169 queries Facet ${suffix}` } })).id;
+    // Prisma skips a nested relation's query when no Control in the table has a related row, so on an unseeded
+    // database the count would follow other files' fixtures. One Control with every relation keeps it fixed.
+    await addControl({
+      ownerId,
+      originFrameworkId: frameworkId,
+      deploymentFacets: { connect: [{ id: facetId }] },
+    });
   });
 
   afterAll(async () => {
     await db.control.deleteMany({ where: { id: { in: controlIds } } });
+    await db.deploymentFacet.deleteMany({ where: { id: facetId } });
+    await db.user.deleteMany({ where: { id: ownerId } });
     await db.$disconnect();
   });
 
