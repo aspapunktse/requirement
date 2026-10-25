@@ -69,6 +69,7 @@ export default async function SystemDetailPage({ params }: PageProps<"/systems/[
       {canChangeOwner(user, system) && (
         <div className="mb-4">
           <ChangeOwnerButton
+            actor={{ id: user.id, role: user.role }}
             system={{ id: system.id, name: system.name, ownerId: system.ownerId, ownerName: system.owner.name, canChange: true }}
           />
         </div>

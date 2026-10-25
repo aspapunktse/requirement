@@ -14,6 +14,7 @@ const sys = (over: Partial<OwnerChangeSystem> & Pick<OwnerChangeSystem, "id" | "
   ...over,
 });
 
+const ADMIN = { id: "u-admin", role: "ADMIN" };
 const json = (body: unknown, status = 200) => Promise.resolve(new Response(JSON.stringify(body), { status }));
 let fetchMock: ReturnType<typeof vi.fn>;
 beforeEach(() => {
@@ -30,7 +31,7 @@ afterEach(() => {
 describe("ChangeOwnerDialog (#233)", () => {
   it("loads the possible owners, posts the pick and reports the result", async () => {
     const onDone = vi.fn();
-    render(<ChangeOwnerDialog systems={[sys({ id: "s1", name: "Jira" })]} onClose={vi.fn()} onDone={onDone} />);
+    render(<ChangeOwnerDialog actor={ADMIN} systems={[sys({ id: "s1", name: "Jira" })]} onClose={vi.fn()} onDone={onDone} />);
     const save = screen.getByRole("button", { name: "Save owner" });
     expect(save).toBeDisabled();
 
@@ -45,6 +46,7 @@ describe("ChangeOwnerDialog (#233)", () => {
   it("says up front which Systems can't be changed and blocks saving", async () => {
     render(
       <ChangeOwnerDialog
+        actor={ADMIN}
         systems={[sys({ id: "s1", name: "Jira" }), sys({ id: "s2", name: "Okta", ownerId: "u-x", canChange: false })]}
         onClose={vi.fn()}
         onDone={vi.fn()}
@@ -56,7 +58,7 @@ describe("ChangeOwnerDialog (#233)", () => {
   });
 
   it("notes a System the pick already owns", async () => {
-    render(<ChangeOwnerDialog systems={[sys({ id: "s1", name: "Jira" })]} onClose={vi.fn()} onDone={vi.fn()} />);
+    render(<ChangeOwnerDialog actor={ADMIN} systems={[sys({ id: "s1", name: "Jira" })]} onClose={vi.fn()} onDone={vi.fn()} />);
     await userEvent.selectOptions(await screen.findByRole("combobox", { name: "New owner" }), "u-sam");
     expect(screen.getByText(/already owned by this user/)).toBeInTheDocument();
   });
@@ -68,7 +70,7 @@ describe("ChangeOwnerDialog (#233)", () => {
         : json({ error: "Only a System's owner or an Admin can change its owner", refusedIds: ["s1"] }, 403),
     );
     const onDone = vi.fn();
-    render(<ChangeOwnerDialog systems={[sys({ id: "s1", name: "Jira" })]} onClose={vi.fn()} onDone={onDone} />);
+    render(<ChangeOwnerDialog actor={ADMIN} systems={[sys({ id: "s1", name: "Jira" })]} onClose={vi.fn()} onDone={onDone} />);
     await userEvent.selectOptions(await screen.findByRole("combobox", { name: "New owner" }), "u-ada");
     await userEvent.click(screen.getByRole("button", { name: "Save owner" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(/change its owner: Jira/);
@@ -77,7 +79,20 @@ describe("ChangeOwnerDialog (#233)", () => {
 
   it("shows the error when the possible owners can't be loaded", async () => {
     fetchMock.mockImplementation(() => json({ error: "nope" }, 403));
-    render(<ChangeOwnerDialog systems={[sys({ id: "s1", name: "Jira" })]} onClose={vi.fn()} onDone={vi.fn()} />);
+    render(<ChangeOwnerDialog actor={ADMIN} systems={[sys({ id: "s1", name: "Jira" })]} onClose={vi.fn()} onDone={vi.fn()} />);
     expect(await screen.findByRole("alert")).toHaveTextContent("nope");
+  });
+
+  it("warns in the plural when a non-Admin hands several of their own Systems away", async () => {
+    render(
+      <ChangeOwnerDialog
+        actor={{ id: "u-sam", role: "SYSTEM_OWNER" }}
+        systems={[sys({ id: "s1", name: "Jira" }), sys({ id: "s2", name: "Okta" })]}
+        onClose={vi.fn()}
+        onDone={vi.fn()}
+      />,
+    );
+    await userEvent.selectOptions(await screen.findByRole("combobox", { name: "New owner" }), "u-ada");
+    expect(screen.getByText("You will no longer be able to change these Systems after handing them over.")).toBeInTheDocument();
   });
 });

@@ -670,6 +670,7 @@ export function SystemsRegister({ view, initialQuery }: { view: SystemsView; ini
 
       {changingOwner && (
         <ChangeOwnerDialog
+          actor={actor}
           systems={selectedRows.map((row) => ({
             id: row.id,
             name: row.name,

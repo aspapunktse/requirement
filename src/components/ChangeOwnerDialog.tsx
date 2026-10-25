@@ -15,13 +15,19 @@ type Candidate = { id: string; name: string; email: string; role: string };
  */
 export function ChangeOwnerDialog({
   systems,
+  actor,
   onClose,
   onDone,
 }: {
   systems: OwnerChangeSystem[];
+  /** The acting user: a non-Admin handing their own Systems away loses the right to change them. */
+  actor: { id: string; role: string };
   onClose: () => void;
-  /** Called after a successful save, with the Systems that actually changed owner. */
-  onDone: (result: { changed: { id: string; name: string }[]; unchanged: { id: string; name: string }[] }) => void;
+  /** Called after a successful save, with the Systems that actually changed owner, and whether the actor just handed one of their own away without being an Admin. */
+  onDone: (
+    result: { changed: { id: string; name: string }[]; unchanged: { id: string; name: string }[] },
+    handedAway: boolean,
+  ) => void;
 }) {
   const titleId = useId();
   const [candidates, setCandidates] = useState<Candidate[] | null>(null);
@@ -31,6 +37,7 @@ export function ChangeOwnerDialog({
 
   const refused = systems.filter((system) => !system.canChange);
   const unchanged = ownerId ? systems.filter((system) => system.ownerId === ownerId) : [];
+  const losing = actor.role !== "ADMIN" && ownerId !== "" && ownerId !== actor.id ? systems.filter((system) => system.ownerId === actor.id) : [];
 
   useEffect(() => {
     let cancelled = false;
@@ -68,7 +75,7 @@ export function ChangeOwnerDialog({
         setError(`${body.error ?? "Failed to change the owner"}${names ? `: ${names}` : ""}`);
         return;
       }
-      onDone(body);
+      onDone(body, losing.length > 0);
     } catch {
       setError("Failed to change the owner");
     } finally {
@@ -126,6 +133,11 @@ export function ChangeOwnerDialog({
             ))}
           </select>
         </label>
+        {losing.length > 0 && (
+          <p className="text-rg-muted">
+            You will no longer be able to change {losing.length === 1 ? "this System" : "these Systems"} after handing {losing.length === 1 ? "it" : "them"} over.
+          </p>
+        )}
         {unchanged.length > 0 && (
           <p className="text-rg-muted">
             {unchanged.map((system) => system.name).join(", ")} {unchanged.length === 1 ? "is" : "are"} already owned by
