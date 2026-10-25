@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getComplianceForSystems } from "@/lib/compliance";
-import { mapControlsToBase } from "@/test/framework-fixtures";
+import { cleanupFixtureRequirements, mapControlsToBase } from "@/test/framework-fixtures";
 import { utcDay } from "@/app/home/home-snapshots";
 import { weekEnds } from "@/app/home/home-trends";
 import { inRoleView, loadSystemsView, needsAttention } from "../systems-data";
@@ -102,6 +102,8 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  // Fixture Requirements go before their Control, or they briefly count as Not Met everywhere (#231).
+  await cleanupFixtureRequirements();
   const systemIds = [s1, s2, s3, s4, s5];
   await prisma.controlAssessment.deleteMany({ where: { systemId: { in: systemIds } } });
   await prisma.system.deleteMany({ where: { id: { in: systemIds } } });
