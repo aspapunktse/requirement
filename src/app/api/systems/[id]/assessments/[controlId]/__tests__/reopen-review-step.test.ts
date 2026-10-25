@@ -10,7 +10,7 @@ import { saveOrganizationImplementationWithEvents } from "@/lib/organization-inh
 import { getOrganizationControl } from "@/lib/organization-implementation";
 import { evaluateCheckUp } from "@/lib/check-up-evaluations";
 import { createCheckUpScenario } from "@/test/check-up-fixtures";
-import { createFixtureFramework, mapControlsToBase, mapControlsToFramework } from "@/test/framework-fixtures";
+import { createFixtureFramework, mapControlsToBase, mapControlsToFramework, cleanupFixtureRequirements } from "@/test/framework-fixtures";
 import { GET as getApprovals, POST as postApproval } from "../../../approvals/route";
 import { DELETE as removeStale, PATCH as patchAssessment } from "../route";
 import { PATCH as patchAnswer } from "../answer/route";
@@ -171,6 +171,7 @@ describe("Reopening an approved Review Step when its remit is edited (#200)", { 
   });
 
   afterAll(async () => {
+    await cleanupFixtureRequirements(); // before the Controls, so no fixture base Requirement is left unmapped (#231)
     await prisma.changeEvent.deleteMany({ where: { systemId: { in: systemIds } } });
     await prisma.system.deleteMany({ where: { id: { in: systemIds } } }); // rounds, Approvals and Assessments cascade
     await prisma.organizationControlImplementation.deleteMany({ where: { controlId: { in: controlIds } } });

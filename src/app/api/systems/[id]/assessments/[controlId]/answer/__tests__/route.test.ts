@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
-import { mapControlsToBase } from "@/test/framework-fixtures";
+import { mapControlsToBase, cleanupFixtureRequirements, deleteFixtureRequirement } from "@/test/framework-fixtures";
 import { ACTING_USER_COOKIE } from "@/lib/acting-user";
 import { PATCH } from "../route";
 
@@ -116,6 +116,7 @@ describe("PATCH /api/systems/[id]/assessments/[controlId]/answer", () => {
         description: "Has a self-assessment question",
         category: "Security",
         applicability: "PER_SYSTEM",
+        deploymentFacets: { connect: [{ id: systemTypeId }] }, // scoped, so it doesn't apply to other files' Systems (#231)
         mandatory: true,
         question: "Do you do the thing?",
       },
@@ -127,6 +128,7 @@ describe("PATCH /api/systems/[id]/assessments/[controlId]/answer", () => {
         description: "Has a self-assessment question",
         category: "Security",
         applicability: "PER_SYSTEM",
+        deploymentFacets: { connect: [{ id: systemTypeId }] }, // scoped, so it doesn't apply to other files' Systems (#231)
         mandatory: false,
         question: "Do you do the optional thing?",
       },
@@ -137,6 +139,7 @@ describe("PATCH /api/systems/[id]/assessments/[controlId]/answer", () => {
   });
 
   afterAll(async () => {
+    await cleanupFixtureRequirements(); // before the Controls, so no fixture base Requirement is left unmapped (#231)
     const systemIds = [systemId, riskOwnedSystemId, adminOwnedSystemId];
     await prisma.risk.deleteMany({ where: { systemId: { in: systemIds } } });
     await prisma.changeEvent.deleteMany({ where: { systemId: { in: systemIds } } });
@@ -277,13 +280,14 @@ describe("PATCH /api/systems/[id]/assessments/[controlId]/answer", () => {
       },
     });
 
-    await mapControlsToBase([scoped.id]); // so it's the Deployment Facet scoping that makes it inapplicable
+    const scopedRequirementId = await mapControlsToBase([scoped.id]); // so it's the Deployment Facet scoping that makes it inapplicable
     const response = await PATCH(
       requestAs(systemId, scoped.id, ownerId, { answer: "YES" }),
       ctxFor(systemId, scoped.id),
     );
     expect(response.status).toBe(404);
 
+    await deleteFixtureRequirement(scopedRequirementId); // before its Control, or it is left unmapped (#231)
     await prisma.control.delete({ where: { id: scoped.id } });
     await prisma.deploymentFacet.delete({ where: { id: otherType.id } });
   });

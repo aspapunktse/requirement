@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
-import { mapControlsToBase } from "@/test/framework-fixtures";
+import { mapControlsToBase, cleanupFixtureRequirements } from "@/test/framework-fixtures";
 import { getUnaddressedMandatoryControls } from "@/lib/control-assessments";
 import { getAllOpenRisks, getSystemsNeedingAttention } from "../dashboard";
 
@@ -73,6 +73,7 @@ describe("dashboard", () => {
   });
 
   afterAll(async () => {
+    await cleanupFixtureRequirements(); // before the Controls, so no fixture base Requirement is left unmapped (#231)
     await prisma.risk.deleteMany({ where: { systemId: { in: systemIds } } });
     await prisma.controlAssessment.deleteMany({ where: { systemId: { in: systemIds } } });
     await prisma.approval.deleteMany({ where: { systemId: { in: systemIds } } });

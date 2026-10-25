@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
 import { ACTING_USER_COOKIE } from "@/lib/acting-user";
 import { SYSTEM_ACTOR } from "@/lib/change-events";
-import { createFixtureFramework, mapControlsToBase, mapControlsToFramework } from "@/test/framework-fixtures";
+import { createFixtureFramework, mapControlsToBase, mapControlsToFramework, cleanupFixtureRequirements, deleteFixtureRequirement } from "@/test/framework-fixtures";
 import { PATCH } from "../route";
 
 /**
@@ -117,6 +117,7 @@ describe("PATCH /api/organization/controls/[controlId]: Change Events for inheri
   });
 
   afterAll(async () => {
+    await cleanupFixtureRequirements(); // before the Controls, so no fixture base Requirement is left unmapped (#231)
     const systemIds = Object.values(system);
     await prisma.changeEvent.deleteMany({ where: { systemId: { in: systemIds } } });
     await prisma.changeEvent.deleteMany({ where: { systemId: null, detail: { contains: `-${suffix}` } } });
@@ -305,7 +306,7 @@ describe("PATCH /api/organization/controls/[controlId]: Change Events for inheri
         deploymentFacets: { connect: { id: facetId } },
       },
     });
-    await mapControlsToBase([high.id]);
+    const highRequirementId = await mapControlsToBase([high.id]);
     const make = (key: string, level: "HIGH" | "LOW") =>
       prisma.system.create({
         data: { name: `Test OrgEvents ${key} ${suffix}`, ownerId, status: "ONBOARDED", confidentialityImpactLevel: level, deploymentFacets: { connect: { id: facetId } } },
@@ -322,6 +323,7 @@ describe("PATCH /api/organization/controls/[controlId]: Change Events for inheri
     } finally {
       await prisma.changeEvent.deleteMany({ where: { systemId: { in: [highSystem.id, lowSystem.id] } } });
       await prisma.system.deleteMany({ where: { id: { in: [highSystem.id, lowSystem.id] } } });
+      await deleteFixtureRequirement(highRequirementId); // before its Control, or it is left unmapped (#231)
       await prisma.control.deleteMany({ where: { id: high.id } });
     }
   });

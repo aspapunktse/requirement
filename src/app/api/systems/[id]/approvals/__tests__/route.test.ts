@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
-import { mapControlsToBase } from "@/test/framework-fixtures";
+import { mapControlsToBase, cleanupFixtureRequirements } from "@/test/framework-fixtures";
 import { ACTING_USER_COOKIE } from "@/lib/acting-user";
 import { getUnaddressedMandatoryControls } from "@/lib/control-assessments";
 import { PATCH as patchAssessment } from "@/app/api/systems/[id]/assessments/[controlId]/route";
@@ -107,6 +107,7 @@ describe("/api/systems/[id]/approvals", () => {
         description: "Deliberately left unaddressed to prove Approval isn't gated by it",
         category: "Security",
         applicability: "PER_SYSTEM",
+        deploymentFacets: { connect: [{ id: systemTypeId }] }, // scoped, so it doesn't apply to other files' Systems (#231)
         mandatory: true,
       },
     });
@@ -115,6 +116,7 @@ describe("/api/systems/[id]/approvals", () => {
   });
 
   afterAll(async () => {
+    await cleanupFixtureRequirements(); // before the Controls, so no fixture base Requirement is left unmapped (#231)
     await prisma.risk.deleteMany({ where: { systemId: { in: [inReviewSystemId, draftSystemId] } } });
     await prisma.controlAssessment.deleteMany({
       where: { systemId: { in: [inReviewSystemId, draftSystemId] } },

@@ -6,7 +6,7 @@ import { ACTING_USER_COOKIE } from "@/lib/acting-user";
 import { getComplianceForSystems } from "@/lib/compliance";
 import { getSystemsNeedingAttention } from "@/lib/dashboard";
 import { getStaleAssessments, getUnaddressedMandatoryControls } from "@/lib/control-assessments";
-import { mapControlsToBase, mapControlsToFramework } from "@/test/framework-fixtures";
+import { mapControlsToBase, mapControlsToFramework, cleanupFixtureRequirements } from "@/test/framework-fixtures";
 import { PATCH as patchSystem } from "../[id]/route";
 import { POST as declareProviderDependency } from "../[id]/dependencies/route";
 import { DELETE as removeProviderDependency } from "../[id]/dependencies/[providerId]/route";
@@ -147,6 +147,7 @@ describe("Continuous compliance: classification and scope change at any lifecycl
   });
 
   afterAll(async () => {
+    await cleanupFixtureRequirements(); // before the Controls, so no fixture base Requirement is left unmapped (#231)
     await prisma.controlAssessment.deleteMany({ where: { systemId: { in: systemIds } } });
     await prisma.approval.deleteMany({ where: { systemId: { in: systemIds } } });
     await prisma.changeEvent.deleteMany({ where: { systemId: { in: systemIds } } });

@@ -10,7 +10,7 @@ import {
   getStaleAssessments,
   getSystemAssessments,
 } from "@/lib/control-assessments";
-import { getBaseFramework, mapControlsToBase, mapControlsToFramework } from "@/test/framework-fixtures";
+import { getBaseFramework, mapControlsToBase, mapControlsToFramework, cleanupFixtureRequirements } from "@/test/framework-fixtures";
 import { GET, POST } from "../route";
 import { DELETE } from "../[frameworkId]/route";
 
@@ -149,6 +149,7 @@ describe("Framework Scope drives applicability (#85)", () => {
   });
 
   afterAll(async () => {
+    await cleanupFixtureRequirements(); // before the Controls, so no fixture base Requirement is left unmapped (#231)
     await prisma.controlAssessment.deleteMany({ where: { systemId: { in: systemIds } } });
     await prisma.changeEvent.deleteMany({ where: { systemId: { in: systemIds } } });
     await prisma.system.deleteMany({ where: { id: { in: systemIds } } });
