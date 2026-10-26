@@ -24,12 +24,12 @@ export function canManageFrameworkScopes(user: { id: string; role: UserRole }, s
  * for it (each item carries `isBase` so the UI can show it as fixed). Declared
  * rows pointing at a Draft Framework are included too (they're inert, see
  * getApplicableControls) so a Compliance Manager can still see and remove them.
+ * Pass a transaction client to read in the caller's snapshot.
  */
-export async function getSystemFrameworkScopes(systemId: string) {
-  const [declared, base] = await Promise.all([
-    prisma.framework.findMany({ where: { scopedSystems: { some: { id: systemId } } } }),
-    prisma.framework.findFirst({ where: { isBase: true } }),
-  ]);
+export async function getSystemFrameworkScopes(systemId: string, db: Pick<Prisma.TransactionClient, "framework"> = prisma) {
+  // Sequential, so it is also safe on a transaction client (one connection).
+  const declared = await db.framework.findMany({ where: { scopedSystems: { some: { id: systemId } } } });
+  const base = await db.framework.findFirst({ where: { isBase: true } });
   const frameworks = base && !declared.some((f) => f.id === base.id) ? [...declared, base] : declared;
   return frameworks.sort((a, b) => a.name.localeCompare(b.name) || a.version.localeCompare(b.version));
 }

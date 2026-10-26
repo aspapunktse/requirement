@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
 import { getComplianceForSystems } from "../compliance";
+import { getSystemFrameworkRequirements } from "../requirement-status";
 
 /**
  * The Requirement-based Compliance Percentage (#90): Met ÷ applicable Requirements
@@ -35,6 +36,7 @@ describe("getComplianceForSystems", () => {
   let cB: string;
   let cC: string;
   let cOrg: string;
+  let snapshotId: string;
   let l1Id: string;
   let systemAId: string;
   let systemBId: string;
@@ -103,7 +105,27 @@ describe("getComplianceForSystems", () => {
     await requirement(strictId, "S.1", [cB]);
     await requirement(strictId, "S.2", [cA]);
 
-    const scopes = { connect: [{ id: lenientId }, { id: strictId }] };
+    // A Framework of 40 Requirements that the snapshot tests delete from under the derivation.
+    snapshotId = (
+      await prisma.framework.create({
+        data: {
+          name: `Test Snapshot Framework ${suffix}`,
+          version: "1",
+          status: "PUBLISHED",
+          requirements: {
+            create: Array.from({ length: 40 }, (_, i) => ({
+              code: `SNAP.${i}`,
+              section: "Test",
+              title: `SNAP.${i}`,
+              text: "t",
+              mappings: { create: [{ controlId: cA, coverage: "FULL" as const }] },
+            })),
+          },
+        },
+      })
+    ).id;
+
+    const scopes = { connect: [{ id: lenientId }, { id: strictId }, { id: snapshotId }] };
     const system = async (name: string, data: Record<string, unknown>) =>
       (await prisma.system.create({ data: { name: `Test Compliance System ${name} ${suffix}`, ownerId, ...data } })).id;
     systemAId = await system("A", {
@@ -128,7 +150,7 @@ describe("getComplianceForSystems", () => {
     const systemIds = [systemAId, systemBId, systemCId, systemDId];
     await prisma.controlAssessment.deleteMany({ where: { systemId: { in: systemIds } } });
     await prisma.system.deleteMany({ where: { id: { in: systemIds } } });
-    await prisma.framework.deleteMany({ where: { id: { in: [lenientId, strictId] } } });
+    await prisma.framework.deleteMany({ where: { id: { in: [lenientId, strictId, snapshotId] } } });
     await prisma.control.deleteMany({ where: { id: { in: controlIds } } });
     await prisma.businessUnit.deleteMany({ where: { id: businessUnitId } });
     await prisma.deploymentFacet.deleteMany({ where: { id: { in: [facet1Id, facet2Id] } } });
@@ -268,5 +290,87 @@ describe("getComplianceForSystems", () => {
     const unknown = await getComplianceForSystems({ id: systemAId }, { frameworkId: "no-such-framework" });
     expect(unknown).toMatchObject({ framework: null, met: 0, applicable: 0, percentage: null });
     expect(unknown.bySystem).toHaveLength(1);
+  });
+
+  describe("reads in one snapshot (#237)", () => {
+    // The options of every `prisma.$transaction` the run opens. (A vi.spyOn on the Prisma client's
+    // proxy loses `this`, so wrap the method by hand and always put it back.)
+    const snapshotCalls = async (run: () => Promise<unknown>) => {
+      const client = prisma as unknown as { $transaction: (...args: unknown[]) => unknown };
+      const original = client.$transaction;
+      const calls: unknown[] = [];
+      client.$transaction = (...args: unknown[]) => {
+        calls.push(args[1]);
+        return original.apply(prisma, args);
+      };
+      try {
+        await run();
+        return calls;
+      } finally {
+        client.$transaction = original;
+      }
+    };
+
+    it("getComplianceForSystems opens exactly one RepeatableRead transaction, and none when given a client", async () => {
+      const options = await snapshotCalls(() => getComplianceForSystems({ id: systemAId }, { frameworkId: lenientId }));
+      expect(options).toEqual([expect.objectContaining({ isolationLevel: "RepeatableRead" })]);
+
+      await prisma.$transaction(
+        async (tx) => {
+          const inner = await snapshotCalls(() => getComplianceForSystems({ id: systemAId }, { frameworkId: lenientId }, tx));
+          expect(inner).toEqual([]);
+        },
+        { isolationLevel: "RepeatableRead" },
+      );
+    });
+
+    it("getSystemFrameworkRequirements reads every Framework in one RepeatableRead transaction, and none when given a client", async () => {
+      const system = await prisma.system.findUniqueOrThrow({
+        where: { id: systemAId },
+        select: {
+          id: true,
+          confidentialityImpactLevel: true,
+          integrityImpactLevel: true,
+          availabilityImpactLevel: true,
+          deploymentFacets: { select: { id: true } },
+          frameworkScopes: { select: { id: true } },
+        },
+      });
+      let result: Awaited<ReturnType<typeof getSystemFrameworkRequirements>> = [];
+      const options = await snapshotCalls(async () => {
+        result = await getSystemFrameworkRequirements(system);
+      });
+      // Three declared Frameworks plus the base, still a single transaction.
+      expect(result.length).toBeGreaterThanOrEqual(3);
+      expect(options).toEqual([expect.objectContaining({ isolationLevel: "RepeatableRead" })]);
+
+      await prisma.$transaction(
+        async (tx) => {
+          const inner = await snapshotCalls(() => getSystemFrameworkRequirements(system, tx));
+          expect(inner).toEqual([]);
+        },
+        { isolationLevel: "RepeatableRead" },
+      );
+    });
+
+    it("does not throw when Requirements are deleted while the derivation runs", async () => {
+      const ids = (await prisma.requirement.findMany({ where: { frameworkId: snapshotId }, select: { id: true } })).map((r) => r.id);
+      expect(ids.length).toBe(40);
+      let deleting = true;
+      const reader = (async () => {
+        let reads = 0;
+        while (deleting) {
+          await getComplianceForSystems({ id: systemAId }, { frameworkId: snapshotId });
+          reads += 1;
+        }
+        return reads;
+      })();
+      try {
+        for (const id of ids) await prisma.requirement.delete({ where: { id } });
+      } finally {
+        deleting = false;
+      }
+      await expect(reader).resolves.toBeGreaterThan(0);
+    });
   });
 });
