@@ -14,6 +14,7 @@ import { ChangeOwnerDialog } from "@/components/ChangeOwnerDialog";
 import { canChangeOwner } from "@/lib/system-permissions";
 import { canWriteInternalAudits } from "@/lib/internal-audit-rules";
 import { AddToInternalAuditDialog } from "./AddToInternalAuditDialog";
+import { CiaBars } from "./CiaBars";
 import { BULK_ACTIONS, canChangeAnyOwner } from "./bulk-actions";
 import { PAGE_SIZES, SHOW_COMPACT_TOGGLE, SHOW_JUMP_PALETTE, SHOW_STAT_TRENDS } from "./systems-config";
 import { downloadCsv } from "./systems-download";
@@ -33,7 +34,6 @@ import {
 } from "./systems-logic";
 import { parseRegisterState, serializeRegisterState } from "./systems-state";
 import {
-  IMPACT_LABEL,
   STATUS_LABEL,
   STATUS_ORDER,
   VIEW_KEYS,
@@ -54,7 +54,6 @@ const STATUS_COLOR: Record<string, string> = {
   REJECTED: "var(--rg-danger)",
 };
 const STAT_COLOR: Record<string, string> = { warn: "var(--rg-gold)", danger: "var(--rg-danger)" };
-const LEVEL_RANK = { LOW: 1, MODERATE: 2, HIGH: 3, CRITICAL: 4 } as const;
 
 const FILTERS: { key: FilterKey; label: string }[] = [
   { key: "owners", label: "Owner" },
@@ -86,8 +85,6 @@ export function pageNumbers(page: number, pages: number): (number | "gap")[] {
   }
   return out;
 }
-
-const levelText = (level: keyof typeof LEVEL_RANK | null) => (level === null ? "not classified" : IMPACT_LABEL[level].toLowerCase());
 
 export function SystemsRegister({ view, initialQuery }: { view: SystemsView; initialQuery: string }) {
   const router = useRouter();
@@ -282,16 +279,7 @@ export function SystemsRegister({ view, initialQuery }: { view: SystemsView; ini
           )}
         </td>
         <td className="c-cia">
-          <span
-            className="cia"
-            role="img"
-            aria-label={`Confidentiality ${levelText(row.confidentiality)}, Integrity ${levelText(row.integrity)}, Availability ${levelText(row.availability)}`}
-            title={`C ${levelText(row.confidentiality)} · I ${levelText(row.integrity)} · A ${levelText(row.availability)}`}
-          >
-            <i data-l={row.confidentiality ? LEVEL_RANK[row.confidentiality] : 0} />
-            <i data-l={row.integrity ? LEVEL_RANK[row.integrity] : 0} />
-            <i data-l={row.availability ? LEVEL_RANK[row.availability] : 0} />
-          </span>
+          <CiaBars confidentiality={row.confidentiality} integrity={row.integrity} availability={row.availability} />
         </td>
         <td className="c-unit muted" title={units.join(", ")}>
           {units.length === 0 ? (

@@ -22,6 +22,8 @@ export const isStatus = (value: string): value is OnboardingStatus => (STATUS_OR
 
 export const IMPACT_ORDER: ImpactLevel[] = ["LOW", "MODERATE", "HIGH", "CRITICAL"];
 export const IMPACT_LABEL: Record<ImpactLevel, string> = { LOW: "Low", MODERATE: "Moderate", HIGH: "High", CRITICAL: "Critical" };
+/** 1 (Low) to 4 (Critical): the height of a C · I · A bar; 0 stands for not classified. */
+export const IMPACT_RANK: Record<ImpactLevel, number> = { LOW: 1, MODERATE: 2, HIGH: 3, CRITICAL: 4 };
 /** The "highest Impact Level" filter's choices; NONE is a System with no axis classified. */
 export type HighestImpact = ImpactLevel | "NONE";
 export const HIGHEST_IMPACT_ORDER: HighestImpact[] = ["NONE", ...IMPACT_ORDER];
