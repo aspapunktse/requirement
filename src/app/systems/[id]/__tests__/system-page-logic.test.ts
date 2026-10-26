@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { OnboardingStatus } from "@prisma/client";
 import { canMarkOnboarded } from "@/lib/onboarding";
 import { canSubmit } from "@/lib/system-permissions";
-import { buildAttention, controlIsDone, formatDay, lifecycleNote, lifecycleStages, nextStepFor, riskGridOf, sourceKeyOf, tabFromHash } from "../system-page-logic";
+import { buildAttention, controlHash, controlIsDone, formatDay, lifecycleNote, lifecycleStages, nextStepFor, parseHash, riskGridOf, sourceKeyOf, tabFromHash } from "../system-page-logic";
 import type { DecisionStep } from "../system-page-types";
 
 const STATUSES: OnboardingStatus[] = ["DRAFT", "IN_REVIEW", "APPROVED", "REJECTED", "ONBOARDED"];
@@ -127,6 +127,8 @@ describe("buildAttention", () => {
     expect(items.map((item) => item.title)).toEqual(["Where is the policy?", "A.1 Mandatory own", "Critical one", "High one", "Low one"]);
     expect(items.map((item) => item.kind)).toEqual(["query", "control", "risk", "risk", "risk"]);
     expect(items.map((item) => item.tab)).toEqual(["controls", "controls", "risks", "risks", "risks"]);
+    // A query and a Control carry the Control's code, so Open goes to its drawer (#244); a Risk has none.
+    expect(items.map((item) => item.controlCode)).toEqual(["A.5", "A.1", undefined, undefined, undefined]);
     expect(items.map((item) => item.tone)).toEqual(["warn", "danger", "danger", "danger", "warn"]);
   });
 
@@ -163,6 +165,23 @@ describe("the small rules", () => {
     expect(tabFromHash("activity")).toBe("activity");
     expect(tabFromHash("#nonsense")).toBe("overview");
     expect(tabFromHash("")).toBe("overview");
+  });
+
+  it("parseHash reads a Control's drawer off the Controls tab (#244)", () => {
+    expect(parseHash("#controls/A.5.13")).toEqual({ tab: "controls", controlCode: "A.5.13" });
+    expect(parseHash("controls/A.5.13")).toEqual({ tab: "controls", controlCode: "A.5.13" });
+    expect(parseHash("#controls")).toEqual({ tab: "controls", controlCode: null });
+    expect(parseHash("#controls/")).toEqual({ tab: "controls", controlCode: null });
+    // Decoded, so a code with odd characters round-trips through controlHash.
+    for (const code of ["A.5.13", "6.1 Planning/1", "100%", "Ä.1"]) {
+      expect(parseHash(controlHash(code))).toEqual({ tab: "controls", controlCode: code });
+    }
+    expect(controlHash("A.5.13")).toBe("#controls/A.5.13");
+    // Only the Controls tab opens a drawer; an undecodable code is ignored; an unknown tab is the Overview.
+    expect(parseHash("#risks/A.5.13")).toEqual({ tab: "risks", controlCode: null });
+    expect(parseHash("#controls/%E0%A4%A")).toEqual({ tab: "controls", controlCode: null });
+    expect(parseHash("#nonsense/A.5.13")).toEqual({ tab: "overview", controlCode: null });
+    expect(tabFromHash("#controls/A.5.13")).toBe("controls");
   });
 
   it("controlIsDone is Fulfilled, Waived or Not applicable", () => {

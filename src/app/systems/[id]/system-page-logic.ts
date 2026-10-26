@@ -15,10 +15,32 @@ import {
  * and the client component share them and tests can run every case.
  */
 
+/**
+ * What a URL hash names: a tab (`#controls`), and on the Controls tab optionally one Control whose drawer
+ * is open (`#controls/A.5.13`, the code URL-encoded). Anything unknown is the Overview; a Control code on
+ * any other tab, or one that can't be decoded, is ignored.
+ */
+export function parseHash(hash: string): { tab: TabKey; controlCode: string | null } {
+  const [key, ...rest] = hash.replace(/^#/, "").split("/");
+  if (!(TAB_KEYS as readonly string[]).includes(key)) return { tab: "overview", controlCode: null };
+  const tab = key as TabKey;
+  if (tab !== "controls" || rest.length === 0) return { tab, controlCode: null };
+  try {
+    const code = decodeURIComponent(rest.join("/"));
+    return { tab, controlCode: code === "" ? null : code };
+  } catch {
+    return { tab, controlCode: null };
+  }
+}
+
 /** The tab a URL hash names (`#controls`); anything else is the Overview. */
 export function tabFromHash(hash: string): TabKey {
-  const key = hash.replace(/^#/, "");
-  return (TAB_KEYS as readonly string[]).includes(key) ? (key as TabKey) : "overview";
+  return parseHash(hash).tab;
+}
+
+/** The hash that opens a Control's drawer on the Controls tab: `#controls/A.5.13`. */
+export function controlHash(code: string): string {
+  return `#controls/${encodeURIComponent(code)}`;
 }
 
 /** Done means Fulfilled, Waived or Not applicable: nothing is left to do on the Control. */
@@ -153,6 +175,7 @@ export function buildAttention(input: {
       note: `Open question on ${query.controlCode} ${query.controlTitle}`,
       tone: "warn",
       tab: "controls",
+      controlCode: query.controlCode,
     }),
   );
   const controls = input.controls
@@ -165,6 +188,7 @@ export function buildAttention(input: {
         note: "Mandatory, no Assessment yet",
         tone: "danger",
         tab: "controls",
+        controlCode: control.code,
       }),
     );
   const risks = input.risks

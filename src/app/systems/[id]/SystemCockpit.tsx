@@ -18,16 +18,20 @@ import "./system-cockpit.css";
 import { CiaBars } from "@/app/systems/CiaBars";
 import { IMPACT_LABEL, IMPACT_RANK, STATUS_LABEL } from "@/app/systems/systems-types";
 import { DecisionDialog } from "./DecisionDialog";
-import { formatDay, lifecycleStages, tabFromHash } from "./system-page-logic";
+import { Stack } from "./Stack";
+import { currentTab, serverTab, subscribeToHash, writeHash } from "./system-hash";
+import { controlHash, formatDay, lifecycleStages } from "./system-page-logic";
 import {
   CONTROL_STATUS_ORDER,
   RISK_LEVELS,
   SOURCE_KEYS,
+  SOURCE_COLOR,
   SOURCE_LABEL,
+  STATUS_COLOR,
+  STATUS_TEXT,
   TAB_KEYS,
   TAB_LABEL,
   type FrameworkSummary,
-  type SourceKey,
   type SystemPageView,
   type TabKey,
 } from "./system-page-types";
@@ -46,66 +50,11 @@ const TAB_ICON: Record<TabKey, HomeIconKey> = {
   activity: "bolt",
 };
 
-const STATUS_COLOR: Record<string, string> = {
-  FULFILLED: "var(--rg-success)",
-  WAIVED: "var(--rg-accent)",
-  IN_PROGRESS: "var(--rg-gold)",
-  NOT_STARTED: "var(--rg-line)",
-  NOT_APPLICABLE: "var(--rg-muted)",
-};
-const STATUS_TEXT: Record<string, string> = {
-  FULFILLED: "Fulfilled",
-  WAIVED: "Waived",
-  IN_PROGRESS: "In progress",
-  NOT_STARTED: "Not started",
-  NOT_APPLICABLE: "Not applicable",
-};
-const SOURCE_COLOR: Record<SourceKey, string> = {
-  organization: "#6c7fd8",
-  "provider-full": "var(--rg-accent)",
-  "provider-shared": "var(--rg-gold)",
-  system: "var(--rg-ink)",
-};
 const ACTIVITY_COLOR = { ok: "var(--rg-success)", warn: "var(--rg-gold)", danger: "var(--rg-danger)", accent: "var(--rg-accent)" };
 const SEVERITY_LETTER: Record<string, string> = { LOW: "L", MEDIUM: "M", HIGH: "H", CRITICAL: "C" };
 const SEVERITY_TEXT: Record<string, string> = { LOW: "Low", MEDIUM: "Medium", HIGH: "High", CRITICAL: "Critical" };
 
-// The tab lives in the URL hash. A tab switch pushes a history entry, which fires no event of its own,
-// so it announces itself; Back and Forward fire `popstate`, a typed hash fires `hashchange`.
-const TAB_EVENT = "system-tab-change";
-function subscribeToTab(onChange: () => void) {
-  window.addEventListener("hashchange", onChange);
-  window.addEventListener("popstate", onChange);
-  window.addEventListener(TAB_EVENT, onChange);
-  return () => {
-    window.removeEventListener("hashchange", onChange);
-    window.removeEventListener("popstate", onChange);
-    window.removeEventListener(TAB_EVENT, onChange);
-  };
-}
-const currentTab = () => tabFromHash(window.location.hash);
-const serverTab = (): TabKey => "overview";
-
-function writeTab(key: TabKey) {
-  if (window.location.hash === `#${key}`) return;
-  window.history.pushState(null, "", `${window.location.pathname}${window.location.search}#${key}`);
-  window.dispatchEvent(new Event(TAB_EVENT));
-}
-
 const prefersReducedMotion = () => !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-
-/** A horizontal stacked bar. Zero-width parts are left out; with nothing to show it is an empty track. */
-function Stack({ parts, label, height = 10 }: { parts: { value: number; color: string; label: string }[]; label: string; height?: number }) {
-  const total = parts.reduce((sum, part) => sum + part.value, 0);
-  return (
-    <div className="sc-stack" role="img" aria-label={label} style={{ height }}>
-      {total > 0 &&
-        parts
-          .filter((part) => part.value > 0)
-          .map((part) => <i key={part.label} title={`${part.label}: ${part.value}`} style={{ "--w": `${(part.value / total) * 100}%`, background: part.color } as CSSProperties} />)}
-    </div>
-  );
-}
 
 const frameworkParts = (framework: FrameworkSummary) => [
   { value: framework.met, color: "var(--rg-success)", label: "Met" },
@@ -125,7 +74,7 @@ function heat(severity: number, likelihood: number): string {
 export function SystemCockpit({ view, panels }: { view: SystemPageView; panels: Record<Exclude<TabKey, "overview">, ReactNode> }) {
   const router = useRouter();
   const { system, headline, controls, risks, classification, counts } = view;
-  const tab = useSyncExternalStore(subscribeToTab, currentTab, serverTab);
+  const tab = useSyncExternalStore(subscribeToHash, currentTab, serverTab);
   const [frameworkId, setFrameworkId] = useState<string | null>(null);
   const [showAllAttention, setShowAllAttention] = useState(false);
   const [deciding, setDeciding] = useState<"APPROVED" | "REJECTED" | null>(null);
@@ -146,10 +95,12 @@ export function SystemCockpit({ view, panels }: { view: SystemPageView; panels: 
   const framework = view.frameworks.find((candidate) => candidate.id === frameworkId) ?? view.frameworks[0] ?? null;
   const requirementsMet = compliancePercentage({ MET: headline.met, applicable: headline.applicable });
 
-  function goTab(key: TabKey, options: { scroll?: boolean } = {}) {
-    writeTab(key);
+  /** Go to a hash: a tab (`#controls`) or a Control's drawer (`#controls/A.5.13`). */
+  function goHash(hash: string, options: { scroll?: boolean } = {}) {
+    writeHash(hash);
     if (options.scroll) tabsRef.current?.scrollIntoView?.({ block: "start", behavior: prefersReducedMotion() ? "auto" : "smooth" });
   }
+  const goTab = (key: TabKey, options: { scroll?: boolean } = {}) => goHash(`#${key}`, options);
 
   // Coming back to the Overview shows what was changed on another tab: the tiles are read on the server.
   const previousTab = useRef(tab);
@@ -226,7 +177,7 @@ export function SystemCockpit({ view, panels }: { view: SystemPageView; panels: 
         meta: key === "controls" ? `${counts.controls}` : key === "requirements" ? `${counts.requirements}` : key === "risks" ? `${counts.openRisks} open` : key === "providers" ? `${counts.providers}` : "",
         href: `#${key}`,
       })),
-      ...view.controlList.map((control): PaletteItem => ({ group: "Controls", icon: "control", label: control.title, meta: control.code, href: "#controls" })),
+      ...view.controlList.map((control): PaletteItem => ({ group: "Controls", icon: "control", label: control.title, meta: control.code, href: controlHash(control.code) })),
     ],
     [counts, view.controlList],
   );
@@ -523,7 +474,7 @@ export function SystemCockpit({ view, panels }: { view: SystemPageView; panels: 
                         <b>{item.title}</b>
                         <small>{item.note}</small>
                       </div>
-                      <button type="button" className="hc-btn" aria-label={`Open: ${item.title}`} onClick={() => goTab(item.tab, { scroll: true })}>
+                      <button type="button" className="hc-btn" aria-label={`Open: ${item.title}`} onClick={() => (item.controlCode ? goHash(controlHash(item.controlCode), { scroll: true }) : goTab(item.tab, { scroll: true }))}>
                         Open
                       </button>
                     </li>
@@ -704,7 +655,7 @@ export function SystemCockpit({ view, panels }: { view: SystemPageView; panels: 
         />
       )}
 
-      {paletteOpen && <JumpPalette items={paletteItems} onClose={closePalette} onSelect={(item) => goTab(tabFromHash(item.href), { scroll: true })} placeholder="Jump to a tab or a Control…" />}
+      {paletteOpen && <JumpPalette items={paletteItems} onClose={closePalette} onSelect={(item) => goHash(item.href, { scroll: true })} placeholder="Jump to a tab or a Control…" />}
     </div>
   );
 }

@@ -319,6 +319,13 @@ describe("tabs (#243)", () => {
     expect(screen.getByText("Section risks")).toBeVisible();
   });
 
+  it("opens the Controls tab for a hash that names a Control (#244)", () => {
+    window.history.replaceState(null, "", "/systems/s1#controls/A.5.13");
+    renderCockpit();
+    expect(tab(/^Controls/)).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByText("Section controls")).toBeVisible();
+  });
+
   it("falls back to the Overview for a hash that is no tab", () => {
     window.history.replaceState(null, "", "/systems/s1#nonsense");
     renderCockpit();
@@ -416,6 +423,22 @@ describe("Overview tiles (#243)", () => {
     expect(window.location.hash).toBe("#controls");
   });
 
+  it("opens the Control's drawer for an item that names a Control (#244)", async () => {
+    renderCockpit({
+      attention: [
+        attentionItem(1, { controlCode: "A.5.13" }),
+        attentionItem(2, { kind: "query", title: "Which version?", controlCode: "A.8.24" }),
+      ],
+    });
+    const tile = screen.getByRole("region", { name: /Needs attention/ });
+    await userEvent.click(within(tile).getByRole("button", { name: "Open: A.1 Control 1" }));
+    expect(window.location.hash).toBe("#controls/A.5.13");
+    expect(tab(/^Controls/)).toHaveAttribute("aria-selected", "true");
+    await userEvent.click(tab("Overview"));
+    await userEvent.click(within(tile).getByRole("button", { name: "Open: Which version?" }));
+    expect(window.location.hash).toBe("#controls/A.8.24");
+  });
+
   it("shows the first six items, then 'N more →' which shows the rest", async () => {
     renderCockpit({ attention: Array.from({ length: 9 }, (_, i) => attentionItem(i + 1)) });
     const tile = screen.getByRole("region", { name: /Needs attention/ });
@@ -458,7 +481,8 @@ describe("Ctrl+K palette (#243)", () => {
     expect(within(dialog).getAllByRole("option")).toHaveLength(1);
     await userEvent.keyboard("{Enter}");
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    expect(window.location.hash).toBe("#controls");
+    // The palette opens that Control's drawer on the Controls tab (#244).
+    expect(window.location.hash).toBe("#controls/A.8.24");
     expect(tab(/^Controls/)).toHaveAttribute("aria-selected", "true");
     expect(push).not.toHaveBeenCalled();
   });
