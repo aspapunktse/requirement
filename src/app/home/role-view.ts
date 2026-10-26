@@ -410,6 +410,7 @@ async function roleOwnView(user: { id: string; name: string; role: UserRole }, r
           { title: "Deployment Facets", description: "Manage deployment classifications.", href: "/admin/deployment-facets" },
           { title: "Review Groups", description: "Manage who reviews each Framework.", href: "/admin/review-groups" },
           ORGANIZATION_CONTROLS_TILE,
+          { title: "Settings", description: "Change how the Systems list flags what needs attention.", href: "/admin/settings" },
         ],
       };
     }

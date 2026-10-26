@@ -26,6 +26,10 @@ describe("Change Event labels for the Home page's Recent activity (#226)", () =>
     expect(CHANGE_EVENT_ACTION_LABEL.SYSTEM_OWNER_CHANGED).toBe("changed a System's owner");
   });
 
+  it("labels the setting change", () => {
+    expect(CHANGE_EVENT_ACTION_LABEL.APP_SETTING_CHANGED).toBe("changed a setting");
+  });
+
   it("has no label for a value the enum lacks", () => {
     expect(Object.keys(CHANGE_EVENT_ACTION_LABEL).sort()).toEqual([...Object.values(ChangeEventAction)].sort());
   });

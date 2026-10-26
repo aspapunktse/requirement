@@ -92,6 +92,7 @@ model User {
   createdAt DateTime @default(now())
 
   statSnapshots                      StatSnapshot[]
+  appSettingsChanged                 AppSetting[]                        @relation("AppSettingUpdatedBy")
   ownedSystems                       System[]                            @relation("SystemOwner")
   assessments                        ControlAssessment[]                 @relation("AssessedBy")
   riskActions                        Risk[]                              @relation("RiskOwner")
@@ -710,6 +711,9 @@ enum ChangeEventAction {
   // event per System changed, actor the User who changed it; the detail names the previous and the
   // new owner. Changing a System's owner in bulk writes one event per System.
   SYSTEM_OWNER_CHANGED
+  // An Admin saved a new value for an App Setting (#240). System-less, actor the Admin; the detail
+  // names the setting's key and its old and new value. Saving the value a setting already has writes none.
+  APP_SETTING_CHANGED
 }
 
 // A curated, System-lifecycle-relevant mutation record — feeds the landing
@@ -1029,4 +1033,17 @@ model StatSnapshot {
   createdAt DateTime @default(now())
 
   @@unique([userId, statKey, day])
+}
+
+// An Admin-editable setting of the app (#240), e.g. the Systems list's thresholds. Each setting is declared
+// once in code (`src/lib/app-settings.ts`: key, label, type, range, default); a key with no row uses its
+// default, so this table starts empty and production behaves as before until an Admin saves. `value` is the
+// setting's JSON value, checked against that declaration on every read and write. The User who last
+// changed it is kept for the page; a deleted User leaves it null.
+model AppSetting {
+  key         String   @id
+  value       Json
+  updatedById String?
+  updatedBy   User?    @relation("AppSettingUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  updatedAt   DateTime @updatedAt
 }

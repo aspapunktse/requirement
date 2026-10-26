@@ -7,7 +7,7 @@ import { getComplianceForSystems } from "@/lib/compliance";
 import { frameworkLabel } from "@/lib/framework-label";
 import { canCreateSystem } from "@/lib/system-permissions";
 import { roleLabel } from "@/app/home/role-label";
-import { STALE_DRAFT_DAYS, UNDER_FULFILLED_PERCENT } from "./systems-config";
+import { readSystemsThresholds, type SystemsThresholds } from "@/lib/app-settings";
 import { fulfilment, roleViewNeedsFulfilment, roleViewOf } from "./systems-logic";
 import { loadSystemsTrends } from "./systems-trends";
 import type { SystemRow, SystemsView } from "./systems-types";
@@ -33,7 +33,9 @@ export async function readSystemRows(
   user: User,
   now: Date,
   options: { fulfilment?: boolean } = {},
-): Promise<{ rows: SystemRow[]; where: Prisma.SystemWhereInput; baseFramework: string | null }> {
+): Promise<{ rows: SystemRow[]; where: Prisma.SystemWhereInput; baseFramework: string | null; thresholds: SystemsThresholds }> {
+  // The Admin-set thresholds, read in the same snapshot as the Systems they are applied to.
+  const thresholds = await readSystemsThresholds(tx);
   const where = await visibleSystemsWhere(user, tx);
   const systems = await tx.system.findMany({
     where,
@@ -96,32 +98,33 @@ export async function readSystemRows(
       inRoleView: false,
       needsAttention: false,
     };
-    row.needsAttention = needsAttention(row, now);
-    row.inRoleView = inRoleView(row, user, { openRisks: system._count.risks, inScope: inScope.has(system.id) });
+    row.needsAttention = needsAttention(row, now, thresholds.staleDraftDays);
+    row.inRoleView = inRoleView(row, user, { openRisks: system._count.risks, inScope: inScope.has(system.id) }, thresholds.underFulfilledPercent);
     return row;
   });
-  return { rows, where, baseFramework: compliance?.framework ? frameworkLabel(compliance.framework) : null };
+  return { rows, where, baseFramework: compliance?.framework ? frameworkLabel(compliance.framework) : null, thresholds };
 }
 
 /**
  * Needs attention (product-owner decision 4a on #232): it has open Assessment Queries the user can act on,
- * or it is Rejected, or it is a Draft that has not changed for `STALE_DRAFT_DAYS` days.
+ * or it is Rejected, or it is a Draft that has not changed for more than `staleDraftDays` days (an Admin setting).
  */
-export function needsAttention(row: Pick<SystemRow, "openQuestions" | "status" | "updatedAt">, now: Date): boolean {
+export function needsAttention(row: Pick<SystemRow, "openQuestions" | "status" | "updatedAt">, now: Date, staleDraftDays: number): boolean {
   if (row.openQuestions > 0 || row.status === "REJECTED") return true;
-  return row.status === "DRAFT" && now.getTime() - Date.parse(row.updatedAt) > STALE_DRAFT_DAYS * DAY_MS;
+  return row.status === "DRAFT" && now.getTime() - Date.parse(row.updatedAt) > staleDraftDays * DAY_MS;
 }
 
 /**
  * Is the System in the acting role's own view (decision 3a on #232)? System Owner: owned by the user.
  * Reviewer: In Review. Risk Owner: has an open Risk. Business Risk Owner: in their assigned scope. Every
- * other role: not a Draft and with base-Framework fulfilment under `UNDER_FULFILLED_PERCENT`%; a System
+ * other role: not a Draft and with base-Framework fulfilment under `underFulfilledPercent`% (an Admin setting); a System
  * with nothing applicable to measure is not counted.
  */
 export function inRoleView(
   row: Pick<SystemRow, "ownerId" | "status" | "met" | "applicable">,
   user: User,
   facts: { openRisks: number; inScope: boolean },
+  underFulfilledPercent: number,
 ): boolean {
   switch (user.role) {
     case "SYSTEM_OWNER":
@@ -134,7 +137,7 @@ export function inRoleView(
       return facts.inScope;
     default: {
       const share = fulfilment(row);
-      return row.status !== "DRAFT" && share !== null && share < UNDER_FULFILLED_PERCENT / 100;
+      return row.status !== "DRAFT" && share !== null && share < underFulfilledPercent / 100;
     }
   }
 }
@@ -148,10 +151,10 @@ export async function loadSystemRowsForCounts(user: User, now: Date): Promise<Sy
 
 /** What the Systems list page renders for `user`, all read in one snapshot. */
 export async function loadSystemsView(user: User & { name: string }, now = new Date()): Promise<SystemsView> {
-  const { rows, baseFramework, trends } = await prisma.$transaction(
+  const { rows, baseFramework, trends, thresholds } = await prisma.$transaction(
     async (tx) => {
       const read = await readSystemRows(tx, user, now);
-      return { rows: read.rows, baseFramework: read.baseFramework, trends: await loadSystemsTrends(tx, user, read.rows, read.where, now) };
+      return { rows: read.rows, baseFramework: read.baseFramework, thresholds: read.thresholds, trends: await loadSystemsTrends(tx, user, read.rows, read.where, now) };
     },
     { isolationLevel: "RepeatableRead" },
   );
@@ -163,7 +166,7 @@ export async function loadSystemsView(user: User & { name: string }, now = new D
     canCreate: canCreateSystem(user),
     now: now.toISOString(),
     rows,
-    roleView: roleViewOf(user.role),
+    roleView: roleViewOf(user.role, thresholds.underFulfilledPercent),
     trends,
     baseFramework,
   };
