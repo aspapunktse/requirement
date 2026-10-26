@@ -275,6 +275,8 @@ describe("Needs attention", () => {
       ["risk", "Test #243 critical", "risks"],
       ["risk", "Test #243 low", "risks"],
     ]);
+    // A query and a Control item name their Control, so Open goes to its drawer (#244); a Risk names none.
+    expect(ours.map((item) => item.controlCode)).toEqual([`${CODE}-A`, `${CODE}-B`, undefined, undefined]);
   });
 
   it("holds exactly the Queries the Systems list counts for that user", async () => {

@@ -32,6 +32,29 @@ export const SOURCE_LABEL: Record<SourceKey, string> = {
 /** The statuses of the stacked bar, in the order they are drawn. */
 export const CONTROL_STATUS_ORDER: ControlAssessmentStatus[] = ["FULFILLED", "WAIVED", "IN_PROGRESS", "NOT_STARTED", "NOT_APPLICABLE"];
 
+/** Fill colour of each Control status, in the stacked bars and the legend. */
+export const STATUS_COLOR: Record<ControlAssessmentStatus, string> = {
+  FULFILLED: "var(--rg-success)",
+  WAIVED: "var(--rg-accent)",
+  IN_PROGRESS: "var(--rg-gold)",
+  NOT_STARTED: "var(--rg-line)",
+  NOT_APPLICABLE: "var(--rg-muted)",
+};
+/** Sentence-case status words of the System page (the Overview, the Controls tab). */
+export const STATUS_TEXT: Record<ControlAssessmentStatus, string> = {
+  FULFILLED: "Fulfilled",
+  WAIVED: "Waived",
+  IN_PROGRESS: "In progress",
+  NOT_STARTED: "Not started",
+  NOT_APPLICABLE: "Not applicable",
+};
+export const SOURCE_COLOR: Record<SourceKey, string> = {
+  organization: "#6c7fd8",
+  "provider-full": "var(--rg-accent)",
+  "provider-shared": "var(--rg-gold)",
+  system: "var(--rg-ink)",
+};
+
 /** An open Review Step the acting user may decide right now. */
 export type DecisionStep = { reviewGroupId: string | null; name: string };
 
@@ -63,6 +86,8 @@ export type AttentionItem = {
   tone: "danger" | "warn";
   /** The tab its Open button goes to. */
   tab: TabKey;
+  /** The Control a query or control item is about: its Open button opens that Control's drawer (`#controls/<code>`). */
+  controlCode?: string;
 };
 
 export type ActivityItem = {

@@ -95,5 +95,5 @@ These guide automated PR reviews (Codex) and any agent asked to review a change.
 - `README.md`'s Project status is updated in the same PR when a capability changes, in a line or two. It isn't a log: no per-issue write-ups, routes, migration names or test lists. `docs/implementation-history.md` is frozen.
 - A design proposal added, renamed or removed under `public/design/` updates `public/design/proposals.js` in the same change. An existing proposal `id` never changes.
 - Files are valid UTF-8.
-- No new ESLint warnings (the baseline is 5, all `react-hooks/set-state-in-effect`).
+- No new ESLint warnings (the baseline is 4, all `react-hooks/set-state-in-effect`).
 - `.claude/` and secret-bearing env files (`.env`, `.env.*.local`) are never committed. The tracked `.env.example` template holds only local placeholders and is kept current when setup variables change.

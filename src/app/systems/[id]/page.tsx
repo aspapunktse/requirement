@@ -11,7 +11,6 @@ import { canManageProvider } from "@/lib/control-offering-rules";
 import { listControlOfferings, listOfferableControls } from "@/lib/control-offerings";
 import { canManageProviderDependencies } from "@/lib/provider-dependency-rules";
 import { listDependents, listProviderChoices, listProviderDependencies } from "@/lib/provider-dependencies";
-import { ControlAssessmentList } from "@/components/ControlAssessmentList";
 import { SystemFrameworkRequirementsView } from "@/components/SystemFrameworkRequirements";
 import { RiskList } from "@/components/RiskList";
 import { ApprovalPanel } from "@/components/ApprovalPanel";
@@ -22,6 +21,7 @@ import { DeploymentFacetsChanger } from "@/components/DeploymentFacetsChanger";
 import { ImpactLevelsChanger } from "@/components/ImpactLevelsChanger";
 import "@/app/home/home.css";
 import { SystemCockpit } from "./SystemCockpit";
+import { SystemControls } from "./SystemControls";
 import { loadSystemPage } from "./system-page-data";
 
 /** A message in the Register look, for a page with nothing else to show. */
@@ -40,8 +40,9 @@ function EmptyState({ title, children }: { title: string; children: React.ReactN
  * One System's page, design proposal A "Cockpit" (issue #243): a header with the System's identity,
  * lifecycle, next step and headline figures, pinned tabs, and an Overview of tiles. `loadSystemPage` reads
  * the Overview's data in one snapshot, and only for a System the user may see (`visibleSystemsWhere`); the
- * client component only adds the interactions and keeps the tab in the URL hash. The other tabs hold the
- * sections the page had before, unchanged, until the Controls tab (#244) and the rest (#245) are redone.
+ * client component only adds the interactions and keeps the tab in the URL hash. The Controls tab is the
+ * grouped list with its Control drawer (#244); the other tabs hold the sections the page had before,
+ * unchanged, until the rest (#245) are redone.
  */
 export default async function SystemDetailPage({ params }: PageProps<"/systems/[id]">) {
   const { id } = await params;
@@ -77,7 +78,7 @@ export default async function SystemDetailPage({ params }: PageProps<"/systems/[
 
   const panels = {
     controls: (
-      <ControlAssessmentList
+      <SystemControls
         // Remounts (and so reloads) when a Provider dependency is declared or removed: what this System inherits changes.
         key={dependencies.map((dependency) => dependency.providerId).join(",")}
         systemId={system.id}
