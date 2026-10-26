@@ -1,5 +1,4 @@
 import type { Prisma } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
 import {
   addDerivedStatusCounts,
   compliancePercentage,
@@ -7,6 +6,7 @@ import {
   deriveFrameworkStatusesForSystems,
   emptyDerivedStatusCounts,
   isFrameworkInEffectiveScope,
+  withDerivationSnapshot,
   type DerivationDb,
 } from "@/lib/requirement-status";
 
@@ -58,33 +58,41 @@ export type ScopeCompliance = {
  * percentage and adds nothing to the pool.
  *
  * Uses the bulk derivation: a constant number of queries however many Systems
- * match (the Framework, the Systems, then the derivation's three).
+ * match (the Framework, the Systems, then the derivation's three). All of them
+ * share one snapshot: pass a transaction client to use the caller's, or none to
+ * get one RepeatableRead transaction of its own (`withDerivationSnapshot`).
  */
-export async function getComplianceForSystems(
+export function getComplianceForSystems(
   where: Prisma.SystemWhereInput,
   options: { frameworkId?: string } = {},
-  // Pass a transaction client to read in the caller's snapshot.
-  db: DerivationDb = prisma,
+  db?: DerivationDb,
 ): Promise<ScopeCompliance> {
-  const [framework, systems] = await Promise.all([
-    db.framework.findFirst({
-      where: options.frameworkId ? { id: options.frameworkId } : { isBase: true },
-      select: { id: true, name: true, version: true, isBase: true, status: true, strictComplianceRequired: true },
-    }),
-    db.system.findMany({
-      where,
-      select: {
-        id: true,
-        name: true,
-        confidentialityImpactLevel: true,
-        integrityImpactLevel: true,
-        availabilityImpactLevel: true,
-        deploymentFacets: { select: { id: true } },
-        frameworkScopes: { select: { id: true } },
-      },
-      orderBy: { createdAt: "asc" },
-    }),
-  ]);
+  return withDerivationSnapshot(db, (tx) => readComplianceForSystems(where, options, tx));
+}
+
+async function readComplianceForSystems(
+  where: Prisma.SystemWhereInput,
+  options: { frameworkId?: string },
+  db: DerivationDb,
+): Promise<ScopeCompliance> {
+  // Sequential: a transaction has one connection.
+  const framework = await db.framework.findFirst({
+    where: options.frameworkId ? { id: options.frameworkId } : { isBase: true },
+    select: { id: true, name: true, version: true, isBase: true, status: true, strictComplianceRequired: true },
+  });
+  const systems = await db.system.findMany({
+    where,
+    select: {
+      id: true,
+      name: true,
+      confidentialityImpactLevel: true,
+      integrityImpactLevel: true,
+      availabilityImpactLevel: true,
+      deploymentFacets: { select: { id: true } },
+      frameworkScopes: { select: { id: true } },
+    },
+    orderBy: { createdAt: "asc" },
+  });
 
   const emptyBySystem = systems.map((s): SystemCompliance => ({
     systemId: s.id,

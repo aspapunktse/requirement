@@ -63,6 +63,25 @@ export type DerivationDb = Pick<
   "framework" | "system" | "controlAssessment" | "control" | "organizationControlImplementation" | "providerDependency" | "controlOffering"
 >;
 
+/**
+ * Run `read` against one consistent snapshot. With a `db` (a transaction client the
+ * caller already holds) it reads through that and opens nothing, so there is never a
+ * nested transaction; with none it opens one REPEATABLE READ transaction and hands
+ * `read` its client. Prisma runs a nested select as several statements, and outside
+ * a transaction each gets its own snapshot, so a Requirement deleted in between
+ * (a curator, the import loader) would leave a mapping whose required Requirement is
+ * gone and throw "Inconsistent query result" (#237, as #150 did for the Statement of
+ * Applicability). Read-only, so there is nothing to retry. Inside `read`, await the
+ * queries one after the other: a transaction has one connection.
+ */
+export function withDerivationSnapshot<T>(
+  db: DerivationDb | undefined,
+  read: (db: DerivationDb) => Promise<T>,
+): Promise<T> {
+  if (db) return read(db);
+  return prisma.$transaction((tx) => read(tx), { isolationLevel: "RepeatableRead", timeout: 30_000 });
+}
+
 export type DerivationSystem = SystemClassification & { id: string };
 
 type DerivationFramework = {
@@ -167,13 +186,18 @@ const byNumericText = (a: string, b: string) => a.localeCompare(b, undefined, { 
 /**
  * Load a Framework and, per Requirement, its mapped Controls, plus the
  * Organization's implementation status of those Controls, in a constant number
- * of queries regardless of size.
+ * of queries regardless of size. Read in one snapshot: pass a transaction client
+ * to read in the caller's, or none to get its own RepeatableRead one
+ * (`withDerivationSnapshot`).
  */
-export async function loadFrameworkDerivationData(
+export function loadFrameworkDerivationData(
   frameworkId: string,
-  // Pass a transaction client to read in the caller's snapshot.
-  db: DerivationDb = prisma,
+  db?: DerivationDb,
 ): Promise<FrameworkDerivationData | null> {
+  return withDerivationSnapshot(db, (tx) => readFrameworkDerivationData(frameworkId, tx));
+}
+
+async function readFrameworkDerivationData(frameworkId: string, db: DerivationDb): Promise<FrameworkDerivationData | null> {
   const framework = await db.framework.findUnique({
     where: { id: frameworkId },
     select: {
@@ -321,21 +345,27 @@ export function deriveRequirementRowsForSystem(
  * data (a constant number of queries, however many Systems). Returns null if the
  * Framework doesn't exist; otherwise a Map with an entry for every System given.
  * This is the function the Requirement-based Compliance Percentage (#90) builds on.
+ * All reads share one snapshot: pass a transaction client to use the caller's, or
+ * none to get its own RepeatableRead one (`withDerivationSnapshot`).
  */
-export async function deriveFrameworkStatusesForSystems(frameworkId: string, systems: DerivationSystem[], db: DerivationDb = prisma) {
-  const data = await loadFrameworkDerivationData(frameworkId, db);
+export function deriveFrameworkStatusesForSystems(frameworkId: string, systems: DerivationSystem[], db?: DerivationDb) {
+  return withDerivationSnapshot(db, (tx) => readFrameworkStatusesForSystems(frameworkId, systems, tx));
+}
+
+async function readFrameworkStatusesForSystems(frameworkId: string, systems: DerivationSystem[], db: DerivationDb) {
+  const data = await readFrameworkDerivationData(frameworkId, db);
   if (!data) return null;
 
   const systemIds = systems.map((s) => s.id);
-  const [assessments, providerSources] = await Promise.all([
+  // Sequential: a transaction has one connection.
+  const assessments =
     systems.length === 0 || data.controlIds.length === 0
       ? []
-      : db.controlAssessment.findMany({
+      : await db.controlAssessment.findMany({
           where: { systemId: { in: systemIds }, controlId: { in: data.controlIds } },
           select: { systemId: true, controlId: true, status: true, assessedById: true },
-        }),
-    loadProviderSources(systemIds, data.controlIds, db),
-  ]);
+        });
+  const providerSources = await loadProviderSources(systemIds, data.controlIds, db);
   const assessmentsBySystem = new Map<string, Map<string, NonNullable<OwnAssessment>>>();
   for (const assessment of assessments) {
     const own = assessmentsBySystem.get(assessment.systemId) ?? new Map<string, NonNullable<OwnAssessment>>();
@@ -383,15 +413,19 @@ export type SystemFrameworkRequirements = {
  * The per-Framework view's data for one System (`/systems/[id]`, F-OUT.2):
  * for each Published Framework in its effective scope (declared rows plus the
  * base; Draft Frameworks are inert and left out), its Requirements with
- * derived status and the mapped Controls behind each.
+ * derived status and the mapped Controls behind each. The scope read and every
+ * Framework's derivation share one snapshot (a transaction client passed in, or
+ * one RepeatableRead transaction of its own).
  */
-export async function getSystemFrameworkRequirements(system: DerivationSystem): Promise<SystemFrameworkRequirements[]> {
-  const scoped = (await getSystemFrameworkScopes(system.id)).filter((framework) => framework.status === "PUBLISHED");
-  const results = await Promise.all(
-    scoped.map(async (framework) => {
-      const derived = await deriveFrameworkStatusesForSystems(framework.id, [system]);
+export function getSystemFrameworkRequirements(system: DerivationSystem, db?: DerivationDb): Promise<SystemFrameworkRequirements[]> {
+  return withDerivationSnapshot(db, async (tx) => {
+    const scoped = (await getSystemFrameworkScopes(system.id, tx)).filter((framework) => framework.status === "PUBLISHED");
+    const results: SystemFrameworkRequirements[] = [];
+    // Sequential: a transaction has one connection.
+    for (const framework of scoped) {
+      const derived = await readFrameworkStatusesForSystems(framework.id, [system], tx);
       const rows = derived?.bySystem.get(system.id) ?? [];
-      return {
+      results.push({
         framework: {
           id: framework.id,
           name: framework.name,
@@ -401,8 +435,8 @@ export async function getSystemFrameworkRequirements(system: DerivationSystem): 
         },
         counts: countRowStatuses(rows),
         rows,
-      };
-    }),
-  );
-  return results;
+      });
+    }
+    return results;
+  });
 }
