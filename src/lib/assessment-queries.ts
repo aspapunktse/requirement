@@ -487,6 +487,62 @@ export async function getActionableQueryCount(user: { id: string; role: UserRole
   return [...counts.values()].reduce((sum, n) => sum + n, 0);
 }
 
+/** One open Assessment Query on a System that the user can act on, with the Control it is on and how it opens. */
+export type ActionableSystemQuery = {
+  id: string;
+  controlId: string;
+  controlCode: string;
+  controlTitle: string;
+  /** The opening message. */
+  body: string;
+  createdAt: Date;
+};
+
+/**
+ * The open Assessment Queries on one System that `user` can act on (the same rule as
+ * `getActionableQueryCountsBySystem`, so the list and the count always agree), oldest first, each
+ * with its Control and opening message. Reads through `tx`, in the caller's snapshot.
+ */
+export async function getActionableQueriesForSystem(
+  user: { id: string; role: UserRole },
+  systemId: string,
+  tx: QueryReadClient,
+): Promise<ActionableSystemQuery[]> {
+  const openQueries = await tx.assessmentQuery.findMany({
+    where: { resolved: false, controlAssessment: { systemId } },
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    select: {
+      id: true,
+      resolved: true,
+      createdAt: true,
+      lastMessageAuthorId: true,
+      messages: { orderBy: { createdAt: "asc" }, take: 1, select: { body: true } },
+      controlAssessment: {
+        select: {
+          systemId: true,
+          controlId: true,
+          system: { select: { ownerId: true } },
+          control: { select: { code: true, title: true } },
+        },
+      },
+    },
+  });
+  const viaMembership = await membershipQueryKeys(user, openQueries, false, tx);
+  return openQueries
+    .filter((query) => {
+      const { systemId: sid, controlId, system } = query.controlAssessment;
+      return isQueryActionableBy(query, system, user, viaMembership.has(`${sid}:${controlId}`));
+    })
+    .map((query) => ({
+      id: query.id,
+      controlId: query.controlAssessment.controlId,
+      controlCode: query.controlAssessment.control.code,
+      controlTitle: query.controlAssessment.control.title,
+      body: query.messages[0]?.body ?? "",
+      createdAt: query.createdAt,
+    }));
+}
+
 export type ActionableQuery = {
   id: string;
   systemId: string;

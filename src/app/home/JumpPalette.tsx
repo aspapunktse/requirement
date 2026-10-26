@@ -44,7 +44,8 @@ export function useRegisterHotkeys({
   paletteOpen: boolean;
   openPalette: () => void;
   closePalette: () => void;
-  searchRef: RefObject<HTMLInputElement | null>;
+  /** The page's search field, focused by "/"; a page without one leaves it out and "/" is not taken. */
+  searchRef?: RefObject<HTMLInputElement | null>;
 }) {
   useEffect(() => {
     function onKeyDown(event: globalThis.KeyboardEvent) {
@@ -57,7 +58,7 @@ export function useRegisterHotkeys({
       if (paletteOpen) return;
       const target = event.target instanceof HTMLElement ? event.target : null;
       const typing = !!target && (/^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName) || target.isContentEditable);
-      if (event.key === "/" && !typing && !event.ctrlKey && !event.metaKey && !event.altKey) {
+      if (searchRef && event.key === "/" && !typing && !event.ctrlKey && !event.metaKey && !event.altKey) {
         event.preventDefault();
         searchRef.current?.focus();
       }
@@ -92,10 +93,13 @@ export function usePaletteToggle() {
 export function JumpPalette({
   items: allItems,
   onClose,
+  onSelect,
   placeholder = "Jump to a task or a page…",
 }: {
   items: PaletteItem[];
   onClose: () => void;
+  /** Opens an item in place of navigating to its `href` (the System page switches tab with it). */
+  onSelect?: (item: PaletteItem) => void;
   placeholder?: string;
 }) {
   const router = useRouter();
@@ -108,7 +112,8 @@ export function JumpPalette({
   function open(item: PaletteItem | undefined) {
     if (!item) return;
     onClose();
-    router.push(item.href);
+    if (onSelect) onSelect(item);
+    else router.push(item.href);
   }
 
   function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {

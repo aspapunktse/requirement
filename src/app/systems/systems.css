@@ -65,22 +65,22 @@
 .sy .av { display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--rg-accent-soft); color: var(--rg-accent); font-size: 0.68rem; font-weight: 750; flex: none; }
 .sy .owner.me .av { background: var(--rg-accent); color: var(--rg-on-accent); }
 .sy.compact .owner .av { width: 22px; height: 22px; font-size: 0.6rem; }
-.sy .facets { display: flex; gap: 4px; flex-wrap: wrap; }
-.sy .facet { font-family: var(--rg-font-mono); font-size: 0.7rem; font-weight: 700; color: var(--rg-muted); border: 1px solid var(--rg-line); border-radius: 4px; padding: 0 5px; white-space: nowrap; }
+:is(.sy, .sc) .facets { display: flex; gap: 4px; flex-wrap: wrap; }
+:is(.sy, .sc) .facet { font-family: var(--rg-font-mono); font-size: 0.7rem; font-weight: 700; color: var(--rg-muted); border: 1px solid var(--rg-line); border-radius: 4px; padding: 0 5px; white-space: nowrap; }
 .sy .more { color: var(--rg-muted); }
 .sy .prov { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--rg-accent); border: 1px solid currentColor; border-radius: 4px; padding: 0 4px; }
 .sy .qbadge { display: inline-flex; align-items: center; margin-left: 6px; font-size: 0.74rem; font-weight: 700; color: var(--rg-gold-ink); background: var(--rg-gold-soft); padding: 1px 7px; border-radius: 99px; white-space: nowrap; }
 .sy td.c-status { white-space: nowrap; }
 .sy td.c-upd { white-space: nowrap; font-variant-numeric: tabular-nums; }
 
-/* C · I · A: three small bars, tall for a high Impact Level; dashed when not classified */
-.sy .cia { display: inline-flex; gap: 3px; align-items: end; height: 16px; }
-.sy .cia i { width: 5px; border-radius: 1px; background: var(--rg-line); }
-.sy .cia i[data-l="0"] { height: 3px; background: transparent; border: 1px dashed var(--rg-muted); }
-.sy .cia i[data-l="1"] { height: 5px; background: var(--rg-muted); }
-.sy .cia i[data-l="2"] { height: 9px; background: var(--rg-accent); }
-.sy .cia i[data-l="3"] { height: 13px; background: var(--rg-gold); }
-.sy .cia i[data-l="4"] { height: 16px; background: var(--rg-danger); }
+/* C · I · A: three small bars (shared with the System page header, `.sc`), tall for a high Impact Level; dashed when not classified */
+:is(.sy, .sc) .cia { display: inline-flex; gap: 3px; align-items: end; height: 16px; }
+:is(.sy, .sc) .cia i { width: 5px; border-radius: 1px; background: var(--rg-line); }
+:is(.sy, .sc) .cia i[data-l="0"] { height: 3px; background: transparent; border: 1px dashed var(--rg-muted); }
+:is(.sy, .sc) .cia i[data-l="1"] { height: 5px; background: var(--rg-muted); }
+:is(.sy, .sc) .cia i[data-l="2"] { height: 9px; background: var(--rg-accent); }
+:is(.sy, .sc) .cia i[data-l="3"] { height: 13px; background: var(--rg-gold); }
+:is(.sy, .sc) .cia i[data-l="4"] { height: 16px; background: var(--rg-danger); }
 .sy .legend .cia { height: 12px; }
 
 .sy .prog { display: flex; align-items: center; gap: 8px; }
