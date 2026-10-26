@@ -382,6 +382,13 @@ export function ControlDrawer({
     };
   }, []);
 
+  // Focus stays in the drawer: a disabled button (Save while saving) or a refresh of the page can drop it.
+  useEffect(() => {
+    const active = document.activeElement;
+    if (asideRef.current?.contains(active) || document.querySelectorAll('[role="dialog"]').length > 1) return;
+    closeRef.current?.focus();
+  }, [row, saving]);
+
   function keepFocusInside(event: ReactKeyboardEvent<HTMLElement>) {
     if (event.key !== "Tab") return;
     const aside = asideRef.current;

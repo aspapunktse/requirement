@@ -21,7 +21,6 @@ export function subscribeToHash(onChange: () => void) {
 export const currentTab = () => parseHash(window.location.hash).tab;
 export const currentControlCode = () => parseHash(window.location.hash).controlCode;
 export const serverTab = () => "overview" as const;
-export const serverControlCode = () => null;
 
 /** Go to a hash (`#controls`, `#controls/A.5.13`) as a new history entry, so Back returns to where the user was. */
 export function writeHash(hash: string) {

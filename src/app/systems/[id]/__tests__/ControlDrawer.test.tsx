@@ -822,3 +822,73 @@ describe("Control drawer: what the System inherits (#244)", () => {
     expect(fetchMock).toHaveBeenCalledWith("/api/systems/s1/assessments");
   });
 });
+
+describe("Control drawer after the page refreshes itself (#244)", () => {
+  // Next's router writes its own stored URL back on router.refresh(), dropping the Control from the hash.
+  const rewritesUrl = () => refresh.mockImplementation(() => window.history.replaceState(null, "", "/systems/s1#controls"));
+
+  async function closesWithEscape() {
+    await waitFor(() => expect(screen.getByRole("dialog")).toContainElement(document.activeElement as HTMLElement));
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(window.location.hash).toBe("#controls");
+  }
+
+  it("keeps the Control in the URL, focus inside, and closes on Escape after a save", async () => {
+    rewritesUrl();
+    stubApi([rowOf(control("A.1"), assessment("IN_PROGRESS"))], { handle: saveAs() });
+    const { drawer } = await renderDrawer("A.1");
+    fireEvent.change(drawer.getByLabelText("Status for A.1"), { target: { value: "FULFILLED" } });
+    await userEvent.click(drawer.getByRole("button", { name: "Save" }));
+    await drawer.findByRole("status");
+    expect(refresh).toHaveBeenCalled();
+    await waitFor(() => expect(window.location.hash).toBe("#controls/A.1"));
+    await closesWithEscape();
+  });
+
+  it("closes with ✕ after a save", async () => {
+    rewritesUrl();
+    stubApi([rowOf(control("A.1"), assessment("IN_PROGRESS"))], { handle: saveAs() });
+    const { drawer } = await renderDrawer("A.1");
+    await userEvent.click(drawer.getByRole("button", { name: "Save" }));
+    await drawer.findByRole("status");
+    await userEvent.click(drawer.getByRole("button", { name: "Close" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(window.location.hash).toBe("#controls");
+  });
+
+  it("closes after an answer", async () => {
+    rewritesUrl();
+    stubApi([rowOf(control("A.1", { question: "Is it encrypted?" }), null)], {
+      handle: (call) => (call.url.endsWith("/answer") ? json({ assessment: assessment("FULFILLED", { selfAssessmentAnswer: "YES" }) }) : undefined),
+    });
+    const { drawer } = await renderDrawer("A.1");
+    await userEvent.click(drawer.getByRole("button", { name: "Yes" }));
+    await drawer.findByText("Recorded answer: Yes");
+    await closesWithEscape();
+  });
+
+  it("closes after a question is raised", async () => {
+    rewritesUrl();
+    stubApi([rowOf(control("A.1"), assessment("IN_PROGRESS"))], { handle: (call) => (call.url.endsWith("/queries") ? json({ query: openQuery("qn", "Why?") }) : undefined) });
+    const { drawer } = await renderDrawer("A.1", { userRole: "ADMIN", currentUserId: "admin" });
+    await userEvent.click(drawer.getByRole("button", { name: "Ask a question" }));
+    await userEvent.type(drawer.getByLabelText("New question"), "Why?");
+    await userEvent.click(drawer.getByRole("button", { name: "Send" }));
+    await drawer.findByText("Why?", { selector: "p" });
+    await closesWithEscape();
+  });
+
+  it("closes after a reset to inherited", async () => {
+    rewritesUrl();
+    const sources = [organization("FULFILLED")];
+    stubApi([rowOf(control("A.1"), assessment("IN_PROGRESS"), sources)], {
+      handle: (call) => (call.url.endsWith("/reset") ? json(rowOf(control("A.1"), assessment("NOT_STARTED", { assessedById: null }), sources)) : undefined),
+    });
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    const { drawer } = await renderDrawer("A.1");
+    await userEvent.click(drawer.getByRole("button", { name: "Reset to inherited" }));
+    await drawer.findByText(/Source: Inherited from Organization/);
+    await closesWithEscape();
+  });
+});

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition, type CSSProperties } from "react";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { controlAssessmentStatusTone } from "@/lib/status-tones";
 import type { AssessmentEditAccess } from "@/lib/system-permissions";
@@ -25,7 +25,7 @@ import {
   type UserRole,
 } from "./controls-model";
 import { Stack } from "./Stack";
-import { currentControlCode, serverControlCode, subscribeToHash, writeHash } from "./system-hash";
+import { currentControlCode, subscribeToHash, writeHash } from "./system-hash";
 import { controlHash, controlIsDone } from "./system-page-logic";
 import { CONTROL_STATUS_ORDER, SOURCE_COLOR, STATUS_COLOR, STATUS_TEXT } from "./system-page-types";
 
@@ -102,7 +102,16 @@ export function SystemControls({
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
   const searchRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
-  const openCode = useSyncExternalStore(subscribeToHash, currentControlCode, serverControlCode);
+  // The open Control is state, read from the hash at the start and whenever it changes by an event (a link,
+  // Back, Forward), not read from the URL on every render: the router rewrites the URL on `router.refresh()`
+  // without an event, and the drawer must still close when asked to.
+  const [openCode, setOpenCode] = useState<string | null>(() => (typeof window === "undefined" ? null : currentControlCode()));
+  const [refreshing, startRefresh] = useTransition();
+  useEffect(() => subscribeToHash(() => setOpenCode(currentControlCode())), []);
+  // A refresh can drop the Control from the URL (Next writes its own stored URL back); put it back.
+  useEffect(() => {
+    if (openCode && !refreshing && currentControlCode() !== openCode) window.history.replaceState(window.history.state, "", `${window.location.pathname}${window.location.search}${controlHash(openCode)}`);
+  }, [openCode, refreshing]);
 
   useEffect(() => {
     let cancelled = false;
@@ -158,11 +167,17 @@ export function SystemControls({
     return stale ? { row: stale, stale: true } : null;
   }, [openCode, rows, staleRows]);
 
-  const closeDrawer = () => writeHash("#controls");
-  const openDrawer = (code: string) => writeHash(controlHash(code));
+  const closeDrawer = () => {
+    setOpenCode(null);
+    writeHash("#controls");
+  };
+  const openDrawer = (code: string) => {
+    setOpenCode(code);
+    writeHash(controlHash(code));
+  };
 
   /** After a change: the header and the Overview are read on the server, so read them again. */
-  const changed = () => router.refresh();
+  const changed = () => startRefresh(() => router.refresh());
 
   function updateRow(controlId: string, update: (row: AssessmentRow) => AssessmentRow, stale: boolean) {
     const apply = (list: AssessmentRow[]) => list.map((row) => (row.control.id === controlId ? update(row) : row));
