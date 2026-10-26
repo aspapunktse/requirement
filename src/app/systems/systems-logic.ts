@@ -1,6 +1,5 @@
 import type { ImpactLevel, UserRole } from "@prisma/client";
 import { csvFilename, toCsv } from "@/lib/csv";
-import { UNDER_FULFILLED_PERCENT } from "./systems-config";
 import {
   HIGHEST_IMPACT_LABEL,
   IMPACT_LABEL,
@@ -243,14 +242,14 @@ export const systemsCsvFilename = (scope: "register" | "selection", date: Date) 
 
 // The acting role's own saved view
 
-/** The roles with a view of their own; every other role gets "Under 70% met". */
+/** The roles with a view of their own; every other role gets "Under N% met" (N is an Admin setting). */
 const OWN_VIEW_ROLES: UserRole[] = ["SYSTEM_OWNER", "REVIEWER", "RISK_OWNER", "BUSINESS_RISK_OWNER"];
 
 /** Does this role's own view need the base-Framework fulfilment figures? */
 export const roleViewNeedsFulfilment = (role: UserRole) => !OWN_VIEW_ROLES.includes(role);
 
 /** The label of the acting role's own view, and whether a number above zero reads as something to do. */
-export function roleViewOf(role: UserRole): { label: string; warn: boolean } {
+export function roleViewOf(role: UserRole, underFulfilledPercent: number): { label: string; warn: boolean } {
   switch (role) {
     case "SYSTEM_OWNER":
       return { label: "Owned by me", warn: false };
@@ -261,6 +260,6 @@ export function roleViewOf(role: UserRole): { label: string; warn: boolean } {
     case "BUSINESS_RISK_OWNER":
       return { label: "In my scope", warn: false };
     default:
-      return { label: `Under ${UNDER_FULFILLED_PERCENT}% met`, warn: true };
+      return { label: `Under ${underFulfilledPercent}% met`, warn: true };
   }
 }

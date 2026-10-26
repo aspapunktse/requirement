@@ -12,11 +12,8 @@ export const SHOW_JUMP_PALETTE = true;
 /** The "Compact" toggle that tightens the table rows. */
 export const SHOW_COMPACT_TOGGLE = true;
 
-/** A Draft that has not changed for this many days needs attention. */
-export const STALE_DRAFT_DAYS = 60;
-
-/** The "Under 70% met" view (every role without a view of its own): base-Framework fulfilment below this. */
-export const UNDER_FULFILLED_PERCENT = 70;
+// The two thresholds (a stale Draft's age, the "Under N% met" percentage) are Admin settings, not constants:
+// see `src/lib/app-settings.ts` and `/admin/settings` (#240).
 
 /** Rows per page: the choices, and the one used until a choice is made. */
 export const PAGE_SIZES = [25, 50, 100] as const;

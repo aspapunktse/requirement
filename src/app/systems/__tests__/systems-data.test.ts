@@ -5,9 +5,11 @@ import { getComplianceForSystems } from "@/lib/compliance";
 import { cleanupFixtureRequirements, mapControlsToBase } from "@/test/framework-fixtures";
 import { utcDay } from "@/app/home/home-snapshots";
 import { weekEnds } from "@/app/home/home-trends";
-import { inRoleView, loadSystemsView, needsAttention } from "../systems-data";
-import { systemsStatKey } from "../systems-trends";
-import { viewCounts } from "../systems-logic";
+import type { Prisma } from "@prisma/client";
+import { DEFAULT_SYSTEMS_THRESHOLDS } from "@/lib/app-settings";
+import { inRoleView, loadSystemsView, needsAttention, readSystemRows } from "../systems-data";
+import { systemsSnapshotRows, systemsStatKey } from "../systems-trends";
+import { roleViewOf, viewCounts } from "../systems-logic";
 import type { SystemRow } from "../systems-types";
 
 /**
@@ -183,11 +185,11 @@ describe("Needs attention (decision 4a)", () => {
   it("measures a Draft's age from the read time: 60 days is not yet stale, 61 is", () => {
     const at = new Date("2026-10-25T12:00:00Z");
     const draft = (days: number) => ({ openQuestions: 0, status: "DRAFT" as const, updatedAt: new Date(at.getTime() - days * day).toISOString() });
-    expect(needsAttention(draft(60), at)).toBe(false);
-    expect(needsAttention(draft(61), at)).toBe(true);
-    expect(needsAttention({ ...draft(90), status: "IN_REVIEW" }, at)).toBe(false);
-    expect(needsAttention({ ...draft(1), openQuestions: 2 }, at)).toBe(true);
-    expect(needsAttention({ ...draft(1), status: "REJECTED" }, at)).toBe(true);
+    expect(needsAttention(draft(60), at, 60)).toBe(false);
+    expect(needsAttention(draft(61), at, 60)).toBe(true);
+    expect(needsAttention({ ...draft(90), status: "IN_REVIEW" }, at, 60)).toBe(false);
+    expect(needsAttention({ ...draft(1), openQuestions: 2 }, at, 60)).toBe(true);
+    expect(needsAttention({ ...draft(1), status: "REJECTED" }, at, 60)).toBe(true);
   });
 });
 
@@ -233,11 +235,11 @@ describe("the role view (decision 3a)", () => {
     const row = (met: number | null, applicable: number | null, status: SystemRow["status"] = "ONBOARDED") => ({ ownerId: "x", status, met, applicable });
     const facts = { openRisks: 0, inScope: false };
     const as = { id: "u", role: "ADMIN" as const };
-    expect(inRoleView(row(69, 100), as, facts)).toBe(true);
-    expect(inRoleView(row(70, 100), as, facts)).toBe(false);
-    expect(inRoleView(row(0, 5, "DRAFT"), as, facts)).toBe(false);
-    expect(inRoleView(row(null, null), as, facts)).toBe(false);
-    expect(inRoleView(row(0, 0), as, facts)).toBe(false);
+    expect(inRoleView(row(69, 100), as, facts, 70)).toBe(true);
+    expect(inRoleView(row(70, 100), as, facts, 70)).toBe(false);
+    expect(inRoleView(row(0, 5, "DRAFT"), as, facts, 70)).toBe(false);
+    expect(inRoleView(row(null, null), as, facts, 70)).toBe(false);
+    expect(inRoleView(row(0, 0), as, facts, 70)).toBe(false);
   });
 });
 
@@ -285,5 +287,86 @@ describe("trend lines from the daily snapshots (decision 2b)", () => {
     const withSnapshot = ((await rowsOf(reviewer)).view.trends.all as number[]);
     expect(withSnapshot[3]).toBe(987);
     expect(withSnapshot[2]).toBe(all[2]);
+  });
+});
+
+describe("the Admin-set thresholds (#240)", () => {
+  // A setting is global, so these tests never commit one: they write it inside a transaction that is rolled
+  // back, read the Systems on that same transaction (as the list and the snapshot job do), and leave nothing
+  // behind for the other test files running at the same time.
+  class Rollback extends Error {}
+  async function withSettings<T>(values: Record<string, number | null>, read: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
+    let result: T | undefined;
+    try {
+      await prisma.$transaction(
+        async (tx) => {
+          await tx.appSetting.deleteMany({});
+          for (const [key, value] of Object.entries(values)) {
+            if (value !== null) await tx.appSetting.create({ data: { key, value } });
+          }
+          result = await read(tx);
+          throw new Rollback();
+        },
+        { isolationLevel: "RepeatableRead" },
+      );
+    } catch (error) {
+      if (!(error instanceof Rollback)) throw error;
+    }
+    return result as T;
+  }
+  const read = (values: Record<string, number | null>, who: Fixture = manager) =>
+    withSettings(values, async (tx) => {
+      const result = await readSystemRows(tx, who, now);
+      return { ...result, byId: new Map(result.rows.map((r) => [r.id, r])) };
+    });
+
+  it("with no row saved, the thresholds are 60 days and 70% and the rows are as before", async () => {
+    const result = await read({});
+    expect(result.thresholds).toEqual({ staleDraftDays: 60, underFulfilledPercent: 70 });
+    expect(DEFAULT_SYSTEMS_THRESHOLDS).toEqual({ staleDraftDays: 60, underFulfilledPercent: 70 });
+    expect(result.byId.get(s1)?.needsAttention).toBe(true); // Draft, 90 days
+    expect(result.byId.get(s5)?.needsAttention).toBe(false);
+  });
+
+  it("a saved stale-Draft age changes Needs attention: 100 days spares the 90-day Draft, 30 flags it", async () => {
+    expect((await read({ "systems.staleDraftDays": 100 })).byId.get(s1)?.needsAttention).toBe(false);
+    const short = await read({ "systems.staleDraftDays": 30 });
+    expect(short.byId.get(s1)?.needsAttention).toBe(true);
+    expect(short.byId.get(s5)?.needsAttention).toBe(false); // fresh
+  });
+
+  it("a saved percentage changes the Under N% met view, and the counts the snapshot job stores", async () => {
+    const compliance = await getComplianceForSystems({ id: { in: [s2, s3, s4] } });
+    const share = new Map(compliance.bySystem.map((figure) => [figure.systemId, figure.percentage]));
+    for (const percent of [1, 100]) {
+      const result = await read({ "systems.underFulfilledPercent": percent });
+      expect(result.thresholds.underFulfilledPercent).toBe(percent);
+      for (const id of [s2, s3, s4]) {
+        const figure = share.get(id) ?? null;
+        expect(result.byId.get(id)?.inRoleView, `${id} at ${percent}%`).toBe(figure !== null && result.byId.get(id)?.status !== "DRAFT" && figure < percent);
+      }
+    }
+    // The rows the snapshot job counts follow the threshold: At 100% every measured, non-Draft System under full fulfilment counts.
+    const count = async (percent: number) => {
+      const result = await read({ "systems.underFulfilledPercent": percent });
+      return systemsSnapshotRows(result.rows).find((entry) => entry.statKey === systemsStatKey("mine"))?.value;
+    };
+    expect(await count(100)).toBeGreaterThanOrEqual((await count(1)) as number);
+  });
+
+  it("the label's N comes from the setting", async () => {
+    const label = await withSettings({ "systems.underFulfilledPercent": 85 }, async (tx) => {
+      const { thresholds } = await readSystemRows(tx, manager, now);
+      return roleViewOf(manager.role, thresholds.underFulfilledPercent).label;
+    });
+    expect(label).toBe("Under 85% met");
+  });
+
+  it("a saved value that no longer fits its range is ignored in favour of the default", async () => {
+    const result = await withSettings({}, async (tx) => {
+      await tx.appSetting.create({ data: { key: "systems.staleDraftDays", value: "soon" } });
+      return readSystemRows(tx, manager, now);
+    });
+    expect(result.thresholds.staleDraftDays).toBe(60);
   });
 });

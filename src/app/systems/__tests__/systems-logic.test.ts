@@ -37,11 +37,14 @@ describe("saved views", () => {
   });
 
   it("names the role views", () => {
-    expect(roleViewOf("SYSTEM_OWNER").label).toBe("Owned by me");
-    expect(roleViewOf("REVIEWER").label).toBe("Awaiting review");
-    expect(roleViewOf("RISK_OWNER").label).toBe("With open Risks");
-    expect(roleViewOf("BUSINESS_RISK_OWNER").label).toBe("In my scope");
-    for (const role of ["ADMIN", "COMPLIANCE_MANAGER", "INTERNAL_AUDITOR", "VIEWER"] as const) expect(roleViewOf(role).label).toBe("Under 70% met");
+    expect(roleViewOf("SYSTEM_OWNER", 70).label).toBe("Owned by me");
+    expect(roleViewOf("REVIEWER", 70).label).toBe("Awaiting review");
+    expect(roleViewOf("RISK_OWNER", 70).label).toBe("With open Risks");
+    expect(roleViewOf("BUSINESS_RISK_OWNER", 70).label).toBe("In my scope");
+    for (const role of ["ADMIN", "COMPLIANCE_MANAGER", "INTERNAL_AUDITOR", "VIEWER"] as const) expect(roleViewOf(role, 70).label).toBe("Under 70% met");
+    // N comes from the Admin setting, passed in by the server.
+    expect(roleViewOf("ADMIN", 85).label).toBe("Under 85% met");
+    expect(roleViewOf("REVIEWER", 85).label).toBe("Awaiting review");
     expect(roleViewNeedsFulfilment("ADMIN")).toBe(true);
     expect(roleViewNeedsFulfilment("REVIEWER")).toBe(false);
   });

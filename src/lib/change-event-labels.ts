@@ -28,6 +28,7 @@ export const CHANGE_EVENT_ACTION_LABEL: Record<ChangeEventAction, string> = {
   CHECK_UP_EVALUATED: "evaluated a Check-up",
   REVIEW_STEP_REOPENED: "reopened a Review Step",
   SYSTEM_OWNER_CHANGED: "changed a System's owner",
+  APP_SETTING_CHANGED: "changed a setting",
 };
 
 export type ChangeEventTone = "ok" | "warn" | "danger" | "accent";
@@ -53,4 +54,5 @@ export const CHANGE_EVENT_ACTION_TONE: Record<ChangeEventAction, ChangeEventTone
   CHECK_UP_EVALUATED: "warn",
   REVIEW_STEP_REOPENED: "warn",
   SYSTEM_OWNER_CHANGED: "accent",
+  APP_SETTING_CHANGED: "accent",
 };
