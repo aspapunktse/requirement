@@ -8,7 +8,7 @@ import type { SystemRow } from "../systems-types";
 import { row, view } from "./fixtures";
 
 const push = vi.fn();
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push, refresh: vi.fn() }) }));
 vi.mock("../systems-download", () => ({ downloadCsv: vi.fn() }));
 // A plain anchor: the real Link prefetches and updates state outside act() once per row.
 vi.mock("next/link", () => ({
@@ -362,12 +362,11 @@ describe("row selection and the bulk bar", () => {
     expect(checkbox("Select Jira")).not.toBeChecked();
   });
 
-  it("does not show Change owner or Add to Internal Audit, which come with #233 and #234", async () => {
+  it("does not show Add to Internal Audit, which comes with #234", async () => {
     renderRegister();
     await userEvent.click(checkbox("Select Jira"));
     const bar = screen.getByRole("region", { name: "Bulk actions" });
-    expect(within(bar).getAllByRole("button").map((b) => b.textContent)).toEqual(["Export CSV", "✕"]);
-    expect(screen.queryByText(/Change owner/)).not.toBeInTheDocument();
+    expect(within(bar).getAllByRole("button").map((b) => b.textContent)).toEqual(["Export CSV", "Change owner", "✕"]);
     expect(screen.queryByText(/Internal Audit/)).not.toBeInTheDocument();
   });
 
@@ -483,5 +482,41 @@ describe("Ctrl+K palette", () => {
     await userEvent.keyboard("{Control>}k{/Control}");
     fireEvent.keyDown(document.body, { key: "/" });
     expect(screen.getByRole("searchbox", { name: "Search Systems" })).not.toHaveFocus();
+  });
+});
+
+describe("bulk Change owner (#233)", () => {
+  const select = async (...names: string[]) => {
+    for (const name of names) await userEvent.click(within(rowOf(name)).getByRole("checkbox"));
+  };
+  const bulk = () => screen.queryByRole("region", { name: "Bulk actions" });
+
+  it("is offered when the acting user owns a selected System, and not otherwise", async () => {
+    renderRegister();
+    await select("Billing engine");
+    expect(within(bulk()!).queryByRole("button", { name: "Change owner" })).not.toBeInTheDocument();
+    await select("Jira");
+    expect(within(bulk()!).getByRole("button", { name: "Change owner" })).toBeInTheDocument();
+  });
+
+  it("is offered to an Admin for any selection, and never to a read-only role that owns a row", async () => {
+    const { unmount } = renderRegister({ role: "ADMIN", roleLabel: "Admin", userId: "u-admin" });
+    await select("Billing engine");
+    expect(within(bulk()!).getByRole("button", { name: "Change owner" })).toBeInTheDocument();
+    unmount();
+
+    renderRegister({ role: "COMPLIANCE_MANAGER", roleLabel: "Compliance Manager" });
+    await select("Jira");
+    expect(within(bulk()!).queryByRole("button", { name: "Change owner" })).not.toBeInTheDocument();
+  });
+
+  it("opens the picker flagging the Systems the user can't change", async () => {
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response(JSON.stringify({ users: [] }), { status: 200 }))));
+    renderRegister();
+    await select("Jira", "Billing engine");
+    await userEvent.click(within(bulk()!).getByRole("button", { name: "Change owner" }));
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByRole("alert")).toHaveTextContent(/can't change the owner of Billing engine/);
+    vi.unstubAllGlobals();
   });
 });

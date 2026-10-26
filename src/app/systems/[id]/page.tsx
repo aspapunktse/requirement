@@ -6,7 +6,7 @@ import { canMarkOnboarded } from "@/lib/onboarding";
 import { canChangeSystemClassification } from "@/lib/system-classification-change";
 import { canManageBusinessUnits } from "@/lib/business-units";
 import { canManageFrameworkScopes } from "@/lib/framework-scope";
-import { assessmentEditAccess, canSubmit } from "@/lib/system-permissions";
+import { assessmentEditAccess, canChangeOwner, canSubmit } from "@/lib/system-permissions";
 import { canManageProvider } from "@/lib/control-offering-rules";
 import { listControlOfferings, listOfferableControls } from "@/lib/control-offerings";
 import { canManageProviderDependencies } from "@/lib/provider-dependency-rules";
@@ -23,6 +23,7 @@ import { SystemProvider } from "@/components/SystemProvider";
 import { SystemProviderDependencies } from "@/components/SystemProviderDependencies";
 import { DeploymentFacetsChanger } from "@/components/DeploymentFacetsChanger";
 import { ImpactLevelsChanger } from "@/components/ImpactLevelsChanger";
+import { ChangeOwnerButton } from "@/components/ChangeOwnerButton";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { onboardingStatusTone } from "@/lib/status-tones";
 
@@ -64,6 +65,15 @@ export default async function SystemDetailPage({ params }: PageProps<"/systems/[
           {system.owner.name}
         </span>
       </p>
+
+      {canChangeOwner(user, system) && (
+        <div className="mb-4">
+          <ChangeOwnerButton
+            actor={{ id: user.id, role: user.role }}
+            system={{ id: system.id, name: system.name, ownerId: system.ownerId, ownerName: system.owner.name, canChange: true }}
+          />
+        </div>
+      )}
 
       <dl className="flex flex-col gap-2 text-sm">
         {system.vendor && (

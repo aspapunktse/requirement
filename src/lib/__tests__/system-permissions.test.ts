@@ -4,6 +4,8 @@ import {
   assessmentEditAccess,
   canAnswerSelfAssessment,
   canBeControlOwner,
+  canBeSystemOwner,
+  canChangeOwner,
   canCreateSystem,
   canEditAssessment,
   canSubmit,
@@ -258,6 +260,54 @@ describe("owner actions share one owner rule (#91)", () => {
         expect(can({ id: "a", role: "ADMIN" }, system), `ADMIN, ${status}`).toBe(true);
         expect(can({ id: "someone-else", role: "SYSTEM_OWNER" }, system), `non-owner, ${status}`).toBe(false);
       }
+    }
+  });
+});
+
+describe("changing a System's owner (#233)", () => {
+  it("lets the owner and an Admin change it, whatever the owner's role", () => {
+    expect(canChangeOwner({ id: "a", role: "SYSTEM_OWNER" }, { ownerId: "a" })).toBe(true);
+    expect(canChangeOwner({ id: "a", role: "RISK_OWNER" }, { ownerId: "a" })).toBe(true);
+    expect(canChangeOwner({ id: "x", role: "ADMIN" }, { ownerId: "a" })).toBe(true);
+  });
+
+  it("refuses everyone else, a read-only role recorded as the owner included", () => {
+    expect(canChangeOwner({ id: "b", role: "SYSTEM_OWNER" }, { ownerId: "a" })).toBe(false);
+    expect(canChangeOwner({ id: "b", role: "RISK_OWNER" }, { ownerId: "a" })).toBe(false);
+    expect(canChangeOwner({ id: "b", role: "REVIEWER" }, { ownerId: "a" })).toBe(false);
+    expect(canChangeOwner({ id: "b", role: "VIEWER" }, { ownerId: "a" })).toBe(false);
+    expect(canChangeOwner({ id: "a", role: "COMPLIANCE_MANAGER" }, { ownerId: "a" })).toBe(false);
+    expect(canChangeOwner({ id: "a", role: "INTERNAL_AUDITOR" }, { ownerId: "a" })).toBe(false);
+  });
+
+  it("lets only a user with a System-creating role become the owner", () => {
+    for (const role of ["SYSTEM_OWNER", "RISK_OWNER", "ADMIN"] as const) expect(canBeSystemOwner({ role }), role).toBe(true);
+    for (const role of ["REVIEWER", "VIEWER", "BUSINESS_RISK_OWNER", "COMPLIANCE_MANAGER", "INTERNAL_AUDITOR"] as const) {
+      expect(canBeSystemOwner({ role }), role).toBe(false);
+    }
+  });
+});
+
+describe("changing a System's owner (#233)", () => {
+  it("lets the owner and an Admin change it, whatever the owner's role", () => {
+    expect(canChangeOwner({ id: "a", role: "SYSTEM_OWNER" }, { ownerId: "a" })).toBe(true);
+    expect(canChangeOwner({ id: "a", role: "RISK_OWNER" }, { ownerId: "a" })).toBe(true);
+    expect(canChangeOwner({ id: "x", role: "ADMIN" }, { ownerId: "a" })).toBe(true);
+  });
+
+  it("refuses everyone else, a read-only role recorded as the owner included", () => {
+    expect(canChangeOwner({ id: "b", role: "SYSTEM_OWNER" }, { ownerId: "a" })).toBe(false);
+    expect(canChangeOwner({ id: "b", role: "RISK_OWNER" }, { ownerId: "a" })).toBe(false);
+    expect(canChangeOwner({ id: "b", role: "REVIEWER" }, { ownerId: "a" })).toBe(false);
+    expect(canChangeOwner({ id: "b", role: "VIEWER" }, { ownerId: "a" })).toBe(false);
+    expect(canChangeOwner({ id: "a", role: "COMPLIANCE_MANAGER" }, { ownerId: "a" })).toBe(false);
+    expect(canChangeOwner({ id: "a", role: "INTERNAL_AUDITOR" }, { ownerId: "a" })).toBe(false);
+  });
+
+  it("lets only a user with a System-creating role become the owner", () => {
+    for (const role of ["SYSTEM_OWNER", "RISK_OWNER", "ADMIN"] as const) expect(canBeSystemOwner({ role }), role).toBe(true);
+    for (const role of ["REVIEWER", "VIEWER", "BUSINESS_RISK_OWNER", "COMPLIANCE_MANAGER", "INTERNAL_AUDITOR"] as const) {
+      expect(canBeSystemOwner({ role }), role).toBe(false);
     }
   });
 });
