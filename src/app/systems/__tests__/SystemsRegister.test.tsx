@@ -362,12 +362,60 @@ describe("row selection and the bulk bar", () => {
     expect(checkbox("Select Jira")).not.toBeChecked();
   });
 
-  it("does not show Add to Internal Audit, which comes with #234", async () => {
+  it("shows Add to Internal Audit to an Internal Auditor only", async () => {
+    const { unmount } = renderRegister({ role: "INTERNAL_AUDITOR", roleLabel: "Internal Auditor" });
+    await userEvent.click(checkbox("Select Jira"));
+    const bar = screen.getByRole("region", { name: "Bulk actions" });
+    expect(within(bar).getAllByRole("button").map((b) => b.textContent)).toContain("Add to Internal Audit");
+    unmount();
+
+    for (const role of ["ADMIN", "COMPLIANCE_MANAGER", "SYSTEM_OWNER", "REVIEWER", "VIEWER"] as const) {
+      const { unmount: next } = renderRegister({ role });
+      await userEvent.click(checkbox("Select Jira"));
+      expect(screen.queryByRole("button", { name: "Add to Internal Audit" }), role).not.toBeInTheDocument();
+      next();
+    }
+  });
+
+  it("lists the bar's buttons for a System Owner: no Add to Internal Audit", async () => {
     renderRegister();
     await userEvent.click(checkbox("Select Jira"));
     const bar = screen.getByRole("region", { name: "Bulk actions" });
     expect(within(bar).getAllByRole("button").map((b) => b.textContent)).toEqual(["Export CSV", "Change owner", "✕"]);
-    expect(screen.queryByText(/Internal Audit/)).not.toBeInTheDocument();
+  });
+
+  it("opens the Add to Internal Audit dialog with the selected Systems and clears the selection when it is done", async () => {
+    const fetchMock = vi.fn<(input: string | URL | Request, init?: RequestInit) => Promise<Response>>((input) =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify(
+            String(input) === "/api/internal-audits"
+              ? { internalAudits: [{ id: "a1", title: "Access review", dueDate: "2026-12-01", status: "DRAFT", systemCount: 0 }] }
+              : { added: 2, skipped: 0 },
+          ),
+        ),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      renderRegister({ role: "INTERNAL_AUDITOR", roleLabel: "Internal Auditor" });
+      await userEvent.click(checkbox("Select Jira"));
+      await userEvent.click(checkbox("Select Okta"));
+      await userEvent.click(screen.getByRole("button", { name: "Add to Internal Audit" }));
+
+      const dialog = screen.getByRole("dialog", { name: "Add to Internal Audit" });
+      expect(dialog).toHaveTextContent("Jira, Okta");
+      await userEvent.click(await within(dialog).findByRole("radio", { name: /Access review/ }));
+      await userEvent.click(within(dialog).getByRole("button", { name: "Add to audit" }));
+      await userEvent.click(await within(dialog).findByRole("button", { name: "Done" }));
+
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      expect(screen.queryByRole("region", { name: "Bulk actions" })).not.toBeInTheDocument();
+      const post = fetchMock.mock.calls.find(([url]) => url === "/api/internal-audits/a1/systems")!;
+      expect(JSON.parse(post[1]!.body as string).systemIds.sort()).toEqual(["s-jira", "s-okta"]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it("selects and clears every row on the page, with an indeterminate state in between", async () => {
