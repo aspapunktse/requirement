@@ -10,10 +10,13 @@ import type { SystemRow } from "./systems-types";
  * "Change owner" (#233) needs a dialog, so it is not an entry here: `SystemsRegister` renders its button
  * (shown when `canChangeAnyOwner` holds for the selection) and the dialog; the server checks the right again.
  *
- * EXTENSION POINT: "Add to Internal Audit" (#234) is added here as a further entry. An entry that needs a
- * dialog or a call to the server renders it from `SystemsRegister` (the bar passes the selected rows and a
- * way to clear the selection); it must check the acting user's right on the server, as the list itself
- * only shows rows. Its button is not shown until that issue lands.
+ * "Add to Internal Audit" (#234) likewise renders from `SystemsRegister`: a button shown to an Internal Auditor
+ * only (`canWriteInternalAudits`) that opens `AddToInternalAuditDialog`; the server checks the role again.
+ *
+ * EXTENSION POINT: a further action that is a plain function of the selected rows is added here as an entry.
+ * One that needs a dialog or a call to the server renders it from `SystemsRegister` (the bar passes the
+ * selected rows and a way to clear the selection); it must check the acting user's right on the server, as
+ * the list itself only shows rows.
  */
 export type BulkAction = {
   key: string;

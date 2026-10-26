@@ -323,6 +323,9 @@ export async function createInternalAudit(input: InternalAuditInput, createdById
  */
 export async function updateInternalAudit(id: string, input: InternalAuditInput, now = new Date()) {
   await prisma.$transaction(async (tx) => {
+    // The row lock comes first, so the `current` read below can't be stale against a concurrent
+    // `addSystemsToInternalAudit`, whose added Systems this replace would otherwise delete.
+    await lockInternalAudit(tx, id);
     const current = await tx.internalAudit.findUnique({
       where: { id },
       include: { controls: { select: { controlId: true } }, systems: { select: { systemId: true } } },
@@ -366,6 +369,38 @@ export async function updateInternalAudit(id: string, input: InternalAuditInput,
     await tx.internalAuditSystem.createMany({
       data: draft.systemIds.filter((systemId) => !keptSystems.has(systemId)).map((systemId) => ({ internalAuditId: id, systemId })),
     });
+  });
+}
+
+/** Takes the audit's row lock until the transaction ends, so writes to one audit's Systems run one after the other. */
+async function lockInternalAudit(tx: Prisma.TransactionClient, id: string) {
+  await tx.$queryRaw`SELECT id FROM "InternalAudit" WHERE id = ${id} FOR UPDATE`;
+}
+
+/**
+ * Adds `systemIds` to draft `id`'s Systems, keeping the ones it already has (#234; the Systems list's
+ * bulk "Add to Internal Audit"). Returns how many were added and how many were already in it. 404 if
+ * there is no such audit, 409 if it isn't a draft, 400 if a System doesn't exist. The audit's row is
+ * locked first, so an add never races a concurrent replace (`updateInternalAudit`) of the System set.
+ */
+export async function addSystemsToInternalAudit(id: string, systemIds: string[]) {
+  const wanted = unique(systemIds);
+  return prisma.$transaction(async (tx) => {
+    await lockInternalAudit(tx, id);
+    const current = await tx.internalAudit.findUnique({ where: { id }, select: { status: true } });
+    if (!current) throw new InternalAuditError(404, "Internal Audit not found");
+    const refusal = internalAuditEditRefusal(current.status);
+    if (refusal) throw new InternalAuditError(409, refusal);
+    // Writing the row (not only locking it) makes a launch whose snapshot predates this add fail with a
+    // serialization conflict (P2034, answered 409) instead of launching without the new Systems.
+    const touched = await tx.internalAudit.updateMany({ where: { id, status: "DRAFT" }, data: { updatedAt: new Date() } });
+    if (touched.count === 0) throw new InternalAuditError(409, "Only a draft Internal Audit can be edited");
+    await requireExisting(tx, [], wanted);
+    const { count } = await tx.internalAuditSystem.createMany({
+      data: wanted.map((systemId) => ({ internalAuditId: id, systemId })),
+      skipDuplicates: true,
+    });
+    return { added: count, skipped: wanted.length - count };
   });
 }
 
