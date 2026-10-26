@@ -41,10 +41,15 @@ export async function canDecideStep(
  * Reviewers for the base step, but never the System's owner: the owner sees only the group
  * (CONTEXT.md, "A step decides as its group"). Return a function so the viewer's groups load once.
  */
-export async function deciderVisibilityFor(viewer: { id: string; role: UserRole }, systemOwnerId: string) {
+export async function deciderVisibilityFor(
+  viewer: { id: string; role: UserRole },
+  systemOwnerId: string,
+  // Pass a transaction client to read the viewer's groups in the caller's snapshot.
+  db: Pick<typeof prisma, "reviewGroup"> = prisma,
+) {
   const always = viewer.role === "ADMIN" || viewer.role === "INTERNAL_AUDITOR" || viewer.role === "COMPLIANCE_MANAGER";
   const isOwner = viewer.id === systemOwnerId;
-  const groups = always || isOwner ? new Set<string>() : new Set(await memberGroupIds(viewer.id));
+  const groups = always || isOwner ? new Set<string>() : new Set(await memberGroupIds(viewer.id, db));
   return (approval: { reviewGroupId: string | null }): boolean => {
     if (always) return true;
     if (isOwner) return false;

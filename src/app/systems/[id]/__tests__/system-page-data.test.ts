@@ -9,6 +9,7 @@ import { cleanupFixtureRequirements, createFixtureFramework, mapControlsToBase, 
 import { GET as getApprovals, POST as postApproval } from "@/app/api/systems/[id]/approvals/route";
 import { POST as postSubmit } from "@/app/api/systems/[id]/submit/route";
 import { POST as postOnboard } from "@/app/api/systems/[id]/onboard/route";
+import { getUnaddressedMandatoryControls } from "@/lib/control-assessments";
 import { loadSystemPage } from "../system-page-data";
 import { SOURCE_KEYS, type SourceKey } from "../system-page-types";
 
@@ -45,7 +46,7 @@ let f1Id: string, f2Id: string, unitId: string, groupId: string, groupName: stri
 let frameworkId: string, frameworkLabel: string;
 const controlIds: Record<string, string> = {};
 const systemIds: string[] = [];
-let s: string, baseline: string, inReview: string, providerId: string;
+let activityId: string, s: string, baseline: string, inReview: string, providerId: string;
 
 const makeControl = async (key: string, over: Record<string, unknown> = {}) => {
   const control = await prisma.control.create({
@@ -155,6 +156,24 @@ beforeAll(async () => {
     { systemId: null, action: "FRAMEWORK_PUBLISHED" as const, detail: "Test #243 no system", actorId: owner.id },
   ];
   for (const [index, event] of events.entries()) await prisma.changeEvent.create({ data: { ...event, createdAt: new Date(base + index * 1000) } });
+
+  // A System of its own for the attributed events, newest last: a Query raised by a Reviewer, a reply by a
+  // Review Group member, and two Approval decisions (the base step's by the Reviewer, the group's by the member).
+  activityId = await makeSystem("Q", owner.id, { status: "APPROVED", frameworkScopes: { connect: { id: frameworkId } } });
+  const round = await prisma.reviewRound.create({ data: { systemId: activityId } });
+  const at = Date.now() - 60_000;
+  await prisma.approval.createMany({
+    data: [
+      { systemId: activityId, reviewRoundId: round.id, reviewGroupId: null, approverId: reviewer.id, decision: "APPROVED", comment: "c", decidedAt: new Date(at + 2000) },
+      { systemId: activityId, reviewRoundId: round.id, reviewGroupId: groupId, approverId: member.id, decision: "APPROVED", comment: "c", decidedAt: new Date(at + 3000) },
+    ],
+  });
+  for (const [index, event] of [
+    { action: "QUERY_OPENED" as const, detail: 'Query raised: "Test #243 q"', actorId: reviewer.id },
+    { action: "QUERY_REPLIED" as const, detail: 'Reply: "Test #243 r"', actorId: member.id },
+    { action: "APPROVAL_DECIDED" as const, detail: "Base review: Approved: c", actorId: reviewer.id },
+    { action: "APPROVAL_DECIDED" as const, detail: `${groupName}: Approved: c`, actorId: member.id },
+  ].entries()) await prisma.changeEvent.create({ data: { systemId: activityId, ...event, createdAt: new Date(at + index * 1000) } });
 
   inReview = await makeSystem("R", owner.id, {
     status: "IN_REVIEW",
@@ -305,6 +324,23 @@ describe("Recent activity", () => {
     expect(asAdmin.map((item) => item.who)).toEqual([owner.name, other.name, "The system", reviewer.name]);
   });
 
+  it("shows the System's owner no person behind a Query action or an Approval decision, only the step or 'A reviewer'", async () => {
+    const who = (await pageFor(owner, activityId))!.view.activity.map((item) => item.who);
+    expect(who).toEqual([groupName, "Base review", "A reviewer", "A reviewer"]);
+    expect(who.join("|")).not.toContain(reviewer.name);
+    expect(who.join("|")).not.toContain(member.name);
+  });
+
+  it("shows an Admin everyone by name", async () => {
+    expect((await pageFor(admin, activityId))!.view.activity.map((item) => item.who)).toEqual([member.name, reviewer.name, member.name, reviewer.name]);
+  });
+
+  it("follows the Approval history's rule: a Reviewer sees the base step's decider, a group's member sees the group's", async () => {
+    // Query actions stay unattributed for them (they can't be tied back to a message), so 'A reviewer'.
+    expect((await pageFor(reviewer, activityId))!.view.activity.map((item) => item.who)).toEqual([groupName, "You", "A reviewer", "You"]);
+    expect((await pageFor(member, activityId))!.view.activity.map((item) => item.who)).toEqual(["You", "Base review", "You", "A reviewer"]);
+  });
+
   it("gives every event a phrase", async () => {
     for (const item of (await mine()).activity) expect(item.what).not.toMatch(/^[A-Z_]+$/);
   });
@@ -328,6 +364,24 @@ describe("the next step per role (never an action the API would refuse)", () => 
       const offered = (await steps(u, id)) === "submit";
       const response = await postSubmit(requestAs(u.id, id, "submit"), ctxFor(id));
       expect(response.status === 403, `${u.role} ${response.status}`).toBe(!offered);
+    }
+  });
+
+  it("blocks Submit for review by exactly the submit route's own check", async () => {
+    const withFacet = (await prisma.system.findUniqueOrThrow({ where: { id: s }, include: { deploymentFacets: true, frameworkScopes: { select: { id: true } } } }));
+    const unaddressed = await getUnaddressedMandatoryControls(withFacet);
+    expect(unaddressed.map((control) => control.code)).toContain(`${CODE}-B`);
+    const view = await mine();
+    expect(view.nextStep).toEqual({ kind: "submit", blockedBy: unaddressed.length });
+    // The route refuses (400) while any is left, and accepts once none is: here, a System with no Facet,
+    // blocked only by whatever unscoped mandatory Controls the database holds (none on an unseeded one).
+    const plain = await makeSystem("plain", owner.id);
+    const plainView = (await pageFor(owner, plain))!.view;
+    expect(plainView.nextStep.kind).toBe("submit");
+    const blockedBy = plainView.nextStep.kind === "submit" ? plainView.nextStep.blockedBy : -1;
+    for (const [id, blocked] of [[s, unaddressed.length], [plain, blockedBy]] as const) {
+      const response = await postSubmit(requestAs(owner.id, id, "submit"), ctxFor(id));
+      expect(response.status, id).toBe(blocked === 0 ? 200 : 400);
     }
   });
 

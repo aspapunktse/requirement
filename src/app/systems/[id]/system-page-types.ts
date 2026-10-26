@@ -37,7 +37,7 @@ export type DecisionStep = { reviewGroupId: string | null; name: string };
 
 /** The one action that comes next for the acting user (decision 2a on #243). */
 export type NextStep =
-  | { kind: "submit" }
+  | { kind: "submit"; blockedBy: number }
   | { kind: "decide"; steps: DecisionStep[] }
   | { kind: "onboard" }
   | { kind: "none" };

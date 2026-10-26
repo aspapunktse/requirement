@@ -11,7 +11,8 @@ const GROUP: DecisionStep = { reviewGroupId: "g1", name: "GDPR Review Group" };
 
 describe("nextStepFor: the one action in the header (decision 2a on #243)", () => {
   it("offers Submit for review only on a Draft, and only to someone who may submit", () => {
-    expect(nextStepFor({ status: "DRAFT", canSubmit: true, canMarkOnboarded: true, decidableSteps: [BASE] })).toEqual({ kind: "submit" });
+    expect(nextStepFor({ status: "DRAFT", canSubmit: true, canMarkOnboarded: true, decidableSteps: [BASE] })).toEqual({ kind: "submit", blockedBy: 0 });
+    expect(nextStepFor({ status: "DRAFT", canSubmit: true, canMarkOnboarded: true, decidableSteps: [], unaddressedMandatory: 3 })).toEqual({ kind: "submit", blockedBy: 3 });
     expect(nextStepFor({ status: "DRAFT", canSubmit: false, canMarkOnboarded: true, decidableSteps: [BASE] })).toEqual({ kind: "none" });
   });
 

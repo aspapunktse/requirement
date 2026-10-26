@@ -326,8 +326,12 @@ export async function getStaleAssessments(system: SystemClassification & { id: s
  * untouched Both Control the Organization has Fulfilled does too (#121); a
  * person-set Not Started Assessment still does not.
  */
-export async function getUnaddressedMandatoryControls(system: SystemClassification & { id: string }) {
-  const candidates = await prisma.control.findMany({
+export async function getUnaddressedMandatoryControls(
+  system: SystemClassification & { id: string },
+  // Pass a transaction client to read in the caller's snapshot (the System page does); the route uses the shared client.
+  client: Pick<Prisma.TransactionClient, "control" | "controlAssessment" | "organizationControlImplementation" | "providerDependency" | "controlOffering"> = prisma,
+) {
+  const candidates = await client.control.findMany({
     where: {
       mandatory: true,
       applicability: { in: [...APPLICABLE_APPLICABILITIES] },
@@ -337,14 +341,13 @@ export async function getUnaddressedMandatoryControls(system: SystemClassificati
   const mandatoryControls = candidates.filter((control) => meetsAllImpactThresholds(system, control));
   if (mandatoryControls.length === 0) return [];
 
-  const [assessments, organizationStatuses, providerSources] = await Promise.all([
-    prisma.controlAssessment.findMany({
-      where: { systemId: system.id, controlId: { in: mandatoryControls.map((r) => r.id) } },
-      select: { controlId: true, status: true, assessedById: true },
-    }),
-    loadOrganizationStatuses(mandatoryControls.filter((r) => r.applicability === "BOTH").map((r) => r.id)),
-    loadProviderSources([system.id], mandatoryControls.map((r) => r.id)),
-  ]);
+  // Sequential: a transaction has one connection.
+  const assessments = await client.controlAssessment.findMany({
+    where: { systemId: system.id, controlId: { in: mandatoryControls.map((r) => r.id) } },
+    select: { controlId: true, status: true, assessedById: true },
+  });
+  const organizationStatuses = await loadOrganizationStatuses(mandatoryControls.filter((r) => r.applicability === "BOTH").map((r) => r.id), client);
+  const providerSources = await loadProviderSources([system.id], mandatoryControls.map((r) => r.id), client);
   const assessmentByControlId = new Map(assessments.map((a) => [a.controlId, a]));
   const providerSourcesByControlId = providerSources.get(system.id);
 

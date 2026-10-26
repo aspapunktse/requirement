@@ -168,3 +168,4 @@
   .sc-attn li { grid-template-columns: auto minmax(0, 1fr); }
   .sc-attn li .hc-btn { grid-column: 2; justify-self: start; }
 }
+.sc-hint-link { text-decoration: underline; }

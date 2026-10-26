@@ -1,13 +1,13 @@
 import type { ControlAssessmentStatus, Prisma, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { visibleSystemsWhere } from "@/lib/system-visibility";
-import { getApplicableControls } from "@/lib/control-assessments";
+import { getApplicableControls, getUnaddressedMandatoryControls } from "@/lib/control-assessments";
 import { inheritanceSourcesFor, resolveEffectiveStatus } from "@/lib/effective-status";
 import { loadOrganizationStatuses, loadProviderSources, toOwnAssessment } from "@/lib/effective-status-data";
 import { getSystemFrameworkRequirements, type SystemFrameworkRequirements } from "@/lib/requirement-status";
 import { getSystemFrameworkScopes } from "@/lib/framework-scope";
 import { getActionableQueriesForSystem } from "@/lib/assessment-queries";
-import { memberGroupIds, userCanDecideStep } from "@/lib/approvals";
+import { deciderVisibilityFor, memberGroupIds, userCanDecideStep } from "@/lib/approvals";
 import { readCurrentSteps } from "@/lib/review-steps";
 import { SYSTEM_ACTOR } from "@/lib/change-events";
 import { CHANGE_EVENT_ACTION_LABEL, CHANGE_EVENT_ACTION_TONE } from "@/lib/change-event-labels";
@@ -43,8 +43,11 @@ const SYSTEM_INCLUDE = {
 /** The newest Change Events shown in the Recent activity tile. */
 export const ACTIVITY_TILE_SIZE = 4;
 
-/** Roles that see who decided a Review Step whatever the step (CONTEXT.md, "A step decides as its group"). */
-const DECIDER_ALWAYS_VISIBLE: UserRole[] = ["ADMIN", "INTERNAL_AUDITOR", "COMPLIANCE_MANAGER"];
+/** Roles that see the person behind any attributed action (CONTEXT.md, "A step decides as its group"). */
+const ALWAYS_SEES_PEOPLE: UserRole[] = ["ADMIN", "INTERNAL_AUDITOR", "COMPLIANCE_MANAGER"];
+const QUERY_ACTIONS = ["QUERY_OPENED", "QUERY_REPLIED", "QUERY_RESOLVED"];
+/** How close an Approval's decision time and its Change Event are (they are written in one transaction). */
+const SAME_DECISION_MS = 60_000;
 
 type User = { id: string; role: UserRole; name: string };
 
@@ -92,6 +95,8 @@ export async function loadSystemPage(user: User, id: string, now = new Date()): 
         return { control, status: effective.status, source: sourceKeyOf(effective.source) };
       });
 
+      // Only a Draft can be submitted; the count is the route's own gate.
+      const unaddressedMandatory = system.status === "DRAFT" ? (await getUnaddressedMandatoryControls(system, tx)).length : 0;
       const queries = await getActionableQueriesForSystem(user, system.id, tx);
       const risks = await tx.risk.findMany({
         where: { systemId: system.id },
@@ -134,18 +139,41 @@ export async function loadSystemPage(user: User, id: string, now = new Date()): 
       const nameOf = new Map(people.map((person) => [person.id, person.name]));
       nameOf.set(user.id, user.name);
 
-      const activity = events.map((event): ActivityItem => {
-        // A step decides as its group: only some roles see the person behind an Approval decision.
-        const decider = event.action === "APPROVAL_DECIDED" && event.actorId !== SYSTEM_ACTOR && event.actorId !== user.id && !DECIDER_ALWAYS_VISIBLE.includes(user.role);
-        return {
+      // Approval decisions and Query actions are attributed to a step or a group, and only some viewers
+      // see the person (CONTEXT.md, "A step decides as its group"). An Approval event is tied back to its
+      // Approval (same System, same person, decided within a minute) and judged by `deciderVisibilityFor`,
+      // the rule the Approval history uses. A Query event carries no attribution, so it can't be tied
+      // back to its message: only the roles that always see people, and the System's owner for an owner's
+      // own (named) action, see a name; everyone else sees "A reviewer".
+      const canSeeDecider = await deciderVisibilityFor(user, system.ownerId, tx);
+      const decisionActors = [...new Set(events.filter((event) => event.action === "APPROVAL_DECIDED").map((event) => event.actorId))].filter((actor) => actor !== SYSTEM_ACTOR);
+      const approvals = decisionActors.length === 0 ? [] : await tx.approval.findMany({ where: { systemId: system.id, approverId: { in: decisionActors } }, select: { approverId: true, reviewGroupId: true, decidedAt: true } });
+      const personFor = (event: (typeof events)[number]): string => {
+        if (event.actorId === user.id) return "You";
+        if (event.actorId === SYSTEM_ACTOR) return "The system";
+        const named = nameOf.get(event.actorId) ?? "Someone";
+        if (event.action === "APPROVAL_DECIDED") {
+          const approval = approvals
+            .filter((candidate) => candidate.approverId === event.actorId && Math.abs(candidate.decidedAt.getTime() - event.createdAt.getTime()) <= SAME_DECISION_MS)
+            .sort((a, b) => Math.abs(a.decidedAt.getTime() - event.createdAt.getTime()) - Math.abs(b.decidedAt.getTime() - event.createdAt.getTime()))[0];
+          const seen = approval ? canSeeDecider(approval) : ALWAYS_SEES_PEOPLE.includes(user.role);
+          return seen ? named : event.detail.split(": ")[0];
+        }
+        if (QUERY_ACTIONS.includes(event.action)) {
+          return ALWAYS_SEES_PEOPLE.includes(user.role) || event.actorId === system.ownerId ? named : "A reviewer";
+        }
+        return named;
+      };
+      const activity = events.map(
+        (event): ActivityItem => ({
           id: event.id,
-          who: event.actorId === user.id ? "You" : event.actorId === SYSTEM_ACTOR ? "The system" : decider ? event.detail.split(": ")[0] : (nameOf.get(event.actorId) ?? "Someone"),
+          who: personFor(event),
           what: CHANGE_EVENT_ACTION_LABEL[event.action],
           detail: event.detail,
           tone: CHANGE_EVENT_ACTION_TONE[event.action],
           at: event.createdAt.toISOString(),
-        };
-      });
+        }),
+      );
 
       const frameworks = frameworkRequirements.map(
         (entry): FrameworkSummary => ({
@@ -208,6 +236,7 @@ export async function loadSystemPage(user: User, id: string, now = new Date()): 
           canSubmit: canSubmit(user, system),
           canMarkOnboarded: canMarkOnboarded(user, system),
           decidableSteps,
+          unaddressedMandatory,
         }),
         canChangeOwner: canChangeOwner(user, system),
         headline: {

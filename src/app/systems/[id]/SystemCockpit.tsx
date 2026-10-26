@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { ChangeOwnerDialog } from "@/components/ChangeOwnerDialog";
 import { compliancePercentage, formatCompliancePercentage } from "@/lib/requirement-status-rules";
@@ -131,6 +131,8 @@ export function SystemCockpit({ view, panels }: { view: SystemPageView; panels: 
   const [deciding, setDeciding] = useState<"APPROVED" | "REJECTED" | null>(null);
   const [changingOwner, setChangingOwner] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  // Bumped after a header action, so the mounted (but hidden) Approval panel is read again.
+  const [approvalVersion, setApprovalVersion] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const tabsRef = useRef<HTMLDivElement>(null);
@@ -206,6 +208,7 @@ export function SystemCockpit({ view, panels }: { view: SystemPageView; panels: 
         setError(body.error ?? failure);
         return;
       }
+      setApprovalVersion((version) => version + 1);
       router.refresh();
     } catch {
       setError(failure);
@@ -288,9 +291,22 @@ export function SystemCockpit({ view, panels }: { view: SystemPageView; panels: 
           </div>
           <div className="sc-actions">
             {next.kind === "submit" && (
-              <button type="button" className="hc-btn primary" disabled={busy} onClick={() => post("submit", "Failed to submit for review")}>
-                Submit for review
-              </button>
+              <>
+                <button
+                  type="button"
+                  className="hc-btn primary"
+                  disabled={busy || next.blockedBy > 0}
+                  aria-describedby={next.blockedBy > 0 ? "sc-submit-hint" : undefined}
+                  onClick={() => post("submit", "Failed to submit for review")}
+                >
+                  Submit for review
+                </button>
+                {next.blockedBy > 0 && (
+                  <button type="button" id="sc-submit-hint" className="sc-link sc-hint-link" onClick={() => goTab("controls", { scroll: true })}>
+                    {next.blockedBy} mandatory {next.blockedBy === 1 ? "Control" : "Controls"} not addressed
+                  </button>
+                )}
+              </>
             )}
             {next.kind === "decide" && (
               <>
@@ -654,7 +670,7 @@ export function SystemCockpit({ view, panels }: { view: SystemPageView; panels: 
       {(Object.keys(panels) as Exclude<TabKey, "overview">[]).map((key) => (
         <section key={key} id={`sc-panel-${key}`} role="tabpanel" aria-labelledby={`sc-tab-${key}`} hidden={tab !== key} className="sc-panel">
           <div className="hc-card">
-            <div className="hc-card-b sc-section">{panels[key]}</div>
+            <div className="hc-card-b sc-section">{key === "activity" ? <Fragment key={approvalVersion}>{panels[key]}</Fragment> : panels[key]}</div>
           </div>
         </section>
       ))}
@@ -668,6 +684,7 @@ export function SystemCockpit({ view, panels }: { view: SystemPageView; panels: 
           onClose={() => setDeciding(null)}
           onDone={() => {
             setDeciding(null);
+            setApprovalVersion((version) => version + 1);
             router.refresh();
           }}
         />

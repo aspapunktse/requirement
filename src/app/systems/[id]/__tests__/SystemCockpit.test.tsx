@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -51,7 +52,7 @@ const view = (over: Partial<SystemPageView> = {}): SystemPageView => ({
     onboardedAt: null,
   },
   note: "Not submitted yet · Marcus Lindqvist is still assembling the System",
-  nextStep: { kind: "submit" },
+  nextStep: { kind: "submit", blockedBy: 0 },
   canChangeOwner: true,
   headline: { baseFramework: "ISO/IEC 27001:2022", met: 5, applicable: 8, controlsDone: 6, controlsTotal: 9, openRisks: 2 },
   frameworks: [
@@ -133,6 +134,22 @@ describe("header (#243)", () => {
     await userEvent.click(screen.getByRole("button", { name: "Submit for review" }));
     expect(fetch).toHaveBeenCalledWith("/api/systems/s1/submit", { method: "POST" });
     await waitFor(() => expect(refresh).toHaveBeenCalled());
+  });
+
+  it("disables Submit for review while mandatory Controls are not addressed, with a hint that opens the Controls tab", async () => {
+    renderCockpit({ nextStep: { kind: "submit", blockedBy: 41 } });
+    const submit = screen.getByRole("button", { name: "Submit for review" });
+    expect(submit).toBeDisabled();
+    expect(submit).toHaveAccessibleDescription("41 mandatory Controls not addressed");
+    await userEvent.click(submit);
+    expect(fetch).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole("button", { name: "41 mandatory Controls not addressed" }));
+    expect(window.location.hash).toBe("#controls");
+  });
+
+  it("says 'Control' for a single one", () => {
+    renderCockpit({ nextStep: { kind: "submit", blockedBy: 1 } });
+    expect(screen.getByText("1 mandatory Control not addressed")).toBeInTheDocument();
   });
 
   it("shows the API's refusal and does not refresh", async () => {
@@ -225,6 +242,39 @@ describe("header (#243)", () => {
     await userEvent.selectOptions(await screen.findByRole("combobox", { name: "New owner" }), "u-risk");
     await userEvent.click(screen.getByRole("button", { name: "Save owner" }));
     await waitFor(() => expect(push).toHaveBeenCalledWith("/systems"));
+  });
+});
+
+describe("the Approval panel after a header action (#243)", () => {
+  // A stand-in that reads once on mount, as the real panel does.
+  const mounts = vi.fn();
+  function Probe() {
+    useEffect(() => {
+      mounts();
+    }, []);
+    return <p>Approval history</p>;
+  }
+  const withProbe = (over: Partial<SystemPageView>) => render(<SystemCockpit view={view(over)} panels={{ ...PANELS, activity: <Probe /> }} />);
+  afterEach(() => mounts.mockClear());
+
+  it("is read again after a decision made in the header", async () => {
+    withProbe({ system: { ...view().system, status: "IN_REVIEW" }, nextStep: { kind: "decide", steps: [{ reviewGroupId: null, name: "Base review" }] } });
+    expect(mounts).toHaveBeenCalledTimes(1);
+    await userEvent.click(screen.getByRole("button", { name: "Approve…" }));
+    await userEvent.type(screen.getByRole("textbox", { name: "Comment" }), "ok");
+    await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Approve" }));
+    await waitFor(() => expect(mounts).toHaveBeenCalledTimes(2));
+  });
+
+  it("is read again after Submit for review, and not after a refused one", async () => {
+    vi.stubGlobal("fetch", vi.fn(() => json({ error: "no" }, 400)));
+    withProbe({});
+    await userEvent.click(screen.getByRole("button", { name: "Submit for review" }));
+    await screen.findByRole("alert");
+    expect(mounts).toHaveBeenCalledTimes(1);
+    vi.stubGlobal("fetch", vi.fn(() => json({})));
+    await userEvent.click(screen.getByRole("button", { name: "Submit for review" }));
+    await waitFor(() => expect(mounts).toHaveBeenCalledTimes(2));
   });
 });
 
