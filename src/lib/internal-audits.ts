@@ -391,6 +391,10 @@ export async function addSystemsToInternalAudit(id: string, systemIds: string[])
     if (!current) throw new InternalAuditError(404, "Internal Audit not found");
     const refusal = internalAuditEditRefusal(current.status);
     if (refusal) throw new InternalAuditError(409, refusal);
+    // Writing the row (not only locking it) makes a launch whose snapshot predates this add fail with a
+    // serialization conflict (P2034, answered 409) instead of launching without the new Systems.
+    const touched = await tx.internalAudit.updateMany({ where: { id, status: "DRAFT" }, data: { updatedAt: new Date() } });
+    if (touched.count === 0) throw new InternalAuditError(409, "Only a draft Internal Audit can be edited");
     await requireExisting(tx, [], wanted);
     const { count } = await tx.internalAuditSystem.createMany({
       data: wanted.map((systemId) => ({ internalAuditId: id, systemId })),

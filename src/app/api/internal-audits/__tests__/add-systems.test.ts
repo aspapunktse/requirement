@@ -1,9 +1,11 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { InternalAuditStatus, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { createFixtureFramework, mapControlsToFramework } from "@/test/framework-fixtures";
 import { requestAs } from "@/test/provider-fixtures";
 import { PATCH as patchAudit } from "../[id]/route";
 import { POST as addSystems } from "../[id]/systems/route";
+import { POST as launch } from "../[id]/launch/route";
 
 /**
  * Adding Systems to a Draft Internal Audit (#234): the Systems list's bulk "Add to Internal Audit".
@@ -32,6 +34,8 @@ describe("POST /api/internal-audits/[id]/systems (#234)", () => {
   let s2: string;
   let s3: string;
   let controlId: string;
+  let launchControlId: string;
+  let launchSystems: string[];
 
   const as = (role: UserRole, id: string, body?: unknown) => requestAs(`/api/internal-audits/${id}/systems`, users[role], "POST", body);
   const post = (id: string, body?: unknown, role: UserRole = "INTERNAL_AUDITOR") => addSystems(as(role, id, body), ctx(id));
@@ -67,10 +71,27 @@ describe("POST /api/internal-audits/[id]/systems (#234)", () => {
         data: { code: `TEST-234-${SUFFIX}`, title: "Test #234 Control", description: "d", category: "Security", applicability: "ORGANIZATIONAL" },
       })
     ).id;
+    // A Control that can launch: it has a question and applies to the fixture Systems through a fixture
+    // Framework only they have in scope.
+    launchControlId = (
+      await prisma.control.create({
+        data: { code: `TEST-234-L-${SUFFIX}`, title: "Test #234 Launch Control", description: "d", category: "Security", applicability: "PER_SYSTEM", question: "In place?" },
+      })
+    ).id;
+    const framework = await createFixtureFramework("234");
+    await mapControlsToFramework(framework.id, [launchControlId]);
+    launchSystems = [];
+    for (const label of ["L1", "L2", "L3"]) {
+      launchSystems.push(
+        (await prisma.system.create({ data: { name: `Test #234 System ${label} ${SUFFIX}`, ownerId: users.SYSTEM_OWNER, frameworkScopes: { connect: [{ id: framework.id }] } } })).id,
+      );
+    }
     [s1, s2, s3] = [await make("1"), await make("2"), await make("3")];
   });
 
   afterAll(async () => {
+    const audits = await prisma.internalAudit.findMany({ where: { createdById: users.INTERNAL_AUDITOR }, select: { id: true } });
+    await prisma.checkUp.deleteMany({ where: { internalAuditId: { in: audits.map((audit) => audit.id) } } });
     await prisma.internalAudit.deleteMany({ where: { createdById: users.INTERNAL_AUDITOR } });
     await prisma.system.deleteMany({ where: { name: { endsWith: SUFFIX } } });
     await prisma.control.deleteMany({ where: { code: { endsWith: SUFFIX } } });
@@ -172,4 +193,37 @@ describe("POST /api/internal-audits/[id]/systems (#234)", () => {
       expect((await added.json()).added).toBe(1);
     }
   }, 30_000);
+
+  it("never launches an audit that has a selected, applicable System without a Check-up, when an add and a launch overlap", async () => {
+    for (let round = 0; round < 4; round++) {
+      const audit = await prisma.internalAudit.create({
+        data: {
+          title: `Test #234 launch race ${round} ${SUFFIX}`,
+          dueDate: new Date("2099-01-01T00:00:00.000Z"),
+          createdById: users.INTERNAL_AUDITOR,
+          controls: { create: [{ controlId: launchControlId, questions: { create: [{ position: 1, text: "In place?" }] } }] },
+          systems: { create: [{ systemId: launchSystems[0] }] },
+        },
+      });
+
+      const [added, launched] = await Promise.all([
+        post(audit.id, { systemIds: [launchSystems[1], launchSystems[2]] }),
+        launch(requestAs(`/api/internal-audits/${audit.id}/launch`, users.INTERNAL_AUDITOR, "POST"), ctx(audit.id)),
+      ]);
+
+      const after = await prisma.internalAudit.findUniqueOrThrow({
+        where: { id: audit.id },
+        select: { status: true, systems: { select: { systemId: true } }, checkUps: { select: { systemId: true } } },
+      });
+      if (after.status === "DRAFT") {
+        expect(launched.status, "a launch that did not happen was refused").toBeGreaterThanOrEqual(400);
+        expect(after.checkUps).toEqual([]);
+      } else {
+        expect(launched.status).toBe(200);
+        // Every fixture System is in the Control's scope, so each selected one needs its Check-up.
+        const withCheckUp = new Set(after.checkUps.map((checkUp) => checkUp.systemId));
+        for (const { systemId } of after.systems) expect(withCheckUp.has(systemId), `System ${systemId} has a Check-up (add ${added.status})`).toBe(true);
+      }
+    }
+  }, 60_000);
 });
