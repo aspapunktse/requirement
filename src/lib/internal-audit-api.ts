@@ -17,6 +17,9 @@ export const internalAuditBodySchema = z.object({
   systemIds: z.array(z.string()).optional(),
 });
 
+/** The body of POST /api/internal-audits/[id]/systems (#234): the Systems to add to a draft. */
+export const addSystemsBodySchema = z.object({ systemIds: z.array(z.string().min(1)).min(1) });
+
 /** Answers an `InternalAuditError` (or a Control / System deleted mid-write, or a concurrent write) as JSON; rethrows anything else. */
 export function internalAuditErrorResponse(error: unknown): NextResponse {
   if (error instanceof InternalAuditError) {

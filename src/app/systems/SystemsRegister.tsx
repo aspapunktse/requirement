@@ -12,6 +12,8 @@ import "@/app/home/home.css";
 import "./systems.css";
 import { ChangeOwnerDialog } from "@/components/ChangeOwnerDialog";
 import { canChangeOwner } from "@/lib/system-permissions";
+import { canWriteInternalAudits } from "@/lib/internal-audit-rules";
+import { AddToInternalAuditDialog } from "./AddToInternalAuditDialog";
 import { BULK_ACTIONS, canChangeAnyOwner } from "./bulk-actions";
 import { PAGE_SIZES, SHOW_COMPACT_TOGGLE, SHOW_JUMP_PALETTE, SHOW_STAT_TRENDS } from "./systems-config";
 import { downloadCsv } from "./systems-download";
@@ -95,6 +97,7 @@ export function SystemsRegister({ view, initialQuery }: { view: SystemsView; ini
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [compact, setCompact] = useState(false);
   const [changingOwner, setChangingOwner] = useState(false);
+  const [addingToAudit, setAddingToAudit] = useState(false);
   const [openFilter, setOpenFilter] = useState<FilterKey | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const regRef = useRef<HTMLElement>(null);
@@ -662,6 +665,11 @@ export function SystemsRegister({ view, initialQuery }: { view: SystemsView; ini
               Change owner
             </button>
           )}
+          {canWriteInternalAudits(actor) && (
+            <button type="button" onClick={() => setAddingToAudit(true)}>
+              Add to Internal Audit
+            </button>
+          )}
           <button type="button" aria-label="Clear selection" onClick={() => setSelected(new Set())}>
             ✕
           </button>
@@ -683,6 +691,18 @@ export function SystemsRegister({ view, initialQuery }: { view: SystemsView; ini
             setChangingOwner(false);
             setSelected(new Set());
             router.refresh();
+          }}
+        />
+      )}
+
+      {addingToAudit && (
+        <AddToInternalAuditDialog
+          systems={selectedRows.map((row) => ({ id: row.id, name: row.name }))}
+          onClose={() => setAddingToAudit(false)}
+          onDone={() => {
+            // The Systems are in the audit, so the selection is done with; cleared as after Change owner.
+            setAddingToAudit(false);
+            setSelected(new Set());
           }}
         />
       )}
