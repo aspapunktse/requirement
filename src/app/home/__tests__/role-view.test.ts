@@ -1,3 +1,5 @@
+import { homeTiles } from "../home-view";
+import { paletteItems } from "../JumpPalette";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
@@ -132,6 +134,17 @@ describe("roleView: owner tasks for any role (#98)", () => {
     const view = await roleView(manager);
     expect(view.tasks).toEqual([]);
     expect(labels(view)).toEqual(["Controls", "Frameworks"]);
+  });
+
+  it("gives only an ADMIN the Settings shortcut (#240), which the Ctrl+K palette lists as a page", async () => {
+    const admin = await makeUser("settings-tile-admin", "ADMIN");
+    const view = await roleView(admin);
+    expect(view.tiles.filter((t) => t.href === "/admin/settings").map((t) => t.title)).toEqual(["Settings"]);
+    expect(paletteItems([], homeTiles(view.tiles), "settings")).toMatchObject([{ group: "Pages", label: "Settings", href: "/admin/settings" }]);
+    for (const role of ["COMPLIANCE_MANAGER", "SYSTEM_OWNER", "VIEWER", "INTERNAL_AUDITOR"] as const) {
+      const other = await makeUser(`settings-tile-${role}`, role);
+      expect((await roleView(other)).tiles.filter((t) => t.href === "/admin/settings"), role).toEqual([]);
+    }
   });
 
   describe("INTERNAL_AUDITOR (#147)", () => {

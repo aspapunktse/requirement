@@ -26,6 +26,7 @@ const ICON_BY_HREF: Record<string, HomeIconKey> = {
   "/admin/frameworks": "layers",
   "/admin/deployment-facets": "layers",
   "/admin/review-groups": "layers",
+  "/admin/settings": "layers",
   "/organization/controls": "building",
   [ORGANIZATION_RISKS_HREF]: "alert",
   "/business-risk-owner": "chart",
