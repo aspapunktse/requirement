@@ -5,6 +5,9 @@ import type { ControlOfferingRow, OfferableControl } from "@/lib/control-offerin
 import type { DependentRow } from "@/lib/provider-dependency-rules";
 import { SystemProvider } from "../SystemProvider";
 
+const refresh = vi.fn();
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
+
 const full: ControlOfferingRow = {
   id: "o1",
   control: { id: "c1", code: "A.5.15", title: "Access control" },
@@ -138,6 +141,8 @@ describe("SystemProvider (#123)", () => {
       expect(await screen.findByText(/This System is a Provider/)).toBeInTheDocument();
       expect(screen.getByText("No Control Offerings yet.")).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Stop being a Provider" })).toBeInTheDocument();
+      // The other tabs, the header and the timeline are read on the server.
+      expect(refresh).toHaveBeenCalled();
     });
 
     it("disables 'Stop being a Provider' with an explanation while Offerings exist", () => {

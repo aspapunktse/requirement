@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
 import { ACTING_USER_COOKIE } from "@/lib/acting-user";
 import { GET, POST } from "../route";
@@ -150,6 +150,40 @@ describe("/api/systems/[id]/risks", () => {
       ctxFor(systemId),
     );
     expect(response.status).toBe(400);
+  });
+
+  describe("the RISK_LOGGED Change Event (#245)", () => {
+    const eventsOf = (id: string) => prisma.changeEvent.findMany({ where: { systemId: id, action: "RISK_LOGGED" } });
+    // Earlier tests in this file log Risks too; start from no events.
+    beforeEach(async () => {
+      await prisma.changeEvent.deleteMany({ where: { systemId: { in: [systemId, onboardedSystemId] } } });
+    });
+
+    it("is written once per Risk logged by hand, by the person who logged it", async () => {
+      const response = await POST(requestAs(systemId, riskOwnerId, { method: "POST", body: RISK_BODY }), ctxFor(systemId));
+      const body = await response.json();
+      if (response.status === 201) createdRiskIds.push(body.risk.id);
+
+      expect(response.status).toBe(201);
+      const events = await eventsOf(systemId);
+      expect(events).toHaveLength(1);
+      expect(events[0]).toMatchObject({ actorId: riskOwnerId });
+      expect(events[0].detail).toContain('Risk "Test Risk"');
+      expect(events[0].detail).toContain("logged by hand");
+      expect(events[0].detail).toContain("severity:");
+    });
+
+    it("is not written, and no Risk is created, when the request is refused", async () => {
+      const riskCount = await prisma.risk.count({ where: { systemId: { in: [systemId, onboardedSystemId] } } });
+      const forbidden = await POST(requestAs(onboardedSystemId, otherOwnerId, { method: "POST", body: RISK_BODY }), ctxFor(onboardedSystemId));
+      const viewer = await POST(requestAs(onboardedSystemId, viewerId, { method: "POST", body: RISK_BODY }), ctxFor(onboardedSystemId));
+      const invalid = await POST(requestAs(systemId, ownerId, { method: "POST", body: { title: "" } }), ctxFor(systemId));
+
+      expect([forbidden.status, viewer.status, invalid.status]).toEqual([403, 403, 400]);
+      expect(await eventsOf(systemId)).toHaveLength(0);
+      expect(await eventsOf(onboardedSystemId)).toHaveLength(0);
+      expect(await prisma.risk.count({ where: { systemId: { in: [systemId, onboardedSystemId] } } })).toBe(riskCount);
+    });
   });
 
   it("GET lists logged Risks", async () => {

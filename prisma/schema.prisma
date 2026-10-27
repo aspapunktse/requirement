@@ -714,6 +714,14 @@ enum ChangeEventAction {
   // An Admin saved a new value for an App Setting (#240). System-less, actor the Admin; the detail
   // names the setting's key and its old and new value. Saving the value a setting already has writes none.
   APP_SETTING_CHANGED
+  // A System was created (#245). System-scoped, actor the creator; the detail names the System.
+  // Systems created before this value existed have none: the System page shows a "Created" entry
+  // from `createdAt` instead (no backfill).
+  SYSTEM_CREATED
+  // A Risk was opened on a System (#245): logged by hand (actor the person), auto-opened by a "No"
+  // Self-Assessment answer or by an Internal Auditor's Nonconformity (actor "system"). The detail names
+  // the Risk, its severity and how it was opened. An Organization Risk (no System) writes none.
+  RISK_LOGGED
 }
 
 // A curated, System-lifecycle-relevant mutation record — feeds the landing

@@ -1,11 +1,9 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
-import {
-  SystemFrameworkRequirementsView,
-  type DerivedRequirementRow,
-  type SystemFrameworkRequirements,
-} from "../SystemFrameworkRequirements";
+import { SystemRequirements } from "../SystemRequirements";
+import type { DerivedRequirementRow, SystemFrameworkRequirements } from "../FrameworkRequirementsDetail";
+import type { FrameworkSummary } from "../system-page-types";
 import { resolveEffectiveStatus, resolveImplementedByOrganization, type ProviderSource } from "@/lib/effective-status";
 
 /** A System-specific Control status, as the server sends it for a Control with no inheritance source. */
@@ -73,23 +71,59 @@ const empty: SystemFrameworkRequirements = {
   rows: [],
 };
 
-const toggle = (label: string) => screen.getByRole("button", { name: new RegExp(label) });
+const labelOf = (entry: SystemFrameworkRequirements) => `${entry.framework.name}:${entry.framework.version}`;
 
-describe("SystemFrameworkRequirementsView", () => {
+/** The card's figures, as the server loader derives them from the same counts (system-page-data.ts). */
+const summaryOf = (entry: SystemFrameworkRequirements): FrameworkSummary => ({
+  id: entry.framework.id,
+  label: labelOf(entry),
+  isBase: entry.framework.isBase,
+  met: entry.counts.MET,
+  partial: entry.counts.PARTIALLY_MET,
+  notMet: entry.counts.NOT_MET,
+  notApplicable: entry.counts.NOT_APPLICABLE,
+  applicable: entry.counts.applicable,
+});
+
+const renderView = (entries: SystemFrameworkRequirements[]) => render(<SystemRequirements frameworks={entries.map(summaryOf)} entries={entries} />);
+
+const card = (label: string) => within(screen.getByRole("region", { name: `${label} Requirements` }));
+/** The card's show/hide button. */
+const toggle = (label: string) => card(label).getByRole("button", { name: /Requirements/ });
+/** Opens a card; it starts on the Requirements not met, so these tests widen the filter to all of them first. */
+async function openFramework(user: ReturnType<typeof userEvent.setup>, label: string) {
+  await user.click(toggle(label));
+  await user.selectOptions(screen.getByLabelText(`Status filter for ${label}`), "ALL");
+}
+
+describe("SystemRequirements", () => {
   it("says so plainly when no Published Framework is in scope", () => {
-    render(<SystemFrameworkRequirementsView frameworks={[]} />);
+    renderView([]);
     expect(screen.getByText("This System has no Published Framework in scope.")).toBeInTheDocument();
   });
 
-  it("shows each Framework's Compliance Percentage (Met ÷ applicable) in its header, with no 'Organizational Requirements aren't counted yet' note any more (#90, #122)", () => {
-    render(<SystemFrameworkRequirementsView frameworks={[iso, empty]} />);
+  it("shows each Framework's Compliance Percentage (Met ÷ applicable) and its figures on its card (#90, #122, #245)", () => {
+    renderView([iso, empty]);
     // iso: Met 1 of 3 applicable (Partially Met counts as not Met; 2 Not Applicable are left out): 33.3%.
-    const figure = within(screen.getByLabelText("Compliance for ISO/IEC 27001:2022"));
-    expect(figure.getByText("33.3%")).toBeInTheDocument();
-    expect(figure.getByText(/1 of 3 applicable Requirements met/)).toBeInTheDocument();
+    const figures = card("ISO/IEC 27001:2022");
+    expect(figures.getByRole("img", { name: /1 of 3 applicable Requirements met/ })).toBeInTheDocument();
+    expect(figures.getByText("33.3%")).toBeInTheDocument();
+    expect(figures.getByText("1 of 3 applicable Requirements met")).toBeInTheDocument();
     // A Framework with no Requirements has no figure, only its "no Requirements yet" line.
-    expect(screen.queryByLabelText("Compliance for GDPR:1")).not.toBeInTheDocument();
+    expect(card("GDPR:1").getByText("This Framework has no Requirements yet.")).toBeInTheDocument();
+    expect(card("GDPR:1").queryByText("0%")).not.toBeInTheDocument();
     expect(screen.queryByText(/aren't counted yet/)).not.toBeInTheDocument();
+  });
+
+  it("marks the base Framework Base and a Framework that requires strict compliance Strict, and no other", () => {
+    const strict: SystemFrameworkRequirements = { ...iso, framework: { ...iso.framework, id: "f4", name: "NIS2", isBase: false, strictComplianceRequired: true } };
+    renderView([iso, strict, empty]);
+    expect(card("ISO/IEC 27001:2022").getByText("Base")).toBeInTheDocument();
+    expect(card("ISO/IEC 27001:2022").queryByText("Strict")).not.toBeInTheDocument();
+    expect(card("NIS2:2022").getByText("Strict")).toBeInTheDocument();
+    expect(card("NIS2:2022").queryByText("Base")).not.toBeInTheDocument();
+    expect(card("GDPR:1").queryByText("Base")).not.toBeInTheDocument();
+    expect(card("GDPR:1").queryByText("Strict")).not.toBeInTheDocument();
   });
 
   it("shows an em dash when no Requirement is applicable", () => {
@@ -98,30 +132,38 @@ describe("SystemFrameworkRequirementsView", () => {
       counts: { MET: 0, PARTIALLY_MET: 0, NOT_MET: 0, NOT_APPLICABLE: 2, total: 2, applicable: 0 },
       rows: [iso.rows[3], iso.rows[4]],
     };
-    render(<SystemFrameworkRequirementsView frameworks={[allNotApplicable]} />);
-    const figure = within(screen.getByLabelText("Compliance for ISO/IEC 27001:2022"));
-    expect(figure.getByText("—")).toBeInTheDocument();
-    expect(figure.getByText(/0 of 0 applicable Requirements met/)).toBeInTheDocument();
+    renderView([allNotApplicable]);
+    const figures = card("ISO/IEC 27001:2022");
+    expect(figures.getByText("—")).toBeInTheDocument();
+    expect(figures.getByText(/0 of 0 applicable Requirements met/)).toBeInTheDocument();
   });
 
-  it("is collapsed by default, with the per-status counts in the header", () => {
-    render(<SystemFrameworkRequirementsView frameworks={[iso]} />);
-    const header = toggle("ISO/IEC 27001:2022");
-    expect(header).toHaveAttribute("aria-expanded", "false");
+  it("is collapsed by default, with the count of each status on the card", () => {
+    renderView([iso]);
+    expect(toggle("ISO/IEC 27001:2022")).toHaveAttribute("aria-expanded", "false");
+    expect(toggle("ISO/IEC 27001:2022")).toHaveTextContent("Show Requirements not met");
     const counts = within(screen.getByLabelText("Status counts for ISO/IEC 27001:2022"));
-    expect(counts.getByText("Met 1")).toBeInTheDocument();
-    expect(counts.getByText("Partially Met 1")).toBeInTheDocument();
-    expect(counts.getByText("Not Met 1")).toBeInTheDocument();
-    expect(counts.getByText("Not Applicable 2")).toBeInTheDocument();
-    expect(counts.getByText("of 5")).toBeInTheDocument();
+    expect(counts.getByText(/^Met/)).toHaveTextContent("Met 1");
+    expect(counts.getByText(/^Partially met/)).toHaveTextContent("Partially met 1");
+    expect(counts.getByText(/^Not met/)).toHaveTextContent("Not met 1");
+    expect(counts.getByText(/^Not applicable/)).toHaveTextContent("Not applicable 2");
     expect(screen.queryByRole("listitem", { name: "Requirement A.5.1" })).not.toBeInTheDocument();
+  });
+
+  it("opens on the Requirements not met", async () => {
+    const user = userEvent.setup();
+    renderView([iso]);
+    await user.click(toggle("ISO/IEC 27001:2022"));
+    expect(screen.getByLabelText("Status filter for ISO/IEC 27001:2022")).toHaveValue("NOT_MET");
+    expect(screen.getAllByRole("listitem", { name: /^Requirement / })).toHaveLength(1);
+    expect(screen.getByRole("listitem", { name: "Requirement A.8.1" })).toBeInTheDocument();
   });
 
   it("expands and collapses, listing Requirements by section with their applicable Controls and Assessment status", async () => {
     const user = userEvent.setup();
-    render(<SystemFrameworkRequirementsView frameworks={[iso]} />);
+    renderView([iso]);
 
-    await user.click(toggle("ISO/IEC 27001:2022"));
+    await openFramework(user, "ISO/IEC 27001:2022");
     expect(toggle("ISO/IEC 27001:2022")).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByRole("region", { name: "Section A.8 Technological" })).toBeInTheDocument();
 
@@ -145,8 +187,8 @@ describe("SystemFrameworkRequirementsView", () => {
 
   it("filters by derived status", async () => {
     const user = userEvent.setup();
-    render(<SystemFrameworkRequirementsView frameworks={[iso]} />);
-    await user.click(toggle("ISO/IEC 27001:2022"));
+    renderView([iso]);
+    await openFramework(user, "ISO/IEC 27001:2022");
     const filter = screen.getByLabelText("Status filter for ISO/IEC 27001:2022");
 
     await user.selectOptions(filter, "NOT_APPLICABLE");
@@ -169,17 +211,16 @@ describe("SystemFrameworkRequirementsView", () => {
       counts: { MET: 1, PARTIALLY_MET: 0, NOT_MET: 0, NOT_APPLICABLE: 0, total: 1, applicable: 1 },
       rows: [iso.rows[0]],
     };
-    render(<SystemFrameworkRequirementsView frameworks={[onlyMet]} />);
-    await user.click(toggle("ISO/IEC 27001:2022"));
+    renderView([onlyMet]);
+    await openFramework(user, "ISO/IEC 27001:2022");
     await user.selectOptions(screen.getByLabelText("Status filter for ISO/IEC 27001:2022"), "NOT_MET");
     expect(screen.getByText("No Requirements match this filter.")).toBeInTheDocument();
   });
 
-  it("a Framework with no Requirements says so in its header, with nothing to expand into", async () => {
-    const user = userEvent.setup();
-    render(<SystemFrameworkRequirementsView frameworks={[empty]} />);
+  it("a Framework with no Requirements says so on its card, with nothing to expand into", () => {
+    renderView([empty]);
     expect(screen.getByText("This Framework has no Requirements yet.")).toBeInTheDocument();
-    await user.click(toggle("GDPR:1"));
+    expect(card("GDPR:1").queryByRole("button")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Status filter for GDPR:1")).not.toBeInTheDocument();
   });
 
@@ -190,9 +231,9 @@ describe("SystemFrameworkRequirementsView", () => {
       counts: { MET: 0, PARTIALLY_MET: 0, NOT_MET: 1, NOT_APPLICABLE: 0, total: 1, applicable: 1 },
       rows: [row({ requirementId: "n1", code: "Art. 1", section: "Art", status: "NOT_MET" })],
     };
-    render(<SystemFrameworkRequirementsView frameworks={[iso, other]} />);
+    renderView([iso, other]);
 
-    await user.click(toggle("NIS2:2022"));
+    await openFramework(user, "NIS2:2022");
     expect(toggle("NIS2:2022")).toHaveAttribute("aria-expanded", "true");
     expect(toggle("ISO/IEC 27001:2022")).toHaveAttribute("aria-expanded", "false");
     expect(screen.getByText(/Strict Framework: Waived and Not Applicable/)).toBeInTheDocument();
@@ -210,8 +251,8 @@ describe("SystemFrameworkRequirementsView", () => {
         row({ requirementId: "z3", code: "Z.3", status: "PARTIALLY_MET", basis: "PARTIAL_COVERAGE" }),
       ],
     };
-    render(<SystemFrameworkRequirementsView frameworks={[framework]} />);
-    await user.click(toggle("ISO/IEC 27001:2022"));
+    renderView([framework]);
+    await openFramework(user, "ISO/IEC 27001:2022");
     expect(within(screen.getByRole("listitem", { name: "Requirement Z.1" })).getByText(/counts as Not Met/)).toBeInTheDocument();
     expect(within(screen.getByRole("listitem", { name: "Requirement Z.2" })).getByText(/accepted gap/)).toBeInTheDocument();
     expect(within(screen.getByRole("listitem", { name: "Requirement Z.3" })).getByText(/only Partial coverage/)).toBeInTheDocument();
@@ -247,8 +288,8 @@ describe("SystemFrameworkRequirementsView", () => {
 
     it("lists them with their status and 'Implemented by the Organization', and not as a Control that does not apply", async () => {
       const user = userEvent.setup();
-      render(<SystemFrameworkRequirementsView frameworks={[framework]} />);
-      await user.click(toggle("ISO/IEC 27001:2022"));
+      renderView([framework]);
+      await openFramework(user, "ISO/IEC 27001:2022");
 
       const met = within(screen.getByRole("listitem", { name: "Requirement 5.2" }));
       const metControls = within(met.getByRole("list", { name: "Applicable Controls for 5.2" }));
@@ -272,8 +313,8 @@ describe("SystemFrameworkRequirementsView", () => {
         ...framework,
         rows: [row({ requirementId: "o3", code: "5.4", section: "5 Leadership", status: "MET", controls: [orgControl("WAIVED")] })],
       };
-      render(<SystemFrameworkRequirementsView frameworks={[waived]} />);
-      await user.click(toggle("ISO/IEC 27001:2022"));
+      renderView([waived]);
+      await openFramework(user, "ISO/IEC 27001:2022");
       const controls = within(screen.getByRole("list", { name: "Applicable Controls for 5.4" }));
       expect(controls.getByText("Waived")).toBeInTheDocument();
       expect(controls.getByText("Implemented by the Organization")).toBeInTheDocument();
@@ -317,8 +358,8 @@ describe("SystemFrameworkRequirementsView", () => {
 
     it("shows the effective status and Inherited from Organization with the Organization's own status", async () => {
       const user = userEvent.setup();
-      render(<SystemFrameworkRequirementsView frameworks={[framework]} />);
-      await user.click(toggle("ISO/IEC 27001:2022"));
+      renderView([framework]);
+      await openFramework(user, "ISO/IEC 27001:2022");
 
       const inherited = within(
         within(screen.getByRole("listitem", { name: "Requirement A.5.15" })).getByRole("list", { name: "Applicable Controls for A.5.15" }),
@@ -329,8 +370,8 @@ describe("SystemFrameworkRequirementsView", () => {
 
     it("shows System-specific otherwise, with the Organization's status when it gives no credit, and the override line", async () => {
       const user = userEvent.setup();
-      render(<SystemFrameworkRequirementsView frameworks={[framework]} />);
-      await user.click(toggle("ISO/IEC 27001:2022"));
+      renderView([framework]);
+      await openFramework(user, "ISO/IEC 27001:2022");
 
       const controls = within(
         within(screen.getByRole("listitem", { name: "Requirement A.5.16" })).getByRole("list", { name: "Applicable Controls for A.5.16" }),
@@ -387,8 +428,8 @@ describe("SystemFrameworkRequirementsView", () => {
 
     it("shows Inherited from Provider X: Full with the Provider's status, and the pending, Shared and overridden cases", async () => {
       const user = userEvent.setup();
-      render(<SystemFrameworkRequirementsView frameworks={[framework]} />);
-      await user.click(toggle("ISO/IEC 27001:2022"));
+      renderView([framework]);
+      await openFramework(user, "ISO/IEC 27001:2022");
 
       const credited = listFor("P.1");
       expect(credited.getByText("Fulfilled")).toBeInTheDocument();
@@ -431,8 +472,8 @@ describe("SystemFrameworkRequirementsView", () => {
           }),
         ],
       };
-      render(<SystemFrameworkRequirementsView frameworks={[sharedFramework]} />);
-      await user.click(toggle("ISO/IEC 27001:2022"));
+      renderView([sharedFramework]);
+      await openFramework(user, "ISO/IEC 27001:2022");
 
       const through = listFor("P.5");
       expect(through.getByText("Fulfilled")).toBeInTheDocument();

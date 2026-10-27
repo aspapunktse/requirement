@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { ControlOfferingType } from "@prisma/client";
 import { Button } from "@/components/ui/Button";
 import { StatusChip } from "@/components/ui/StatusChip";
@@ -48,6 +49,7 @@ export function SystemProvider({
   /** The Systems depending on this Provider; only passed to its owner or an Admin. */
   dependents?: DependentRow[];
 }) {
+  const router = useRouter();
   const [isProvider, setIsProvider] = useState(initialIsProvider);
   const [offerings, setOfferings] = useState(initialOfferings);
   const [offerable, setOfferable] = useState(initialOfferable);
@@ -69,6 +71,8 @@ export function SystemProvider({
       setError(parsed.error ?? "Something went wrong");
       return null;
     }
+    // The other tabs, the header and the timeline are read on the server.
+    router.refresh();
     return parsed;
   }
 

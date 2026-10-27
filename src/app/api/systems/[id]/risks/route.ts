@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { authenticate } from "@/lib/api-authz";
 import { getVisibleSystem } from "@/lib/system-visibility";
 import { canLogRisk, getSystemRisks, RISK_INCLUDE } from "@/lib/risks";
+import { logChangeEvent } from "@/lib/change-events";
+import { riskLoggedDetail } from "@/lib/risk-logged-event";
 
 export async function GET(request: NextRequest, ctx: RouteContext<"/api/systems/[id]/risks">) {
   const auth = await authenticate(request);
@@ -49,9 +51,20 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems
     return NextResponse.json({ error: "Invalid Risk" }, { status: 400 });
   }
 
-  const risk = await prisma.risk.create({
-    data: { ...parsed.data, systemId: system.id },
-    include: RISK_INCLUDE,
+  // The Risk and the Change Event that records it commit together (#245).
+  const risk = await prisma.$transaction(async (tx) => {
+    const created = await tx.risk.create({
+      data: { ...parsed.data, systemId: system.id },
+      include: RISK_INCLUDE,
+    });
+    await logChangeEvent(
+      system.id,
+      "RISK_LOGGED",
+      riskLoggedDetail({ title: created.title, severity: created.severity, how: { kind: "manual" } }),
+      auth.user.id,
+      tx,
+    );
+    return created;
   });
   return NextResponse.json({ risk }, { status: 201 });
 }

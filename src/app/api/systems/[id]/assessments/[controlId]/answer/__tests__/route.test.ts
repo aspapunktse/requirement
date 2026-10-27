@@ -206,6 +206,27 @@ describe("PATCH /api/systems/[id]/assessments/[controlId]/answer", () => {
     expect(risks[0].systemId).toBe(systemId);
   });
 
+  it("records the auto-opened Risk as one RISK_LOGGED event by the system, instead of a RISK_STATUS_CHANGED one (#245)", async () => {
+    await PATCH(requestAs(systemId, optionalControlId, ownerId, { answer: "NO" }), ctxFor(systemId, optionalControlId));
+    await PATCH(requestAs(systemId, optionalControlId, ownerId, { answer: "NO", notes: "again" }), ctxFor(systemId, optionalControlId));
+
+    const logged = await prisma.changeEvent.findMany({ where: { systemId, action: "RISK_LOGGED" } });
+    expect(logged).toHaveLength(1);
+    expect(logged[0].actorId).toBe("system");
+    expect(logged[0].detail).toContain('"No" Self-Assessment answer');
+    expect(logged[0].detail).toContain("severity: Medium");
+    expect(await prisma.changeEvent.count({ where: { systemId, action: "RISK_STATUS_CHANGED" } })).toBe(0);
+  });
+
+  it("opens no Risk and writes no RISK_LOGGED event for a Yes answer or a refused No", async () => {
+    await PATCH(requestAs(systemId, optionalControlId, ownerId, { answer: "YES" }), ctxFor(systemId, optionalControlId));
+    const refused = await PATCH(requestAs(systemId, optionalControlId, null, { answer: "NO" }), ctxFor(systemId, optionalControlId));
+
+    expect(refused.status).toBe(401);
+    expect(await prisma.risk.count({ where: { systemId } })).toBe(0);
+    expect(await prisma.changeEvent.count({ where: { systemId, action: "RISK_LOGGED" } })).toBe(0);
+  });
+
   it("does not open a second Risk when No is answered again for the same Assessment", async () => {
     const first = await PATCH(
       requestAs(systemId, optionalControlId, ownerId, { answer: "NO" }),

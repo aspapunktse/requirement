@@ -96,7 +96,9 @@ describe("Nonconformity side effects (#157)", () => {
       const statusEvent = events.find((e) => e.action === "ASSESSMENT_STATUS_CHANGED" && e.detail.includes(code.code));
       expect(statusEvent!.detail).toContain("FULFILLED to IN_PROGRESS");
       expect(statusEvent!.detail).toContain(`/check-ups/${checkUp.id}`);
-      expect(events.some((e) => e.action === "RISK_STATUS_CHANGED" && e.detail.includes(code.code))).toBe(true);
+      // One Risk, one timeline entry: RISK_LOGGED replaces the old "auto-opened" RISK_STATUS_CHANGED on a System (#245).
+      expect(events.filter((e) => e.action === "RISK_LOGGED" && e.detail.includes(code.code) && e.detail.includes("Nonconformity"))).toHaveLength(1);
+      expect(events.some((e) => e.action === "RISK_STATUS_CHANGED" && e.detail.includes(code.code))).toBe(false);
     });
 
     it("caps what it copies of a long comment into the Risk", async () => {

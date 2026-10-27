@@ -247,6 +247,14 @@ describe("the Controls tile", () => {
     expect(SOURCE_KEYS).toEqual(["organization", "provider-full", "provider-shared", "system"]);
   });
 
+  it("splits the Provider sources per Provider, so every source together sums to the applicable Controls (#245)", async () => {
+    const { controls } = await mine();
+    const perProvider = Object.values(controls.byProvider).reduce((sum, n) => sum + n, 0);
+    expect(perProvider).toBe(controls.bySource["provider-full"] + controls.bySource["provider-shared"]);
+    expect(controls.bySource.organization + controls.bySource.system + perProvider).toBe(controls.total);
+    expect(Object.keys(controls.byProvider)).toContain(providerId);
+  });
+
   it("lists every applicable Control for the palette, and leaves out one scoped to another Facet", async () => {
     const view = await mine();
     const fixture = view.controlList.filter((control) => control.code.startsWith(CODE));
@@ -345,6 +353,65 @@ describe("Recent activity", () => {
 
   it("gives every event a phrase", async () => {
     for (const item of (await mine()).activity) expect(item.what).not.toMatch(/^[A-Z_]+$/);
+  });
+});
+
+describe("the activity timeline (#245)", () => {
+  it("lists all of this System's Change Events, newest first, where the tile shows the newest four", async () => {
+    const view = await mine();
+    expect(view.activity).toHaveLength(4);
+    const events = view.timeline.filter((item) => item.id !== "created");
+    expect(events.map((item) => item.detail)).toEqual([
+      "Test #243 newest",
+      "Test #243 fifth",
+      "Test #243 fourth",
+      "Base review: Approved: Test #243 fine",
+      "Test #243 second",
+      "Test #243 oldest",
+    ]);
+    // The tile is the head of the timeline, with the same actors.
+    expect(view.timeline.slice(0, 4)).toEqual(view.activity);
+    expect(view.timeline.map((item) => item.who).slice(0, 6)).toEqual(["You", other.name, "The system", "Base review", "You", "You"]);
+  });
+
+  it("ends a System with no SYSTEM_CREATED event in a Created entry from createdAt, without an actor", async () => {
+    const view = await mine();
+    const last = view.timeline[view.timeline.length - 1];
+    expect(last).toMatchObject({ id: "created", who: null, what: "created a System" });
+    expect(last.at).toBe(view.system.createdAt);
+    expect(view.activity.some((item) => item.id === "created")).toBe(false);
+  });
+
+  it("adds no Created entry when the System has its SYSTEM_CREATED event, which reads as its creator's", async () => {
+    const id = await makeSystem("Created", owner.id);
+    await prisma.changeEvent.create({ data: { systemId: id, action: "SYSTEM_CREATED", detail: "Created the System \"Test #243 Created\"", actorId: owner.id } });
+    const view = await mine(id);
+    expect(view.timeline).toHaveLength(1);
+    expect(view.timeline[0]).toMatchObject({ who: "You", what: "created a System", tone: "ok" });
+    expect((await pageFor(admin, id))!.view.timeline[0].who).toBe(owner.name);
+  });
+
+  it("shows a System with nothing recorded only the Created entry", async () => {
+    const id = await makeSystem("Bare", owner.id);
+    const view = await mine(id);
+    expect(view.activity).toEqual([]);
+    expect(view.timeline.map((item) => item.id)).toEqual(["created"]);
+  });
+
+  it("labels a logged Risk, whoever opened it", async () => {
+    const id = await makeSystem("Risky", owner.id);
+    await prisma.changeEvent.create({ data: { systemId: id, action: "RISK_LOGGED", detail: 'Risk "T" logged by hand (severity: High)', actorId: owner.id } });
+    await prisma.changeEvent.create({ data: { systemId: id, action: "RISK_LOGGED", detail: 'Risk "U" auto-opened from a "No" Self-Assessment answer to A.5.1 (severity: Medium)', actorId: "system" } });
+    const items = (await mine(id)).timeline.filter((item) => item.what === "logged a Risk");
+    expect(items.map((item) => item.who).sort()).toEqual(["The system", "You"]);
+    expect(items.every((item) => item.tone === "warn")).toBe(true);
+  });
+
+  it("is the same for every viewer who can see the System, apart from how an actor is named", async () => {
+    const asAdmin = (await pageFor(admin, activityId))!.view.timeline;
+    const asOwner = (await pageFor(owner, activityId))!.view.timeline;
+    expect(asAdmin.map((item) => item.id)).toEqual(asOwner.map((item) => item.id));
+    expect(asOwner.map((item) => item.who).join("|")).not.toContain(reviewer.name);
   });
 });
 

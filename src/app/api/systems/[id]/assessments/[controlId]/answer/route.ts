@@ -6,7 +6,8 @@ import { authenticate } from "@/lib/api-authz";
 import { getVisibleSystem } from "@/lib/system-visibility";
 import { assessmentEditAccess, canAnswerSelfAssessment } from "@/lib/system-permissions";
 import { checkWaiveGate, getApplicableControl } from "@/lib/control-assessments";
-import { logChangeEvent, SYSTEM_ACTOR } from "@/lib/change-events";
+import { logChangeEvent } from "@/lib/change-events";
+import { logAutoOpenedRisk } from "@/lib/risk-logged-event";
 import { runAssessmentEdit, reopenStepsAfterEdit } from "@/lib/assessment-edit";
 import { assessmentValuesChanged } from "@/lib/review-steps";
 import { loadEffectiveStatus, toOwnAssessment } from "@/lib/effective-status-data";
@@ -132,32 +133,33 @@ export async function PATCH(
         db,
       );
     }
+
+    // A "No" opens a Risk, in this transaction with the answer and its events (#245).
+    if (answer === "NO") {
+      const existingRisk = await db.risk.findFirst({ where: { controlAssessmentId: saved.id } });
+      if (!existingRisk) {
+        const title = `${control.code}: ${control.title}`;
+        await db.risk.create({
+          data: {
+            systemId: system.id,
+            title,
+            description: `Auto-opened: "${control.question ?? control.title}" was answered No.`,
+            severity: "MEDIUM",
+            likelihood: "MEDIUM",
+            controlAssessmentId: saved.id,
+          },
+        });
+        await logAutoOpenedRisk(db, {
+          systemId: system.id,
+          title,
+          severity: "MEDIUM",
+          how: { kind: "self-assessment", controlCode: control.code },
+          legacyDetail: `Risk "${title}" auto-opened (status: OPEN) from a "No" Self-Assessment answer`,
+        });
+      }
+    }
     return saved;
   });
-
-  if (answer === "NO") {
-    const existingRisk = await prisma.risk.findFirst({
-      where: { controlAssessmentId: assessment.id },
-    });
-    if (!existingRisk) {
-      await prisma.risk.create({
-        data: {
-          systemId: system.id,
-          title: `${control.code}: ${control.title}`,
-          description: `Auto-opened: "${control.question ?? control.title}" was answered No.`,
-          severity: "MEDIUM",
-          likelihood: "MEDIUM",
-          controlAssessmentId: assessment.id,
-        },
-      });
-      await logChangeEvent(
-        system.id,
-        "RISK_STATUS_CHANGED",
-        `Risk "${control.code}: ${control.title}" auto-opened (status: OPEN) from a "No" Self-Assessment answer`,
-        SYSTEM_ACTOR,
-      );
-    }
-  }
 
   return NextResponse.json({ assessment });
 }

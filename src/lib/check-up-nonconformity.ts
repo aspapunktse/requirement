@@ -6,6 +6,7 @@ import { getOrganizationControl } from "@/lib/organization-implementation";
 import { saveOrganizationImplementationIn } from "@/lib/organization-inheritance";
 import { runProviderAssessmentWriteIn } from "@/lib/provider-inheritance";
 import { checkUpFindingPath, nonconformityRiskText, overrideNote, setBackNote, type SetBackOutcome } from "@/lib/check-up-nonconformity-rules";
+import { logAutoOpenedRisk } from "@/lib/risk-logged-event";
 
 /**
  * What a Nonconformity does (PRD 0001 F-IA.7, F-CE.2, #157), inside the evaluation's transaction and
@@ -98,13 +99,13 @@ export async function applyNonconformity({ tx, checkUpId, comment, actorId }: No
       likelihood: "MEDIUM",
     },
   });
-  await logChangeEvent(
-    checkUp.system?.id ?? null,
-    "RISK_STATUS_CHANGED",
-    `Risk "${text.title}" auto-opened (status: OPEN) from a Nonconformity (${finding})`,
-    SYSTEM_ACTOR,
-    tx,
-  );
+  await logAutoOpenedRisk(tx, {
+    systemId: checkUp.system?.id ?? null,
+    title: text.title,
+    severity: "MEDIUM",
+    how: { kind: "nonconformity", auditTitle },
+    legacyDetail: `Risk "${text.title}" auto-opened (status: OPEN) from a Nonconformity (${finding})`,
+  });
 }
 
 async function setBackSystemAssessment(

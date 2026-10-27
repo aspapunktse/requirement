@@ -101,6 +101,9 @@ export type ActivityItem = {
   at: string;
 };
 
+/** An entry of the Approval and activity tab's timeline: `who` is null for the "Created" entry of a System older than `SYSTEM_CREATED`. */
+export type TimelineItem = Omit<ActivityItem, "who"> & { who: string | null };
+
 export type SystemPageView = {
   userId: string;
   userName: string;
@@ -120,6 +123,8 @@ export type SystemPageView = {
     confidentiality: ImpactLevel | null;
     integrity: ImpactLevel | null;
     availability: ImpactLevel | null;
+    /** ISO timestamp. */
+    createdAt: string;
     onboardedAt: string | null;
   };
   /** The lifecycle note under the stepper (see `lifecycleNote`). */
@@ -142,6 +147,8 @@ export type SystemPageView = {
     done: number;
     byStatus: Record<ControlAssessmentStatus, number>;
     bySource: Record<SourceKey, number>;
+    /** The Controls whose status each Provider (by id) decides: `provider-full` plus `provider-shared`, split per Provider. */
+    byProvider: Record<string, number>;
   };
   /** Every item, most pressing first; the tile shows the first six. */
   attention: AttentionItem[];
@@ -158,6 +165,8 @@ export type SystemPageView = {
     frameworkScope: string[];
   };
   activity: ActivityItem[];
+  /** Every Change Event on the System, newest first, for the Approval and activity tab. */
+  timeline: TimelineItem[];
   counts: { controls: number; requirements: number; openRisks: number; providers: number };
   /** Every Control applicable to the System, for the Ctrl+K palette. */
   controlList: { id: string; code: string; title: string }[];
