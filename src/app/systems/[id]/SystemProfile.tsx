@@ -156,6 +156,7 @@ function DeploymentFacets({ systemId, canChange, currentIds }: { systemId: strin
               <label key={facet.id}>
                 <input
                   type="checkbox"
+                  aria-label={facet.name}
                   checked={selectedIds.includes(facet.id)}
                   onChange={(event) => setSelectedIds((previous) => (event.target.checked ? [...previous, facet.id] : previous.filter((id) => id !== facet.id)))}
                 />
@@ -289,6 +290,7 @@ type TagRelationProps = {
  * when the viewer can't manage it.
  */
 function TagRelation({ resourcePath, resourceKey, catalogPath, catalogKey, idField, itemLabel, heading, canManage, emptyLabel }: TagRelationProps) {
+  const router = useRouter();
   const [adding, setAdding] = useState(false);
   const [selectedId, setSelectedId] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -315,6 +317,8 @@ function TagRelation({ resourcePath, resourceKey, catalogPath, catalogKey, idFie
       }
       const next = (await response.json())[resourceKey];
       setLoaded((previous) => (previous ? { ...previous, declared: next } : previous));
+      // The Overview's Classification tile and the timeline are read on the server.
+      router.refresh();
       return true;
     } catch {
       setError(fallback);

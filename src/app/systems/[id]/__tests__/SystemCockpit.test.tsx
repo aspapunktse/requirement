@@ -65,6 +65,7 @@ const view = (over: Partial<SystemPageView> = {}): SystemPageView => ({
     done: 6,
     byStatus: { FULFILLED: 4, WAIVED: 1, IN_PROGRESS: 1, NOT_STARTED: 2, NOT_APPLICABLE: 1 },
     bySource: { organization: 2, "provider-full": 1, "provider-shared": 1, system: 5 },
+    byProvider: { p1: 2 },
   },
   attention: [attentionItem(1), attentionItem(2, { kind: "risk", title: "Weak passwords", tab: "risks", note: "High Risk, open" })],
   risks: { grid: RISK_LEVELS.map((_, s) => RISK_LEVELS.map((__, l) => (s === 3 && l === 0 ? 1 : s === 2 && l === 2 ? 1 : 0))), open: 2, mitigated: 1, accepted: 0 },

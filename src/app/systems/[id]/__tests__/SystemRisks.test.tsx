@@ -4,6 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Risk } from "@/components/RiskList";
 import { SystemRisks } from "../SystemRisks";
 
+const refresh = vi.fn();
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
 vi.mock("next/link", () => ({
   default: ({ href, children, ...rest }: { href: string; children: React.ReactNode } & React.AnchorHTMLAttributes<HTMLAnchorElement>) => (
     <a href={href} {...rest}>
@@ -36,6 +38,7 @@ let fetchMock: ReturnType<typeof vi.fn>;
 let risks: Risk[];
 
 beforeEach(() => {
+  refresh.mockClear();
   risks = RISKS;
   fetchMock = vi.fn((_input: string | URL | Request, init?: RequestInit) => (init?.method === "POST" ? respond({ risk: {} }, 201) : respond({ risks })));
   vi.stubGlobal("fetch", fetchMock);
@@ -125,6 +128,8 @@ describe("a Risk's row", () => {
 
     expect(fetchMock).toHaveBeenCalledWith("/api/systems/s1/risks/r1", expect.objectContaining({ method: "PATCH", body: JSON.stringify({ status: "ACCEPTED", mitigationPlan: null }) }));
     await waitFor(() => expect(within(screen.getByRole("button", { name: /Weak passwords/ }).closest("tr")!).getByText("Accepted")).toBeInTheDocument());
+    // The header, the Overview and the timeline are read on the server.
+    expect(refresh).toHaveBeenCalled();
   });
 
   it("shows no status form to those who may not manage statuses", async () => {
@@ -172,6 +177,7 @@ describe("+ Log Risk", () => {
     );
     await waitFor(() => expect(screen.queryByRole("form", { name: "Log a Risk" })).not.toBeInTheDocument());
     expect(fetchMock.mock.calls.filter((call) => !call[1]?.method).length).toBe(2);
+    expect(refresh).toHaveBeenCalledTimes(1);
   });
 
   it("shows the server's refusal and keeps the form", async () => {
@@ -187,6 +193,19 @@ describe("+ Log Risk", () => {
 
     expect(await form.findByRole("alert")).toHaveTextContent("Only the System's owner, a Risk Owner, or an Admin can log a Risk");
     expect(screen.getByRole("form", { name: "Log a Risk" })).toBeInTheDocument();
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it("names every field of the form", async () => {
+    const user = userEvent.setup();
+    renderRisks();
+    await screen.findByRole("table");
+    await user.click(screen.getByRole("button", { name: "+ Log Risk" }));
+    const form = within(screen.getByRole("form", { name: "Log a Risk" }));
+    expect(form.getByRole("textbox", { name: "Title" })).toBeInTheDocument();
+    expect(form.getByRole("textbox", { name: "Description" })).toBeInTheDocument();
+    expect(form.getByRole("combobox", { name: "Severity" })).toBeInTheDocument();
+    expect(form.getByRole("combobox", { name: "Likelihood" })).toBeInTheDocument();
   });
 
   it("cancels without sending anything", async () => {

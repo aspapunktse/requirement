@@ -247,6 +247,14 @@ describe("the Controls tile", () => {
     expect(SOURCE_KEYS).toEqual(["organization", "provider-full", "provider-shared", "system"]);
   });
 
+  it("splits the Provider sources per Provider, so every source together sums to the applicable Controls (#245)", async () => {
+    const { controls } = await mine();
+    const perProvider = Object.values(controls.byProvider).reduce((sum, n) => sum + n, 0);
+    expect(perProvider).toBe(controls.bySource["provider-full"] + controls.bySource["provider-shared"]);
+    expect(controls.bySource.organization + controls.bySource.system + perProvider).toBe(controls.total);
+    expect(Object.keys(controls.byProvider)).toContain(providerId);
+  });
+
   it("lists every applicable Control for the palette, and leaves out one scoped to another Facet", async () => {
     const view = await mine();
     const fixture = view.controlList.filter((control) => control.code.startsWith(CODE));

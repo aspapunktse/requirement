@@ -107,7 +107,7 @@ export default async function SystemDetailPage({ params }: PageProps<"/systems/[
         offerings={offerings}
         offerable={offerable}
         dependents={dependents}
-        controlTotals={{ total: view.controls.total, organization: view.controls.bySource.organization, system: view.controls.bySource.system }}
+        controlTotals={{ total: view.controls.total, organization: view.controls.bySource.organization, system: view.controls.bySource.system, byProvider: view.controls.byProvider }}
       />
     ),
     profile: (

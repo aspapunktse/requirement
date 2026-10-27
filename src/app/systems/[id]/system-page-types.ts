@@ -147,6 +147,8 @@ export type SystemPageView = {
     done: number;
     byStatus: Record<ControlAssessmentStatus, number>;
     bySource: Record<SourceKey, number>;
+    /** The Controls whose status each Provider (by id) decides: `provider-full` plus `provider-shared`, split per Provider. */
+    byProvider: Record<string, number>;
   };
   /** Every item, most pressing first; the tile shows the first six. */
   attention: AttentionItem[];

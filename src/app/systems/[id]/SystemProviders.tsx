@@ -156,7 +156,7 @@ export function SystemProviders({
   offerable: OfferableControl[];
   dependents: DependentRow[];
   /** What the flow's other sources supply: the Overview's "Where the status comes from" figures. */
-  controlTotals: { total: number; organization: number; system: number };
+  controlTotals: { total: number; organization: number; system: number; byProvider: Record<string, number> };
 }) {
   const router = useRouter();
   const [dependencies, setDependencies] = useState(initialDependencies);
@@ -209,7 +209,7 @@ export function SystemProviders({
     router.refresh();
   }
 
-  const nodes = flowNodesOf({ organization: controlTotals.organization, system: controlTotals.system, dependencies });
+  const nodes = flowNodesOf({ organization: controlTotals.organization, system: controlTotals.system, byProvider: controlTotals.byProvider, dependencies });
 
   return (
     <div className="sc-stackgap">
@@ -241,7 +241,7 @@ export function SystemProviders({
               <div className="sc-picker">
                 <label className="sc-field">
                   <span>Provider</span>
-                  <select value={providerId} onChange={(event) => setProviderId(event.target.value)}>
+                  <select aria-label="Provider" value={providerId} onChange={(event) => setProviderId(event.target.value)}>
                     <option value="">Select a Provider</option>
                     {pickable.map((choice) => (
                       <option key={choice.id} value={choice.id}>

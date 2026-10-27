@@ -203,6 +203,15 @@ describe("Business Units and Framework Scope", () => {
     expect(within(picker).getAllByRole("option").map((option) => option.textContent)).toEqual(["Select a Framework…", "GDPR:2016"]);
   });
 
+  it("refreshes the page after a change, so the Overview and the timeline follow", async () => {
+    const user = userEvent.setup();
+    renderProfile();
+    await screen.findByRole("list", { name: "Business Units" });
+    fetchMock.mockImplementation(() => respond({ businessUnits: [] }));
+    await user.click(screen.getByRole("button", { name: "Remove Finance" }));
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+  });
+
   it("declares a Business Unit through the same POST and shows it", async () => {
     const user = userEvent.setup();
     renderProfile();

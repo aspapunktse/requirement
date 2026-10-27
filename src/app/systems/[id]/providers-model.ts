@@ -48,17 +48,19 @@ export type FlowNode = {
 };
 
 /**
- * The flow's sources, top to bottom: the Organization, each Provider dependency by name, This System. The
- * Organization and This System are the Overview's "Where the status comes from" figures
- * (`view.controls.bySource`); a Provider's count is its card's (Full plus Shared). The Organization and This
- * System are left out when they supply nothing; a Provider dependency is always there, whatever it supplies.
+ * The flow's sources, top to bottom: the Organization, each Provider dependency by name, This System. They
+ * partition the System's applicable Controls: each Control is counted once, under the source its effective
+ * status comes from, as the Overview's "Where the status comes from" attributes it (`view.controls`: `bySource`
+ * for the Organization and This System, `byProvider` for each Provider), so the counts sum to the total. A
+ * Provider's card still counts its Offerings; a Provider whose Offerings decide no Control (not Onboarded yet,
+ * or overridden by the System's own Assessment) has 0 here and is still shown. The Organization and This System
+ * are left out when they supply nothing.
  */
-export function flowNodesOf(input: { organization: number; system: number; dependencies: ProviderDependencyRow[] }): FlowNode[] {
+export function flowNodesOf(input: { organization: number; system: number; byProvider: Record<string, number>; dependencies: ProviderDependencyRow[] }): FlowNode[] {
   const providers = [...input.dependencies]
     .sort((a, b) => a.name.localeCompare(b.name))
     .map((dependency): FlowNode => {
-      const card = providerCardOf(dependency);
-      return { key: `provider-${dependency.providerId}`, name: dependency.name, count: card.full + card.shared, color: dependency.onboarded ? SOURCE_COLOR["provider-full"] : SOURCE_COLOR["provider-shared"], pending: !dependency.onboarded };
+      return { key: `provider-${dependency.providerId}`, name: dependency.name, count: input.byProvider[dependency.providerId] ?? 0, color: dependency.onboarded ? SOURCE_COLOR["provider-full"] : SOURCE_COLOR["provider-shared"], pending: !dependency.onboarded };
     });
   return [
     ...(input.organization > 0 ? [{ key: "organization", name: "Organization", count: input.organization, color: SOURCE_COLOR.organization }] : []),

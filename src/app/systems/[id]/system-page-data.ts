@@ -93,7 +93,7 @@ export async function loadSystemPage(user: User, id: string, now = new Date()): 
           own ? toOwnAssessment(own) : null,
           inheritanceSourcesFor(control, organizationStatuses.get(control.id), providerSources?.get(control.id)),
         );
-        return { control, status: effective.status, source: sourceKeyOf(effective.source) };
+        return { control, status: effective.status, source: sourceKeyOf(effective.source), providerId: effective.source.kind === "PROVIDER" ? effective.source.provider.id : null };
       });
 
       // Only a Draft can be submitted; the count is the route's own gate.
@@ -200,9 +200,11 @@ export async function loadSystemPage(user: User, id: string, now = new Date()): 
 
       const byStatus = Object.fromEntries(CONTROL_STATUS_ORDER.map((status) => [status, 0])) as Record<ControlAssessmentStatus, number>;
       const bySource = Object.fromEntries(SOURCE_KEYS.map((key) => [key, 0])) as Record<SourceKey, number>;
-      for (const { status, source } of controls) {
+      const byProvider: Record<string, number> = {};
+      for (const { status, source, providerId } of controls) {
         byStatus[status] += 1;
         bySource[source] += 1;
+        if (providerId !== null) byProvider[providerId] = (byProvider[providerId] ?? 0) + 1;
       }
       const done = controls.filter(({ status }) => controlIsDone(status)).length;
       const openRisks = risks.filter((risk) => risk.status === "OPEN").length;
@@ -256,7 +258,7 @@ export async function loadSystemPage(user: User, id: string, now = new Date()): 
           openRisks,
         },
         frameworks,
-        controls: { total: controls.length, done, byStatus, bySource },
+        controls: { total: controls.length, done, byStatus, bySource, byProvider },
         attention: buildAttention({
           queries,
           controls: controls.map(({ control, status, source }) => ({ id: control.id, code: control.code, title: control.title, mandatory: control.mandatory, status, source })),

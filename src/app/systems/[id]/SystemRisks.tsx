@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { useRouter } from "next/navigation";
 import { RiskRow, type Risk } from "@/components/RiskList";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { riskSeverityTone, riskStatusTone } from "@/lib/status-tones";
@@ -52,16 +53,16 @@ function LogRiskForm({ systemId, onLogged, onCancel }: { systemId: string; onLog
       )}
       <label className="sc-field">
         <span>Title</span>
-        <input value={title} onChange={(event) => setTitle(event.target.value)} required />
+        <input aria-label="Title" value={title} onChange={(event) => setTitle(event.target.value)} required />
       </label>
       <label className="sc-field">
         <span>Description</span>
-        <textarea rows={3} value={description} onChange={(event) => setDescription(event.target.value)} required />
+        <textarea aria-label="Description" rows={3} value={description} onChange={(event) => setDescription(event.target.value)} required />
       </label>
       <div className="sc-form-pair">
         <label className="sc-field">
           <span>Severity</span>
-          <select value={severity} onChange={(event) => setSeverity(event.target.value as Risk["severity"])}>
+          <select aria-label="Severity" value={severity} onChange={(event) => setSeverity(event.target.value as Risk["severity"])}>
             {RISK_LEVELS.map((level) => (
               <option key={level} value={level}>
                 {level}
@@ -71,7 +72,7 @@ function LogRiskForm({ systemId, onLogged, onCancel }: { systemId: string; onLog
         </label>
         <label className="sc-field">
           <span>Likelihood</span>
-          <select value={likelihood} onChange={(event) => setLikelihood(event.target.value as Risk["likelihood"])}>
+          <select aria-label="Likelihood" value={likelihood} onChange={(event) => setLikelihood(event.target.value as Risk["likelihood"])}>
             {RISK_LEVELS.map((level) => (
               <option key={level} value={level}>
                 {level}
@@ -110,6 +111,7 @@ export function SystemRisks({
   canManageStatus: boolean;
   canOpenCheckUp: boolean;
 }) {
+  const router = useRouter();
   const [logging, setLogging] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
 
@@ -142,6 +144,8 @@ export function SystemRisks({
               onLogged={() => {
                 setLogging(false);
                 load();
+                // The header's Open Risks, the Overview and the timeline are read on the server.
+                router.refresh();
               }}
             />
           </div>
@@ -192,7 +196,10 @@ export function SystemRisks({
                           patchUrl={`/api/systems/${systemId}/risks/${risk.id}`}
                           canManageStatus={canManageStatus}
                           canOpenCheckUp={canOpenCheckUp}
-                          onUpdated={(updated) => setRisks((previous) => (previous ?? []).map((candidate) => (candidate.id === updated.id ? updated : candidate)))}
+                          onUpdated={(updated) => {
+                            setRisks((previous) => (previous ?? []).map((candidate) => (candidate.id === updated.id ? updated : candidate)));
+                            router.refresh();
+                          }}
                         />
                       );
                     })}

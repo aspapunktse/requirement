@@ -76,7 +76,7 @@ function renderSection(props: Partial<React.ComponentProps<typeof SystemProvider
       offerings={[]}
       offerable={[]}
       dependents={[]}
-      controlTotals={{ total: 40, organization: 20, system: 15 }}
+      controlTotals={{ total: 40, organization: 22, system: 15, byProvider: { p1: 3 } }}
       {...props}
     />,
   );
@@ -170,19 +170,19 @@ describe("SystemProviders (#124, #245)", () => {
   });
 
   describe("where the Controls come from", () => {
-    it("sizes the flow by count: the Organization, each Provider (its Full plus Shared Offerings) and This System", () => {
+    it("sizes the flow by the Controls each source decides, which sum to the applicable total", () => {
       renderSection();
       const flow = screen.getByRole("img", { name: /Where this System's Controls come from/ });
-      expect(flow).toHaveAccessibleName("Where this System's Controls come from: Organization 20, Hidden Cloud 1, Landing Zone 3, This System 15; 40 applicable Controls");
+      expect(flow).toHaveAccessibleName("Where this System's Controls come from: Organization 22, Hidden Cloud 0, Landing Zone 3, This System 15; 40 applicable Controls");
       const inside = within(flow as unknown as HTMLElement);
-      expect(inside.getByText("20 Controls")).toBeInTheDocument();
+      expect(inside.getByText("22 Controls")).toBeInTheDocument();
       expect(inside.getByText("3 Controls")).toBeInTheDocument();
-      expect(inside.getByText("1 Control, pending")).toBeInTheDocument();
+      expect(inside.getByText("0 Controls, pending")).toBeInTheDocument();
       expect(inside.getByText("40 applicable Controls")).toBeInTheDocument();
     });
 
     it("leaves the Organization and This System out when they supply nothing, and says so when nothing applies", () => {
-      renderSection({ initialDependencies: [], controlTotals: { total: 0, organization: 0, system: 0 } });
+      renderSection({ initialDependencies: [], controlTotals: { total: 0, organization: 0, system: 0, byProvider: {} } });
       expect(screen.queryByRole("img", { name: /Where this System's Controls come from/ })).not.toBeInTheDocument();
       expect(screen.getByText(/No Control applies to this System yet/)).toBeInTheDocument();
     });
