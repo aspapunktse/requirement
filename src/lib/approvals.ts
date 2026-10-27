@@ -47,12 +47,28 @@ export async function deciderVisibilityFor(
   // Pass a transaction client to read the viewer's groups in the caller's snapshot.
   db: Pick<typeof prisma, "reviewGroup"> = prisma,
 ) {
-  const always = viewer.role === "ADMIN" || viewer.role === "INTERNAL_AUDITOR" || viewer.role === "COMPLIANCE_MANAGER";
-  const isOwner = viewer.id === systemOwnerId;
-  const groups = always || isOwner ? new Set<string>() : new Set(await memberGroupIds(viewer.id, db));
-  return (approval: { reviewGroupId: string | null }): boolean => {
-    if (always) return true;
-    if (isOwner) return false;
-    return approval.reviewGroupId === null ? viewer.role === "REVIEWER" : groups.has(approval.reviewGroupId);
-  };
+  const always = viewerAlwaysSeesPeople(viewer.role);
+  const groups = always || viewer.id === systemOwnerId ? new Set<string>() : new Set(await memberGroupIds(viewer.id, db));
+  return (approval: { reviewGroupId: string | null }): boolean => canSeeDecider(viewer, systemOwnerId, groups, approval);
+}
+
+/** The roles that see the person behind any attributed action (CONTEXT.md, "A step decides as its group"). */
+export function viewerAlwaysSeesPeople(role: UserRole): boolean {
+  return role === "ADMIN" || role === "INTERNAL_AUDITOR" || role === "COMPLIANCE_MANAGER";
+}
+
+/**
+ * The pure rule behind `deciderVisibilityFor`, given the viewer's group ids, so a caller that spans
+ * several Systems (different owners) can load the groups once and judge each Approval against its own
+ * System's owner.
+ */
+export function canSeeDecider(
+  viewer: { id: string; role: UserRole },
+  systemOwnerId: string,
+  viewerGroupIds: ReadonlySet<string>,
+  approval: { reviewGroupId: string | null },
+): boolean {
+  if (viewerAlwaysSeesPeople(viewer.role)) return true;
+  if (viewer.id === systemOwnerId) return false;
+  return approval.reviewGroupId === null ? viewer.role === "REVIEWER" : viewerGroupIds.has(approval.reviewGroupId);
 }
