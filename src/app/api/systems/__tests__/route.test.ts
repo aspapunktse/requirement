@@ -139,6 +139,37 @@ describe("/api/systems", () => {
     expect(body.system.deploymentFacets.map((f: { id: string }) => f.id)).toEqual([systemTypeId]);
   });
 
+  describe("the SYSTEM_CREATED Change Event (#245)", () => {
+    it("is written once per created System, by the creator, in the same transaction", async () => {
+      const response = await POST(
+        requestAs(ownerId, { method: "POST", body: JSON.stringify({ name: "Test System Created Event", deploymentFacetIds: [systemTypeId] }) }),
+      );
+      const body = await response.json();
+      createdSystemIds.push(body.system.id);
+
+      expect(response.status).toBe(201);
+      const events = await prisma.changeEvent.findMany({ where: { systemId: body.system.id } });
+      expect(events).toHaveLength(1);
+      expect(events[0]).toMatchObject({ action: "SYSTEM_CREATED", actorId: ownerId });
+      expect(events[0].detail).toContain("Test System Created Event");
+    });
+
+    it("is not written when the request is refused", async () => {
+      const before = await prisma.changeEvent.count({ where: { action: "SYSTEM_CREATED" } });
+      const forbidden = await POST(
+        requestAs(viewerId, { method: "POST", body: JSON.stringify({ name: "Test System Refused", deploymentFacetIds: [systemTypeId] }) }),
+      );
+      const invalid = await POST(requestAs(ownerId, { method: "POST", body: JSON.stringify({ name: "Test System Refused" }) }));
+      const unknownFacet = await POST(
+        requestAs(ownerId, { method: "POST", body: JSON.stringify({ name: "Test System Refused", deploymentFacetIds: ["does-not-exist"] }) }),
+      );
+
+      expect([forbidden.status, invalid.status, unknownFacet.status]).toEqual([403, 400, 400]);
+      expect(await prisma.changeEvent.count({ where: { action: "SYSTEM_CREATED" } })).toBe(before);
+      expect(await prisma.system.count({ where: { name: "Test System Refused" } })).toBe(0);
+    });
+  });
+
   describe("who may create a System (#91)", () => {
     const createAs = (userId: string) =>
       POST(

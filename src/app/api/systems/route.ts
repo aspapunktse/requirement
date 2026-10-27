@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { authenticate } from "@/lib/api-authz";
 import { getVisibleSystems } from "@/lib/system-visibility";
 import { canCreateSystem } from "@/lib/system-permissions";
+import { logChangeEvent } from "@/lib/change-events";
 
 const impactLevelSchema = z.nativeEnum(ImpactLevel).optional();
 
@@ -53,13 +54,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "One or more Deployment Facet ids do not exist" }, { status: 400 });
   }
 
-  const system = await prisma.system.create({
-    data: {
-      ...rest,
-      ownerId: auth.user.id,
-      deploymentFacets: { connect: deploymentFacetIds.map((id) => ({ id })) },
-    },
-    include: { deploymentFacets: true, owner: true },
+  // The System and the Change Event that records its creation commit together (#245).
+  const system = await prisma.$transaction(async (tx) => {
+    const created = await tx.system.create({
+      data: {
+        ...rest,
+        ownerId: auth.user.id,
+        deploymentFacets: { connect: deploymentFacetIds.map((id) => ({ id })) },
+      },
+      include: { deploymentFacets: true, owner: true },
+    });
+    await logChangeEvent(created.id, "SYSTEM_CREATED", `Created the System "${created.name}"`, auth.user.id, tx);
+    return created;
   });
   return NextResponse.json({ system }, { status: 201 });
 }
