@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
-import { IMPACT_LEVELS, type ImpactLevel } from "@/components/ImpactLevelsChanger";
+import type { ImpactLevel } from "@prisma/client";
+import { IMPACT_ORDER as IMPACT_LEVELS } from "@/app/systems/systems-types";
 
 type DeploymentFacet = { id: string; name: string };
 

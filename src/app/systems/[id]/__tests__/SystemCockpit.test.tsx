@@ -49,6 +49,7 @@ const view = (over: Partial<SystemPageView> = {}): SystemPageView => ({
     confidentiality: "HIGH",
     integrity: "MODERATE",
     availability: null,
+    createdAt: "2026-09-01T09:00:00.000Z",
     onboardedAt: null,
   },
   note: "Not submitted yet · Marcus Lindqvist is still assembling the System",
@@ -72,6 +73,7 @@ const view = (over: Partial<SystemPageView> = {}): SystemPageView => ({
     { id: "e1", who: "You", what: "submitted a System for review", detail: "Submitted for review", tone: "accent", at: "2026-10-24T09:00:00.000Z" },
     { id: "e2", who: "The system", what: "changed a Risk's status", detail: "Opened a Risk", tone: "warn", at: "2026-10-26T08:00:00.000Z" },
   ],
+  timeline: [],
   counts: { controls: 9, requirements: 2, openRisks: 2, providers: 1 },
   controlList: [
     { id: "c1", code: "A.5.1", title: "Policies for information security" },

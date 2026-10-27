@@ -11,17 +11,14 @@ import { canManageProvider } from "@/lib/control-offering-rules";
 import { listControlOfferings, listOfferableControls } from "@/lib/control-offerings";
 import { canManageProviderDependencies } from "@/lib/provider-dependency-rules";
 import { listDependents, listProviderChoices, listProviderDependencies } from "@/lib/provider-dependencies";
-import { SystemFrameworkRequirementsView } from "@/components/SystemFrameworkRequirements";
-import { RiskList } from "@/components/RiskList";
-import { ApprovalPanel } from "@/components/ApprovalPanel";
-import { SystemCatalogRelation } from "@/components/SystemCatalogRelation";
-import { SystemProvider } from "@/components/SystemProvider";
-import { SystemProviderDependencies } from "@/components/SystemProviderDependencies";
-import { DeploymentFacetsChanger } from "@/components/DeploymentFacetsChanger";
-import { ImpactLevelsChanger } from "@/components/ImpactLevelsChanger";
 import "@/app/home/home.css";
 import { SystemCockpit } from "./SystemCockpit";
+import { SystemActivity } from "./SystemActivity";
 import { SystemControls } from "./SystemControls";
+import { SystemProfile } from "./SystemProfile";
+import { SystemProviders } from "./SystemProviders";
+import { SystemRequirements } from "./SystemRequirements";
+import { SystemRisks } from "./SystemRisks";
 import { loadSystemPage } from "./system-page-data";
 
 /** A message in the Register look, for a page with nothing else to show. */
@@ -41,8 +38,8 @@ function EmptyState({ title, children }: { title: string; children: React.ReactN
  * lifecycle, next step and headline figures, pinned tabs, and an Overview of tiles. `loadSystemPage` reads
  * the Overview's data in one snapshot, and only for a System the user may see (`visibleSystemsWhere`); the
  * client component only adds the interactions and keeps the tab in the URL hash. The Controls tab is the
- * grouped list with its Control drawer (#244); the other tabs hold the sections the page had before,
- * unchanged, until the rest (#245) are redone.
+ * grouped list with its Control drawer (#244); Requirements, Risks, Providers, Profile and Approval and
+ * activity are the cards of #245, on the same API routes and permission checks the page always had.
  */
 export default async function SystemDetailPage({ params }: PageProps<"/systems/[id]">) {
   const { id } = await params;
@@ -89,9 +86,9 @@ export default async function SystemDetailPage({ params }: PageProps<"/systems/[
         assessmentEditAccess={assessmentEditAccess(user, system)}
       />
     ),
-    requirements: <SystemFrameworkRequirementsView frameworks={frameworkRequirements} />,
+    requirements: <SystemRequirements frameworks={view.frameworks} entries={frameworkRequirements} />,
     risks: (
-      <RiskList
+      <SystemRisks
         systemId={system.id}
         canLog={canLogRisk(user, system)}
         canManageStatus={ROLES_ALLOWED_TO_MANAGE_RISK_STATUS.includes(user.role)}
@@ -99,73 +96,42 @@ export default async function SystemDetailPage({ params }: PageProps<"/systems/[
       />
     ),
     providers: (
-      <>
-        <h2 className="mb-3 text-xl">Provider</h2>
-        <SystemProvider
-          systemId={system.id}
-          canManage={canManageThisProvider}
-          initialIsProvider={system.isProvider}
-          initialOfferings={offerings}
-          initialOfferable={offerable}
-          dependents={dependents}
-        />
-
-        <h2 className="mb-3 mt-8 text-xl">Provider dependencies</h2>
-        <SystemProviderDependencies
-          systemId={system.id}
-          canManage={canManageDependencies}
-          initialDependencies={dependencies}
-          choices={providerChoices}
-        />
-      </>
+      <SystemProviders
+        systemId={system.id}
+        systemName={system.name}
+        canManageDependencies={canManageDependencies}
+        canManageProvider={canManageThisProvider}
+        initialDependencies={dependencies}
+        choices={providerChoices}
+        isProvider={system.isProvider}
+        offerings={offerings}
+        offerable={offerable}
+        dependents={dependents}
+        controlTotals={{ total: view.controls.total, organization: view.controls.bySource.organization, system: view.controls.bySource.system }}
+      />
     ),
     profile: (
-      <>
-        {canChangeClassification && (
-          <DeploymentFacetsChanger
-            systemId={system.id}
-            currentDeploymentFacetIds={system.deploymentFacets.map((facet) => facet.id)}
-          />
-        )}
-        {canChangeClassification && (
-          <ImpactLevelsChanger
-            systemId={system.id}
-            current={{
-              confidentialityImpactLevel: system.confidentialityImpactLevel,
-              integrityImpactLevel: system.integrityImpactLevel,
-              availabilityImpactLevel: system.availabilityImpactLevel,
-            }}
-          />
-        )}
-
-        <h2 className="mb-3 mt-8 text-xl">Business Units</h2>
-        <SystemCatalogRelation
-          systemId={system.id}
-          canManage={canManageBusinessUnits(user, system)}
-          resourcePath={`/api/systems/${system.id}/business-units`}
-          resourceKey="businessUnits"
-          catalogPath="/api/business-units"
-          catalogKey="businessUnits"
-          idField="businessUnitId"
-          itemLabel="Business Unit"
-          emptyLabel="No Business Units consuming this System yet."
-        />
-
-        <h2 className="mb-3 mt-8 text-xl">Framework Scope</h2>
-        <SystemCatalogRelation
-          systemId={system.id}
-          canManage={canManageFrameworkScopes(user, system)}
-          resourcePath={`/api/systems/${system.id}/framework-scopes`}
-          resourceKey="frameworkScopes"
-          catalogPath="/api/frameworks"
-          catalogKey="frameworks"
-          idField="frameworkId"
-          itemLabel="Framework"
-          emptyLabel="This System isn't in scope for any Framework yet."
-        />
-      </>
+      <SystemProfile
+        systemId={system.id}
+        about={{
+          vendor: view.system.vendor,
+          ownerName: view.system.ownerName,
+          createdAt: view.system.createdAt,
+          onboardedAt: view.system.onboardedAt,
+          description: view.system.description,
+        }}
+        canChangeClassification={canChangeClassification}
+        canManageBusinessUnits={canManageBusinessUnits(user, system)}
+        canManageFrameworkScopes={canManageFrameworkScopes(user, system)}
+        deploymentFacetIds={system.deploymentFacets.map((facet) => facet.id)}
+        impactLevels={{
+          confidentialityImpactLevel: system.confidentialityImpactLevel,
+          integrityImpactLevel: system.integrityImpactLevel,
+          availabilityImpactLevel: system.availabilityImpactLevel,
+        }}
+      />
     ),
-    activity: <ApprovalPanel systemId={system.id} />,
+    activity: <SystemActivity systemId={system.id} timeline={view.timeline} now={view.now} />,
   };
 
   // Keyed on the System and the acting user, so switching either starts from a clean state.

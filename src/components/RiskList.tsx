@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { LogRiskForm } from "@/components/LogRiskForm";
 import { Button } from "@/components/ui/Button";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { riskStatusTone } from "@/lib/status-tones";
@@ -175,67 +174,5 @@ export function RiskRow({
         </div>
       )}
     </li>
-  );
-}
-
-export function RiskList({
-  systemId,
-  canLog,
-  canManageStatus,
-  canOpenCheckUp = false,
-}: {
-  systemId: string;
-  canLog: boolean;
-  canManageStatus: boolean;
-  canOpenCheckUp?: boolean;
-}) {
-  const [risks, setRisks] = useState<Risk[] | null>(null);
-
-  function load() {
-    fetch(`/api/systems/${systemId}/risks`)
-      .then((response) => response.json())
-      .then((body) => setRisks(body.risks ?? []));
-  }
-
-  useEffect(() => {
-    let cancelled = false;
-
-    fetch(`/api/systems/${systemId}/risks`)
-      .then((response) => response.json())
-      .then((body) => {
-        if (cancelled) return;
-        setRisks(body.risks ?? []);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [systemId]);
-
-  return (
-    <div>
-      {canLog && <LogRiskForm systemId={systemId} onLogged={load} />}
-
-      {risks === null ? (
-        <p>Loading Risks…</p>
-      ) : risks.length === 0 ? (
-        <p className="text-sm text-zinc-500">No Risks logged for this System.</p>
-      ) : (
-        <ul className="flex flex-col gap-3">
-          {risks.map((risk) => (
-            <RiskRow
-              key={risk.id}
-              risk={risk}
-              patchUrl={`/api/systems/${systemId}/risks/${risk.id}`}
-              canManageStatus={canManageStatus}
-              canOpenCheckUp={canOpenCheckUp}
-              onUpdated={(updated) =>
-                setRisks((prev) => (prev ?? []).map((r) => (r.id === updated.id ? updated : r)))
-              }
-            />
-          ))}
-        </ul>
-      )}
-    </div>
   );
 }

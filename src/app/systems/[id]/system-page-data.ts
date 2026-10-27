@@ -23,6 +23,7 @@ import {
   type FrameworkSummary,
   type SourceKey,
   type SystemPageView,
+  type TimelineItem,
 } from "./system-page-types";
 
 /**
@@ -126,11 +127,11 @@ export async function loadSystemPage(user: User, id: string, now = new Date()): 
         .filter((step) => step.status === "OPEN" && userCanDecideStep(user, system.ownerId, memberOf, step.reviewGroupId))
         .map((step) => ({ reviewGroupId: step.reviewGroupId, name: step.name }));
 
-      // Recent activity: this System's own Change Events only.
+      // Recent activity (the tile shows the newest few) and the Approval and activity tab's timeline show
+      // all of this System's own Change Events, newest first.
       const events = await tx.changeEvent.findMany({
         where: { systemId: system.id },
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-        take: ACTIVITY_TILE_SIZE,
       });
       const personIds = [
         ...new Set([...events.map((event) => event.actorId), ...(submitted ? [submitted.actorId] : [])].filter((actor) => actor !== SYSTEM_ACTOR && actor !== user.id)),
@@ -164,7 +165,7 @@ export async function loadSystemPage(user: User, id: string, now = new Date()): 
         }
         return named;
       };
-      const activity = events.map(
+      const timeline = events.map(
         (event): ActivityItem => ({
           id: event.id,
           who: personFor(event),
@@ -174,6 +175,12 @@ export async function loadSystemPage(user: User, id: string, now = new Date()): 
           at: event.createdAt.toISOString(),
         }),
       );
+      const activity = timeline.slice(0, ACTIVITY_TILE_SIZE);
+      // A System created before `SYSTEM_CREATED` existed has no such event (no backfill): its timeline ends in a
+      // "Created" entry from `createdAt`, without an actor.
+      const createdEntry: TimelineItem[] = events.some((event) => event.action === "SYSTEM_CREATED")
+        ? []
+        : [{ id: "created", who: null, what: CHANGE_EVENT_ACTION_LABEL.SYSTEM_CREATED, detail: "", tone: CHANGE_EVENT_ACTION_TONE.SYSTEM_CREATED, at: system.createdAt.toISOString() }];
 
       const frameworks = frameworkRequirements.map(
         (entry): FrameworkSummary => ({
@@ -218,6 +225,7 @@ export async function loadSystemPage(user: User, id: string, now = new Date()): 
           confidentiality: system.confidentialityImpactLevel,
           integrity: system.integrityImpactLevel,
           availability: system.availabilityImpactLevel,
+          createdAt: system.createdAt.toISOString(),
           onboardedAt: system.onboardedAt?.toISOString() ?? null,
         },
         note: lifecycleNote({
@@ -266,6 +274,7 @@ export async function loadSystemPage(user: User, id: string, now = new Date()): 
           frameworkScope: declaredScopes.map((framework) => frameworkLabel(framework)),
         },
         activity,
+        timeline: [...timeline, ...createdEntry],
         counts: { controls: controls.length, requirements: frameworks.length, openRisks, providers: providerCount },
         controlList: controls.map(({ control }) => ({ id: control.id, code: control.code, title: control.title })),
       };

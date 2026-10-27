@@ -18,12 +18,12 @@ import "./system-cockpit.css";
 import { CiaBars } from "@/app/systems/CiaBars";
 import { IMPACT_LABEL, IMPACT_RANK, STATUS_LABEL } from "@/app/systems/systems-types";
 import { DecisionDialog } from "./DecisionDialog";
+import { RiskGrid } from "./RiskGrid";
 import { Stack } from "./Stack";
 import { currentTab, serverTab, subscribeToHash, writeHash } from "./system-hash";
 import { controlHash, formatDay, lifecycleStages } from "./system-page-logic";
 import {
   CONTROL_STATUS_ORDER,
-  RISK_LEVELS,
   SOURCE_KEYS,
   SOURCE_COLOR,
   SOURCE_LABEL,
@@ -51,9 +51,6 @@ const TAB_ICON: Record<TabKey, HomeIconKey> = {
 };
 
 const ACTIVITY_COLOR = { ok: "var(--rg-success)", warn: "var(--rg-gold)", danger: "var(--rg-danger)", accent: "var(--rg-accent)" };
-const SEVERITY_LETTER: Record<string, string> = { LOW: "L", MEDIUM: "M", HIGH: "H", CRITICAL: "C" };
-const SEVERITY_TEXT: Record<string, string> = { LOW: "Low", MEDIUM: "Medium", HIGH: "High", CRITICAL: "Critical" };
-
 const prefersReducedMotion = () => !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 
 const frameworkParts = (framework: FrameworkSummary) => [
@@ -61,15 +58,6 @@ const frameworkParts = (framework: FrameworkSummary) => [
   { value: framework.partial, color: "var(--rg-gold)", label: "Partially met" },
   { value: framework.notMet, color: "var(--rg-danger)", label: "Not met" },
 ];
-
-/** Heat of a cell in the Risk grid: worse towards the high-severity, high-likelihood corner. */
-function heat(severity: number, likelihood: number): string {
-  const sum = severity + likelihood;
-  if (sum >= 6) return "var(--rg-danger)";
-  if (sum >= 4) return "var(--rg-gold)";
-  if (sum >= 2) return "color-mix(in srgb, var(--rg-gold) 45%, var(--rg-surface))";
-  return "var(--rg-success-soft)";
-}
 
 export function SystemCockpit({ view, panels }: { view: SystemPageView; panels: Record<Exclude<TabKey, "overview">, ReactNode> }) {
   const router = useRouter();
@@ -497,29 +485,7 @@ export function SystemCockpit({ view, panels }: { view: SystemPageView; panels: 
               </button>
             </div>
             <div className="hc-card-b sc-riskwrap">
-              <div className="sc-rgrid" role="img" aria-label={`Open Risks by severity and likelihood: ${risks.open} open`}>
-                {[...RISK_LEVELS.keys()].reverse().map((severity) => (
-                  <div key={severity} className="rg-row">
-                    <span className="rg-y">{SEVERITY_LETTER[RISK_LEVELS[severity]]}</span>
-                    {RISK_LEVELS.map((level, likelihood) => {
-                      const n = risks.grid[severity]?.[likelihood] ?? 0;
-                      return (
-                        <span key={level} className="rg-c" style={{ background: heat(severity, likelihood) }} title={`${SEVERITY_TEXT[RISK_LEVELS[severity]]} severity, ${SEVERITY_TEXT[level].toLowerCase()} likelihood: ${n}`}>
-                          {n > 0 && <b>{n}</b>}
-                        </span>
-                      );
-                    })}
-                  </div>
-                ))}
-                <div className="rg-row">
-                  <span />
-                  {RISK_LEVELS.map((level) => (
-                    <span key={level} className="rg-x">
-                      {SEVERITY_LETTER[level]}
-                    </span>
-                  ))}
-                </div>
-              </div>
+              <RiskGrid grid={risks.grid} open={risks.open} />
               <div className="sc-tally">
                 <div>
                   <b className="num">{risks.open}</b> <span className="muted">Open</span>
@@ -620,9 +586,7 @@ export function SystemCockpit({ view, panels }: { view: SystemPageView; panels: 
 
       {(Object.keys(panels) as Exclude<TabKey, "overview">[]).map((key) => (
         <section key={key} id={`sc-panel-${key}`} role="tabpanel" aria-labelledby={`sc-tab-${key}`} hidden={tab !== key} className="sc-panel">
-          <div className="hc-card">
-            <div className="hc-card-b sc-section">{key === "activity" ? <Fragment key={approvalVersion}>{panels[key]}</Fragment> : panels[key]}</div>
-          </div>
+          <div className="sc-section">{key === "activity" ? <Fragment key={approvalVersion}>{panels[key]}</Fragment> : panels[key]}</div>
         </section>
       ))}
 
