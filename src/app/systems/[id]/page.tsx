@@ -114,6 +114,7 @@ export default async function SystemDetailPage({ params }: PageProps<"/systems/[
       <SystemProfile
         systemId={system.id}
         about={{
+          name: view.system.name,
           vendor: view.system.vendor,
           ownerName: view.system.ownerName,
           createdAt: view.system.createdAt,
