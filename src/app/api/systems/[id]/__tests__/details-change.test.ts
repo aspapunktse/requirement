@@ -3,6 +3,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import type { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { ACTING_USER_COOKIE } from "@/lib/acting-user";
+import { saveSystemDetails } from "@/lib/system-details";
 import { PATCH } from "../details/route";
 
 const EMAIL = (key: string) => `test-246-${key}@example.com`;
@@ -195,5 +196,41 @@ describe("PATCH /api/systems/[id]/details (#246)", () => {
       ctxFor(systemId),
     );
     expect(response.status).toBe(200);
+  });
+
+  it("refuses under the lock a former owner whose earlier checks passed (the owner changed in between), and changes nothing", async () => {
+    // What the route's first checks would have passed for `owner`, then an Admin hands the System over.
+    await prisma.system.update({ where: { id: systemId }, data: { ownerId: users.other } });
+    const result = await saveSystemDetails({ id: users.owner, role: "SYSTEM_OWNER" }, systemId, { name: "Stale owner" });
+    expect(result.status).toBe(403);
+    await expectUnchanged();
+    // The new owner still can.
+    expect((await saveSystemDetails({ id: users.other, role: "SYSTEM_OWNER" }, systemId, { name: "New owner" })).status).toBe(200);
+  });
+
+  it("answers 404 under the lock when the System is gone", async () => {
+    const result = await saveSystemDetails({ id: users.admin, role: "ADMIN" }, "gone", { name: "X" });
+    expect(result.status).toBe(404);
+  });
+
+  it("writes one event for two concurrent identical saves", async () => {
+    const send = () => PATCH(requestAs(systemId, users.owner, { name: "Test #246 Same" }), ctxFor(systemId));
+    const responses = await Promise.all([send(), send()]);
+    expect(responses.map((r) => r.status)).toEqual([200, 200]);
+    expect((await row()).name).toBe("Test #246 Same");
+    expect(await events()).toHaveLength(1);
+  });
+
+  it("records a consistent chain for two concurrent different renames", async () => {
+    const rename = (name: string) => PATCH(requestAs(systemId, users.owner, { name }), ctxFor(systemId));
+    const responses = await Promise.all([rename("Test #246 B"), rename("Test #246 C")]);
+    expect(responses.map((r) => r.status)).toEqual([200, 200]);
+    const logged = (await events()).sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+    expect(logged).toHaveLength(2);
+    const second = /^Name: "(.*)" → "(.*)"$/.exec(logged[1].detail!)!;
+    const firstMatch = /^Name: "(.*)" → "(.*)"$/.exec(logged[0].detail!)!;
+    expect(firstMatch[1]).toBe("Test #246 System");
+    expect(second[1]).toBe(firstMatch[2]);
+    expect((await row()).name).toBe(second[2]);
   });
 });

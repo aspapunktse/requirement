@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { authenticate } from "@/lib/api-authz";
 import { getVisibleSystem } from "@/lib/system-visibility";
 import { canChangeSystemClassification } from "@/lib/system-classification-change";
-import { logChangeEvent } from "@/lib/change-events";
-import { describeDetailsChange, systemDetailsSchema } from "@/lib/system-details";
+import { saveSystemDetails, systemDetailsSchema } from "@/lib/system-details";
 
 /**
  * Edits a System's name, vendor and description (#246), at any Onboarding Status; it never touches the
@@ -32,25 +30,12 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/system
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Invalid details" }, { status: 400 });
   }
 
-  const system = await prisma.$transaction(async (tx) => {
-    const current = await tx.system.findUnique({
-      where: { id: visible.id },
-      select: { id: true, name: true, vendor: true, description: true },
-    });
-    if (!current) return null;
-    const change = describeDetailsChange(current, parsed.data);
-    if (!change) return current;
-    const updated = await tx.system.update({
-      where: { id: current.id },
-      data: change.data,
-      select: { id: true, name: true, vendor: true, description: true },
-    });
-    await logChangeEvent(current.id, "SYSTEM_DETAILS_CHANGED", change.detail, auth.user.id, tx);
-    return updated;
-  });
-  if (!system) {
-    return NextResponse.json({ error: "System not found" }, { status: 404 });
+  // The checks above are a fast refusal; the permission is checked again under the System's row lock.
+  const result = await saveSystemDetails(auth.user, visible.id, parsed.data);
+  if (result.status !== 200) {
+    return result.status === 404
+      ? NextResponse.json({ error: "System not found" }, { status: 404 })
+      : NextResponse.json({ error: "Only the System's owner or an Admin can edit its details" }, { status: 403 });
   }
-
-  return NextResponse.json({ system });
+  return NextResponse.json({ system: result.system });
 }
