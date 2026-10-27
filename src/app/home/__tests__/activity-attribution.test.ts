@@ -25,8 +25,8 @@ const makeUser = async (key: string, role: UserRole): Promise<Fixture> => {
 let owner: Fixture, reviewer: Fixture, member: Fixture, admin: Fixture, manager: Fixture, outsider: Fixture;
 let groupId: string, groupName: string, systemId: string;
 const eventIds: Record<"query" | "reply" | "base" | "group", string> = { query: "", reply: "", base: "", group: "" };
-// Just in the future of every other test's events, so "newest 8" can never crowd ours out.
-const start = Date.now() + 600_000;
+// In the future of any real-time event, but below activity.test.ts's (+600s), so our 4 events can't crowd out its 4 in the newest 8.
+const start = Date.now() + 300_000;
 const now = new Date(start + 60_000);
 
 beforeAll(async () => {
