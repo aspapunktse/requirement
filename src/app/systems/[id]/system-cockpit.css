@@ -239,6 +239,9 @@
 .sc-drawer select, .sc-drawer input, .sc-drawer textarea { border: 1px solid var(--rg-line); background: var(--rg-surface); color: var(--rg-ink); border-radius: 10px; padding: 8px 10px; font: inherit; font-weight: 400; width: 100%; }
 .sc-drawer textarea { resize: vertical; }
 .sc-drawer select:focus-visible, .sc-drawer input:focus-visible, .sc-drawer textarea:focus-visible, .sc-drawer .hc-btn:focus-visible { outline: 2px solid var(--rg-accent); outline-offset: 1px; }
+.sc-aboutform input, .sc-aboutform textarea { border: 1px solid var(--rg-line); background: var(--rg-surface); color: var(--rg-ink); border-radius: 10px; padding: 8px 10px; font: inherit; font-weight: 400; width: 100%; }
+.sc-aboutform textarea { resize: vertical; }
+.sc-aboutform input:focus-visible, .sc-aboutform textarea:focus-visible { outline: 2px solid var(--rg-accent); outline-offset: 1px; }
 .sc-btnrow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .sc-col { display: grid; gap: 8px; justify-items: start; }
 .sc-col textarea { width: 100%; }
