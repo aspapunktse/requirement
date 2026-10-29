@@ -2,12 +2,14 @@
 
 import { useRouter } from "next/navigation";
 import { Fragment, useEffect, useId, useRef, useState, type KeyboardEvent, type RefObject } from "react";
+import "@/components/jump-palette.css";
 import { Icon, kindOf } from "./HomeGraphics";
 import type { HomeIconKey, HomeTask, HomeTile } from "./home-types";
 
 /**
- * The Ctrl+K "jump to" palette, shared by the Home page and the Systems list (#232): the page builds its
- * items, the palette filters, lists and opens them. Its styles (`hc-pal*`) are in `home.css`.
+ * The Ctrl+K "jump to" palette (#226, #232): a page registers its items with `usePagePalette`
+ * (`PaletteProvider`), and the app header opens the one palette with them, then the "Go to" pages (#256).
+ * Its styles (`hc-pal*`) are in `jump-palette.css`, loaded with this module on every page.
  */
 export type PaletteItem = { group: string; icon: HomeIconKey; label: string; meta: string; href: string };
 
@@ -29,43 +31,22 @@ export function paletteItems(tasks: HomeTask[], tiles: HomeTile[], query: string
 }
 
 /**
- * The keyboard shortcuts of a Register page: Ctrl/Cmd+K toggles the palette (when `paletteEnabled`) and "/"
- * focuses the search field unless the user is typing somewhere. Both are ignored while the palette is open,
- * except Ctrl+K, which closes it.
+ * The "/" shortcut of a Register page: it focuses the page's search field unless the user is typing somewhere
+ * (the palette's own field counts). Ctrl/Cmd+K belongs to the app header, which owns the one palette (#256).
  */
-export function useRegisterHotkeys({
-  paletteEnabled,
-  paletteOpen,
-  openPalette,
-  closePalette,
-  searchRef,
-}: {
-  paletteEnabled: boolean;
-  paletteOpen: boolean;
-  openPalette: () => void;
-  closePalette: () => void;
-  /** The page's search field, focused by "/"; a page without one leaves it out and "/" is not taken. */
-  searchRef?: RefObject<HTMLInputElement | null>;
-}) {
+export function useSearchHotkey(searchRef: RefObject<HTMLInputElement | null>) {
   useEffect(() => {
     function onKeyDown(event: globalThis.KeyboardEvent) {
-      if (paletteEnabled && (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
-        event.preventDefault();
-        if (paletteOpen) closePalette();
-        else openPalette();
-        return;
-      }
-      if (paletteOpen) return;
       const target = event.target instanceof HTMLElement ? event.target : null;
       const typing = !!target && (/^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName) || target.isContentEditable);
-      if (searchRef && event.key === "/" && !typing && !event.ctrlKey && !event.metaKey && !event.altKey) {
+      if (event.key === "/" && !typing && !event.ctrlKey && !event.metaKey && !event.altKey) {
         event.preventDefault();
         searchRef.current?.focus();
       }
     }
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  });
+  }, [searchRef]);
 }
 
 /** Opens and closes the palette, giving focus back to what had it before. */

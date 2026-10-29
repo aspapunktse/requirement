@@ -2,12 +2,14 @@ import { useEffect } from "react";
 import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { withHeader } from "@/components/__tests__/with-header";
 import { SystemCockpit } from "../SystemCockpit";
 import { RISK_LEVELS, TAB_KEYS, type AttentionItem, type SystemPageView, type TabKey } from "../system-page-types";
 
 const push = vi.fn();
+const VIEWER = { id: "u1", name: "Ada", email: "ada@example.com", role: "VIEWER" as const };
 const refresh = vi.fn();
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push, refresh }) }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push, refresh }), usePathname: () => "/systems/s1" }));
 // A plain anchor: the real Link prefetches and updates state outside act().
 vi.mock("next/link", () => ({
   default: ({ href, children, ...rest }: { href: string; children: React.ReactNode } & React.AnchorHTMLAttributes<HTMLAnchorElement>) => (
@@ -476,7 +478,7 @@ describe("Overview tiles (#243)", () => {
 
 describe("Ctrl+K palette (#243)", () => {
   it("lists the tabs and every Control, and opens the Controls tab for a Control", async () => {
-    renderCockpit();
+    render(withHeader(<SystemCockpit view={view()} panels={PANELS} />));
     await userEvent.keyboard("{Control>}k{/Control}");
     const dialog = screen.getByRole("dialog", { name: "Jump to" });
     expect(within(dialog).getAllByRole("option")).toHaveLength(TAB_KEYS.length + 2);
@@ -491,8 +493,8 @@ describe("Ctrl+K palette (#243)", () => {
   });
 
   it("opens a tab from the palette", async () => {
-    renderCockpit();
-    await userEvent.click(screen.getByRole("button", { name: "Ctrl K" }));
+    render(withHeader(<SystemCockpit view={view()} panels={PANELS} />, VIEWER));
+    await userEvent.click(screen.getByRole("button", { name: "Jump to" }));
     await userEvent.type(within(screen.getByRole("dialog")).getByRole("combobox"), "Providers");
     await userEvent.keyboard("{Enter}");
     expect(window.location.hash).toBe("#providers");

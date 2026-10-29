@@ -9,7 +9,8 @@ import { compliancePercentage, formatCompliancePercentage } from "@/lib/requirem
 import { onboardingStatusTone } from "@/lib/status-tones";
 import { ago, initialsOf } from "@/app/home/home-format";
 import { Ring } from "@/app/home/HomeGraphics";
-import { JumpPalette, usePaletteToggle, useRegisterHotkeys, type PaletteItem } from "@/app/home/JumpPalette";
+import type { PaletteItem } from "@/app/home/JumpPalette";
+import { usePagePalette } from "@/components/PaletteProvider";
 import type { HomeIconKey } from "@/app/home/home-types";
 import { roleLabel } from "@/app/home/role-label";
 import "@/app/home/home.css";
@@ -75,8 +76,6 @@ export function SystemCockpit({ view, panels }: { view: SystemPageView; panels: 
   const tabsRef = useRef<HTMLDivElement>(null);
   const indicatorRef = useRef<HTMLSpanElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-  const { open: paletteOpen, openPalette, closePalette } = usePaletteToggle();
-  useRegisterHotkeys({ paletteEnabled: true, paletteOpen, openPalette, closePalette });
 
   const now = Date.parse(view.now);
   const mine = system.ownerId === view.userId;
@@ -169,6 +168,7 @@ export function SystemCockpit({ view, panels }: { view: SystemPageView; panels: 
     ],
     [counts, view.controlList],
   );
+  usePagePalette({ items: paletteItems, onSelect: (item) => goHash(item.href, { scroll: true }), placeholder: "Jump to a tab or a Control…" });
 
   const stages = lifecycleStages(system.status);
   const next = view.nextStep;
@@ -190,9 +190,7 @@ export function SystemCockpit({ view, panels }: { view: SystemPageView; panels: 
           <span aria-current="page">{system.name}</span>
         </nav>
         <p className="sc-hint">
-          <button type="button" className="hc-kbd" onClick={openPalette} aria-keyshortcuts="Control+K">
-            Ctrl K
-          </button>{" "}
+          <kbd className="hc-kbd">Ctrl K</kbd>{" "}
           to jump to a tab or a Control
         </p>
       </div>
@@ -619,7 +617,6 @@ export function SystemCockpit({ view, panels }: { view: SystemPageView; panels: 
         />
       )}
 
-      {paletteOpen && <JumpPalette items={paletteItems} onClose={closePalette} onSelect={(item) => goHash(item.href, { scroll: true })} placeholder="Jump to a tab or a Control…" />}
     </div>
   );
 }

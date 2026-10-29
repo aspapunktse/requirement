@@ -1,0 +1,17 @@
+/* Ctrl+K palette, and the key-cap used for its hints (the app header's "Jump to" button and the pages' hints) */
+.hc-kbd { font-family: var(--rg-font-mono); font-size: 0.72rem; border: 1px solid var(--rg-line); border-radius: 4px; padding: 0 5px; color: var(--rg-muted); background: var(--rg-surface); }
+.hc-pal-scrim { position: fixed; inset: 0; background: rgba(10, 25, 35, 0.4); backdrop-filter: blur(2px); z-index: 50; }
+.hc-pal { position: fixed; left: 50%; top: 12vh; transform: translateX(-50%); width: min(560px, calc(100vw - 32px)); background: var(--rg-surface); color: var(--rg-ink); border: 1px solid var(--rg-line); border-radius: 16px; box-shadow: 0 24px 60px rgba(10, 25, 35, 0.3); z-index: 51; overflow: hidden; animation: hc-pop 0.18s ease-out; }
+@keyframes hc-pop { from { opacity: 0; transform: translateX(-50%) scale(0.97); } }
+.hc-pal input { width: 100%; border: 0; border-bottom: 1px solid var(--hc-line-soft, color-mix(in srgb, var(--rg-line) 55%, var(--rg-surface))); padding: 16px 18px; font-size: 1rem; background: transparent; color: var(--rg-ink); outline: none; font-family: inherit; }
+.hc-pal ul { list-style: none; margin: 0; padding: 6px; max-height: 50vh; overflow-y: auto; }
+.hc-pal li[role="option"] { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 9px; cursor: pointer; font-size: 0.88rem; }
+.hc-pal li[aria-selected="true"] { background: var(--rg-accent-soft); }
+.hc-pal li small { color: var(--rg-muted); font-size: 0.74rem; }
+.hc-pal li span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hc-pal .grp { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--rg-muted); font-weight: 750; padding: 8px 10px 4px; }
+.hc-pal .none { padding: 12px 10px; color: var(--rg-muted); font-size: 0.88rem; }
+
+@media (prefers-reduced-motion: reduce) {
+  .hc-pal { animation: none; }
+}

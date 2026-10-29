@@ -44,6 +44,7 @@ export type HomeStat = {
 };
 
 export type HomeIconKey =
+  | "home"
   | "plus"
   | "stack"
   | "check"

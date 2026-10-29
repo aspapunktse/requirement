@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { PublicUser } from "@/lib/acting-user";
+import { useExclusivePopover } from "@/components/useExclusivePopover";
 
 function roleLabel(role: string) {
   return role.replace(/_/g, " ");
@@ -20,7 +21,7 @@ function initials(name: string) {
 /** Avatar, name and role of the acting user: the header's right-hand side. */
 export function UserChip({ user }: { user: PublicUser | null }) {
   return (
-    <span className="inline-flex items-center gap-2 rounded-[var(--rg-radius-pill)] border border-rg-line bg-rg-surface py-[3px] pr-3 pl-1 text-left text-[13px] text-rg-ink">
+    <span className="inline-flex max-w-[44vw] items-center gap-2 rounded-[var(--rg-radius-pill)] sm:max-w-none border border-rg-line bg-rg-surface py-[3px] pr-3 pl-1 text-left text-[13px] text-rg-ink">
       <span
         aria-hidden
         className="grid size-6 shrink-0 place-items-center rounded-full bg-rg-accent-soft text-[11px] font-bold text-rg-accent"
@@ -96,6 +97,8 @@ export function RoleSwitcher() {
     const option = listRef.current?.children[activeIndex];
     option?.scrollIntoView?.({ block: "nearest" });
   }, [open, activeIndex]);
+
+  useExclusivePopover("role-switcher", open, () => setOpen(false));
 
   const current = users.find((user) => user.id === actingUserId) ?? null;
 
