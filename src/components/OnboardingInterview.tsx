@@ -608,7 +608,7 @@ export function OnboardingInterview() {
         <aside className="ob-right" aria-label="Applicable Controls">
           <section className="hc-card ob-list">
             <div className="hc-card-h">
-              <h2>
+              <h2 aria-label={`${plural(current.counts.applicable, "Control applies", "Controls apply")}, of ${current.counts.library} in the library`}>
                 <span className="ob-big num">{animatedCount}</span>{" "}
                 <span>{current.counts.applicable === 1 ? "Control applies" : "Controls apply"}</span>
                 <small>, of {current.counts.library} in the library</small>
