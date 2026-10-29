@@ -59,6 +59,10 @@ export function usePaletteToggle() {
       returnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
       setOpen(true);
     },
+    /** Closes without giving focus back, for when the page it opened on is gone. */
+    dismissPalette() {
+      setOpen(false);
+    },
     closePalette() {
       setOpen(false);
       returnFocusRef.current?.focus();

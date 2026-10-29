@@ -156,8 +156,19 @@ export function AppHeader({ devStub, user }: { devStub: boolean; user: PublicUse
   const currentItem = items.find((item) => item.key === currentKey);
 
   const registrationRef = usePageRegistration();
-  const { open: paletteOpen, openPalette, closePalette } = usePaletteToggle();
+  const { open: paletteOpen, openPalette, closePalette, dismissPalette } = usePaletteToggle();
   const [page, setPage] = useState<PageRegistration | null>(null);
+
+  // The header outlives navigation, so a palette (and the page items it took when it opened) must not outlive
+  // the page or the acting user that registered them: adjust the state while rendering when either changes.
+  const scope = `${pathname}
+${user?.id ?? ""}`;
+  const [seenScope, setSeenScope] = useState(scope);
+  if (seenScope !== scope) {
+    setSeenScope(scope);
+    setPage(null);
+    if (paletteOpen) dismissPalette();
+  }
 
   function openJump() {
     setPage(registrationRef?.current ?? null);
@@ -179,9 +190,8 @@ export function AppHeader({ devStub, user }: { devStub: boolean; user: PublicUse
 
   const paletteItems: PaletteItem[] = [...(page?.items ?? []), ...goToPaletteItems(role, pathname)];
   function selectItem(item: PaletteItem) {
-    // The page's latest handler, not the one from when the palette opened.
-    const onSelect = registrationRef?.current?.onSelect;
-    if (item.group !== GO_TO_GROUP && page && onSelect) onSelect(item);
+    // The handler of the page the items came from, not whatever page is registered now.
+    if (item.group !== GO_TO_GROUP && page?.onSelect) page.onSelect(item);
     else router.push(item.href);
   }
 

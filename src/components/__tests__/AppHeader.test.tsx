@@ -406,6 +406,42 @@ describe("AppHeader: Ctrl+K palette", () => {
     expect(push).toHaveBeenCalledWith("/systems");
   });
 
+  it("closes when the page changes, so a palette can't outlive the page that registered its items", async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(withHeader(<PageWithItems />, asRole("VIEWER")));
+    await user.keyboard("{Control>}k{/Control}");
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+
+    pathname = "/systems";
+    rerender(withHeader(<p>other</p>, asRole("VIEWER")));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+    // The next Ctrl+K opens fresh, without the old page's items.
+    await user.keyboard("{Control>}k{/Control}");
+    expect(within(screen.getByRole("dialog")).queryByText("Review the cloud policy")).not.toBeInTheDocument();
+  });
+
+  it("closes when the acting user changes", async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(withHeader(<p>page</p>, asRole("VIEWER")));
+    await user.keyboard("{Control>}k{/Control}");
+    rerender(withHeader(<p>page</p>, { ...asRole("ADMIN"), id: "u2" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("calls the onSelect of the page the open palette's items came from", async () => {
+    const first = vi.fn();
+    const second = vi.fn();
+    const user = userEvent.setup();
+    const { rerender } = render(withHeader(<PageWithItems onSelect={first} />, asRole("VIEWER")));
+    await user.keyboard("{Control>}k{/Control}");
+    // Another registration while the palette is open (same path and user): the open palette keeps its own.
+    rerender(withHeader(<PageWithItems onSelect={second} />, asRole("VIEWER")));
+    await user.keyboard("{Enter}");
+    expect(first).toHaveBeenCalledTimes(1);
+    expect(second).not.toHaveBeenCalled();
+  });
+
   it("forgets the page's items when the page goes away", async () => {
     const user = userEvent.setup();
     const { rerender } = render(withHeader(<PageWithItems />, asRole("VIEWER")));
