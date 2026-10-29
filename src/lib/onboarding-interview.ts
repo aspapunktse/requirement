@@ -131,6 +131,9 @@ export function applies(catalog: OnboardingCatalog, control: OnboardingControl, 
   );
 }
 
+/** Control codes in natural order: A.5.3 before A.5.29. */
+const CODE_COLLATOR = new Intl.Collator("en", { numeric: true });
+
 /** The applicable Controls for these answers, each with who does the work, in Control code order. */
 export function evaluateOnboarding(catalog: OnboardingCatalog, answers: OnboardingAnswers): OnboardingEvaluation {
   const chosen = new Set(answers.providerIds);
@@ -165,7 +168,7 @@ export function evaluateOnboarding(catalog: OnboardingCatalog, answers: Onboardi
       );
     }
   }
-  rows.sort((a, b) => (a.control.code < b.control.code ? -1 : a.control.code > b.control.code ? 1 : 0));
+  rows.sort((a, b) => CODE_COLLATOR.compare(a.control.code, b.control.code));
 
   const count = (group: OnboardingGroup) => rows.filter((row) => row.group === group).length;
   return {

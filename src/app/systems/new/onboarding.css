@@ -30,19 +30,19 @@
 
 /* Stepper: the System page's lifecycle stepper, numbered and clickable */
 .ob-stepper { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
-.ob-stepper .step { display: grid; gap: 6px; min-width: 0; font-size: 0.78rem; font-weight: 650; color: var(--rg-muted); }
+.ob-stepper .step { display: grid; align-content: start; gap: 6px; min-width: 0; font-size: 0.76rem; font-weight: 650; color: var(--rg-muted); }
 .ob-stepper .step::before { content: ""; height: 5px; border-radius: 99px; background: var(--hc-line-soft); transition: background 0.2s; }
 .ob-stepper .step.past::before { background: var(--rg-accent); }
 .ob-stepper .step.now { color: var(--rg-ink); }
 .ob-stepper .step.now::before { background: linear-gradient(90deg, var(--rg-gold) 0 50%, var(--hc-line-soft) 50%); background-size: 200% 100%; animation: ob-pulse 2.4s ease-in-out infinite; }
-.ob-stepper button { all: unset; box-sizing: border-box; display: flex; align-items: center; gap: 6px; min-width: 0; cursor: pointer; border-radius: 8px; padding: 2px 3px; margin: -2px -3px; color: inherit; }
+.ob-stepper button { all: unset; box-sizing: border-box; display: flex; align-items: flex-start; gap: 6px; min-width: 0; cursor: pointer; border-radius: 8px; padding: 2px 3px; margin: -2px -3px; color: inherit; }
 .ob-stepper button:hover:not(:disabled) { color: var(--rg-accent); }
 .ob-stepper button:focus-visible { outline: 2px solid var(--rg-accent); outline-offset: 2px; }
 .ob-stepper button:disabled { cursor: default; opacity: 0.55; }
 .ob-stepper .n { flex: none; display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; font-size: 0.7rem; font-weight: 750; font-variant-numeric: tabular-nums; background: var(--hc-raised); border: 1px solid var(--hc-line-soft); }
 .ob-stepper .past .n { background: var(--rg-accent-soft); color: var(--rg-accent); border-color: transparent; }
 .ob-stepper .now .n { background: var(--rg-accent); color: var(--rg-on-accent); border-color: transparent; }
-.ob-stepper .l { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ob-stepper .l { min-width: 0; overflow-wrap: anywhere; line-height: 1.2; }
 @keyframes ob-pulse { 0%, 100% { background-position: 100% 0; } 50% { background-position: 40% 0; } }
 
 /* The question card */

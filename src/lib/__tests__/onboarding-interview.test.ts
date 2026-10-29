@@ -94,4 +94,10 @@ describe("evaluateOnboarding", () => {
       moved: 0,
     });
   });
+
+  it("sorts Control codes numerically", () => {
+    const codes = ["A.5.30", "A.5.3", "A.5.9", "A.5.29", "A.5.37"];
+    const numeric: OnboardingCatalog = { ...catalog, controls: codes.map((code) => control(code)) };
+    expect(evaluateOnboarding(numeric, EMPTY_ANSWERS).rows.map((r) => r.control.code)).toEqual(["A.5.3", "A.5.9", "A.5.29", "A.5.30", "A.5.37"]);
+  });
 });
