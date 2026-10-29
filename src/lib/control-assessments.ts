@@ -67,19 +67,21 @@ export function diffApplicabilityOps(
   systemId: string,
   oldApplicable: { id: string }[],
   newApplicable: { id: string }[],
+  // Pass a transaction client to build the ops on it (they run when awaited, on that connection).
+  db: Pick<Prisma.TransactionClient, "controlAssessment"> = prisma,
 ) {
   const { newlyApplicableIds, noLongerApplicableIds } = diffApplicability(oldApplicable, newApplicable);
 
   return {
     added: newlyApplicableIds.length,
-    deleteOp: prisma.controlAssessment.deleteMany({
+    deleteOp: db.controlAssessment.deleteMany({
       where: {
         systemId,
         controlId: { in: noLongerApplicableIds },
         ...UNTOUCHED_ASSESSMENT_WHERE,
       },
     }),
-    createOp: prisma.controlAssessment.createMany({
+    createOp: db.controlAssessment.createMany({
       data: newlyApplicableIds.map((controlId) => ({ systemId, controlId })),
       skipDuplicates: true,
     }),

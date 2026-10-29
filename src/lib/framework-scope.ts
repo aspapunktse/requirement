@@ -2,7 +2,7 @@ import type { Prisma, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { diffApplicabilityOps, getApplicableControls, type SystemClassification } from "@/lib/control-assessments";
 import { logChangeEvent } from "@/lib/change-events";
-import { reconcileReviewSteps } from "@/lib/review-steps";
+import { reconcileReviewSteps, reconcileReviewStepsIn } from "@/lib/review-steps";
 import { recordProviderChange } from "@/lib/provider-inheritance";
 import { isSystemOwnerOrAdmin } from "@/lib/system-permissions";
 
@@ -84,12 +84,55 @@ async function declareFrameworkScope(system: ScopeSystem, framework: { id: strin
   await logChangeEvent(
     system.id,
     "CLASSIFICATION_CHANGED",
-    `Framework Scope "${framework.name}" added (+${added}/-${removed.count} Control Assessment(s))`,
+    describeFrameworkScopeAdded(framework.name, added, removed.count),
     actorId,
   );
   await reconcileReviewSteps(system.id);
 
   return { added, removed: removed.count };
+}
+
+/**
+ * `applyFrameworkScopeDeclared` inside a transaction the caller holds (the onboarding create, #258):
+ * the same recompute, Assessment sync, Change Event and Review Step reconciliation, every query on
+ * `tx` (a query on the global client inside an interactive transaction needs a second connection and
+ * deadlocks a small pool). Refuses a System that is a Provider: recording what the change moved on
+ * its dependents (`recordProviderChange`) is not atomic with the change, so it can't run inside one;
+ * a System being created is never a Provider and has no dependents.
+ */
+export async function applyFrameworkScopeDeclaredIn(
+  tx: Prisma.TransactionClient,
+  system: ScopeSystem,
+  framework: { id: string; name: string },
+  actorId: string,
+) {
+  if (system.isProvider) throw new Error("applyFrameworkScopeDeclaredIn does not support a System that is a Provider");
+  const newScopeIds = [...new Set([...system.frameworkScopes.map((f) => f.id), framework.id])];
+
+  // Sequential: one connection.
+  const oldApplicable = await getApplicableControls(system, {}, tx);
+  const newApplicable = await getApplicableControls({ ...system, frameworkScopes: newScopeIds.map((id) => ({ id })) }, {}, tx);
+
+  const { added, deleteOp, createOp } = diffApplicabilityOps(system.id, oldApplicable, newApplicable, tx);
+  await tx.system.update({ where: { id: system.id }, data: { frameworkScopes: { connect: { id: framework.id } } } });
+  const removed = await deleteOp;
+  await createOp;
+
+  await logChangeEvent(
+    system.id,
+    "CLASSIFICATION_CHANGED",
+    describeFrameworkScopeAdded(framework.name, added, removed.count),
+    actorId,
+    tx,
+  );
+  await reconcileReviewStepsIn(tx, system.id);
+
+  return { added, removed: removed.count };
+}
+
+/** The Change Event wording of a declared Framework Scope, shared by both ways of declaring one. */
+function describeFrameworkScopeAdded(frameworkName: string, added: number, removed: number) {
+  return `Framework Scope "${frameworkName}" added (+${added}/-${removed} Control Assessment(s))`;
 }
 
 /**
