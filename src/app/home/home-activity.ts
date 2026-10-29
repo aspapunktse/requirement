@@ -1,6 +1,6 @@
 import type { Prisma, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { SYSTEM_ACTOR } from "@/lib/change-events";
+import { loadAttribution } from "@/lib/change-event-attribution";
 import { CHANGE_EVENT_ACTION_LABEL, CHANGE_EVENT_ACTION_TONE } from "@/lib/change-event-labels";
 import { visibleSystemsWhere } from "@/lib/system-visibility";
 import { ACTIVITY_DAYS, ACTIVITY_MAX, SHOW_ACTIVITY } from "./home-config";
@@ -34,16 +34,20 @@ export async function loadRecentActivity(user: { id: string; role: UserRole }, n
         where: { createdAt: { gte: since }, OR: scope },
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         take: ACTIVITY_MAX,
-        include: { system: { select: { id: true, name: true } } },
+        include: { system: { select: { id: true, name: true, ownerId: true } } },
       });
-      const actorIds = [...new Set(events.map((event) => event.actorId).filter((id) => id !== SYSTEM_ACTOR && id !== user.id))];
-      const actors = actorIds.length === 0 ? [] : await tx.user.findMany({ where: { id: { in: actorIds } }, select: { id: true, name: true } });
-      const nameById = new Map(actors.map((actor) => [actor.id, actor.name]));
+      // The person behind a Review Step decision or a Query is hidden from those who may not see them, as on
+      // the System page (one shared rule, judged against each event's own System owner).
+      const { who } = await loadAttribution(
+        user,
+        events.map((event) => ({ ...event, systemOwnerId: event.system?.ownerId ?? null })),
+        tx,
+      );
 
       return events.map(
         (event): HomeActivity => ({
           id: event.id,
-          who: event.actorId === user.id ? "You" : event.actorId === SYSTEM_ACTOR ? "The system" : (nameById.get(event.actorId) ?? "Someone"),
+          who: who({ ...event, systemOwnerId: event.system?.ownerId ?? null }),
           what: CHANGE_EVENT_ACTION_LABEL[event.action],
           ...(event.system && { target: event.system.name, href: `/systems/${event.system.id}` }),
           days: Math.max(0, Math.floor((now.getTime() - event.createdAt.getTime()) / DAY_MS)),
