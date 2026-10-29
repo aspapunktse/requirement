@@ -1,6 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { withHeader } from "@/components/__tests__/with-header";
 import { CSV_BOM } from "@/lib/csv";
 import { pageNumbers, SystemsRegister } from "../SystemsRegister";
 import { downloadCsv } from "../systems-download";
@@ -8,7 +9,7 @@ import type { SystemRow } from "../systems-types";
 import { row, view } from "./fixtures";
 
 const push = vi.fn();
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push, refresh: vi.fn() }) }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push, refresh: vi.fn() }), usePathname: () => "/systems" }));
 vi.mock("../systems-download", () => ({ downloadCsv: vi.fn() }));
 // A plain anchor: the real Link prefetches and updates state outside act() once per row.
 vi.mock("next/link", () => ({
@@ -31,6 +32,7 @@ afterEach(() => {
   vi.mocked(downloadCsv).mockClear();
 });
 
+const renderRegisterWithHeader = (over: Parameters<typeof view>[0] = {}) => render(withHeader(<SystemsRegister view={view(over)} initialQuery="" />));
 const renderRegister = (over: Parameters<typeof view>[0] = {}, query = "") => render(<SystemsRegister view={view(over)} initialQuery={query} />);
 const table = () => screen.getByRole("table", { name: "Systems" });
 /** The System names in the table body, in order. */
@@ -59,7 +61,7 @@ describe("hero", () => {
     const { unmount } = renderRegister();
     expect(screen.getByRole("link", { name: "+ New System" })).toHaveAttribute("href", "/systems/new");
     unmount();
-    renderRegister({ canCreate: false });
+    renderRegisterWithHeader({ canCreate: false });
     expect(screen.queryByRole("link", { name: "+ New System" })).not.toBeInTheDocument();
     await userEvent.keyboard("{Control>}k{/Control}");
     expect(within(screen.getByRole("dialog")).queryByText("New System")).not.toBeInTheDocument();
@@ -501,7 +503,7 @@ describe("state in the URL", () => {
 
 describe("Ctrl+K palette", () => {
   it("lists New System and every visible System, narrows as you type and opens one", async () => {
-    renderRegister();
+    renderRegisterWithHeader();
     await userEvent.keyboard("{Control>}k{/Control}");
     const dialog = screen.getByRole("dialog", { name: "Jump to" });
     const options = within(dialog).getAllByRole("option");
@@ -515,7 +517,7 @@ describe("Ctrl+K palette", () => {
   });
 
   it("opens New System from the palette and closes on Escape", async () => {
-    renderRegister();
+    renderRegisterWithHeader();
     await userEvent.keyboard("{Control>}k{/Control}");
     await userEvent.keyboard("{Enter}");
     expect(push).toHaveBeenCalledWith("/systems/new");
@@ -526,9 +528,10 @@ describe("Ctrl+K palette", () => {
   });
 
   it("does not search on / while the palette is open", async () => {
-    renderRegister();
+    renderRegisterWithHeader();
     await userEvent.keyboard("{Control>}k{/Control}");
-    fireEvent.keyDown(document.body, { key: "/" });
+    // The palette's field has focus, so the keystroke is typing there, not the search shortcut.
+    fireEvent.keyDown(within(screen.getByRole("dialog")).getByRole("combobox"), { key: "/" });
     expect(screen.getByRole("searchbox", { name: "Search Systems" })).not.toHaveFocus();
   });
 });

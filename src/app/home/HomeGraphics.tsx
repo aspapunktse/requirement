@@ -1,6 +1,7 @@
 import type { HomeIconKey } from "./home-types";
 
 const ICON_PATHS: Record<HomeIconKey, string> = {
+  home: "M3 9l7-6 7 6v8H3zM8 17v-5h4v5",
   plus: "M10 4v12M4 10h12",
   stack: "M3 6l7-3 7 3-7 3-7-3zM3 10l7 3 7-3M3 14l7 3 7-3",
   check: "M4 10.5l3.5 3.5L16 6",

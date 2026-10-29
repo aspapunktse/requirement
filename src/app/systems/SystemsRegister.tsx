@@ -7,7 +7,8 @@ import { StatusChip } from "@/components/ui/StatusChip";
 import { onboardingStatusTone } from "@/lib/status-tones";
 import { ago, initialsOf } from "@/app/home/home-format";
 import { Icon, Ring, Spark } from "@/app/home/HomeGraphics";
-import { JumpPalette, usePaletteToggle, useRegisterHotkeys, type PaletteItem } from "@/app/home/JumpPalette";
+import { useSearchHotkey, type PaletteItem } from "@/app/home/JumpPalette";
+import { usePagePalette } from "@/components/PaletteProvider";
 import "@/app/home/home.css";
 import "./systems.css";
 import { ChangeOwnerDialog } from "@/components/ChangeOwnerDialog";
@@ -98,8 +99,7 @@ export function SystemsRegister({ view, initialQuery }: { view: SystemsView; ini
   const [openFilter, setOpenFilter] = useState<FilterKey | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const regRef = useRef<HTMLElement>(null);
-  const { open: paletteOpen, openPalette, closePalette } = usePaletteToggle();
-  useRegisterHotkeys({ paletteEnabled: SHOW_JUMP_PALETTE, paletteOpen, openPalette, closePalette, searchRef });
+  useSearchHotkey(searchRef);
 
   const now = Date.parse(view.now);
 
@@ -158,6 +158,8 @@ export function SystemsRegister({ view, initialQuery }: { view: SystemsView; ini
     ],
     [rows, view.canCreate],
   );
+
+  usePagePalette({ items: SHOW_JUMP_PALETTE ? paletteItems : [], placeholder: "Jump to a System…" });
 
   const own = view.roleView;
   const statTone: Record<ViewKey, "warn" | "danger" | undefined> = {
@@ -452,9 +454,7 @@ export function SystemsRegister({ view, initialQuery }: { view: SystemsView; ini
             {SHOW_JUMP_PALETTE && (
               <>
                 {" · "}
-                <button type="button" className="hc-kbd" onClick={openPalette} aria-keyshortcuts="Control+K">
-                  Ctrl K
-                </button>{" "}
+                <kbd className="hc-kbd">Ctrl K</kbd>{" "}
                 to jump to a System
               </>
             )}
@@ -699,7 +699,6 @@ export function SystemsRegister({ view, initialQuery }: { view: SystemsView; ini
         {`${sorted.length} of ${rows.length} Systems shown`}
       </p>
 
-      {SHOW_JUMP_PALETTE && paletteOpen && <JumpPalette items={paletteItems} onClose={closePalette} placeholder="Jump to a System…" />}
     </div>
   );
 }

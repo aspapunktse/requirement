@@ -8,7 +8,8 @@ import { SHOW_ACTIVITY, SHOW_JUMP_PALETTE, SHOW_STAT_TRENDS } from "./home-confi
 import { Icon, kindOf, Ring, Spark } from "./HomeGraphics";
 import { ago, initialsOf } from "./home-format";
 import { HomePictureView } from "./HomePictures";
-import { JumpPalette, paletteItems, usePaletteToggle, useRegisterHotkeys } from "./JumpPalette";
+import { usePagePalette } from "@/components/PaletteProvider";
+import { paletteItems, useSearchHotkey } from "./JumpPalette";
 import "./home.css";
 
 const LANE_COLOR: Record<HomeLane, string> = { you: "var(--rg-accent)", waiting: "var(--rg-muted)", soon: "var(--rg-gold)" };
@@ -56,8 +57,10 @@ export function HomeCommandCenter({ view }: { view: HomeView }) {
   const list = useMemo(() => visibleTasks(tasks, { kind, q, sort }), [tasks, kind, q, sort]);
   const primaryTile = tiles.find((tile) => tile.primary) ?? tiles[0];
 
-  const { open: paletteOpen, openPalette, closePalette } = usePaletteToggle();
-  useRegisterHotkeys({ paletteEnabled: SHOW_JUMP_PALETTE, paletteOpen, openPalette, closePalette, searchRef });
+  // The Ctrl+K palette belongs to the app header; this page only says what is in it (#256).
+  const pageItems = useMemo(() => (SHOW_JUMP_PALETTE ? paletteItems(tasks, tiles, "") : []), [tasks, tiles]);
+  usePagePalette({ items: pageItems });
+  useSearchHotkey(searchRef);
 
   function toggleStat(index: number, stat: HomeStat) {
     const next = statIndex === index ? null : index;
@@ -239,9 +242,7 @@ export function HomeCommandCenter({ view }: { view: HomeView }) {
             <h2 id="hc-tasks-h">My tasks</h2>
             {SHOW_JUMP_PALETTE && (
               <p>
-                <button type="button" className="hc-kbd" onClick={openPalette} aria-keyshortcuts="Control+K">
-                  Ctrl K
-                </button>{" "}
+                <kbd className="hc-kbd">Ctrl K</kbd>{" "}
                 to jump anywhere
               </p>
             )}
@@ -358,7 +359,6 @@ export function HomeCommandCenter({ view }: { view: HomeView }) {
         </aside>
       </div>
 
-      {SHOW_JUMP_PALETTE && paletteOpen && <JumpPalette items={paletteItems(tasks, tiles, "")} onClose={closePalette} />}
     </div>
   );
 }

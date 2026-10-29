@@ -1,12 +1,14 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { withHeader } from "@/components/__tests__/with-header";
 import { ago, HomeCommandCenter, visibleTasks } from "../HomeCommandCenter";
 import { paletteItems } from "../JumpPalette";
 import type { HomeTask, HomeView } from "../home-types";
 
 const push = vi.fn();
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
+const USER = { id: "u1", name: "Ada", email: "ada@example.com", role: "SYSTEM_OWNER" as const };
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push }), usePathname: () => "/home" }));
 
 const task = (over: Partial<HomeTask> & Pick<HomeTask, "id" | "kind" | "title">): HomeTask => ({
   tone: "warn",
@@ -208,7 +210,7 @@ describe("HomeCommandCenter: My tasks", () => {
 });
 
 describe("HomeCommandCenter: switching the acting user", () => {
-  it("starts clean for another user when keyed on the user, dropping tab, stat, filter, sort and palette", async () => {
+  it("starts clean for another user when keyed on the user, dropping tab, stat, filter and sort", async () => {
     const user = userEvent.setup();
     function Page({ userId }: { userId: string }) {
       return <HomeCommandCenter key={userId} view={view()} />;
@@ -217,9 +219,6 @@ describe("HomeCommandCenter: switching the acting user", () => {
     await user.click(screen.getByRole("button", { name: /Open questions/ }));
     await user.type(screen.getByRole("searchbox"), "cloud");
     await user.selectOptions(screen.getByRole("combobox", { name: "Order" }), "old");
-    await user.keyboard("{Control>}k{/Control}");
-    expect(screen.getByRole("dialog")).toBeInTheDocument();
-    await user.keyboard("{Escape}");
 
     rerender(<Page userId="u2" />);
     expect(screen.getByRole("button", { name: /Open questions/ })).toHaveAttribute("aria-pressed", "false");
@@ -227,7 +226,6 @@ describe("HomeCommandCenter: switching the acting user", () => {
     expect(screen.getByRole("searchbox")).toHaveValue("");
     expect(screen.getByRole("combobox", { name: "Order" })).toHaveValue("lane");
     expect(rowTitles()).toHaveLength(5);
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 });
 
@@ -251,7 +249,7 @@ describe("HomeCommandCenter: side column", () => {
 describe("HomeCommandCenter: Ctrl+K palette", () => {
   it("opens with Ctrl+K as a dialog, lists tasks and pages, filters by typing, and closes with Escape", async () => {
     const user = userEvent.setup();
-    render(<HomeCommandCenter view={view()} />);
+    render(withHeader(<HomeCommandCenter view={view()} />));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     await user.keyboard("{Control>}k{/Control}");
     const dialog = screen.getByRole("dialog", { name: "Jump to" });
@@ -271,8 +269,8 @@ describe("HomeCommandCenter: Ctrl+K palette", () => {
 
   it("toggles with the same shortcut and with the button, and returns focus to where it was", async () => {
     const user = userEvent.setup();
-    render(<HomeCommandCenter view={view()} />);
-    const button = screen.getByRole("button", { name: "Ctrl K" });
+    render(withHeader(<HomeCommandCenter view={view()} />, USER));
+    const button = screen.getByRole("button", { name: "Jump to" });
     await user.click(button);
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     await user.keyboard("{Control>}k{/Control}");
@@ -282,7 +280,7 @@ describe("HomeCommandCenter: Ctrl+K palette", () => {
 
   it("moves with the arrow keys, marks the active option and opens it on Enter", async () => {
     const user = userEvent.setup();
-    render(<HomeCommandCenter view={view()} />);
+    render(withHeader(<HomeCommandCenter view={view()} />));
     await user.keyboard("{Control>}k{/Control}");
     const box = within(screen.getByRole("dialog")).getByRole("combobox");
     const options = () => within(screen.getByRole("dialog")).getAllByRole("option");
@@ -300,7 +298,7 @@ describe("HomeCommandCenter: Ctrl+K palette", () => {
 
   it("opens an option on click, closes on a click outside, and says when nothing matches", async () => {
     const user = userEvent.setup();
-    const { container } = render(<HomeCommandCenter view={view()} />);
+    const { container } = render(withHeader(<HomeCommandCenter view={view()} />));
     await user.keyboard("{Control>}k{/Control}");
     await user.click(screen.getByRole("option", { name: /Framework coverage/ }));
     expect(push).toHaveBeenCalledWith("/frameworks");
@@ -314,7 +312,7 @@ describe("HomeCommandCenter: Ctrl+K palette", () => {
 
   it("offers no 'act as' group: only tasks and pages", async () => {
     const user = userEvent.setup();
-    render(<HomeCommandCenter view={view()} />);
+    render(withHeader(<HomeCommandCenter view={view()} />));
     await user.keyboard("{Control>}k{/Control}");
     expect(screen.queryByText(/Act as/i)).not.toBeInTheDocument();
   });

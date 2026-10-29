@@ -2,8 +2,10 @@ import type { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { isSystemOwnerOrAdmin } from "@/lib/system-permissions";
 
-/** Only these roles may change a Risk's status, regardless of who logged it. */
-export const ROLES_ALLOWED_TO_MANAGE_RISK_STATUS: UserRole[] = ["ADMIN", "RISK_OWNER"];
+import { ROLES_ALLOWED_TO_MANAGE_RISK_STATUS } from "@/lib/risk-roles";
+
+// The role lists live in `risk-roles.ts`, which is free of server code so the app header can use them too.
+export { ROLES_ALLOWED_TO_MANAGE_RISK_STATUS, ROLES_ALLOWED_TO_READ_ORGANIZATION_RISKS, canReadOrganizationRisks } from "@/lib/risk-roles";
 
 /**
  * Who may log an ad-hoc Risk on a System: ADMIN/RISK_OWNER on any System, or
@@ -13,19 +15,6 @@ export const ROLES_ALLOWED_TO_MANAGE_RISK_STATUS: UserRole[] = ["ADMIN", "RISK_O
 export function canLogRisk(user: { id: string; role: UserRole }, system: { ownerId: string }) {
   if (ROLES_ALLOWED_TO_MANAGE_RISK_STATUS.includes(user.role)) return true;
   return isSystemOwnerOrAdmin(user, system);
-}
-
-/**
- * Risks opened by an Organization-level Nonconformity have no System (#157, product-owner decision of
- * 2026-10-12): they are read and managed by the Risk Owner and the Admin, and read by the Internal
- * Auditor. Nobody else sees them, and the Business Risk Owner's scoped views never list them
- * (`SYSTEM_RISK_WHERE` below). Confirmed by decisions 24a and 25a of 2026-10-13 (comment on #157): exactly
- * these three roles, on `/risks/organization`. The Compliance Manager's read-only role doesn't extend to them.
- */
-export const ROLES_ALLOWED_TO_READ_ORGANIZATION_RISKS: UserRole[] = [...ROLES_ALLOWED_TO_MANAGE_RISK_STATUS, "INTERNAL_AUDITOR"];
-
-export function canReadOrganizationRisks(user: { role: UserRole }) {
-  return ROLES_ALLOWED_TO_READ_ORGANIZATION_RISKS.includes(user.role);
 }
 
 /** Same people as changing any Risk's status: a Risk Owner or an Admin. The Internal Auditor changes nothing. */
