@@ -32,6 +32,7 @@ async function errorOf(response: Response, fallback: string) {
 }
 
 export type SystemAbout = {
+  name: string;
   vendor: string | null;
   ownerName: string;
   /** ISO timestamps. */
@@ -40,37 +41,131 @@ export type SystemAbout = {
   description: string | null;
 };
 
-/** About: read-only. Editing it is its own issue (#246), whose Edit button goes in the header's slot. */
-function About({ about }: { about: SystemAbout }) {
+const NAME_MAX = 200;
+const VENDOR_MAX = 200;
+const DESCRIPTION_MAX = 2000;
+
+/** The same rules the API enforces (`src/lib/system-details.ts`), so most mistakes are caught before the request. */
+function validateDetails({ name, vendor, description }: { name: string; vendor: string; description: string }) {
+  if (name.trim() === "") return "Name is required";
+  if (name.trim().length > NAME_MAX) return `Name can be at most ${NAME_MAX} characters`;
+  if (vendor.trim().length > VENDOR_MAX) return `Vendor can be at most ${VENDOR_MAX} characters`;
+  if (description.trim().length > DESCRIPTION_MAX) return `Description can be at most ${DESCRIPTION_MAX} characters`;
+  return null;
+}
+
+/**
+ * About: the System's vendor, owner, dates and description. Its owner or an Admin gets an Edit button (#246)
+ * that turns the card into a form for the name, vendor and description; the rest are not editable here.
+ */
+function About({ systemId, about, canEdit }: { systemId: string; about: SystemAbout; canEdit: boolean }) {
+  const router = useRouter();
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(about.name);
+  const [vendor, setVendor] = useState(about.vendor ?? "");
+  const [description, setDescription] = useState(about.description ?? "");
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  function startEditing() {
+    setName(about.name);
+    setVendor(about.vendor ?? "");
+    setDescription(about.description ?? "");
+    setError(null);
+    setEditing(true);
+  }
+
+  async function handleSave(event: React.FormEvent) {
+    event.preventDefault();
+    const invalid = validateDetails({ name, vendor, description });
+    if (invalid) {
+      setError(invalid);
+      return;
+    }
+    setError(null);
+    setSaving(true);
+    try {
+      const response = await fetch(`/api/systems/${systemId}/details`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name.trim(), vendor: vendor.trim() || null, description: description.trim() || null }),
+      });
+      if (!response.ok) {
+        setError(await errorOf(response, "Failed to save the details"));
+        return;
+      }
+      setEditing(false);
+      // The hero, breadcrumb, this card and the timeline are read on the server.
+      router.refresh();
+    } catch {
+      setError("Failed to save the details");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <section className="hc-card" aria-labelledby="sc-about-h">
       <div className="hc-card-h">
         <h2 id="sc-about-h">About</h2>
-        {/* Slot for the Edit button of #246. */}
-        <span className="sc-about-slot" data-slot="about-edit" />
+        {canEdit && !editing && (
+          <button type="button" className="hc-btn" onClick={startEditing}>
+            Edit
+          </button>
+        )}
       </div>
-      <dl className="hc-card-b sc-about">
-        <div>
-          <dt>Vendor</dt>
-          <dd>{about.vendor || <span className="muted">Not set</span>}</dd>
-        </div>
-        <div>
-          <dt>Owner</dt>
-          <dd>{about.ownerName}</dd>
-        </div>
-        <div>
-          <dt>Created</dt>
-          <dd>{formatDay(about.createdAt)}</dd>
-        </div>
-        <div>
-          <dt>Onboarded</dt>
-          <dd>{about.onboardedAt ? formatDay(about.onboardedAt) : <span className="muted">Not yet</span>}</dd>
-        </div>
-        <div className="wide">
-          <dt>Description</dt>
-          <dd>{about.description || <span className="muted">No description</span>}</dd>
-        </div>
-      </dl>
+      {editing ? (
+        <form className="hc-card-b sc-formblock sc-aboutform" onSubmit={handleSave} noValidate>
+          {error && (
+            <p role="alert" className="sc-err">
+              {error}
+            </p>
+          )}
+          <label className="sc-field">
+            <span>Name</span>
+            <input value={name} onChange={(event) => setName(event.target.value)} required disabled={saving} />
+          </label>
+          <label className="sc-field">
+            <span>Vendor</span>
+            <input value={vendor} onChange={(event) => setVendor(event.target.value)} placeholder="Leave empty if built in-house" disabled={saving} />
+          </label>
+          <label className="sc-field">
+            <span>Description</span>
+            <textarea rows={4} value={description} onChange={(event) => setDescription(event.target.value)} disabled={saving} />
+          </label>
+          <div className="sc-btnrow">
+            <button type="submit" className="hc-btn primary" disabled={saving}>
+              {saving ? "Saving…" : "Save"}
+            </button>
+            <button type="button" className="hc-btn" onClick={() => setEditing(false)} disabled={saving}>
+              Cancel
+            </button>
+          </div>
+        </form>
+      ) : (
+        <dl className="hc-card-b sc-about">
+          <div>
+            <dt>Vendor</dt>
+            <dd>{about.vendor || <span className="muted">Not set</span>}</dd>
+          </div>
+          <div>
+            <dt>Owner</dt>
+            <dd>{about.ownerName}</dd>
+          </div>
+          <div>
+            <dt>Created</dt>
+            <dd>{formatDay(about.createdAt)}</dd>
+          </div>
+          <div>
+            <dt>Onboarded</dt>
+            <dd>{about.onboardedAt ? formatDay(about.onboardedAt) : <span className="muted">Not yet</span>}</dd>
+          </div>
+          <div className="wide">
+            <dt>Description</dt>
+            <dd>{about.description || <span className="muted">No description</span>}</dd>
+          </div>
+        </dl>
+      )}
     </section>
   );
 }
@@ -412,7 +507,7 @@ function TagRelation({ resourcePath, resourceKey, catalogPath, catalogKey, idFie
 }
 
 /**
- * The Profile tab (design proposal A, #245): About (read-only, a slot for the Edit button of #246), Deployment
+ * The Profile tab (design proposal A, #245): About (editable by the System's owner or an Admin, #246), Deployment
  * Facets, Impact Level per axis, and Business Units and Framework Scope as tags. The permissions are the page's,
  * computed with the rules the API enforces; every control calls the API it always did.
  */
@@ -435,7 +530,7 @@ export function SystemProfile({
 }) {
   return (
     <div className="sc-stackgap">
-      <About about={about} />
+      <About systemId={systemId} about={about} canEdit={canChangeClassification} />
       <DeploymentFacets systemId={systemId} canChange={canChangeClassification} currentIds={deploymentFacetIds} />
       <ImpactLevelsCard systemId={systemId} canChange={canChangeClassification} current={impactLevels} />
       <section className="hc-card" aria-labelledby="sc-scope-h">

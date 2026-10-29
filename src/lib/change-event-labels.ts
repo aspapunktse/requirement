@@ -31,6 +31,7 @@ export const CHANGE_EVENT_ACTION_LABEL: Record<ChangeEventAction, string> = {
   APP_SETTING_CHANGED: "changed a setting",
   SYSTEM_CREATED: "created a System",
   RISK_LOGGED: "logged a Risk",
+  SYSTEM_DETAILS_CHANGED: "edited a System's details",
 };
 
 export type ChangeEventTone = "ok" | "warn" | "danger" | "accent";
@@ -59,4 +60,5 @@ export const CHANGE_EVENT_ACTION_TONE: Record<ChangeEventAction, ChangeEventTone
   APP_SETTING_CHANGED: "accent",
   SYSTEM_CREATED: "ok",
   RISK_LOGGED: "warn",
+  SYSTEM_DETAILS_CHANGED: "accent",
 };

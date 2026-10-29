@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SystemProfile } from "../SystemProfile";
@@ -50,7 +50,7 @@ function renderProfile(props: Partial<React.ComponentProps<typeof SystemProfile>
   return render(
     <SystemProfile
       systemId="s1"
-      about={{ vendor: "ServiceNow Inc", ownerName: "Marcus Lindqvist", createdAt: "2026-09-01T09:00:00.000Z", onboardedAt: null, description: "IT service management." }}
+      about={{ name: "ServiceNow", vendor: "ServiceNow Inc", ownerName: "Marcus Lindqvist", createdAt: "2026-09-01T09:00:00.000Z", onboardedAt: null, description: "IT service management." }}
       canChangeClassification
       canManageBusinessUnits
       canManageFrameworkScopes
@@ -62,8 +62,8 @@ function renderProfile(props: Partial<React.ComponentProps<typeof SystemProfile>
 }
 
 describe("About", () => {
-  it("is read-only: vendor, owner, created, onboarded and description, with no Edit button yet", () => {
-    renderProfile();
+  it("shows vendor, owner, created, onboarded and description, with no Edit button without permission", () => {
+    renderProfile({ canChangeClassification: false });
     const about = within(screen.getByRole("region", { name: "About" }));
     expect(about.getByText("ServiceNow Inc")).toBeInTheDocument();
     expect(about.getByText("Marcus Lindqvist")).toBeInTheDocument();
@@ -74,11 +74,115 @@ describe("About", () => {
   });
 
   it("says so for what is not set", () => {
-    renderProfile({ about: { vendor: null, ownerName: "Ola", createdAt: "2026-09-01T09:00:00.000Z", onboardedAt: "2026-10-01T09:00:00.000Z", description: null } });
+    renderProfile({ about: { name: "ServiceNow", vendor: null, ownerName: "Ola", createdAt: "2026-09-01T09:00:00.000Z", onboardedAt: "2026-10-01T09:00:00.000Z", description: null } });
     const about = within(screen.getByRole("region", { name: "About" }));
     expect(about.getByText("Not set")).toBeInTheDocument();
     expect(about.getByText("No description")).toBeInTheDocument();
     expect(about.getByText("1 Oct 2026")).toBeInTheDocument();
+  });
+});
+
+describe("About, editing (#246)", () => {
+  const aboutRegion = () => within(screen.getByRole("region", { name: "About" }));
+
+  it("offers Edit to someone who may change the System, and opens a form with the current values", async () => {
+    const user = userEvent.setup();
+    renderProfile();
+    await user.click(aboutRegion().getByRole("button", { name: "Edit" }));
+    expect(aboutRegion().getByLabelText("Name")).toHaveValue("ServiceNow");
+    expect(aboutRegion().getByLabelText("Vendor")).toHaveValue("ServiceNow Inc");
+    expect(aboutRegion().getByLabelText("Description")).toHaveValue("IT service management.");
+    expect(aboutRegion().queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
+  });
+
+  it("saves the trimmed values through PATCH .../details, leaves edit mode and refreshes the page", async () => {
+    const user = userEvent.setup();
+    renderProfile();
+    await user.click(aboutRegion().getByRole("button", { name: "Edit" }));
+    const name = aboutRegion().getByLabelText("Name");
+    await user.clear(name);
+    await user.type(name, "  ServiceNow ITSM ");
+    await user.clear(aboutRegion().getByLabelText("Vendor"));
+    await user.click(aboutRegion().getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/systems/s1/details",
+      expect.objectContaining({ method: "PATCH", body: JSON.stringify({ name: "ServiceNow ITSM", vendor: null, description: "IT service management." }) }),
+    );
+    expect(aboutRegion().queryByLabelText("Name")).not.toBeInTheDocument();
+    expect(aboutRegion().getByRole("button", { name: "Edit" })).toBeInTheDocument();
+  });
+
+  it("disables the form and shows Saving… while the request is in flight", async () => {
+    const user = userEvent.setup();
+    let finish: (response: Response) => void = () => {};
+    fetchMock.mockImplementation((_input: string | URL | Request, init?: RequestInit) =>
+      init?.method === "PATCH" ? new Promise<Response>((resolve) => (finish = resolve)) : respond({}),
+    );
+    renderProfile();
+    await user.click(aboutRegion().getByRole("button", { name: "Edit" }));
+    await user.click(aboutRegion().getByRole("button", { name: "Save" }));
+
+    expect(aboutRegion().getByRole("button", { name: "Saving…" })).toBeDisabled();
+    expect(aboutRegion().getByRole("button", { name: "Cancel" })).toBeDisabled();
+    finish(new Response("{}", { status: 200 }));
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+  });
+
+  it("shows the server's error inline and stays in the form with the typed values", async () => {
+    const user = userEvent.setup();
+    fetchMock.mockImplementation((_input: string | URL | Request, init?: RequestInit) =>
+      init?.method === "PATCH" ? respond({ error: "Only the System's owner or an Admin can edit its details" }, 403) : respond({}),
+    );
+    renderProfile();
+    await user.click(aboutRegion().getByRole("button", { name: "Edit" }));
+    const name = aboutRegion().getByLabelText("Name");
+    await user.clear(name);
+    await user.type(name, "Renamed");
+    await user.click(aboutRegion().getByRole("button", { name: "Save" }));
+
+    expect(await aboutRegion().findByRole("alert")).toHaveTextContent("Only the System's owner or an Admin can edit its details");
+    expect(aboutRegion().getByLabelText("Name")).toHaveValue("Renamed");
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it("shows an error when the request itself fails", async () => {
+    const user = userEvent.setup();
+    fetchMock.mockImplementation((_input: string | URL | Request, init?: RequestInit) => (init?.method === "PATCH" ? Promise.reject(new Error("offline")) : respond({})));
+    renderProfile();
+    await user.click(aboutRegion().getByRole("button", { name: "Edit" }));
+    await user.click(aboutRegion().getByRole("button", { name: "Save" }));
+    expect(await aboutRegion().findByRole("alert")).toHaveTextContent("Failed to save the details");
+    expect(aboutRegion().getByRole("button", { name: "Save" })).toBeEnabled();
+  });
+
+  it("rejects an empty name and an over-long description without sending anything", async () => {
+    const user = userEvent.setup();
+    renderProfile();
+    await user.click(aboutRegion().getByRole("button", { name: "Edit" }));
+    await user.clear(aboutRegion().getByLabelText("Name"));
+    await user.click(aboutRegion().getByRole("button", { name: "Save" }));
+    expect(await aboutRegion().findByRole("alert")).toHaveTextContent("Name is required");
+
+    await user.type(aboutRegion().getByLabelText("Name"), "ServiceNow");
+    fireEvent.change(aboutRegion().getByLabelText("Description"), { target: { value: "d".repeat(2001) } });
+    await user.click(aboutRegion().getByRole("button", { name: "Save" }));
+    expect(await aboutRegion().findByRole("alert")).toHaveTextContent("Description can be at most 2000 characters");
+    expect(fetchMock).not.toHaveBeenCalledWith("/api/systems/s1/details", expect.anything());
+  });
+
+  it("Cancel discards the edits and shows the saved values again", async () => {
+    const user = userEvent.setup();
+    renderProfile();
+    await user.click(aboutRegion().getByRole("button", { name: "Edit" }));
+    await user.type(aboutRegion().getByLabelText("Vendor"), " changed");
+    await user.click(aboutRegion().getByRole("button", { name: "Cancel" }));
+    expect(aboutRegion().getByText("ServiceNow Inc")).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalledWith("/api/systems/s1/details", expect.anything());
+
+    await user.click(aboutRegion().getByRole("button", { name: "Edit" }));
+    expect(aboutRegion().getByLabelText("Vendor")).toHaveValue("ServiceNow Inc");
   });
 });
 

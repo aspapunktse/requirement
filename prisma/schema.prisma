@@ -722,6 +722,8 @@ enum ChangeEventAction {
   // Self-Assessment answer or by an Internal Auditor's Nonconformity (actor "system"). The detail names
   // the Risk, its severity and how it was opened. An Organization Risk (no System) writes none.
   RISK_LOGGED
+  // A System's name, vendor or description was edited (#246): the detail has each changed field's old and new value.
+  SYSTEM_DETAILS_CHANGED
 }
 
 // A curated, System-lifecycle-relevant mutation record — feeds the landing
