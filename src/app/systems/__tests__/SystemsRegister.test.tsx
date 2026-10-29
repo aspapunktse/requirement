@@ -530,7 +530,8 @@ describe("Ctrl+K palette", () => {
   it("does not search on / while the palette is open", async () => {
     renderRegisterWithHeader();
     await userEvent.keyboard("{Control>}k{/Control}");
-    fireEvent.keyDown(document.body, { key: "/" });
+    // The palette's field has focus, so the keystroke is typing there, not the search shortcut.
+    fireEvent.keyDown(within(screen.getByRole("dialog")).getByRole("combobox"), { key: "/" });
     expect(screen.getByRole("searchbox", { name: "Search Systems" })).not.toHaveFocus();
   });
 });

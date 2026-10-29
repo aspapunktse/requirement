@@ -15,3 +15,4 @@
 @media (prefers-reduced-motion: reduce) {
   .hc-pal { animation: none; }
 }
+.hc-ico { display: block; flex: none; }
