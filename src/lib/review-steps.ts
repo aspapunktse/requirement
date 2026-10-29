@@ -291,6 +291,16 @@ export async function settleReviewSteps(tx: Tx, systemId: string) {
   return { status: "IN_REVIEW" as const, current: after };
 }
 
+/**
+ * `settleReviewSteps` for one System inside a transaction the caller holds (the onboarding create,
+ * #258): the same lock-then-settle as `reconcileReviewSteps`, on `tx`, without swallowing errors,
+ * since a failure here must roll the caller's whole change back. Nothing to do for a Draft System.
+ */
+export async function reconcileReviewStepsIn(tx: Tx, systemId: string) {
+  await lockSystem(tx, systemId);
+  await settleReviewSteps(tx, systemId);
+}
+
 /** `settleReviewSteps` for one System, in its own transaction. Call it right after a change to the System's remit. */
 export async function reconcileReviewSteps(systemId: string) {
   try {

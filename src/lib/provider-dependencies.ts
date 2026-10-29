@@ -1,4 +1,4 @@
-import type { UserRole } from "@prisma/client";
+import type { Prisma, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { logChangeEvent } from "@/lib/change-events";
 import { getApplicableControls, type SystemClassification } from "@/lib/control-assessments";
@@ -143,25 +143,41 @@ export async function declareProviderDependency(
     return { ok: false, status: 409, error: NOT_A_PROVIDER_DEPENDENCY_REFUSAL };
   }
 
-  return prisma.$transaction(
-    async (tx): Promise<DependencyResult<null>> => {
-      await lockProvider(tx, providerId);
-      // Under the lock: an unmark that got there first has won.
-      const current = await tx.system.findUnique({ where: { id: providerId }, select: { name: true, isProvider: true } });
-      if (!current) return { ok: false, status: 404, error: PROVIDER_NOT_FOUND };
-      if (!current.isProvider) return { ok: false, status: 409, error: NOT_A_PROVIDER_DEPENDENCY_REFUSAL };
-      if (await tx.providerDependency.findUnique({ where: { dependentId_providerId: { dependentId: dependent.id, providerId } }, select: { id: true } })) {
-        return { ok: false, status: 409, error: ALREADY_DEPENDS_REFUSAL };
-      }
+  return prisma.$transaction((tx) => declareProviderDependencyIn(tx, dependent, providerId, actor), {
+    timeout: PROVIDER_TRANSACTION_TIMEOUT_MS,
+  });
+}
 
-      await withProviderInheritanceEvents(tx, { providerId, dependentIds: [dependent.id] }, async () => {
-        await tx.providerDependency.create({ data: { dependentId: dependent.id, providerId } });
-        await logChangeEvent(dependent.id, "CLASSIFICATION_CHANGED", describeDependencyAdded(current.name), actor.id, tx);
-      });
-      return { ok: true, value: null };
-    },
-    { timeout: PROVIDER_TRANSACTION_TIMEOUT_MS },
-  );
+/**
+ * The locked part of `declareProviderDependency`, inside a transaction the caller holds (the
+ * onboarding create, #258): takes the Provider's lock, re-checks under it that the Provider still
+ * exists and is a Provider and that the dependency isn't declared, then writes the dependency, its
+ * `CLASSIFICATION_CHANGED` event and the `"system"` events for what it moved. Every query is on
+ * `tx`. A refusal writes nothing, but it does not roll back what the caller wrote earlier in the
+ * transaction: the caller must throw to abort. The caller opens the transaction with
+ * `PROVIDER_TRANSACTION_TIMEOUT_MS`. When it declares several, it should take their Provider locks
+ * first in sorted id order (`lockProvider`), so two such transactions can't wait on each other.
+ */
+export async function declareProviderDependencyIn(
+  tx: Prisma.TransactionClient,
+  dependent: { id: string },
+  providerId: string,
+  actor: Viewer,
+): Promise<DependencyResult<null>> {
+  await lockProvider(tx, providerId);
+  // Under the lock: an unmark that got there first has won.
+  const current = await tx.system.findUnique({ where: { id: providerId }, select: { name: true, isProvider: true } });
+  if (!current) return { ok: false, status: 404, error: PROVIDER_NOT_FOUND };
+  if (!current.isProvider) return { ok: false, status: 409, error: NOT_A_PROVIDER_DEPENDENCY_REFUSAL };
+  if (await tx.providerDependency.findUnique({ where: { dependentId_providerId: { dependentId: dependent.id, providerId } }, select: { id: true } })) {
+    return { ok: false, status: 409, error: ALREADY_DEPENDS_REFUSAL };
+  }
+
+  await withProviderInheritanceEvents(tx, { providerId, dependentIds: [dependent.id] }, async () => {
+    await tx.providerDependency.create({ data: { dependentId: dependent.id, providerId } });
+    await logChangeEvent(dependent.id, "CLASSIFICATION_CHANGED", describeDependencyAdded(current.name), actor.id, tx);
+  });
+  return { ok: true, value: null };
 }
 
 /**

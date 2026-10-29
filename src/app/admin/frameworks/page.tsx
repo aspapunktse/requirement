@@ -34,6 +34,8 @@ export default async function FrameworksPage() {
           strictComplianceRequired: framework.strictComplianceRequired,
           licensing: framework.licensing,
           supersedesId: framework.supersedesId,
+          onboardingQuestion: framework.onboardingQuestion,
+          onboardingHint: framework.onboardingHint,
           isBase: framework.isBase,
           status: framework.status,
           _count: framework._count,
