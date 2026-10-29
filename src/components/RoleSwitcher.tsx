@@ -21,14 +21,14 @@ function initials(name: string) {
 /** Avatar, name and role of the acting user: the header's right-hand side. */
 export function UserChip({ user }: { user: PublicUser | null }) {
   return (
-    <span className="inline-flex max-w-[44vw] items-center gap-2 rounded-[var(--rg-radius-pill)] sm:max-w-none border border-rg-line bg-rg-surface py-[3px] pr-3 pl-1 text-left text-[13px] text-rg-ink">
+    <span className="inline-flex max-w-[44vw] items-center gap-2 rounded-[var(--rg-radius-pill)] sm:max-w-none border border-rg-line bg-rg-surface py-[3px] pr-1 pl-1 sm:pr-3 text-left text-[13px] text-rg-ink">
       <span
         aria-hidden
         className="grid size-6 shrink-0 place-items-center rounded-full bg-rg-accent-soft text-[11px] font-bold text-rg-accent"
       >
         {user ? initials(user.name) : "?"}
       </span>
-      <span className="flex min-w-0 flex-col leading-tight">
+      <span className="sr-only min-w-0 flex-col leading-tight sm:not-sr-only sm:flex">
         <span className="truncate font-semibold">{user ? user.name : "Select a user…"}</span>
         {user && <span className="truncate text-xs text-rg-muted">{roleLabel(user.role)}</span>}
       </span>
@@ -182,7 +182,7 @@ export function RoleSwitcher() {
         className="flex items-center gap-2 rounded-[var(--rg-radius-pill)] hover:bg-rg-accent-soft"
       >
         <UserChip user={current} />
-        <span aria-hidden className="text-rg-muted">
+        <span aria-hidden className="hidden text-rg-muted sm:inline">
           ▾
         </span>
       </button>

@@ -13,7 +13,7 @@ export const ROLES_ALLOWED_TO_MANAGE_RISK_STATUS: UserRole[] = ["ADMIN", "RISK_O
  * Risks opened by an Organization-level Nonconformity have no System (#157, product-owner decision of
  * 2026-10-12): they are read and managed by the Risk Owner and the Admin, and read by the Internal
  * Auditor. Nobody else sees them, and the Business Risk Owner's scoped views never list them
- * (`SYSTEM_RISK_WHERE` below). Confirmed by decisions 24a and 25a of 2026-10-13 (comment on #157): exactly
+ * (`SYSTEM_RISK_WHERE` in `risks.ts`). Confirmed by decisions 24a and 25a of 2026-10-13 (comment on #157): exactly
  * these three roles, on `/risks/organization`. The Compliance Manager's read-only role doesn't extend to them.
  */
 export const ROLES_ALLOWED_TO_READ_ORGANIZATION_RISKS: UserRole[] = [...ROLES_ALLOWED_TO_MANAGE_RISK_STATUS, "INTERNAL_AUDITOR"];

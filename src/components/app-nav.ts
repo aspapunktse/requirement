@@ -41,12 +41,13 @@ const everyone = () => true;
 export const NAV_ITEMS: NavItem[] = [
   { key: "home", label: "Home", icon: "home", href: "/home", prefixes: ["/home"], allows: everyone },
   { key: "systems", label: "Systems", icon: "system", href: "/systems", prefixes: ["/systems"], allows: everyone },
-  { key: "controls", label: "Controls", icon: "control", href: "/controls", prefixes: ["/controls"], allows: everyone },
+  // The Control Library admin pages also mark Controls and Frameworks, for a role without the Admin item (decision 4a on #256).
+  { key: "controls", label: "Controls", icon: "control", href: "/controls", prefixes: ["/controls", "/admin/controls"], allows: everyone },
   { key: "risks", label: "Risks", icon: "risk", href: "/risks/organization", prefixes: ["/risks"], allows: (role) => canReadOrganizationRisks({ role }) },
   { key: "check-ups", label: "Check-ups", icon: "checkup", href: "/check-ups", prefixes: ["/check-ups"], allows: everyone },
   { key: "internal-audits", label: "Internal Audits", icon: "audit", href: "/internal-audits", prefixes: ["/internal-audits"], allows: (role) => canReadInternalAudits({ role }) },
   { key: "soa", label: "SoA", title: "Statement of Applicability", icon: "doc", href: "/statement-of-applicability", prefixes: ["/statement-of-applicability"], allows: everyone },
-  { key: "frameworks", label: "Frameworks", icon: "layers", href: "/frameworks", prefixes: ["/frameworks"], allows: everyone },
+  { key: "frameworks", label: "Frameworks", icon: "layers", href: "/frameworks", prefixes: ["/frameworks", "/admin/frameworks"], allows: everyone },
   // Product-owner decision 1a on #256: only the role whose page it is. The page admits an Admin too, but the item shows to a Business Risk Owner only.
   { key: "business-risk-owner", label: "My Business Risks", icon: "chart", href: "/business-risk-owner", prefixes: ["/business-risk-owner"], allows: (role) => role === "BUSINESS_RISK_OWNER" },
   { key: "admin", label: "Admin", icon: "stack", prefixes: ["/admin"], allows: (role) => role === "ADMIN" },
@@ -71,10 +72,15 @@ export function navItemsFor(role: UserRole | null | undefined): NavItem[] {
   return role ? NAV_ITEMS.filter((item) => item.allows(role)) : [];
 }
 
-/** The item a path belongs to, sub-pages included (`/systems/abc` is Systems, `/admin/settings` is Admin). */
-export function currentNavKey(pathname: string): NavKey | null {
+/**
+ * The item a path belongs to among those the role sees, sub-pages included (`/systems/abc` is Systems,
+ * `/admin/settings` is Admin). Admin is tried first, so an Admin's `/admin/frameworks` marks Admin, while a role
+ * without the Admin item (a Compliance Manager) gets Frameworks.
+ */
+export function currentNavKey(pathname: string, role: UserRole | null | undefined): NavKey | null {
   const path = pathname.replace(/\/+$/, "") || "/";
-  const item = NAV_ITEMS.find((candidate) => candidate.prefixes.some((prefix) => path === prefix || path.startsWith(`${prefix}/`)));
+  const visible = navItemsFor(role).sort((a, b) => Number(b.key === "admin") - Number(a.key === "admin"));
+  const item = visible.find((candidate) => candidate.prefixes.some((prefix) => path === prefix || path.startsWith(`${prefix}/`)));
   return item?.key ?? null;
 }
 
@@ -83,13 +89,16 @@ export const GO_TO_GROUP = "Go to";
 
 export type NavPaletteItem = { group: string; icon: HomeIconKey; label: string; meta: string; href: string };
 
-/** The "Go to" entries for the palette: the role's navigation pages and, for an Admin, the Admin pages. */
-export function goToPaletteItems(role: UserRole | null | undefined): NavPaletteItem[] {
+/** The "Go to" entries for the palette: the role's navigation pages and, for an Admin, the Admin pages, leaving out the page the user is on. */
+export function goToPaletteItems(role: UserRole | null | undefined, pathname = ""): NavPaletteItem[] {
   const items: NavPaletteItem[] = [];
+  const currentKey = currentNavKey(pathname, role);
+  const on = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
   for (const item of navItemsFor(role)) {
+    if (item.key === currentKey && item.href) continue;
     if (item.href) items.push({ group: GO_TO_GROUP, icon: item.icon, label: item.title ?? item.label, meta: item.title ? item.label : "", href: item.href });
     else if (item.key === "admin") {
-      for (const page of ADMIN_PAGES) items.push({ group: GO_TO_GROUP, icon: item.icon, label: page.label, meta: "Admin", href: page.href });
+      for (const page of ADMIN_PAGES) if (!on(page.href)) items.push({ group: GO_TO_GROUP, icon: item.icon, label: page.label, meta: "Admin", href: page.href });
     }
   }
   return items;

@@ -149,6 +149,18 @@ describe("AppHeader: main navigation", () => {
     expect(within(mainNav()).getByRole("link", { name: "My Business Risks" })).toHaveAttribute("aria-current", "page");
   });
 
+  it.each([
+    ["COMPLIANCE_MANAGER", "/admin/controls", "Controls"],
+    ["COMPLIANCE_MANAGER", "/admin/frameworks/x", "Frameworks"],
+    ["ADMIN", "/admin/controls", "Admin"],
+    ["ADMIN", "/admin/frameworks/x", "Admin"],
+  ])("for %s, %s marks %s (decision 4a)", (role, path, label) => {
+    pathname = path;
+    render(<AppHeader devStub={false} user={asRole(role as UserRole)} />);
+    const current = [...mainNav().querySelectorAll("[aria-current]")];
+    expect(current.map((el) => el.textContent?.replace("▾", "").trim())).toEqual([label]);
+  });
+
   it("marks nothing on a page outside the list, such as the Organization Controls", () => {
     pathname = "/organization/controls";
     render(<AppHeader devStub={false} user={acting} />);
@@ -325,7 +337,8 @@ function PageWithItems({ onSelect }: { onSelect?: () => void }) {
 
 describe("AppHeader: Ctrl+K palette", () => {
   beforeEach(() => {
-    pathname = "/controls";
+    // A page outside the list, so no Go to entry is left out as the current one.
+    pathname = "/organization/controls";
     push.mockClear();
   });
 
@@ -399,6 +412,16 @@ describe("AppHeader: Ctrl+K palette", () => {
     rerender(withHeader(<p>other</p>, asRole("VIEWER")));
     await user.keyboard("{Control>}k{/Control}");
     expect(within(screen.getByRole("dialog")).queryByText("Review the cloud policy")).not.toBeInTheDocument();
+  });
+
+  it("leaves the page you are on out of Go to", async () => {
+    pathname = "/systems/abc";
+    render(withHeader(null, asRole("VIEWER")));
+    await userEvent.keyboard("{Control>}k{/Control}");
+    const labels = within(screen.getByRole("dialog"))
+      .getAllByRole("option")
+      .map((o) => o.querySelector("span")?.textContent);
+    expect(labels).toEqual(["Home", "Controls", "Check-ups", "Statement of Applicability", "Frameworks"]);
   });
 
   it("lists the Admin pages under Go to for an Admin only", async () => {

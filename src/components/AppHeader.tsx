@@ -152,7 +152,7 @@ export function AppHeader({ devStub, user }: { devStub: boolean; user: PublicUse
   const isSignIn = pathname === "/";
   const role = user?.role ?? null;
   const items = navItemsFor(role);
-  const currentKey = currentNavKey(pathname);
+  const currentKey = currentNavKey(pathname, role);
   const currentItem = items.find((item) => item.key === currentKey);
 
   const registrationRef = usePageRegistration();
@@ -177,7 +177,7 @@ export function AppHeader({ devStub, user }: { devStub: boolean; user: PublicUse
     return () => document.removeEventListener("keydown", onKeyDown);
   });
 
-  const paletteItems: PaletteItem[] = [...(page?.items ?? []), ...goToPaletteItems(role)];
+  const paletteItems: PaletteItem[] = [...(page?.items ?? []), ...goToPaletteItems(role, pathname)];
   function selectItem(item: PaletteItem) {
     // The page's latest handler, not the one from when the palette opened.
     const onSelect = registrationRef?.current?.onSelect;
