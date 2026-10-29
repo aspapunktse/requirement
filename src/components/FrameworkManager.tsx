@@ -18,6 +18,9 @@ export type FrameworkRow = {
   strictComplianceRequired: boolean;
   licensing: "PARAPHRASE_ONLY" | "QUOTABLE";
   supersedesId: string | null;
+  // The System onboarding interview's question about this Framework (never on the base Framework).
+  onboardingQuestion?: string | null;
+  onboardingHint?: string | null;
   isBase: boolean;
   status: "DRAFT" | "PUBLISHED";
   _count?: { requirements: number };
@@ -31,6 +34,8 @@ type Draft = {
   strictComplianceRequired: boolean;
   licensing: FrameworkRow["licensing"];
   supersedesId: string;
+  onboardingQuestion: string;
+  onboardingHint: string;
 };
 
 const EMPTY_DRAFT: Draft = {
@@ -40,6 +45,8 @@ const EMPTY_DRAFT: Draft = {
   strictComplianceRequired: false,
   licensing: "PARAPHRASE_ONLY",
   supersedesId: "",
+  onboardingQuestion: "",
+  onboardingHint: "",
 };
 
 const INPUT_CLASS = "rounded border border-zinc-200 p-2 text-sm dark:border-zinc-800 dark:bg-transparent";
@@ -86,6 +93,8 @@ export function FrameworkManager({ initialFrameworks }: { initialFrameworks: Fra
         strictComplianceRequired: item.strictComplianceRequired,
         licensing: item.licensing,
         supersedesId: item.supersedesId ?? "",
+        onboardingQuestion: item.onboardingQuestion ?? "",
+        onboardingHint: item.onboardingHint ?? "",
       }
     );
   }
@@ -127,12 +136,16 @@ export function FrameworkManager({ initialFrameworks }: { initialFrameworks: Fra
 
   async function handleSave(item: FrameworkRow) {
     setError(null);
-    const draft = draftFor(item);
+    const { onboardingQuestion, onboardingHint, ...draft } = draftFor(item);
 
+    // The base Framework never carries an onboarding question; a blank one clears it.
+    const onboarding = item.isBase
+      ? {}
+      : { onboardingQuestion: onboardingQuestion.trim() || null, onboardingHint: onboardingQuestion.trim() ? onboardingHint.trim() || null : null };
     const response = await fetch(`/api/frameworks/${item.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...draft, supersedesId: draft.supersedesId || null }),
+      body: JSON.stringify({ ...draft, supersedesId: draft.supersedesId || null, ...onboarding }),
     });
 
     if (!response.ok) {
@@ -278,6 +291,37 @@ export function FrameworkManager({ initialFrameworks }: { initialFrameworks: Fra
                 value={draft.description}
                 onChange={(event) => updateDraft(item, { description: event.target.value })}
               />
+              {!item.isBase && (
+                <div className="mt-2 flex flex-col gap-2">
+                  <label className="flex flex-col gap-1 text-xs text-zinc-500">
+                    Onboarding question (asked as Yes/No when onboarding a System; leave blank for none)
+                    <input
+                      aria-label={`Onboarding question for ${label}`}
+                      className={`${INPUT_CLASS} text-rg-ink`}
+                      maxLength={200}
+                      placeholder="Does it hold personal data about people?"
+                      value={draft.onboardingQuestion}
+                      onChange={(event) => updateDraft(item, { onboardingQuestion: event.target.value })}
+                    />
+                  </label>
+                  {draft.onboardingQuestion.trim() && (
+                    <label className="flex flex-col gap-1 text-xs text-zinc-500">
+                      Onboarding hint
+                      <input
+                        aria-label={`Onboarding hint for ${label}`}
+                        className={`${INPUT_CLASS} text-rg-ink`}
+                        maxLength={500}
+                        placeholder="Customers, employees, patients or anyone else who can be identified."
+                        value={draft.onboardingHint}
+                        onChange={(event) => updateDraft(item, { onboardingHint: event.target.value })}
+                      />
+                    </label>
+                  )}
+                  {item.status === "DRAFT" && draft.onboardingQuestion.trim() && (
+                    <p className="text-xs text-zinc-500">Not asked until this Framework is published.</p>
+                  )}
+                </div>
+              )}
               <label className="mt-2 flex items-center gap-2 text-sm">
                 <input
                   type="checkbox"

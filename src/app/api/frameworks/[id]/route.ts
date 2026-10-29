@@ -12,6 +12,17 @@ import {
   wouldCreateSupersedesCycle,
 } from "@/lib/frameworks";
 
+/** Trimmed text where blank means "none": the update stores null. */
+function optionalText(max: number) {
+  return z
+    .string()
+    .trim()
+    .max(max)
+    .nullable()
+    .optional()
+    .transform((value) => (value === "" ? null : value));
+}
+
 const updateFrameworkSchema = z
   .object({
     name: z.string().min(1).optional(),
@@ -20,6 +31,9 @@ const updateFrameworkSchema = z
     strictComplianceRequired: z.boolean().optional(),
     licensing: z.enum(["PARAPHRASE_ONLY", "QUOTABLE"]).optional(),
     supersedesId: z.string().min(1).nullable().optional(),
+    // The System onboarding interview's question about this Framework (null or blank clears it).
+    onboardingQuestion: optionalText(200),
+    onboardingHint: optionalText(500),
     isBase: z.boolean().optional(),
     // Publishing is POST /api/frameworks/[id]/publish; `status` is only accepted here so an attempt to
     // move a Published Framework back to Draft gets a clear refusal instead of being silently ignored.
@@ -61,6 +75,24 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/framew
   }
 
   const { status, ...changes } = parsed.data;
+
+  // The onboarding question: never on the base Framework (always in scope), and a hint needs a question.
+  const willBeBase = parsed.data.isBase ?? existing.isBase;
+  const question = parsed.data.onboardingQuestion !== undefined ? parsed.data.onboardingQuestion : existing.onboardingQuestion;
+  const hint = parsed.data.onboardingHint !== undefined ? parsed.data.onboardingHint : existing.onboardingHint;
+  if (willBeBase && question) {
+    return NextResponse.json(
+      {
+        error: existing.isBase
+          ? "The base Framework is always in every System's scope, so it can't carry an onboarding question"
+          : "Clear this Framework's onboarding question before making it the base Framework",
+      },
+      { status: 409 },
+    );
+  }
+  if (hint && !question) {
+    return NextResponse.json({ error: "An onboarding hint needs an onboarding question" }, { status: 400 });
+  }
   if (status === "DRAFT" && existing.status === "PUBLISHED") {
     return NextResponse.json(
       {

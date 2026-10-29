@@ -114,7 +114,38 @@ describe("FrameworkManager", () => {
       strictComplianceRequired: true,
       licensing: "PARAPHRASE_ONLY",
       supersedesId: "f-iso",
+      onboardingQuestion: null,
+      onboardingHint: null,
     });
+  });
+
+  it("sets an onboarding question and hint, offers them for a non-base Framework only, and clears them with a blank", async () => {
+    const user = userEvent.setup();
+    render(<FrameworkManager initialFrameworks={frameworks} />);
+
+    expect(screen.queryByLabelText("Onboarding question for ISO/IEC 27001:2022")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Onboarding hint for NIS2:1")).not.toBeInTheDocument();
+    await user.type(screen.getByLabelText("Onboarding question for NIS2:1"), "Does it support a service we deliver to society?");
+    await user.type(screen.getByLabelText("Onboarding hint for NIS2:1"), "For example energy or water.");
+    expect(screen.getByText("Not asked until this Framework is published.")).toBeInTheDocument();
+    await user.click(screen.getAllByRole("button", { name: "Save" })[1]);
+
+    await waitFor(() => expect(calls("PATCH")).toHaveLength(1));
+    expect(JSON.parse(calls("PATCH")[0][1].body)).toMatchObject({
+      onboardingQuestion: "Does it support a service we deliver to society?",
+      onboardingHint: "For example energy or water.",
+    });
+  });
+
+  it("sends no onboarding fields for the base Framework", async () => {
+    const user = userEvent.setup();
+    render(<FrameworkManager initialFrameworks={frameworks} />);
+
+    await user.click(screen.getAllByRole("button", { name: "Save" })[0]);
+    await waitFor(() => expect(calls("PATCH")).toHaveLength(1));
+    const body = JSON.parse(calls("PATCH")[0][1].body);
+    expect(body).not.toHaveProperty("onboardingQuestion");
+    expect(body).not.toHaveProperty("onboardingHint");
   });
 
   it("creates a Draft Framework with its licensing and supersedes link", async () => {

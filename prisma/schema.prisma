@@ -258,6 +258,11 @@ model Framework {
   // System's Framework Scope.
   isBase                   Boolean            @default(false)
   status                   FrameworkStatus    @default(DRAFT)
+  // The plain-language question the System onboarding interview asks about this
+  // Framework (answer Yes: it joins the new System's Framework Scope), with an
+  // optional hint. Never set on the base Framework, which is always in scope.
+  onboardingQuestion       String?
+  onboardingHint           String?
   createdAt                DateTime           @default(now())
 
   // The earlier version of this standard this Framework replaces, if any.
