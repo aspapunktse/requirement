@@ -26,6 +26,7 @@ import {
   type OnboardingEvaluation,
   type OnboardingFramework,
   type OnboardingGroup,
+  type OnboardingRow,
 } from "@/lib/onboarding-interview";
 import "@/app/home/home.css";
 import "@/app/systems/systems.css";
@@ -187,6 +188,21 @@ export function OnboardingInterview() {
 
   const evaluation = useMemo(() => (catalog ? evaluateOnboarding(catalog, answers) : null), [catalog, answers]);
   const animatedCount = useTweenedCount(evaluation?.counts.applicable ?? 0);
+
+  // Rows that left a group (removed, or moved to another group) stay for their exit animation. They are
+  // kept out of every count, hidden from assistive technology and inert; derived while rendering, not in an effect.
+  const reducedMotion = usePrefersReducedMotion();
+  const [seen, setSeen] = useState(evaluation);
+  const [leaving, setLeaving] = useState<OnboardingRow[]>([]);
+  if (evaluation !== seen) {
+    setSeen(evaluation);
+    if (!reducedMotion && evaluation && seen) {
+      const live = new Set(evaluation.rows.map(rowKey));
+      const gone = seen.rows.filter((row) => !live.has(rowKey(row)));
+      setLeaving((old) => [...old.filter((row) => !live.has(rowKey(row))), ...gone]);
+    }
+  }
+  const doneLeaving = (key: string) => setLeaving((old) => old.filter((row) => rowKey(row) !== key));
 
   if (loadError) {
     return (
@@ -633,6 +649,11 @@ export function OnboardingInterview() {
             <div className="ob-groups">
               {ONBOARDING_GROUPS.map(({ group, title, intro, empty }) => {
                 const rows = current.rows.filter((row) => row.group === group);
+                const liveKeys = new Set(rows.map(rowKey));
+                const shown = [
+                  ...rows.map((row) => ({ row, gone: false })),
+                  ...leaving.filter((row) => row.group === group && !liveKeys.has(rowKey(row))).map((row) => ({ row, gone: true })),
+                ].sort((a, b) => CODE_COLLATOR.compare(a.row.control.code, b.row.control.code));
                 return (
                   <section key={group} aria-label={title}>
                     <h3 className="hc-lane-h">
@@ -640,24 +661,11 @@ export function OnboardingInterview() {
                       {title} {"·"} {rows.length}
                       <small>{intro}</small>
                     </h3>
-                    {rows.length === 0 ? (
-                      <p className="ob-empty">{empty}</p>
-                    ) : (
+                    {rows.length === 0 && <p className="ob-empty">{empty}</p>}
+                    {shown.length > 0 && (
                       <ul className="ob-rows">
-                        {rows.map((row) => (
-                          <li key={row.control.id} className="ob-row">
-                            <span className="code">{row.control.code}</span>
-                            <span className="t">
-                              <b>{row.control.title}</b>
-                              {row.coveredBy && <small>Covered by {row.coveredBy}</small>}
-                              {row.sharedBy.map((shared) => (
-                                <small key={shared.providerId}>
-                                  Shared with {shared.providerName}
-                                  {shared.customerResponsibility ? `. Your part: ${shared.customerResponsibility}` : ""}
-                                </small>
-                              ))}
-                            </span>
-                          </li>
+                        {shown.map(({ row, gone }) => (
+                          <ControlRow key={`${rowKey(row)}${gone ? "|gone" : ""}`} row={row} gone={gone} onGone={() => doneLeaving(rowKey(row))} />
                         ))}
                       </ul>
                     )}
@@ -709,5 +717,36 @@ function Tally({ evaluation }: { evaluation: OnboardingEvaluation }) {
         ))}
       </div>
     </>
+  );
+}
+
+const CODE_COLLATOR = new Intl.Collator("en", { numeric: true });
+
+function rowKey(row: OnboardingRow) {
+  return `${row.group}|${row.control.id}`;
+}
+
+/** One Control in the live list. A row that left its group plays its exit, then asks to be removed. */
+function ControlRow({ row, gone, onGone }: { row: OnboardingRow; gone: boolean; onGone: () => void }) {
+  useEffect(() => {
+    if (!gone) return;
+    // Fallback in case the animation never ends (a hidden tab, styles not loaded).
+    const timer = setTimeout(onGone, 600);
+    return () => clearTimeout(timer);
+  }, [gone, onGone]);
+  return (
+    <li className={`ob-row${gone ? " leaving" : ""}`} aria-hidden={gone || undefined} inert={gone} onAnimationEnd={gone ? onGone : undefined}>
+      <span className="code">{row.control.code}</span>
+      <span className="t">
+        <b>{row.control.title}</b>
+        {row.coveredBy && <small>Covered by {row.coveredBy}</small>}
+        {row.sharedBy.map((shared) => (
+          <small key={shared.providerId}>
+            Shared with {shared.providerName}
+            {shared.customerResponsibility ? `. Your part: ${shared.customerResponsibility}` : ""}
+          </small>
+        ))}
+      </span>
+    </li>
   );
 }

@@ -112,6 +112,9 @@
 .ob-row .t b { display: block; font-weight: 620; font-size: 0.88rem; overflow-wrap: anywhere; }
 .ob-row .t small { display: block; color: var(--rg-muted); font-size: 0.78rem; }
 .ob-empty { color: var(--rg-muted); font-size: 0.84rem; padding: 12px 18px 14px; }
+/* A row leaving its group (removed, or moved to another one) fades and slides out, then is removed. */
+.ob-row.leaving { animation: ob-out 0.22s ease-in forwards; pointer-events: none; }
+@keyframes ob-out { to { opacity: 0; transform: translateX(10px); } }
 @keyframes ob-in { from { opacity: 0; transform: translateY(6px); background: var(--rg-accent-soft); } }
 
 /* Phones: stacked, with a sticky mini tally */
@@ -141,6 +144,6 @@
 
 @media (prefers-reduced-motion: reduce) {
   .ob-stepper .step.now::before { animation: none; background: var(--rg-gold); }
-  .ob-row { animation: none; }
+  .ob-row, .ob-row.leaving { animation: none; }
   .ob-bar i, .ob-opt, .ob-stepper .step::before { transition: none; }
 }

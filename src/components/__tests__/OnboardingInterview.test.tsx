@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { OnboardingInterview } from "../OnboardingInterview";
@@ -277,6 +277,34 @@ describe("OnboardingInterview", () => {
     expect(postedBody()).toMatchObject({ name: "Payroll", deploymentFacetIds: ["f-saas"], frameworkScopeIds: [], providerIds: [] });
     expect(postedBody()).not.toHaveProperty("confidentialityImpactLevel");
     expect(screen.getByRole("button", { name: "Create System" })).toBeEnabled();
+  });
+
+  it("lets a Control that leaves the list animate out, hidden and inert and not counted, then removes it", async () => {
+    vi.stubGlobal("matchMedia", (query: string) => ({ matches: false, media: query, addEventListener: vi.fn(), removeEventListener: vi.fn() }));
+    const user = await setup();
+    await user.click(screen.getByRole("checkbox", { name: "On-premises" }));
+    expect(screen.getByText("C-2")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("checkbox", { name: "On-premises" }));
+    // Still in the DOM for the exit, but out of reach and out of the counts.
+    const leaving = screen.getByText("C-2", { selector: ".code" }).closest("li")!;
+    expect(leaving).toHaveClass("leaving");
+    expect(leaving).toHaveAttribute("aria-hidden", "true");
+    expect(leaving).toHaveAttribute("inert");
+    expect(screen.queryByText("C-2", { ignore: "[aria-hidden=true] *" })).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /3 Controls apply, of 7/ })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /You do this . 3/ })).toBeInTheDocument();
+
+    fireEvent.animationEnd(leaving);
+    expect(screen.queryByText("C-2")).not.toBeInTheDocument();
+    vi.unstubAllGlobals();
+  });
+
+  it("removes a Control at once under reduced motion", async () => {
+    const user = await setup();
+    await user.click(screen.getByRole("checkbox", { name: "On-premises" }));
+    await user.click(screen.getByRole("checkbox", { name: "On-premises" }));
+    expect(screen.queryByText("C-2")).not.toBeInTheDocument();
   });
 
   it("says so when the onboarding data can't be loaded", async () => {
