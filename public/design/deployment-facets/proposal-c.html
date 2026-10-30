@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Deployment Facets Workbench</title>
+<link rel="stylesheet" href="../systems/systems.css">
+<link rel="stylesheet" href="../shared/appbar.css">
+<link rel="stylesheet" href="../shared/kit.css">
+<link rel="stylesheet" href="facets.css">
+<style>
+/* Proposal C: a workbench. The Facets in a list on the left; the chosen one on the right with
+   its name and description edited in place, a live preview of the choice an owner sees while
+   classifying a System, and tabs for the Systems that declare it, the Controls scoped to it
+   and what retiring it would do. Built so an Admin sees the impact before changing anything. */
+.head { display: flex; flex-wrap: wrap; align-items: end; gap: 10px 16px; }
+.head h1 { font-size: 1.6rem; }
+.head p { color: var(--muted); max-width: 70ch; margin-top: 4px; }
+.bench { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 18px; align-items: start; }
+@media (max-width: 860px) { .bench { grid-template-columns: 1fr; } }
+.side { position: sticky; top: 76px; overflow: clip; }
+@media (max-width: 860px) { .side { position: static; } }
+.side .top { padding: 14px; display: grid; gap: 10px; border-bottom: 1px solid var(--line-soft); }
+.flist { list-style: none; margin: 0; padding: 6px; display: grid; gap: 2px; }
+.flist button { all: unset; box-sizing: border-box; width: 100%; display: grid; grid-template-columns: 4px minmax(0, 1fr) auto; gap: 4px 12px; align-items: center; padding: 10px 12px 10px 8px; border-radius: 12px; cursor: pointer; }
+.flist button:hover { background: var(--raised); }
+.flist button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.flist button[aria-current="true"] { background: var(--accent-soft); }
+.flist .edge { grid-row: span 2; align-self: stretch; border-radius: 99px; background: var(--fc); }
+.flist b { font-weight: 680; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.flist small { grid-column: 2; color: var(--muted); font-size: .76rem; }
+.flist .n { grid-row: span 2; font-variant-numeric: tabular-nums; font-weight: 760; font-size: 1.05rem; color: var(--ink); text-align: right; }
+.flist .n em { display: block; font-style: normal; font-size: .66rem; color: var(--faint); font-weight: 600; }
+.flist .unused { color: var(--gold-ink); font-weight: 650; }
+.detail { overflow: clip; }
+.dh { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 14px; align-items: start; padding: 20px 20px 16px; border-bottom: 1px solid var(--line-soft); background: linear-gradient(180deg, color-mix(in srgb, var(--fc) 9%, var(--surface)), var(--surface)); }
+.dh .fico { width: 46px; height: 46px; border-radius: 14px; }
+.dh .meta { color: var(--faint); font-size: .78rem; margin-top: 2px; }
+.edit { display: grid; gap: 10px; }
+.edit .name { font-size: 1.35rem; font-weight: 750; letter-spacing: -0.01em; border: 1px solid transparent; background: transparent; border-radius: 10px; padding: 2px 8px; margin-left: -9px; width: 100%; color: var(--ink); }
+.edit .name:hover { border-color: var(--line); }
+.edit .name:focus { outline: 0; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); background: var(--surface); }
+.edit .name[aria-invalid="true"] { border-color: var(--bad); }
+.edit textarea { border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 10px; padding: 8px 10px; font: inherit; width: 100%; min-height: 64px; resize: vertical; }
+.edit textarea:focus { outline: 0; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.save { display: flex; gap: 6px; align-items: center; }
+.save .dirty { font-size: .76rem; color: var(--gold-ink); font-weight: 650; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; padding: 16px 20px 4px; }
+.kpi { display: flex; gap: 12px; align-items: center; padding: 12px 14px; border: 1px solid var(--line-soft); border-radius: 14px; background: var(--raised); }
+.kpi .v { font-size: 1.5rem; font-weight: 780; line-height: 1; font-variant-numeric: tabular-nums; }
+.kpi small { display: block; color: var(--muted); font-size: .76rem; font-weight: 650; margin-top: 3px; }
+.kpi.warn .v { color: var(--gold-ink); }
+.preview { margin: 14px 20px 0; padding: 14px; border: 1px dashed var(--line); border-radius: 14px; display: grid; gap: 8px; }
+.preview .lbl { font-size: .7rem; font-weight: 750; letter-spacing: .05em; text-transform: uppercase; color: var(--faint); }
+.choices { display: flex; flex-wrap: wrap; gap: 8px; }
+.choice { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); max-width: 320px; font-size: .84rem; }
+.choice .box { flex: none; width: 18px; height: 18px; border-radius: 5px; border: 1.5px solid var(--line); margin-top: 1px; display: grid; place-items: center; }
+.choice.on { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.choice.on .box { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-size: .7rem; font-weight: 900; }
+.choice b { display: block; }
+.choice span { color: var(--muted); font-size: .78rem; }
+.choice.dim { opacity: .55; }
+.tabpanel { padding: 4px 0 8px; }
+.list { width: 100%; border-collapse: collapse; }
+.list th { text-align: left; font-size: .72rem; font-weight: 750; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); padding: 10px 12px; border-bottom: 1px solid var(--line-soft); background: var(--raised); }
+.list td { padding: 9px 12px; border-bottom: 1px solid var(--line-soft); font-size: .86rem; vertical-align: middle; }
+.list th:first-child, .list td:first-child { padding-left: 20px; }
+.list tr:hover td { background: var(--raised); }
+.list code { font-family: var(--mono); font-size: .76rem; font-weight: 700; color: var(--accent); }
+.list .others { display: flex; flex-wrap: wrap; gap: 4px; }
+.alone { font-size: .72rem; font-weight: 700; color: var(--gold-ink); background: var(--gold-soft); border-radius: 6px; padding: 1px 7px; white-space: nowrap; }
+.tbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 12px 20px; }
+.tbar label { display: inline-flex; gap: 6px; align-items: center; font-size: .84rem; color: var(--muted); }
+.more { padding: 10px 20px; }
+.retire { padding: 16px 20px 20px; display: grid; gap: 10px; max-width: 720px; }
+.retire .row { display: flex; gap: 8px; margin-top: 4px; }
+.newform { padding: 20px; display: grid; gap: 12px; max-width: 640px; }
+.newform .row { display: flex; gap: 8px; }
+</style>
+</head>
+<body>
+<header id="appbar"></header>
+<main class="app" id="main">
+  <div class="head">
+    <div><p class="eyebrow">Admin · Classification catalog</p><h1>Deployment Facets</h1>
+      <p>Pick a Facet to edit it and see who depends on it. Systems declare Facets during onboarding; a Control scoped to Facets reaches only the Systems that declare one of them.</p></div>
+  </div>
+  <div class="bench">
+    <aside class="card side" aria-label="Facets">
+      <div class="top">
+        <label class="search"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 4a5 5 0 1 0 0 10A5 5 0 0 0 9 4zM13 13l4 4"/></svg><input id="q" type="search" placeholder="Filter Facets" aria-label="Filter Facets"></label>
+        <button class="btn primary" type="button" id="new">+ New Deployment Facet</button>
+      </div>
+      <ul class="flist" id="flist"></ul>
+    </aside>
+    <section class="card detail" id="detail" aria-live="polite"></section>
+  </div>
+</main>
+
+<script src="../systems/data.js"></script>
+<script src="../controls/data.js"></script>
+<script src="../shared/kit.js"></script>
+<script src="../shared/appbar.js"></script>
+<script src="facets.js"></script>
+<script>
+const { FACETS, esc } = FAC;
+const S = { sel: FACETS[0].id, tab: 'systems', q: '', aloneOnly: false, more: false, creating: false, draft: null };
+const pageHTML = document.getElementById('main').innerHTML;
+const APPLIES = { ORGANIZATIONAL: 'Organizational', PER_SYSTEM: 'Per-System', BOTH: 'Both' };
+
+function renderList() {
+  const q = S.q.toLowerCase();
+  document.getElementById('flist').innerHTML = FACETS.filter((f) => !q || f.name.toLowerCase().includes(q)).map((f) => `<li><button type="button" data-id="${f.id}" aria-current="${!S.creating && S.sel === f.id}" style="--fc:${FAC.colorOf(f)}">
+    <span class="edge"></span><b>${esc(f.name)}</b><span class="n">${f.systems.length}<em>Systems</em></span>
+    <small>${f.systems.length ? FAC.plural(f.controls.length, 'Control') + ' scoped' : '<span class="unused">Unused · can retire</span>'}</small></button></li>`).join('') || '<li class="hint" style="padding:12px">No Facet matches.</li>';
+}
+function preview(name, desc) {
+  const others = FACETS.filter((f) => f.id !== S.sel).slice(0, 2);
+  return `<div class="preview"><span class="lbl">How a System owner sees it while classifying a System</span><div class="choices">
+    <div class="choice on"><span class="box">✓</span><div><b>${esc(name || 'Untitled')}</b><span>${esc(desc) || '<i>No description: owners see the name only.</i>'}</span></div></div>
+    ${others.map((f) => `<div class="choice dim"><span class="box"></span><div><b>${esc(f.name)}</b><span>${esc(f.description || '')}</span></div></div>`).join('')}</div></div>`;
+}
+function renderDetail() {
+  const el = document.getElementById('detail');
+  if (S.creating) {
+    el.style.setProperty('--fc', 'var(--accent)');
+    el.innerHTML = `<form class="newform" id="newForm" novalidate><h2 style="font-size:1.15rem">New Deployment Facet</h2>
+      <label class="field">Name<input name="name" autocomplete="off" placeholder="e.g. Managed service"><span class="ferr" aria-live="polite"></span></label>
+      <label class="field">Description<textarea name="description" placeholder="What an owner reads to know whether it fits"></textarea></label>
+      <div id="newPrev">${preview('', '')}</div>
+      <div class="row"><button class="btn primary" type="submit">Create</button><button class="btn" type="button" data-cancelnew>Cancel</button></div></form>`;
+    el.querySelector('input').focus();
+    return;
+  }
+  const f = FAC.byId(S.sel);
+  if (!f) { S.sel = FACETS[0]?.id; if (S.sel) renderDetail(); else el.innerHTML = `<div class="done-state">${Kit.CHECK}<h3>No Facets</h3><p>Add the first one.</p></div>`; return; }
+  const d = S.draft || { name: f.name, description: f.description };
+  const dirty = d.name !== f.name || d.description !== f.description;
+  const sys = FAC.systemsOf(f), onb = sys.filter((s) => s.status === 'ONBOARDED').length, alone = FAC.exclusive(f);
+  el.style.setProperty('--fc', FAC.colorOf(f));
+  el.innerHTML = `<div class="dh"><span class="fico">${FAC.ico(f, 24)}</span>
+      <form class="edit" id="editForm" novalidate>
+        <input class="name" name="name" value="${esc(d.name)}" aria-label="Name" autocomplete="off"><span class="ferr" id="nameErr" aria-live="polite"></span>
+        <textarea name="description" aria-label="Description" placeholder="Add a description owners can choose by">${esc(d.description)}</textarea>
+        <span class="meta">Added ${FAC.fmtDate(f.created)} by Default Admin</span>
+      </form>
+      <div class="save">${dirty ? '<span class="dirty">Unsaved</span><button class="btn" type="button" data-revert>Revert</button>' : ''}<button class="btn primary" type="submit" form="editForm" ${dirty ? '' : 'disabled'}>Save</button></div></div>
+    <div class="kpis">
+      <div class="kpi">${Kit.ring(sys.length ? [[onb / sys.length, 'var(--ok)']] : [], 42, 6)}<div><span class="v">${sys.length}</span><small>Systems · ${onb} Onboarded</small></div></div>
+      <div class="kpi"><div><span class="v">${f.controls.length}</span><small>Controls scoped to it</small></div></div>
+      <div class="kpi ${alone.length ? 'warn' : ''}"><div><span class="v">${alone.length}</span><small>scoped to it alone</small></div></div>
+    </div>
+    <div id="prev">${preview(d.name, d.description)}</div>
+    <div class="tabs" role="tablist" style="margin-top:14px">
+      <button role="tab" type="button" data-tab="systems" aria-selected="${S.tab === 'systems'}">Systems <span class="n">${sys.length}</span></button>
+      <button role="tab" type="button" data-tab="controls" aria-selected="${S.tab === 'controls'}">Controls <span class="n">${f.controls.length}</span></button>
+      <button role="tab" type="button" data-tab="retire" aria-selected="${S.tab === 'retire'}">Retire</button>
+    </div>
+    <div class="tabpanel" role="tabpanel">${tab(f)}</div>`;
+}
+function tab(f) {
+  if (S.tab === 'systems') {
+    const sys = FAC.systemsOf(f).slice().sort((a, b) => a.name.localeCompare(b.name));
+    if (!sys.length) return `<div class="done-state">${Kit.CHECK}<h3>No System declares ${esc(f.name)}</h3><p>It can be retired without touching any System.</p></div>`;
+    const shown = S.more ? sys : sys.slice(0, 12);
+    return `<table class="list"><thead><tr><th>System</th><th>Status</th><th>Other Facets</th><th>Owner</th></tr></thead><tbody>${shown.map((s) => {
+      const others = FACETS.filter((x) => x !== f && x.systems.includes(s.id));
+      return `<tr><td><b>${esc(s.name)}</b>${s.vendor ? `<br><small class="muted">${esc(s.vendor)}</small>` : ''}</td><td>${FAC.sysChip(s)}</td><td><span class="others">${others.map(FAC.chip).join('') || '<span class="hint">only this one</span>'}</span></td><td class="muted">${esc(s.owner)}</td></tr>`;
+    }).join('')}</tbody></table>${sys.length > shown.length ? `<div class="more"><button class="btn sm" type="button" data-more>Show all ${sys.length}</button></div>` : ''}`;
+  }
+  if (S.tab === 'controls') {
+    let ctl = FAC.controlsOf(f);
+    if (S.aloneOnly) ctl = ctl.filter((c) => FAC.scopeOf(c.code).length === 1);
+    const shown = S.more ? ctl : ctl.slice(0, 12);
+    return `<div class="tbar"><label><input type="checkbox" id="aloneOnly" ${S.aloneOnly ? 'checked' : ''}> Only Controls scoped to ${esc(f.name)} alone</label></div>
+      ${ctl.length ? `<table class="list"><thead><tr><th>Control</th><th>Applies</th><th>Facet scope</th></tr></thead><tbody>${shown.map((c) => {
+        const others = FAC.scopeOf(c.code).filter((id) => id !== f.id).map(FAC.byId);
+        return `<tr><td><code>${esc(c.code)}</code> ${esc(c.title)}</td><td class="muted">${APPLIES[c.applicability]}</td><td><span class="others">${others.length ? FAC.chip(f) + others.map(FAC.chip).join('') : `${FAC.chip(f)}<span class="alone">alone</span>`}</span></td></tr>`;
+      }).join('')}</tbody></table>${ctl.length > shown.length ? `<div class="more"><button class="btn sm" type="button" data-more>Show all ${ctl.length}</button></div>` : ''}`
+      : `<div class="done-state"><h3>No Controls here</h3><p>${S.aloneOnly ? 'Every Control scoped to it also names another Facet.' : 'No Control is scoped to this Facet.'}</p></div>`}`;
+  }
+  const r = FAC.retireCheck(f);
+  return `<div class="retire">${FAC.impactNotes(f)}<div class="row"><button class="btn ${r.blocked ? '' : 'danger'}" type="button" data-retire ${r.blocked ? 'disabled title="Declared by Systems"' : ''}>Retire ${esc(f.name)}</button></div></div>`;
+}
+function select(id) { S.sel = id; S.creating = false; S.draft = null; S.more = false; S.aloneOnly = false; renderList(); renderDetail(); }
+function renderAll() {
+  const main = document.getElementById('main');
+  if (!FAC.canManage()) { main.innerHTML = FAC.gate(); return; }
+  if (!document.getElementById('flist')) { main.innerHTML = pageHTML; bindPage(); }
+  renderList(); renderDetail();
+}
+function bindPage() {
+  document.getElementById('q').addEventListener('input', (e) => { S.q = e.target.value; renderList(); });
+  document.getElementById('new').addEventListener('click', () => { S.creating = true; renderList(); renderDetail(); });
+  document.getElementById('flist').addEventListener('click', (e) => { const b = e.target.closest('[data-id]'); if (b) select(b.dataset.id); });
+  const det = document.getElementById('detail');
+  det.addEventListener('click', (e) => {
+    const t = e.target.closest('[data-tab]'); if (t) { S.tab = t.dataset.tab; S.more = false; renderDetail(); return; }
+    if (e.target.closest('[data-more]')) { S.more = true; renderDetail(); return; }
+    if (e.target.closest('[data-revert]')) { S.draft = null; renderDetail(); return; }
+    if (e.target.closest('[data-cancelnew]')) { S.creating = false; renderList(); renderDetail(); return; }
+    if (e.target.closest('[data-retire]')) FAC.retireDialog(S.sel, (r) => { if (r.ok) { S.sel = FACETS[0]?.id; S.tab = 'systems'; renderAll(); } });
+  });
+  det.addEventListener('change', (e) => { if (e.target.id === 'aloneOnly') { S.aloneOnly = e.target.checked; renderDetail(); } });
+  det.addEventListener('input', (e) => {
+    const fm = e.target.form; if (!fm) return;
+    if (fm.id === 'editForm') {
+      const f = FAC.byId(S.sel);
+      S.draft = { name: fm.name.value, description: fm.description.value };
+      const err = FAC.nameError(S.draft.name, f.id);
+      document.getElementById('nameErr').textContent = err || '';
+      fm.name.setAttribute('aria-invalid', String(!!err));
+      document.getElementById('prev').innerHTML = preview(S.draft.name, S.draft.description);
+      const dirty = S.draft.name !== f.name || S.draft.description !== f.description;
+      det.querySelector('.save').innerHTML = `${dirty ? '<span class="dirty">Unsaved</span><button class="btn" type="button" data-revert>Revert</button>' : ''}<button class="btn primary" type="submit" form="editForm" ${dirty && !err ? '' : 'disabled'}>Save</button>`;
+    }
+    if (fm.id === 'newForm') {
+      const err = FAC.nameError(fm.name.value);
+      fm.querySelector('.ferr').textContent = fm.name.value && err ? err : '';
+      document.getElementById('newPrev').innerHTML = preview(fm.name.value, fm.description.value);
+    }
+  });
+  det.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const fm = e.target;
+    const data = { name: fm.name.value, description: fm.description.value };
+    const res = fm.id === 'newForm' ? FAC.add(data) : FAC.update(S.sel, data);
+    if (res.error) { (fm.querySelector('.ferr') || document.getElementById('nameErr')).textContent = res.error; fm.name.focus(); return; }
+    Kit.toast(fm.id === 'newForm' ? `${res.facet.name} added` : `${res.facet.name} saved`);
+    select(res.facet.id);
+  });
+}
+document.addEventListener('keydown', (e) => {
+  if (!document.getElementById('flist') || /INPUT|TEXTAREA/.test(document.activeElement.tagName)) return;
+  if (e.key === 'j' || e.key === 'k') { const i = FACETS.findIndex((f) => f.id === S.sel); const n = FACETS[Math.max(0, Math.min(FACETS.length - 1, i + (e.key === 'j' ? 1 : -1)))]; if (n) select(n.id); }
+});
+addEventListener('appbar:role', renderAll);
+Appbar.mount({ current: 'admin', proposal: { label: 'C', siblings: [['A', 'proposal-a.html'], ['B', 'proposal-b.html']] },
+  items: () => [{ group: 'Actions', label: 'New Deployment Facet', icon: 'plus', run: () => { S.creating = true; renderList(); renderDetail(); } }].concat(FAC.paletteItems(select)()) });
+bindPage();
+renderAll();
+</script>
+</body>
+</html>

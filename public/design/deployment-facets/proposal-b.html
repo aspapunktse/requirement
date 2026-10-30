@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Deployment Facets Tiles</title>
+<link rel="stylesheet" href="../systems/systems.css">
+<link rel="stylesheet" href="../shared/appbar.css">
+<link rel="stylesheet" href="../shared/kit.css">
+<link rel="stylesheet" href="facets.css">
+<style>
+/* Proposal B: one tile per Facet, like the Frameworks tile wall. A one-sentence brief with
+   odometer counters, then tiles with a coloured top edge, odometers for Systems and Controls
+   and one dot per System. A tile turns over to edit in place; the dashed tile adds one.
+   Below, "Where Facets meet": a matrix of how often two Facets are declared together. */
+.brief { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 24px; padding: 20px 22px; }
+.brief h1 { font-size: 1.5rem; }
+.brief p { color: var(--muted); max-width: 70ch; margin-top: 4px; }
+.brief .nums { display: flex; gap: 22px; margin-left: auto; flex-wrap: wrap; }
+.brief .nums div { display: grid; gap: 4px; justify-items: start; }
+.brief .nums small { font-size: .74rem; color: var(--muted); font-weight: 650; }
+.brief .odo span { font-size: 1.2rem; padding: 3px 5px; }
+.wall { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 14px; }
+.tile { perspective: 1400px; min-height: 300px; animation: rise .4s both; animation-delay: var(--d, 0ms); }
+.tile .in { position: relative; height: 100%; transform-style: preserve-3d; transition: transform .55s cubic-bezier(.2, .8, .2, 1); }
+.tile.flip .in { transform: rotateY(180deg); }
+.face { position: absolute; inset: 0; backface-visibility: hidden; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow); padding: 18px; display: flex; flex-direction: column; gap: 12px; overflow: hidden; }
+.face::before { content: ""; position: absolute; inset: 0 0 auto; height: 4px; background: var(--fc); }
+.face.back { transform: rotateY(180deg); }
+.tile:not(.flip) .face.front:hover { border-color: color-mix(in srgb, var(--fc) 55%, var(--line)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--fc) 14%, transparent), var(--shadow); }
+.th { display: flex; gap: 12px; align-items: flex-start; }
+.th h2 { font-size: 1.08rem; }
+.th p { color: var(--muted); font-size: .84rem; margin-top: 3px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.counts { display: flex; gap: 20px; }
+.counts div { display: grid; gap: 4px; }
+.counts small { font-size: .72rem; color: var(--muted); font-weight: 650; text-transform: uppercase; letter-spacing: .04em; }
+.counts .alone { font-size: .72rem; color: var(--gold-ink); font-weight: 650; text-transform: none; letter-spacing: 0; }
+.tile .sdots { max-height: 46px; overflow: hidden; }
+.tf { margin-top: auto; display: flex; gap: 6px; align-items: center; border-top: 1px solid var(--line-soft); padding-top: 10px; }
+.tf .when { font-size: .76rem; color: var(--faint); margin-right: auto; }
+.back form { display: grid; gap: 10px; height: 100%; align-content: start; }
+.back .btns { display: flex; gap: 6px; justify-content: flex-end; margin-top: auto; }
+.back h3 { font-size: .74rem; font-weight: 750; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+.addtile { all: unset; box-sizing: border-box; min-height: 300px; border: 2px dashed var(--line); border-radius: 16px; display: grid; place-items: center; align-content: center; gap: 8px; color: var(--accent); font-weight: 680; cursor: pointer; text-align: center; padding: 18px; }
+.addtile:hover { border-color: var(--accent); background: var(--accent-soft); }
+.addtile:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.addtile span { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 14px; border: 2px dashed currentColor; font-size: 1.4rem; }
+.addtile small { color: var(--muted); font-weight: 500; max-width: 26ch; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: .76rem; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+/* Matrix */
+.mx { overflow-x: auto; }
+.mx table { border-collapse: separate; border-spacing: 4px; margin: 0 auto 0 0; }
+.mx th { font-size: .76rem; font-weight: 650; color: var(--muted); padding: 4px 8px; white-space: nowrap; }
+.mx thead th { vertical-align: bottom; white-space: normal; width: 64px; max-width: 64px; font-size: .72rem; line-height: 1.25; text-align: center; }
+.mx thead th i { display: block; width: 18px; height: 4px; border-radius: 99px; margin: 0 auto 5px; background: var(--fc); }
+.mx tbody th { text-align: right; }
+.mx td { width: 64px; height: 42px; border-radius: 10px; text-align: center; font-weight: 720; font-variant-numeric: tabular-nums; font-size: .9rem; background: color-mix(in srgb, var(--accent) calc(var(--v) * 70%), var(--raised)); color: var(--ink); border: 1px solid var(--line-soft); }
+.mx td.hi { color: var(--on-accent); }
+.mx td.diag { background: repeating-linear-gradient(135deg, var(--raised) 0 5px, var(--surface) 5px 10px); color: var(--muted); }
+.mx td.z { color: var(--faint); font-weight: 500; }
+.split { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 18px; }
+@media (max-width: 900px) { .split { grid-template-columns: 1fr; } }
+.pairs { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.pairs li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; align-items: center; font-size: .84rem; }
+.pairs .bar { grid-column: 1 / -1; height: 6px; border-radius: 99px; background: var(--line-soft); overflow: hidden; display: flex; }
+.pairs .bar i { display: block; height: 100%; }
+@media (prefers-reduced-motion: reduce) { .tile .in { transition: none; } }
+</style>
+</head>
+<body>
+<header id="appbar"></header>
+<main class="app" id="main">
+  <section class="card brief" aria-labelledby="h1">
+    <div>
+      <p class="eyebrow">Admin · Classification catalog</p>
+      <h1 id="h1">Deployment Facets</h1>
+      <p id="sentence"></p>
+    </div>
+    <div class="nums" id="nums"></div>
+  </section>
+
+  <div class="legend" id="legend"></div>
+  <section class="wall" id="wall" aria-label="Deployment Facets"></section>
+
+  <div class="split">
+    <section class="card" aria-labelledby="mxh">
+      <div class="card-h"><h2 id="mxh">Where Facets meet</h2><p>Systems declaring both. The hatched diagonal counts Systems with that Facet alone.</p></div>
+      <div class="card-b mx" id="mx"></div>
+    </section>
+    <section class="card" aria-labelledby="ph">
+      <div class="card-h"><h2 id="ph">Hybrid Systems</h2><p>Hybrid is not a Facet: these Systems declare several</p></div>
+      <div class="card-b"><ul class="pairs" id="pairs"></ul></div>
+    </section>
+  </div>
+</main>
+
+<script src="../systems/data.js"></script>
+<script src="../controls/data.js"></script>
+<script src="../shared/kit.js"></script>
+<script src="../shared/appbar.js"></script>
+<script src="facets.js"></script>
+<script>
+const { FACETS, esc } = FAC;
+const S = { flip: null, adding: false };
+const pageHTML = document.getElementById('main').innerHTML;
+
+function renderBrief() {
+  const unused = FACETS.filter((f) => !f.systems.length), nodesc = FACETS.filter((f) => !f.description);
+  const todo = [];
+  if (unused.length) todo.push(`<b>${unused.map((f) => esc(f.name)).join(', ')}</b> ${unused.length === 1 ? 'has' : 'have'} no Systems and can be retired`);
+  if (nodesc.length) todo.push(`${FAC.plural(nodesc.length, 'Facet')} ${nodesc.length === 1 ? 'needs' : 'need'} a description owners can choose by`);
+  document.getElementById('sentence').innerHTML = `Systems pick from these Facets when they are classified, and Controls scoped to a Facet reach only those Systems. ${todo.length ? todo.join('; ') + '.' : 'Every Facet is in use and described.'}`;
+  const scoped = new Set(FACETS.flatMap((f) => f.controls)).size;
+  document.getElementById('nums').innerHTML = `<div><small>Facets</small>${FAC.odo(FACETS.length)}</div><div><small>Systems classified</small>${FAC.odo(FAC.systems.length)}</div><div><small>Hybrid Systems</small>${FAC.odo(FAC.multi().length)}</div><div><small>Facet-scoped Controls</small>${FAC.odo(scoped)}</div>`;
+  document.getElementById('legend').innerHTML = '<span>One dot per System, by status:</span>' + SYS.STATUSES.map((s) => `<span><i class="dot ${s.tone}"></i>${s.label}</span>`).join('');
+}
+function front(f) {
+  const alone = FAC.exclusive(f).length;
+  return `<div class="face front spot">
+    <div class="th"><span class="fico">${FAC.ico(f, 20)}</span><div><h2>${esc(f.name)}</h2>${f.description ? `<p>${esc(f.description)}</p>` : '<p class="nodesc">No description yet.</p>'}</div></div>
+    <div class="counts"><div><small>Systems</small>${FAC.odo(f.systems.length)}</div><div><small>Controls</small>${FAC.odo(f.controls.length)}${alone ? `<span class="alone">${alone} scoped to it alone</span>` : ''}</div></div>
+    ${f.systems.length ? FAC.dots(f, 120) : '<p class="hint">No System declares it yet.</p>'}
+    <div class="tf"><span class="when">Added ${FAC.fmtDate(f.created)}</span><button class="btn sm" type="button" data-edit="${f.id}" aria-label="Edit ${esc(f.name)}">Edit</button><button class="btn sm${f.systems.length ? '' : ' danger'}" type="button" data-retire="${f.id}">Retire</button></div></div>`;
+}
+function back(f) {
+  const isNew = !f;
+  return `<div class="face back"><form data-form="${isNew ? 'new' : f.id}" novalidate><h3>${isNew ? 'New Deployment Facet' : 'Edit ' + esc(f.name)}</h3>
+    <label class="field">Name<input name="name" value="${isNew ? '' : esc(f.name)}" autocomplete="off" placeholder="e.g. Edge"><span class="ferr" aria-live="polite"></span></label>
+    <label class="field">Description<textarea name="description" rows="3" placeholder="What an owner reads to know whether it fits">${isNew ? '' : esc(f.description)}</textarea></label>
+    ${!isNew && f.systems.length ? `<p class="hint">Renaming changes the label on ${FAC.plural(f.systems.length, 'System')} and ${FAC.plural(f.controls.length, 'Control')}; their classification stays.</p>` : ''}
+    <div class="btns"><button class="btn" type="button" data-cancel>Cancel</button><button class="btn primary" type="submit">${isNew ? 'Create' : 'Save'}</button></div></form></div>`;
+}
+function renderWall() {
+  const tiles = FACETS.map((f, i) => `<article class="tile${S.flip === f.id ? ' flip' : ''}" data-id="${f.id}" style="--fc:${FAC.colorOf(f)};--d:${i * 40}ms" aria-label="${esc(f.name)}"><div class="in">${front(f)}${back(f)}</div></article>`).join('');
+  const add = S.adding
+    ? `<article class="tile flip" style="--fc:var(--accent)"><div class="in"><div class="face front"></div>${back(null)}</div></article>`
+    : '<button class="addtile" type="button" id="add"><span>+</span>New Deployment Facet<small>A deployment model Systems can declare, such as Edge or Managed service</small></button>';
+  document.getElementById('wall').innerHTML = tiles + add;
+  const fm = document.querySelector('.tile.flip form'); if (fm) setTimeout(() => fm.name.focus(), Kit.reduced ? 0 : 300);
+  // Hidden faces stay out of the tab order
+  document.querySelectorAll('.tile').forEach((t) => { const flipped = t.classList.contains('flip'); t.querySelector('.front').inert = flipped; t.querySelector('.back').inert = !flipped; });
+}
+function renderMatrix() {
+  const used = FACETS.filter((f) => f.systems.length);
+  const top = Math.max(1, ...used.flatMap((a) => used.map((b) => a === b ? 0 : FAC.both(a, b))));
+  document.getElementById('mx').innerHTML = `<table><thead><tr><th></th>${used.map((f) => `<th scope="col" style="--fc:${FAC.colorOf(f)}"><i></i>${esc(f.name)}</th>`).join('')}</tr></thead><tbody>${used.map((a) => `<tr><th scope="row">${esc(a.name)}</th>${used.map((b) => {
+    const n = FAC.both(a, b);
+    if (a === b) return `<td class="diag" title="${n} Systems declare ${esc(a.name)} alone">${n}</td>`;
+    const v = n / top;
+    return `<td class="${n ? (v > .55 ? 'hi' : '') : 'z'}" style="--v:${v}" title="${n} Systems declare ${esc(a.name)} and ${esc(b.name)}">${n || '·'}</td>`;
+  }).join('')}</tr>`).join('')}</tbody></table>`;
+  const pairs = FAC.pairs(), mx = Math.max(1, ...pairs.map((p) => p.n));
+  document.getElementById('pairs').innerHTML = pairs.map((p) => `<li><span>${FAC.chip(p.a)} + ${FAC.chip(p.b)}</span><b class="num">${p.n}</b><span class="bar"><i style="width:${p.n / mx * 50}%;background:${FAC.colorOf(p.a)}"></i><i style="width:${p.n / mx * 50}%;background:${FAC.colorOf(p.b)}"></i></span></li>`).join('') || '<li class="muted">No System declares more than one Facet.</li>';
+}
+function renderAll() {
+  const main = document.getElementById('main');
+  if (!FAC.canManage()) { main.innerHTML = FAC.gate(); return; }
+  if (!document.getElementById('wall')) { main.innerHTML = pageHTML; bindPage(); }
+  renderBrief(); renderWall(); renderMatrix(); Kit.countUp(main);
+}
+function bindPage() {
+  const wall = document.getElementById('wall');
+  wall.addEventListener('click', (e) => {
+    if (e.target.closest('#add')) { S.adding = true; S.flip = null; renderWall(); return; }
+    const ed = e.target.closest('[data-edit]'); if (ed) { S.flip = ed.dataset.edit; S.adding = false; renderWall(); return; }
+    const rt = e.target.closest('[data-retire]'); if (rt) { FAC.retireDialog(rt.dataset.retire, (r) => { if (r.ok) renderAll(); }); return; }
+    if (e.target.closest('[data-cancel]')) { S.flip = null; S.adding = false; renderWall(); }
+  });
+  wall.addEventListener('keydown', (e) => { if (e.key === 'Escape' && e.target.closest('form')) { S.flip = null; S.adding = false; renderWall(); } });
+  wall.addEventListener('input', (e) => { if (e.target.name !== 'name') return; const fm = e.target.form; const err = FAC.nameError(e.target.value, fm.dataset.form === 'new' ? null : fm.dataset.form); fm.querySelector('.ferr').textContent = e.target.value && err ? err : ''; e.target.setAttribute('aria-invalid', String(!!(e.target.value && err))); });
+  wall.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const fm = e.target, id = fm.dataset.form;
+    const data = { name: fm.name.value, description: fm.description.value };
+    const res = id === 'new' ? FAC.add(data) : FAC.update(id, data);
+    if (res.error) { fm.querySelector('.ferr').textContent = res.error; fm.name.setAttribute('aria-invalid', 'true'); fm.name.focus(); return; }
+    Kit.toast(id === 'new' ? `${res.facet.name} added` : `${res.facet.name} saved`);
+    S.flip = null; S.adding = false; renderBrief(); renderWall(); renderMatrix();
+  });
+}
+addEventListener('appbar:role', renderAll);
+Appbar.mount({ current: 'admin', proposal: { label: 'B', siblings: [['A', 'proposal-a.html'], ['C', 'proposal-c.html']] },
+  items: () => [{ group: 'Actions', label: 'New Deployment Facet', icon: 'plus', run: () => { S.adding = true; renderWall(); } }].concat(FAC.paletteItems((id) => { S.flip = id; renderWall(); document.querySelector(`.tile[data-id="${id}"]`)?.scrollIntoView({ block: 'center' }); })()) });
+bindPage();
+renderAll();
+</script>
+</body>
+</html>

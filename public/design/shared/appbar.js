@@ -28,6 +28,7 @@
     plus: 'M10 4v12M4 10h12',
     arrow: 'M5 10h10M11 6l4 4-4 4',
     grid: 'M4 4h5v5H4zM11 4h5v5h-5zM4 11h5v5H4zM11 11h5v5h-5z',
+    admin: 'M3 6l7-3 7 3-7 3zM3 10l7 3 7-3M3 14l7 3 7-3',
   };
   const icon = (k, size = 16) => `<svg class="ab-ico" width="${size}" height="${size}" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${P[k] || P.grid}"/></svg>`;
 
@@ -42,6 +43,8 @@
     { key: 'audits', label: 'Internal Audits', icon: 'audit', href: '/design/audit/proposal-a.html' },
     { key: 'soa', label: 'SoA', long: 'Statement of Applicability', icon: 'soa', href: '/design/soa/proposal-a.html' },
     { key: 'frameworks', label: 'Frameworks', icon: 'framework', href: '/design/frameworks/proposal-a.html' },
+    // As in production, only an Admin sees the Admin item; it links to the first Admin page with a proposal.
+    { key: 'admin', label: 'Admin', icon: 'admin', href: '/design/deployment-facets/proposal-a.html', only: 'ADMIN' },
   ];
   // The same people as the Home proposals (public/design/home/data.js).
   const ROLES = [
@@ -50,6 +53,7 @@
     { key: 'RISK_OWNER', label: 'Risk Owner', person: 'Johan Berg' },
     { key: 'BUSINESS_RISK_OWNER', label: 'Business Risk Owner', person: 'Lena Holm' },
     { key: 'COMPLIANCE_MANAGER', label: 'Compliance Manager', person: 'Anna Sjöberg' },
+    { key: 'ADMIN', label: 'Admin', person: 'Default Admin' },
   ];
 
   const roleKey = () => { const m = location.hash.match(/role=([A-Z_]+)/); return m && ROLES.some((r) => r.key === m[1]) ? m[1] : ROLES[0].key; };
@@ -59,6 +63,9 @@
     history.replaceState(null, '', '#role=' + key);
     dispatchEvent(new HashChangeEvent('hashchange'));
   }
+
+  // Nav items the acting role sees: an item with `only` shows to that role alone
+  const visibleNav = () => NAV.filter((n) => !n.only || n.only === roleKey());
 
   let opts = {};
   const $ = (id) => document.getElementById(id);
@@ -77,7 +84,7 @@
   function render() {
     const r = role();
     const cur = NAV.find((n) => n.key === opts.current) || NAV[0];
-    $('appbar').className = 'appbar';
+    $('appbar').className = 'appbar' + (visibleNav().length > NAV.length - 1 ? ' ab-many' : '');
     $('appbar').innerHTML = `
       <a class="ab-brand" href="${withRole(NAV[0].href)}" data-keep-role aria-label="ISMS - system onboarding, Home">
         <span class="ab-mark" aria-hidden="true"><span></span></span>
@@ -85,9 +92,9 @@
       </a>
       <div class="ab-menu">
         <button type="button" id="abMenuBtn" aria-expanded="false" aria-controls="abMenu">${icon('menu')}<span class="ab-menu-l">${esc(cur.label)}</span><span class="ab-caret">▾</span></button>
-        <div class="ab-pop" id="abMenu" hidden><span class="ab-label">Go to</span>${NAV.map((n) => navLink(n, true)).join('')}</div>
+        <div class="ab-pop" id="abMenu" hidden><span class="ab-label">Go to</span>${visibleNav().map((n) => navLink(n, true)).join('')}</div>
       </div>
-      <nav class="ab-nav" aria-label="Main">${NAV.map((n) => navLink(n, false)).join('')}</nav>
+      <nav class="ab-nav" aria-label="Main">${visibleNav().map((n) => navLink(n, false)).join('')}</nav>
       <span class="ab-spacer"></span>
       <button type="button" class="ab-search" id="abJump" aria-label="Jump to (Ctrl+K)">${icon('search')}<span>Jump to…</span><kbd>Ctrl K</kbd></button>
       <div class="ab-user">
@@ -121,7 +128,7 @@
   // Palette
   let palItems = [], palSel = 0;
   function allItems() {
-    const pages = NAV.filter((n) => n.href && n.key !== opts.current).map((n) => ({ group: 'Go to', label: n.long || n.label, icon: n.icon, href: withRole(n.href), sub: 'page' }));
+    const pages = visibleNav().filter((n) => n.href && n.key !== opts.current).map((n) => ({ group: 'Go to', label: n.long || n.label, icon: n.icon, href: withRole(n.href), sub: 'page' }));
     const own = (opts.items ? opts.items() : []);
     return own.concat(pages);
   }

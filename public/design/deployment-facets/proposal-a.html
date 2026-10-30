@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Deployment Facets Catalog</title>
+<link rel="stylesheet" href="../systems/systems.css">
+<link rel="stylesheet" href="../shared/appbar.css">
+<link rel="stylesheet" href="../shared/kit.css">
+<link rel="stylesheet" href="facets.css">
+<style>
+/* Proposal A: the Deployment Facet catalog as a register table, in the Home / Frameworks look.
+   A hero with a ring of how Systems split over the Facets, stat cards that filter, then one
+   card with the table. Add and edit happen in the row; Retire opens a dialog that says what it
+   would do (blocked while a System declares the Facet, and which Controls would widen). */
+.hero .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+.reg { overflow: clip; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--line-soft); }
+.toolbar .search { flex: 1 1 240px; max-width: 360px; }
+.tablewrap { overflow-x: auto; }
+table { width: 100%; border-collapse: separate; border-spacing: 0; min-width: 900px; }
+thead th { background: var(--raised); text-align: left; font-size: .72rem; font-weight: 750; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); padding: 9px 12px; border-bottom: 1px solid var(--line-soft); white-space: nowrap; }
+thead th:first-child, tbody td:first-child { padding-left: 18px; }
+thead th button { all: unset; cursor: pointer; display: inline-flex; gap: 4px; align-items: center; }
+thead th button:focus-visible { outline: 2px solid var(--accent); }
+thead th .arr { opacity: .35; font-size: .7rem; } thead th[aria-sort] .arr { opacity: 1; color: var(--accent); }
+tbody td { padding: 14px 12px; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
+tbody tr.r { animation: rise .35s both; animation-delay: var(--d, 0ms); }
+tbody tr.r:hover td { background: var(--raised); }
+tbody tr.flash td { animation: flash 1.4s ease-out; }
+@keyframes flash { from { background: var(--accent-soft); } }
+.fcell { display: flex; gap: 12px; min-width: 300px; }
+.fcell .t { display: grid; gap: 3px; min-width: 0; }
+.fcell b { font-weight: 700; font-size: .95rem; }
+.fcell p { color: var(--muted); font-size: .84rem; max-width: 60ch; }
+.new { font-size: .66rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--accent); background: var(--accent-soft); border-radius: 5px; padding: 1px 6px; margin-left: 6px; vertical-align: 2px; }
+.syscell { display: grid; gap: 6px; min-width: 200px; }
+.syscell .top { display: flex; align-items: baseline; gap: 8px; }
+.big { font-size: 1.15rem; font-weight: 760; font-variant-numeric: tabular-nums; }
+.share { flex: 1; height: 6px; border-radius: 99px; background: var(--line-soft); overflow: hidden; align-self: center; }
+.share i { display: block; height: 100%; border-radius: 99px; background: var(--fc); transition: width .5s cubic-bezier(.2, .8, .2, 1); }
+.ctlcell { display: grid; gap: 4px; min-width: 150px; }
+.ctlcell small { color: var(--muted); font-size: .76rem; }
+.ctlcell .alone { color: var(--gold-ink); font-weight: 650; }
+.zero { color: var(--faint); }
+td.when { color: var(--muted); white-space: nowrap; font-size: .84rem; }
+td.acts { white-space: nowrap; text-align: right; padding-right: 16px; }
+td.acts .btn { opacity: 0; transition: opacity .15s; }
+tbody tr:hover td.acts .btn, tbody tr:focus-within td.acts .btn { opacity: 1; }
+@media (hover: none) { td.acts .btn { opacity: 1; } }
+/* Edit and add rows */
+tr.edit td { background: color-mix(in srgb, var(--accent-soft) 45%, var(--surface)); }
+.form { display: grid; grid-template-columns: minmax(180px, 260px) minmax(0, 1fr) auto; gap: 12px; align-items: start; }
+.form .btns { display: flex; gap: 6px; padding-top: 22px; }
+@media (max-width: 760px) { .form { grid-template-columns: 1fr; } .form .btns { padding-top: 0; } }
+tr.addrow td { padding: 0; }
+.addbtn { all: unset; box-sizing: border-box; display: flex; align-items: center; gap: 10px; width: 100%; padding: 12px 18px; color: var(--accent); font-weight: 650; cursor: pointer; border-bottom: 1px dashed var(--line); }
+.addbtn:hover { background: var(--accent-soft); }
+.addbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.addbtn span { display: grid; place-items: center; width: 26px; height: 26px; border: 1.5px dashed currentColor; border-radius: 8px; }
+.foot { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; padding: 12px 16px; border-top: 1px solid var(--line-soft); font-size: .82rem; color: var(--muted); }
+.foot b { color: var(--ink); }
+</style>
+</head>
+<body>
+<header id="appbar"></header>
+<main class="app" id="main">
+  <section class="hero" aria-labelledby="h1">
+    <div>
+      <p class="eyebrow">Admin · Classification catalog</p>
+      <h1 id="h1">Deployment Facets</h1>
+      <p class="lede" id="lede"></p>
+      <div class="actions" id="heroActs"></div>
+    </div>
+    <div class="move" id="move"></div>
+  </section>
+
+  <section class="stats" id="stats" aria-label="Views"></section>
+
+  <section class="card reg" aria-label="Deployment Facet catalog">
+    <div class="toolbar">
+      <label class="search"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 4a5 5 0 1 0 0 10A5 5 0 0 0 9 4zM13 13l4 4"/></svg>
+        <input id="q" type="search" placeholder="Search Facets" aria-label="Search Facets"><kbd>/</kbd></label>
+      <span class="grow"></span>
+      <span class="hint">A System spanning several deployment models declares several Facets; Hybrid is not a Facet of its own.</span>
+    </div>
+    <div class="tablewrap">
+      <table>
+        <thead><tr>
+          <th><button data-sort="name">Facet <span class="arr">↕</span></button></th>
+          <th><button data-sort="systems">Systems declaring it <span class="arr">↕</span></button></th>
+          <th><button data-sort="controls">Controls scoped <span class="arr">↕</span></button></th>
+          <th><button data-sort="created">Added <span class="arr">↕</span></button></th>
+          <th><span class="sr">Actions</span></th>
+        </tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+    <div class="foot"><span id="count"></span><span id="overlap"></span></div>
+  </section>
+</main>
+
+<script src="../systems/data.js"></script>
+<script src="../controls/data.js"></script>
+<script src="../shared/kit.js"></script>
+<script src="../shared/appbar.js"></script>
+<script src="facets.js"></script>
+<script>
+const { FACETS, esc } = FAC;
+const S = { view: 'all', q: '', sort: 'default', dir: 1, edit: null, adding: false, flash: null };
+const VIEWS = [
+  ['all', 'All Facets', () => true, ''],
+  ['used', 'In use', (f) => f.systems.length > 0, 'ok'],
+  ['unused', 'Unused · can retire', (f) => !f.systems.length, 'warn'],
+  ['scoping', 'Scope Controls', (f) => f.controls.length > 0, ''],
+  ['nodesc', 'No description', (f) => !f.description, 'warn'],
+];
+const pageHTML = document.getElementById('main').innerHTML;
+
+function renderHero() {
+  const total = FAC.systems.length, multi = FAC.multi().length;
+  const scopedCtl = new Set(FACETS.flatMap((f) => f.controls)).size;
+  document.getElementById('lede').innerHTML = `${FACETS.length} Facets classify <b>${total}</b> Systems; <b>${multi}</b> declare more than one. <b>${scopedCtl}</b> Controls are scoped to a Facet and apply only to Systems declaring one of them; every other Control applies regardless.`;
+  const decl = FACETS.reduce((a, f) => a + f.systems.length, 0);
+  const used = FACETS.filter((f) => f.systems.length).length;
+  document.getElementById('move').innerHTML = Kit.ring(FACETS.map((f) => [f.systems.length / decl, FAC.colorOf(f)]), 104, 12, `${used}/${FACETS.length}`, 'in use') +
+    `<ul>${FACETS.map((f) => `<li><button type="button" data-jump="${f.id}"><i style="background:${FAC.colorOf(f)}"></i><b>${f.systems.length}</b>${esc(f.name)}</button></li>`).join('')}</ul>`;
+  document.getElementById('heroActs').innerHTML = '<button class="btn primary" type="button" id="addTop">+ New Deployment Facet</button><button class="btn" type="button" onclick="Kit.toast(\'deployment-facets.csv downloaded\')">Download CSV</button>';
+}
+function renderStats() {
+  document.getElementById('stats').innerHTML = VIEWS.map(([k, l, fn, tone]) => {
+    const n = FACETS.filter(fn).length;
+    return `<button type="button" class="card stat spot ${tone}" data-view="${k}" aria-pressed="${S.view === k}"><span class="k">${l}<em>${S.view === k ? 'Showing' : 'Show'}</em></span><span class="v" data-count="${n}">${n}</span></button>`;
+  }).join('');
+  Kit.countUp(document.getElementById('stats'));
+}
+const max = () => Math.max(1, ...FACETS.map((f) => f.systems.length));
+function row(f, i) {
+  if (S.edit === f.id) return editRow(f);
+  const alone = FAC.exclusive(f).length;
+  const st = FAC.systemsOf(f);
+  const onb = st.filter((s) => s.status === 'ONBOARDED').length;
+  const retire = FAC.inUse(f)
+    ? `<button class="btn sm" type="button" data-retire="${f.id}" title="Declared by ${f.systems.length} Systems; can't be retired">Retire</button>`
+    : `<button class="btn sm danger" type="button" data-retire="${f.id}">Retire</button>`;
+  return `<tr class="r${S.flash === f.id ? ' flash' : ''}" data-id="${f.id}" style="--d:${i * 30}ms;--fc:${FAC.colorOf(f)}">
+    <td><div class="fcell"><span class="fico" style="--fc:${FAC.colorOf(f)}">${FAC.ico(f)}</span><div class="t"><b>${esc(f.name)}${f.fresh ? '<span class="new">New</span>' : ''}</b>${f.description ? `<p>${esc(f.description)}</p>` : '<p class="nodesc">No description. Owners pick Facets from this text during onboarding.</p>'}</div></div></td>
+    <td><div class="syscell">${f.systems.length ? `<div class="top"><span class="big">${f.systems.length}</span><span class="share"><i style="width:${f.systems.length / max() * 100}%"></i></span></div>${FAC.dots(f, 60)}<small class="muted" style="font-size:.76rem">${onb} Onboarded · ${f.systems.length - onb} not yet</small>` : '<span class="zero">No System declares it</span>'}</div></td>
+    <td><div class="ctlcell">${f.controls.length ? `<span class="big">${f.controls.length}</span>${alone ? `<small class="alone" title="Scoped to this Facet alone">${alone} scoped to it alone</small>` : '<small>all shared with other Facets</small>'}` : '<span class="zero">None</span>'}</div></td>
+    <td class="when">${FAC.fmtDate(f.created)}</td>
+    <td class="acts"><button class="btn sm" type="button" data-edit="${f.id}" aria-label="Edit ${esc(f.name)}">Edit</button> ${retire}</td></tr>`;
+}
+function editRow(f) {
+  const isNew = !f;
+  return `<tr class="edit" data-form="${isNew ? 'new' : f.id}"><td colspan="5"><form class="form" novalidate>
+    <label class="field">Name<input name="name" value="${isNew ? '' : esc(f.name)}" required autocomplete="off" placeholder="e.g. Edge"><span class="ferr" aria-live="polite"></span></label>
+    <label class="field">Description<textarea name="description" rows="2" placeholder="What a System owner should read to know whether this Facet fits">${isNew ? '' : esc(f.description)}</textarea><span class="hint">Shown beside the Facet when an owner classifies a System.</span></label>
+    <div class="btns"><button class="btn primary" type="submit">${isNew ? 'Create' : 'Save'}</button><button class="btn" type="button" data-cancel>Cancel</button></div>
+  </form></td></tr>`;
+}
+function renderRows() {
+  const fn = VIEWS.find((v) => v[0] === S.view)[2];
+  const q = S.q.toLowerCase();
+  let list = FACETS.filter(fn).filter((f) => !q || (f.name + ' ' + f.description).toLowerCase().includes(q));
+  const val = { name: (f) => f.name.toLowerCase(), systems: (f) => f.systems.length, controls: (f) => f.controls.length, created: (f) => f.created };
+  if (S.sort !== 'default') list = list.slice().sort((a, b) => (val[S.sort](a) > val[S.sort](b) ? 1 : val[S.sort](a) < val[S.sort](b) ? -1 : 0) * S.dir);
+  document.querySelectorAll('thead th').forEach((th) => { const b = th.querySelector('[data-sort]'); if (b && b.dataset.sort === S.sort) th.setAttribute('aria-sort', S.dir > 0 ? 'ascending' : 'descending'); else th.removeAttribute('aria-sort'); });
+  const add = S.adding ? editRow(null) : '<tr class="addrow"><td colspan="5"><button class="addbtn" type="button" id="addRow"><span>+</span>Add a Deployment Facet</button></td></tr>';
+  document.getElementById('rows').innerHTML = add + (list.map(row).join('') || `<tr><td colspan="5"><div class="done-state">${Kit.CHECK}<h3>No Facets match</h3><p>Clear the search or pick another view.</p></div></td></tr>`);
+  document.getElementById('count').textContent = `${list.length} of ${FACETS.length} Facets`;
+  const p = FAC.pairs()[0];
+  document.getElementById('overlap').innerHTML = p ? `Most common pair: <b>${esc(p.a.name)}</b> + <b>${esc(p.b.name)}</b> on ${FAC.plural(p.n, 'System')}` : '';
+  const form = document.querySelector('[data-form] form');
+  if (form) form.name.focus();
+  S.flash = null;
+}
+function renderAll() {
+  const main = document.getElementById('main');
+  if (!FAC.canManage()) { main.innerHTML = FAC.gate(); return; }
+  if (!document.getElementById('rows')) { main.innerHTML = pageHTML; bindPage(); }
+  renderHero(); renderStats(); renderRows();
+}
+function startAdd() { S.adding = true; S.edit = null; S.view = 'all'; S.q = ''; document.getElementById('q').value = ''; renderStats(); renderRows(); document.querySelector('.reg').scrollIntoView({ behavior: Kit.reduced ? 'auto' : 'smooth', block: 'start' }); }
+
+function bindPage() {
+  document.getElementById('stats').addEventListener('click', (e) => { const b = e.target.closest('[data-view]'); if (!b) return; S.view = S.view === b.dataset.view ? 'all' : b.dataset.view; renderStats(); renderRows(); });
+  document.getElementById('q').addEventListener('input', (e) => { S.q = e.target.value; renderRows(); });
+  document.querySelector('thead').addEventListener('click', (e) => { const b = e.target.closest('[data-sort]'); if (!b) return; if (S.sort === b.dataset.sort) S.dir *= -1; else { S.sort = b.dataset.sort; S.dir = b.dataset.sort === 'name' ? 1 : -1; } renderRows(); });
+  document.querySelector('.hero').addEventListener('click', (e) => {
+    if (e.target.closest('#addTop')) return startAdd();
+    const j = e.target.closest('[data-jump]'); if (j) { S.view = 'all'; S.flash = j.dataset.jump; renderStats(); renderRows(); document.querySelector(`tr[data-id="${j.dataset.jump}"]`)?.scrollIntoView({ block: 'center' }); }
+  });
+  const rows = document.getElementById('rows');
+  rows.addEventListener('click', (e) => {
+    if (e.target.closest('#addRow')) return startAdd();
+    const ed = e.target.closest('[data-edit]'); if (ed) { S.edit = ed.dataset.edit; S.adding = false; renderRows(); return; }
+    const rt = e.target.closest('[data-retire]'); if (rt) { FAC.retireDialog(rt.dataset.retire, (res) => { if (res.ok) renderAll(); }); return; }
+    if (e.target.closest('[data-cancel]')) { S.edit = null; S.adding = false; renderRows(); }
+  });
+  rows.addEventListener('keydown', (e) => { if (e.key === 'Escape' && e.target.closest('[data-form]')) { S.edit = null; S.adding = false; renderRows(); } });
+  rows.addEventListener('input', (e) => { if (e.target.name === 'name') { const tr = e.target.closest('[data-form]'); const err = FAC.nameError(e.target.value, tr.dataset.form === 'new' ? null : tr.dataset.form); tr.querySelector('.ferr').textContent = e.target.value && err ? err : ''; e.target.setAttribute('aria-invalid', String(!!(e.target.value && err))); } });
+  rows.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const tr = e.target.closest('[data-form]'), fm = e.target;
+    const data = { name: fm.name.value, description: fm.description.value };
+    const res = tr.dataset.form === 'new' ? FAC.add(data) : FAC.update(tr.dataset.form, data);
+    if (res.error) { tr.querySelector('.ferr').textContent = res.error; fm.name.setAttribute('aria-invalid', 'true'); fm.name.focus(); return; }
+    Kit.toast(tr.dataset.form === 'new' ? `${res.facet.name} added` : `${res.facet.name} saved`);
+    S.edit = null; S.adding = false; S.flash = res.facet.id; renderHero(); renderStats(); renderRows();
+  });
+}
+document.addEventListener('keydown', (e) => { if (e.key === '/' && !/INPUT|TEXTAREA/.test(document.activeElement.tagName) && document.getElementById('q')) { e.preventDefault(); document.getElementById('q').focus(); } });
+addEventListener('appbar:role', renderAll);
+
+Appbar.mount({ current: 'admin', proposal: { label: 'A', siblings: [['B', 'proposal-b.html'], ['C', 'proposal-c.html']] },
+  items: () => [{ group: 'Actions', label: 'New Deployment Facet', icon: 'plus', run: startAdd }].concat(FAC.paletteItems((id) => { S.edit = id; S.view = 'all'; renderStats(); renderRows(); })()) });
+bindPage();
+renderAll();
+</script>
+</body>
+</html>
