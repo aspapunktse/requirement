@@ -353,6 +353,23 @@ describe("grouping and density", () => {
     expect(shown()).toHaveLength(7);
   });
 
+  it("keeps every group header when the expanded groups use up the batch", async () => {
+    const user = userEvent.setup();
+    const rowsIn = [
+      ...Array.from({ length: 90 }, (_, i) => row(`D1.${String(i).padStart(3, "0")}`, { category: "Domain One" })),
+      ...Array.from({ length: 5 }, (_, i) => row(`D2.${i}`, { category: "Domain Two" })),
+    ];
+    renderLedger({ rows: rowsIn });
+    await user.click(screen.getByRole("button", { name: "Collapse all" }));
+    await user.click(screen.getByRole("button", { name: /Domain One/ }));
+    expect(shown()).toHaveLength(90);
+    expect(screen.getByRole("button", { name: /Domain Two/ })).toHaveAttribute("aria-expanded", "false");
+    await user.click(screen.getByRole("button", { name: /Domain Two/ }));
+    expect(screen.getByRole("button", { name: /Domain Two/ })).toHaveAttribute("aria-expanded", "true");
+    await user.click(screen.getByRole("button", { name: "Show more" }));
+    expect(shown()).toHaveLength(95);
+  });
+
   it("switches the density", async () => {
     const user = userEvent.setup();
     const { container } = renderLedger();
@@ -633,6 +650,27 @@ describe("the exclusion justification editor", () => {
     await waitFor(() => expect(within(dialog()).getByRole("heading", { level: 2 })).toHaveTextContent("DCS-02"));
     expect(shown()).toEqual(["DCS-02"]);
     await waitFor(() => expect(within(dialog()).getByLabelText("Exclusion justification of DCS-02")).toHaveFocus());
+  });
+
+  it("keeps both updates when two saves overlap and the first response arrives late", async () => {
+    const user = userEvent.setup();
+    let resolveFirst: (response: Response) => void = () => {};
+    fetchMock.mockImplementationOnce(() => new Promise<Response>((resolve) => (resolveFirst = resolve)));
+    fetchMock.mockResolvedValueOnce(saved("id-DCS-02", "Second."));
+    renderLedger();
+    await user.click(screen.getByRole("button", { name: "Open DCS-01" }));
+    await user.type(within(dialog()).getByLabelText("Exclusion justification of DCS-01"), "First.");
+    await user.click(within(dialog()).getByRole("button", { name: "Save justification" }));
+    await user.click(within(dialog()).getByRole("button", { name: /Next/ }));
+    await user.type(within(dialog()).getByLabelText("Exclusion justification of DCS-02"), "Second.");
+    await user.click(within(dialog()).getByRole("button", { name: "Save justification" }));
+    await screen.findByText("Saved · 1 still missing");
+    await act(async () => resolveFirst(saved("id-DCS-01", "First.")));
+    expect(screen.getByRole("button", { name: /Exclusion justifications/ })).toHaveTextContent("0 missing of 3");
+    const first = document.querySelector('tr[data-id="id-DCS-01"]') as HTMLElement;
+    const second = document.querySelector('tr[data-id="id-DCS-02"]') as HTMLElement;
+    expect(within(first).getByText("First.")).toBeInTheDocument();
+    expect(within(second).getByText("Second.")).toBeInTheDocument();
   });
 
   it("stays on the Control after a save outside the Missing justification view", async () => {

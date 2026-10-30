@@ -166,7 +166,7 @@
 /* Phones: each Control becomes a stacked card */
 @media (max-width: 720px) {
   .sl-cards { grid-template-columns: 1fr; }
-  .sl table, .sl tbody { display: block; width: 100%; min-width: 0; }
+  .sy.sl table, .sl tbody { display: block; width: 100%; min-width: 0; }
   .sl thead { display: none; }
   .sl tbody tr.sl-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 10px; padding: 12px 16px; border-bottom: 1px solid var(--hc-line-soft); }
   .sl tbody tr.sl-row td { display: block; padding: 0; border: 0; background: none !important; min-width: 0; width: auto; }

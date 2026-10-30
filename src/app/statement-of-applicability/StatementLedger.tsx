@@ -56,6 +56,7 @@ async function errorOf(response: Response, fallback: string): Promise<string> {
 export function StatementLedger({ view }: { view: SoaView }) {
   const { canEdit, systems } = view;
   const [rows, setRows] = useState(view.rows);
+  const rowsRef = useRef(rows);
   const [viewKey, setViewKey] = useState<ViewKey>("all");
   const [card, setCard] = useState<CardKey | null>(null);
   const [query, setQuery] = useState("");
@@ -88,8 +89,8 @@ export function StatementLedger({ view }: { view: SoaView }) {
     for (const group of groups) {
       const expanded = !groupBy || !collapsed.has(group.key);
       if (expanded) openCount += group.rows.length;
-      if (budget <= 0) continue;
-      const part = expanded ? group.rows.slice(0, budget) : [];
+      // Every header is drawn; the budget only limits the rows of expanded groups.
+      const part = expanded ? group.rows.slice(0, Math.max(0, budget)) : [];
       budget -= part.length;
       parts.push({ key: group.key, name: group.name, rows: part, total: group.rows.length, expanded });
     }
@@ -207,11 +208,13 @@ export function StatementLedger({ view }: { view: SoaView }) {
     } catch {
       return "The justification could not be saved";
     }
-    const nextRows = rows.map((candidate) =>
+    // Applied to the latest rows, not the ones captured when the request started: another save may have landed meanwhile.
+    const nextRows = rowsRef.current.map((candidate) =>
       candidate.controlId === saved.controlId
         ? { ...candidate, exclusionJustification: saved.exclusionJustification, justificationMissing: saved.justificationMissing }
         : candidate,
     );
+    rowsRef.current = nextRows;
     setRows(nextRows);
     const left = nextRows.filter((candidate) => candidate.justificationMissing).length;
     setNotice(
