@@ -110,10 +110,26 @@ describe("GET /api/users", () => {
     const asCm = await (await GET(requestAs(complianceManagerId))).json();
     const asAdmin = await (await GET(requestAs(adminId))).json();
 
-    expect(asCm.users.length).toBeGreaterThan(0);
-    expect(asCm.users).toEqual(asAdmin.users);
-    const user = asCm.users.find((u: { email: string }) => u.email === email);
-    expect(Object.keys(user).sort()).toEqual(["email", "id", "name", "role"]);
+    // GET lists every User in the table, so other test files creating or deleting Users
+    // concurrently must not matter: compare only this file's own fixture Users.
+    const fixtureEmails = [
+      email,
+      adminEmail,
+      businessRiskOwnerEmail,
+      complianceManagerEmail,
+      ...refusedRoles.map(refusedEmail),
+    ];
+    type ListedUser = { email: string };
+    const ours = (users: ListedUser[]) =>
+      users.filter((u) => fixtureEmails.includes(u.email)).sort((a, b) => a.email.localeCompare(b.email));
+    const cmUsers = ours(asCm.users);
+    const adminUsers = ours(asAdmin.users);
+
+    expect(cmUsers.map((u) => u.email)).toEqual([...fixtureEmails].sort((a, b) => a.localeCompare(b)));
+    expect(cmUsers).toEqual(adminUsers);
+    for (const user of [...asCm.users, ...asAdmin.users]) {
+      expect(Object.keys(user).sort()).toEqual(["email", "id", "name", "role"]);
+    }
   });
 
   it("filters by role for an authenticated COMPLIANCE_MANAGER", async () => {
