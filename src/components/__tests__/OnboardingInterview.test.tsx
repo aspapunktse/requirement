@@ -72,11 +72,20 @@ const postedBody = () => {
 /** The question card's title (the live list has its own level-2 heading). */
 const questionTitle = () => document.getElementById("ob-q-title")!;
 
+/** The long walkthroughs click through ~10 controls; each click re-renders the whole interview, which takes ~3-4 s on a loaded CI runner, so they get more than the default 5 s. */
+const LONG_WALKTHROUGH = 15000;
+
 async function setup() {
   const user = userEvent.setup();
   render(<OnboardingInterview />);
   await screen.findByRole("heading", { name: "How do you get the system?" });
   return user;
+}
+
+/** Fill a text field in one paste event (still through the change handler), not one keystroke at a time: typing re-renders the whole interview per key and made the long cases slow enough to hit the default timeout. */
+async function fill(user: ReturnType<typeof userEvent.setup>, field: HTMLElement, text: string) {
+  await user.click(field);
+  await user.paste(text);
 }
 
 const next = (user: ReturnType<typeof userEvent.setup>) => user.click(screen.getByRole("button", { name: "Next" }));
@@ -213,9 +222,9 @@ describe("OnboardingInterview", () => {
     expect(screen.getByRole("heading", { name: /3 Controls apply, of 7/ })).toBeInTheDocument();
   });
 
-  it("summarises the answers on the last step, with Edit links back, and creates the System with one request", async () => {
+  it("summarises the answers on the last step, with Edit links back", async () => {
     const user = await setup();
-    await user.type(screen.getByLabelText("System name"), "  Payroll  ");
+    await fill(user, screen.getByLabelText("System name"), "  Payroll  ");
     await user.click(screen.getByRole("checkbox", { name: "On-premises" }));
     await user.click(screen.getByRole("button", { name: "Sensitivity" }));
     await user.click(screen.getByRole("radio", { name: "Confidential" }));
@@ -243,9 +252,23 @@ describe("OnboardingInterview", () => {
     expect(questionTitle()).toHaveTextContent("What is the most sensitive information in it?");
     expect(screen.getByRole("radio", { name: "Confidential" })).toBeChecked();
     await user.click(screen.getByRole("button", { name: "Review" }));
+    expect(questionTitle()).toHaveTextContent("Review and create");
+  }, LONG_WALKTHROUGH);
 
-    await user.type(screen.getByLabelText("Vendor (optional)"), "Acme");
-    await user.type(screen.getByLabelText("Description (optional)"), "Pays people");
+  it("creates the System with one request carrying every answer", async () => {
+    const user = await setup();
+    await fill(user, screen.getByLabelText("System name"), "  Payroll  ");
+    await user.click(screen.getByRole("checkbox", { name: "On-premises" }));
+    await user.click(screen.getByRole("button", { name: "Sensitivity" }));
+    await user.click(screen.getByRole("radio", { name: "Confidential" }));
+    await user.click(screen.getByRole("button", { name: "Laws and standards" }));
+    await user.click(screen.getByRole("radio", { name: "Yes" }));
+    await user.click(screen.getByRole("button", { name: "Relies on" }));
+    await user.click(screen.getByRole("checkbox", { name: "Landing Zone" }));
+    await user.click(screen.getByRole("button", { name: "Review" }));
+
+    await fill(user, screen.getByLabelText("Vendor (optional)"), "Acme");
+    await fill(user, screen.getByLabelText("Description (optional)"), "Pays people");
     await user.click(screen.getByRole("button", { name: "Create System" }));
 
     await waitFor(() => expect(push).toHaveBeenCalledWith("/systems/sys1"));
@@ -258,7 +281,7 @@ describe("OnboardingInterview", () => {
       frameworkScopeIds: ["gdpr"],
       providerIds: ["p1"],
     });
-  });
+  }, LONG_WALKTHROUGH);
 
   it("needs a name before it creates, and shows the server's refusal", async () => {
     vi.stubGlobal("fetch", mockFetch({ onPost: () => new Response(JSON.stringify({ error: "Only a System Owner, Risk Owner or Admin can create a System" }), { status: 403 }) }));
@@ -268,7 +291,7 @@ describe("OnboardingInterview", () => {
 
     expect(screen.getByRole("button", { name: "Create System" })).toBeDisabled();
     expect(screen.getByText(/Name the System at the top of the page/)).toBeInTheDocument();
-    await user.type(screen.getByLabelText("System name"), "Payroll");
+    await fill(user, screen.getByLabelText("System name"), "Payroll");
     await user.click(screen.getByRole("button", { name: "Create System" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Only a System Owner, Risk Owner or Admin can create a System");
