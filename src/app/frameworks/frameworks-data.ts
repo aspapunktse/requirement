@@ -1,4 +1,4 @@
-import type { UserRole } from "@prisma/client";
+import type { Prisma, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { roleLabel } from "@/app/home/role-label";
 import { loadCoverageBreakdowns } from "@/lib/framework-coverage";
@@ -7,6 +7,25 @@ import { canSeeDraftFrameworks, visibleFrameworksWhere } from "@/lib/frameworks"
 import { buildLineages } from "@/lib/framework-lineage";
 import { visibleSystemsWhere } from "@/lib/system-visibility";
 import type { CatalogView } from "./frameworks-types";
+
+/**
+ * How many of the Systems `user` may see have each Framework in their Framework Scope (the base Framework is in
+ * every System's). Shared with the Framework coverage page's "Effect on Systems" (#269). Pass the caller's
+ * transaction client.
+ */
+export async function countVisibleSystemsByFramework(user: { id: string; role: UserRole }, tx: Prisma.TransactionClient) {
+  const systems = await tx.system.findMany({
+    where: await visibleSystemsWhere(user, tx),
+    select: { frameworkScopes: { select: { id: true } } },
+  });
+  const scopeCounts = new Map<string, number>();
+  for (const system of systems) {
+    for (const scope of system.frameworkScopes) scopeCounts.set(scope.id, (scopeCounts.get(scope.id) ?? 0) + 1);
+  }
+  return {
+    countFor: (framework: { id: string; isBase: boolean }) => (framework.isBase ? systems.length : (scopeCounts.get(framework.id) ?? 0)),
+  };
+}
 
 /**
  * Everything the Framework list shows for the acting user (design proposal A "Catalog table", issue #266).
@@ -44,15 +63,7 @@ export async function loadFrameworksView(user: { id: string; role: UserRole }): 
         await tx.framework.findMany({ select: { id: true, name: true, version: true, status: true, supersedesId: true } }),
         canCurate,
       );
-      // Which Systems the user may see have which Framework in their scope; the base Framework is in every System's.
-      const systems = await tx.system.findMany({
-        where: await visibleSystemsWhere(user, tx),
-        select: { frameworkScopes: { select: { id: true } } },
-      });
-      const scopeCounts = new Map<string, number>();
-      for (const system of systems) {
-        for (const scope of system.frameworkScopes) scopeCounts.set(scope.id, (scopeCounts.get(scope.id) ?? 0) + 1);
-      }
+      const systems = await countVisibleSystemsByFramework(user, tx);
 
       return frameworks.map((framework) => {
         const breakdown = breakdowns[framework.id];
@@ -73,7 +84,7 @@ export async function loadFrameworksView(user: { id: string; role: UserRole }): 
           accepted: breakdown.accepted,
           gaps: breakdown.gaps,
           partialOnly: breakdown.partialOnly,
-          systems: framework.status === "DRAFT" ? null : framework.isBase ? systems.length : (scopeCounts.get(framework.id) ?? 0),
+          systems: framework.status === "DRAFT" ? null : systems.countFor(framework),
           reviewGroup: framework.reviewGroup?.name ?? null,
           supplementary: framework.status === "DRAFT" ? framework._count.originatedControls : 0,
           updatedAt: latestChange(framework.createdAt, [breakdown.latestChange]).toISOString(),

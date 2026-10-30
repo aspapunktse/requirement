@@ -13,6 +13,7 @@ import { frameworkLabel } from "@/lib/framework-label";
 import "@/app/home/home.css";
 import "@/app/systems/systems.css";
 import "./frameworks.css";
+import { CoverageBar, Legend } from "./CoverageBar";
 import { PublishFrameworkDialog } from "./PublishFrameworkDialog";
 import {
   displayOrder,
@@ -59,53 +60,6 @@ const STAT_LABEL: Record<ViewKey, string> = {
 const STAT_TONE: Record<ViewKey, "warn" | "danger" | "ok" | undefined> = { all: undefined, drafts: "warn", gaps: "danger", resolved: "ok", empty: "warn" };
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
-
-/** The stacked coverage bar: covered, accepted, gap with Partial mappings only, gap with no mapping. */
-function CoverageBar({ totals, thin = false }: { totals: Totals; thin?: boolean }) {
-  if (totals.requirements === 0) return <div className={`fc-bar empty${thin ? " thin" : ""}`} role="img" aria-label="No Requirements yet" />;
-  const segments: [number, string][] = [
-    [totals.covered, "covered"],
-    [totals.accepted, "accepted"],
-    [totals.partialOnly, "partial"],
-    [totals.gaps - totals.partialOnly, "none"],
-  ];
-  return (
-    <div
-      className={`fc-bar${thin ? " thin" : ""}`}
-      role="img"
-      aria-label={`${totals.covered} covered, ${totals.accepted} accepted, ${totals.gaps} open gaps of ${totals.requirements} Requirements`}
-    >
-      {segments
-        .filter(([n]) => n > 0)
-        .map(([n, kind]) => (
-          <i key={kind} className={`st-${kind}`} style={{ flexGrow: n }} />
-        ))}
-    </div>
-  );
-}
-
-function Legend() {
-  return (
-    <div className="fc-legend" aria-label="Coverage colours">
-      <span>
-        <i className="st-covered" aria-hidden="true" />
-        Covered
-      </span>
-      <span>
-        <i className="st-accepted" aria-hidden="true" />
-        Accepted gap
-      </span>
-      <span>
-        <i className="st-partial" aria-hidden="true" />
-        Gap, Partial mappings only
-      </span>
-      <span>
-        <i className="st-none" aria-hidden="true" />
-        Gap, no mapping
-      </span>
-    </div>
-  );
-}
 
 /**
  * The Framework list, design proposal A "Catalog table" in the Home look (issue #266): a hero with the
