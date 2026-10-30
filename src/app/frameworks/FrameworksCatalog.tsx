@@ -469,7 +469,7 @@ function GroupRows({ name, count, totals, children }: { name: string; count: num
     <>
       <tr className="sy-grp">
         <td colSpan={COLUMNS.length}>
-          <i aria-hidden="true" />
+          <i className="fc-dot" aria-hidden="true" />
           {name}
           <small>
             {plural(count, "Framework")}

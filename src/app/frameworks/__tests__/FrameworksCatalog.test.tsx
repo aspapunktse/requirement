@@ -249,6 +249,15 @@ describe("group", () => {
     expect(names()).toEqual(["ISO/IEC 27001", "CMMC Level 1", "CMMC Level 2", "DORA", "Empty Act", "NIS2"]);
   });
 
+  it("keeps the group dot and the thin bar's segments apart: the dot has its own class, the segments only st-*", () => {
+    renderCatalog();
+    const grp = table().querySelectorAll("tbody tr.sy-grp")[1];
+    expect(grp.querySelector("i.fc-dot")).not.toBeNull();
+    const segments = [...grp.querySelectorAll(".fc-bar i")];
+    expect(segments.length).toBeGreaterThan(0);
+    for (const segment of segments) expect(segment.className).toMatch(/^st-(covered|accepted|partial|none)$/);
+  });
+
   it("groups by status, and not at all", async () => {
     renderCatalog();
     await groupBy("Status");

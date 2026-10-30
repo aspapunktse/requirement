@@ -63,7 +63,13 @@
 .fc .fc-row:hover td.acts .hc-btn, .fc .fc-row:focus-within td.acts .hc-btn { opacity: 1; }
 @media (hover: none) { .fc td.acts .hc-btn:first-child { opacity: 1; } }
 .fc td.acts .hc-btn { text-decoration: none; }
-.fc .sy-grp td .fc-bar { display: inline-flex; width: 140px; vertical-align: middle; margin-left: 12px; }
+.fc .sy-grp td .fc-bar { display: inline-flex; width: 140px; max-width: 100%; vertical-align: middle; margin-left: 12px; }
+/* The Systems group-row dot rule (`.sy .sy-grp td i`) matches every <i>: give it back to the dot, and the bar its own segments */
+.fc .sy-grp td .fc-bar i { display: block; width: auto; height: auto; border-radius: 0; margin: 0; }
+.fc .sy-grp td .fc-bar i.st-covered { background: var(--rg-success); }
+.fc .sy-grp td .fc-bar i.st-accepted { background: var(--rg-gold); }
+.fc .sy-grp td .fc-bar i.st-partial { background: repeating-linear-gradient(135deg, var(--rg-danger) 0 3px, color-mix(in srgb, var(--rg-danger) 45%, var(--rg-surface)) 3px 6px); }
+.fc .sy-grp td .fc-bar i.st-none { background: var(--rg-danger); }
 .fc-notice { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--rg-ink); color: var(--rg-paper); border-radius: 12px; padding: 10px 16px; font-size: 0.86rem; font-weight: 600; z-index: 36; max-width: calc(100vw - 32px); }
 
 /* Publish dialog */
@@ -85,10 +91,12 @@
 @media (max-width: 720px) {
   .fc.fc tbody tr.fc-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 10px; padding: 12px 16px; border-bottom: 1px solid var(--hc-line-soft); }
   .fc.fc tbody tr.fc-row td { display: block; padding: 0; border: 0; background: none !important; }
-  .fc.fc tbody tr.fc-row td.c-name { grid-column: 1; }
-  .fc.fc tbody tr.fc-row td.c-status { grid-column: 2; grid-row: 1; }
-  .fc.fc tbody tr.fc-row td.c-cov { grid-column: 1 / -1; }
-  .fc.fc tbody tr.fc-row td.acts { grid-column: 1 / -1; text-align: left; }
+  .fc.fc tbody tr.fc-row td.c-name { grid-column: 1 / -1; grid-row: 1; min-width: 0; }
+  .fc.fc tbody tr.fc-row td.c-status { grid-column: 1 / -1; grid-row: 2; }
+  .fc.fc tbody tr.fc-row td.c-cov { grid-column: 1 / -1; grid-row: 3; }
+  .fc.fc tbody tr.fc-row td.acts { grid-column: 1 / -1; grid-row: 4; text-align: left; }
+  .fc .fwcell small { max-width: 100%; }
+  .fc .sy-grp td .fc-bar { display: flex; margin: 6px 0 0; width: min(140px, 100%); }
   .fc.fc tbody tr.fc-row td.acts .hc-btn:first-child { opacity: 1; }
   .fc.fc tbody tr.fc-row td.c-gaps, .fc.fc tbody tr.fc-row td.c-acc, .fc.fc tbody tr.fc-row td.c-sys, .fc.fc tbody tr.fc-row td.c-rg, .fc.fc tbody tr.fc-row td.c-upd { display: none !important; }
   .fc .fwcell { min-width: 0; }
