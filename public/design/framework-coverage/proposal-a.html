@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Coverage Gap Ledger</title>
+<link rel="stylesheet" href="../systems/systems.css">
+<link rel="stylesheet" href="../shared/appbar.css">
+<link rel="stylesheet" href="../shared/kit.css">
+<link rel="stylesheet" href="../frameworks/fw.css">
+<style>
+/* Proposal A: the coverage page as a ledger, in the Home / SoA ledger look. A hero with the
+   coverage ring, stat cards that filter, section tabs with gap counts, then a dense table grouped
+   by section: code, Requirement, mapped Controls with Full/Partial, state and row actions. A row
+   opens the Requirement drawer; ticking gaps accepts them together with one justification. */
+.hero .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; align-items: center; }
+.hero h1 .ver { font-family: var(--mono); font-size: .9rem; color: var(--muted); border: 1px solid var(--line); border-radius: 6px; padding: 0 6px; vertical-align: middle; margin-left: 6px; background: var(--surface); }
+.stats { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+.stat .sub { grid-column: 1 / -1; font-size: .72rem; color: var(--faint); }
+.led { overflow: clip; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--line-soft); }
+.toolbar .search { flex: 1 1 240px; max-width: 360px; }
+.toolbar .grow { flex: 1; }
+.chk-l { display: inline-flex; gap: 6px; align-items: center; font-size: .84rem; color: var(--muted); cursor: pointer; }
+.chk-l input, td.ck input, th.ck input { accent-color: var(--accent); width: 15px; height: 15px; }
+.bulk { display: flex; gap: 10px; align-items: center; padding: 10px 16px; background: var(--ink); color: var(--paper); font-size: .86rem; flex-wrap: wrap; }
+.bulk textarea { flex: 1 1 320px; min-height: 38px; height: 38px; border-radius: 10px; border: 0; padding: 8px 10px; font: inherit; resize: vertical; }
+.bulk .btn { border-color: transparent; }
+.tablewrap { overflow-x: auto; }
+table { width: 100%; border-collapse: separate; border-spacing: 0; min-width: 900px; }
+thead th { position: sticky; top: 0; z-index: 2; background: var(--raised); text-align: left; font-size: .72rem; font-weight: 750; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); padding: 9px 12px; border-bottom: 1px solid var(--line-soft); white-space: nowrap; }
+tbody td { padding: 10px 12px; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
+thead th:first-child, tbody td:first-child { padding-left: 18px; }
+th.ck, td.ck { width: 34px; padding-right: 0; }
+tbody tr[data-code] { cursor: pointer; }
+tbody tr[data-code]:hover td { background: var(--raised); }
+tbody tr.on td { background: var(--accent-soft); }
+tbody tr.flash td { animation: flash 1.2s ease-out; }
+@keyframes flash { from { background: color-mix(in srgb, var(--ok) 22%, transparent); } }
+td.code { font-family: var(--mono); font-size: .78rem; font-weight: 700; color: var(--accent); white-space: nowrap; }
+td.req { min-width: 220px; font-weight: 600; }
+td.req small { display: block; font-weight: 400; color: var(--gold-ink); font-size: .76rem; margin-top: 2px; }
+td.maps { width: 44%; }
+td.maps .ctl { max-width: 320px; }
+td.acts { white-space: nowrap; text-align: right; padding-right: 16px; }
+td.acts .btn { opacity: 0; transition: opacity .15s; }
+tbody tr:hover td.acts .btn, tbody tr:focus-within td.acts .btn { opacity: 1; }
+@media (hover: none) { td.acts .btn { opacity: 1; } }
+.grp td { position: sticky; top: 35px; z-index: 1; padding: 10px 18px 7px; font-size: .74rem; font-weight: 750; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); background: var(--raised); border-top: 1px solid var(--line-soft); }
+.grp td .in { display: flex; gap: 10px; align-items: center; }
+.grp td small { text-transform: none; letter-spacing: 0; font-weight: 600; color: var(--faint); }
+.grp td .cbar { width: 140px; }
+.foot { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; padding: 12px 16px; border-top: 1px solid var(--line-soft); font-size: .82rem; color: var(--muted); }
+.note { font-size: .8rem; color: var(--muted); }
+</style>
+</head>
+<body>
+<header id="appbar"></header>
+<main class="app">
+  <a class="back" id="back" href="#">← Frameworks</a>
+  <section class="hero" aria-labelledby="h1">
+    <div>
+      <p class="eyebrow">Framework coverage</p>
+      <h1 id="h1"></h1>
+      <div class="chips" id="chips"></div>
+      <p class="lede">Which Requirements the Control Library covers, and which it doesn't. A Requirement is covered when a mapped Control gives Full coverage; Partial mappings alone leave a Coverage Gap. An accepted gap counts as resolved.</p>
+      <div class="actions" id="acts"></div>
+    </div>
+    <div class="move" id="move"></div>
+  </section>
+  <section class="stats" id="stats" aria-label="Filters"></section>
+  <section class="card led" aria-label="Requirements">
+    <div class="tabs" id="tabs" role="tablist" aria-label="Sections"></div>
+    <div class="toolbar">
+      <label class="search"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 4a5 5 0 1 0 0 10A5 5 0 0 0 9 4zM13 13l4 4"/></svg>
+        <input id="q" type="search" placeholder="Search code, Requirement or Control" aria-label="Search"><kbd>/</kbd></label>
+      <label class="chk-l"><input type="checkbox" id="gapsFirst"> Gaps first in each section</label>
+      <span class="grow"></span>
+      <span class="note" id="shown"></span>
+    </div>
+    <div class="bulk" id="bulk" hidden></div>
+    <div class="tablewrap"><table>
+      <thead><tr><th class="ck" id="ckh"></th><th>Code</th><th>Requirement</th><th>Mapped Controls</th><th>State</th><th><span class="sr">Actions</span></th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table></div>
+    <div class="foot"><span id="lg"></span><span>Click a row for details · <span class="kbd">/</span> search</span></div>
+  </section>
+</main>
+
+<script src="../frameworks/data.js"></script>
+<script src="../shared/kit.js"></script>
+<script src="../shared/appbar.js"></script>
+<script src="../frameworks/fw.js"></script>
+<script src="coverage.js"></script>
+<script>
+const { fw, reqs } = Cov; const esc = FW.esc;
+const startSection = new URLSearchParams(location.search).get('section');
+const S = { filter: 'all', section: reqs.some((r) => r.section === startSection) ? startSection : 'all', q: '', gapsFirst: false, sel: new Set() };
+const FILTERS = [
+  ['all', 'Requirements', () => true, '', ''],
+  ['COVERED', 'Covered', (r) => r.state === 'COVERED', 'ok', 'a Full mapping'],
+  ['GAP', 'Open gaps', (r) => r.state === 'GAP', 'danger', 'not covered, not accepted'],
+  ['PARTIAL', 'Partial only', (r) => FW.kind(r) === 'PARTIAL', 'warn', 'gaps with Partial mappings'],
+  ['NONE', 'No mapping', (r) => FW.kind(r) === 'NONE', 'danger', 'gaps with nothing mapped'],
+  ['ACCEPTED_GAP', 'Accepted', (r) => r.state === 'ACCEPTED_GAP', 'warn', 'count as resolved'],
+];
+const fnOf = (k) => FILTERS.find((f) => f[0] === k)[2];
+
+function renderHead() {
+  document.title = `${FW.label(fw)} coverage`;
+  document.getElementById('h1').innerHTML = `${esc(fw.name)}<span class="ver">${esc(fw.version)}</span>`;
+  document.getElementById('chips').innerHTML = FW.status(fw) + FW.tags(fw) + (fw.reviewGroup ? `<span class="tag">${esc(fw.reviewGroup)}</span>` : '');
+  document.getElementById('back').href = Cov.listHref('a');
+  document.getElementById('acts').innerHTML = Cov.switcher('a') + '<button class="btn" type="button" onclick="Kit.toast(\'coverage.csv downloaded\')">Download CSV</button>' + (FW.canCurate() ? '' : '<span class="readonly-note">Read-only: a Compliance Manager curates mappings and gaps.</span>');
+}
+function renderSummary() {
+  const c = Cov.counts();
+  document.getElementById('move').innerHTML = Kit.ring([[c.covered / c.requirements, 'var(--c-cov)'], [c.accepted / c.requirements, 'var(--c-acc)']], 104, 12, Math.round((c.covered + c.accepted) / c.requirements * 100) + '%', 'resolved') +
+    `<ul><li><button type="button" data-f="COVERED" aria-pressed="${S.filter === 'COVERED'}"><i class="st-COVERED"></i><b>${c.covered}</b> covered</button></li><li><button type="button" data-f="ACCEPTED_GAP" aria-pressed="${S.filter === 'ACCEPTED_GAP'}"><i class="st-ACCEPTED_GAP"></i><b>${c.accepted}</b> accepted</button></li><li><button type="button" data-f="PARTIAL" aria-pressed="${S.filter === 'PARTIAL'}"><i class="st-PARTIAL"></i><b>${c.partialOnly}</b> Partial only</button></li><li><button type="button" data-f="NONE" aria-pressed="${S.filter === 'NONE'}"><i class="st-NONE"></i><b>${c.gaps - c.partialOnly}</b> no mapping</button></li></ul>`;
+  document.getElementById('stats').innerHTML = FILTERS.map(([k, l, fn, tone, sub]) => {
+    const n = reqs.filter(fn).length;
+    return `<button type="button" class="card stat spot ${tone}" data-f="${k}" aria-pressed="${S.filter === k}"><span class="k">${l}<em>${S.filter === k ? 'Showing' : 'Show'}</em></span><span class="v">${n}</span>${sub ? `<span class="sub">${sub}</span>` : ''}</button>`;
+  }).join('');
+  const fn = fnOf(S.filter);
+  const secs = FW.sections(reqs);
+  document.getElementById('tabs').innerHTML = `<button role="tab" data-s="all" aria-selected="${S.section === 'all'}">All<span class="n">${reqs.filter(fn).length}</span></button>` +
+    secs.map(([s, rs]) => `<button role="tab" data-s="${esc(s)}" aria-selected="${S.section === s}" title="${esc(s)}">${esc(s.split(' ')[0])}<span class="n">${rs.filter(fn).length}</span></button>`).join('');
+}
+function row(r) {
+  const cur = FW.canCurate();
+  const maps = r.maps.length ? `<div class="ctls">${r.maps.map(FW.ctl).join('')}</div>` : '<span class="nomap">No Control mapped</span>';
+  const acts = !cur ? '' : r.state === 'GAP' ? `<button class="btn sm" data-do="create">Create Supplementary</button> <button class="btn sm" data-do="accept">Accept gap</button>` : r.state === 'ACCEPTED_GAP' ? '<button class="btn sm" data-do="accept">Edit justification</button>' : '<button class="btn sm" data-do="open">Mappings</button>';
+  return `<tr data-code="${esc(r.code)}" class="${S.sel.has(r.code) ? 'on' : ''}">
+    <td class="ck">${cur && r.state === 'GAP' ? `<input type="checkbox" data-ck="${esc(r.code)}" aria-label="Select ${esc(r.code)}" ${S.sel.has(r.code) ? 'checked' : ''}>` : ''}</td>
+    <td class="code">${esc(r.code)}</td>
+    <td class="req">${esc(r.title)}${r.state === 'ACCEPTED_GAP' ? `<small>“${esc(r.justification)}”</small>` : ''}</td>
+    <td class="maps">${maps}</td><td>${FW.cst(r.state)}</td><td class="acts">${acts}</td></tr>`;
+}
+const visible = () => {
+  const fn = fnOf(S.filter), q = S.q.toLowerCase();
+  return reqs.filter(fn).filter((r) => S.section === 'all' || r.section === S.section).filter((r) => !q || (r.code + ' ' + r.title + ' ' + r.maps.map((m) => m.control + ' ' + FW.control(m.control).title).join(' ')).toLowerCase().includes(q));
+};
+function renderRows() {
+  const list = visible(); let html = '';
+  const rank = { GAP: 0, ACCEPTED_GAP: 1, COVERED: 2 };
+  FW.sections(list).forEach(([s, rs]) => {
+    const all = reqs.filter((r) => r.section === s), c = FW.recount(all);
+    if (S.gapsFirst) rs = rs.slice().sort((a, b) => rank[a.state] - rank[b.state]);
+    html += `<tr class="grp" id="${encodeURIComponent(s)}"><td colspan="6"><div class="in">${esc(s)}<small>${c.covered}/${c.requirements} covered${c.gaps ? ` · ${c.gaps} gaps` : ''}</small>${FW.bar(c, 'thin')}</div></td></tr>` + rs.map(row).join('');
+  });
+  document.getElementById('rows').innerHTML = html || `<tr><td colspan="6"><div class="done-state">${Kit.CHECK}<h3>Nothing to show</h3><p>${S.filter === 'GAP' ? 'Every Requirement here is covered or accepted.' : 'No Requirement matches this filter.'}</p></div></td></tr>`;
+  document.getElementById('shown').textContent = `${list.length} of ${reqs.length} Requirements`;
+  const gaps = list.filter((r) => r.state === 'GAP');
+  document.getElementById('ckh').innerHTML = FW.canCurate() && gaps.length ? `<input type="checkbox" id="ckAll" aria-label="Select all visible gaps" ${gaps.every((r) => S.sel.has(r.code)) ? 'checked' : ''}>` : '';
+  renderBulk();
+}
+function renderBulk() {
+  const b = document.getElementById('bulk');
+  b.hidden = !S.sel.size;
+  if (!S.sel.size) return;
+  b.innerHTML = `<b>${S.sel.size} gap${S.sel.size === 1 ? '' : 's'} selected</b><textarea id="bulkJust" placeholder="One justification for all of them" aria-label="Justification"></textarea><button class="btn primary" type="button" id="bulkGo">Accept ${S.sel.size}</button><button class="btn" type="button" id="bulkClear">Clear</button>`;
+}
+function render() { renderSummary(); renderRows(); }
+Cov.onChange(() => { S.sel.forEach((c) => { if (Cov.find(c).state !== 'GAP') S.sel.delete(c); }); render(); if (Cov.isOpen()) { const tr = document.querySelector(`tr[data-code="${CSS.escape(Cov.isOpen())}"]`); tr && tr.classList.add('flash'); } });
+
+document.getElementById('stats').addEventListener('click', (e) => { const b = e.target.closest('[data-f]'); if (!b) return; S.filter = S.filter === b.dataset.f ? 'all' : b.dataset.f; render(); });
+document.getElementById('move').addEventListener('click', (e) => { const b = e.target.closest('[data-f]'); if (!b) return; S.filter = S.filter === b.dataset.f ? 'all' : b.dataset.f; render(); });
+document.getElementById('tabs').addEventListener('click', (e) => { const b = e.target.closest('[data-s]'); if (!b) return; S.section = b.dataset.s; render(); });
+document.getElementById('q').addEventListener('input', (e) => { S.q = e.target.value; renderRows(); });
+document.getElementById('gapsFirst').addEventListener('change', (e) => { S.gapsFirst = e.target.checked; renderRows(); });
+document.querySelector('table').addEventListener('click', (e) => {
+  if (e.target.id === 'ckAll') { visible().filter((r) => r.state === 'GAP').forEach((r) => e.target.checked ? S.sel.add(r.code) : S.sel.delete(r.code)); renderRows(); return; }
+  const ck = e.target.closest('[data-ck]'); if (ck) { ck.checked ? S.sel.add(ck.dataset.ck) : S.sel.delete(ck.dataset.ck); ck.closest('tr').classList.toggle('on', ck.checked); renderBulk(); return; }
+  const tr = e.target.closest('tr[data-code]'); if (!tr) return;
+  Cov.openDrawer(tr.dataset.code, () => visible().map((r) => r.code));
+  const d = e.target.closest('[data-do]');
+  if (d && d.dataset.do === 'accept') setTimeout(() => document.getElementById('cvJust')?.focus(), 260);
+  if (d && d.dataset.do === 'create') setTimeout(() => document.getElementById('cvSupTitle')?.focus(), 260);
+});
+document.getElementById('bulk').addEventListener('click', (e) => {
+  if (e.target.id === 'bulkClear') { S.sel.clear(); renderRows(); }
+  if (e.target.id === 'bulkGo') { const v = document.getElementById('bulkJust').value.trim(); if (!v) { document.getElementById('bulkJust').focus(); return Kit.toast('A justification is required'); } const codes = [...S.sel]; S.sel.clear(); Cov.bulkAccept(codes, v); }
+});
+document.addEventListener('keydown', (e) => { if (e.key === '/' && !e.target.closest('input, textarea')) { e.preventDefault(); document.getElementById('q').focus(); } });
+document.getElementById('lg').innerHTML = FW.legend();
+addEventListener('appbar:role', () => { S.sel.clear(); renderHead(); render(); });
+Appbar.mount({ current: 'frameworks', proposal: { label: 'A', siblings: [['B', 'proposal-b.html' + location.search], ['C', 'proposal-c.html' + location.search]] },
+  items: () => reqs.map((r) => ({ group: FW.label(fw), label: `${r.code} ${r.title}`, sub: FW.STATE_LABEL[r.state], icon: 'framework', run: () => Cov.openDrawer(r.code) })) });
+renderHead(); render();
+</script>
+</body>
+</html>
