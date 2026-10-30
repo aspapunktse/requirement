@@ -34,7 +34,13 @@ export type CoverageRow = {
 };
 
 /** A Control of the Control Library, for "Map a Control" and the suggestions. Only sent to those who can curate. */
-export type LibraryControl = { id: string; code: string; title: string };
+export type LibraryControl = {
+  id: string;
+  code: string;
+  title: string;
+  /** A Supplementary Control (it has an origin Framework): never suggested, but may be picked by hand. */
+  supplementary: boolean;
+};
 
 export type SwitcherFramework = { id: string; label: string; status: "DRAFT" | "PUBLISHED" };
 

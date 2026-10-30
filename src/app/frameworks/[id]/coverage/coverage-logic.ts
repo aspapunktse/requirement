@@ -157,11 +157,12 @@ const words = (text: string) =>
 
 /**
  * Controls worth mapping to a Requirement, best first: those already mapped (not as Supplementary) to other
- * Requirements of the same section, one point per Requirement, then Library Controls whose title shares words
+ * Requirements of the same section, one point per Requirement, then Library Controls (not Supplementary ones) whose title shares words
  * with the Requirement's, two points per shared word. Never one already mapped to it.
  */
 export function suggestControls(row: CoverageRow, all: CoverageRow[], library: LibraryControl[], limit = 4): LibraryControl[] {
-  const byCode = new Map(library.map((control) => [control.code, control]));
+  // A Supplementary Control belongs to one Framework: never suggested, from either source.
+  const byCode = new Map(library.filter((control) => !control.supplementary).map((control) => [control.code, control]));
   const score = new Map<string, number>();
   for (const other of all) {
     if (other.id === row.id || other.section !== row.section) continue;
@@ -170,7 +171,7 @@ export function suggestControls(row: CoverageRow, all: CoverageRow[], library: L
     }
   }
   const mine = words(row.title);
-  for (const control of library) {
+  for (const control of byCode.values()) {
     const hits = words(control.title).filter((x) => mine.some((y) => y.startsWith(x.slice(0, 5)) || x.startsWith(y.slice(0, 5)))).length;
     if (hits > 0) score.set(control.code, (score.get(control.code) ?? 0) + hits * 2);
   }

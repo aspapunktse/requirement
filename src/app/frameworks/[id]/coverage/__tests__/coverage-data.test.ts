@@ -166,8 +166,9 @@ describe("the Control Library", () => {
     for (const key of ["cm", "admin"]) {
       const controls = (await load(key, published.id))!.controls;
       expect(controls.map((c) => c.id)).toContain(fullControl);
-      expect(controls.find((c) => c.id === fullControl)).toEqual({ id: fullControl, code: `TEST-269-FULL-${suffix}`, title: "Test 269 full control" });
+      expect(controls.find((c) => c.id === fullControl)).toEqual({ id: fullControl, code: `TEST-269-FULL-${suffix}`, title: "Test 269 full control", supplementary: false });
     }
+    expect((await load("cm", published.id))!.controls.find((c) => c.code === `TEST-269-SUP-${suffix}`)?.supplementary).toBe(true);
     for (const key of ["viewer", "owner"]) expect((await load(key, published.id))!.controls).toEqual([]);
   });
 });

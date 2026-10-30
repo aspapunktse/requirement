@@ -89,7 +89,10 @@ export async function loadCoverageView(
         where: visibleFrameworksWhere(user),
         select: { id: true, name: true, version: true, status: true },
       });
-      const controls = canCurate ? await tx.control.findMany({ orderBy: { code: "asc" }, select: { id: true, code: true, title: true } }) : [];
+      const controlRows = canCurate
+        ? await tx.control.findMany({ orderBy: { code: "asc" }, select: { id: true, code: true, title: true, originFrameworkId: true } })
+        : [];
+      const controls = controlRows.map((c) => ({ id: c.id, code: c.code, title: c.title, supplementary: c.originFrameworkId !== null }));
       const systems = framework.status === "DRAFT" ? null : (await countVisibleSystemsByFramework(user, tx)).countFor(framework);
 
       return {

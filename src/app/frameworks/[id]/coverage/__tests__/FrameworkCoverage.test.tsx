@@ -66,11 +66,11 @@ const ROWS: CoverageRow[] = [
 ];
 
 const LIBRARY: LibraryControl[] = [
-  { id: "c-SEC-1", code: "SEC-1", title: "Title of SEC-1" },
-  { id: "c-SEC-2", code: "SEC-2", title: "Title of SEC-2" },
-  { id: "c-SEC-3", code: "SEC-3", title: "Title of SEC-3" },
-  { id: "c-SEC-5", code: "SEC-5", title: "Cryptography keys" },
-  { id: "c-SEC-6", code: "SEC-6", title: "Physical security" },
+  { id: "c-SEC-1", code: "SEC-1", title: "Title of SEC-1", supplementary: false },
+  { id: "c-SEC-2", code: "SEC-2", title: "Title of SEC-2", supplementary: false },
+  { id: "c-SEC-3", code: "SEC-3", title: "Title of SEC-3", supplementary: false },
+  { id: "c-SEC-5", code: "SEC-5", title: "Cryptography keys", supplementary: false },
+  { id: "c-SEC-6", code: "SEC-6", title: "Physical security", supplementary: false },
 ];
 
 const view = (over: Partial<CoverageView> = {}): CoverageView => ({

@@ -155,11 +155,12 @@ describe("the CSV built from the view", () => {
 
 describe("suggested Controls and Control lookup", () => {
   const LIBRARY: LibraryControl[] = [
-    { id: "c-SEC-1", code: "SEC-1", title: "Password policy" },
-    { id: "c-SEC-2", code: "SEC-2", title: "Backup of data" },
-    { id: "c-SEC-3", code: "SEC-3", title: "Supplementary thing" },
-    { id: "c-SEC-5", code: "SEC-5", title: "Cryptography keys" },
-    { id: "c-SEC-6", code: "SEC-6", title: "Physical security of offices" },
+    { id: "c-SEC-1", code: "SEC-1", title: "Password policy", supplementary: false },
+    { id: "c-SEC-2", code: "SEC-2", title: "Backup of data", supplementary: false },
+    { id: "c-SEC-3", code: "SEC-3", title: "Supplementary thing", supplementary: true },
+    { id: "c-SEC-7", code: "SEC-7", title: "Cryptography supplement for password handling", supplementary: true },
+    { id: "c-SEC-5", code: "SEC-5", title: "Cryptography keys", supplementary: false },
+    { id: "c-SEC-6", code: "SEC-6", title: "Physical security of offices", supplementary: false },
   ];
   const target = row("A.5.9", "A.5 Organizational", { title: "Use of cryptography and password handling" });
 
@@ -172,6 +173,16 @@ describe("suggested Controls and Control lookup", () => {
     const names = suggestControls(target, [target, ...others], LIBRARY).map((c) => c.code);
     // SEC-1: two Requirements in the section (2) + "password" overlap (2) = 4; SEC-5: "cryptography" overlap = 2.
     expect(names).toEqual(["SEC-1", "SEC-5"]);
+  });
+
+  it("never suggests a Supplementary Control: not one mapped in the section, not one with matching title words", () => {
+    const others = [row("A.5.1", "A.5 Organizational", { state: "COVERED", mappings: [mapping("SEC-7", "FULL", { supplementary: true })] })];
+    const codes = suggestControls(target, [target, ...others], LIBRARY).map((c) => c.code);
+    expect(codes).not.toContain("SEC-7");
+    expect(codes).not.toContain("SEC-3");
+    // Even if only the library says so (the mapping does not):
+    const plain = [row("A.5.1", "A.5 Organizational", { state: "COVERED", mappings: [mapping("SEC-7")] })];
+    expect(suggestControls(target, [target, ...plain], LIBRARY).map((c) => c.code)).not.toContain("SEC-7");
   });
 
   it("never suggests a Control already mapped to the Requirement, and honours the limit", () => {
