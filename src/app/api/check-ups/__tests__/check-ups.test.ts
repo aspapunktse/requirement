@@ -348,7 +348,8 @@ describe("Answering a Check-up (#155)", () => {
     });
   });
 
-  describe("who may answer", () => {
+  // Some tests here send many requests in a row; the default 5 s can run out on CI's 3-connection pool (#239).
+  describe("who may answer", { timeout: 60_000 }, () => {
     it("refuses everyone but the recipient with a 403 and no DB change, the Admin included", async () => {
       const target = find(cBoth.code, s2); // System 2's owner is cmOwner
       const before = await responseRows([target.id]);
@@ -359,8 +360,9 @@ describe("Answering a Check-up (#155)", () => {
       expect(await responseRows([target.id])).toEqual(before);
 
       const org = find(cBoth.code, null);
+      const orgBody = await fullBody(org.id);
       for (const userId of [...Object.values(roleUser), ownerA, otherControlOwner]) {
-        expect((await put(org.id, userId, await fullBody(org.id))).status).toBe(403);
+        expect((await put(org.id, userId, orgBody)).status).toBe(403);
       }
       expect(await responseRows([org.id])).toEqual([]);
     });
