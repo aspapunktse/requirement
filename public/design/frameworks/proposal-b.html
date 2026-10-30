@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Frameworks Tile Wall</title>
+<link rel="stylesheet" href="../systems/systems.css">
+<link rel="stylesheet" href="../shared/appbar.css">
+<link rel="stylesheet" href="../shared/kit.css">
+<link rel="stylesheet" href="fw.css">
+<style>
+/* Proposal B: one tile per Framework family. Levels of one standard (CMMC 1–2, DEF STAN
+   05-138 Levels 0–3) share a tile with a level switch, so 11 Frameworks read as 7 things.
+   Each tile has a coloured top edge for its state, a ring, odometer counters and a waffle with
+   one dot per Requirement. A floating counter keeps the library totals in view. */
+.brief { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 18px; align-items: end; }
+.brief h1 { font-size: clamp(1.5rem, 2.6vw, 2rem); letter-spacing: -0.02em; }
+.brief .sentence { font-size: 1.05rem; color: var(--muted); max-width: 70ch; margin-top: 6px; }
+.brief .sentence b { color: var(--ink); }
+.brief .sentence .bad { color: var(--bad); }
+.bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.pills { display: flex; flex-wrap: wrap; gap: 6px; }
+.pills button { border: 1px solid var(--line); background: var(--surface); border-radius: 99px; padding: 5px 12px; font-size: .82rem; font-weight: 650; color: var(--muted); cursor: pointer; display: inline-flex; gap: 6px; align-items: center; }
+.pills button span { font-size: .72rem; background: var(--raised); border-radius: 99px; padding: 0 6px; font-variant-numeric: tabular-nums; }
+.pills button[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+.pills button[aria-pressed="true"] span { background: color-mix(in srgb, var(--paper) 20%, transparent); }
+.grow { flex: 1; }
+@media (max-width: 760px) { .brief { grid-template-columns: 1fr; } }
+
+.wall { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(330px, 100%), 1fr)); gap: 16px; }
+.wall > * { min-width: 0; }
+@media (max-width: 400px) { .wall { grid-template-columns: 1fr; } }
+.tile { position: relative; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto 1fr auto; border-radius: 18px; overflow: hidden; animation: rise .4s both; animation-delay: var(--d, 0ms); transition: transform .18s, box-shadow .18s, border-color .18s; }
+.tile:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--edge) 60%, var(--line)); box-shadow: 0 2px 4px rgba(20, 45, 61, .06), 0 18px 40px rgba(20, 45, 61, .12); }
+.tile::before { content: ""; position: absolute; inset: 0 0 auto; height: 3px; background: var(--edge); }
+.tile.ok { --edge: var(--ok); } .tile.gap { --edge: var(--bad); } .tile.empty { --edge: var(--gold); }
+.t-head { display: flex; gap: 10px; align-items: flex-start; justify-content: space-between; padding: 16px 16px 0; }
+.t-head .meta { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+.t-head .pin { font-family: var(--mono); font-size: .66rem; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); border: 1px solid var(--line-soft); border-radius: 99px; padding: 1px 8px; white-space: nowrap; }
+.levels { display: flex; gap: 4px; padding: 12px 16px 0; }
+.levels button { flex: 1; min-width: 0; border: 1px solid var(--line); background: var(--raised); border-radius: 10px; padding: 5px 4px; cursor: pointer; display: grid; gap: 4px; justify-items: center; font-size: .74rem; font-weight: 700; color: var(--muted); }
+.levels button .cbar { width: 100%; min-width: 0; height: 4px; }
+.levels button[aria-pressed="true"] { background: var(--surface); border-color: var(--accent); color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.t-body { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 16px; align-items: center; padding: 14px 16px; }
+.counters { display: grid; gap: 7px; font-size: .78rem; color: var(--muted); }
+.counters div { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+.counters div span:first-child { display: inline-flex; align-items: center; gap: 6px; }
+.counters i { width: 9px; height: 9px; border-radius: 3px; display: inline-block; }
+.waffle { display: flex; flex-wrap: wrap; gap: 2px; padding: 0 16px 14px; align-content: flex-start; }
+.waffle i { width: 8px; height: 8px; border-radius: 2px; animation: pop .3s both; animation-delay: calc(var(--k) * 3ms); }
+@keyframes pop { from { opacity: 0; transform: scale(.3); } }
+.waffle.none { color: var(--gold-ink); font-size: .82rem; background: var(--gold-soft); border-radius: 10px; margin: 0 16px 14px; padding: 10px 12px; display: block; }
+.t-foot { display: flex; gap: 10px; align-items: center; padding: 10px 16px; border-top: 1px solid var(--line-soft); background: var(--raised); font-size: .78rem; color: var(--muted); }
+.t-foot .grow { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.t-foot a { color: var(--accent); font-weight: 700; text-decoration: none; white-space: nowrap; }
+.t-foot a:hover { text-decoration: underline; }
+.desc { padding: 6px 16px 0; color: var(--muted); font-size: .82rem; }
+
+/* Floating library counter, bottom right */
+.dock { position: fixed; right: 18px; bottom: 18px; z-index: 30; background: var(--ink); color: var(--paper); border-radius: 14px; padding: 10px 14px; display: grid; gap: 6px; box-shadow: 0 18px 48px rgba(10, 25, 35, .3); font-family: var(--mono); font-size: .74rem; }
+.dock div { display: flex; gap: 10px; align-items: center; justify-content: space-between; }
+.dock .odo span { background: color-mix(in srgb, var(--paper) 12%, transparent); border-color: color-mix(in srgb, var(--paper) 18%, transparent); color: var(--paper); }
+.dock .odo.bad span { color: #ffb4a6; }
+@media (max-width: 640px) { .dock { display: none; } }
+@media (prefers-reduced-motion: reduce) { .tile, .waffle i { animation: none; } .tile:hover { transform: none; } }
+</style>
+</head>
+<body>
+<header id="appbar"></header>
+<main class="app">
+  <section class="brief">
+    <div>
+      <p class="eyebrow">Requirement database</p>
+      <h1>Frameworks</h1>
+      <p class="sentence" id="sentence"></p>
+    </div>
+    <div class="bar" id="acts"></div>
+  </section>
+  <div class="bar">
+    <div class="pills" id="pills" role="group" aria-label="Show"></div>
+    <span class="grow"></span>
+    <label class="muted" style="font-size:.82rem;display:inline-flex;gap:6px;align-items:center">Sort
+      <select class="sel" id="sort"><option value="gaps">Most open gaps</option><option value="resolved">Least resolved</option><option value="name">Name</option><option value="updated">Recently changed</option></select></label>
+  </div>
+  <section class="wall" id="wall" aria-label="Frameworks"></section>
+  <div class="lg" id="lg"></div>
+</main>
+<aside class="dock" aria-label="Library totals" id="dock"></aside>
+
+<script src="data.js"></script>
+<script src="../shared/kit.js"></script>
+<script src="../shared/appbar.js"></script>
+<script src="fw.js"></script>
+<script>
+const { FRAMEWORKS, esc } = FW;
+const S = { show: 'all', sort: 'gaps', level: {} };
+// Families: a standard with several levels shares a tile
+const families = () => {
+  const m = new Map();
+  FRAMEWORKS.forEach((f) => { const k = f.family || f.id; if (!m.has(k)) m.set(k, []); m.get(k).push(f); });
+  m.forEach((fs) => fs.sort((a, b) => (a.level ?? 0) - (b.level ?? 0)));
+  return [...m.entries()];
+};
+const SHOW = [['all', 'All', () => true], ['draft', 'Drafts', (f) => f.status === 'DRAFT'], ['published', 'Published', (f) => f.status === 'PUBLISHED'], ['gaps', 'With gaps', (f) => f.gaps > 0]];
+const current = (key, fs) => fs.find((f) => f.id === S.level[key]) || fs.slice().sort((a, b) => b.gaps - a.gaps)[0];
+
+function waffle(f) {
+  if (!f.requirements) return `<div class="waffle none">${f.status === 'PUBLISHED' ? 'Published with no Requirements: it is in '+ f.systems +' Systems’ scope but adds nothing to them yet.' : 'No Requirements yet.'}</div>`;
+  const cells = [[f.covered, 'COVERED'], [f.accepted, 'ACCEPTED_GAP'], [f.partialOnly, 'PARTIAL'], [FW.unmapped(f), 'NONE']].flatMap(([n, s]) => Array(n).fill(s));
+  return `<div class="waffle" role="img" aria-label="${f.requirements} Requirements: ${f.covered} covered, ${f.accepted} accepted, ${f.gaps} gaps">${cells.map((s, k) => `<i class="st-${s}" style="--k:${k}"></i>`).join('')}</div>`;
+}
+function tile([key, fs], i) {
+  const f = current(key, fs);
+  const tone = !f.requirements ? 'empty' : f.gaps ? 'gap' : 'ok';
+  const levels = fs.length > 1 ? `<div class="levels" role="group" aria-label="Level">${fs.map((x) => `<button type="button" data-fam="${key}" data-id="${x.id}" aria-pressed="${x === f}" title="${esc(FW.label(x))}">L${x.level}${FW.bar(x, 'thin')}</button>`).join('')}</div>` : '';
+  const counters = f.requirements ? `<div class="counters">
+      <div><span><i class="st-COVERED"></i>Covered</span>${FW.odo(f.covered, 'ok')}</div>
+      <div><span><i class="st-ACCEPTED_GAP"></i>Accepted</span>${FW.odo(f.accepted)}</div>
+      <div><span><i class="st-NONE"></i>Open gaps</span>${FW.odo(f.gaps, f.gaps ? 'bad' : '')}</div>
+      <div><span>of</span>${FW.odo(f.requirements)}</div></div>` : `<div class="counters"><div><span>Systems in scope</span>${FW.odo(f.systems)}</div></div>`;
+  const right = f.status === 'PUBLISHED' ? `${f.systems} Systems in scope` : 'Draft: invisible to Systems';
+  return `<article class="card tile spot ${tone}" style="--d:${i * 50}ms">
+    <div class="t-head"><div>${FW.name(f)}<div class="meta">${FW.status(f)}${FW.tags(f)}</div></div>${fs.length > 1 ? `<span class="pin">${fs.length} levels</span>` : ''}</div>
+    ${levels}
+    <div>
+      <div class="t-body">${FW.ringOf(f, 84, 10)}${counters}</div>
+      ${waffle(f)}
+    </div>
+    <div class="t-foot"><span class="grow" title="${esc(f.description)}">${esc(f.base ? 'Base Review Step' : f.reviewGroup || 'No Review Group')} · ${right}</span>${f.requirements ? Kit.spark(f.trend, 60, 20, f.gaps ? 'var(--accent)' : 'var(--ok)') : ''}<a href="${FW.coverageHref(f.id, 'b')}">Coverage →</a></div>
+  </article>`;
+}
+function render() {
+  const fn = SHOW.find((s) => s[0] === S.show)[2];
+  let fams = families().filter(([, fs]) => fs.some(fn));
+  const v = { gaps: ([k, fs]) => -fs.reduce((a, f) => a + f.gaps, 0), resolved: ([k, fs]) => FW.resolved(current(k, fs)) ?? 101, name: ([k, fs]) => fs[0].name, updated: ([k, fs]) => -Math.max(...fs.map((f) => +new Date(f.updated))) };
+  fams.sort((a, b) => (b[1][0].base - a[1][0].base) * (S.sort === 'name' ? 1 : 0) || (v[S.sort](a) > v[S.sort](b) ? 1 : v[S.sort](a) < v[S.sort](b) ? -1 : 0));
+  document.getElementById('wall').innerHTML = fams.map(tile).join('') || `<div class="card done-state">${Kit.CHECK}<h3>Nothing here</h3><p>No Framework matches this view.</p></div>`;
+  document.getElementById('pills').innerHTML = SHOW.map(([k, l, f]) => `<button type="button" data-show="${k}" aria-pressed="${S.show === k}">${l}<span>${FRAMEWORKS.filter(f).length}</span></button>`).join('');
+}
+function renderTop() {
+  const t = (k) => FRAMEWORKS.reduce((a, f) => a + f[k], 0);
+  const worst = FRAMEWORKS.filter((f) => f.gaps).sort((a, b) => b.gaps - a.gaps)[0];
+  const empty = FRAMEWORKS.filter((f) => f.status === 'PUBLISHED' && !f.requirements);
+  document.getElementById('sentence').innerHTML = `The base Framework is fully covered. <b class="bad">${t('gaps')} Coverage Gaps</b> stand between the ${FRAMEWORKS.filter((f) => f.status === 'DRAFT').length} Drafts and publishing; <b>${esc(FW.label(worst))}</b> has the most (${worst.gaps}). ${empty.length ? `${empty.map((f) => esc(f.name)).join(' and ')} ${empty.length > 1 ? 'are' : 'is'} published with no Requirements.` : ''}`;
+  document.getElementById('acts').innerHTML = FW.canCurate() ? '<button class="btn primary" type="button" onclick="Kit.toast(\'Add a Framework opens the catalog form\')">+ New Framework</button>' : '';
+  document.getElementById('dock').innerHTML = `<div><span>requirements</span>${FW.odo(t('requirements'))}</div><div><span>covered</span>${FW.odo(t('covered'))}</div><div><span>gaps open</span>${FW.odo(t('gaps'), 'bad')}</div>`;
+}
+document.getElementById('wall').addEventListener('click', (e) => { const b = e.target.closest('[data-fam]'); if (!b) return; S.level[b.dataset.fam] = b.dataset.id; render(); });
+document.getElementById('pills').addEventListener('click', (e) => { const b = e.target.closest('[data-show]'); if (!b) return; S.show = b.dataset.show; render(); });
+document.getElementById('sort').addEventListener('change', (e) => { S.sort = e.target.value; render(); });
+document.getElementById('lg').innerHTML = FW.legend();
+addEventListener('appbar:role', () => { renderTop(); render(); });
+Appbar.mount({ current: 'frameworks', proposal: { label: 'B', siblings: [['A', 'proposal-a.html'], ['C', 'proposal-c.html']] }, items: FW.paletteItems('b') });
+renderTop(); render();
+</script>
+</body>
+</html>

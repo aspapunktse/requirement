@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Frameworks Catalog Table</title>
+<link rel="stylesheet" href="../systems/systems.css">
+<link rel="stylesheet" href="../shared/appbar.css">
+<link rel="stylesheet" href="../shared/kit.css">
+<link rel="stylesheet" href="fw.css">
+<style>
+/* Proposal A: the Framework catalog as a register table, in the Home / Systems look.
+   A hero with the library-wide coverage ring, stat cards that double as filters, then one
+   card: search, group by family or status, a sortable table with a stacked coverage bar per
+   Framework. Rows open the coverage page; Drafts can be published from the row. */
+.hero .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+.reg { overflow: clip; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--line-soft); }
+.toolbar .search { flex: 1 1 240px; max-width: 360px; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.seg button { border: 0; background: var(--surface); padding: 6px 11px; font-size: .82rem; font-weight: 650; color: var(--muted); cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--line-soft); }
+.seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
+.grow { flex: 1; }
+.tablewrap { overflow-x: auto; }
+table { width: 100%; border-collapse: separate; border-spacing: 0; min-width: 1020px; }
+thead th { position: sticky; top: 0; z-index: 2; background: var(--raised); text-align: left; font-size: .72rem; font-weight: 750; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); padding: 9px 12px; border-bottom: 1px solid var(--line-soft); white-space: nowrap; }
+thead th:first-child, tbody td:first-child { padding-left: 18px; }
+thead th button { all: unset; cursor: pointer; display: inline-flex; gap: 4px; align-items: center; }
+thead th button:focus-visible { outline: 2px solid var(--accent); }
+thead th .arr { opacity: .35; font-size: .7rem; } thead th[aria-sort] .arr { opacity: 1; color: var(--accent); }
+th.n, td.n { text-align: right; font-variant-numeric: tabular-nums; }
+tbody td { padding: 12px; border-bottom: 1px solid var(--line-soft); vertical-align: middle; }
+tbody tr[data-id] { cursor: pointer; animation: rise .35s both; animation-delay: var(--d, 0ms); }
+tbody tr[data-id]:hover td { background: var(--raised); }
+.fwcell { display: grid; gap: 3px; min-width: 260px; }
+.fwcell .t { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.fwcell small { color: var(--faint); font-size: .78rem; max-width: 52ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fwcell a { text-decoration: none; color: inherit; } .fwcell a:hover b { color: var(--accent); text-decoration: underline; }
+.covcell { display: grid; gap: 5px; min-width: 170px; }
+.covcell small { color: var(--muted); font-size: .76rem; font-variant-numeric: tabular-nums; }
+.pct { font-weight: 760; font-variant-numeric: tabular-nums; }
+.gaps b { color: var(--bad); font-weight: 760; }
+.gaps small { display: block; color: var(--faint); font-size: .72rem; white-space: nowrap; }
+.zero { color: var(--faint); }
+.rg { font-size: .82rem; color: var(--muted); white-space: nowrap; }
+.warnline { display: inline-flex; gap: 6px; align-items: center; color: var(--gold-ink); background: var(--gold-soft); border-radius: 8px; padding: 1px 8px; font-size: .74rem; font-weight: 650; }
+td.acts { white-space: nowrap; text-align: right; padding-right: 16px; }
+td.acts .btn { opacity: 0; transition: opacity .15s; }
+tbody tr:hover td.acts .btn, tbody tr:focus-within td.acts .btn { opacity: 1; }
+@media (hover: none) { td.acts .btn { opacity: 1; } }
+.grp td { padding: 10px 18px 6px; font-size: .74rem; font-weight: 750; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); background: var(--raised); border-top: 1px solid var(--line-soft); }
+.grp td > i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); margin-right: 8px; }
+.grp td small { margin-left: 8px; text-transform: none; letter-spacing: 0; font-weight: 600; color: var(--faint); }
+.grp td .cbar { display: inline-flex; width: 140px; vertical-align: middle; margin-left: 12px; }
+.foot { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; padding: 12px 16px; border-top: 1px solid var(--line-soft); font-size: .82rem; color: var(--muted); }
+/* Publish dialog */
+dialog { border: 1px solid var(--line); border-radius: 18px; padding: 0; width: min(460px, calc(100vw - 32px)); background: var(--surface); color: var(--ink); box-shadow: 0 24px 64px rgba(10, 25, 35, .3); }
+dialog::backdrop { background: rgba(10, 25, 35, .35); }
+dialog .in { padding: 20px; display: grid; gap: 12px; }
+dialog ul { margin: 0; padding-left: 18px; color: var(--muted); font-size: .86rem; display: grid; gap: 4px; }
+dialog .row { display: flex; justify-content: flex-end; gap: 8px; }
+</style>
+</head>
+<body>
+<header id="appbar"></header>
+<main class="app">
+  <section class="hero" aria-labelledby="h1">
+    <div>
+      <p class="eyebrow">Requirement database</p>
+      <h1 id="h1">Frameworks</h1>
+      <p class="lede" id="lede"></p>
+      <div class="actions" id="heroActs"></div>
+    </div>
+    <div class="move" id="move"></div>
+  </section>
+
+  <section class="stats" id="stats" aria-label="Views"></section>
+
+  <section class="card reg" aria-label="Framework catalog">
+    <div class="toolbar">
+      <label class="search"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 4a5 5 0 1 0 0 10A5 5 0 0 0 9 4zM13 13l4 4"/></svg>
+        <input id="q" type="search" placeholder="Search Frameworks" aria-label="Search Frameworks"><kbd>/</kbd></label>
+      <span class="grow"></span>
+      <span class="muted" style="font-size:.82rem">Group by</span>
+      <div class="seg" id="grp" role="group" aria-label="Group by">
+        <button type="button" data-g="family" aria-pressed="true">Family</button><button type="button" data-g="status" aria-pressed="false">Status</button><button type="button" data-g="none" aria-pressed="false">None</button>
+      </div>
+    </div>
+    <div class="tablewrap">
+      <table>
+        <thead><tr>
+          <th><button data-sort="name">Framework <span class="arr">↕</span></button></th>
+          <th>Status</th>
+          <th><button data-sort="resolved">Coverage <span class="arr">↕</span></button></th>
+          <th class="n"><button data-sort="gaps">Gaps <span class="arr">↕</span></button></th>
+          <th class="n">Accepted</th>
+          <th class="n"><button data-sort="systems">Systems <span class="arr">↕</span></button></th>
+          <th>Review Group</th>
+          <th><button data-sort="updated">Updated <span class="arr">↕</span></button></th>
+          <th><span class="sr">Actions</span></th>
+        </tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+    <div class="foot"><span id="count"></span><span id="lg"></span></div>
+  </section>
+</main>
+
+<dialog id="pub"><form method="dialog" class="in" id="pubForm"></form></dialog>
+
+<script src="data.js"></script>
+<script src="../shared/kit.js"></script>
+<script src="../shared/appbar.js"></script>
+<script src="fw.js"></script>
+<script>
+const { FRAMEWORKS, esc } = FW;
+const S = { view: 'all', q: '', group: 'family', sort: 'default', dir: 1 };
+const total = (k) => FRAMEWORKS.reduce((a, f) => a + f[k], 0);
+const VIEWS = [
+  ['all', 'All Frameworks', () => true, ''],
+  ['draft', 'Drafts', (f) => f.status === 'DRAFT', 'warn'],
+  ['gaps', 'With open gaps', (f) => f.gaps > 0, 'danger'],
+  ['done', 'Fully resolved', (f) => f.requirements && !f.gaps, 'ok'],
+  ['empty', 'No Requirements', (f) => !f.requirements, 'warn'],
+];
+
+function renderHero() {
+  const req = total('requirements'), cov = total('covered'), acc = total('accepted'), part = total('partialOnly'), gaps = total('gaps');
+  const drafts = FRAMEWORKS.filter((f) => f.status === 'DRAFT').length;
+  document.getElementById('lede').innerHTML = `${FRAMEWORKS.length} Frameworks with <b>${req}</b> Requirements mapped onto one Control Library. <b>${gaps}</b> Coverage Gaps are open across ${drafts} Drafts; the base Framework is fully covered.`;
+  document.getElementById('move').innerHTML = Kit.ring([[cov / req, 'var(--c-cov)'], [acc / req, 'var(--c-acc)']], 96, 11, Math.round((cov + acc) / req * 100) + '%', 'resolved') +
+    `<ul><li><i class="st-COVERED"></i><b>${cov}</b> covered</li><li><i class="st-ACCEPTED_GAP"></i><b>${acc}</b> accepted gaps</li><li><i class="st-PARTIAL"></i><b>${part}</b> gaps, Partial only</li><li><i class="st-NONE"></i><b>${gaps - part}</b> gaps, no mapping</li></ul>`;
+  document.getElementById('heroActs').innerHTML = (FW.canCurate() ? '<button class="btn primary" type="button" onclick="Kit.toast(\'Add a Framework opens the catalog form\')">+ New Framework</button>' : '') +
+    '<button class="btn" type="button" onclick="Kit.toast(\'frameworks.csv downloaded\')">Download CSV</button>';
+}
+function renderStats() {
+  document.getElementById('stats').innerHTML = VIEWS.map(([k, l, fn, tone]) => {
+    const n = FRAMEWORKS.filter(fn).length;
+    return `<button type="button" class="card stat spot ${tone}" data-view="${k}" aria-pressed="${S.view === k}"><span class="k">${l}<em>${S.view === k ? 'Showing' : 'Show'}</em></span><span class="v" data-count="${n}">${n}</span></button>`;
+  }).join('');
+  Kit.countUp(document.getElementById('stats'));
+}
+function keyOf(f) {
+  if (S.group === 'family') return f.base ? 'Base Framework' : f.family || 'Other Frameworks';
+  if (S.group === 'status') return f.status === 'PUBLISHED' ? 'Published' : 'Draft';
+  return '';
+}
+function row(f, i) {
+  const pct = FW.resolved(f);
+  const gaps = f.requirements ? (f.gaps ? `<b>${f.gaps}</b><small>${f.partialOnly} Partial · ${FW.unmapped(f)} none</small>` : '<span class="zero">0</span>') : '<span class="zero">—</span>';
+  const cov = f.requirements ? `<div class="covcell">${FW.bar(f)}<small><span class="pct">${pct}%</span> resolved · ${f.covered}/${f.requirements} covered</small></div>`
+    : `<div class="covcell">${FW.bar(f)}<span class="warnline">${f.status === 'PUBLISHED' ? 'Published with no Requirements' : 'No Requirements yet'}</span></div>`;
+  const pub = f.status === 'DRAFT' && FW.canCurate() ? `<button class="btn sm" type="button" data-pub="${f.id}">Publish</button> ` : '';
+  return `<tr data-id="${f.id}" style="--d:${i * 25}ms">
+    <td><div class="fwcell"><div class="t"><a href="${FW.coverageHref(f.id)}">${FW.name(f)}</a>${FW.tags(f)}</div><small>${esc(f.description)}</small></div></td>
+    <td>${FW.status(f)}</td>
+    <td>${cov}</td>
+    <td class="n gaps">${gaps}</td>
+    <td class="n">${f.accepted || '<span class="zero">0</span>'}</td>
+    <td class="n">${f.status === 'PUBLISHED' ? f.systems : '<span class="zero" title="A Draft Framework is invisible to Systems">—</span>'}</td>
+    <td class="rg">${f.base ? 'Base Review Step' : esc(f.reviewGroup || '—')}</td>
+    <td class="muted" style="white-space:nowrap">${FW.fmtDate(f.updated)}</td>
+    <td class="acts">${pub}<a class="btn sm" href="${FW.coverageHref(f.id)}">Coverage →</a></td></tr>`;
+}
+function renderRows() {
+  const fn = VIEWS.find((v) => v[0] === S.view)[2];
+  const q = S.q.toLowerCase();
+  let list = FRAMEWORKS.filter(fn).filter((f) => !q || (FW.label(f) + ' ' + f.description + ' ' + (f.reviewGroup || '')).toLowerCase().includes(q));
+  const val = { name: (f) => f.name, resolved: (f) => FW.resolved(f) ?? -1, gaps: (f) => f.gaps, systems: (f) => f.systems, updated: (f) => f.updated };
+  if (S.sort !== 'default') list = list.slice().sort((a, b) => (val[S.sort](a) > val[S.sort](b) ? 1 : val[S.sort](a) < val[S.sort](b) ? -1 : 0) * S.dir);
+  else list = list.slice().sort((a, b) => (b.base - a.base) || a.name.localeCompare(b.name) || (a.level ?? 0) - (b.level ?? 0));
+  document.querySelectorAll('thead th').forEach((th) => { const b = th.querySelector('[data-sort]'); if (b && b.dataset.sort === S.sort) th.setAttribute('aria-sort', S.dir > 0 ? 'ascending' : 'descending'); else th.removeAttribute('aria-sort'); });
+  let html = '';
+  if (S.group === 'none') html = list.map(row).join('');
+  else {
+    const groups = new Map(); list.forEach((f) => { const k = keyOf(f); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(f); });
+    let i = 0;
+    groups.forEach((fs, k) => {
+      const agg = { requirements: 0, covered: 0, accepted: 0, gaps: 0, partialOnly: 0 }; fs.forEach((f) => Object.keys(agg).forEach((x) => { agg[x] += f[x]; }));
+      html += `<tr class="grp"><td colspan="9"><i></i>${esc(k)}<small>${fs.length} Framework${fs.length === 1 ? '' : 's'}${agg.requirements ? ` · ${agg.gaps} gaps` : ''}</small>${agg.requirements ? FW.bar(agg, 'thin') : ''}</td></tr>`;
+      html += fs.map((f) => row(f, i++)).join('');
+    });
+  }
+  document.getElementById('rows').innerHTML = html || `<tr><td colspan="9"><div class="done-state">${Kit.CHECK}<h3>No Frameworks match</h3><p>Clear the search or pick another view.</p></div></td></tr>`;
+  document.getElementById('count').textContent = `${list.length} of ${FRAMEWORKS.length} Frameworks`;
+}
+function openPublish(id) {
+  const f = FW.byId(id);
+  document.getElementById('pubForm').innerHTML = `<h2 style="font-size:1.1rem">Publish ${esc(FW.label(f))}?</h2>
+    <p class="muted">Publishing makes its ${f.requirements} Requirements count on every System that declares it in its Framework Scope.</p>
+    <ul>${f.gaps ? `<li><b style="color:var(--bad)">${f.gaps} Coverage Gaps</b> are still open; those Requirements will be Not Met on every System.</li>` : '<li>Every Requirement is covered or accepted.</li>'}
+    ${f.supplementary ? `<li>${f.supplementary} Supplementary Controls authored for it reach Systems now.</li>` : ''}
+    ${f.reviewGroup ? `<li>${esc(f.reviewGroup)} gets a Review Step on Systems in review.</li>` : ''}</ul>
+    <div class="row"><button class="btn" value="cancel">Cancel</button><button class="btn primary" value="ok">Publish</button></div>`;
+  const d = document.getElementById('pub'); d.showModal();
+  d.onclose = () => { if (d.returnValue === 'ok') { f.status = 'PUBLISHED'; renderAll(); Kit.toast(`${FW.label(f)} published`); } };
+}
+function renderAll() { renderHero(); renderStats(); renderRows(); }
+
+document.getElementById('stats').addEventListener('click', (e) => { const b = e.target.closest('[data-view]'); if (!b) return; S.view = S.view === b.dataset.view ? 'all' : b.dataset.view; renderStats(); renderRows(); });
+document.getElementById('q').addEventListener('input', (e) => { S.q = e.target.value; renderRows(); });
+document.getElementById('grp').addEventListener('click', (e) => { const b = e.target.closest('[data-g]'); if (!b) return; S.group = b.dataset.g; document.querySelectorAll('#grp button').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); renderRows(); });
+document.querySelector('thead').addEventListener('click', (e) => { const b = e.target.closest('[data-sort]'); if (!b) return; if (S.sort === b.dataset.sort) S.dir *= -1; else { S.sort = b.dataset.sort; S.dir = b.dataset.sort === 'name' ? 1 : -1; } renderRows(); });
+document.getElementById('rows').addEventListener('click', (e) => {
+  const p = e.target.closest('[data-pub]'); if (p) { e.stopPropagation(); openPublish(p.dataset.pub); return; }
+  if (e.target.closest('a')) return;
+  const tr = e.target.closest('tr[data-id]'); if (tr) location.href = FW.coverageHref(tr.dataset.id);
+});
+document.addEventListener('keydown', (e) => { if (e.key === '/' && document.activeElement.tagName !== 'INPUT') { e.preventDefault(); document.getElementById('q').focus(); } });
+document.getElementById('lg').innerHTML = FW.legend();
+addEventListener('appbar:role', renderAll);
+
+Appbar.mount({ current: 'frameworks', proposal: { label: 'A', siblings: [['B', 'proposal-b.html'], ['C', 'proposal-c.html']] }, items: FW.paletteItems('a') });
+renderAll();
+</script>
+</body>
+</html>

@@ -3,6 +3,64 @@
 // `id` is the vote key: keep it stable once people have voted, or the votes are orphaned.
 window.DESIGN_PARTS = [
   {
+    id: "frameworks",
+    name: "Frameworks",
+    added: "2026-10-29",
+    question: "How should the Framework catalog show every Framework's coverage and status, so a Compliance Manager sees at a glance what to map, accept or publish next?",
+    proposals: [
+      {
+        id: "frameworks-a",
+        label: "A",
+        title: "Catalog table",
+        href: "/design/frameworks/proposal-a.html",
+        summary: "A hero with the library-wide coverage ring, stat cards that filter, then a sortable table grouped by family or status, with a stacked coverage bar per Framework and Publish from the row.",
+      },
+      {
+        id: "frameworks-b",
+        label: "B",
+        title: "Tile wall",
+        href: "/design/frameworks/proposal-b.html",
+        summary: "One tile per Framework family with a level switch (CMMC, DEF STAN), a coloured top edge, a ring, odometer counters and one dot per Requirement, under a one-sentence brief.",
+      },
+      {
+        id: "frameworks-c",
+        label: "C",
+        title: "Gap board",
+        href: "/design/frameworks/proposal-c.html",
+        summary: "A publish pipeline from Needs mapping to Published, a bar per Framework on one scale, and a detail panel with sections, levels, catalog facts and the next actions.",
+      },
+    ],
+  },
+  {
+    id: "framework-coverage",
+    name: "Framework coverage",
+    added: "2026-10-29",
+    question: "How should one Framework's coverage page show which Requirements the Control Library covers, and make closing or accepting the gaps quick?",
+    proposals: [
+      {
+        id: "framework-coverage-a",
+        label: "A",
+        title: "Gap ledger",
+        href: "/design/framework-coverage/proposal-a.html",
+        summary: "A coverage ring and stat cards that filter, section tabs with counts, a table of Requirements with their mapped Controls, a drawer to map, create or accept, and bulk accept.",
+      },
+      {
+        id: "framework-coverage-b",
+        label: "B",
+        title: "Mosaic and gap queue",
+        href: "/design/framework-coverage/proposal-b.html",
+        summary: "One sentence and a ring, then three modes: one tile per Requirement in section rows, a typeset document with mappings in the margin, and a queue that deals one gap at a time.",
+      },
+      {
+        id: "framework-coverage-c",
+        label: "C",
+        title: "Crosswalk workbench",
+        href: "/design/framework-coverage/proposal-c.html",
+        summary: "Biggest wins (Partial mappings that close several gaps once Full), a section strip, and Requirements beside the Control Library: map with a click or drag a Control onto a Requirement.",
+      },
+    ],
+  },
+  {
     id: "enterprise-library",
     name: "Enterprise Control Library",
     added: "2026-10-20",

@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Frameworks Gap Board</title>
+<link rel="stylesheet" href="../systems/systems.css">
+<link rel="stylesheet" href="../shared/appbar.css">
+<link rel="stylesheet" href="../shared/kit.css">
+<link rel="stylesheet" href="fw.css">
+<style>
+/* Proposal C: a working board for the Compliance Manager. A pipeline strip sorts the Drafts by
+   how close they are to publishing; below, every Framework is one bar in a chart drawn to the
+   same scale (so 207 CCM Requirements look bigger than 15 CMMC ones), and choosing a bar fills a
+   detail panel: sections, levels, catalog facts and the next actions. ↑/↓ moves the selection. */
+.head { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; justify-content: space-between; }
+.head h1 { font-size: clamp(1.5rem, 2.6vw, 2rem); letter-spacing: -0.02em; }
+.head p { color: var(--muted); }
+.pipe { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; overflow: hidden; }
+.pipe > div { padding: 14px 16px; display: grid; gap: 8px; align-content: start; position: relative; }
+.pipe > div + div { border-left: 1px solid var(--line-soft); }
+.pipe > div:not(:last-child)::after { content: ""; position: absolute; right: -7px; top: 22px; width: 12px; height: 12px; background: var(--surface); border-top: 1px solid var(--line-soft); border-right: 1px solid var(--line-soft); transform: rotate(45deg); z-index: 1; }
+.pipe h2 { font-size: .74rem; font-weight: 750; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); display: flex; gap: 8px; align-items: center; }
+.pipe h2 i { width: 8px; height: 8px; border-radius: 50%; }
+.pipe h2 b { margin-left: auto; color: var(--ink); font-size: 1rem; letter-spacing: 0; }
+.pipe p { font-size: .76rem; color: var(--faint); }
+.pchips { display: flex; flex-wrap: wrap; gap: 5px; }
+.pchips button { border: 1px solid var(--line); background: var(--raised); border-radius: 8px; padding: 2px 8px; font-size: .76rem; font-weight: 650; cursor: pointer; color: var(--ink); display: inline-flex; gap: 6px; }
+.pchips button small { color: var(--bad); font-weight: 750; }
+.pchips button[aria-current="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+@media (max-width: 860px) { .pipe { grid-template-columns: 1fr 1fr; } .pipe > div:nth-child(3) { border-left: 0; } .pipe > div:nth-child(n+3) { border-top: 1px solid var(--line-soft); } .pipe > div::after { display: none; } }
+
+.split { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(340px, .85fr); gap: 18px; align-items: start; }
+@media (max-width: 980px) { .split { grid-template-columns: 1fr; } }
+.chart { list-style: none; margin: 0; padding: 6px 8px 10px; display: grid; gap: 2px; }
+.chart li button { all: unset; box-sizing: border-box; width: 100%; display: grid; grid-template-columns: minmax(150px, 220px) minmax(0, 1fr) 54px; gap: 12px; align-items: center; padding: 8px 10px; border-radius: 12px; cursor: pointer; }
+.chart li button:hover { background: var(--raised); }
+.chart li button:focus-visible { outline: 2px solid var(--accent); }
+.chart li button[aria-selected="true"] { background: var(--accent-soft); }
+.chart .nm { display: grid; gap: 2px; min-width: 0; }
+.chart .nm .fwn { flex-wrap: nowrap; min-width: 0; }
+.chart .nm .fwn b { font-size: .86rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.chart .nm small { color: var(--faint); font-size: .72rem; display: flex; gap: 6px; align-items: center; }
+.chart .nm small .dot { width: 7px; height: 7px; }
+.track { position: relative; height: 18px; }
+.track .cbar { height: 18px; border-radius: 6px; min-width: 0; }
+.track .cbar.empty { width: 40px; }
+.chart .g { text-align: right; font-variant-numeric: tabular-nums; font-weight: 760; color: var(--bad); }
+.chart .g.z { color: var(--ok); }
+.chart .g small { display: block; font-size: .66rem; color: var(--faint); font-weight: 600; }
+.axis { display: grid; grid-template-columns: minmax(150px, 220px) minmax(0, 1fr) 54px; gap: 12px; padding: 0 18px; font-size: .68rem; color: var(--faint); font-family: var(--mono); }
+.axis div { position: relative; height: 1.2em; }
+.axis div span { position: absolute; transform: translateX(-50%); }
+.axis div span:first-child { transform: none; }
+@media (max-width: 560px) { .chart li button, .axis { grid-template-columns: 1fr 54px; } .chart .track { grid-column: 1 / -1; grid-row: 2; } .axis { display: none; } }
+
+.detail { position: sticky; top: 16px; overflow: clip; }
+.d-top { padding: 18px; display: grid; gap: 8px; border-bottom: 1px solid var(--line-soft); background: linear-gradient(135deg, var(--surface), color-mix(in srgb, var(--accent-soft) 55%, var(--surface))); }
+.d-top .fwn b { font-size: 1.2rem; }
+.d-top .meta { display: flex; gap: 6px; flex-wrap: wrap; }
+.d-top p { color: var(--muted); font-size: .86rem; }
+.d-kpi { display: flex; gap: 18px; align-items: center; padding: 16px 18px; }
+.d-kpi dl { margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 18px; flex: 1; }
+.d-kpi dt { font-size: .72rem; color: var(--muted); font-weight: 650; }
+.d-kpi dd { margin: 0; font-size: 1.35rem; font-weight: 780; font-variant-numeric: tabular-nums; }
+.d-kpi dd.bad { color: var(--bad); } .d-kpi dd.ok { color: var(--ok); }
+.d-sec { padding: 4px 18px 16px; display: grid; gap: 8px; }
+.d-sec h3 { font-size: .72rem; font-weight: 750; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+.secs { display: grid; gap: 5px; }
+.secs a { display: grid; grid-template-columns: 34px minmax(0, 1fr) 70px; gap: 8px; align-items: center; font-size: .78rem; color: var(--ink); text-decoration: none; padding: 2px 4px; border-radius: 6px; }
+.secs a:hover { background: var(--raised); }
+.secs a b { font-family: var(--mono); font-size: .72rem; color: var(--accent); }
+.secs a span:last-child { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+.secs .cbar { min-width: 0; }
+.ladder { display: flex; align-items: end; gap: 6px; height: 74px; }
+.ladder button { flex: 1; border: 1px solid var(--line); border-radius: 8px 8px 4px 4px; background: var(--raised); cursor: pointer; display: grid; align-content: end; justify-items: center; padding: 4px 2px; font-size: .7rem; font-weight: 700; color: var(--muted); position: relative; overflow: hidden; }
+.ladder button .fill { position: absolute; inset: auto 0 0; background: color-mix(in srgb, var(--ok) 22%, transparent); }
+.ladder button span { position: relative; }
+.ladder button[aria-current="true"] { border-color: var(--accent); color: var(--accent); }
+.facts { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6px 14px; font-size: .82rem; margin: 0; }
+.facts dt { color: var(--muted); } .facts dd { margin: 0; }
+.d-acts { display: flex; flex-wrap: wrap; gap: 8px; padding: 14px 18px; border-top: 1px solid var(--line-soft); background: var(--raised); }
+.kb { font-size: .74rem; color: var(--faint); padding: 0 18px 12px; }
+</style>
+</head>
+<body>
+<header id="appbar"></header>
+<main class="app">
+  <div class="head">
+    <div><p class="eyebrow">Requirement database</p><h1>Frameworks</h1><p>How far each Framework is from being fully covered by the Control Library, and what to do next.</p></div>
+    <div id="acts" style="display:flex;gap:8px"></div>
+  </div>
+  <section class="card pipe" id="pipe" aria-label="Publish pipeline"></section>
+  <div class="split">
+    <section class="card" aria-labelledby="chh">
+      <div class="card-h"><h2 id="chh">Requirements per Framework</h2><p>Same scale for every bar · <span id="sortlab"></span></p></div>
+      <div class="card-b" style="padding:10px 0 0">
+        <div class="axis" aria-hidden="true"><span></span><div id="axis"></div><span style="text-align:right">gaps</span></div>
+        <ul class="chart" id="chart" role="listbox" aria-label="Frameworks" tabindex="0"></ul>
+        <div style="padding:0 18px 14px"></div>
+      </div>
+    </section>
+    <aside class="card detail" id="detail" aria-live="polite"></aside>
+  </div>
+</main>
+
+<script src="data.js"></script>
+<script src="../shared/kit.js"></script>
+<script src="../shared/appbar.js"></script>
+<script src="fw.js"></script>
+<script>
+const { FRAMEWORKS, DETAIL, esc } = FW;
+const ordered = () => FRAMEWORKS.slice().sort((a, b) => (b.base - a.base) || (b.gaps - a.gaps) || a.name.localeCompare(b.name));
+let sel = new URLSearchParams(location.search).get('fw') || 'cmmc-l2';
+const MAX = Math.max(...FRAMEWORKS.map((f) => f.requirements));
+
+const STAGES = [
+  ['Needs mapping', 'var(--bad)', 'More than a third unresolved', (f) => f.status === 'DRAFT' && f.requirements && f.gaps / f.requirements > 1 / 3],
+  ['Nearly ready', 'var(--gold)', 'A few gaps left to close or accept', (f) => f.status === 'DRAFT' && f.gaps && f.gaps / f.requirements <= 1 / 3],
+  ['Ready to publish', 'var(--accent)', 'Draft with every Requirement resolved', (f) => f.status === 'DRAFT' && (!f.gaps)],
+  ['Published', 'var(--ok)', 'Counted on Systems that have it in scope', (f) => f.status === 'PUBLISHED'],
+];
+function renderPipe() {
+  document.getElementById('pipe').innerHTML = STAGES.map(([t, c, p, fn]) => {
+    const fs = FRAMEWORKS.filter(fn);
+    return `<div><h2><i style="background:${c}"></i>${t}<b>${fs.length}</b></h2><p>${p}</p><div class="pchips">${fs.map((f) => `<button type="button" data-id="${f.id}" aria-current="${f.id === sel}">${esc(f.name.replace('DEF STAN 05-138 ', 'DEF STAN '))}${f.gaps ? `<small>${f.gaps}</small>` : ''}</button>`).join('') || '<span class="muted" style="font-size:.78rem">None</span>'}</div></div>`;
+  }).join('');
+}
+function renderChart() {
+  const ticks = [0, 50, 100, 150, 200];
+  document.getElementById('axis').innerHTML = ticks.map((t) => `<span style="left:${t / 210 * 100}%">${t}</span>`).join('');
+  document.getElementById('sortlab').textContent = 'most gaps first';
+  document.getElementById('chart').innerHTML = ordered().map((f) => `<li role="presentation"><button type="button" role="option" data-id="${f.id}" aria-selected="${f.id === sel}">
+    <span class="nm">${FW.name(f)}<small><span class="dot ${f.status === 'PUBLISHED' ? 'success' : 'warn'}"></span>${f.status === 'PUBLISHED' ? 'Published' : 'Draft'}${f.base ? ' · Base' : ''}</small></span>
+    <span class="track"><span style="display:block;width:${f.requirements ? Math.max(4, f.requirements / 210 * 100) : 0}%">${FW.bar(f)}</span>${f.requirements ? '' : '<span class="muted" style="font-size:.74rem">No Requirements</span>'}</span>
+    <span class="g ${f.gaps ? '' : 'z'}">${f.requirements ? f.gaps : '—'}<small>${f.requirements ? `${FW.resolved(f)}% res.` : ''}</small></span></button></li>`).join('');
+}
+function sectionsOf(f) {
+  const reqs = DETAIL[f.id];
+  if (!reqs) return '<p class="muted" style="font-size:.8rem">Section breakdown appears here once its Requirements are loaded (example data covers CMMC Level 2 and ISO/IEC 27001).</p>';
+  return `<div class="secs">${FW.sections(reqs).map(([s, rs]) => { const c = FW.recount(rs); return `<a href="${FW.coverageHref(f.id)}#${encodeURIComponent(s)}" title="${esc(s)}"><b>${esc(s.split(' ')[0])}</b>${FW.bar(c, 'thin')}<span>${c.gaps ? `<b style="color:var(--bad);font-family:inherit">${c.gaps}</b> gaps` : 'done'}</span></a>`; }).join('')}</div>`;
+}
+function ladderOf(f) {
+  if (!f.family) return '';
+  const fs = FRAMEWORKS.filter((x) => x.family === f.family).sort((a, b) => a.level - b.level);
+  const max = Math.max(...fs.map((x) => x.requirements));
+  return `<div class="d-sec"><h3>Levels of ${esc(f.family)}</h3><div class="ladder">${fs.map((x) => `<button type="button" data-id="${x.id}" aria-current="${x.id === f.id}" style="height:${30 + x.requirements / max * 70}%" title="${esc(FW.label(x))}: ${x.covered}/${x.requirements} covered"><span class="fill" style="height:${x.requirements ? x.covered / x.requirements * 100 : 0}%"></span><span>L${x.level}</span><span>${x.requirements}</span></button>`).join('')}</div></div>`;
+}
+function renderDetail() {
+  const f = FW.byId(sel);
+  const cur = FW.canCurate();
+  const acts = [`<a class="btn primary" href="${FW.coverageHref(f.id)}">Open coverage</a>`];
+  if (f.gaps) acts.push(`<a class="btn" href="${FW.coverageHref(f.id, 'b')}&mode=queue">Work the ${f.gaps} gaps</a>`);
+  if (cur && f.status === 'DRAFT') acts.push(`<button class="btn" type="button" data-publish="${f.id}">Publish</button>`);
+  if (cur) acts.push('<button class="btn ghost" type="button" onclick="Kit.toast(\'Edit details opens the catalog form\')">Edit details</button>');
+  document.getElementById('detail').innerHTML = `
+    <div class="d-top">${FW.name(f)}<div class="meta">${FW.status(f)}${FW.tags(f)}</div><p>${esc(f.description)}</p></div>
+    ${f.requirements ? `<div class="d-kpi">${FW.ringOf(f, 88, 10)}<dl><div><dt>Requirements</dt><dd>${f.requirements}</dd></div><div><dt>Covered</dt><dd class="ok">${f.covered}</dd></div><div><dt>Open gaps</dt><dd class="${f.gaps ? 'bad' : ''}">${f.gaps}</dd></div><div><dt>Accepted</dt><dd>${f.accepted}</dd></div></dl></div>
+      ${f.gaps ? `<div class="d-sec"><h3>The ${f.gaps} gaps</h3>${FW.bar({ requirements: f.gaps, covered: 0, accepted: 0, partialOnly: f.partialOnly, gaps: f.gaps }, 'fat')}<p class="muted" style="font-size:.8rem">${f.partialOnly} have Partial mappings only: an upgrade to Full may close them. ${FW.unmapped(f)} have no Control at all: map one or create a Supplementary Control.</p></div>` : ''}
+      <div class="d-sec"><h3>Sections</h3>${sectionsOf(f)}</div>`
+      : `<div class="d-sec" style="padding-top:16px"><div class="readonly-note">${f.status === 'PUBLISHED' ? `Published with no Requirements: ${f.systems} Systems have it in scope but it adds nothing to them yet.` : 'No Requirements yet.'} ${cur ? 'Add its Requirements to start mapping.' : ''}</div></div>`}
+    ${ladderOf(f)}
+    <div class="d-sec"><h3>Catalog</h3><dl class="facts">
+      <dt>Licensing</dt><dd>${esc(f.licensing)}</dd>
+      <dt>Review</dt><dd>${f.base ? 'Base Review Step' : esc(f.reviewGroup || 'No Review Group: its Controls fall to the base step')}</dd>
+      <dt>Compliance</dt><dd>${f.strict ? 'Strict: only Fulfilled counts' : 'Waived and Not Applicable count as Fulfilled'}</dd>
+      <dt>Systems</dt><dd>${f.status === 'PUBLISHED' ? `${f.systems} in scope${f.compliance != null ? ` · ${f.compliance}% compliant` : ''}` : 'None while Draft'}</dd>
+      <dt>Supplementary</dt><dd>${f.supplementary} Controls originate here</dd>
+      <dt>Changed</dt><dd>${FW.fmtDate(f.updated)}</dd></dl></div>
+    <div class="d-acts">${acts.join('')}</div><p class="kb">Tip: <span class="kbd">↑</span> <span class="kbd">↓</span> move through Frameworks, <span class="kbd">Enter</span> opens coverage.</p>`;
+}
+function select(id) { sel = id; history.replaceState(null, '', '?fw=' + id + location.hash); renderPipe(); renderChart(); renderDetail(); }
+document.addEventListener('click', (e) => {
+  const p = e.target.closest('[data-publish]');
+  if (p) { const f = FW.byId(p.dataset.publish); f.status = 'PUBLISHED'; Kit.toast(`${FW.label(f)} published${f.gaps ? ` with ${f.gaps} open gaps` : ''}`); select(f.id); return; }
+  const b = e.target.closest('#pipe [data-id], #chart [data-id], .ladder [data-id]'); if (b) select(b.dataset.id);
+});
+document.addEventListener('keydown', (e) => {
+  if (e.target.closest('input, textarea, select, .ab-pal')) return;
+  const list = ordered(), i = list.findIndex((f) => f.id === sel);
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); select(list[(i + (e.key === 'ArrowDown' ? 1 : -1) + list.length) % list.length].id); document.querySelector('#chart [aria-selected="true"]').focus(); }
+  if (e.key === 'Enter' && e.target.closest('#chart')) location.href = FW.coverageHref(sel);
+});
+function renderActs() { document.getElementById('acts').innerHTML = (FW.canCurate() ? '<button class="btn primary" type="button" onclick="Kit.toast(\'Add a Framework opens the catalog form\')">+ New Framework</button>' : ''); }
+addEventListener('appbar:role', () => { renderActs(); renderDetail(); });
+Appbar.mount({ current: 'frameworks', proposal: { label: 'C', siblings: [['A', 'proposal-a.html'], ['B', 'proposal-b.html']] }, items: () => FRAMEWORKS.map((f) => ({ group: 'Frameworks', label: FW.label(f), sub: `${f.gaps} gaps`, icon: 'framework', run: () => select(f.id) })) });
+document.querySelector('.card-b > div:last-child').innerHTML = FW.legend();
+renderActs(); select(sel);
+</script>
+</body>
+</html>

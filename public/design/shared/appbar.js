@@ -41,7 +41,7 @@
     { key: 'check-ups', label: 'Check-ups', icon: 'checkup', href: null },
     { key: 'audits', label: 'Internal Audits', icon: 'audit', href: '/design/audit/proposal-a.html' },
     { key: 'soa', label: 'SoA', long: 'Statement of Applicability', icon: 'soa', href: '/design/soa/proposal-a.html' },
-    { key: 'frameworks', label: 'Frameworks', icon: 'framework', href: null },
+    { key: 'frameworks', label: 'Frameworks', icon: 'framework', href: '/design/frameworks/proposal-a.html' },
   ];
   // The same people as the Home proposals (public/design/home/data.js).
   const ROLES = [

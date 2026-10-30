@@ -1,0 +1,81 @@
+/* Framework list and Framework coverage proposals: what both parts add to the shared kit
+   (../systems/systems.css tokens, ../shared/kit.css cards, hero, stats, tabs).
+   Coverage states: covered (ok), accepted gap (gold, counts as resolved), gap with only Partial
+   mappings (hatched red) and gap with no mapping at all (solid red). */
+:root { --c-cov: var(--ok); --c-acc: var(--gold); --c-part: var(--bad); --c-none: var(--bad); --c-empty: var(--line); }
+[hidden] { display: none !important; }
+
+.st-COVERED { background: var(--c-cov); }
+.st-ACCEPTED_GAP { background: var(--c-acc); }
+.st-PARTIAL { background: repeating-linear-gradient(135deg, var(--c-part) 0 3px, color-mix(in srgb, var(--c-part) 45%, var(--surface)) 3px 6px); }
+.st-GAP, .st-NONE { background: var(--c-none); }
+
+/* Stacked coverage bar */
+.cbar { display: flex; height: 8px; border-radius: 99px; overflow: hidden; background: var(--line-soft); gap: 2px; min-width: 80px; }
+.cbar i { display: block; min-width: 3px; transition: flex-grow .5s cubic-bezier(.2, .8, .2, 1); }
+.cbar.thin { height: 5px; } .cbar.fat { height: 12px; }
+.cbar.empty { background: repeating-linear-gradient(135deg, var(--line-soft) 0 4px, transparent 4px 8px); border: 1px dashed var(--line); }
+
+/* Legend */
+.lg { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: .76rem; color: var(--muted); align-items: center; }
+.lg span { display: inline-flex; align-items: center; gap: 6px; }
+.lg i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+
+/* Framework name: name with the version in mono, as the catalog stores them */
+.fwn { display: inline-flex; align-items: baseline; gap: 7px; flex-wrap: wrap; min-width: 0; }
+.fwn b { font-weight: 680; color: var(--ink); }
+.fwn code { font-family: var(--mono); font-size: .74rem; color: var(--muted); background: var(--raised); border: 1px solid var(--line-soft); border-radius: 5px; padding: 0 5px; }
+.tag { display: inline-flex; align-items: center; gap: 5px; font-size: .7rem; font-weight: 700; letter-spacing: .02em; padding: 1px 7px; border-radius: 6px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+.tag.base { background: var(--done-soft); color: var(--done); border-color: transparent; }
+.tag.strict { border-style: dashed; }
+
+/* Mono odometer digits (each digit in its own cell) */
+.odo { display: inline-flex; gap: 2px; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.odo span { display: inline-grid; place-items: center; min-width: 1.15em; padding: 1px 2px; border-radius: 4px; background: var(--raised); border: 1px solid var(--line-soft); color: var(--ink); font-weight: 700; }
+.odo.bad span { color: var(--bad); } .odo.ok span { color: var(--ok); }
+
+/* Mapped Control chip: code, title, Full/Partial */
+.ctl { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 2px 4px 2px 8px; font-size: .78rem; background: var(--surface); }
+.ctl b { font-family: var(--mono); font-size: .74rem; font-weight: 700; color: var(--accent); white-space: nowrap; }
+.ctl span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
+.ctl em { font-style: normal; font-size: .68rem; font-weight: 750; border-radius: 5px; padding: 0 5px; white-space: nowrap; }
+.ctl em.FULL { background: var(--ok-soft); color: var(--ok); }
+.ctl em.PARTIAL { background: var(--gold-soft); color: var(--gold-ink); }
+.ctl.sup { border-style: dashed; }
+.ctls { display: flex; flex-wrap: wrap; gap: 5px; }
+.nomap { font-size: .78rem; color: var(--bad); font-weight: 650; display: inline-flex; align-items: center; gap: 6px; }
+.nomap::before { content: "!"; display: inline-grid; place-items: center; width: 15px; height: 15px; border-radius: 50%; background: var(--bad-soft); font-size: .66rem; font-weight: 800; }
+
+/* Coverage state chip (as production: Covered / Coverage Gap / Accepted gap) */
+.cst { display: inline-flex; align-items: center; gap: 6px; padding: 1px 9px 1px 7px; border-radius: 99px; font-size: .74rem; font-weight: 680; white-space: nowrap; }
+.cst::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.cst.COVERED { background: var(--ok-soft); color: var(--ok); }
+.cst.ACCEPTED_GAP { background: var(--gold-soft); color: var(--gold-ink); }
+.cst.GAP { background: var(--bad-soft); color: var(--bad); }
+
+/* Side drawer, shared by the coverage proposals */
+.scrim { position: fixed; inset: 0; background: rgba(10, 25, 35, .32); z-index: 40; opacity: 0; pointer-events: none; transition: opacity .2s; }
+.scrim.on { opacity: 1; pointer-events: auto; }
+.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(520px, 100vw); background: var(--surface); border-left: 1px solid var(--line); box-shadow: -18px 0 48px rgba(10, 25, 35, .18); z-index: 41; transform: translateX(102%); transition: transform .25s cubic-bezier(.2, .8, .2, 1); display: flex; flex-direction: column; }
+.drawer.on { transform: none; }
+.drawer header { padding: 18px 20px 14px; border-bottom: 1px solid var(--line-soft); display: grid; gap: 6px; }
+.drawer header .x { position: absolute; top: 14px; right: 14px; border: 0; background: var(--raised); border-radius: 10px; width: 32px; height: 32px; cursor: pointer; font-size: 1.1rem; color: var(--muted); }
+.drawer .body { padding: 16px 20px 24px; overflow-y: auto; display: grid; gap: 18px; align-content: start; }
+.drawer h3 { font-size: .74rem; font-weight: 750; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+.drawer .foot { margin-top: auto; padding: 12px 20px; border-top: 1px solid var(--line-soft); display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+@media (prefers-reduced-motion: reduce) { .drawer, .scrim, .cbar i { transition: none; } }
+
+/* Forms inside drawers and queues */
+.field { display: grid; gap: 5px; font-size: .82rem; color: var(--muted); font-weight: 600; }
+.field input, .field textarea, .field select { border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 10px; padding: 8px 10px; font: inherit; font-weight: 400; }
+.field textarea { min-height: 96px; resize: vertical; line-height: 1.5; }
+.field input:focus, .field textarea:focus, .field select:focus { outline: 0; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.tpls { display: flex; flex-wrap: wrap; gap: 6px; }
+.tpls button { border: 1px dashed var(--line); background: transparent; border-radius: 99px; padding: 2px 10px; font-size: .76rem; cursor: pointer; color: var(--muted); }
+.tpls button:hover { border-color: var(--accent); color: var(--accent); }
+.readonly-note { font-size: .8rem; color: var(--muted); background: var(--raised); border: 1px dashed var(--line); border-radius: 10px; padding: 8px 12px; }
+.btn.danger { color: var(--bad); } .btn.danger:hover { border-color: var(--bad); }
+.btn.sm { padding: 4px 10px; font-size: .8rem; }
+.back { color: var(--accent); text-decoration: none; font-weight: 650; font-size: .86rem; display: inline-flex; gap: 6px; align-items: center; }
+.back:hover { text-decoration: underline; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
