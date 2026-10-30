@@ -99,7 +99,14 @@
   .fc .sy-grp td .fc-bar { display: flex; margin: 6px 0 0; width: min(140px, 100%); }
   .fc.fc tbody tr.fc-row td.acts .hc-btn:first-child { opacity: 1; }
   .fc.fc tbody tr.fc-row td.c-gaps, .fc.fc tbody tr.fc-row td.c-acc, .fc.fc tbody tr.fc-row td.c-sys, .fc.fc tbody tr.fc-row td.c-rg, .fc.fc tbody tr.fc-row td.c-upd { display: none !important; }
-  .fc .fwcell { min-width: 0; }
+  .fc.fc table, .fc.fc tbody { display: block; width: 100%; min-width: 0; }
+  .fc.fc tbody tr.fc-row { grid-template-columns: minmax(0, 1fr); width: 100%; box-sizing: border-box; }
+  .fc.fc tbody tr.fc-row td { min-width: 0; max-width: 100%; }
+  .fc.fc tbody tr.fc-row td.c-status { justify-self: start; width: auto; }
+  .fc.fc tbody tr.fc-row td.c-status > span { display: inline-flex; width: auto; }
+  .fc .fwcell { min-width: 0; grid-template-columns: minmax(0, 1fr); }
+  .fc .covcell { min-width: 0; }
+  .fc.fc .sy-grp td { display: block; max-width: 100%; box-sizing: border-box; }
 }
 
 /* New Framework page */
