@@ -376,7 +376,11 @@ describe("Publish from the row", () => {
     await userEvent.click(screen.getByRole("button", { name: "Publish CMMC Level 2:1" }));
     const dialog = screen.getByRole("dialog", { name: "Publish CMMC Level 2:1?" });
     expect(dialog).toHaveTextContent("count on every System that declares it in its Framework Scope");
-    expect(dialog).toHaveTextContent("12 Coverage Gaps are still open (4 with Partial mappings only, 8 with none)");
+    expect(dialog).toHaveTextContent("12 Coverage Gaps are still open.");
+    expect(dialog).toHaveTextContent("8 with no Control Mapping will be Not Met on every System.");
+    expect(dialog).toHaveTextContent(
+      "4 with Partial mappings only can't be Met: at best Partially Met, depending on each System's Control statuses.",
+    );
     expect(dialog).toHaveTextContent("2 Supplementary Controls authored for it reach Systems now.");
     expect(dialog).toHaveTextContent("Defence Review gets a Review Step on Systems in review.");
     await userEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));

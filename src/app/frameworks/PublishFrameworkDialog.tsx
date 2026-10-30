@@ -70,8 +70,11 @@ export function PublishFrameworkDialog({ row, onClose, onDone }: { row: CatalogR
               <b className="bad">
                 {row.gaps} Coverage {row.gaps === 1 ? "Gap is" : "Gaps are"}
               </b>{" "}
-              still open ({row.partialOnly} with Partial mappings only, {unmappedGaps(row)} with none); those Requirements will be Not Met on
-              every System.
+              still open.
+              {unmappedGaps(row) > 0 &&
+                ` ${unmappedGaps(row)} with no Control Mapping will be Not Met on every System.`}
+              {row.partialOnly > 0 &&
+                ` ${row.partialOnly} with Partial mappings only can't be Met: at best Partially Met, depending on each System's Control statuses.`}
             </li>
           ) : (
             <li>Every Requirement is covered or accepted.</li>
