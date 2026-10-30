@@ -9,6 +9,9 @@ vi.mock("@/lib/acting-user", async (importOriginal) => {
   return { ...original, getActingUser: async () => (acting.userId ? prisma.user.findUnique({ where: { id: acting.userId } }) : null) };
 });
 
+// The list is a client component under the app router; static markup has no router to mount.
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: () => {}, refresh: () => {} }) }));
+
 import FrameworksOverviewPage from "../page";
 import AdminFrameworksPage from "../../admin/frameworks/page";
 
@@ -74,6 +77,7 @@ describe("version lineage on /frameworks and /admin/frameworks", () => {
     expect(markup).not.toContain(`${NAME}:2022`);
     expect(markup).not.toContain(`${NAME}:2040`);
     expect(markup).not.toContain("(Draft)");
-    expect(markup).not.toContain(">2022<");
+    // The only rows of this fixture a user who can't see Drafts is given are the two Published versions.
+    expect(markup.match(new RegExp(`<b>${NAME}</b><code>`, "g"))).toHaveLength(2);
   });
 });

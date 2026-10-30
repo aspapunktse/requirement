@@ -1,0 +1,130 @@
+/* The Framework list (design proposal A "Catalog table", issue #266). It builds on the Home look
+   (`src/app/home/home.css`) and the Systems list's table (`src/app/systems/systems.css`, under `.sy`), and adds
+   the catalog's own parts: the stacked coverage bar, the Framework cell, the group-by control and the Publish
+   dialog. The /frameworks/new form shares the tokens. Register tokens (--rg-*). */
+
+.fc .hc-btn.sm { padding: 3px 10px; font-size: 0.8rem; }
+
+/* Coverage colours: covered, accepted gap, gap with Partial mappings only (hatched), gap with no mapping */
+.fc .st-covered { background: var(--rg-success); }
+.fc .st-accepted { background: var(--rg-gold); }
+.fc .st-partial { background: repeating-linear-gradient(135deg, var(--rg-danger) 0 3px, color-mix(in srgb, var(--rg-danger) 45%, var(--rg-surface)) 3px 6px); }
+.fc .st-none { background: var(--rg-danger); }
+
+.fc-bar { display: flex; height: 8px; border-radius: 99px; overflow: hidden; background: var(--hc-line-soft); gap: 2px; min-width: 80px; }
+.fc-bar i { display: block; min-width: 3px; transition: flex-grow 0.5s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.fc-bar.thin { height: 5px; }
+.fc-bar.empty { background: repeating-linear-gradient(135deg, var(--hc-line-soft) 0 4px, transparent 4px 8px); border: 1px dashed var(--rg-line); }
+
+.fc-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 0.76rem; color: var(--rg-muted); align-items: center; }
+.fc-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.fc-legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+
+/* The hero's legend uses the same swatches */
+.fc .hc-move li i.st-partial, .fc .hc-move li i.st-none, .fc .hc-move li i.st-covered, .fc .hc-move li i.st-accepted { flex: none; }
+
+/* Group by: a segmented control */
+.fc-grplabel { font-size: 0.84rem; color: var(--rg-muted); }
+.fc-seg { display: inline-flex; border: 1px solid var(--rg-line); border-radius: 10px; overflow: hidden; }
+.fc-seg button { border: 0; background: var(--rg-surface); padding: 6px 11px; font: inherit; font-size: 0.82rem; font-weight: 650; color: var(--rg-muted); cursor: pointer; }
+.fc-seg button + button { border-left: 1px solid var(--hc-line-soft); }
+.fc-seg button:hover { color: var(--rg-ink); }
+.fc-seg button:focus-visible { outline: 2px solid var(--rg-accent); outline-offset: -2px; }
+.fc-seg button[aria-pressed="true"] { background: var(--rg-accent-soft); color: var(--rg-accent); }
+
+/* Table */
+.fc table { min-width: 1020px; }
+.fc th.n, .fc td.n { text-align: right; font-variant-numeric: tabular-nums; }
+.fc th.n button { justify-content: flex-end; }
+.fc .fc-row { cursor: pointer; animation: hc-rise 0.35s both; animation-delay: var(--d, 0ms); }
+.fc .fc-row:hover td { background: var(--hc-raised); }
+.fc .fwcell { display: grid; gap: 3px; min-width: 260px; }
+.fc .fwcell .t { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.fc .fwcell small { color: var(--rg-muted); font-size: 0.78rem; max-width: 52ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fc .fwcell a { text-decoration: none; color: inherit; }
+.fc .fwcell a:hover b { color: var(--rg-accent); text-decoration: underline; }
+.fc .fwn { display: inline-flex; align-items: baseline; gap: 7px; flex-wrap: wrap; min-width: 0; }
+.fc .fwn b { font-weight: 680; color: var(--rg-ink); }
+.fc .fwn code { font-family: var(--rg-font-mono); font-size: 0.74rem; color: var(--rg-muted); background: var(--hc-raised); border: 1px solid var(--hc-line-soft); border-radius: 5px; padding: 0 5px; }
+.fc-tag { display: inline-flex; align-items: center; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.02em; padding: 1px 7px; border-radius: 6px; border: 1px solid var(--rg-line); color: var(--rg-muted); white-space: nowrap; }
+.fc-tag.base { background: var(--rg-accent-soft); color: var(--rg-accent); border-color: transparent; }
+.fc-tag.strict { border-style: dashed; }
+.fc .covcell { display: grid; gap: 5px; min-width: 170px; }
+.fc .covcell small { color: var(--rg-muted); font-size: 0.76rem; font-variant-numeric: tabular-nums; }
+.fc .pct { font-weight: 760; color: var(--rg-ink); }
+.fc td.gaps b { color: var(--rg-danger); font-weight: 760; }
+.fc td.gaps small { display: block; color: var(--rg-muted); font-size: 0.72rem; white-space: nowrap; }
+.fc .zero { color: var(--rg-muted); opacity: 0.7; }
+.fc td.c-rg { font-size: 0.82rem; color: var(--rg-muted); white-space: nowrap; }
+.fc td.c-upd { white-space: nowrap; font-variant-numeric: tabular-nums; font-size: 0.84rem; }
+.fc .warnline { display: inline-flex; gap: 6px; align-items: center; color: var(--rg-gold-ink); background: var(--rg-gold-soft); border-radius: 8px; padding: 1px 8px; font-size: 0.74rem; font-weight: 650; justify-self: start; }
+.fc td.acts { white-space: nowrap; text-align: right; padding-right: 16px; }
+.fc td.acts .hc-btn:first-child { opacity: 0; transition: opacity 0.15s; }
+.fc .fc-row:hover td.acts .hc-btn, .fc .fc-row:focus-within td.acts .hc-btn { opacity: 1; }
+@media (hover: none) { .fc td.acts .hc-btn:first-child { opacity: 1; } }
+.fc td.acts .hc-btn { text-decoration: none; }
+.fc .sy-grp td .fc-bar { display: inline-flex; width: 140px; max-width: 100%; vertical-align: middle; margin-left: 12px; }
+/* The Systems group-row dot rule (`.sy .sy-grp td i`) matches every <i>: give it back to the dot, and the bar its own segments */
+.fc .sy-grp td .fc-bar i { display: block; width: auto; height: auto; border-radius: 0; margin: 0; }
+.fc .sy-grp td .fc-bar i.st-covered { background: var(--rg-success); }
+.fc .sy-grp td .fc-bar i.st-accepted { background: var(--rg-gold); }
+.fc .sy-grp td .fc-bar i.st-partial { background: repeating-linear-gradient(135deg, var(--rg-danger) 0 3px, color-mix(in srgb, var(--rg-danger) 45%, var(--rg-surface)) 3px 6px); }
+.fc .sy-grp td .fc-bar i.st-none { background: var(--rg-danger); }
+.fc-notice { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--rg-ink); color: var(--rg-paper); border-radius: 12px; padding: 10px 16px; font-size: 0.86rem; font-weight: 600; z-index: 36; max-width: calc(100vw - 32px); }
+
+/* Publish dialog */
+.fc-dialog { border: 1px solid var(--rg-line); border-radius: 18px; padding: 0; width: min(460px, calc(100vw - 32px)); background: var(--rg-surface); color: var(--rg-ink); box-shadow: 0 24px 64px rgba(10, 25, 35, 0.3); margin: auto; }
+.fc-dialog::backdrop { background: rgba(10, 25, 35, 0.35); }
+.fc-dialog .in { padding: 20px; display: grid; gap: 12px; }
+.fc-dialog h2 { font-size: 1.1rem; }
+.fc-dialog .muted { color: var(--rg-muted); }
+.fc-dialog ul { margin: 0; padding-left: 18px; color: var(--rg-muted); font-size: 0.86rem; display: grid; gap: 4px; }
+.fc-dialog .bad { color: var(--rg-danger); font-weight: 650; }
+.fc-dialog .row { display: flex; justify-content: flex-end; gap: 8px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .fc .fc-row { animation: none; }
+  .fc-bar i, .fc td.acts .hc-btn:first-child { transition: none; }
+}
+
+/* Phones: each Framework becomes a stacked card */
+@media (max-width: 720px) {
+  .fc.fc tbody tr.fc-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 10px; padding: 12px 16px; border-bottom: 1px solid var(--hc-line-soft); }
+  .fc.fc tbody tr.fc-row td { display: block; padding: 0; border: 0; background: none !important; }
+  .fc.fc tbody tr.fc-row td.c-name { grid-column: 1 / -1; grid-row: 1; min-width: 0; }
+  .fc.fc tbody tr.fc-row td.c-status { grid-column: 1 / -1; grid-row: 2; }
+  .fc.fc tbody tr.fc-row td.c-cov { grid-column: 1 / -1; grid-row: 3; }
+  .fc.fc tbody tr.fc-row td.acts { grid-column: 1 / -1; grid-row: 4; text-align: left; }
+  .fc .fwcell small { max-width: 100%; }
+  .fc .sy-grp td .fc-bar { display: flex; margin: 6px 0 0; width: min(140px, 100%); }
+  .fc.fc tbody tr.fc-row td.acts .hc-btn:first-child { opacity: 1; }
+  .fc.fc tbody tr.fc-row td.c-gaps, .fc.fc tbody tr.fc-row td.c-acc, .fc.fc tbody tr.fc-row td.c-sys, .fc.fc tbody tr.fc-row td.c-rg, .fc.fc tbody tr.fc-row td.c-upd { display: none !important; }
+  .fc.fc table, .fc.fc tbody { display: block; width: 100%; min-width: 0; }
+  .fc.fc tbody tr.fc-row { grid-template-columns: minmax(0, 1fr); width: 100%; box-sizing: border-box; }
+  .fc.fc tbody tr.fc-row td { min-width: 0; max-width: 100%; }
+  .fc.fc tbody tr.fc-row td.c-status { justify-self: start; width: auto; }
+  .fc.fc tbody tr.fc-row td.c-status > span { display: inline-flex; width: auto; }
+  .fc .fwcell { min-width: 0; grid-template-columns: minmax(0, 1fr); }
+  .fc .covcell { min-width: 0; }
+  .fc.fc .sy-grp td { display: block; max-width: 100%; box-sizing: border-box; }
+}
+
+/* New Framework page */
+.fc-new .fc-crumbs { font-size: 0.84rem; color: var(--rg-muted); }
+.fc-new .fc-crumbs a { color: var(--rg-accent); font-weight: 650; text-decoration: none; }
+.fc-new .fc-crumbs a:hover { text-decoration: underline; }
+.fc-new-hero { grid-template-columns: minmax(0, 1fr); }
+.fc-form { max-width: 760px; }
+.fc-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 16px; }
+.fc-fields .wide { grid-column: 1 / -1; }
+@media (max-width: 640px) { .fc-fields { grid-template-columns: minmax(0, 1fr); } }
+.fc-field { display: grid; gap: 6px; font-size: 0.8rem; font-weight: 650; color: var(--rg-muted); }
+.fc-input { width: 100%; border: 1px solid var(--rg-line); background: var(--rg-surface); color: var(--rg-ink); border-radius: 10px; padding: 9px 12px; font: inherit; font-size: 0.92rem; font-weight: 500; }
+.fc-input:focus-visible { outline: 2px solid var(--rg-accent); outline-offset: 1px; border-color: var(--rg-accent); }
+.fc-input::placeholder { color: var(--rg-muted); opacity: 0.8; }
+.fc-check { display: flex; align-items: center; gap: 8px; font-size: 0.88rem; }
+.fc-check input { accent-color: var(--rg-accent); width: 15px; height: 15px; }
+.fc-error { color: var(--rg-danger); font-size: 0.88rem; font-weight: 600; }
+.fc-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.fc-actions .hc-btn { text-decoration: none; }
+.fc-actions .hc-btn:disabled { opacity: 0.45; cursor: default; }

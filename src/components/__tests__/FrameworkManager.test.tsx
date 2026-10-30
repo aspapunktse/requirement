@@ -148,22 +148,14 @@ describe("FrameworkManager", () => {
     expect(body).not.toHaveProperty("onboardingHint");
   });
 
-  it("creates a Draft Framework with its licensing and supersedes link", async () => {
-    const user = userEvent.setup();
+  it("has no create form any more: it points to the New Framework page (#266)", async () => {
     render(<FrameworkManager initialFrameworks={frameworks} />);
 
-    await user.type(screen.getByLabelText("Name"), "CMMC");
-    await user.type(screen.getByLabelText("Version"), "2.0");
-    await user.selectOptions(screen.getByLabelText("New Framework licensing"), "QUOTABLE");
-    await user.click(screen.getByRole("button", { name: "Create" }));
-
-    await waitFor(() => expect(calls("POST")).toHaveLength(1));
-    expect(JSON.parse(calls("POST")[0][1].body)).toMatchObject({
-      name: "CMMC",
-      version: "2.0",
-      licensing: "QUOTABLE",
-      supersedesId: null,
-    });
+    expect(screen.queryByRole("button", { name: "Create" })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("New Framework licensing")).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Add a Framework" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Add a Framework/ })).toHaveAttribute("href", "/frameworks/new");
+    expect(calls("POST")).toHaveLength(0);
   });
 
   it("disables Retire for the base Framework", () => {

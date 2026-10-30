@@ -38,17 +38,6 @@ type Draft = {
   onboardingHint: string;
 };
 
-const EMPTY_DRAFT: Draft = {
-  name: "",
-  version: "",
-  description: "",
-  strictComplianceRequired: false,
-  licensing: "PARAPHRASE_ONLY",
-  supersedesId: "",
-  onboardingQuestion: "",
-  onboardingHint: "",
-};
-
 const INPUT_CLASS = "rounded border border-zinc-200 p-2 text-sm dark:border-zinc-800 dark:bg-transparent";
 
 async function fetchFrameworks(): Promise<FrameworkRow[]> {
@@ -73,14 +62,13 @@ async function errorMessage(response: Response, fallback: string): Promise<strin
  * percentage against them). Each row shows its status (Draft/Published) and
  * Requirement count, links to the per-Framework authoring page (Requirements
  * and Control Mappings), and has the one-way Publish action for a Draft.
- * The server page passes the initial list; changes reload it from the API.
+ * Creating a Framework is on its own page, /frameworks/new (#266). The server page passes the initial list; changes reload it from the API.
  * See #55, #72, #73.
  */
 export function FrameworkManager({ initialFrameworks }: { initialFrameworks: FrameworkRow[] }) {
   const [items, setItems] = useState<FrameworkRow[]>(initialFrameworks);
   const [error, setError] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
-  const [newDraft, setNewDraft] = useState<Draft>(EMPTY_DRAFT);
   // Only Compliance Managers and Admins reach this component, and they see Drafts, so every Framework is in `items`.
   const lineages = buildLineages(items, true);
 
@@ -106,32 +94,6 @@ export function FrameworkManager({ initialFrameworks }: { initialFrameworks: Fra
   async function refresh() {
     setItems(await fetchFrameworks());
     setDrafts({});
-  }
-
-  async function handleCreate(event: React.FormEvent) {
-    event.preventDefault();
-    setError(null);
-
-    const response = await fetch("/api/frameworks", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: newDraft.name,
-        version: newDraft.version,
-        description: newDraft.description || undefined,
-        strictComplianceRequired: newDraft.strictComplianceRequired,
-        licensing: newDraft.licensing,
-        supersedesId: newDraft.supersedesId || null,
-      }),
-    });
-
-    if (!response.ok) {
-      setError(await errorMessage(response, "Failed to create Framework"));
-      return;
-    }
-
-    setNewDraft(EMPTY_DRAFT);
-    await refresh();
   }
 
   async function handleSave(item: FrameworkRow) {
@@ -352,71 +314,12 @@ export function FrameworkManager({ initialFrameworks }: { initialFrameworks: Fra
         })}
       </ul>
 
-      <form
-        onSubmit={handleCreate}
-        className="flex flex-col gap-2 border-t border-zinc-200 pt-4 dark:border-zinc-800"
-      >
-        <h2 className="text-base">Add a Framework</h2>
-        <p className="text-xs text-zinc-500">New Frameworks start as a Draft, visible only to Compliance Managers and Admins.</p>
-        <input
-          aria-label="Name"
-          placeholder="Name"
-          className={INPUT_CLASS}
-          value={newDraft.name}
-          onChange={(event) => setNewDraft((prev) => ({ ...prev, name: event.target.value }))}
-          required
-        />
-        <input
-          aria-label="Version"
-          placeholder="Version (e.g. 2022)"
-          className={INPUT_CLASS}
-          value={newDraft.version}
-          onChange={(event) => setNewDraft((prev) => ({ ...prev, version: event.target.value }))}
-          required
-        />
-        <select
-          aria-label="New Framework supersedes"
-          className={INPUT_CLASS}
-          value={newDraft.supersedesId}
-          onChange={(event) => setNewDraft((prev) => ({ ...prev, supersedesId: event.target.value }))}
-        >
-          <option value="">Supersedes nothing (first version)</option>
-          {items.map((other) => (
-            <option key={other.id} value={other.id}>
-              Supersedes {frameworkLabel(other)}
-            </option>
-          ))}
-        </select>
-        <select
-          aria-label="New Framework licensing"
-          className={INPUT_CLASS}
-          value={newDraft.licensing}
-          onChange={(event) => setNewDraft((prev) => ({ ...prev, licensing: event.target.value as Draft["licensing"] }))}
-        >
-          <option value="PARAPHRASE_ONLY">Paraphrase only (licensed standard)</option>
-          <option value="QUOTABLE">Quotable (public domain)</option>
-        </select>
-        <textarea
-          aria-label="New Framework description"
-          placeholder="Description (optional)"
-          className={INPUT_CLASS}
-          value={newDraft.description}
-          onChange={(event) => setNewDraft((prev) => ({ ...prev, description: event.target.value }))}
-        />
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={newDraft.strictComplianceRequired}
-            onChange={(event) =>
-              setNewDraft((prev) => ({ ...prev, strictComplianceRequired: event.target.checked }))
-            }
-          />
-          Requires 100% Fulfilled (no partial credit for Waived/Not Applicable)
-        </label>
-        <Button type="submit" variant="primary">
-          Create
-        </Button>
-      </form>
+      <p className="border-t border-zinc-200 pt-4 text-sm dark:border-zinc-800">
+        <Link href="/frameworks/new" className="text-ems-blue hover:underline">
+          Add a Framework &rarr;
+        </Link>{" "}
+        <span className="text-xs text-zinc-500">New Frameworks start as a Draft, visible only to Compliance Managers and Admins.</span>
+      </p>
     </div>
   );
 }

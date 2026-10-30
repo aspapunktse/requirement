@@ -82,3 +82,14 @@ export function matchesCoverageFilter(state: CoverageState, filter: CoverageFilt
   if (filter === "ALL") return true;
   return filter === "GAPS" ? state === "GAP" : state === "ACCEPTED_GAP";
 }
+
+/**
+ * An open gap whose Requirement does have Control Mappings, all of them Partial (a Full one would cover it).
+ * The Framework list splits its gaps into these and the Requirements nothing is mapped to (#266).
+ */
+export function isPartialOnlyGap(requirement: {
+  mappings: { coverage: MappingCoverage }[];
+  gapAcceptedAt: Date | string | null;
+}): boolean {
+  return deriveCoverageState(requirement) === "GAP" && requirement.mappings.length > 0;
+}

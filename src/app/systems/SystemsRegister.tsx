@@ -18,7 +18,7 @@ import { AddToInternalAuditDialog } from "./AddToInternalAuditDialog";
 import { CiaBars } from "./CiaBars";
 import { BULK_ACTIONS, canChangeAnyOwner } from "./bulk-actions";
 import { PAGE_SIZES, SHOW_COMPACT_TOGGLE, SHOW_JUMP_PALETTE, SHOW_STAT_TRENDS } from "./systems-config";
-import { downloadCsv } from "./systems-download";
+import { downloadCsv } from "@/lib/download-csv";
 import {
   filterOptions,
   filterValues,

@@ -4,13 +4,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { withHeader } from "@/components/__tests__/with-header";
 import { CSV_BOM } from "@/lib/csv";
 import { pageNumbers, SystemsRegister } from "../SystemsRegister";
-import { downloadCsv } from "../systems-download";
+import { downloadCsv } from "@/lib/download-csv";
 import type { SystemRow } from "../systems-types";
 import { row, view } from "./fixtures";
 
 const push = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push, refresh: vi.fn() }), usePathname: () => "/systems" }));
-vi.mock("../systems-download", () => ({ downloadCsv: vi.fn() }));
+vi.mock("@/lib/download-csv", () => ({ downloadCsv: vi.fn() }));
 // A plain anchor: the real Link prefetches and updates state outside act() once per row.
 vi.mock("next/link", () => ({
   default: ({ href, children, ...rest }: { href: string; children: React.ReactNode } & React.AnchorHTMLAttributes<HTMLAnchorElement>) => (
