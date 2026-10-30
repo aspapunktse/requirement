@@ -347,11 +347,16 @@ describe("the Admin-set thresholds (#240)", () => {
       }
     }
     // The rows the snapshot job counts follow the threshold: At 100% every measured, non-Draft System under full fulfilment counts.
-    const count = async (percent: number) => {
-      const result = await read({ "systems.underFulfilledPercent": percent });
-      return systemsSnapshotRows(result.rows).find((entry) => entry.statKey === systemsStatKey("mine"))?.value;
-    };
-    expect(await count(100)).toBeGreaterThanOrEqual((await count(1)) as number);
+    // Both thresholds are read on one transaction (one snapshot), so a System another test file creates or deletes
+    // meanwhile cannot make the two counts differ for any reason but the threshold.
+    const [atOne, atHundred] = await withSettings({ "systems.underFulfilledPercent": 1 }, async (tx) => {
+      const count = async () =>
+        systemsSnapshotRows((await readSystemRows(tx, manager, now)).rows).find((entry) => entry.statKey === systemsStatKey("mine"))?.value as number;
+      const low = await count();
+      await tx.appSetting.update({ where: { key: "systems.underFulfilledPercent" }, data: { value: 100 } });
+      return [low, await count()];
+    });
+    expect(atHundred).toBeGreaterThanOrEqual(atOne);
   });
 
   it("the label's N comes from the setting", async () => {
