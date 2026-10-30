@@ -1,4 +1,4 @@
-import { downloadCsv } from "./systems-download";
+import { downloadCsv } from "@/lib/download-csv";
 import { systemsCsv, systemsCsvFilename } from "./systems-logic";
 import type { UserRole } from "@prisma/client";
 import { canChangeOwner } from "@/lib/system-permissions";

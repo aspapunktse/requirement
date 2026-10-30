@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import {
   deriveCoverageState,
   emptyCoverageSummary,
+  isPartialOnlyGap,
   summarizeCoverage,
   type CoverageState,
   type CoverageSummary,
@@ -101,6 +102,45 @@ export async function loadCoverageSummaries(
   return Object.fromEntries(
     frameworkIds.map((id) => [id, statesByFramework.has(id) ? summarizeCoverage(statesByFramework.get(id)!) : emptyCoverageSummary()]),
   );
+}
+
+/** A Framework's counts for the Framework list: the summary, its open gaps split, and when it last changed (#266). */
+export type CoverageBreakdown = CoverageSummary & {
+  /** Open gaps whose Requirement has Control Mappings, all Partial. `gaps - partialOnly` have none. */
+  partialOnly: number;
+  /** The latest `updatedAt` among the Framework's Requirements and their Control Mappings; null with no Requirements. */
+  latestChange: Date | null;
+};
+
+/**
+ * `loadCoverageSummaries` plus the split of the open gaps and the latest change, for several Frameworks in
+ * one read. Pass the transaction client to read in the caller's snapshot.
+ */
+export async function loadCoverageBreakdowns(
+  frameworkIds: string[],
+  client: Pick<Prisma.TransactionClient, "requirement"> = prisma,
+): Promise<Record<string, CoverageBreakdown>> {
+  const rows = await client.requirement.findMany({
+    where: { frameworkId: { in: frameworkIds } },
+    select: { frameworkId: true, gapAcceptedAt: true, updatedAt: true, mappings: { select: { coverage: true, updatedAt: true } } },
+  });
+
+  const breakdowns: Record<string, CoverageBreakdown> = Object.fromEntries(
+    frameworkIds.map((id) => [id, { ...emptyCoverageSummary(), partialOnly: 0, latestChange: null }]),
+  );
+  for (const row of rows) {
+    const breakdown = breakdowns[row.frameworkId];
+    const state = deriveCoverageState(row);
+    breakdown.total += 1;
+    if (state === "COVERED") breakdown.covered += 1;
+    else if (state === "GAP") breakdown.gaps += 1;
+    else breakdown.accepted += 1;
+    if (isPartialOnlyGap(row)) breakdown.partialOnly += 1;
+    for (const changed of [row.updatedAt, ...row.mappings.map((mapping) => mapping.updatedAt)]) {
+      if (!breakdown.latestChange || changed > breakdown.latestChange) breakdown.latestChange = changed;
+    }
+  }
+  return breakdowns;
 }
 
 /**
