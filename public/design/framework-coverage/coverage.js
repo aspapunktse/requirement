@@ -105,7 +105,13 @@
     const r = find(open); if (!r) return; const t = e.target;
     const b = (sel) => t.closest(sel);
     if (b('[data-close]')) return closeDrawer();
-    if (b('[data-step]')) { const o = order(), i = o.indexOf(open), n = o[(i + +b('[data-step]').dataset.step + o.length) % o.length]; return openDrawer(n); }
+    if (b('[data-step]')) {
+      // The list behind Previous/Next is live and filtered; it can be empty after a change
+      const o = order().filter((c) => find(c));
+      if (!o.length) { Kit.toast('No more Requirements in this view'); return closeDrawer(); }
+      const i = o.indexOf(open), s = +b('[data-step]').dataset.step;
+      return openDrawer(o[i < 0 ? (s > 0 ? 0 : o.length - 1) : (i + s + o.length) % o.length]);
+    }
     if (b('[data-tpl]')) { const ta = document.getElementById('cvJust'); ta.value = b('[data-tpl]').dataset.tpl; ta.focus(); return; }
     if (b('[data-cov]')) { const x = b('[data-cov]'); const was = r.state; act.setCov(r, x.dataset.c, x.dataset.cov); rerender(); return changed(r.state !== was ? `${r.code} is now ${FW.STATE_LABEL[r.state].toLowerCase()}` : ''); }
     if (b('[data-rm]')) { act.removeMap(r, b('[data-rm]').dataset.rm); rerender(); return changed(`Mapping removed from ${r.code}`); }

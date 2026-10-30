@@ -139,7 +139,7 @@ function renderChart() {
 function sectionsOf(f) {
   const reqs = DETAIL[f.id];
   if (!reqs) return '<p class="muted" style="font-size:.8rem">Section breakdown appears here once its Requirements are loaded (example data covers CMMC Level 2 and ISO/IEC 27001).</p>';
-  return `<div class="secs">${FW.sections(reqs).map(([s, rs]) => { const c = FW.recount(rs); return `<a href="${FW.coverageHref(f.id)}#${encodeURIComponent(s)}" title="${esc(s)}"><b>${esc(s.split(' ')[0])}</b>${FW.bar(c, 'thin')}<span>${c.gaps ? `<b style="color:var(--bad);font-family:inherit">${c.gaps}</b> gaps` : 'done'}</span></a>`; }).join('')}</div>`;
+  return `<div class="secs">${FW.sections(reqs).map(([s, rs]) => { const c = FW.recount(rs); return `<a href="${FW.coverageHref(f.id, 'a', 'section=' + encodeURIComponent(s))}" title="${esc(s)}"><b>${esc(s.split(' ')[0])}</b>${FW.bar(c, 'thin')}<span>${c.gaps ? `<b style="color:var(--bad);font-family:inherit">${c.gaps}</b> gaps` : 'done'}</span></a>`; }).join('')}</div>`;
 }
 function ladderOf(f) {
   if (!f.family) return '';
@@ -151,7 +151,7 @@ function renderDetail() {
   const f = FW.byId(sel);
   const cur = FW.canCurate();
   const acts = [`<a class="btn primary" href="${FW.coverageHref(f.id)}">Open coverage</a>`];
-  if (f.gaps) acts.push(`<a class="btn" href="${FW.coverageHref(f.id, 'b')}&mode=queue">Work the ${f.gaps} gaps</a>`);
+  if (f.gaps) acts.push(`<a class="btn" href="${FW.coverageHref(f.id, 'b', 'mode=queue')}">Work the ${f.gaps} gaps</a>`);
   if (cur && f.status === 'DRAFT') acts.push(`<button class="btn" type="button" data-publish="${f.id}">Publish</button>`);
   if (cur) acts.push('<button class="btn ghost" type="button" onclick="Kit.toast(\'Edit details opens the catalog form\')">Edit details</button>');
   document.getElementById('detail').innerHTML = `

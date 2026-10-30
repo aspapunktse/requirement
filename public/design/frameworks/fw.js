@@ -39,7 +39,8 @@
 
   // Only a Compliance Manager (or an Admin) curates; everyone else reads
   const canCurate = () => Appbar.roleKey() === 'COMPLIANCE_MANAGER';
-  const coverageHref = (id, p = 'a') => Appbar.withRole(`/design/framework-coverage/proposal-${p}.html?fw=${id}`);
+  // Extra query parameters go before the #role fragment that withRole appends
+  const coverageHref = (id, p = 'a', query = '') => Appbar.withRole(`/design/framework-coverage/proposal-${p}.html?fw=${id}${query ? '&' + query : ''}`);
   const fmtDate = (d) => new Date(d + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
   const supCode = (r) => 'CMMC-' + r.code.split('-').pop();
 

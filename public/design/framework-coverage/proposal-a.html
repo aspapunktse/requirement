@@ -95,7 +95,8 @@ tbody tr:hover td.acts .btn, tbody tr:focus-within td.acts .btn { opacity: 1; }
 <script src="coverage.js"></script>
 <script>
 const { fw, reqs } = Cov; const esc = FW.esc;
-const S = { filter: 'all', section: 'all', q: '', gapsFirst: false, sel: new Set() };
+const startSection = new URLSearchParams(location.search).get('section');
+const S = { filter: 'all', section: reqs.some((r) => r.section === startSection) ? startSection : 'all', q: '', gapsFirst: false, sel: new Set() };
 const FILTERS = [
   ['all', 'Requirements', () => true, '', ''],
   ['COVERED', 'Covered', (r) => r.state === 'COVERED', 'ok', 'a Full mapping'],
