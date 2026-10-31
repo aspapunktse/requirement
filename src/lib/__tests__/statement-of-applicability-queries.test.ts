@@ -9,18 +9,21 @@ import type { PrismaClient } from "@prisma/client";
  * and checks the count did not move.
  */
 
-const counter = vi.hoisted(() => ({ queries: 0 }));
+const recorder = vi.hoisted(() => ({ current: null as null | import("@/test/query-recorder").QueryRecorder }));
 
 vi.mock("@/lib/prisma", async () => {
   const { PrismaClient } = await import("@prisma/client");
   const client = new PrismaClient({ log: [{ emit: "event", level: "query" }] });
-  (client as unknown as { $on: (event: "query", cb: () => void) => void }).$on("query", () => {
-    counter.queries += 1;
+  const { createQueryRecorder } = await import("@/test/query-recorder");
+  recorder.current = createQueryRecorder();
+  (client as unknown as { $on: (event: "query", cb: (e: { query: string }) => void) => void }).$on("query", (event) => {
+    recorder.current?.push(event.query);
   });
   return { prisma: client };
 });
 
 import { prisma } from "@/lib/prisma";
+import { describeQueries } from "@/test/query-recorder";
 import { createFixtureFramework, mapControlsToFramework } from "@/test/framework-fixtures";
 import { loadStatementOfApplicability } from "../statement-of-applicability";
 
@@ -58,10 +61,10 @@ describe("loadStatementOfApplicability: constant number of queries (#145)", () =
     return system.id;
   }
 
-  async function countQueries() {
-    counter.queries = 0;
-    await loadStatementOfApplicability();
-    return counter.queries;
+  async function recordQueries() {
+    // The statements the loader sent, between two markers (see query-recorder.ts); the SQL is kept so a
+    // mismatch can be read from the failure message.
+    return recorder.current!.record(db, () => loadStatementOfApplicability());
   }
 
   beforeAll(async () => {
@@ -92,8 +95,8 @@ describe("loadStatementOfApplicability: constant number of queries (#145)", () =
   });
 
   it("sends the same queries for more Controls, Systems and Offerings", async () => {
-    const before = await countQueries();
-    expect(before).toBeGreaterThan(0);
+    const before = await recordQueries();
+    expect(before.length).toBeGreaterThan(0);
 
     for (let index = 1; index <= 6; index += 1) {
       await addControl(index % 2 === 0 ? "BOTH" : "PER_SYSTEM", index);
@@ -103,6 +106,7 @@ describe("loadStatementOfApplicability: constant number of queries (#145)", () =
     await db.controlOffering.create({ data: { providerId, controlId: offered, type: "SHARED", customerResponsibility: "x" } });
     await db.controlAssessment.create({ data: { systemId: systemIds[2], controlId: offered, status: "FULFILLED" } });
 
-    expect(await countQueries()).toBe(before);
+    const after = await recordQueries();
+    expect(after.length, describeQueries(before, after)).toBe(before.length);
   });
 });
