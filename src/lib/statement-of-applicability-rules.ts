@@ -149,44 +149,74 @@ export type StatementInputs = {
   providerSourcesBySystemId: ReadonlyMap<string, ReadonlyMap<string, ProviderSource[]>>;
 };
 
+/** The Controls in code order, the order of the rows (a tie on the code falls back to the id). */
+function sortedControls(controls: SoaControl[]): SoaControl[] {
+  return [...controls].sort((a, b) => collator.compare(a.code, b.code) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+}
+
+/** The effective status in every System the Control applies to (any System status); empty for an Organizational Control. */
+function systemStatusesOf(control: SoaControl, inputs: StatementInputs): SystemStatus[] {
+  const organizationStatus = inputs.organizationStatusByControlId.get(control.id);
+  const statuses: SystemStatus[] = [];
+  for (const system of inputs.systems) {
+    if (!controlAppliesToSystem(control, system)) continue;
+    const effective = resolveEffectiveStatus(
+      inputs.ownAssessmentsBySystemId.get(system.id)?.get(control.id) ?? null,
+      inheritanceSourcesFor(control, organizationStatus, inputs.providerSourcesBySystemId.get(system.id)?.get(control.id)),
+    );
+    statuses.push({ systemId: system.id, status: effective.status });
+  }
+  return statuses;
+}
+
+/** One System's effective status of a Control. */
+export type SystemStatus = { systemId: string; status: ControlAssessmentStatus };
+
+/**
+ * The effective status in each System, by Control id, for every Control that applies to at least one
+ * System. The rollup of the row is the count of these; the Statement of Applicability page lists them
+ * (for the Systems the acting user may see) in its drawer.
+ */
+export function deriveSystemStatuses(inputs: StatementInputs): Map<string, SystemStatus[]> {
+  const byControlId = new Map<string, SystemStatus[]>();
+  for (const control of inputs.controls) {
+    const statuses = systemStatusesOf(control, inputs);
+    if (statuses.length > 0) byControlId.set(control.id, statuses);
+  }
+  return byControlId;
+}
+
 /** The Statement of Applicability rows, one per Control exactly once, ordered by code. */
 export function deriveStatementOfApplicability(inputs: StatementInputs): StatementOfApplicabilityRow[] {
-  const { systems, organizationStatusByControlId } = inputs;
-  return [...inputs.controls]
-    .sort((a, b) => collator.compare(a.code, b.code) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
-    .map((control) => {
-      const organizationStatus = organizationStatusByControlId.get(control.id);
-      const appliesToOrganization = controlAppliesToOrganization(control);
+  const { organizationStatusByControlId } = inputs;
+  return sortedControls(inputs.controls).map((control) => {
+    const organizationStatus = organizationStatusByControlId.get(control.id);
+    const appliesToOrganization = controlAppliesToOrganization(control);
 
-      const rollup = emptyRollup();
-      for (const system of systems) {
-        if (!controlAppliesToSystem(control, system)) continue;
-        const effective = resolveEffectiveStatus(
-          inputs.ownAssessmentsBySystemId.get(system.id)?.get(control.id) ?? null,
-          inheritanceSourcesFor(control, organizationStatus, inputs.providerSourcesBySystemId.get(system.id)?.get(control.id)),
-        );
-        rollup.total += 1;
-        rollup.counts[effective.status] += 1;
-      }
+    const rollup = emptyRollup();
+    for (const { status } of systemStatusesOf(control, inputs)) {
+      rollup.total += 1;
+      rollup.counts[status] += 1;
+    }
 
-      const included = appliesToOrganization || rollup.total > 0;
-      // Shown only while excluded; an included Control's stored text is kept but not presented as its reason.
-      const exclusionJustification = included ? null : (control.soaExclusionJustification?.trim() || null);
-      return {
-        controlId: control.id,
-        code: control.code,
-        title: control.title,
-        applicability: control.applicability,
-        included,
-        appliesToOrganization,
-        appliesToSystemCount: rollup.total,
-        inclusionJustification: included ? inclusionJustification(control.mappings) : "",
-        exclusionJustification,
-        justificationMissing: !included && !exclusionJustification?.trim(),
-        organizationStatus: included && control.applicability !== "PER_SYSTEM" ? (organizationStatus ?? "NOT_STARTED") : null,
-        systemRollup: included && control.applicability !== "ORGANIZATIONAL" ? rollup : null,
-      };
-    });
+    const included = appliesToOrganization || rollup.total > 0;
+    // Shown only while excluded; an included Control's stored text is kept but not presented as its reason.
+    const exclusionJustification = included ? null : (control.soaExclusionJustification?.trim() || null);
+    return {
+      controlId: control.id,
+      code: control.code,
+      title: control.title,
+      applicability: control.applicability,
+      included,
+      appliesToOrganization,
+      appliesToSystemCount: rollup.total,
+      inclusionJustification: included ? inclusionJustification(control.mappings) : "",
+      exclusionJustification,
+      justificationMissing: !included && !exclusionJustification?.trim(),
+      organizationStatus: included && control.applicability !== "PER_SYSTEM" ? (organizationStatus ?? "NOT_STARTED") : null,
+      systemRollup: included && control.applicability !== "ORGANIZATIONAL" ? rollup : null,
+    };
+  });
 }
 
 export type InclusionFilter = "ALL" | "INCLUDED" | "EXCLUDED";

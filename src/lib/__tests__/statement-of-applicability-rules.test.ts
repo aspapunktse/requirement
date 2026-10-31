@@ -8,6 +8,7 @@ import {
   exclusionJustificationWriteRefusal,
   normalizeExclusionJustification,
   deriveStatementOfApplicability,
+  deriveSystemStatuses,
   describeRollup,
   inclusionJustification,
   type SoaControl,
@@ -271,5 +272,29 @@ describe("exclusion justification (#150)", () => {
     expect(exclusionJustificationWriteRefusal(true, null)).toBeNull();
     expect(exclusionJustificationWriteRefusal(false, "text")).toBeNull();
     expect(exclusionJustificationWriteRefusal(false, null)).toBeNull();
+  });
+});
+
+describe("deriveSystemStatuses (#272)", () => {
+  it("lists the effective status in each System a Control applies to, the same Systems the rollup counts", () => {
+    const perSystem = control("p", "PER_SYSTEM", [mapping(ISO, "A.1")]);
+    const organizational = control("o", "ORGANIZATIONAL", [mapping(ISO, "A.2")]);
+    const unmapped = control("u", "PER_SYSTEM", []);
+    const inputs = {
+      ...noInputs,
+      controls: [perSystem, organizational, unmapped],
+      systems: [system("s1", { frameworkScopes: [{ id: ISO.id }] }), system("s2", { frameworkScopes: [{ id: ISO.id }] })],
+      ownAssessmentsBySystemId: new Map([["s1", new Map([["p", { status: "FULFILLED" as const, personSet: true }]])]]),
+    };
+    const statuses = deriveSystemStatuses(inputs);
+    expect(statuses.get("p")).toEqual([
+      { systemId: "s1", status: "FULFILLED" },
+      { systemId: "s2", status: "NOT_STARTED" },
+    ]);
+    // An Organizational Control and a Control no System needs have none.
+    expect(statuses.has("o")).toBe(false);
+    expect(statuses.has("u")).toBe(false);
+    const row = deriveStatementOfApplicability(inputs).find((r) => r.controlId === "p");
+    expect(row?.systemRollup).toMatchObject({ total: 2, counts: { FULFILLED: 1, NOT_STARTED: 1 } });
   });
 });
