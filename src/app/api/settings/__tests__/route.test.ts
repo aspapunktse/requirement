@@ -13,6 +13,7 @@ const URL = "http://localhost/api/settings";
 const suffix = `${process.pid}-${Date.now()}`;
 const KEY = "systems.staleDraftDays";
 const PERCENT = "systems.underFulfilledPercent";
+const ORG = "organization.name";
 
 describe("/api/settings", () => {
   let adminId: string;
@@ -26,7 +27,7 @@ describe("/api/settings", () => {
   });
 
   const cleanup = async () => {
-    await prisma.appSetting.deleteMany({ where: { key: { in: [KEY, PERCENT] } } });
+    await prisma.appSetting.deleteMany({ where: { key: { in: [KEY, PERCENT, ORG] } } });
     await prisma.changeEvent.deleteMany({ where: { actorId: { in: [adminId, viewerId, managerId] } } });
   };
   afterEach(cleanup);
@@ -43,7 +44,7 @@ describe("/api/settings", () => {
   const patch = (userId: string | null, body: unknown) =>
     PATCH(requestAs(userId, { method: "PATCH", body: typeof body === "string" ? body : JSON.stringify(body) }));
   const events = () => prisma.changeEvent.findMany({ where: { action: "APP_SETTING_CHANGED", actorId: { in: [adminId, viewerId, managerId] } } });
-  const rows = () => prisma.appSetting.findMany({ where: { key: { in: [KEY, PERCENT] } } });
+  const rows = () => prisma.appSetting.findMany({ where: { key: { in: [KEY, PERCENT, ORG] } } });
   const expectNothingChanged = async () => {
     expect(await rows()).toEqual([]);
     expect(await events()).toEqual([]);
@@ -56,7 +57,7 @@ describe("/api/settings", () => {
     const response = await GET(requestAs(adminId));
     expect(response.status).toBe(200);
     const { settings } = await response.json();
-    expect(settings.map((s: { key: string }) => s.key)).toEqual([KEY, PERCENT]);
+    expect(settings.map((s: { key: string }) => s.key)).toEqual([KEY, PERCENT, ORG]);
     expect(settings.find((s: { key: string }) => s.key === PERCENT)).toMatchObject({ value: 70, isDefault: true, updatedAt: null });
   });
 
@@ -86,6 +87,37 @@ describe("/api/settings", () => {
     [PERCENT, 70.5],
   ])("PATCH: %s = %j is 400 and writes nothing", async (key, value) => {
     expect((await patch(adminId, { key, value })).status).toBe(400);
+    await expectNothingChanged();
+  });
+
+  it("PATCH: the Organization name is saved trimmed, can be cleared, and writes a Change Event with the old and new text", async () => {
+    const response = await patch(adminId, { key: ORG, value: "  Test Org AB  " });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ changed: true, setting: { key: ORG, value: "Test Org AB", isDefault: false } });
+    expect(await rows()).toMatchObject([{ key: ORG, value: "Test Org AB", updatedById: adminId }]);
+    expect((await patch(adminId, { key: ORG, value: "Test Org AB" })).status).toBe(200);
+    expect(await events()).toHaveLength(1);
+
+    const cleared = await patch(adminId, { key: ORG, value: "   " });
+    expect((await cleared.json()).setting).toMatchObject({ value: "" });
+    const details = (await events()).map((event) => event.detail);
+    expect(details).toHaveLength(2);
+    expect(details.some((d) => d.includes('from "" to "Test Org AB"'))).toBe(true);
+    expect(details.some((d) => d.includes('from "Test Org AB" to ""'))).toBe(true);
+  });
+
+  it("PATCH: an Organization name over 200 characters, or not text, is 400 and writes nothing", async () => {
+    expect((await patch(adminId, { key: ORG, value: "x".repeat(201) })).status).toBe(400);
+    expect((await patch(adminId, { key: ORG, value: 5 })).status).toBe(400);
+    expect((await patch(adminId, { key: ORG, value: null })).status).toBe(400);
+    await expectNothingChanged();
+    expect((await patch(adminId, { key: ORG, value: "x".repeat(200) })).status).toBe(200);
+    expect(await rows()).toHaveLength(1);
+  });
+
+  it("PATCH: a non-Admin cannot set the Organization name, and nothing is written", async () => {
+    expect((await patch(managerId, { key: ORG, value: "Test Org AB" })).status).toBe(403);
+    expect((await patch(null, { key: ORG, value: "Test Org AB" })).status).toBe(401);
     await expectNothingChanged();
   });
 

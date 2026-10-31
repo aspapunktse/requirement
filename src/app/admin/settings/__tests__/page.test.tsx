@@ -41,6 +41,13 @@ describe("the Settings page", () => {
     expect(html).toContain("Under N% met");
   });
 
+  it("shows an Admin the Organization section with a text input for the name", async () => {
+    const html = await render(users.ADMIN);
+    expect(html).toContain("Organization");
+    expect(html).toMatch(/<input[^>]*id="setting-organization\.name"[^>]*type="text"|<input[^>]*type="text"[^>]*id="setting-organization\.name"/);
+    expect(html).toContain("Organization name");
+  });
+
   it.each(ROLES.filter((role) => role !== "ADMIN"))("refuses a %s", async (role) => {
     const html = await render(users[role]);
     expect(html).toContain("Only Admins can change settings.");

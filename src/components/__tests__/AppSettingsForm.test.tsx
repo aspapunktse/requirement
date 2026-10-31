@@ -18,6 +18,36 @@ const renderForm = () => render(<AppSettingsForm sections={["Systems list"]} def
 
 afterEach(() => vi.unstubAllGlobals());
 
+describe("AppSettingsForm text setting (#273)", () => {
+  const textDefinition: AppSettingDefinition = { key: "organization.name", section: "Organization", label: "Organization name", help: "Help three.", type: "text", maxLength: 10, default: "" };
+
+  it("renders a text input, saves the trimmed text and refuses one that is too long", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      json({ changed: true, setting: { key: "organization.name", value: "Acme AB", isDefault: false, updatedAt: "2026-10-26T08:00:00.000Z", updatedByName: "Test Admin" } }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    render(
+      <AppSettingsForm
+        sections={["Organization"]}
+        definitions={[textDefinition]}
+        values={[{ key: "organization.name", value: "", isDefault: true, updatedAt: null, updatedByName: null }]}
+      />,
+    );
+    const input = screen.getByLabelText("Organization name");
+    expect(input).toHaveAttribute("type", "text");
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+    await userEvent.type(input, "Way too long name");
+    expect(screen.getByRole("alert")).toHaveTextContent("At most 10 characters");
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+    await userEvent.clear(input);
+    await userEvent.type(input, "  Acme AB ");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(screen.getByText("Saved")).toBeInTheDocument());
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ key: "organization.name", value: "Acme AB" });
+    expect(input).toHaveValue("Acme AB");
+  });
+});
+
 describe("AppSettingsForm (#240)", () => {
   it("shows each setting with its value, default, and who last changed it, and says trend lines can jump", () => {
     renderForm();

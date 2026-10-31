@@ -13,16 +13,19 @@ import { logChangeEvent } from "@/lib/change-events";
  * (`APP_SETTINGS`, `SETTING_SECTIONS`) holds plain data, safe to read on the server and pass as props.
  */
 
-export type AppSettingKey = "systems.staleDraftDays" | "systems.underFulfilledPercent";
+export type AppSettingKey = "systems.staleDraftDays" | "systems.underFulfilledPercent" | "organization.name";
 
-export type AppSettingDefinition = {
+type AppSettingBase = {
   key: AppSettingKey;
   section: string;
   label: string;
   help: string;
+};
+
+export type IntegerSettingDefinition = AppSettingBase & {
+  type: "integer";
   /** The unit shown beside the field, e.g. "days". */
   unit: string;
-  type: "integer";
   min: number;
   max: number;
   default: number;
@@ -30,8 +33,17 @@ export type AppSettingDefinition = {
   affectsTrends: boolean;
 };
 
+/** A free-text setting (#273): trimmed before it is checked or stored; the default "" means unset. */
+export type TextSettingDefinition = AppSettingBase & {
+  type: "text";
+  maxLength: number;
+  default: string;
+};
+
+export type AppSettingDefinition = IntegerSettingDefinition | TextSettingDefinition;
+
 /** The sections of the settings page, in order. */
-export const SETTING_SECTIONS = ["Systems list"] as const;
+export const SETTING_SECTIONS = ["Systems list", "Organization"] as const;
 
 export const APP_SETTINGS: readonly AppSettingDefinition[] = [
   {
@@ -58,18 +70,39 @@ export const APP_SETTINGS: readonly AppSettingDefinition[] = [
     default: 70,
     affectsTrends: true,
   },
+  {
+    key: "organization.name",
+    section: "Organization",
+    label: "Organization name",
+    help: "Named on the cover of the Statement of Applicability export for audit. Leave it empty to leave the Organization line out.",
+    type: "text",
+    maxLength: 200,
+    default: "",
+  },
 ];
 
 export const isAppSettingKey = (key: string): key is AppSettingKey => APP_SETTINGS.some((setting) => setting.key === key);
 
 export const definitionOf = (key: AppSettingKey): AppSettingDefinition => APP_SETTINGS.find((setting) => setting.key === key)!;
 
-/** The zod schema of a setting's value: a whole number within its range. Strings and decimals are refused. */
-export const schemaOf = (definition: AppSettingDefinition) => z.number().int().min(definition.min).max(definition.max);
+/**
+ * The zod schema of a setting's value. An integer setting: a whole number within its range (strings and
+ * decimals are refused). A text setting: a string, trimmed, at most `maxLength` characters.
+ */
+export const schemaOf = (definition: AppSettingDefinition): z.ZodType<number | string> =>
+  definition.type === "text"
+    ? z.string().trim().max(definition.maxLength)
+    : z.number().int().min(definition.min).max(definition.max);
+
+/** What a refused value is told, per type. */
+const refusalOf = (definition: AppSettingDefinition) =>
+  definition.type === "text"
+    ? `${definition.label} must be text of at most ${definition.maxLength} characters`
+    : `${definition.label} must be a whole number from ${definition.min} to ${definition.max}`;
 
 export type AppSettingValue = {
   key: AppSettingKey;
-  value: number;
+  value: number | string;
   /** True when no row is saved (or the saved one no longer fits the declaration) and the default is in use. */
   isDefault: boolean;
   updatedAt: string | null;
@@ -92,18 +125,33 @@ export async function readAppSettings(client: Pick<Prisma.TransactionClient, "ap
 /** The Systems list's two thresholds, read together (inside the list's RepeatableRead transaction, on `tx`). */
 export type SystemsThresholds = { staleDraftDays: number; underFulfilledPercent: number };
 
+const integerDefault = (key: AppSettingKey) => definitionOf(key).default as number;
+
 export const DEFAULT_SYSTEMS_THRESHOLDS: SystemsThresholds = {
-  staleDraftDays: definitionOf("systems.staleDraftDays").default,
-  underFulfilledPercent: definitionOf("systems.underFulfilledPercent").default,
+  staleDraftDays: integerDefault("systems.staleDraftDays"),
+  underFulfilledPercent: integerDefault("systems.underFulfilledPercent"),
 };
 
 export async function readSystemsThresholds(tx: Pick<Prisma.TransactionClient, "appSetting">): Promise<SystemsThresholds> {
   const values = new Map((await readAppSettings(tx)).map((setting) => [setting.key, setting.value]));
+  const number = (key: AppSettingKey, fallback: number) => {
+    const value = values.get(key);
+    return typeof value === "number" ? value : fallback;
+  };
   return {
-    staleDraftDays: values.get("systems.staleDraftDays") ?? DEFAULT_SYSTEMS_THRESHOLDS.staleDraftDays,
-    underFulfilledPercent: values.get("systems.underFulfilledPercent") ?? DEFAULT_SYSTEMS_THRESHOLDS.underFulfilledPercent,
+    staleDraftDays: number("systems.staleDraftDays", DEFAULT_SYSTEMS_THRESHOLDS.staleDraftDays),
+    underFulfilledPercent: number("systems.underFulfilledPercent", DEFAULT_SYSTEMS_THRESHOLDS.underFulfilledPercent),
   };
 }
+
+/** The Organization's name (#273), trimmed; null while unset. Reads on the caller's client (`tx` inside a transaction). */
+export async function readOrganizationName(tx: Pick<Prisma.TransactionClient, "appSetting">): Promise<string | null> {
+  const setting = (await readAppSettings(tx)).find((entry) => entry.key === "organization.name");
+  return typeof setting?.value === "string" && setting.value !== "" ? setting.value : null;
+}
+
+/** A value as written in a Change Event: text in quotes (so an empty one reads as ""), numbers bare. */
+const shown = (value: number | string) => (typeof value === "string" ? JSON.stringify(value) : String(value));
 
 export type SaveSettingResult =
   | { ok: true; changed: boolean; setting: AppSettingValue }
@@ -121,7 +169,7 @@ export async function saveAppSetting(actorId: string, key: string, value: unknow
   const definition = definitionOf(key);
   const parsed = schemaOf(definition).safeParse(value);
   if (!parsed.success) {
-    return { ok: false, status: 400, error: `${definition.label} must be a whole number from ${definition.min} to ${definition.max}` };
+    return { ok: false, status: 400, error: refusalOf(definition) };
   }
   const next = parsed.data;
   return prisma.$transaction(async (tx) => {
@@ -134,7 +182,7 @@ export async function saveAppSetting(actorId: string, key: string, value: unknow
       update: { value: next, updatedById: actorId },
       include: { updatedBy: { select: { name: true } } },
     });
-    await logChangeEvent(null, "APP_SETTING_CHANGED", `${definition.label} (${key}) changed from ${before.value} to ${next}`, actorId, tx);
+    await logChangeEvent(null, "APP_SETTING_CHANGED", `${definition.label} (${key}) changed from ${shown(before.value)} to ${shown(next)}`, actorId, tx);
     return {
       ok: true as const,
       changed: true,

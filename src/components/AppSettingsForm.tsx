@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/Button";
 import type { AppSettingDefinition, AppSettingValue } from "@/lib/app-settings";
 
 const INPUT_CLASS =
-  "w-24 rounded-[var(--rg-radius-md)] border border-rg-line bg-rg-surface p-2 text-sm text-rg-ink";
+  "rounded-[var(--rg-radius-md)] border border-rg-line bg-rg-surface p-2 text-sm text-rg-ink";
 
 const when = (iso: string) => new Date(iso).toLocaleString("sv-SE", { dateStyle: "short", timeStyle: "short" });
 
@@ -17,9 +17,15 @@ function SettingRow({ definition, initial }: { definition: AppSettingDefinition;
   const [message, setMessage] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
   const inputId = `setting-${definition.key}`;
 
-  const parsed = /^\d+$/.test(draft.trim()) ? Number(draft.trim()) : NaN;
-  const inRange = Number.isInteger(parsed) && parsed >= definition.min && parsed <= definition.max;
+  // The value the draft would save, and whether it is acceptable: a whole number in range, or text within its length.
+  const parsed: number | string =
+    definition.type === "text" ? draft.trim() : /^\d+$/.test(draft.trim()) ? Number(draft.trim()) : NaN;
+  const inRange =
+    definition.type === "text"
+      ? (parsed as string).length <= definition.maxLength
+      : Number.isInteger(parsed) && (parsed as number) >= definition.min && (parsed as number) <= definition.max;
   const unchanged = inRange && parsed === current.value;
+  const isText = definition.type === "text";
 
   async function save() {
     setSaving(true);
@@ -54,8 +60,8 @@ function SettingRow({ definition, initial }: { definition: AppSettingDefinition;
       <div className="flex flex-wrap items-center gap-2">
         <input
           id={inputId}
-          inputMode="numeric"
-          className={INPUT_CLASS}
+          {...(definition.type === "text" ? { type: "text", maxLength: definition.maxLength + 50 } : { inputMode: "numeric" as const })}
+          className={`${INPUT_CLASS} ${isText ? "w-full max-w-md" : "w-24"}`}
           value={draft}
           onChange={(event) => {
             setDraft(event.target.value);
@@ -64,13 +70,13 @@ function SettingRow({ definition, initial }: { definition: AppSettingDefinition;
           aria-invalid={!inRange}
           aria-describedby={`${inputId}-meta`}
         />
-        <span className="text-sm text-rg-muted">{definition.unit}</span>
+        {definition.type === "integer" && <span className="text-sm text-rg-muted">{definition.unit}</span>}
         <Button variant="primary" disabled={saving || !inRange || unchanged} onClick={save}>
           {saving ? "Saving…" : "Save"}
         </Button>
         {!inRange && (
           <span role="alert" className="text-sm text-rg-danger">
-            A whole number from {definition.min} to {definition.max}
+            {definition.type === "text" ? `At most ${definition.maxLength} characters` : `A whole number from ${definition.min} to ${definition.max}`}
           </span>
         )}
         {message && (
@@ -80,7 +86,7 @@ function SettingRow({ definition, initial }: { definition: AppSettingDefinition;
         )}
       </div>
       <p id={`${inputId}-meta`} className="text-xs text-rg-muted">
-        Default {definition.default} {definition.unit}.{" "}
+        {definition.type === "text" ? "Not set by default." : `Default ${definition.default} ${definition.unit}.`}{" "}
         {current.updatedAt
           ? `Last changed by ${current.updatedByName ?? "a removed user"} on ${when(current.updatedAt)}.`
           : "Not changed yet; the default is in use."}
@@ -114,7 +120,7 @@ export function AppSettingsForm({
                 <SettingRow key={definition.key} definition={definition} initial={byKey.get(definition.key)!} />
               ))}
             </ul>
-            {inSection.some((definition) => definition.affectsTrends) && (
+            {inSection.some((definition) => definition.type === "integer" && definition.affectsTrends) && (
               <p className="mt-4 text-sm text-rg-muted">
                 The trend lines on the Systems list count earlier days under the value that was in force then, so a line can jump on the
                 day a threshold changes.

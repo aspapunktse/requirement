@@ -1,0 +1,40 @@
+/* The Statement of Applicability print page (#273): a plain A4 document. Register tokens (--rg-*), black on white in print. */
+
+.soa-print { max-width: 210mm; margin: 0 auto; padding: 24px; color: var(--rg-ink); font-size: 13px; line-height: 1.4; }
+.soa-print h1 { font-size: 24px; margin: 0 0 2px; }
+.soa-faint { color: var(--rg-muted); }
+.soa-cover { margin-bottom: 20px; padding-bottom: 14px; border-bottom: 2px solid var(--rg-ink); }
+.soa-cover dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; margin: 14px 0; }
+.soa-cover dt { font-weight: 700; }
+.soa-cover dd { margin: 0; }
+.soa-note { margin: 0; font-size: 12px; color: var(--rg-muted); }
+
+.soa-table { width: 100%; border-collapse: collapse; }
+.soa-table th, .soa-table td { border: 1px solid var(--rg-line); padding: 5px 7px; text-align: left; vertical-align: top; }
+.soa-table th { background: var(--rg-accent-soft); font-size: 12px; }
+.soa-table td:nth-child(1) { width: 32%; }
+.soa-table td:nth-child(2) { width: 10%; }
+.soa-table td:nth-child(3) { width: 34%; }
+.soa-table tr { break-inside: avoid; }
+
+.soa-screen-only { margin-bottom: 18px; }
+.soa-screen-only p { margin: 6px 0 0; color: var(--rg-muted); font-size: 12px; }
+.soa-print-button { border: 1px solid var(--rg-line); border-radius: 10px; background: var(--rg-accent); color: var(--rg-on-accent); font: inherit; font-weight: 600; padding: 7px 14px; cursor: pointer; }
+
+@page {
+  size: A4;
+  margin: 16mm 14mm 18mm;
+  @bottom-center { content: "Page " counter(page) " of " counter(pages); font-size: 9pt; color: #444; }
+}
+
+@media print {
+  /* The app's navigation bar (the root layout's header) and the on-screen controls are not part of the document. */
+  body header:not(.soa-cover), .soa-screen-only { display: none !important; }
+  html, body { background: #fff !important; color: #000 !important; }
+  .soa-print { max-width: none; margin: 0; padding: 0; color: #000; font-size: 9.5pt; }
+  .soa-faint, .soa-note { color: #333; }
+  .soa-table { color: #000; }
+  .soa-table th, .soa-table td { border-color: #666; }
+  .soa-table th { background: #eee; }
+  .soa-table thead { display: table-header-group; }
+}

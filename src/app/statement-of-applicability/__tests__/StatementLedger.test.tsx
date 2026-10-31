@@ -130,7 +130,7 @@ afterEach(() => {
 });
 
 describe("the hero", () => {
-  it("carries the eyebrow, the title, the ring and the two downloads, and no audit export", () => {
+  it("carries the eyebrow, the title, the ring, the audit export and the two downloads", () => {
     renderLedger();
     expect(screen.getByText("ISO/IEC 27001:2022 · Clause 6.1.3 d")).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 1, name: "Statement of Applicability" })).toBeInTheDocument();
@@ -140,7 +140,9 @@ describe("the hero", () => {
     expect(within(legend).getByText("excluded")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Download full Statement" })).toHaveAttribute("href", "/api/statement-of-applicability/export");
     expect(screen.getByRole("button", { name: "Download view" })).toBeEnabled();
-    expect(screen.queryByText(/Export for audit/i)).not.toBeInTheDocument();
+    const audit = screen.getByRole("link", { name: "Export for audit" });
+    expect(audit).toHaveAttribute("href", "/statement-of-applicability/print");
+    expect(audit).toHaveAttribute("target", "_blank");
   });
 });
 
