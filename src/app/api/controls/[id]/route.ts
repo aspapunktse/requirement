@@ -5,7 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { authenticate, authorize } from "@/lib/api-authz";
 import { ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE } from "@/lib/catalog";
 import { canBeControlOwner, CONTROL_OWNER_REFUSAL } from "@/lib/system-permissions";
-import { controlIncludeFor, redactDraftOrigin } from "@/lib/frameworks";
+import { redactDraftOrigin } from "@/lib/frameworks";
+import { loadControlFor } from "@/lib/control-library";
 import { isScopedOrganizationalControl, ORGANIZATIONAL_SCOPING_ERROR } from "@/lib/control-schema";
 import { finishRecompute, prepareRecompute, scopeForControl } from "@/lib/applicability-recompute";
 
@@ -16,10 +17,7 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/controls
   if ("response" in auth) return auth.response;
 
   const { id } = await ctx.params;
-  const control = await prisma.control.findUnique({
-    where: { id },
-    include: controlIncludeFor(auth.user),
-  });
+  const control = await loadControlFor(auth.user, id);
   if (!control) {
     return NextResponse.json({ error: "Control not found" }, { status: 404 });
   }
@@ -122,7 +120,8 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/contro
   const pending = scopingChanged ? await prepareRecompute(await scopeForControl(id), { snapshot: true }) : null;
 
   try {
-    const updated = await prisma.control.update({
+    // The write returns no nested include: the include is read afterwards in one snapshot (#279).
+    await prisma.control.update({
       where: { id },
       data: {
         ...(title !== undefined && { title }),
@@ -140,9 +139,13 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/contro
         ...(minAvailabilityImpactLevel !== undefined && { minAvailabilityImpactLevel }),
         ...(ownerId !== undefined && { ownerId }),
       },
-      include: controlIncludeFor(auth.user),
+      select: { id: true },
     });
     await finishRecompute(pending, `Control ${control.code} scoping edited`);
+    const updated = await loadControlFor(auth.user, id);
+    if (!updated) {
+      return NextResponse.json({ error: "Control not found" }, { status: 404 });
+    }
     return NextResponse.json({ control: updated });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {

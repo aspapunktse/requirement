@@ -42,6 +42,31 @@ export type ControlLibraryRow = {
 };
 
 /**
+ * Every Control with `controlIncludeFor(user)`, ordered by code, as the raw rows (the Draft origin
+ * not yet redacted: callers apply `redactDraftOrigin`). Shared by `GET /api/controls` and
+ * `loadControlLibrary`.
+ *
+ * One REPEATABLE READ snapshot: the include nests mappings -> requirement -> framework, and
+ * Prisma runs it as several statements. A Requirement deleted between them would otherwise leave a
+ * mapping whose required Requirement is gone and throw "Inconsistent query result" (#279). Read-only,
+ * so there is nothing to retry.
+ */
+export async function loadControlsFor(user: { role: UserRole }) {
+  return prisma.$transaction(
+    (tx) => tx.control.findMany({ orderBy: { code: "asc" }, include: controlIncludeFor(user) }),
+    { isolationLevel: "RepeatableRead" },
+  );
+}
+
+/** One Control with `controlIncludeFor(user)` in a REPEATABLE READ snapshot (see `loadControlsFor`); null when it doesn't exist. */
+export async function loadControlFor(user: { role: UserRole }, id: string) {
+  return prisma.$transaction(
+    (tx) => tx.control.findUnique({ where: { id }, include: controlIncludeFor(user) }),
+    { isolationLevel: "RepeatableRead" },
+  );
+}
+
+/**
  * Every Control with what the read-only Control Library page shows (PRD 0001 F-CL, #169),
  * for `user`, in a constant number of queries however many Controls there are (the nested
  * include is a fixed set of statements, not one per Control).
@@ -51,13 +76,7 @@ export type ControlLibraryRow = {
  * hides a Draft origin Framework, so no Draft Framework's name is read at all.
  */
 export async function loadControlLibrary(user: { role: UserRole }): Promise<ControlLibraryRow[]> {
-  // One REPEATABLE READ snapshot: the include nests mappings -> requirement -> framework, and a
-  // Requirement deleted between Prisma's statements would otherwise leave a mapping whose required
-  // Requirement is gone and throw. Read-only, so there is nothing to retry.
-  const controls = await prisma.$transaction(
-    (tx) => tx.control.findMany({ orderBy: { code: "asc" }, include: controlIncludeFor(user) }),
-    { isolationLevel: "RepeatableRead" },
-  );
+  const controls = await loadControlsFor(user);
 
   return controls
     .map((control) => redactDraftOrigin(user, control))
