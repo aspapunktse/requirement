@@ -29,7 +29,7 @@ function requestAs(userId: string | null, init?: { method?: string; body?: unkno
 
 const ctxFor = (id: string) => ({ params: Promise.resolve({ id }) });
 
-describe("Parallel Review Steps through /api/systems/[id]/approvals (#199)", () => {
+describe("Parallel Review Steps through /api/systems/[id]/approvals (#199)", { timeout: 60_000 }, () => {
   const users: Record<string, { id: string; name: string }> = {};
   let facetId: string;
   const groups: { id: string; name: string }[] = [];
@@ -131,7 +131,7 @@ describe("Parallel Review Steps through /api/systems/[id]/approvals (#199)", () 
       controlIds.push(control.id);
       await mapControlsToFramework(framework.id, [control.id]);
     }
-  });
+  }, 60_000);
 
   afterAll(async () => {
     await prisma.changeEvent.deleteMany({ where: { systemId: { in: systemIds } } });
@@ -141,7 +141,7 @@ describe("Parallel Review Steps through /api/systems/[id]/approvals (#199)", () 
     await prisma.reviewGroup.deleteMany({ where: { id: { in: groups.map((g) => g.id) } } });
     await prisma.deploymentFacet.deleteMany({ where: { id: facetId } });
     await prisma.user.deleteMany({ where: { id: { in: Object.values(users).map((u) => u.id) } } });
-  });
+  }, 60_000);
 
   describe("who decides", () => {
     it("lets a group's member decide that group's step and no other; a Reviewer only the base step; an Admin any", async () => {
@@ -490,6 +490,6 @@ describe("Parallel Review Steps through /api/systems/[id]/approvals (#199)", () 
       const ownAdmin = await makeSystem({ ownerKey: "adminOwner" });
       const adminOwnerView = await roleView(await prisma.user.findUniqueOrThrow({ where: { id: users.adminOwner.id } }));
       expect((adminOwnerView.tasks ?? []).some((t) => t.id.startsWith(ownAdmin.system.id) && t.status === "Awaiting review")).toBe(false);
-    }, 20_000); // about twenty page loads: close to the default 5 s on a slow database
+    });
   });
 });

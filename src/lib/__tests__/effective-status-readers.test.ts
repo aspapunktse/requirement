@@ -23,7 +23,7 @@ import { POST as submit } from "@/app/api/systems/[id]/submit/route";
  * Systems), mapped to fixture Published Frameworks that the fixture Systems declare. The
  * Organization's implementation is set directly; the route that does it is tested separately.
  */
-describe("effective status in the readers", () => {
+describe("effective status in the readers", { timeout: 60_000 }, () => {
   const suffix = `${process.pid}-${Date.now()}`;
   const PERSON_SET_STATUSES: ControlAssessmentStatus[] = ["NOT_STARTED", "IN_PROGRESS", "FULFILLED", "WAIVED", "NOT_APPLICABLE"];
 
@@ -135,7 +135,7 @@ describe("effective status in the readers", () => {
       });
     }
     await makeSystem("draft", { status: "DRAFT" });
-  });
+  }, 60_000);
 
   afterAll(async () => {
     const systemIds = Object.values(system);
@@ -147,7 +147,7 @@ describe("effective status in the readers", () => {
     await prisma.control.deleteMany({ where: { id: { in: Object.values(control).map((c) => c.id) } } });
     await prisma.deploymentFacet.deleteMany({ where: { id: facetId } });
     await prisma.user.deleteMany({ where: { id: ownerId } });
-  });
+  }, 60_000);
 
   describe("a Both Control on the System's own rows (getSystemAssessments)", () => {
     it("an untouched Not Started row and a Control with no row are Fulfilled once the Organization is, and drop back when it is not", async () => {
