@@ -398,6 +398,9 @@ export function StatementLedger({ view }: { view: SoaView }) {
             implementation statuses; only the exclusion justification is written by hand.
           </p>
           <div className="actions">
+            <a className="hc-btn primary" href="/statement-of-applicability/print" target="_blank" rel="noopener">
+              Export for audit
+            </a>
             <button type="button" className="hc-btn" onClick={exportView} disabled={listed.length === 0}>
               Download view
             </button>
