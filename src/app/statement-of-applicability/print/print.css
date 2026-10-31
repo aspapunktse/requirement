@@ -29,8 +29,8 @@
 
 @media print {
   /* The app's navigation bar (the root layout's header) and the on-screen controls are not part of the document. */
-  body header:not(.soa-cover), .soa-screen-only { display: none !important; }
-  html, body { background: #fff !important; color: #000 !important; }
+  body:has(.soa-print) header:not(.soa-cover), .soa-screen-only { display: none !important; }
+  html:has(.soa-print), body:has(.soa-print) { background: #fff !important; color: #000 !important; }
   .soa-print { max-width: none; margin: 0; padding: 0; color: #000; font-size: 9.5pt; }
   .soa-faint, .soa-note { color: #333; }
   .soa-table { color: #000; }
