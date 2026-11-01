@@ -5,16 +5,14 @@ import { authenticate, authorize } from "@/lib/api-authz";
 import { ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE } from "@/lib/catalog";
 import { createControlSchema } from "@/lib/control-schema";
 import { controlIncludeFor, redactDraftOrigin } from "@/lib/frameworks";
+import { loadControlsFor } from "@/lib/control-library";
 import { createOrganizationImplementationFor } from "@/lib/organization-implementation";
 
 export async function GET(request: NextRequest) {
   const auth = await authenticate(request);
   if ("response" in auth) return auth.response;
 
-  const controls = await prisma.control.findMany({
-    orderBy: { code: "asc" },
-    include: controlIncludeFor(auth.user),
-  });
+  const controls = await loadControlsFor(auth.user);
   return NextResponse.json({ controls: controls.map((control) => redactDraftOrigin(auth.user, control)) });
 }
 

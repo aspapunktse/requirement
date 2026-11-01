@@ -2,18 +2,21 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { PrismaClient } from "@prisma/client";
 
 /** The Control Library loader sends the same SQL however many Controls there are (#169). */
-const counter = vi.hoisted(() => ({ queries: 0 }));
+const recorder = vi.hoisted(() => ({ current: null as null | import("@/test/query-recorder").QueryRecorder }));
 
 vi.mock("@/lib/prisma", async () => {
   const { PrismaClient } = await import("@prisma/client");
   const client = new PrismaClient({ log: [{ emit: "event", level: "query" }] });
-  (client as unknown as { $on: (event: "query", cb: () => void) => void }).$on("query", () => {
-    counter.queries += 1;
+  const { createQueryRecorder } = await import("@/test/query-recorder");
+  recorder.current = createQueryRecorder();
+  (client as unknown as { $on: (event: "query", cb: (e: { query: string }) => void) => void }).$on("query", (event) => {
+    recorder.current?.push(event.query);
   });
   return { prisma: client };
 });
 
 import { prisma } from "@/lib/prisma";
+import { describeQueries } from "@/test/query-recorder";
 import { createFixtureFramework, mapControlsToFramework } from "@/test/framework-fixtures";
 import { loadControlLibrary } from "../control-library";
 
@@ -42,10 +45,10 @@ describe("loadControlLibrary: constant number of queries (#169)", () => {
     await mapControlsToFramework(frameworkId, [control.id]);
   }
 
-  async function countQueries(role: "VIEWER" | "ADMIN") {
-    counter.queries = 0;
-    await loadControlLibrary({ role });
-    return counter.queries;
+  async function recordQueries(role: "VIEWER" | "ADMIN") {
+    // The statements the loader sent, between two markers (see query-recorder.ts); the SQL is kept so a
+    // mismatch can be read from the failure message.
+    return recorder.current!.record(db, () => loadControlLibrary({ role }));
   }
 
   beforeAll(async () => {
@@ -69,9 +72,10 @@ describe("loadControlLibrary: constant number of queries (#169)", () => {
   });
 
   it.each(["VIEWER", "ADMIN"] as const)("sends the same queries for more Controls and mappings (%s)", async (role) => {
-    const before = await countQueries(role);
-    expect(before).toBeGreaterThan(0);
+    const before = await recordQueries(role);
+    expect(before.length).toBeGreaterThan(0);
     for (let count = 0; count < 8; count += 1) await addControl();
-    expect(await countQueries(role)).toBe(before);
+    const after = await recordQueries(role);
+    expect(after.length, describeQueries(before, after)).toBe(before.length);
   });
 });

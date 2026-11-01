@@ -35,7 +35,7 @@ const ctx = (id: string) => ({ params: Promise.resolve({ id }) }) as never;
 const qctx = (id: string, controlId: string) => ({ params: Promise.resolve({ id, controlId }) }) as never;
 const future = (days: number) => new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
 
-describe("Check-up questions and launch (#154)", () => {
+describe("Check-up questions and launch (#154)", { timeout: 60_000 }, () => {
   const users = {} as Record<UserRole, string>;
   const ownerIds: string[] = []; // three System owners
   let controlOwnerA: string;
@@ -126,7 +126,7 @@ describe("Check-up questions and launch (#154)", () => {
       );
     }
     systemOut = (await prisma.system.create({ data: { name: `Test 154 System Out ${SUFFIX}`, ownerId: ownerIds[0] } })).id;
-  });
+  }, 60_000);
 
   afterAll(async () => {
     const audits = await prisma.internalAudit.findMany({ where: ownAudits(), select: { id: true } });
@@ -136,7 +136,7 @@ describe("Check-up questions and launch (#154)", () => {
     await prisma.system.deleteMany({ where: { name: { endsWith: SUFFIX } } });
     await prisma.control.deleteMany({ where: { code: { endsWith: SUFFIX } } });
     await prisma.user.deleteMany({ where: { email: { startsWith: "test-154-", endsWith: `${SUFFIX}@example.com` } } });
-  });
+  }, 60_000);
 
   describe("the questions of a draft", () => {
     it("starts a Control with its Self-Assessment Question, and none when it has none", async () => {

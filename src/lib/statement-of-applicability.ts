@@ -36,13 +36,17 @@ export async function loadStatementOfApplicability(): Promise<
   // statements, and a Requirement deleted between them (a curator, the import loader)
   // would otherwise leave a mapping whose required Requirement is gone and throw.
   // Read-only, so there is nothing to retry. Sequential: a transaction has one connection.
-  const inputs = await prisma.$transaction(readInputs, {
+  const inputs = await prisma.$transaction(readStatementInputs, {
     isolationLevel: "RepeatableRead",
   });
   return deriveStatementOfApplicability(inputs);
 }
 
-async function readInputs(
+/**
+ * The reads above, on the caller's transaction client. The page (`statement-of-applicability/soa-data.ts`)
+ * calls it inside its own RepeatableRead transaction so its extra reads see the same snapshot.
+ */
+export async function readStatementInputs(
   tx: Prisma.TransactionClient,
 ): Promise<StatementInputs> {
   const controls = await tx.control.findMany({
