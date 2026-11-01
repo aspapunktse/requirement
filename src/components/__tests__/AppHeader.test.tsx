@@ -475,3 +475,38 @@ describe("AppHeader: Ctrl+K palette", () => {
     expect(within(screen.getByRole("dialog")).queryByText("Deployment Facets")).not.toBeInTheDocument();
   });
 });
+
+describe("AppHeader theme switch", () => {
+  it("offers the theme switch next to the acting user", () => {
+    pathname = "/home";
+    stubFetch();
+    render(<AppHeader devStub={false} user={acting} />);
+    expect(screen.getAllByRole("group", { name: "Theme" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "Dark" }).length).toBeGreaterThan(0);
+  });
+
+  it("hides the bar copy of the switch on narrow screens, with no display class that would beat `hidden`", () => {
+    pathname = "/home";
+    stubFetch();
+    render(<AppHeader devStub={false} user={acting} />);
+    const group = screen.getAllByRole("group", { name: "Theme" })[0];
+    const classes = group.className.split(/\s+/);
+    expect(classes).toContain("hidden");
+    expect(classes).toContain("sm:inline-flex");
+    expect(classes).not.toContain("inline-flex");
+    expect(classes).not.toContain("flex");
+  });
+
+  it("stacks the Theme row in the Go to menu so it fits a narrow panel", async () => {
+    pathname = "/home";
+    stubFetch();
+    render(<AppHeader devStub={false} user={acting} />);
+    await userEvent.setup().click(screen.getByRole("button", { name: /Home/ }));
+    const groups = screen.getAllByRole("group", { name: "Theme" });
+    expect(groups).toHaveLength(2);
+    const inMenu = groups.find((group) => group.className.includes("w-full"))!;
+    expect(inMenu.className).toContain("w-full");
+    expect(inMenu.parentElement?.className).toContain("grid");
+    expect(inMenu.parentElement?.className).not.toContain("justify-between");
+  });
+});

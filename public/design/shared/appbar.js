@@ -10,7 +10,33 @@
 // into an empty <header id="appbar"></header>. The acting role lives in the URL hash
 // (#role=SYSTEM_OWNER), the same way the Home proposals keep it, and nav links carry it along.
 // Pages listen for the 'appbar:role' event (detail = role) and read Appbar.role().
+//
+// Theme: the header carries the System / Light / Dark switch (also in the narrow-screen menu), the same as the app
+// (#282). The choice is kept in localStorage under 'theme' ('light' | 'dark'; no entry = System, which follows the OS)
+// and applied as data-theme on <html> as soon as this script runs, so load it in <head> or early in <body>.
+// A page does not need its own theme button.
 (function () {
+  const THEME_KEY = 'theme';
+  const THEMES = [['system', 'System'], ['light', 'Light'], ['dark', 'Dark']];
+  const readTheme = () => { try { const t = localStorage.getItem(THEME_KEY); return t === 'light' || t === 'dark' ? t : 'system'; } catch (e) { return 'system'; } };
+  let current = readTheme(); // what is applied on this page, even when storage is blocked
+  const theme = () => current;
+  const applyTheme = (t) => { if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); else document.documentElement.removeAttribute('data-theme'); };
+  function setTheme(t) {
+    applyTheme(t);
+    current = t;
+    try { if (t === 'system') localStorage.removeItem(THEME_KEY); else localStorage.setItem(THEME_KEY, t); } catch (e) { /* storage blocked: holds for this page only */ }
+    syncTheme();
+  }
+  function syncTheme() {
+    const cur = theme();
+    document.querySelectorAll('.ab-theme [data-theme-set]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.themeSet === cur)));
+  }
+  const themeGroup = (cls) => `<div class="ab-theme ${cls}" role="group" aria-label="Theme">${THEMES.map(([k, l]) =>
+    `<button type="button" data-theme-set="${k}" aria-pressed="${k === theme()}">${l}</button>`).join('')}</div>`;
+  applyTheme(theme());
+  addEventListener('storage', (e) => { if (e.key === null || e.key === THEME_KEY) { current = readTheme(); applyTheme(current); syncTheme(); } });
+
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
   const initials = (n) => n.split(' ').map((p) => p[0]).join('').slice(0, 2);
 
@@ -92,11 +118,12 @@
       </a>
       <div class="ab-menu">
         <button type="button" id="abMenuBtn" aria-expanded="false" aria-controls="abMenu">${icon('menu')}<span class="ab-menu-l">${esc(cur.label)}</span><span class="ab-caret">▾</span></button>
-        <div class="ab-pop" id="abMenu" hidden><span class="ab-label">Go to</span>${visibleNav().map((n) => navLink(n, true)).join('')}</div>
+        <div class="ab-pop" id="abMenu" hidden><span class="ab-label">Go to</span>${visibleNav().map((n) => navLink(n, true)).join('')}<span class="ab-label ab-theme-label">Theme</span>${themeGroup('ab-theme-menu')}</div>
       </div>
       <nav class="ab-nav" aria-label="Main">${visibleNav().map((n) => navLink(n, false)).join('')}</nav>
       <span class="ab-spacer"></span>
       <button type="button" class="ab-search" id="abJump" aria-label="Jump to (Ctrl+K)">${icon('search')}<span>Jump to…</span><kbd>Ctrl K</kbd></button>
+      ${themeGroup('ab-theme-bar')}
       <div class="ab-user">
         <button type="button" id="abUserBtn" aria-expanded="false" aria-controls="abUser" aria-label="Acting as ${esc(r.person)}, ${esc(r.label)}">
           <span class="ab-av">${esc(initials(r.person))}</span><span class="ab-who"><b>${esc(r.person)}</b><small>${esc(r.label)}</small></span><span class="ab-caret">▾</span>
@@ -186,6 +213,8 @@
       if (e.target.closest('#abMenuBtn')) return toggle('abMenuBtn', 'abMenu');
       if (e.target.closest('#abUserBtn')) return toggle('abUserBtn', 'abUser');
       if (e.target.closest('#abJump')) return openPal();
+      const tb = e.target.closest('[data-theme-set]');
+      if (tb) { setTheme(tb.dataset.themeSet); return; }
       const rb = e.target.closest('[data-role]');
       if (rb) { setRole(rb.dataset.role); return; }
       if (!e.target.closest('.ab-pop')) closePops();
@@ -201,5 +230,5 @@
     addEventListener('hashchange', () => { render(); renderProto(); dispatchEvent(new CustomEvent('appbar:role', { detail: role() })); });
   }
 
-  window.Appbar = { mount, role, roleKey, setRole, withRole, icon, NAV, ROLES, open: openPal };
+  window.Appbar = { mount, theme, setTheme, role, roleKey, setRole, withRole, icon, NAV, ROLES, open: openPal };
 })();
