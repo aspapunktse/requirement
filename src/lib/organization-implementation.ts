@@ -106,6 +106,15 @@ export async function getOrganizationControl(db: Db, controlId: string) {
 }
 
 /**
+ * The given Controls the Organization implements, in one query (the bulk edit, #284). A Control that
+ * doesn't exist or is Per-System is simply missing from the result; the caller compares the counts.
+ */
+export async function getOrganizationControls(db: Db, controlIds: string[]) {
+  const controls = await db.control.findMany({ where: { id: { in: controlIds } }, include: ROW_INCLUDE });
+  return controls.filter((control) => hasOrganizationImplementation(control.applicability));
+}
+
+/**
  * Creates the Not Started implementation of a newly created Control, if it is
  * an Organizational or Both one (nothing for a Per-System one). Idempotent
  * (`skipDuplicates`), so it also fills a gap and never resets an existing row.

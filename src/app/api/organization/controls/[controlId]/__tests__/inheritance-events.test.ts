@@ -13,7 +13,8 @@ import { PATCH } from "../route";
  * nothing here touches a seeded Control's implementation.
  *
  * An Organizational Control (#122) writes ONE System-less ORGANIZATION_IMPLEMENTATION_CHANGED event
- * per status change, by the editor, and nothing per System. Its fixture Control is mapped to a
+ * per status change, by the editor, and nothing per System. A Both Control writes the same event too
+ * since #284, next to its per-System ones. Its fixture Control is mapped to a
  * fixture Framework no System declares (an Organizational Control mapped to the base would count on
  * every other test file's Systems).
  */
@@ -276,12 +277,30 @@ describe("PATCH /api/organization/controls/[controlId]: Change Events for inheri
       }
     });
 
-    it("writes no System-less event for a Both Control (it keeps the per-System events of #121)", async () => {
+    it("also writes the System-less event for a Both Control (#284, decision 1c), next to its per-System events", async () => {
+      const bothEvents = () => prisma.changeEvent.findMany({ where: { action: "ORGANIZATION_IMPLEMENTATION_CHANGED", detail: { contains: codeOf(bothId) } }, orderBy: { createdAt: "asc" } });
       await setStatus("NOT_STARTED");
+      const before = (await bothEvents()).length;
+      const systemEventsBefore = (await events()).length;
       await setStatus("FULFILLED");
-      expect(await prisma.changeEvent.count({ where: { action: "ORGANIZATION_IMPLEMENTATION_CHANGED", detail: { contains: codeOf(bothId) } } })).toBe(0);
-      expect(await prisma.changeEvent.count({ where: { systemId: null, detail: { contains: codeOf(bothId) } } })).toBe(0);
-      expect((await events()).length).toBeGreaterThan(0);
+      const logged = await bothEvents();
+      expect(logged).toHaveLength(before + 1);
+      expect(logged.at(-1)).toMatchObject({ systemId: null, actorId: adminId });
+      expect(logged.at(-1)!.detail).toBe(`${codeOf(bothId)} Organization Control Implementation changed from Not Started to Fulfilled`);
+      // The per-System events of #121 are still written
+      expect((await events()).length).toBeGreaterThan(systemEventsBefore);
+      // A description-only edit and a repeat of the same status record nothing
+      await setStatus("FULFILLED", "Only the description changes");
+      expect(await bothEvents()).toHaveLength(before + 1);
+    });
+
+    it("writes the System-less event for a Both Control's status change that moves no System (not Fulfilled either side)", async () => {
+      await setStatus("NOT_STARTED");
+      const before = await prisma.changeEvent.count({ where: { action: "ORGANIZATION_IMPLEMENTATION_CHANGED", detail: { contains: codeOf(bothId) } } });
+      const systemEventsBefore = (await events()).length;
+      await setStatus("IN_PROGRESS");
+      expect(await prisma.changeEvent.count({ where: { action: "ORGANIZATION_IMPLEMENTATION_CHANGED", detail: { contains: codeOf(bothId) } } })).toBe(before + 1);
+      expect((await events()).length).toBe(systemEventsBefore);
     });
   });
 

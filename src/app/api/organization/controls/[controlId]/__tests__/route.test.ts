@@ -337,7 +337,7 @@ describe("PATCH /api/organization/controls/[controlId] (#120)", () => {
     it("writes no Change Event for a person-set Assessment and creates, changes or removes no Control Assessment", async () => {
       // The BOTH Control applies to the fixture System (Facet match + base mapping). Give it an Assessment
       // a person has set, then move the Organization's implementation around. A person-set Assessment is
-      // never overridden by inheritance (#121), so the System's effective status never moves and no event
+      // never overridden by inheritance (#121), so the System's effective status never moves and no System event
       // is written; the cases where it does move are in inheritance-events.test.ts. Earlier cases in this
       // file may already have moved this System (it had no Assessment of the Control then), so the count
       // is compared with what it was before the Assessment existed.
@@ -362,7 +362,10 @@ describe("PATCH /api/organization/controls/[controlId] (#120)", () => {
 
       expect(await snapshot()).toEqual(before);
       expect(await events()).toBe(eventsBefore);
-      expect(await controlEvents()).toBe(controlEventsBefore);
+      // Since #284 (decision 1c) each of the three status changes of a Both Control writes the System-less
+      // ORGANIZATION_IMPLEMENTATION_CHANGED event, and nothing else mentions the Control.
+      expect(await controlEvents()).toBe(controlEventsBefore + 3);
+      expect(await prisma.changeEvent.count({ where: { systemId: null, action: "ORGANIZATION_IMPLEMENTATION_CHANGED", detail: { contains: `TEST-OCI-${SUFFIX}` } } })).toBeGreaterThanOrEqual(3);
       await prisma.organizationControlImplementation.deleteMany({ where: { controlId: bothControlId } });
     });
   });

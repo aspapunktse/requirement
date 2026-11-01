@@ -688,11 +688,13 @@ enum ChangeEventAction {
   // The System's owner or an Admin removed a stale Control Assessment (#109). The row is
   // deleted, so its last status, evidence and notes are kept only in this event's detail.
   ASSESSMENT_REMOVED
-  // System-less: the status of an Organizational Control's Organization Control
-  // Implementation changed (PRD 0001 F-IN.7, F-CE.2, #122). One event per change, actor
-  // the User who made it; nothing is written per System, because the status counts live
-  // on every System with the Framework in scope. (A Both Control's status change writes
-  // per-System ASSESSMENT_STATUS_CHANGED events instead, #121.)
+  // System-less: the status of an Organizational or Both Control's Organization Control
+  // Implementation changed (PRD 0001 F-IN.7, F-CE.2, #122, #284). One event per change, actor
+  // the User who made it. An Organizational Control writes nothing per System, because its
+  // status counts live on every System with the Framework in scope. A Both Control's change
+  // also writes per-System ASSESSMENT_STATUS_CHANGED events for the Systems whose effective
+  // status moved (#121); its System-less event, written since #284, is the Organization-level
+  // record that the Control's history on /organization/controls reads.
   ORGANIZATION_IMPLEMENTATION_CHANGED
   // The Provider's owner or an Admin added, changed or removed one of the Provider's
   // Control Offerings (PRD 0001 F-IN.2, F-CE.2, #123). System-scoped to the Provider,

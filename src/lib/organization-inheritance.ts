@@ -39,7 +39,11 @@ import {
  * would move them all. It writes ONE System-less ORGANIZATION_IMPLEMENTATION_CHANGED
  * event, attributed to the User who made the edit (their direct edit, not a
  * computed side effect), and nothing per System. Only a status change writes it,
- * not a description-only or no-op edit.
+ * not a description-only or no-op edit. Since #284 (decision 1c) a Both Control's
+ * status change writes that same System-less event too, in the same transaction and
+ * on any status change, in addition to the per-System events above: it is the
+ * Organization-level record the Organization Control Implementations page shows as
+ * the Control's history.
  *
  * One transaction, not 50-System batches: the work is a handful of bulk
  * queries plus `createMany`, and the benchmark in HANDOFF.md shows 500 Systems
@@ -67,11 +71,43 @@ export async function saveOrganizationImplementationWithEvents(
   );
 }
 
+/** The most Controls one bulk edit may take (#284): every one runs the full single-edit write inside one transaction. */
+export const ORGANIZATION_BULK_MAX_CONTROLS = 100;
+
+/** The bulk edit's transaction timeout: a few Both Controls can each apply to every System, and all of them share one transaction. */
+export const ORGANIZATION_BULK_TRANSACTION_TIMEOUT_MS = 60_000;
+
+/**
+ * The same edit applied to several Controls (the bulk "Set status…", #284), all or nothing: one
+ * transaction in which every Control goes through `saveOrganizationImplementationIn`, so each gets
+ * exactly the events a single edit by `userId` would write. The Controls are taken in id order, so
+ * two overlapping bulk edits take the Controls' advisory locks in the same order and can't deadlock.
+ * Returns the saved rows in the order of `controls`.
+ */
+export async function saveOrganizationImplementationsWithEvents(
+  controls: OrganizationControl[],
+  userId: string,
+  edit: ImplementationEdit,
+): Promise<OrganizationControlRow[]> {
+  const inLockOrder = [...controls].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  const saved = await prisma.$transaction(
+    async (tx) => {
+      const rows = new Map<string, OrganizationControlRow>();
+      for (const control of inLockOrder) {
+        rows.set(control.id, await saveOrganizationImplementationIn(tx, control, edit, { userId, eventActorId: userId }));
+      }
+      return rows;
+    },
+    { timeout: ORGANIZATION_BULK_TRANSACTION_TIMEOUT_MS },
+  );
+  return controls.map((control) => saved.get(control.id)!);
+}
+
 /**
  * Who an implementation change is attributed to. `userId` is the person who edited it (null when
  * none did: an Internal Audit's Nonconformity, #157, whose set-back leaves "last updated by" as
  * it was); `eventActorId` is the actor of the System-less ORGANIZATION_IMPLEMENTATION_CHANGED
- * event of an Organizational Control (a User id, or `SYSTEM_ACTOR`). The per-System events a Both
+ * event (a User id, or `SYSTEM_ACTOR`). The per-System events a Both
  * Control writes are `SYSTEM_ACTOR`'s either way: they are computed side effects.
  */
 export type ImplementationActor = { userId: string | null; eventActorId: string };
@@ -100,12 +136,12 @@ export async function saveOrganizationImplementationIn(
   const before = current?.status ?? "NOT_STARTED";
   const saved = await saveOrganizationImplementation(tx, control, actor.userId, edit);
   const after = saved.implementation.status;
-  if (control.applicability === "ORGANIZATIONAL") {
-    const detail = describeOrganizationImplementationChange(control.code, before, after);
-    if (detail) await logChangeEvent(null, "ORGANIZATION_IMPLEMENTATION_CHANGED", detail, actor.eventActorId, tx);
-    return saved;
-  }
-  // Nothing can move unless the source went from giving credit to not, or back.
+  // Every status change is recorded once at the Organization level, whatever the applicability (#284).
+  const detail = describeOrganizationImplementationChange(control.code, before, after);
+  if (detail) await logChangeEvent(null, "ORGANIZATION_IMPLEMENTATION_CHANGED", detail, actor.eventActorId, tx);
+  if (control.applicability === "ORGANIZATIONAL") return saved;
+  // A Both Control also moves its Systems' effective status; nothing can move unless the source
+  // went from giving credit to not, or back.
   if (sourceGivesCredit(before) !== sourceGivesCredit(after)) {
     await writeInheritedStatusEvents(tx, control.id, before, after);
   }

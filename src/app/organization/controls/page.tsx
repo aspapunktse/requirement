@@ -1,14 +1,14 @@
 import { getActingUser } from "@/lib/acting-user";
-import { prisma } from "@/lib/prisma";
-import { listOrganizationControls } from "@/lib/organization-implementation";
-import { OrganizationControlImplementations } from "@/components/OrganizationControlImplementations";
+import { ControlsRegister } from "./ControlsRegister";
+import { loadOrganizationControlsView } from "./controls-data";
 
 /**
- * The Organization's Controls (Organizational and Both) with their Organization
- * Control Implementation: status, description, Control Owner (PRD 0001 F-IN.1, #120).
- * Readable by every signed-in role; the rows a user may edit are editable inline.
- * `?mine=1` (the link on a Control Owner's home tasks) starts with the filter on the
- * Controls they own. The data is loaded here and passed down as props.
+ * The Organization's Controls (Organizational and Both) with their Organization Control Implementation: status,
+ * description, Control Owner (PRD 0001 F-IN.1, #120), as design proposal A "Implementation register" in the Home
+ * look (issue #284). Readable by every signed-in role; the rows a user may edit open an editor in place, and
+ * `PATCH /api/organization/controls/[controlId]` (one) and `PATCH /api/organization/controls` (several) enforce
+ * who may write. `?mine=1` (the link on a Control Owner's home tasks) starts with the Controls they own.
+ * `loadOrganizationControlsView` reads everything in one snapshot.
  */
 export default async function OrganizationControlsPage({
   searchParams,
@@ -18,24 +18,12 @@ export default async function OrganizationControlsPage({
   const user = await getActingUser();
 
   if (!user) {
-    return <p className="p-6 text-zinc-600 dark:text-zinc-400">Pick a user to act as first.</p>;
+    return <p className="p-6 text-rg-muted">Pick a user to act as first.</p>;
   }
 
   const { mine } = await searchParams;
-  const controls = await listOrganizationControls(prisma);
+  const view = await loadOrganizationControlsView(user);
 
-  return (
-    <div className="mx-auto max-w-6xl p-6">
-      <h1 className="mb-1 text-2xl">Organization Control Implementations</h1>
-      <p className="mb-4 text-sm text-zinc-500">
-        How the Organization implements each Organizational and Both Control. The Control Owner, a Compliance
-        Manager or an Admin can update the status and description.
-      </p>
-      <OrganizationControlImplementations
-        controls={controls}
-        user={{ id: user.id, role: user.role }}
-        initialMine={mine === "1"}
-      />
-    </div>
-  );
+  // Keyed on the acting user, so switching user starts from a clean state: no filter, search or open Control carried over.
+  return <ControlsRegister key={user.id} view={view} initialMine={mine === "1"} />;
 }
