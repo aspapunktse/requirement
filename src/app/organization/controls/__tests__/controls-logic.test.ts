@@ -8,6 +8,7 @@ import {
   baseRows,
   filterRows,
   groupRows,
+  hasBeenEdited,
   nextEditableId,
   percentFulfilled,
   presentStatuses,
@@ -210,5 +211,15 @@ describe("viewCsv (decision 5a)", () => {
 
   it("names the file after the Organization Controls and the date", () => {
     expect(viewCsvFilename(new Date("2026-11-01T12:00:00Z"))).toBe("Organization-Controls-2026-11-01.csv");
+  });
+});
+
+describe("hasBeenEdited", () => {
+  it("is false for a row nobody edited, true with an editor or with history", () => {
+    const at = "2026-10-01T00:00:00.000Z";
+    expect(hasBeenEdited(row("a", { updatedAt: at }))).toBe(false);
+    expect(hasBeenEdited(row("a"))).toBe(false);
+    expect(hasBeenEdited(row("a", { updatedAt: at, updatedByName: "Pat" }))).toBe(true);
+    expect(hasBeenEdited(row("a", { updatedAt: at, history: [{ at, by: "System", from: "FULFILLED", to: "IN_PROGRESS" }] }))).toBe(true);
   });
 });

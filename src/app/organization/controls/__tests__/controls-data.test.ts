@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { SYSTEM_ACTOR, logChangeEvent } from "@/lib/change-events";
 import { frameworkLabel } from "@/lib/framework-label";
 import { PATCH as patchImplementation } from "@/app/api/organization/controls/[controlId]/route";
+import { getBaseFramework } from "@/test/framework-fixtures";
 import { requestAs, setupProviderFixtures } from "@/test/provider-fixtures";
 import { HISTORY_LIMIT, loadOrganizationControlsView } from "../controls-data";
 
@@ -157,6 +158,15 @@ describe("loadOrganizationControlsView (#284)", () => {
       expect(JSON.stringify(view)).not.toContain("Secret Draft");
     }
     expect((await rowOf(admin(), draftId)).row.origin?.label).toBe(frameworkLabel(draft));
+  });
+
+  it("treats a Control whose origin is the base Framework as a base Control, not a Supplementary one (the ISMS clauses)", async () => {
+    const base = await getBaseFramework();
+    const control = await prisma.control.create({
+      data: { code: `TEST-ORG284-ISMS-${ctx.suffix}`, title: "Test ORG284 clause", description: "d", category: "4 Context of the organization", applicability: "ORGANIZATIONAL", originFrameworkId: base.id },
+    });
+    extra.controls.push(control.id);
+    expect((await rowOf(admin(), control.id)).row.origin).toBeNull();
   });
 
   it("lists only Published Frameworks among the ones a Control maps to", async () => {

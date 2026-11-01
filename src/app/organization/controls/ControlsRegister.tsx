@@ -23,6 +23,7 @@ import {
   filterRows,
   formatDate,
   groupRows,
+  hasBeenEdited,
   nextEditableId,
   percentFulfilled,
   reachTag,
@@ -217,7 +218,7 @@ export function ControlsRegister({ view, initialMine = false }: { view: OrgView;
               <input type="checkbox" aria-label={`Select ${row.code}`} checked={selected.has(row.id)} onChange={(event) => toggleSelected(row.id, event.target.checked)} />
             )}
           </td>
-          <td>
+          <td className="c-code">
             <span className="oc-code">{row.code}</span>
           </td>
           <td className="c-ttl">
@@ -231,15 +232,15 @@ export function ControlsRegister({ view, initialMine = false }: { view: OrgView;
               </span>
             </div>
           </td>
-          <td>
+          <td className="c-own">
             <OwnerCell name={row.ownerName} />
           </td>
-          <td>
+          <td className="c-status">
             <StatusChip status={row.status} />
           </td>
-          <td>{row.description ? <p className="oc-desc">{row.description}</p> : <span className="oc-nodesc">No description</span>}</td>
+          <td className="c-desc">{row.description ? <p className="oc-desc">{row.description}</p> : <span className="oc-nodesc">No description</span>}</td>
           <td className="upd">
-            {row.updatedAt ? (
+            {hasBeenEdited(row) ? (
               <>
                 {formatDate(row.updatedAt)}
                 {row.updatedByName && <small>by {row.updatedByName}</small>}
@@ -290,7 +291,7 @@ export function ControlsRegister({ view, initialMine = false }: { view: OrgView;
                     ) : (
                       <p>No status change recorded yet.</p>
                     )}
-                    {row.updatedAt && (
+                    {hasBeenEdited(row) && (
                       <p className="oc-last">
                         Last updated {formatDate(row.updatedAt)}
                         {row.updatedByName ? ` by ${row.updatedByName}` : ""}
@@ -460,10 +461,10 @@ export function ControlsRegister({ view, initialMine = false }: { view: OrgView;
             ))}
           </span>
           <span className="spacer" />
-          <span className="oc-lbl" id="oc-group-label">
+          <span className="oc-lbl" aria-hidden="true">
             Group by
           </span>
-          <span className="oc-seg" role="group" aria-labelledby="oc-group-label">
+          <span className="oc-seg" role="group" aria-label="Group by">
             {([["status", "Status"], ["owner", "Owner"], ["none", "None"]] as const).map(([key, label]) => (
               <button key={key} type="button" aria-pressed={groupBy === key} onClick={() => setGroupBy(key)}>
                 {label}

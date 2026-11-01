@@ -9,7 +9,7 @@ export const STATUS_COLOR: Record<ControlAssessmentStatus, string> = {
   IN_PROGRESS: "var(--rg-gold)",
   FULFILLED: "var(--rg-success)",
   WAIVED: "var(--oc-waived)",
-  NOT_APPLICABLE: "var(--rg-line)",
+  NOT_APPLICABLE: "var(--oc-na)",
 };
 
 /** A coloured dot and the status word: state is always a word first. */

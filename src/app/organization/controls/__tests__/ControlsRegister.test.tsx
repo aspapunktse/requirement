@@ -237,6 +237,21 @@ describe("ControlsRegister: search, Applies to, grouping (#284)", () => {
     expect(codesShown()).toHaveLength(7);
   });
 
+  it("shows no last-updated date for a row nobody edited, and keeps it for one with history only", async () => {
+    const user = userEvent.setup();
+    const at = "2026-10-01T00:00:00.000Z";
+    renderRegister({
+      rows: [
+        row("N.1", { ...mine, updatedAt: at }),
+        row("N.2", { ...mine, updatedAt: at, history: [{ at, by: "System", from: "FULFILLED", to: "IN_PROGRESS" }] }),
+      ],
+    });
+    expect(within(rowOf("N.1")).queryByText("1 Oct 2026")).not.toBeInTheDocument();
+    expect(within(rowOf("N.2")).getByText("1 Oct 2026")).toBeInTheDocument();
+    await user.click(rowOf("N.1"));
+    expect(screen.queryByText(/^Last updated d/)).not.toBeInTheDocument();
+  });
+
   it("shows the Both Control's reach next to its title", () => {
     renderRegister();
     expect(within(rowOf("A.5.3")).getByText("reaches 4 Systems")).toBeInTheDocument();

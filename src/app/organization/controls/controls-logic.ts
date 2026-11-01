@@ -202,6 +202,15 @@ export function nextEditableId(order: OrgControlRow[], currentId: string): strin
 
 // ---------------------------------------------------------------- dates, text
 
+/**
+ * Has a person or the system ever edited the implementation? A row nobody edited carries only the date the
+ * migration created it, which is not an update, so it shows no "last updated". A set-back with no editor
+ * (an Internal Audit's Nonconformity) has history and keeps its date.
+ */
+export const hasBeenEdited = (row: Pick<OrgControlRow, "updatedAt" | "updatedByName" | "history">) =>
+  row.updatedAt !== null && (row.updatedByName !== null || row.history.length > 0);
+
+
 const DATE = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
 
 /** "30 Oct 2026" (UTC, so the server and the browser agree). */

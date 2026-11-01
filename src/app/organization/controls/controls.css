@@ -7,18 +7,19 @@
 .oc {
   --oc-wait: color-mix(in srgb, var(--rg-muted) 70%, var(--rg-surface));
   --oc-waived: #7b6bb0;
+  --oc-na: var(--rg-line);
 }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .oc { --oc-waived: #a99be0; }
+  :root:not([data-theme="light"]) .oc { --oc-waived: #a99be0; --oc-na: color-mix(in srgb, var(--rg-muted) 38%, var(--rg-surface)); }
 }
-:root[data-theme="dark"] .oc { --oc-waived: #a99be0; }
+:root[data-theme="dark"] .oc { --oc-waived: #a99be0; --oc-na: color-mix(in srgb, var(--rg-muted) 38%, var(--rg-surface)); }
 
 /* Status colours: dots, stacked bars, the ring's legend (the Statement of Applicability uses the same) */
 .oc-s-FULFILLED { background: var(--rg-success); }
 .oc-s-IN_PROGRESS { background: var(--rg-gold); }
 .oc-s-NOT_STARTED { background: var(--oc-wait); }
 .oc-s-WAIVED { background: var(--oc-waived); }
-.oc-s-NOT_APPLICABLE { background: var(--rg-line); }
+.oc-s-NOT_APPLICABLE { background: var(--oc-na); }
 .oc-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; flex: none; }
 .oc-faint { color: var(--rg-muted); }
 
@@ -129,14 +130,23 @@
   .oc td.chev span, .oc .hc-stat, .oc .hc-ring-arc { transition: none; animation: none; }
 }
 
-/* Phones: the table keeps its columns and scrolls inside its card (it is not turned into stacked rows, as the Systems list does) */
+/* Phones: as the Systems list, each row is a compact stacked card; no horizontal scroll */
 @media (max-width: 720px) {
-  .sy.oc table { display: table; min-width: 1060px; }
-  .sy.oc tbody { display: table-row-group; }
-  .sy.oc thead { display: table-header-group; }
-  .sy.oc tbody tr { display: table-row; }
-  .sy.oc tbody td { display: table-cell; }
-  .sy.oc .sy-grp td { position: static; }
-  .sy.oc .sy-tablewrap { max-height: 70vh; }
-  .oc tr.oc-exp > td { padding-left: 12px; }
+  .oc table, .oc tbody { display: block; min-width: 0; width: 100%; }
+  .oc thead { display: none; }
+  .oc tbody tr.oc-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 6px 10px; padding: 12px 16px; border-bottom: 1px solid var(--hc-line-soft); }
+  .oc tbody tr.oc-row td { display: block; padding: 0; border: 0; background: none !important; min-width: 0; width: auto; }
+  .oc tbody td.chk { grid-column: 1; grid-row: 1 / span 3; }
+  .oc tbody td.c-code { grid-column: 2; grid-row: 1; }
+  .oc tbody td.c-status { grid-column: 3; grid-row: 1; }
+  .oc tbody td.c-ttl { grid-column: 2 / span 2; min-width: 0; }
+  .oc tbody td.c-own, .oc tbody td.c-desc, .oc tbody td.upd { grid-column: 2 / span 2; }
+  .oc tbody td.upd { font-size: 0.74rem; }
+  .oc tbody td.chev { display: none; }
+  .oc tbody tr:not(.oc-row), .oc tbody tr:not(.oc-row) td { display: block; }
+  .oc tbody tr.oc-exp > td { padding: 4px 12px 14px; }
+  .oc .sy-grp td { position: static; padding-inline: 16px; }
+  .oc-expin { grid-template-columns: 1fr; padding: 12px; }
+  .oc .sy-tablewrap { max-height: none; overflow-x: hidden; }
+  .oc-bar { width: 100px; }
 }

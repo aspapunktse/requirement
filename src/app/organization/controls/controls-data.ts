@@ -54,7 +54,7 @@ export async function loadOrganizationControlsView(user: { id: string; name: str
           minIntegrityImpactLevel: true,
           minAvailabilityImpactLevel: true,
           deploymentFacets: { select: { id: true } },
-          originFramework: { select: { id: true, name: true, version: true, status: true } },
+          originFramework: { select: { id: true, name: true, version: true, status: true, isBase: true } },
           organizationImplementation: { select: { status: true, description: true, updatedAt: true, updatedBy: { select: { name: true } } } },
           mappings: {
             select: {
@@ -99,7 +99,8 @@ export async function loadOrganizationControlsView(user: { id: string; name: str
 
       const rows = controls.map((control): OrgControlRow => {
         const implementation = control.organizationImplementation;
-        const origin = control.originFramework;
+        // The base Framework's own Controls (the ISMS clauses) are not Supplementary: they sort by category.
+        const origin = control.originFramework?.isBase ? null : control.originFramework;
         const frameworks = new Map<string, string>();
         for (const { requirement } of control.mappings) {
           if (requirement.framework.status !== "PUBLISHED") continue;
