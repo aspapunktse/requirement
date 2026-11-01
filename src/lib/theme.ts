@@ -33,9 +33,19 @@ export function applyTheme(choice: ThemeChoice): void {
 
 const listeners = new Set<() => void>();
 
+// The choice in effect on this page. Kept in memory so the switch shows what is applied even when storage is
+// blocked or a write throws; read from storage lazily, on first use and when another tab changes it.
+let current: ThemeChoice | null = null;
+
+/** Tests only: forget the in-memory choice so the next read comes from storage again. */
+export function resetThemeStateForTests(): void {
+  current = null;
+}
+
 /** Applies and stores the choice (System clears the entry). A blocked storage still applies it for this page. */
 export function saveTheme(choice: ThemeChoice): void {
   applyTheme(choice);
+  current = choice;
   try {
     if (choice === "system") window.localStorage.removeItem(THEME_KEY);
     else window.localStorage.setItem(THEME_KEY, choice);
@@ -50,7 +60,8 @@ export function subscribeTheme(listener: () => void): () => void {
   listeners.add(listener);
   const onStorage = (event: StorageEvent) => {
     if (event.key !== null && event.key !== THEME_KEY) return;
-    applyTheme(readStoredTheme());
+    current = readStoredTheme();
+    applyTheme(current);
     listener();
   };
   window.addEventListener("storage", onStorage);
@@ -61,8 +72,8 @@ export function subscribeTheme(listener: () => void): () => void {
 }
 
 export function getThemeSnapshot(): ThemeChoice {
-  const choice = readStoredTheme();
-  return choice;
+  if (current === null) current = readStoredTheme();
+  return current;
 }
 
 export function getThemeServerSnapshot(): ThemeChoice {

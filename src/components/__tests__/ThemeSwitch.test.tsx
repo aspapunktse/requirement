@@ -2,11 +2,12 @@ import { act, cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ThemeSwitch } from "../ThemeSwitch";
-import { THEME_INIT_SCRIPT, THEME_KEY } from "@/lib/theme";
+import { THEME_INIT_SCRIPT, THEME_KEY, resetThemeStateForTests } from "@/lib/theme";
 
 const root = document.documentElement;
 
 beforeEach(() => {
+  resetThemeStateForTests();
   vi.stubGlobal("matchMedia", (query: string) => ({ matches: false, media: query, addEventListener: vi.fn(), removeEventListener: vi.fn() }));
   window.localStorage.clear();
   root.removeAttribute("data-theme");
@@ -76,6 +77,12 @@ describe("ThemeSwitch", () => {
     expect(pressed("System")).toBe("true");
     await user.click(screen.getByRole("button", { name: "Dark" }));
     expect(root).toHaveAttribute("data-theme", "dark");
+    expect(pressed("Dark")).toBe("true");
+    expect(pressed("System")).toBe("false");
+    await user.click(screen.getByRole("button", { name: "Light" }));
+    expect(root).toHaveAttribute("data-theme", "light");
+    expect(pressed("Light")).toBe("true");
+    expect(pressed("Dark")).toBe("false");
   });
 
   it("follows a change made in another tab", () => {

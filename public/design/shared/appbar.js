@@ -18,10 +18,13 @@
 (function () {
   const THEME_KEY = 'theme';
   const THEMES = [['system', 'System'], ['light', 'Light'], ['dark', 'Dark']];
-  const theme = () => { try { const t = localStorage.getItem(THEME_KEY); return t === 'light' || t === 'dark' ? t : 'system'; } catch (e) { return 'system'; } };
+  const readTheme = () => { try { const t = localStorage.getItem(THEME_KEY); return t === 'light' || t === 'dark' ? t : 'system'; } catch (e) { return 'system'; } };
+  let current = readTheme(); // what is applied on this page, even when storage is blocked
+  const theme = () => current;
   const applyTheme = (t) => { if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); else document.documentElement.removeAttribute('data-theme'); };
   function setTheme(t) {
     applyTheme(t);
+    current = t;
     try { if (t === 'system') localStorage.removeItem(THEME_KEY); else localStorage.setItem(THEME_KEY, t); } catch (e) { /* storage blocked: holds for this page only */ }
     syncTheme();
   }
@@ -32,7 +35,7 @@
   const themeGroup = (cls) => `<div class="ab-theme ${cls}" role="group" aria-label="Theme">${THEMES.map(([k, l]) =>
     `<button type="button" data-theme-set="${k}" aria-pressed="${k === theme()}">${l}</button>`).join('')}</div>`;
   applyTheme(theme());
-  addEventListener('storage', (e) => { if (e.key === null || e.key === THEME_KEY) { applyTheme(theme()); syncTheme(); } });
+  addEventListener('storage', (e) => { if (e.key === null || e.key === THEME_KEY) { current = readTheme(); applyTheme(current); syncTheme(); } });
 
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
   const initials = (n) => n.split(' ').map((p) => p[0]).join('').slice(0, 2);
