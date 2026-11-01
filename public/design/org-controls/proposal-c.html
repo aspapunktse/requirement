@@ -151,10 +151,15 @@ function renderPane() {
       <div><h3>History</h3>${r.history.length ? `<ul class="hist">${r.history.map((h) => `<li style="--c:${ORG.COLOR[h.to]}">${ORG.fmtDate(h.at)} · <b>${esc(h.by)}</b> set ${ORG.statusOf(h.to).label}${h.text ? `<q>${esc(h.text)}</q>` : ''}</li>`).join('')}</ul>` : '<p>No implementation recorded yet; it reads as Not Started.</p>'}</div>
       <div class="keys"><span><kbd>J</kbd> <kbd>K</kbd> next and previous</span><span><kbd>Ctrl</kbd>+<kbd>Enter</kbd> save</span><span><kbd>/</kbd> owners</span></div>
     </div>`;
+  // The queue order as shown, taken before a save can move this Control out of "To do".
+  const before = queue().map((x) => x.id);
   ORG.bindEditor(pane, (res, next) => {
-    const q = queue(), i = q.findIndex((x) => x.id === res.row.id);
     renderSum(); renderOwners();
-    if (next) { const n = queue().filter((x) => x.id !== res.row.id); S.sel = (n[Math.min(i, n.length - 1)] || n[0] || {}).id || null; if (S.filter === 'all') S.sel = (q[i + 1] || {}).id || null; }
+    if (next) {
+      const now = new Set(queue().map((x) => x.id)); now.delete(res.row.id);
+      const i = before.indexOf(res.row.id);
+      S.sel = before.slice(i + 1).find((id) => now.has(id)) || before.slice(0, i).reverse().find((id) => now.has(id)) || null;
+    }
     renderQueue(); renderPane();
     if (next) document.querySelector('#pane textarea')?.focus();
   }, () => { S.sel = null; renderQueue(); renderPane(); });
