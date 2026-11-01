@@ -565,8 +565,8 @@ export function describeInheritedStatusChange(controlCode: string, before: Effec
 }
 
 /**
- * The System-less Change Event detail (F-CE.1, F-CE.2; #122) for a change of an
- * Organizational Control's implementation status, or null when the status
+ * The System-less Change Event detail (F-CE.1, F-CE.2; #122, #284) for a change of an
+ * Organizational or Both Control's implementation status, or null when the status
  * didn't change (a description-only or no-op edit writes no event). The one
  * place the wording lives.
  */
@@ -576,5 +576,27 @@ export function describeOrganizationImplementationChange(
   after: ControlAssessmentStatus,
 ): string | null {
   if (before === after) return null;
-  return `${controlCode} Organization Control Implementation changed from ${CONTROL_ASSESSMENT_STATUS_LABEL[before]} to ${CONTROL_ASSESSMENT_STATUS_LABEL[after]}`;
+  return `${controlCode}${ORGANIZATION_IMPLEMENTATION_CHANGE_MARKER} from ${CONTROL_ASSESSMENT_STATUS_LABEL[before]} to ${CONTROL_ASSESSMENT_STATUS_LABEL[after]}`;
+}
+
+/** What follows the Control's code in the detail of an ORGANIZATION_IMPLEMENTATION_CHANGED event. */
+export const ORGANIZATION_IMPLEMENTATION_CHANGE_MARKER = " Organization Control Implementation changed";
+
+/**
+ * The inverse of `describeOrganizationImplementationChange`: the Control code and the two statuses of an event's
+ * detail, or null when the detail isn't one it wrote. The events carry no Control id, so the Organization Control
+ * Implementations page reads a Control's history by this exact wording. Keep the two functions in sync.
+ */
+export function parseOrganizationImplementationChange(
+  detail: string,
+): { controlCode: string; before: ControlAssessmentStatus; after: ControlAssessmentStatus } | null {
+  const at = detail.indexOf(ORGANIZATION_IMPLEMENTATION_CHANGE_MARKER);
+  if (at <= 0) return null;
+  const match = /^ from (.+) to (.+)$/.exec(detail.slice(at + ORGANIZATION_IMPLEMENTATION_CHANGE_MARKER.length));
+  if (!match) return null;
+  const statusOf = (label: string) =>
+    (Object.keys(CONTROL_ASSESSMENT_STATUS_LABEL) as ControlAssessmentStatus[]).find((status) => CONTROL_ASSESSMENT_STATUS_LABEL[status] === label);
+  const before = statusOf(match[1]);
+  const after = statusOf(match[2]);
+  return before && after ? { controlCode: detail.slice(0, at), before, after } : null;
 }

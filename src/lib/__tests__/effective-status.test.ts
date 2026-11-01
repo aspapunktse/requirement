@@ -10,6 +10,7 @@ import {
   INHERITED_SOURCE_STATUSES,
   inheritanceSourcesFor,
   isInheritanceSource,
+  parseOrganizationImplementationChange,
   resolveEffectiveStatus,
   resetToInheritedRefusal,
   resetToInheritedRefusalMessage,
@@ -189,6 +190,34 @@ describe("describeOrganizationImplementationChange (the System-less Change Event
       "A.5.1 Organization Control Implementation changed from Fulfilled to Not Applicable",
     );
     for (const status of STATUSES) expect(describeOrganizationImplementationChange("A.5.1", status, status)).toBeNull();
+  });
+
+  it("is read back by parseOrganizationImplementationChange for every pair of statuses (the page's history, #284)", () => {
+    for (const before of STATUSES) {
+      for (const after of STATUSES) {
+        if (before === after) continue;
+        const detail = describeOrganizationImplementationChange("A.5.1", before, after)!;
+        expect(parseOrganizationImplementationChange(detail)).toEqual({ controlCode: "A.5.1", before, after });
+      }
+    }
+  });
+
+  it("reads the code up to the marker, so a code with spaces or dashes survives", () => {
+    const detail = describeOrganizationImplementationChange("CCM IAM-01 (x)", "WAIVED", "FULFILLED")!;
+    expect(parseOrganizationImplementationChange(detail)?.controlCode).toBe("CCM IAM-01 (x)");
+  });
+
+  it("reads nothing from any other detail", () => {
+    for (const detail of [
+      "",
+      "A.5.1 is now Fulfilled",
+      " Organization Control Implementation changed from Fulfilled to Waived",
+      "A.5.1 Organization Control Implementation changed from Fulfilled to Whatever",
+      "A.5.1 Organization Control Implementation changed from Fulfilled",
+      "A.5.1 Organization Control Implementation changed from Fulfilled to Waived and more text",
+    ]) {
+      expect(parseOrganizationImplementationChange(detail)).toBeNull();
+    }
   });
 });
 

@@ -279,8 +279,12 @@ describe("Nonconformity side effects (#157)", () => {
       }
       expect(await eventFor(x2)).toEqual([]);
       expect(await eventFor(x3)).toEqual([]);
-      // No System-less ORGANIZATION_IMPLEMENTATION_CHANGED for a Both Control, and the Risk's own event is System-less.
-      expect(await prisma.changeEvent.count({ where: { action: "ORGANIZATION_IMPLEMENTATION_CHANGED", detail: { contains: s.suffix } } })).toBe(0);
+      // Since #284 the set-back of a Both Control also writes the System-less ORGANIZATION_IMPLEMENTATION_CHANGED, by the system;
+      // and the Risk's own event is System-less.
+      const organizationEvents = await prisma.changeEvent.findMany({ where: { action: "ORGANIZATION_IMPLEMENTATION_CHANGED", detail: { contains: bothControl.code } } });
+      expect(organizationEvents).toHaveLength(1);
+      expect(organizationEvents[0]).toMatchObject({ systemId: null, actorId: SYSTEM_ACTOR });
+      expect(organizationEvents[0].detail).toBe(`${bothControl.code} Organization Control Implementation changed from Fulfilled to In Progress`);
       const riskEvents = await prisma.changeEvent.findMany({ where: { action: "RISK_STATUS_CHANGED", systemId: null, detail: { contains: bothControl.code } } });
       expect(riskEvents).toHaveLength(1);
       expect(riskEvents[0].actorId).toBe(SYSTEM_ACTOR);

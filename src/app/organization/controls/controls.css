@@ -1,0 +1,152 @@
+/* The Organization Control Implementations register (design proposal A "Implementation register", issue #284).
+   It builds on the Home look (`src/app/home/home.css`: hero with a ring, stat cards, tabs, search box, buttons),
+   the Systems list (`src/app/systems/systems.css`, under `.sy`: toolbar, table, group rows, footer, bulk bar) and
+   adds the register's own parts: status colours, the editor and the expanded row. Register tokens (--rg-*).
+   The root carries `hc sy oc`; the table scrolls inside its card on a phone instead of turning into stacked rows. */
+
+.oc {
+  --oc-wait: color-mix(in srgb, var(--rg-muted) 70%, var(--rg-surface));
+  --oc-waived: #7b6bb0;
+  --oc-na: var(--rg-line);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .oc { --oc-waived: #a99be0; --oc-na: color-mix(in srgb, var(--rg-muted) 38%, var(--rg-surface)); }
+}
+:root[data-theme="dark"] .oc { --oc-waived: #a99be0; --oc-na: color-mix(in srgb, var(--rg-muted) 38%, var(--rg-surface)); }
+
+/* Status colours: dots, stacked bars, the ring's legend (the Statement of Applicability uses the same) */
+.oc-s-FULFILLED { background: var(--rg-success); }
+.oc-s-IN_PROGRESS { background: var(--rg-gold); }
+.oc-s-NOT_STARTED { background: var(--oc-wait); }
+.oc-s-WAIVED { background: var(--oc-waived); }
+.oc-s-NOT_APPLICABLE { background: var(--oc-na); }
+.oc-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.oc-faint { color: var(--rg-muted); }
+
+/* Hero */
+.oc .hc-hero .actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 16px; }
+.oc .hc-move li button i { flex: none; }
+
+/* Stat cards: the Home .hc-stat; the pressed one says "Showing" */
+.oc .hc-stats { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+
+/* The register card */
+.oc .sy-toolbar .hc-search { max-width: 340px; }
+.oc-seg { display: inline-flex; border: 1px solid var(--rg-line); border-radius: 10px; padding: 2px; background: var(--rg-surface); }
+.oc-seg button { border: 0; background: none; border-radius: 8px; padding: 4px 10px; cursor: pointer; font: inherit; font-weight: 650; font-size: 0.8rem; color: var(--rg-muted); }
+.oc-seg button[aria-pressed="true"] { background: var(--rg-accent-soft); color: var(--rg-accent); }
+.oc-seg button:focus-visible { outline: 2px solid var(--rg-accent); outline-offset: 1px; }
+.oc-lbl { font-size: 0.82rem; color: var(--rg-muted); }
+.oc-tabs { overflow-x: auto; }
+
+.oc table { min-width: 1060px; }
+.oc tbody td { vertical-align: top; }
+.oc thead th.chk, .oc tbody td.chk { width: 40px; padding-right: 0; }
+.oc td.chk input, .oc th.chk input { accent-color: var(--rg-accent); width: 15px; height: 15px; }
+.oc tr.oc-row { cursor: pointer; }
+.oc tr.oc-row:hover td { background: var(--hc-raised); }
+.oc tr.oc-row:focus-visible { outline: 2px solid var(--rg-accent); outline-offset: -2px; }
+.oc tr.oc-row[aria-expanded="true"] td { background: var(--rg-accent-soft); border-bottom-color: transparent; }
+.oc tr.oc-row.flash td { animation: oc-flash 1.4s ease-out; }
+@keyframes oc-flash { from { background: color-mix(in srgb, var(--rg-success) 22%, var(--rg-surface)); } }
+.oc .oc-code { font-family: var(--rg-font-mono); font-size: 0.78rem; font-weight: 700; color: var(--rg-accent); white-space: nowrap; }
+.oc td.c-ttl { min-width: 240px; }
+.oc .ttl { display: grid; gap: 3px; }
+.oc .ttl b { font-weight: 650; overflow-wrap: anywhere; }
+.oc .ttl .tags { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.oc-tag { display: inline-flex; align-items: center; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.02em; padding: 1px 7px; border-radius: 6px; border: 1px solid var(--rg-line); color: var(--rg-muted); white-space: nowrap; }
+.oc-tag.both { background: var(--rg-accent-soft); color: var(--rg-accent); border-color: transparent; }
+.oc-inh { font-size: 0.72rem; color: var(--rg-success); font-weight: 650; }
+.oc .own { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; font-size: 0.84rem; }
+.oc .own.none { color: var(--rg-gold-ink); font-weight: 600; }
+.oc .own .av { width: 24px; height: 24px; font-size: 0.62rem; }
+.oc .own.none .av { background: var(--rg-gold-soft); color: var(--rg-gold-ink); }
+.oc-chip { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; font-size: 0.8rem; font-weight: 650; }
+.oc-desc { color: var(--rg-ink); font-size: 0.84rem; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; max-width: 54ch; overflow-wrap: anywhere; }
+.oc-nodesc { color: var(--rg-muted); font-style: italic; font-size: 0.84rem; }
+.oc td.upd { color: var(--rg-muted); font-size: 0.8rem; white-space: nowrap; }
+.oc td.upd small { display: block; color: var(--rg-muted); opacity: 0.8; }
+.oc td.chev { width: 28px; color: var(--rg-muted); text-align: center; }
+.oc tr.oc-row[aria-expanded="true"] td.chev { color: var(--rg-accent); }
+.oc td.chev span { display: inline-block; transition: transform 0.15s; }
+.oc tr.oc-row[aria-expanded="true"] td.chev span { transform: rotate(90deg); }
+.oc mark { background: var(--rg-gold-soft); color: inherit; border-radius: 3px; }
+
+/* Group rows (spans, not <i>: the Systems list styles every <i> in a group row as its accent dot): name, count, and for an owner the stacked bar with the count of each status beside it (decision 4a) */
+.oc .sy-grp td { display: table-cell; }
+.oc .oc-grp-in { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 14px; }
+.oc .oc-grp-in small { margin-left: 0; }
+.oc-bar { display: flex; width: 140px; height: 6px; border-radius: 3px; overflow: hidden; background: var(--hc-line-soft); gap: 1px; }
+.oc-bar span { display: block; min-width: 2px; }
+.oc-gcounts { display: inline-flex; flex-wrap: wrap; gap: 4px 12px; text-transform: none; letter-spacing: 0; font-weight: 600; font-size: 0.78rem; font-variant-numeric: tabular-nums; }
+.oc-gcounts > span { display: inline-flex; align-items: center; gap: 5px; color: var(--rg-ink); }
+
+/* The row opened in place */
+.oc tr.oc-exp > td { background: var(--rg-accent-soft); padding: 4px 16px 18px 50px; border-bottom: 1px solid var(--rg-line); }
+.oc-expin { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(240px, 1fr); gap: 18px; background: var(--rg-surface); border: 1px solid var(--hc-line-soft); border-radius: 14px; padding: 16px; }
+@media (max-width: 900px) { .oc-expin { grid-template-columns: 1fr; } }
+.oc-facts { display: grid; gap: 12px; font-size: 0.84rem; align-content: start; }
+.oc-facts h3 { font-size: 0.72rem; font-weight: 750; letter-spacing: 0.05em; text-transform: uppercase; color: var(--rg-muted); margin-bottom: 4px; }
+.oc-facts p { color: var(--rg-muted); overflow-wrap: anywhere; }
+.oc-hist { list-style: none; margin: 0; padding: 0 0 0 12px; display: grid; gap: 8px; border-left: 2px solid var(--hc-line-soft); }
+.oc-hist li { font-size: 0.8rem; color: var(--rg-muted); position: relative; }
+.oc-hist li::before { content: ""; position: absolute; left: -17px; top: 5px; width: 8px; height: 8px; border-radius: 50%; background: var(--rg-line); }
+.oc-hist li:first-child::before { background: var(--rg-accent); }
+.oc-hist b { color: var(--rg-ink); font-weight: 650; }
+.oc-last { font-size: 0.8rem; color: var(--rg-muted); }
+
+/* The editor */
+.oc-ed { display: grid; gap: 10px; }
+.oc-spick { border: 0; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.oc-spick legend { font-size: 0.82rem; color: var(--rg-muted); font-weight: 600; margin-bottom: 6px; padding: 0; }
+.oc-spick label { position: relative; display: inline-flex; align-items: center; gap: 7px; padding: 5px 11px 5px 9px; border: 1px solid var(--rg-line); border-radius: 99px; font-size: 0.82rem; font-weight: 650; cursor: pointer; background: var(--rg-surface); color: var(--rg-muted); }
+.oc-spick label:hover { border-color: var(--rg-accent); }
+.oc-spick input { position: absolute; opacity: 0; pointer-events: none; }
+.oc-spick label i { width: 10px; height: 10px; border-radius: 50%; }
+.oc-spick label:has(input:checked) { border-color: var(--rg-accent); background: var(--rg-accent-soft); color: var(--rg-ink); box-shadow: 0 0 0 2px var(--rg-accent-soft); }
+.oc-spick label:has(input:focus-visible) { outline: 2px solid var(--rg-accent); outline-offset: 2px; }
+.oc-field { display: grid; gap: 5px; font-size: 0.82rem; color: var(--rg-muted); font-weight: 600; }
+.oc-field textarea, .oc-field select { border: 1px solid var(--rg-line); background: var(--rg-surface); color: var(--rg-ink); border-radius: 10px; padding: 8px 10px; font: inherit; font-weight: 400; width: 100%; line-height: 1.5; }
+.oc-field textarea { resize: vertical; }
+.oc-field textarea:focus, .oc-field select:focus { outline: 0; border-color: var(--rg-accent); box-shadow: 0 0 0 3px var(--rg-accent-soft); }
+.oc-field textarea[aria-invalid="true"] { border-color: var(--rg-gold-ink); }
+.oc-tpls { display: flex; flex-wrap: wrap; gap: 6px; }
+.oc-tpls button { border: 1px dashed var(--rg-line); background: transparent; border-radius: 99px; padding: 2px 10px; font: inherit; font-size: 0.76rem; cursor: pointer; color: var(--rg-muted); }
+.oc-tpls button:hover { border-color: var(--rg-accent); color: var(--rg-accent); }
+.oc-tpls button:focus-visible { outline: 2px solid var(--rg-accent); outline-offset: 1px; }
+.oc-refuse { color: var(--rg-gold-ink); font-size: 0.78rem; font-weight: 650; }
+.oc-error { color: var(--rg-danger); font-size: 0.82rem; font-weight: 650; }
+.oc-edrow { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.oc-edrow .hc-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.oc-edrow .hc-btn.primary { color: var(--rg-on-accent); }
+.oc-kh { margin-left: auto; font-size: 0.72rem; color: var(--rg-muted); }
+.oc-readonly { font-size: 0.8rem; color: var(--rg-muted); background: var(--hc-raised); border: 1px dashed var(--rg-line); border-radius: 10px; padding: 8px 12px; }
+
+.oc-notice { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--rg-ink); color: var(--rg-paper); border-radius: 12px; padding: 10px 16px; font-size: 0.86rem; font-weight: 600; z-index: 60; max-width: calc(100vw - 32px); }
+.oc .sy-bulk { z-index: 36; }
+
+@media (prefers-reduced-motion: reduce) {
+  .oc tr.oc-row.flash td { animation: none; }
+  .oc td.chev span, .oc .hc-stat, .oc .hc-ring-arc { transition: none; animation: none; }
+}
+
+/* Phones: as the Systems list, each row is a compact stacked card; no horizontal scroll */
+@media (max-width: 720px) {
+  .oc table, .oc tbody { display: block; min-width: 0; width: 100%; }
+  .oc thead { display: none; }
+  .oc tbody tr.oc-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 6px 10px; padding: 12px 16px; border-bottom: 1px solid var(--hc-line-soft); }
+  .oc tbody tr.oc-row td { display: block; padding: 0; border: 0; background: none !important; min-width: 0; width: auto; }
+  .oc tbody td.chk { grid-column: 1; grid-row: 1 / span 3; }
+  .oc tbody td.c-code { grid-column: 2; grid-row: 1; }
+  .oc tbody td.c-status { grid-column: 3; grid-row: 1; }
+  .oc tbody td.c-ttl { grid-column: 2 / span 2; min-width: 0; }
+  .oc tbody td.c-own, .oc tbody td.c-desc, .oc tbody td.upd { grid-column: 2 / span 2; }
+  .oc tbody td.upd { font-size: 0.74rem; }
+  .oc tbody td.chev { display: none; }
+  .oc tbody tr:not(.oc-row), .oc tbody tr:not(.oc-row) td { display: block; }
+  .oc tbody tr.oc-exp > td { padding: 4px 12px 14px; }
+  .oc .sy-grp td { position: static; padding-inline: 16px; }
+  .oc-expin { grid-template-columns: 1fr; padding: 12px; }
+  .oc .sy-tablewrap { max-height: none; overflow-x: hidden; }
+  .oc-bar { width: 100px; }
+}
