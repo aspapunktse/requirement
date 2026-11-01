@@ -1,6 +1,19 @@
 @import "tailwindcss";
 @import "./design-tokens.css";
 
+/* The `dark:` variant follows the same rule as the tokens: dark when the root says data-theme="dark", or when the
+   OS prefers dark and the root doesn't say data-theme="light" (the theme switch, #282). */
+@custom-variant dark {
+  &:where([data-theme="dark"] *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:where(:root:not([data-theme="light"]) *) {
+      @slot;
+    }
+  }
+}
+
 @theme inline {
   --color-background: var(--rg-paper);
   --color-foreground: var(--rg-ink);

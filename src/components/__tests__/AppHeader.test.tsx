@@ -475,3 +475,13 @@ describe("AppHeader: Ctrl+K palette", () => {
     expect(within(screen.getByRole("dialog")).queryByText("Deployment Facets")).not.toBeInTheDocument();
   });
 });
+
+describe("AppHeader theme switch", () => {
+  it("offers the theme switch next to the acting user", () => {
+    pathname = "/home";
+    stubFetch();
+    render(<AppHeader devStub={false} user={acting} />);
+    expect(screen.getAllByRole("group", { name: "Theme" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "Dark" }).length).toBeGreaterThan(0);
+  });
+});

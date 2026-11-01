@@ -9,6 +9,7 @@ import type { PublicUser } from "@/lib/acting-user";
 import { ADMIN_PAGES, GO_TO_GROUP, currentNavKey, goToPaletteItems, navItemsFor, type NavItem } from "@/components/app-nav";
 import { usePageRegistration, type PageRegistration } from "@/components/PaletteProvider";
 import { RoleSwitcher, UserChip } from "@/components/RoleSwitcher";
+import { ThemeSwitch } from "@/components/ThemeSwitch";
 import { useExclusivePopover } from "@/components/useExclusivePopover";
 
 const FOCUS = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rg-accent";
@@ -252,6 +253,10 @@ ${user?.id ?? ""}`;
                       item.href && <MenuLink key={item.key} href={item.href} label={item.title ?? item.label} current={item.key === currentKey} />,
                   )}
                 </nav>
+                <div className="mt-1 flex items-center justify-between gap-2 border-t border-rg-line px-2.5 pt-2 sm:hidden">
+                  <span className="text-[11px] font-bold tracking-wider text-rg-muted uppercase">Theme</span>
+                  <ThemeSwitch />
+                </div>
                 {items.some((item) => item.key === "admin") && (
                   <nav aria-label="Admin pages" className="mt-1 grid gap-0.5 border-t border-rg-line pt-1">
                     <span className="px-2.5 pt-1 pb-0.5 text-[11px] font-bold tracking-wider text-rg-muted uppercase">Admin</span>
@@ -277,6 +282,7 @@ ${user?.id ?? ""}`;
               </kbd>
             </button>
           )}
+          <ThemeSwitch className="hidden sm:inline-flex" />
           {devStub ? <RoleSwitcher /> : user && <UserChip user={user} />}
         </div>
       )}

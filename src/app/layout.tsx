@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { AppHeader } from "@/components/AppHeader";
 import { PaletteProvider } from "@/components/PaletteProvider";
 import { getActingUser, isDevAuthStubEnabled } from "@/lib/acting-user";
+import { THEME_INIT_SCRIPT } from "@/lib/theme";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -13,7 +14,10 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   const user = await getActingUser();
 
   return (
-    <html lang="en" className="h-full antialiased">
+    <html lang="en" className="h-full antialiased" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      </head>
       <body className="min-h-full flex flex-col">
         <PaletteProvider>
           <AppHeader devStub={isDevAuthStubEnabled()} user={user} />
