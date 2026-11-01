@@ -13,7 +13,7 @@ const FOCUS = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visi
 export function ThemeSwitch({ className = "" }: { className?: string }) {
   const choice = useSyncExternalStore(subscribeTheme, getThemeSnapshot, getThemeServerSnapshot);
   return (
-    <div role="group" aria-label="Theme" className={`inline-flex rounded-[10px] border border-rg-line bg-rg-surface p-0.5 ${className}`}>
+    <div role="group" aria-label="Theme" className={`rounded-[10px] border border-rg-line bg-rg-surface p-0.5 ${className}`}>
       {THEME_CHOICES.map(({ value, label }) => (
         <button
           key={value}

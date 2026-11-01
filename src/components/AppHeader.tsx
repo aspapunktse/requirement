@@ -253,9 +253,9 @@ ${user?.id ?? ""}`;
                       item.href && <MenuLink key={item.key} href={item.href} label={item.title ?? item.label} current={item.key === currentKey} />,
                   )}
                 </nav>
-                <div className="mt-1 flex items-center justify-between gap-2 border-t border-rg-line px-2.5 pt-2 sm:hidden">
+                <div className="mt-1 grid gap-1.5 border-t border-rg-line px-2.5 pt-2 sm:hidden">
                   <span className="text-[11px] font-bold tracking-wider text-rg-muted uppercase">Theme</span>
-                  <ThemeSwitch />
+                  <ThemeSwitch className="flex w-full [&>button]:flex-1" />
                 </div>
                 {items.some((item) => item.key === "admin") && (
                   <nav aria-label="Admin pages" className="mt-1 grid gap-0.5 border-t border-rg-line pt-1">
