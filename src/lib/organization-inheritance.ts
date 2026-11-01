@@ -71,9 +71,6 @@ export async function saveOrganizationImplementationWithEvents(
   );
 }
 
-/** The most Controls one bulk edit may take (#284): every one runs the full single-edit write inside one transaction. */
-export const ORGANIZATION_BULK_MAX_CONTROLS = 100;
-
 /** The bulk edit's transaction timeout: a few Both Controls can each apply to every System, and all of them share one transaction. */
 export const ORGANIZATION_BULK_TRANSACTION_TIMEOUT_MS = 60_000;
 

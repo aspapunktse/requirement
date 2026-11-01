@@ -4,8 +4,8 @@ import { ControlAssessmentStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { authenticate } from "@/lib/api-authz";
 import { getOrganizationControls, listOrganizationControls, normalizeDescription } from "@/lib/organization-implementation";
-import { ORGANIZATION_BULK_MAX_CONTROLS, saveOrganizationImplementationsWithEvents } from "@/lib/organization-inheritance";
-import { canEditOrganizationImplementation, implementationDescriptionRefusal } from "@/lib/organization-implementation-rules";
+import { saveOrganizationImplementationsWithEvents } from "@/lib/organization-inheritance";
+import { ORGANIZATION_BULK_MAX_CONTROLS, bulkLimitMessage, canEditOrganizationImplementation, implementationDescriptionRefusal } from "@/lib/organization-implementation-rules";
 
 /**
  * Every Control the Organization implements (Organizational and Both), by code,
@@ -40,8 +40,12 @@ export async function PATCH(request: NextRequest) {
   const auth = await authenticate(request);
   if ("response" in auth) return auth.response;
 
-  const parsed = bulkSchema.safeParse(await request.json().catch(() => null));
-  if (!parsed.success) return NextResponse.json({ error: "Invalid update" }, { status: 400 });
+  const json = await request.json().catch(() => null);
+  const parsed = bulkSchema.safeParse(json);
+  if (!parsed.success) {
+    const tooMany = Array.isArray(json?.controlIds) && json.controlIds.length > ORGANIZATION_BULK_MAX_CONTROLS;
+    return NextResponse.json({ error: tooMany ? bulkLimitMessage() : "Invalid update" }, { status: 400 });
+  }
   const { status } = parsed.data;
   const controlIds = [...new Set(parsed.data.controlIds)];
   const description = normalizeDescription(parsed.data.description) ?? undefined;

@@ -57,3 +57,10 @@ export function implementationDescriptionRefusal(
   }
   return null;
 }
+
+/** The most Controls one bulk edit may take (#284): every one runs the full single-edit write inside one transaction, all or nothing. */
+export const ORGANIZATION_BULK_MAX_CONTROLS = 100;
+
+/** What the page and the route say when a bulk edit names too many Controls. */
+export const bulkLimitMessage = (selected?: number) =>
+  `Bulk changes take at most ${ORGANIZATION_BULK_MAX_CONTROLS} Controls at a time${selected === undefined ? "" : `; ${selected} are selected`}`;

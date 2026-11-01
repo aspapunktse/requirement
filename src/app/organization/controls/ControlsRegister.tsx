@@ -6,6 +6,7 @@ import type { ControlAssessmentStatus } from "@prisma/client";
 import { Icon, Ring } from "@/app/home/HomeGraphics";
 import { useSearchHotkey, type PaletteItem } from "@/app/home/JumpPalette";
 import { usePagePalette } from "@/components/PaletteProvider";
+import { ORGANIZATION_BULK_MAX_CONTROLS, bulkLimitMessage } from "@/lib/organization-implementation-rules";
 import { downloadCsv } from "@/lib/download-csv";
 import "@/app/home/home.css";
 import "@/app/systems/systems.css";
@@ -519,6 +520,7 @@ export function ControlsRegister({ view, initialMine = false }: { view: OrgView;
           <span>
             <b>{selectedRows.length}</b> selected
           </span>
+          {selectedRows.length > ORGANIZATION_BULK_MAX_CONTROLS && <span role="alert">{bulkLimitMessage(selectedRows.length)}</span>}
           <button type="button" onClick={() => setBulkOpen(true)}>
             Set status…
           </button>

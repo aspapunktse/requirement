@@ -476,6 +476,20 @@ describe("ControlsRegister: bulk Set status (#284)", () => {
     expect(screen.queryByRole("region", { name: "Bulk actions" })).not.toBeInTheDocument();
   });
 
+  it("says so and disables Apply when more than 100 Controls are selected, sending nothing", async () => {
+    const user = userEvent.setup();
+    const fetchMock = mockFetch(() => ({ body: {} }));
+    renderRegister({ rows: Array.from({ length: 101 }, (_, i) => row(`M.${i}`, mine)) });
+    await user.click(screen.getByRole("checkbox", { name: "Select all shown" }));
+    const bar = within(screen.getByRole("region", { name: "Bulk actions" }));
+    expect(bar.getByRole("alert")).toHaveTextContent("Bulk changes take at most 100 Controls at a time; 101 are selected");
+    await user.click(bar.getByRole("button", { name: "Set status…" }));
+    const dialog = within(screen.getByRole("dialog"));
+    expect(dialog.getByRole("alert")).toHaveTextContent("Bulk changes take at most 100 Controls at a time; 101 are selected");
+    expect(dialog.getByRole("button", { name: "Apply to 101" })).toBeDisabled();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("needs a reason for Waived and Not Applicable, then applies one status to every selected Control", async () => {
     const user = userEvent.setup();
     const fetchMock = mockFetch((_url, init) => {

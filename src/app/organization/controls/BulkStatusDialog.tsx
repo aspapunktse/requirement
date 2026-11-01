@@ -2,7 +2,7 @@
 
 import { useId, useState, type FormEvent } from "react";
 import type { ControlAssessmentStatus } from "@prisma/client";
-import { implementationDescriptionRefusal } from "@/lib/organization-implementation-rules";
+import { ORGANIZATION_BULK_MAX_CONTROLS, bulkLimitMessage, implementationDescriptionRefusal } from "@/lib/organization-implementation-rules";
 import { STATUS_LABEL, STATUS_ORDER, needsReason } from "./controls-logic";
 import type { OrgControlRow } from "./controls-types";
 
@@ -33,11 +33,12 @@ export function BulkStatusDialog({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  const tooMany = rows.length > ORGANIZATION_BULK_MAX_CONTROLS;
   const refusal = needsReason(status) ? implementationDescriptionRefusal(status, description) : null;
 
   async function save(event: FormEvent) {
     event.preventDefault();
-    if (refusal || saving) return;
+    if (tooMany || refusal || saving) return;
     setError(null);
     setSaving(true);
     try {
@@ -105,6 +106,11 @@ export function BulkStatusDialog({
             onChange={(event) => setDescription(event.target.value)}
           />
         </label>
+        {tooMany && (
+          <p role="alert" className="text-rg-danger">
+            {bulkLimitMessage(rows.length)}
+          </p>
+        )}
         {refusal && <p className="font-semibold text-rg-gold-ink">{refusal}</p>}
         {error && (
           <p role="alert" className="text-rg-danger">
@@ -115,7 +121,7 @@ export function BulkStatusDialog({
           <button type="button" className="hc-btn" onClick={onClose}>
             Cancel
           </button>
-          <button type="submit" className="hc-btn primary" disabled={!!refusal || saving}>
+          <button type="submit" className="hc-btn primary" disabled={tooMany || !!refusal || saving}>
             {saving ? "Applying…" : `Apply to ${rows.length}`}
           </button>
         </div>

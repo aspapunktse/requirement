@@ -117,6 +117,12 @@ describe("PATCH /api/organization/controls (bulk, #284)", () => {
       expect(await snapshot([id])).toEqual(before);
     });
 
+    it("says why when the request names more Controls than the cap (400)", async () => {
+      const response = await bulk(users.admin, { controlIds: Array.from({ length: 101 }, (_, i) => `c${i}`), status: "FULFILLED" });
+      expect(response.status).toBe(400);
+      expect((await response.json()).error).toBe("Bulk changes take at most 100 Controls at a time");
+    });
+
     it("refuses an unknown Control and a Per-System Control (404), naming them, and writes nothing for the rest", async () => {
       const ok = await makeControl("ORGANIZATIONAL");
       const perSystem = await makeControl("PER_SYSTEM");
