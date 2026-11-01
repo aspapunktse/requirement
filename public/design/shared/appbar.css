@@ -90,6 +90,11 @@
   .ab-nav { display: none; }
   .ab-menu { display: block; }
 }
+/* With the Admin item the row is one item longer, so it collapses to the menu sooner */
+@media (max-width: 1400px) {
+  .appbar.ab-many .ab-nav { display: none; }
+  .appbar.ab-many .ab-menu { display: block; }
+}
 @media (max-width: 900px) {
   .ab-search { min-width: 0; }
   .ab-search span, .ab-search kbd { display: none; }

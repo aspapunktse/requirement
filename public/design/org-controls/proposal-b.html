@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Organization Controls Board</title>
+<link rel="stylesheet" href="../systems/systems.css">
+<link rel="stylesheet" href="../shared/appbar.css">
+<link rel="stylesheet" href="../shared/kit.css">
+<link rel="stylesheet" href="org.css">
+<style>
+/* Proposal B: a status board, like the Home daily brief. A one-sentence brief over one segmented
+   bar, then four lanes (Not Started, In Progress, Fulfilled, Waived or Not Applicable). A card can
+   be dragged to another lane, or moved with its menu; moving it to Waived or Not Applicable asks
+   for the reason first. Clicking a card opens the full editor in a side panel. Cards a user may
+   not edit don't move. */
+.brief { padding: 20px 22px; display: grid; gap: 14px; }
+.brief .top { display: flex; flex-wrap: wrap; gap: 10px 20px; align-items: end; }
+.brief h1 { font-size: 1.5rem; }
+.brief p { color: var(--muted); max-width: 78ch; margin-top: 4px; }
+.brief .pct { margin-left: auto; text-align: right; }
+.brief .pct b { font-size: 2.2rem; font-weight: 780; letter-spacing: -0.02em; line-height: 1; color: var(--ok); }
+.brief .pct small { display: block; color: var(--muted); font-size: .76rem; font-weight: 650; }
+.filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.filters .search { flex: 1 1 220px; max-width: 320px; }
+.board { display: grid; grid-template-columns: repeat(4, minmax(250px, 1fr)); gap: 14px; overflow-x: auto; padding-bottom: 6px; align-items: start; }
+.lane { background: color-mix(in srgb, var(--raised) 70%, var(--paper)); border: 1px solid var(--line-soft); border-radius: 16px; display: flex; flex-direction: column; min-height: 320px; transition: border-color .15s, box-shadow .15s, background .15s; }
+.lane.over { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); background: var(--accent-soft); }
+.lane.nodrop { opacity: .55; }
+.lh { display: flex; align-items: center; gap: 8px; padding: 12px 14px 10px; }
+.lh i { width: 10px; height: 10px; border-radius: 50%; }
+.lh b { font-size: .86rem; }
+.lh .n { margin-left: auto; font-size: .74rem; font-weight: 700; background: var(--surface); border: 1px solid var(--line-soft); border-radius: 99px; padding: 0 8px; font-variant-numeric: tabular-nums; color: var(--muted); }
+.lane ol { list-style: none; margin: 0; padding: 0 10px 10px; display: grid; gap: 8px; }
+.cardi { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; display: grid; gap: 6px; cursor: pointer; box-shadow: 0 1px 2px rgba(20, 45, 61, .05); animation: rise .3s both; position: relative; }
+.cardi:hover { border-color: var(--accent); }
+.cardi:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.cardi[draggable="true"] { cursor: grab; }
+.cardi.dragging { opacity: .4; }
+.cardi.flash { animation: flash 1.4s ease-out; }
+@keyframes flash { from { box-shadow: 0 0 0 4px color-mix(in srgb, var(--ok) 35%, transparent); } }
+.cardi .t1 { display: flex; gap: 8px; align-items: baseline; }
+.cardi .t1 b { font-size: .86rem; font-weight: 650; line-height: 1.3; }
+.cardi .t2 { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-size: .74rem; color: var(--faint); }
+.cardi .t2 .grow { flex: 1; }
+.cardi .reason { font-size: .76rem; color: var(--muted); border-left: 2px solid var(--line); padding-left: 8px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.cardi .lock { font-size: .7rem; color: var(--faint); }
+.mv { position: absolute; top: 6px; right: 6px; border: 0; background: transparent; color: var(--faint); border-radius: 8px; width: 26px; height: 26px; cursor: pointer; opacity: 0; font-size: 1rem; }
+.cardi:hover .mv, .cardi:focus-within .mv { opacity: 1; }
+@media (hover: none) { .mv { opacity: 1; } }
+.mv:hover { background: var(--raised); color: var(--ink); }
+.menu { position: absolute; top: 32px; right: 6px; z-index: 6; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); padding: 4px; display: grid; min-width: 180px; }
+.menu button { all: unset; padding: 7px 10px; border-radius: 8px; font-size: .82rem; cursor: pointer; display: flex; gap: 8px; align-items: center; }
+.menu button:hover, .menu button:focus-visible { background: var(--accent-soft); }
+.menu i { width: 9px; height: 9px; border-radius: 50%; }
+.more { margin: 0 10px 10px; }
+.empty { margin: 4px 10px 12px; padding: 18px 10px; border: 1.5px dashed var(--line); border-radius: 12px; text-align: center; color: var(--faint); font-size: .8rem; }
+/* Side panel */
+.scrim { position: fixed; inset: 0; background: rgba(10, 25, 35, .32); z-index: 40; opacity: 0; pointer-events: none; transition: opacity .2s; }
+.scrim.on { opacity: 1; pointer-events: auto; }
+.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(520px, 100vw); background: var(--surface); border-left: 1px solid var(--line); box-shadow: -18px 0 48px rgba(10, 25, 35, .18); z-index: 41; transform: translateX(102%); transition: transform .25s cubic-bezier(.2, .8, .2, 1); display: flex; flex-direction: column; }
+.drawer.on { transform: none; }
+.drawer header { padding: 18px 20px 14px; border-bottom: 1px solid var(--line-soft); display: grid; gap: 6px; position: relative; }
+.drawer header h2 { font-size: 1.15rem; padding-right: 36px; }
+.drawer .x { position: absolute; top: 14px; right: 14px; border: 0; background: var(--raised); border-radius: 10px; width: 32px; height: 32px; cursor: pointer; font-size: 1.1rem; color: var(--muted); }
+.drawer .body { padding: 16px 20px 24px; overflow-y: auto; display: grid; gap: 18px; align-content: start; }
+.drawer h3 { font-size: .72rem; font-weight: 750; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+.drawer .body p { color: var(--muted); font-size: .86rem; }
+@media (prefers-reduced-motion: reduce) { .drawer, .scrim { transition: none; } }
+</style>
+</head>
+<body>
+<header id="appbar"></header>
+<main class="app">
+  <section class="card brief" aria-labelledby="h1">
+    <div class="top">
+      <div><p class="eyebrow">Organization</p><h1 id="h1">Organization Control Implementations</h1><p id="sentence"></p></div>
+      <div class="pct"><b id="pct"></b><small>Fulfilled</small></div>
+    </div>
+    <div id="bar"></div>
+    <div class="lg" id="lg"></div>
+  </section>
+
+  <div class="filters">
+    <label class="search"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 4a5 5 0 1 0 0 10A5 5 0 0 0 9 4zM13 13l4 4"/></svg><input id="q" type="search" placeholder="Search Controls" aria-label="Search Controls"><kbd>/</kbd></label>
+    <select class="sel" id="theme" aria-label="Theme"><option value="all">All themes</option></select>
+    <select class="sel" id="owner" aria-label="Control Owner"><option value="all">Every Control Owner</option></select>
+    <label class="toggle"><input type="checkbox" id="mine"> Only Controls I own</label>
+    <span class="grow"></span>
+    <span class="hint muted" style="font-size:.78rem" id="dragHint"></span>
+  </div>
+
+  <section class="board" id="board" aria-label="Implementation status board"></section>
+</main>
+
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="drawer" aria-label="Control" aria-hidden="true" inert></aside>
+<dialog id="why"><form method="dialog" class="in" id="whyForm"></form></dialog>
+
+<script src="../controls/data.js"></script>
+<script src="../shared/kit.js"></script>
+<script src="../shared/appbar.js"></script>
+<script src="org.js"></script>
+<script>
+const { ROWS, STATUSES, esc } = ORG;
+const LANES = [
+  { key: 'NOT_STARTED', label: 'Not Started', has: ['NOT_STARTED'], color: 'var(--line)' },
+  { key: 'IN_PROGRESS', label: 'In Progress', has: ['IN_PROGRESS'], color: 'var(--gold)' },
+  { key: 'FULFILLED', label: 'Fulfilled', has: ['FULFILLED'], color: 'var(--ok)' },
+  { key: 'REASONED', label: 'Waived or Not Applicable', has: ['WAIVED', 'NOT_APPLICABLE'], color: 'var(--faint)' },
+];
+const S = { q: '', theme: 'all', owner: 'all', mine: new URLSearchParams(location.search).get('mine') === '1', more: {}, open: null, menu: null, flash: null, drag: null };
+
+function renderBrief() {
+  const c = ORG.counts();
+  const mine = ROWS.filter(ORG.isMine), mineOpen = mine.filter((r) => r.status === 'NOT_STARTED' || r.status === 'IN_PROGRESS');
+  const who = Appbar.role();
+  const lead = mine.length ? `${esc(who.person)}, you own <b>${mine.length}</b> of these Controls; <b>${mineOpen.length}</b> still need work.` : `${ORG.ROWS.filter((r) => !r.owner).length} Controls have no Control Owner yet, so only a Compliance Manager or an Admin can move them.`;
+  document.getElementById('sentence').innerHTML = `${lead} ${c.IN_PROGRESS} are in progress and ${c.NOT_STARTED} not started across ${ROWS.length} Organizational and Both Controls.`;
+  document.getElementById('pct').textContent = ORG.fulfilledPct() + '%';
+  document.getElementById('bar').innerHTML = ORG.bar(ROWS, 'fat');
+  document.getElementById('dragHint').textContent = ['COMPLIANCE_MANAGER', 'ADMIN'].includes(Appbar.roleKey()) ? 'Drag a card to change its status' : 'Drag the cards you own to change their status';
+}
+function filtered() {
+  const q = S.q.toLowerCase();
+  return ROWS.filter((r) => (S.theme === 'all' || r.theme === S.theme) && (S.owner === 'all' || (r.owner || '') === S.owner) && (!S.mine || ORG.isMine(r)) && (!q || `${r.code} ${r.title} ${r.description || ''}`.toLowerCase().includes(q)));
+}
+function card(r) {
+  const ed = ORG.canEdit(r);
+  const st = ORG.statusOf(r.status);
+  return `<li class="cardi${S.flash === r.id ? ' flash' : ''}" data-id="${esc(r.id)}" tabindex="0" ${ed ? 'draggable="true"' : ''} aria-label="${esc(r.code)} ${esc(r.title)}, ${st.label}">
+    <div class="t1"><span class="code">${esc(r.code)}</span><b>${esc(r.title)}</b></div>
+    ${ORG.NEEDS_REASON.includes(r.status) ? `<p class="reason"><b>${st.label}:</b> ${esc(r.description || '')}</p>` : ''}
+    <div class="t2">${ORG.av(r.owner)}${r.applicability === 'BOTH' ? `<span class="tag both" title="Inherited by ${r.systems} Systems while Fulfilled">Both · ${r.systems}</span>` : ''}<span class="grow"></span>${ed ? '' : '<span class="lock" title="Only its Control Owner, a Compliance Manager or an Admin can change it">read only</span>'}<span>${ORG.ago(r.updatedAt)}</span></div>
+    ${ed ? `<button class="mv" type="button" data-menu="${esc(r.id)}" aria-label="Move ${esc(r.code)}" aria-expanded="${S.menu === r.id}">⋯</button>` : ''}
+    ${S.menu === r.id ? `<div class="menu" role="menu">${STATUSES.filter((s) => s.key !== r.status).map((s) => `<button role="menuitem" type="button" data-to="${s.key}" data-for="${esc(r.id)}"><i class="s-${s.key}"></i>Move to ${s.label}</button>`).join('')}</div>` : ''}
+  </li>`;
+}
+function renderBoard() {
+  const list = filtered();
+  document.getElementById('board').innerHTML = LANES.map((l) => {
+    const rs = list.filter((r) => l.has.includes(r.status));
+    const lim = S.more[l.key] ? rs.length : 25;
+    return `<div class="lane" data-lane="${l.key}" aria-label="${l.label}"><div class="lh"><i style="background:${l.color}"></i><b>${l.label}</b><span class="n">${rs.length}</span></div>
+      ${rs.length ? `<ol>${rs.slice(0, lim).map(card).join('')}</ol>${rs.length > lim ? `<button class="btn sm more" type="button" data-more="${l.key}">Show ${rs.length - lim} more</button>` : ''}` : `<div class="empty">${S.mine ? 'None of yours here' : 'Nothing here'}</div>`}</div>`;
+  }).join('');
+  S.flash = null;
+}
+// Moving: Waived / Not Applicable ask for the reason, the rest save straight away
+function move(id, to) {
+  const r = ORG.byId(id);
+  if (r.status === to) return;
+  if (!ORG.NEEDS_REASON.includes(to)) { const res = ORG.save(id, to, r.description); if (res.error) return Kit.toast(res.error); done(res); return; }
+  const f = document.getElementById('whyForm');
+  f.innerHTML = `<h2>Why is ${esc(r.code)} out of scope?</h2><p class="muted">${esc(r.title)}. The reason becomes the implementation description and is required.</p>
+    <fieldset class="spick"><legend>Status</legend>${ORG.NEEDS_REASON.map((k) => `<label class="sp-${k}"><input type="radio" name="to" value="${k}" ${k === to ? 'checked' : ''}><i></i>${ORG.statusOf(k).label}</label>`).join('')}</fieldset>
+    <label class="field">Reason<textarea name="description" rows="4" required>${esc(ORG.NEEDS_REASON.includes(r.status) ? r.description || '' : '')}</textarea></label>
+    <div class="tpls">${ORG.TEMPLATES.map((t) => `<button type="button" data-tpl="${esc(t)}">${esc(t)}</button>`).join('')}</div>
+    <div class="row"><button class="btn" value="cancel" formnovalidate>Cancel</button><button class="btn primary" value="ok" id="whyOk">Save</button></div>`;
+  const sync = () => { document.getElementById('whyOk').disabled = !f.description.value.trim(); };
+  f.oninput = sync; f.onclick = (e) => { const t = e.target.closest('[data-tpl]'); if (t) { f.description.value = t.dataset.tpl; f.description.focus(); sync(); } }; sync();
+  const d = document.getElementById('why'); d.showModal();
+  f.onsubmit = (e) => { if (e.submitter?.value === 'ok') { const res = ORG.save(id, f.querySelector('[name=to]:checked').value, f.description.value); if (res.error) Kit.toast(res.error); else done(res); } };
+}
+function done(res) { Kit.toast(`${res.row.code} moved to ${ORG.statusOf(res.row.status).label}`); S.flash = res.row.id; S.menu = null; renderBrief(); renderBoard(); if (S.open === res.row.id) renderDrawer(); }
+
+function renderDrawer() {
+  const r = ORG.byId(S.open), d = document.getElementById('drawer');
+  d.innerHTML = `<header><span class="code">${esc(r.code)}</span><h2>${esc(r.title)}</h2><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">${ORG.chip(r.status)}${ORG.applies(r)}${ORG.owner(r)}</div><button class="x" type="button" data-close aria-label="Close">×</button></header>
+    <div class="body"><div><h3>The Control</h3><p>${esc(r.summary)}</p></div>
+      <div><h3>What it does for Systems</h3><p>${ORG.reach(r)}</p></div>
+      <div id="edHost">${ORG.editor(r)}</div>
+      <div><h3>Last updated</h3><p>${r.updatedAt ? `${ORG.fmtDate(r.updatedAt)} by ${esc(r.updatedBy)}` : 'Never: it reads as Not Started.'}</p></div></div>`;
+  ORG.bindEditor(d, (res) => done(res), closeDrawer);
+}
+function openDrawer(id) { S.open = id; renderDrawer(); const d = document.getElementById('drawer'); d.classList.add('on'); d.inert = false; d.setAttribute('aria-hidden', 'false'); document.getElementById('scrim').classList.add('on'); setTimeout(() => (d.querySelector('textarea') || d.querySelector('.x')).focus(), 50); }
+function closeDrawer() { const d = document.getElementById('drawer'); d.classList.remove('on'); d.inert = true; d.setAttribute('aria-hidden', 'true'); document.getElementById('scrim').classList.remove('on'); const c = document.querySelector(`.cardi[data-id="${CSS.escape(S.open || '')}"]`); S.open = null; c?.focus(); }
+
+function fillSelects() {
+  document.getElementById('theme').innerHTML = '<option value="all">All themes</option>' + ORG.THEMES.map((t) => `<option value="${t[0]}">${esc(t[1])}</option>`).join('');
+  document.getElementById('owner').innerHTML = '<option value="all">Every Control Owner</option>' + ORG.owners().map(([o, rs]) => `<option value="${esc(o)}">${esc(o || 'No Control Owner')} (${rs.length})</option>`).join('');
+  document.getElementById('mine').checked = S.mine;
+}
+function renderAll() { S.menu = null; renderBrief(); renderBoard(); if (S.open) renderDrawer(); }
+
+const board = document.getElementById('board');
+board.addEventListener('click', (e) => {
+  const m = e.target.closest('[data-menu]'); if (m) { e.stopPropagation(); S.menu = S.menu === m.dataset.menu ? null : m.dataset.menu; renderBoard(); document.querySelector('.menu button')?.focus(); return; }
+  const to = e.target.closest('[data-to]'); if (to) { e.stopPropagation(); S.menu = null; renderBoard(); move(to.dataset.for, to.dataset.to); return; }
+  const mo = e.target.closest('[data-more]'); if (mo) { S.more[mo.dataset.more] = true; renderBoard(); return; }
+  const c = e.target.closest('.cardi'); if (c) openDrawer(c.dataset.id);
+});
+board.addEventListener('keydown', (e) => { const c = e.target.closest('.cardi'); if (c && e.target === c && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openDrawer(c.dataset.id); } });
+board.addEventListener('dragstart', (e) => { const c = e.target.closest('.cardi'); if (!c) return; S.drag = c.dataset.id; c.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', c.dataset.id); });
+board.addEventListener('dragend', () => { S.drag = null; document.querySelectorAll('.lane').forEach((l) => l.classList.remove('over')); document.querySelectorAll('.dragging').forEach((c) => c.classList.remove('dragging')); });
+board.addEventListener('dragover', (e) => { const l = e.target.closest('.lane'); if (!l || !S.drag) return; e.preventDefault(); document.querySelectorAll('.lane').forEach((x) => x.classList.toggle('over', x === l)); });
+board.addEventListener('drop', (e) => {
+  const l = e.target.closest('.lane'); if (!l || !S.drag) return; e.preventDefault();
+  const lane = LANES.find((x) => x.key === l.dataset.lane), id = S.drag;
+  if (lane.has.includes(ORG.byId(id).status)) return;
+  move(id, lane.key === 'REASONED' ? 'WAIVED' : lane.key);
+});
+document.addEventListener('click', (e) => { if (S.menu && !e.target.closest('.menu')) { S.menu = null; renderBoard(); } });
+document.getElementById('scrim').addEventListener('click', closeDrawer);
+document.getElementById('drawer').addEventListener('click', (e) => { if (e.target.closest('[data-close]')) closeDrawer(); });
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') { if (S.menu) { S.menu = null; renderBoard(); } else if (S.open) closeDrawer(); }
+  if (e.key === '/' && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) { e.preventDefault(); document.getElementById('q').focus(); }
+});
+document.getElementById('q').addEventListener('input', (e) => { S.q = e.target.value; renderBoard(); });
+document.getElementById('theme').addEventListener('change', (e) => { S.theme = e.target.value; renderBoard(); });
+document.getElementById('owner').addEventListener('change', (e) => { S.owner = e.target.value; renderBoard(); });
+document.getElementById('mine').addEventListener('change', (e) => { S.mine = e.target.checked; renderBoard(); });
+document.getElementById('lg').innerHTML = ORG.legend();
+addEventListener('appbar:role', renderAll);
+
+Appbar.mount({ current: 'controls', proposal: { label: 'B', siblings: [['A', 'proposal-a.html'], ['C', 'proposal-c.html']] }, items: ORG.paletteItems(openDrawer) });
+fillSelects();
+renderAll();
+</script>
+</body>
+</html>

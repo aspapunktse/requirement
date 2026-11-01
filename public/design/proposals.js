@@ -3,6 +3,64 @@
 // `id` is the vote key: keep it stable once people have voted, or the votes are orphaned.
 window.DESIGN_PARTS = [
   {
+    id: "deployment-facets",
+    name: "Deployment Facets",
+    added: "2026-10-30",
+    question: "How should an Admin curate the Deployment Facet catalog, seeing which Systems and Controls depend on each Facet before renaming or retiring it?",
+    proposals: [
+      {
+        id: "deployment-facets-a",
+        label: "A",
+        title: "Catalog table",
+        href: "/design/deployment-facets/proposal-a.html",
+        summary: "A hero ring of how Systems split over the Facets, stat cards that filter, and a table with one dot per System, Controls scoped, add and edit in the row, and a Retire dialog that says what it would do.",
+      },
+      {
+        id: "deployment-facets-b",
+        label: "B",
+        title: "Tile wall",
+        href: "/design/deployment-facets/proposal-b.html",
+        summary: "One tile per Facet with a coloured edge, odometer counters and a dot per System, turning over to edit in place, plus a matrix of which Facets hybrid Systems declare together.",
+      },
+      {
+        id: "deployment-facets-c",
+        label: "C",
+        title: "Impact workbench",
+        href: "/design/deployment-facets/proposal-c.html",
+        summary: "A Facet list beside one Facet edited in place, with a live preview of the choice owners see, tabs for its Systems and Controls, and a Retire tab that flags Controls that would widen.",
+      },
+    ],
+  },
+  {
+    id: "org-controls",
+    name: "Organization Control Implementations",
+    added: "2026-10-30",
+    question: "How should the Organization's Controls show how each one is implemented, and make updating status and description quick for Control Owners and Compliance Managers?",
+    proposals: [
+      {
+        id: "org-controls-a",
+        label: "A",
+        title: "Implementation register",
+        href: "/design/org-controls/proposal-a.html",
+        summary: "A status ring, stat cards that filter (Controls I own among them), theme tabs and a table whose row opens the editor in place with what the status does for Systems; bulk status for a Compliance Manager.",
+      },
+      {
+        id: "org-controls-b",
+        label: "B",
+        title: "Status board",
+        href: "/design/org-controls/proposal-b.html",
+        summary: "A one-line brief over a segmented bar, then lanes per status; drag a card or use its menu to move it, with a reason asked for Waived or Not Applicable, and a side panel to edit.",
+      },
+      {
+        id: "org-controls-c",
+        label: "C",
+        title: "Owner workspace",
+        href: "/design/org-controls/proposal-c.html",
+        summary: "Control Owners with a ring each (No Control Owner first), that owner's queue with what needs work on top, and the chosen Control with its reach, the editor with Save and next, and its history.",
+      },
+    ],
+  },
+  {
     id: "frameworks",
     name: "Frameworks",
     added: "2026-10-29",

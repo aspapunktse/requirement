@@ -1,0 +1,68 @@
+/* Organization Control Implementation proposals: what they add to ../systems/systems.css
+   (tokens) and ../shared/kit.css (cards, hero, stats, tabs). Status colours, the stacked
+   status bar, owner and applicability tags, and the shared status editor. */
+[hidden] { display: none !important; }
+.s-NOT_STARTED { background: var(--line); }
+.s-IN_PROGRESS { background: var(--gold); }
+.s-FULFILLED { background: var(--ok); }
+.s-WAIVED { background: repeating-linear-gradient(135deg, var(--gold-ink) 0 3px, color-mix(in srgb, var(--gold) 60%, var(--surface)) 3px 6px); }
+.s-NOT_APPLICABLE { background: repeating-linear-gradient(135deg, var(--faint) 0 3px, color-mix(in srgb, var(--faint) 35%, var(--surface)) 3px 6px); }
+
+.sbar { display: flex; height: 8px; border-radius: 99px; overflow: hidden; background: var(--line-soft); gap: 2px; min-width: 80px; }
+.sbar i { display: block; min-width: 3px; transition: flex-grow .5s cubic-bezier(.2, .8, .2, 1); }
+.sbar.thin { height: 5px; } .sbar.fat { height: 12px; }
+.lg { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: .76rem; color: var(--muted); align-items: center; }
+.lg span { display: inline-flex; align-items: center; gap: 6px; }
+.lg i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+
+.tag { display: inline-flex; align-items: center; gap: 5px; font-size: .7rem; font-weight: 700; letter-spacing: .02em; padding: 1px 7px; border-radius: 6px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+.tag.both { background: var(--done-soft); color: var(--done); border-color: transparent; }
+.code { font-family: var(--mono); font-size: .76rem; font-weight: 700; color: var(--accent); white-space: nowrap; }
+.own { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; font-size: .84rem; }
+.own.none { color: var(--gold-ink); font-weight: 600; }
+.av.none { background: var(--gold-soft); color: var(--gold-ink); }
+.desc { color: var(--ink); font-size: .84rem; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; max-width: 54ch; }
+.nodesc { color: var(--faint); font-style: italic; font-size: .84rem; }
+
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.seg button { border: 0; background: var(--surface); padding: 6px 11px; font-size: .82rem; font-weight: 650; color: var(--muted); cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--line-soft); }
+.seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
+.btn.sm { padding: 4px 10px; font-size: .8rem; }
+.btn[disabled] { opacity: .5; cursor: not-allowed; }
+.btn[disabled]:hover { border-color: var(--line); }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.grow { flex: 1; }
+.toggle { display: inline-flex; align-items: center; gap: 7px; font-size: .84rem; color: var(--muted); font-weight: 600; cursor: pointer; }
+.readonly-note { font-size: .8rem; color: var(--muted); background: var(--raised); border: 1px dashed var(--line); border-radius: 10px; padding: 8px 12px; }
+
+/* The status editor */
+.ed { display: grid; gap: 10px; }
+.spick { border: 0; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.spick legend { font-size: .82rem; color: var(--muted); font-weight: 600; margin-bottom: 6px; padding: 0; }
+.spick label { display: inline-flex; align-items: center; gap: 7px; padding: 5px 11px 5px 9px; border: 1px solid var(--line); border-radius: 99px; font-size: .82rem; font-weight: 650; cursor: pointer; background: var(--surface); color: var(--muted); }
+.spick label:hover { border-color: var(--accent); }
+.spick input { position: absolute; opacity: 0; pointer-events: none; }
+.spick label i { width: 10px; height: 10px; border-radius: 50%; }
+.spick .sp-NOT_STARTED i { background: var(--line); } .spick .sp-IN_PROGRESS i { background: var(--gold); } .spick .sp-FULFILLED i { background: var(--ok); }
+.spick .sp-WAIVED i { background: var(--gold-ink); } .spick .sp-NOT_APPLICABLE i { background: var(--faint); }
+.spick label:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); color: var(--ink); box-shadow: 0 0 0 2px var(--accent-soft); }
+.spick label:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+.field { display: grid; gap: 5px; font-size: .82rem; color: var(--muted); font-weight: 600; }
+.field textarea, .field input, .field select { border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 10px; padding: 8px 10px; font: inherit; font-weight: 400; width: 100%; line-height: 1.5; }
+.field textarea { resize: vertical; }
+.field textarea:focus, .field input:focus, .field select:focus { outline: 0; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.field textarea[aria-invalid="true"] { border-color: var(--gold-ink); }
+.tpls { display: flex; flex-wrap: wrap; gap: 6px; }
+.tpls button { border: 1px dashed var(--line); background: transparent; border-radius: 99px; padding: 2px 10px; font-size: .76rem; cursor: pointer; color: var(--muted); }
+.tpls button:hover { border-color: var(--accent); color: var(--accent); }
+.refuse { color: var(--gold-ink); font-size: .78rem; font-weight: 650; min-height: 0; }
+.refuse:empty { display: none; }
+.edrow { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.kh { margin-left: auto; font-size: .72rem; color: var(--faint); }
+
+dialog { border: 1px solid var(--line); border-radius: 18px; padding: 0; width: min(480px, calc(100vw - 32px)); background: var(--surface); color: var(--ink); box-shadow: 0 24px 64px rgba(10, 25, 35, .3); }
+dialog::backdrop { background: rgba(10, 25, 35, .35); }
+dialog .in { padding: 20px; display: grid; gap: 12px; }
+dialog h2 { font-size: 1.1rem; }
+dialog .row { display: flex; justify-content: flex-end; gap: 8px; }

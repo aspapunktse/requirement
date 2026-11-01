@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Organization Controls Workspace</title>
+<link rel="stylesheet" href="../systems/systems.css">
+<link rel="stylesheet" href="../shared/appbar.css">
+<link rel="stylesheet" href="../shared/kit.css">
+<link rel="stylesheet" href="org.css">
+<style>
+/* Proposal C: a workspace per Control Owner. Owners on the left with a ring each (No Control
+   Owner first, since nobody but a Compliance Manager can move those), that owner's queue in the
+   middle with what still needs work on top, and the chosen Control on the right: what it does for
+   Systems, the editor with Save and next, and its history. J and K step through the queue. */
+.head { display: flex; flex-wrap: wrap; gap: 10px 24px; align-items: end; }
+.head h1 { font-size: 1.6rem; }
+.head p { color: var(--muted); max-width: 70ch; margin-top: 4px; }
+.head .sum { margin-left: auto; display: flex; gap: 14px; align-items: center; max-width: 100%; }
+.head .sum > div { min-width: 0; flex: 1; }
+.head .sum .lg { max-width: 360px; }
+.ws { display: grid; grid-template-columns: 270px 350px minmax(0, 1fr); gap: 14px; align-items: start; }
+@media (max-width: 1180px) { .ws { grid-template-columns: 230px minmax(0, 1fr); } .ws .pane { grid-column: 1 / -1; } }
+@media (max-width: 720px) { .ws { grid-template-columns: 1fr; } }
+.col { overflow: clip; }
+.col .ch { padding: 12px 14px 10px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--line-soft); }
+.col .ch h2 { font-size: .74rem; font-weight: 750; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+.col .ch .grow { flex: 1; }
+.owners, .queue { list-style: none; margin: 0; padding: 6px; display: grid; gap: 2px; max-height: calc(100vh - 230px); overflow-y: auto; }
+.owners button, .queue button { all: unset; box-sizing: border-box; width: 100%; display: grid; align-items: center; gap: 2px 10px; padding: 8px 10px; border-radius: 12px; cursor: pointer; }
+.owners button { grid-template-columns: auto minmax(0, 1fr) auto; }
+.owners button:hover, .queue button:hover { background: var(--raised); }
+.owners button:focus-visible, .queue button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.owners button[aria-current="true"], .queue button[aria-current="true"] { background: var(--accent-soft); }
+.owners b { font-weight: 650; font-size: .86rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.owners small { grid-column: 2; color: var(--muted); font-size: .74rem; }
+.owners .todo { grid-row: span 2; font-size: .74rem; font-weight: 750; color: var(--gold-ink); background: var(--gold-soft); border-radius: 99px; padding: 0 8px; font-variant-numeric: tabular-nums; }
+.owners .todo.zero { background: var(--ok-soft); color: var(--ok); }
+.owners .ring { grid-row: span 2; }
+.owners .you { font-size: .66rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--accent); margin-left: 4px; }
+.owners .noown b { color: var(--gold-ink); }
+.queue button { grid-template-columns: 10px auto minmax(0, 1fr); }
+.queue .sd { width: 10px; height: 10px; border-radius: 50%; grid-row: span 2; }
+.queue b { font-size: .84rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; grid-column: 3; }
+.queue .code { grid-row: span 2; font-size: .72rem; min-width: 5.6em; }
+.queue small { grid-column: 3; font-size: .72rem; color: var(--faint); }
+.queue .sep { padding: 10px 10px 4px; font-size: .7rem; font-weight: 750; letter-spacing: .05em; text-transform: uppercase; color: var(--faint); }
+.progress { padding: 10px 14px 12px; border-bottom: 1px solid var(--line-soft); display: grid; gap: 6px; font-size: .8rem; color: var(--muted); }
+.progress b { color: var(--ink); }
+.pane { padding: 0; overflow: clip; }
+.ph { padding: 18px 20px 14px; border-bottom: 1px solid var(--line-soft); display: grid; gap: 8px; }
+.ph h2 { font-size: 1.25rem; letter-spacing: -0.01em; }
+.ph .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.pb { padding: 16px 20px 22px; display: grid; gap: 18px; }
+.pb h3 { font-size: .72rem; font-weight: 750; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+.pb p { color: var(--muted); font-size: .86rem; }
+.reach { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 14px; align-items: center; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--line-soft); background: var(--raised); }
+.reach .big { font-size: 1.8rem; font-weight: 780; line-height: 1; font-variant-numeric: tabular-nums; color: var(--done); text-align: center; }
+.reach .big small { display: block; font-size: .68rem; color: var(--muted); font-weight: 650; }
+.maps { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+.maps span { font-size: .74rem; border: 1px solid var(--line); border-radius: 8px; padding: 1px 8px; background: var(--surface); }
+.maps em { font-style: normal; color: var(--ok); font-weight: 700; }
+.hist { list-style: none; margin: 0; padding: 0 0 0 14px; display: grid; gap: 10px; border-left: 2px solid var(--line-soft); }
+.hist li { position: relative; font-size: .82rem; color: var(--muted); }
+.hist li::before { content: ""; position: absolute; left: -20px; top: 4px; width: 10px; height: 10px; border-radius: 50%; background: var(--c, var(--line)); border: 2px solid var(--surface); }
+.hist li q { display: block; color: var(--ink); quotes: none; margin-top: 2px; }
+.keys { font-size: .74rem; color: var(--faint); display: flex; gap: 10px; flex-wrap: wrap; }
+.keys kbd { font-family: var(--mono); border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; background: var(--raised); color: var(--muted); }
+</style>
+</head>
+<body>
+<header id="appbar"></header>
+<main class="app">
+  <div class="head">
+    <div><p class="eyebrow">Organization</p><h1>Organization Control Implementations</h1>
+      <p>Work through the Organizational and Both Controls owner by owner. The Control Owner, a Compliance Manager or an Admin can update the status and description.</p></div>
+    <div class="sum" id="sum"></div>
+  </div>
+  <div class="ws">
+    <section class="card col" aria-label="Control Owners"><div class="ch"><h2>Control Owners</h2></div><ul class="owners" id="owners"></ul></section>
+    <section class="card col" aria-label="Queue">
+      <div class="ch"><h2 id="qh">Queue</h2><span class="grow"></span><div class="seg" id="qf" role="group" aria-label="Show"><button type="button" data-f="todo" aria-pressed="true">To do</button><button type="button" data-f="all" aria-pressed="false">All</button></div></div>
+      <div class="progress" id="progress"></div>
+      <ul class="queue" id="queue"></ul>
+    </section>
+    <section class="card pane" id="pane" aria-live="polite"></section>
+  </div>
+</main>
+
+<script src="../controls/data.js"></script>
+<script src="../shared/kit.js"></script>
+<script src="../shared/appbar.js"></script>
+<script src="org.js"></script>
+<script>
+const { ROWS, STATUSES, esc } = ORG;
+const EVERYONE = '*';
+const ORDER = { NOT_STARTED: 0, IN_PROGRESS: 1, FULFILLED: 2, WAIVED: 3, NOT_APPLICABLE: 4 };
+const todo = (r) => r.status === 'NOT_STARTED' || r.status === 'IN_PROGRESS';
+const S = { owner: null, filter: 'todo', sel: null, flash: null };
+
+function defaultOwner() {
+  const me = Appbar.role().person;
+  if (ROWS.some((r) => r.owner === me)) return me;
+  return ['COMPLIANCE_MANAGER', 'ADMIN'].includes(Appbar.roleKey()) ? '' : EVERYONE;
+}
+const ofOwner = () => S.owner === EVERYONE ? ROWS : ROWS.filter((r) => (r.owner || '') === S.owner);
+function queue() {
+  const rs = ofOwner().filter((r) => S.filter === 'all' || todo(r));
+  return rs.slice().sort((a, b) => ORDER[a.status] - ORDER[b.status] || a.code.localeCompare(b.code, undefined, { numeric: true }));
+}
+function ringOf(rs, size = 34) {
+  const n = rs.length || 1;
+  return Kit.ring([[rs.filter((r) => r.status === 'FULFILLED').length / n, 'var(--ok)'], [rs.filter((r) => r.status === 'IN_PROGRESS').length / n, 'var(--gold)']], size, 5);
+}
+function renderSum() {
+  document.getElementById('sum').innerHTML = `${Kit.ring(STATUSES.filter((s) => s.key !== 'NOT_STARTED').map((s) => [ORG.counts()[s.key] / ROWS.length, ORG.COLOR[s.key]]), 64, 8, ORG.fulfilledPct() + '%', 'Fulfilled')}<div style="display:grid;gap:6px">${ORG.bar(ROWS)}${ORG.legend()}</div>`;
+}
+function renderOwners() {
+  const me = Appbar.role().person;
+  const entries = [[EVERYONE, ROWS]].concat(ORG.owners());
+  document.getElementById('owners').innerHTML = entries.map(([o, rs]) => {
+    const t = rs.filter(todo).length;
+    const name = o === EVERYONE ? 'Everyone' : o || 'No Control Owner';
+    return `<li><button type="button" data-owner="${esc(o)}" aria-current="${S.owner === o}" class="${o === '' ? 'noown' : ''}">${ringOf(rs)}<b>${esc(name)}${o === me ? '<span class="you">you</span>' : ''}</b><span class="todo ${t ? '' : 'zero'}" title="${t} to do">${t || '✓'}</span><small>${rs.length} Controls · ${ORG.fulfilledPct(rs)}% Fulfilled</small></button></li>`;
+  }).join('');
+}
+function renderQueue() {
+  const rs = ofOwner(), q = queue(), left = rs.filter(todo).length;
+  const name = S.owner === EVERYONE ? 'Everyone' : S.owner || 'No Control Owner';
+  document.getElementById('qh').textContent = name;
+  document.getElementById('progress').innerHTML = `<span>${left ? `<b>${left}</b> of ${rs.length} still to do` : `<b>All ${rs.length}</b> are done or ruled out`}${S.owner === '' ? ' · only a Compliance Manager or an Admin can change these until an owner is set' : ''}</span>${ORG.bar(rs, 'thin')}`;
+  let html = '', last = null;
+  q.forEach((r) => {
+    const grp = todo(r) ? 'To do' : 'Done or ruled out';
+    if (S.filter === 'all' && grp !== last) { html += `<li class="sep" role="presentation">${grp}</li>`; last = grp; }
+    html += `<li><button type="button" data-id="${esc(r.id)}" aria-current="${S.sel === r.id}"><i class="sd s-${r.status}"></i><span class="code">${esc(r.code)}</span><b>${esc(r.title)}</b><small>${ORG.statusOf(r.status).label} · ${ORG.ago(r.updatedAt)}</small></button></li>`;
+  });
+  document.getElementById('queue').innerHTML = html || `<li><div class="done-state">${Kit.CHECK}<h3>Nothing left to do</h3><p>Every Control here is Fulfilled, Waived or Not Applicable. Show All to review them.</p></div></li>`;
+}
+function renderPane() {
+  const pane = document.getElementById('pane');
+  const r = S.sel && ORG.byId(S.sel);
+  if (!r) { pane.innerHTML = `<div class="done-state">${Kit.CHECK}<h3>Pick a Control</h3><p>Choose one from the queue to update how the Organization implements it.</p></div>`; return; }
+  const fws = r.maps.map((m) => `<span>${esc(m.fw)} <em>${m.full} Full</em>${m.partial ? ` · ${m.partial} Partial` : ''}</span>`).join('');
+  pane.innerHTML = `<div class="ph"><span class="code">${esc(r.code)}</span><h2>${esc(r.title)}</h2><div class="row">${ORG.chip(r.status)}${ORG.applies(r)}${ORG.owner(r)}</div></div>
+    <div class="pb">
+      <div class="reach">${r.applicability === 'BOTH' ? `<div class="big">${r.systems}<small>Systems</small></div>` : `<div class="big" style="color:var(--accent)">All<small>in scope</small></div>`}<div><p>${ORG.reach(r)}</p>${fws ? `<div class="maps">${fws}</div>` : ''}</div></div>
+      <div><h3>The Control</h3><p>${esc(r.summary)}</p></div>
+      <div id="edHost">${ORG.editor(r, { next: true })}</div>
+      <div><h3>History</h3>${r.history.length ? `<ul class="hist">${r.history.map((h) => `<li style="--c:${ORG.COLOR[h.to]}">${ORG.fmtDate(h.at)} · <b>${esc(h.by)}</b> set ${ORG.statusOf(h.to).label}${h.text ? `<q>${esc(h.text)}</q>` : ''}</li>`).join('')}</ul>` : '<p>No implementation recorded yet; it reads as Not Started.</p>'}</div>
+      <div class="keys"><span><kbd>J</kbd> <kbd>K</kbd> next and previous</span><span><kbd>Ctrl</kbd>+<kbd>Enter</kbd> save</span><span><kbd>/</kbd> owners</span></div>
+    </div>`;
+  // The queue order as shown, taken before a save can move this Control out of "To do".
+  const before = queue().map((x) => x.id);
+  ORG.bindEditor(pane, (res, next) => {
+    renderSum(); renderOwners();
+    if (next) {
+      const now = new Set(queue().map((x) => x.id)); now.delete(res.row.id);
+      const i = before.indexOf(res.row.id);
+      S.sel = before.slice(i + 1).find((id) => now.has(id)) || before.slice(0, i).reverse().find((id) => now.has(id)) || null;
+    }
+    renderQueue(); renderPane();
+    if (next) document.querySelector('#pane textarea')?.focus();
+  }, () => { S.sel = null; renderQueue(); renderPane(); });
+}
+function select(id) { S.sel = id; renderQueue(); renderPane(); document.querySelector(`.queue [aria-current="true"]`)?.scrollIntoView({ block: 'nearest' }); }
+function pickOwner(o) { S.owner = o; S.sel = (queue()[0] || {}).id || null; renderOwners(); renderQueue(); renderPane(); }
+function renderAll() { renderSum(); pickOwner(defaultOwner()); }
+
+document.getElementById('owners').addEventListener('click', (e) => { const b = e.target.closest('[data-owner]'); if (b) pickOwner(b.dataset.owner); });
+document.getElementById('queue').addEventListener('click', (e) => { const b = e.target.closest('[data-id]'); if (b) select(b.dataset.id); });
+document.getElementById('qf').addEventListener('click', (e) => { const b = e.target.closest('[data-f]'); if (!b) return; S.filter = b.dataset.f; document.querySelectorAll('#qf button').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); renderQueue(); });
+document.addEventListener('keydown', (e) => {
+  if (/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName) || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.key === 'j' || e.key === 'k') { const q = queue(); if (!q.length) return; const i = q.findIndex((r) => r.id === S.sel); select(q[Math.max(0, Math.min(q.length - 1, i + (e.key === 'j' ? 1 : -1)))].id); }
+  if (e.key === '/') { e.preventDefault(); document.querySelector('.owners [aria-current="true"]')?.focus(); }
+});
+addEventListener('appbar:role', renderAll);
+
+Appbar.mount({ current: 'controls', proposal: { label: 'C', siblings: [['A', 'proposal-a.html'], ['B', 'proposal-b.html']] },
+  items: ORG.paletteItems((id) => { const r = ORG.byId(id); S.owner = EVERYONE; S.filter = 'all'; document.querySelectorAll('#qf button').forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.f === 'all'))); renderOwners(); select(r.id); }) });
+renderAll();
+</script>
+</body>
+</html>

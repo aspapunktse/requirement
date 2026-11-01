@@ -1,0 +1,63 @@
+/* Deployment Facet proposals: what they add to ../systems/systems.css (tokens) and
+   ../shared/kit.css (cards, hero, stats, tabs). One colour per Facet, the drawer and form
+   fields, the System dot strip and the dialog. */
+:root { --f-S: #2f72c4; --f-C: #075d68; --f-O: #b7791f; --f-E: #7b4fc9; --f-M: #a33a2b; --f-P: #5f7684; --f-Q: #0b7a4b; --f-R: #c2417f; --f-T: #3b8c8c; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --f-S: #79aef0; --f-C: #5fc3ca; --f-O: #e2b25e; --f-E: #b391f0; --f-M: #ef8d7d; --f-P: #9db2bd; --f-Q: #5ccf95; --f-R: #ef8dbd; --f-T: #7fd0d0; } }
+:root[data-theme="dark"] { --f-S: #79aef0; --f-C: #5fc3ca; --f-O: #e2b25e; --f-E: #b391f0; --f-M: #ef8d7d; --f-P: #9db2bd; --f-Q: #5ccf95; --f-R: #ef8dbd; --f-T: #7fd0d0; }
+[hidden] { display: none !important; }
+
+.fchip { display: inline-flex; align-items: center; gap: 6px; font-size: .78rem; font-weight: 680; padding: 1px 9px 1px 7px; border-radius: 99px; background: color-mix(in srgb, var(--fc) 12%, var(--surface)); color: var(--ink); border: 1px solid color-mix(in srgb, var(--fc) 30%, transparent); white-space: nowrap; }
+.fchip i { width: 8px; height: 8px; border-radius: 3px; background: var(--fc); }
+.fico { display: inline-grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; flex: none; color: var(--fc); background: color-mix(in srgb, var(--fc) 13%, var(--surface)); border: 1px solid color-mix(in srgb, var(--fc) 25%, transparent); }
+
+/* One dot per System */
+.sdots { display: flex; flex-wrap: wrap; gap: 3px; align-items: center; }
+.sdots .dot { width: 7px; height: 7px; border-radius: 2px; }
+.sdots small { font-size: .7rem; color: var(--faint); margin-left: 4px; }
+
+/* Mono odometer digits */
+.odo { display: inline-flex; gap: 2px; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.odo span { display: inline-grid; place-items: center; min-width: 1.15em; padding: 1px 2px; border-radius: 4px; background: var(--raised); border: 1px solid var(--line-soft); color: var(--ink); font-weight: 700; }
+
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.seg button { border: 0; background: var(--surface); padding: 6px 11px; font-size: .82rem; font-weight: 650; color: var(--muted); cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--line-soft); }
+.seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
+
+.btn.sm { padding: 4px 10px; font-size: .8rem; }
+.btn.danger { color: var(--bad); } .btn.danger:hover { border-color: var(--bad); }
+.btn[disabled] { opacity: .5; cursor: not-allowed; }
+.btn[disabled]:hover { border-color: var(--line); }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.grow { flex: 1; }
+
+/* Fields */
+.field { display: grid; gap: 5px; font-size: .82rem; color: var(--muted); font-weight: 600; }
+.field input, .field textarea { border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 10px; padding: 8px 10px; font: inherit; font-weight: 400; width: 100%; }
+.field textarea { min-height: 72px; resize: vertical; line-height: 1.5; }
+.field input:focus, .field textarea:focus { outline: 0; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.field input[aria-invalid="true"] { border-color: var(--bad); box-shadow: 0 0 0 3px var(--bad-soft); }
+.ferr { color: var(--bad); font-size: .78rem; font-weight: 650; min-height: 1.2em; }
+.hint { color: var(--faint); font-size: .76rem; font-weight: 500; }
+.nodesc { color: var(--faint); font-style: italic; }
+
+/* Impact notes */
+.note { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 12px; font-size: .84rem; border: 1px solid var(--line-soft); background: var(--raised); }
+.note b { font-weight: 720; }
+.note.bad { background: var(--bad-soft); border-color: transparent; color: var(--ink); }
+.note.warn { background: var(--gold-soft); border-color: transparent; color: var(--ink); }
+.note.ok { background: var(--ok-soft); border-color: transparent; color: var(--ink); }
+.note .ni { flex: none; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; font-size: .72rem; font-weight: 800; color: var(--surface); }
+.note.bad .ni { background: var(--bad); } .note.warn .ni { background: var(--gold-ink); } .note.ok .ni { background: var(--ok); }
+.ctlist { margin: 6px 0 0; padding: 0; list-style: none; display: grid; gap: 3px; }
+.ctlist li { font-size: .8rem; color: var(--muted); }
+.ctlist code { font-family: var(--mono); font-size: .74rem; color: var(--accent); font-weight: 700; margin-right: 6px; }
+
+/* Dialog */
+dialog { border: 1px solid var(--line); border-radius: 18px; padding: 0; width: min(500px, calc(100vw - 32px)); background: var(--surface); color: var(--ink); box-shadow: 0 24px 64px rgba(10, 25, 35, .3); }
+dialog::backdrop { background: rgba(10, 25, 35, .35); }
+dialog .in { padding: 20px; display: grid; gap: 12px; }
+dialog h2 { font-size: 1.1rem; }
+dialog .row { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+
+.gate .done-state { padding: 48px 18px; }
