@@ -9,7 +9,7 @@ import { frameworkLabel } from "@/lib/framework-label";
  */
 export function FrameworkLineage({ paths }: { paths: LineagePath[] }) {
   return (
-    <div className="text-xs text-zinc-500">
+    <div className="text-xs text-rg-muted">
       {paths.map((path) => (
         <p key={path.map((member) => member.id).join(">")}>
           Version lineage:{" "}

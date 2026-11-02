@@ -8,11 +8,11 @@ export default async function FrameworksPage() {
   const user = await getActingUser();
 
   if (!user) {
-    return <p className="p-6 text-zinc-600 dark:text-zinc-400">Pick a user to act as first.</p>;
+    return <p className="p-6 text-rg-muted">Pick a user to act as first.</p>;
   }
 
   if (!ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE.includes(user.role)) {
-    return <p className="p-6 text-zinc-600 dark:text-zinc-400">Only Compliance Managers and Admins can manage the Framework catalog.</p>;
+    return <p className="p-6 text-rg-muted">Only Compliance Managers and Admins can manage the Framework catalog.</p>;
   }
 
   const frameworks = await prisma.framework.findMany({

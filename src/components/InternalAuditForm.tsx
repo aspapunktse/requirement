@@ -8,7 +8,7 @@ import { SystemFilterPanel } from "@/components/SystemFilterPanel";
 import { dueDateRefusal, validateInternalAudit } from "@/lib/internal-audit-rules";
 import type { ControlChoice, InternalAuditDetail, SystemChoice, SystemFilterMatch, SystemFilterOptions } from "@/lib/internal-audits";
 
-const INPUT_CLASSES = "rounded border border-zinc-200 p-2 dark:border-zinc-800 dark:bg-transparent";
+const INPUT_CLASSES = "rounded border border-rg-control p-2";
 
 /**
  * Creates a draft Internal Audit, or edits one when `initial` is given (PRD 0001 F-IA.1,
@@ -83,7 +83,7 @@ export function InternalAuditForm({
   return (
     <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
       {problems.length > 0 && (
-        <ul role="alert" className="list-disc pl-5 text-sm text-red-600">
+        <ul role="alert" className="list-disc pl-5 text-sm text-rg-danger">
           {problems.map((problem) => (
             <li key={problem}>{problem}</li>
           ))}

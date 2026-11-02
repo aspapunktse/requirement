@@ -5,12 +5,12 @@ export default async function BusinessUnitsPage() {
   const user = await getActingUser();
 
   if (!user) {
-    return <p className="p-6 text-zinc-600 dark:text-zinc-400">Pick a user to act as first.</p>;
+    return <p className="p-6 text-rg-muted">Pick a user to act as first.</p>;
   }
 
   if (user.role !== "ADMIN") {
     return (
-      <p className="p-6 text-zinc-600 dark:text-zinc-400">
+      <p className="p-6 text-rg-muted">
         Only Admins can manage the Business Unit catalog.
       </p>
     );

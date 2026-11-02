@@ -13,7 +13,7 @@ export default async function ControlLibraryReadPage() {
   const user = await getActingUser();
 
   if (!user) {
-    return <p className="p-6 text-zinc-600 dark:text-zinc-400">Pick a user to act as first.</p>;
+    return <p className="p-6 text-rg-muted">Pick a user to act as first.</p>;
   }
 
   const rows = await loadControlLibrary(user);
@@ -28,7 +28,7 @@ export default async function ControlLibraryReadPage() {
           </Link>
         )}
       </div>
-      <p className="mb-4 text-sm text-zinc-500">
+      <p className="mb-4 text-sm text-rg-muted">
         Every Control, base and Supplementary, with what it applies to and the Framework Requirements it satisfies.
       </p>
       <ControlLibrary rows={rows} />

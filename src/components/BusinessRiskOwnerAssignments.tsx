@@ -100,25 +100,25 @@ export function BusinessRiskOwnerAssignments() {
   }
 
   if (users.length === 0) {
-    return <p className="text-sm text-zinc-500">No Users have the Business Risk Owner role yet.</p>;
+    return <p className="text-sm text-rg-muted">No Users have the Business Risk Owner role yet.</p>;
   }
 
   return (
     <div className="flex flex-col gap-6">
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-rg-danger">{error}</p>}
 
       {users.map((user) => {
         const assignedBU = new Set(assignedBusinessUnits[user.id]?.map((b) => b.id) ?? []);
         const assignedFW = new Set(assignedFrameworks[user.id]?.map((f) => f.id) ?? []);
 
         return (
-          <div key={user.id} className="rounded border border-zinc-200 p-3 dark:border-zinc-800">
+          <div key={user.id} className="rounded border border-rg-line p-3">
             <h3 className="text-sm font-semibold">
-              {user.name} <span className="font-normal text-zinc-500">({user.email})</span>
+              {user.name} <span className="font-normal text-rg-muted">({user.email})</span>
             </h3>
 
             <fieldset className="mt-2 flex flex-col gap-1">
-              <legend className="text-xs font-semibold text-zinc-500">Business Units</legend>
+              <legend className="text-xs font-semibold text-rg-muted">Business Units</legend>
               {businessUnits.map((bu) => (
                 <label key={bu.id} className="flex items-center gap-2 text-sm">
                   <input
@@ -132,7 +132,7 @@ export function BusinessRiskOwnerAssignments() {
             </fieldset>
 
             <fieldset className="mt-2 flex flex-col gap-1">
-              <legend className="text-xs font-semibold text-zinc-500">Frameworks</legend>
+              <legend className="text-xs font-semibold text-rg-muted">Frameworks</legend>
               {frameworks.map((framework) => (
                 <label key={framework.id} className="flex items-center gap-2 text-sm">
                   <input

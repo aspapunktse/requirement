@@ -10,7 +10,7 @@ const pctTone = (pct: number) => (pct >= 90 ? "var(--rg-success)" : pct >= 70 ? 
 /** The heat colour of a cell: higher likelihood (row 0 is highest) and higher severity (column 3 is highest) run hotter. */
 function heatTone(row: number, col: number): string {
   const score = 3 - row + col;
-  return score >= 5 ? "var(--rg-danger)" : score >= 4 ? "#d9693f" : score >= 2 ? "var(--rg-gold)" : "var(--rg-success)";
+  return score >= 5 ? "var(--rg-danger)" : score >= 4 ? "var(--rg-heat)" : score >= 2 ? "var(--rg-gold)" : "var(--rg-success)";
 }
 
 const initials = (name: string) => {

@@ -15,11 +15,11 @@ export default async function InternalAuditsPage() {
   const user = await getActingUser();
 
   if (!user) {
-    return <p className="p-6 text-zinc-600 dark:text-zinc-400">Pick a user to act as first.</p>;
+    return <p className="p-6 text-rg-muted">Pick a user to act as first.</p>;
   }
 
   if (!canReadInternalAudits(user)) {
-    return <p className="p-6 text-zinc-600 dark:text-zinc-400">Internal Audits are not available to your role.</p>;
+    return <p className="p-6 text-rg-muted">Internal Audits are not available to your role.</p>;
   }
 
   const audits = await listInternalAudits();
@@ -29,7 +29,7 @@ export default async function InternalAuditsPage() {
       <div className="mb-4 flex items-start justify-between gap-4">
         <div>
           <h1 className="mb-1 text-2xl">Internal Audits</h1>
-          <p className="text-sm text-zinc-500">
+          <p className="text-sm text-rg-muted">
             An Internal Auditor plans an audit as a draft: the Controls to verify, the Systems and whether the
             Organization is included. Nothing is sent to anyone while it is a draft.
           </p>
@@ -42,11 +42,11 @@ export default async function InternalAuditsPage() {
       </div>
 
       {audits.length === 0 ? (
-        <p className="text-sm text-zinc-500">There are no Internal Audits yet.</p>
+        <p className="text-sm text-rg-muted">There are no Internal Audits yet.</p>
       ) : (
         <table className="w-full text-left text-sm">
           <thead>
-            <tr className="border-b border-zinc-200 dark:border-zinc-800">
+            <tr className="border-b border-rg-line">
               <th className="py-2 pr-4 font-medium">Title</th>
               <th className="py-2 pr-4 font-medium">Due</th>
               <th className="py-2 pr-4 font-medium">State</th>
@@ -57,7 +57,7 @@ export default async function InternalAuditsPage() {
           </thead>
           <tbody>
             {audits.map((audit) => (
-              <tr key={audit.id} className="border-b border-zinc-100 dark:border-zinc-900">
+              <tr key={audit.id} className="border-b border-rg-line">
                 <td className="py-2 pr-4">
                   <Link className="font-medium underline" href={`/internal-audits/${audit.id}`}>
                     {audit.title}

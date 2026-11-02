@@ -33,7 +33,7 @@ export function DeleteInternalAuditButton({ id, title }: { id: string; title: st
       <Button onClick={handleDelete} disabled={busy}>
         Delete draft
       </Button>
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-rg-danger">{error}</p>}
     </div>
   );
 }

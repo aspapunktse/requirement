@@ -7,11 +7,11 @@ export default async function NewInternalAuditPage() {
   const user = await getActingUser();
 
   if (!user) {
-    return <p className="p-6 text-zinc-600 dark:text-zinc-400">Pick a user to act as first.</p>;
+    return <p className="p-6 text-rg-muted">Pick a user to act as first.</p>;
   }
 
   if (!canWriteInternalAudits(user)) {
-    return <p className="p-6 text-zinc-600 dark:text-zinc-400">Only an Internal Auditor can create an Internal Audit.</p>;
+    return <p className="p-6 text-rg-muted">Only an Internal Auditor can create an Internal Audit.</p>;
   }
 
   const [{ controls, systems }, filterOptions] = await Promise.all([listAuditChoices(), listSystemFilterOptions()]);
@@ -19,7 +19,7 @@ export default async function NewInternalAuditPage() {
   return (
     <div className="mx-auto max-w-2xl p-6">
       <h1 className="mb-4 text-2xl">New Internal Audit</h1>
-      <p className="mb-4 text-sm text-zinc-500">It starts as a draft: nothing is sent to anyone until it is launched.</p>
+      <p className="mb-4 text-sm text-rg-muted">It starts as a draft: nothing is sent to anyone until it is launched.</p>
       <InternalAuditForm controls={controls} systems={systems} filterOptions={filterOptions} />
     </div>
   );

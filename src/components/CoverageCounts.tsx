@@ -7,7 +7,7 @@ import type { CoverageSummary } from "@/lib/coverage-state";
  */
 export function CoverageCounts({ summary }: { summary: CoverageSummary }) {
   return (
-    <span className="flex flex-wrap items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
+    <span className="flex flex-wrap items-center gap-2 text-xs text-rg-muted">
       <span>{`${summary.covered}/${summary.total} covered`}</span>
       <StatusChip tone={summary.gaps > 0 ? "danger" : "neutral"}>{`${summary.gaps} ${summary.gaps === 1 ? "gap" : "gaps"}`}</StatusChip>
       <span>{`${summary.accepted} accepted`}</span>

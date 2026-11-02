@@ -135,14 +135,14 @@ export function BusinessRiskOwnerDashboard({
 
   return (
     <div className="flex flex-col gap-6">
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-rg-danger">{error}</p>}
 
       <div className="flex gap-2">
         <label className="flex flex-col gap-1 text-sm">
           Business Unit
           <select
             aria-label="Filter by Business Unit"
-            className="rounded border border-zinc-200 p-2 dark:border-zinc-800 dark:bg-transparent"
+            className="rounded border border-rg-control p-2"
             value={businessUnitId}
             onChange={(event) => setBusinessUnitId(event.target.value)}
           >
@@ -158,7 +158,7 @@ export function BusinessRiskOwnerDashboard({
           Framework
           <select
             aria-label="Filter by Framework"
-            className="rounded border border-zinc-200 p-2 dark:border-zinc-800 dark:bg-transparent"
+            className="rounded border border-rg-control p-2"
             value={frameworkId}
             onChange={(event) => setFrameworkId(event.target.value)}
           >
@@ -175,11 +175,11 @@ export function BusinessRiskOwnerDashboard({
       <section>
         <h2 className="mb-2 text-lg">Compliance</h2>
         {compliance === null ? (
-          <p className="text-sm text-zinc-500">Loading…</p>
+          <p className="text-sm text-rg-muted">Loading…</p>
         ) : (
           <>
             {compliance.framework && (
-              <p className="mb-1 text-sm text-zinc-500">
+              <p className="mb-1 text-sm text-rg-muted">
                 {frameworkLabel(compliance.framework)}
                 {!frameworkId && compliance.framework.isBase
                   ? " (base Framework: the headline figure when no Framework is selected)"
@@ -188,7 +188,7 @@ export function BusinessRiskOwnerDashboard({
             )}
             <p className="text-2xl">
               {formatCompliancePercentage(compliance.percentage)}{" "}
-              <span className="text-sm font-normal text-zinc-500">
+              <span className="text-sm font-normal text-rg-muted">
                 ({compliance.met}/{compliance.applicable} applicable Requirements met, pooled across Systems)
               </span>
             </p>
@@ -196,10 +196,10 @@ export function BusinessRiskOwnerDashboard({
               {compliance.bySystem.map((s) => (
                 <li
                   key={s.systemId}
-                  className="flex items-center justify-between rounded border border-zinc-200 p-2 text-sm dark:border-zinc-800"
+                  className="flex items-center justify-between rounded border border-rg-line p-2 text-sm"
                 >
                   <span>{s.systemName}</span>
-                  <span className="text-zinc-500">
+                  <span className="text-rg-muted">
                     {formatCompliancePercentage(s.percentage)} ({s.met}/{s.applicable})
                   </span>
                 </li>
@@ -212,20 +212,20 @@ export function BusinessRiskOwnerDashboard({
       <section>
         <h2 className="mb-2 text-lg">System Portfolio</h2>
         {compliance?.framework && (
-          <p className="mb-2 text-xs text-zinc-500">
+          <p className="mb-2 text-xs text-rg-muted">
             Percentages are the share of applicable {frameworkLabel(compliance.framework)} Requirements met
             {!frameworkId && compliance.framework.isBase ? " (the base Framework, as no Framework is selected)" : ""}.
           </p>
         )}
         {portfolioByStatus === null ? (
-          <p className="text-sm text-zinc-500">Loading…</p>
+          <p className="text-sm text-rg-muted">Loading…</p>
         ) : portfolioByStatus.length === 0 ? (
-          <p className="text-sm text-zinc-500">No Systems are currently associated with this Business Unit.</p>
+          <p className="text-sm text-rg-muted">No Systems are currently associated with this Business Unit.</p>
         ) : (
           <div className="flex flex-col gap-4">
             {portfolioByStatus.map((group) => (
               <div key={group.status}>
-                <h3 className="mb-2 text-sm text-zinc-500">
+                <h3 className="mb-2 text-sm text-rg-muted">
                   {group.status} ({group.systems.length})
                 </h3>
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
@@ -233,12 +233,12 @@ export function BusinessRiskOwnerDashboard({
                     <Link
                       key={system.id}
                       href={`/systems/${system.id}`}
-                      className="flex flex-col gap-1 rounded border border-zinc-200 p-2 text-sm hover:border-zinc-400 dark:border-zinc-800 dark:hover:border-zinc-600"
+                      className="flex flex-col gap-1 rounded border border-rg-line p-2 text-sm hover:border-rg-muted"
                     >
                       <StatusChip tone={onboardingStatusTone(system.status)}>{system.status}</StatusChip>
                       <span className="font-medium">{system.name}</span>
-                      {system.vendor && <span className="text-xs text-zinc-500">{system.vendor}</span>}
-                      <span className="text-xs text-zinc-500">
+                      {system.vendor && <span className="text-xs text-rg-muted">{system.vendor}</span>}
+                      <span className="text-xs text-rg-muted">
                         {formatCompliancePercentage(system.compliancePercentage)} Requirements met ·{" "}
                         {system.openRiskCount} open Risk{system.openRiskCount === 1 ? "" : "s"}
                       </span>
@@ -254,26 +254,26 @@ export function BusinessRiskOwnerDashboard({
       <section>
         <h2 className="mb-2 text-lg">Risks</h2>
         {risks === null ? (
-          <p className="text-sm text-zinc-500">Loading…</p>
+          <p className="text-sm text-rg-muted">Loading…</p>
         ) : risks.length === 0 ? (
-          <p className="text-sm text-zinc-500">No Risks in scope.</p>
+          <p className="text-sm text-rg-muted">No Risks in scope.</p>
         ) : (
           <ul className="flex flex-col gap-3">
             {risks.map((risk) => (
-              <li key={risk.id} className="rounded border border-zinc-200 p-3 dark:border-zinc-800">
+              <li key={risk.id} className="rounded border border-rg-line p-3">
                 <div className="mb-1 flex items-center gap-2 font-medium">
                   <span>{risk.title}</span>
                   <StatusChip tone={riskStatusTone(risk.status as Parameters<typeof riskStatusTone>[0])}>
                     {risk.status}
                   </StatusChip>
                 </div>
-                <p className="text-xs text-zinc-500">System: {risk.system.name}</p>
-                <p className="text-sm text-zinc-500">{risk.description}</p>
-                <p className="text-xs text-zinc-500">
+                <p className="text-xs text-rg-muted">System: {risk.system.name}</p>
+                <p className="text-sm text-rg-muted">{risk.description}</p>
+                <p className="text-xs text-rg-muted">
                   Severity: {risk.severity} · Likelihood: {risk.likelihood}
                 </p>
                 {risk.controlAssessment && (
-                  <p className="text-xs text-zinc-500">
+                  <p className="text-xs text-rg-muted">
                     Originated from {risk.controlAssessment.control.code} —{" "}
                     {risk.controlAssessment.control.title}
                   </p>

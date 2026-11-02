@@ -123,18 +123,18 @@ export function ControlMappingEditor({
   }
 
   return (
-    <div className="mt-3 flex flex-col gap-3 border-t border-zinc-200 pt-3 dark:border-zinc-800">
-      <h4 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+    <div className="mt-3 flex flex-col gap-3 border-t border-rg-line pt-3">
+      <h4 className="text-xs font-semibold uppercase tracking-wide text-rg-muted">
         Mapped Controls ({mappings.length})
       </h4>
       {error && (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="text-sm text-rg-danger">
           {error}
         </p>
       )}
 
       {mappings.length === 0 ? (
-        <p className="text-sm text-zinc-500">
+        <p className="text-sm text-rg-muted">
           No Controls mapped yet, so this Requirement is a Coverage Gap.
         </p>
       ) : (
@@ -142,14 +142,14 @@ export function ControlMappingEditor({
           {mappings.map((mapping) => (
             <li
               key={mapping.id}
-              className="flex flex-col gap-2 rounded border border-zinc-200 p-2 dark:border-zinc-800"
+              className="flex flex-col gap-2 rounded border border-rg-line p-2"
             >
               <div className="flex flex-wrap items-center gap-2 text-sm">
                 <span className="font-medium">{mapping.control.code}</span>
-                <span className="text-zinc-600 dark:text-zinc-400">{mapping.control.title}</span>
+                <span className="text-rg-muted">{mapping.control.title}</span>
                 <select
                   aria-label={`Coverage of ${mapping.control.code} for ${requirementCode}`}
-                  className="ml-auto rounded border border-zinc-200 p-1 text-sm dark:border-zinc-800 dark:bg-transparent"
+                  className="ml-auto rounded border border-rg-control p-1 text-sm"
                   value={mapping.coverage}
                   onChange={(event) => patchMapping(mapping, { coverage: event.target.value as Coverage })}
                 >
@@ -166,7 +166,7 @@ export function ControlMappingEditor({
               <input
                 aria-label={`Rationale for ${mapping.control.code} on ${requirementCode}`}
                 placeholder="Rationale (optional)"
-                className="rounded border border-zinc-200 p-1 text-sm dark:border-zinc-800 dark:bg-transparent"
+                className="rounded border border-rg-control p-1 text-sm"
                 value={rationaleDrafts[mapping.id] ?? mapping.rationale ?? ""}
                 onChange={(event) => setRationaleDrafts((prev) => ({ ...prev, [mapping.id]: event.target.value }))}
                 onBlur={() => saveRationale(mapping)}
@@ -182,7 +182,7 @@ export function ControlMappingEditor({
             type="search"
             aria-label={`Search Controls to map to ${requirementCode}`}
             placeholder="Search Controls by code or title"
-            className="min-w-48 flex-1 rounded border border-zinc-200 p-1 text-sm dark:border-zinc-800 dark:bg-transparent"
+            className="min-w-48 flex-1 rounded border border-rg-control p-1 text-sm"
             value={search}
             onChange={(event) => {
               setSearch(event.target.value);
@@ -191,7 +191,7 @@ export function ControlMappingEditor({
           />
           <select
             aria-label={`Control to map to ${requirementCode}`}
-            className="min-w-48 flex-1 rounded border border-zinc-200 p-1 text-sm dark:border-zinc-800 dark:bg-transparent"
+            className="min-w-48 flex-1 rounded border border-rg-control p-1 text-sm"
             value={controlId}
             onChange={(event) => setControlId(event.target.value)}
           >
@@ -206,7 +206,7 @@ export function ControlMappingEditor({
           </select>
           <select
             aria-label={`Coverage for the new mapping on ${requirementCode}`}
-            className="rounded border border-zinc-200 p-1 text-sm dark:border-zinc-800 dark:bg-transparent"
+            className="rounded border border-rg-control p-1 text-sm"
             value={coverage}
             onChange={(event) => setCoverage(event.target.value as Coverage)}
           >
@@ -215,14 +215,14 @@ export function ControlMappingEditor({
           </select>
         </div>
         {matches.length > shown.length && (
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-rg-muted">
             Showing the first {shown.length} of {matches.length} Controls. Search to narrow the list.
           </p>
         )}
         <input
           aria-label={`Rationale for the new mapping on ${requirementCode}`}
           placeholder="Rationale (optional)"
-          className="rounded border border-zinc-200 p-1 text-sm dark:border-zinc-800 dark:bg-transparent"
+          className="rounded border border-rg-control p-1 text-sm"
           value={rationale}
           onChange={(event) => setRationale(event.target.value)}
         />

@@ -11,7 +11,7 @@ import {
 } from "@/lib/internal-audit-system-filter";
 import type { SystemFilterMatch, SystemFilterOptions } from "@/lib/internal-audits";
 
-const SELECT_CLASSES = "rounded border border-zinc-200 p-2 text-sm dark:border-zinc-800 dark:bg-transparent";
+const SELECT_CLASSES = "rounded border border-rg-control p-2 text-sm";
 
 const systems = (count: number) => `${count} System${count === 1 ? "" : "s"}`;
 
@@ -66,9 +66,9 @@ export function SystemFilterPanel({
   const fresh = matches?.filter((match) => !picked.has(match.id)) ?? [];
 
   return (
-    <fieldset className="flex flex-col gap-3 rounded border border-zinc-200 p-3 text-sm dark:border-zinc-800">
+    <fieldset className="flex flex-col gap-3 rounded border border-rg-line p-3 text-sm">
       <legend className="px-1">Select Systems by filter</legend>
-      <p className="text-zinc-500">
+      <p className="text-rg-muted">
         Pick the criteria a System must meet (all of them), look at the Systems that match, then add them. The audit keeps
         the Systems, not the filter, so Systems created later are not added.
       </p>
@@ -143,7 +143,7 @@ export function SystemFilterPanel({
       </div>
 
       {error && (
-        <p role="alert" className="text-red-600">
+        <p role="alert" className="text-rg-danger">
           {error}
         </p>
       )}
@@ -155,14 +155,14 @@ export function SystemFilterPanel({
             {matches.length - fresh.length === 1 ? "is" : "are"} already picked
           </p>
           {isEmptyFilter(filter) && matches.length > 0 && (
-            <p className="text-amber-700 dark:text-amber-400">No criteria are set, so this is every System.</p>
+            <p className="text-rg-gold-ink">No criteria are set, so this is every System.</p>
           )}
           {matches.length > 0 && (
-            <ul aria-label="Matching Systems" className="max-h-56 overflow-y-auto rounded border border-zinc-200 dark:border-zinc-800">
+            <ul aria-label="Matching Systems" className="max-h-56 overflow-y-auto rounded border border-rg-line">
               {matches.map((match) => (
                 <li key={match.id} className="px-2 py-1">
                   {match.name}{" "}
-                  <span className="text-zinc-500">
+                  <span className="text-rg-muted">
                     {[
                       ONBOARDING_STATUS_LABEL[match.status],
                       match.vendor,

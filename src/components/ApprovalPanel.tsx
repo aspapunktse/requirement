@@ -71,16 +71,16 @@ function DecisionForm({ systemId, step, onDecided }: { systemId: string; step: R
 
   return (
     <div
-      className="mt-2 flex flex-col gap-2 rounded border border-zinc-200 p-3 dark:border-zinc-800"
+      className="mt-2 flex flex-col gap-2 rounded border border-rg-line p-3"
       role="group"
       aria-label={`Decide ${step.name}`}
     >
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-rg-danger">{error}</p>}
 
       <label className="flex flex-col gap-1 text-sm">
         Comment for {step.name}
         <textarea
-          className="rounded border border-zinc-200 p-2 dark:border-zinc-800 dark:bg-transparent"
+          className="rounded border border-rg-control p-2"
           value={comment}
           onChange={(event) => setComment(event.target.value)}
         />
@@ -157,13 +157,13 @@ export function ApprovalPanel({ systemId }: { systemId: string }) {
       )}
 
       {loadError ? (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="text-sm text-rg-danger">
           {loadError}
         </p>
       ) : rounds === null ? (
         <p>Loading Approval history…</p>
       ) : rounds.length === 0 ? (
-        <p className="text-sm text-zinc-500">No Approval decisions recorded yet.</p>
+        <p className="text-sm text-rg-muted">No Approval decisions recorded yet.</p>
       ) : (
         <div className="flex flex-col gap-4">
           {/* Newest Review Round first. */}
@@ -193,7 +193,7 @@ export function ApprovalPanel({ systemId }: { systemId: string }) {
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-zinc-500">{new Date(approval.decidedAt).toLocaleString()}</p>
+                      <p className="text-xs text-rg-muted">{new Date(approval.decidedAt).toLocaleString()}</p>
                       {approval.comment && <p className="mt-1 text-sm">{approval.comment}</p>}
                     </li>
                   ))}

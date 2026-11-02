@@ -13,12 +13,12 @@ export default async function FrameworkDetailPage({ params }: PageProps<"/admin/
   const user = await getActingUser();
 
   if (!user) {
-    return <p className="p-6 text-zinc-600 dark:text-zinc-400">Pick a user to act as first.</p>;
+    return <p className="p-6 text-rg-muted">Pick a user to act as first.</p>;
   }
 
   if (!ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE.includes(user.role)) {
     return (
-      <p className="p-6 text-zinc-600 dark:text-zinc-400">
+      <p className="p-6 text-rg-muted">
         Only Compliance Managers and Admins can author a Framework&apos;s Requirements.
       </p>
     );
@@ -39,7 +39,7 @@ export default async function FrameworkDetailPage({ params }: PageProps<"/admin/
   ]);
 
   if (!framework) {
-    return <p className="p-6 text-zinc-600 dark:text-zinc-400">Framework not found.</p>;
+    return <p className="p-6 text-rg-muted">Framework not found.</p>;
   }
 
   return (
@@ -50,7 +50,7 @@ export default async function FrameworkDetailPage({ params }: PageProps<"/admin/
         </Link>
       </p>
       <h1 className="mb-1 text-2xl">{frameworkLabel(framework)}</h1>
-      <p className="mb-4 flex flex-wrap items-center gap-2 text-sm text-zinc-500">
+      <p className="mb-4 flex flex-wrap items-center gap-2 text-sm text-rg-muted">
         <StatusChip tone={framework.status === "PUBLISHED" ? "success" : "warn"}>
           {framework.status === "PUBLISHED" ? "Published" : "Draft"}
         </StatusChip>
@@ -59,7 +59,7 @@ export default async function FrameworkDetailPage({ params }: PageProps<"/admin/
         <span>· {requirements.length} Requirements</span>
       </p>
       {framework.status === "DRAFT" && (
-        <p className="mb-4 text-sm text-zinc-600 dark:text-zinc-400">
+        <p className="mb-4 text-sm text-rg-muted">
           This Framework is a Draft: only Compliance Managers and Admins can see it, and it can&apos;t be put in a
           System&apos;s Framework Scope until it is published from the Frameworks page.
         </p>

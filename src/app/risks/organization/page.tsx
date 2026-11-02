@@ -15,11 +15,11 @@ export default async function OrganizationRisksPage() {
   const user = await getActingUser();
 
   if (!user) {
-    return <p className="p-6 text-zinc-600 dark:text-zinc-400">Pick a user to act as first.</p>;
+    return <p className="p-6 text-rg-muted">Pick a user to act as first.</p>;
   }
 
   if (!canReadOrganizationRisks(user)) {
-    return <p className="p-6 text-zinc-600 dark:text-zinc-400">Organization Risks are not available to your role.</p>;
+    return <p className="p-6 text-rg-muted">Organization Risks are not available to your role.</p>;
   }
 
   const canManage = canManageOrganizationRisks(user);
@@ -46,7 +46,7 @@ export default async function OrganizationRisksPage() {
   return (
     <div className="mx-auto max-w-4xl p-6">
       <h1 className="mb-1 text-2xl">Organization Risks</h1>
-      <p className="mb-4 text-sm text-zinc-500">
+      <p className="mb-4 text-sm text-rg-muted">
         Risks that belong to no System: an Internal Auditor&apos;s Nonconformity on the Organization&apos;s own implementation of a Control opens one,
         and it links to that finding.
         {canManage ? "" : " You can read them; a Risk Owner or an Admin manages them."}

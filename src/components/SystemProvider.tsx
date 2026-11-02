@@ -16,8 +16,8 @@ import {
 import type { ControlOfferingRow, OfferableControl } from "@/lib/control-offerings";
 import type { DependentRow } from "@/lib/provider-dependency-rules";
 
-const SELECT_CLASSES = "rounded border border-zinc-200 p-2 text-sm dark:border-zinc-800 dark:bg-transparent";
-const TEXTAREA_CLASSES = "rounded border border-zinc-200 p-2 text-sm dark:border-zinc-800 dark:bg-transparent";
+const SELECT_CLASSES = "rounded border border-rg-control p-2 text-sm";
+const TEXTAREA_CLASSES = "rounded border border-rg-control p-2 text-sm";
 
 const byCode = (a: { code: string }, b: { code: string }) => a.code.localeCompare(b.code);
 
@@ -115,14 +115,14 @@ export function SystemProvider({
 
   return (
     <div className="flex flex-col gap-3 text-sm">
-      {error && <p className="text-red-600">{error}</p>}
+      {error && <p className="text-rg-danger">{error}</p>}
 
       {isProvider ? (
         <p>
           This System is a Provider: it publishes Control Offerings for the Systems that depend on it.
         </p>
       ) : (
-        <p className="text-zinc-500">This System is not a Provider.</p>
+        <p className="text-rg-muted">This System is not a Provider.</p>
       )}
 
       {canManage && (
@@ -133,12 +133,12 @@ export function SystemProvider({
                 Stop being a Provider
               </Button>
               {hasOfferings && (
-                <p className="text-xs text-zinc-500">
+                <p className="text-xs text-rg-muted">
                   Remove its Control Offerings first: a System with Offerings stays a Provider.
                 </p>
               )}
               {hasDependents && (
-                <p className="text-xs text-zinc-500">
+                <p className="text-xs text-rg-muted">
                   Systems depend on it: a Provider stays a Provider until every System has removed its dependency.
                 </p>
               )}
@@ -169,7 +169,7 @@ export function SystemProvider({
               ))}
             </ul>
           ) : (
-            <p className="text-zinc-500">No System depends on this Provider yet.</p>
+            <p className="text-rg-muted">No System depends on this Provider yet.</p>
           )}
         </>
       )}
@@ -177,12 +177,12 @@ export function SystemProvider({
       {isProvider && (
         <>
           <h3 className="mt-2 text-base font-medium">Control Offerings</h3>
-          {!hasOfferings && <p className="text-zinc-500">No Control Offerings yet.</p>}
+          {!hasOfferings && <p className="text-rg-muted">No Control Offerings yet.</p>}
           <ul className="flex flex-col gap-2">
             {offerings.map((row) => (
               <li
                 key={row.id}
-                className="flex flex-col gap-1 rounded border border-zinc-200 p-3 dark:border-zinc-800"
+                className="flex flex-col gap-1 rounded border border-rg-line p-3"
               >
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-medium">{row.control.code}</span>
@@ -197,7 +197,7 @@ export function SystemProvider({
                     {row.customerResponsibility}
                   </p>
                 )}
-                <p className="flex flex-wrap items-center gap-2 text-zinc-500">
+                <p className="flex flex-wrap items-center gap-2 text-rg-muted">
                   Provider&apos;s own status:{" "}
                   <StatusChip tone={controlAssessmentStatusTone(row.providerStatus)}>
                     {CONTROL_ASSESSMENT_STATUS_LABEL[row.providerStatus]}
@@ -326,14 +326,14 @@ function AddOfferingForm({
 
   if (offerable.length === 0) {
     return (
-      <p className="text-xs text-zinc-500">
+      <p className="text-xs text-rg-muted">
         Every Control that applies to this Provider is already offered.
       </p>
     );
   }
 
   return (
-    <div className="flex flex-col gap-2 rounded border border-zinc-200 p-3 dark:border-zinc-800">
+    <div className="flex flex-col gap-2 rounded border border-rg-line p-3">
       <h4 className="font-medium">Add a Control Offering</h4>
       <label className="flex flex-col gap-1">
         Control
@@ -347,7 +347,7 @@ function AddOfferingForm({
         </select>
       </label>
       <TypeAndText label="" type={type} text={text} onType={setType} onText={setText} />
-      {refusal && <p className="text-xs text-zinc-500">{refusal}.</p>}
+      {refusal && <p className="text-xs text-rg-muted">{refusal}.</p>}
       <Button variant="primary" onClick={handleAdd} disabled={busy || controlId === "" || refusal !== null}>
         Add Offering
       </Button>
@@ -376,7 +376,7 @@ function OfferingEditor({
   return (
     <div className="flex flex-col gap-2">
       <TypeAndText label={` of ${row.control.code}`} type={type} text={text} onType={setType} onText={setText} />
-      {refusal && <p className="text-xs text-zinc-500">{refusal}.</p>}
+      {refusal && <p className="text-xs text-rg-muted">{refusal}.</p>}
       <div className="flex gap-2">
         <Button
           variant="primary"

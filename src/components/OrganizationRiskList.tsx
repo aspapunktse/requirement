@@ -23,7 +23,7 @@ export function OrganizationRiskList({
   const [risks, setRisks] = useState<Risk[]>(initialRisks);
 
   if (risks.length === 0) {
-    return <p className="text-sm text-zinc-500">No Organization Risks. An Organization-level Nonconformity opens one.</p>;
+    return <p className="text-sm text-rg-muted">No Organization Risks. An Organization-level Nonconformity opens one.</p>;
   }
 
   return (

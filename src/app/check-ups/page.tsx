@@ -15,7 +15,7 @@ export default async function MyCheckUpsPage() {
   const user = await getActingUser();
 
   if (!user) {
-    return <p className="p-6 text-zinc-600 dark:text-zinc-400">Pick a user to act as first.</p>;
+    return <p className="p-6 text-rg-muted">Pick a user to act as first.</p>;
   }
 
   const checkUps = await listMyCheckUps(user);
@@ -23,13 +23,13 @@ export default async function MyCheckUpsPage() {
   return (
     <div className="mx-auto max-w-4xl p-6">
       <h1 className="mb-2 text-2xl">Your Check-ups</h1>
-      <p className="mb-4 text-sm text-zinc-500">The Check-ups addressed to you as the owner of the target, open and answered.</p>
+      <p className="mb-4 text-sm text-rg-muted">The Check-ups addressed to you as the owner of the target, open and answered.</p>
       {checkUps.length === 0 ? (
-        <p className="text-sm text-zinc-500">No Check-ups are addressed to you.</p>
+        <p className="text-sm text-rg-muted">No Check-ups are addressed to you.</p>
       ) : (
         <ul className="flex flex-col gap-2">
           {checkUps.map((checkUp) => (
-            <li key={checkUp.id} className="flex flex-wrap items-center gap-3 rounded border border-zinc-200 p-3 text-sm dark:border-zinc-800">
+            <li key={checkUp.id} className="flex flex-wrap items-center gap-3 rounded border border-rg-line p-3 text-sm">
               {checkUp.withdrawn ? (
                 <StatusChip tone="neutral">Withdrawn</StatusChip>
               ) : checkUp.outcome ? (
@@ -44,7 +44,7 @@ export default async function MyCheckUpsPage() {
               <Link className="font-medium underline" href={`/check-ups/${checkUp.id}`}>
                 {checkUp.control.code} {checkUp.control.title}
               </Link>
-              <span className="text-zinc-500">
+              <span className="text-rg-muted">
                 {checkUp.systemName ?? "Organization"} · {checkUp.audit.title} · due {checkUp.audit.dueDate}
               </span>
             </li>

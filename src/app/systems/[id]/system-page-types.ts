@@ -49,7 +49,7 @@ export const STATUS_TEXT: Record<ControlAssessmentStatus, string> = {
   NOT_APPLICABLE: "Not applicable",
 };
 export const SOURCE_COLOR: Record<SourceKey, string> = {
-  organization: "#6c7fd8",
+  organization: "var(--rg-info)",
   "provider-full": "var(--rg-accent)",
   "provider-shared": "var(--rg-gold)",
   system: "var(--rg-ink)",
