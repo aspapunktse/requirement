@@ -31,7 +31,7 @@
 .dm .owner { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
 .dm .facets { display: flex; gap: 4px; }
 .dm td .link { color: var(--accent); font-weight: 650; background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
-.dm .fld { border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 7px 10px; width: 100%; font-size: .86rem; }
+.dm .fld { border: 1px solid var(--control, var(--line)); background: var(--surface); border-radius: 10px; padding: 7px 10px; width: 100%; font-size: .86rem; }
 .dm .fld:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
 .dm .fld.bad { border-color: var(--bad); }
 .dm .help { font-size: .78rem; color: var(--muted); }
