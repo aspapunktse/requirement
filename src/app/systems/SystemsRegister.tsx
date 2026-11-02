@@ -130,19 +130,24 @@ export function SystemsRegister({ view, initialQuery }: { view: SystemsView; ini
     };
   }, [openFilter]);
 
-  // Keep an open filter menu inside the viewport with a 16px gutter: it opens from its button's left edge, so shift it
-  // left when it would run past the right edge (never past the left one). Measured on the DOM, no state, no re-render.
+  // Keep an open filter menu inside the register card (and the viewport) with a 16px gutter: it opens from its button's
+  // left edge, so shift it left when it would run past the right bound, never past the left one. The bound is the card's
+  // own edge, not `window.innerWidth`, which grows with an overflowing menu on a phone and includes the scrollbar on a
+  // desktop. Measured on the DOM, no state, no re-render.
   useLayoutEffect(() => {
     if (openFilter === null) return;
-    const wrap = regRef.current?.querySelector<HTMLElement>(`[data-filter="${openFilter}"]`);
+    const card = regRef.current;
+    const wrap = card?.querySelector<HTMLElement>(`[data-filter="${openFilter}"]`);
     const menu = wrap?.querySelector<HTMLElement>(".menu");
-    if (!wrap || !menu) return;
+    if (!card || !wrap || !menu) return;
     const GUTTER = 16;
+    const bounds = card.getBoundingClientRect();
+    const rightLimit = Math.min(document.documentElement.clientWidth, bounds.right) - GUTTER;
     menu.style.left = "";
-    const overflow = menu.getBoundingClientRect().right - (window.innerWidth - GUTTER);
+    const overflow = menu.getBoundingClientRect().right - rightLimit;
     if (overflow <= 0) return;
-    const buttonLeft = wrap.getBoundingClientRect().left;
-    menu.style.left = `${-Math.min(overflow, Math.max(0, buttonLeft - GUTTER))}px`;
+    const room = Math.max(0, wrap.getBoundingClientRect().left - bounds.left);
+    menu.style.left = `${-Math.min(overflow, room)}px`;
   }, [openFilter]);
 
   function update(patch: Partial<RegisterState>, options: { replace?: boolean; keepPage?: boolean } = {}) {
