@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import { AppHeader } from "@/components/AppHeader";
 import { PaletteProvider } from "@/components/PaletteProvider";
 import { getActingUser, isDevAuthStubEnabled } from "@/lib/acting-user";
+import { FONT_VARIABLE_CLASSES } from "@/app/fonts";
 import { MODE_INIT_SCRIPT } from "@/lib/mode";
+import { PALETTE_INIT_SCRIPT } from "@/lib/palette";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -14,9 +16,9 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   const user = await getActingUser();
 
   return (
-    <html lang="en" className="h-full antialiased" suppressHydrationWarning>
+    <html lang="en" className={`h-full antialiased ${FONT_VARIABLE_CLASSES}`} suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: MODE_INIT_SCRIPT }} />
+        <script dangerouslySetInnerHTML={{ __html: MODE_INIT_SCRIPT + PALETTE_INIT_SCRIPT }} />
       </head>
       <body className="min-h-full flex flex-col">
         <PaletteProvider>

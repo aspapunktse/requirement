@@ -79,3 +79,25 @@ export function getModeSnapshot(): ModeChoice {
 export function getModeServerSnapshot(): ModeChoice {
   return "system";
 }
+
+/** For `useSyncExternalStore`: re-read when the Mode changes or, on System, when the OS preference does. */
+export function subscribeEffectiveDark(listener: () => void): () => void {
+  const unsubscribe = subscribeMode(listener);
+  const query = typeof window.matchMedia === "function" ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+  query?.addEventListener?.("change", listener);
+  return () => {
+    unsubscribe();
+    query?.removeEventListener?.("change", listener);
+  };
+}
+
+/** Whether the page is dark now: the Mode says Dark, or says System and the OS prefers dark. */
+export function getEffectiveDarkSnapshot(): boolean {
+  const mode = getModeSnapshot();
+  if (mode !== "system") return mode === "dark";
+  return typeof window.matchMedia === "function" && window.matchMedia("(prefers-color-scheme: dark)").matches;
+}
+
+export function getEffectiveDarkServerSnapshot(): boolean {
+  return false;
+}

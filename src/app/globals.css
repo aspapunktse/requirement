@@ -2,7 +2,7 @@
 @import "./design-tokens.css";
 
 /* The `dark:` variant follows the same rule as the tokens: dark when the root says data-theme="dark", or when the
-   OS prefers dark and the root doesn't say data-theme="light" (the theme switch, #282). */
+   OS prefers dark and the root doesn't say data-theme="light" (the Mode switch, #282). */
 @custom-variant dark {
   &:where([data-theme="dark"] *) {
     @slot;
@@ -37,6 +37,13 @@
   --color-rg-success-soft: var(--rg-success-soft);
   --color-rg-danger: var(--rg-danger);
   --color-rg-danger-soft: var(--rg-danger-soft);
+  --color-rg-control: var(--rg-control);
+  --color-rg-info: var(--rg-info);
+  --color-rg-caution: var(--rg-caution);
+  --color-rg-audit: var(--rg-audit);
+  --color-rg-waived: var(--rg-waived);
+  --color-rg-heat: var(--rg-heat);
+  --color-rg-scrim: var(--rg-scrim);
 
   /* Legacy EMS names (bg-ems-amber, text-ems-success, ...): still compile,
      and resolve through the --ems-* aliases to the Register tokens. */
@@ -62,25 +69,6 @@
   --color-ems-warn-tint: var(--ems-warn-tint);
   --color-ems-danger: var(--ems-danger);
   --color-ems-danger-tint: var(--ems-danger-tint);
-
-  /* Remap the zinc scale the app already uses throughout, so every existing
-     border-zinc / text-zinc utility follows the Register tokens (and so both
-     themes) without a per-call-site rewrite. Because the tokens swap with
-     the theme, a `border-zinc-200 dark:border-zinc-800` pair resolves to
-     the same line colour on both sides.
-       borders and rules (100/200/300/700/800) -> line
-       muted text and hover borders (400/500/600) -> muted
-       faint backgrounds (50) -> paper, (900) -> accent-soft */
-  --color-zinc-50: var(--rg-paper);
-  --color-zinc-100: var(--rg-line);
-  --color-zinc-200: var(--rg-line);
-  --color-zinc-300: var(--rg-line);
-  --color-zinc-400: var(--rg-muted);
-  --color-zinc-500: var(--rg-muted);
-  --color-zinc-600: var(--rg-muted);
-  --color-zinc-700: var(--rg-line);
-  --color-zinc-800: var(--rg-line);
-  --color-zinc-900: var(--rg-accent-soft);
 }
 
 body {

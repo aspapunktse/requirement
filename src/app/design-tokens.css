@@ -11,8 +11,10 @@
    The --rg- prefix keeps these names clear of Tailwind v4's own theme
    variables (--font-sans, --spacing, --radius-* ...).
 
-   No web fonts: the sans is the system UI face, the mono is the system
-   monospace. Mono is for identifiers and eyebrows only.
+   Register, the default theme, uses the system UI face and the system
+   monospace and loads no web font; the other themes (below) set their own
+   --rg-font-* and self-host theirs (src/app/fonts.ts). Mono is for
+   identifiers and eyebrows only.
    ========================================================================= */
 
 :root {
@@ -36,6 +38,19 @@
   --rg-resp-shared: var(--rg-gold);
   --rg-resp-covered: #688e9a;
   --rg-shadow-popover: 0 8px 24px rgba(20, 45, 61, 0.14);
+
+  /* Border of inputs, selects and secondary buttons. Register keeps its line colour; the other themes set a
+     darker one (WCAG 1.4.11 asks 3:1 for component boundaries). */
+  --rg-control: #ccd8de;
+  /* Hues for kinds and scales that are not a status: info (Query, Organization), caution (Check-up), audit
+     (Internal Audit), waived, and the second-hottest step of the risk heat map. Each theme sets them. */
+  --rg-info: #6c7fd8;
+  --rg-caution: #b07a12;
+  --rg-audit: #8a5cc2;
+  --rg-waived: #7b6bb0;
+  --rg-heat: #d9693f;
+  /* The dim behind a dialog. Not themed. */
+  --rg-scrim: rgba(0, 0, 0, 0.4);
 
   /* Spacing */
   --rg-space-1: 4px;
@@ -75,6 +90,8 @@
     --rg-danger-soft: #3d2420;
     --rg-resp-covered: #4f7684;
     --rg-shadow-popover: 0 8px 24px rgba(0, 0, 0, 0.45);
+    --rg-control: #2a4150;
+    --rg-waived: #a99be0;
     color-scheme: dark;
   }
 }
@@ -97,8 +114,342 @@
   --rg-danger-soft: #3d2420;
   --rg-resp-covered: #4f7684;
   --rg-shadow-popover: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --rg-control: #2a4150;
+  --rg-waived: #a99be0;
   color-scheme: dark;
 }
+
+/* =========================================================================
+   Themes (#286): a theme is a named set of colour and font tokens, selected by
+   data-palette="<id>" on <html>. Register, the default, has no attribute and no
+   block here. Every block sets the full token list, so a theme never inherits a
+   Register value of the other mode. Light is the theme's base block; dark follows
+   the same mode rule as above (the OS unless data-theme="light", or data-theme="dark"),
+   and its selectors are more specific than the Register dark blocks, so source
+   order does not matter. Values come from public/design/shared/themes.css (the
+   prototype, with the measured contrast ratios).
+   ========================================================================= */
+
+/* High contrast */
+:root[data-palette="contrast"] {
+  --rg-paper: #f2f2f2;
+  --rg-surface: #ffffff;
+  --rg-line: #8a8a8a;
+  --rg-control: #595959;
+  --rg-ink: #000000;
+  --rg-muted: #2e2e2e;
+  --rg-accent: #0033cc;
+  --rg-accent-soft: #e0e8ff;
+  --rg-on-accent: #ffffff;
+  --rg-gold: #ffc400;
+  --rg-gold-ink: #5c3d00;
+  --rg-gold-soft: #fff0b3;
+  --rg-success: #006b2e;
+  --rg-success-soft: #d9f5e3;
+  --rg-danger: #b00020;
+  --rg-danger-soft: #fde3e7;
+  --rg-info: #5b1fb5;
+  --rg-caution: #5c3d00;
+  --rg-audit: #00677a;
+  --rg-waived: #5b1fb5;
+  --rg-shadow-popover: 0 8px 24px rgba(0, 0, 0, 0.22);
+  color-scheme: light;
+  --rg-heat: color-mix(in srgb, var(--rg-danger) 55%, var(--rg-gold));
+  --rg-resp-covered: color-mix(in srgb, var(--rg-muted) 60%, var(--rg-surface));
+  --rg-font-sans: var(--font-atkinson-sans, "Atkinson Hyperlegible Next"), system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --rg-font-mono: var(--font-atkinson-mono, "Atkinson Hyperlegible Mono"), ui-monospace, "Cascadia Mono", Consolas, "Liberation Mono", monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-palette="contrast"]:not([data-theme="light"]) {
+    --rg-paper: #000000;
+    --rg-surface: #0b0b0b;
+    --rg-line: #8c8c8c;
+    --rg-control: #a8a8a8;
+    --rg-ink: #ffffff;
+    --rg-muted: #e0e0e0;
+    --rg-accent: #8fb8ff;
+    --rg-accent-soft: #0f2a55;
+    --rg-on-accent: #000000;
+    --rg-gold: #ffd23f;
+    --rg-gold-ink: #ffe08a;
+    --rg-gold-soft: #3d3000;
+    --rg-success: #5ee08f;
+    --rg-success-soft: #0c3a1e;
+    --rg-danger: #ff8a8a;
+    --rg-danger-soft: #4a1010;
+    --rg-info: #c9b0ff;
+    --rg-caution: #ffe08a;
+    --rg-audit: #5fd7e8;
+    --rg-waived: #c9b0ff;
+    --rg-shadow-popover: 0 8px 24px rgba(0, 0, 0, 0.45);
+    color-scheme: dark;
+  }
+}
+:root[data-palette="contrast"][data-theme="dark"] {
+  --rg-paper: #000000;
+  --rg-surface: #0b0b0b;
+  --rg-line: #8c8c8c;
+  --rg-control: #a8a8a8;
+  --rg-ink: #ffffff;
+  --rg-muted: #e0e0e0;
+  --rg-accent: #8fb8ff;
+  --rg-accent-soft: #0f2a55;
+  --rg-on-accent: #000000;
+  --rg-gold: #ffd23f;
+  --rg-gold-ink: #ffe08a;
+  --rg-gold-soft: #3d3000;
+  --rg-success: #5ee08f;
+  --rg-success-soft: #0c3a1e;
+  --rg-danger: #ff8a8a;
+  --rg-danger-soft: #4a1010;
+  --rg-info: #c9b0ff;
+  --rg-caution: #ffe08a;
+  --rg-audit: #5fd7e8;
+  --rg-waived: #c9b0ff;
+  --rg-shadow-popover: 0 8px 24px rgba(0, 0, 0, 0.45);
+  color-scheme: dark;
+}
+
+/* Parchment */
+:root[data-palette="parchment"] {
+  --rg-paper: #f6f0e4;
+  --rg-surface: #fffcf5;
+  --rg-line: #cdbfa3;
+  --rg-control: #85755a;
+  --rg-ink: #2b2118;
+  --rg-muted: #5c4e3d;
+  --rg-accent: #a2432a;
+  --rg-accent-soft: #f6e1d6;
+  --rg-on-accent: #ffffff;
+  --rg-gold: #e0a63a;
+  --rg-gold-ink: #6b4300;
+  --rg-gold-soft: #f7e6b8;
+  --rg-success: #3d6b2a;
+  --rg-success-soft: #e2efd6;
+  --rg-danger: #a8281f;
+  --rg-danger-soft: #f9dfd9;
+  --rg-info: #6a4a7e;
+  --rg-caution: #6b4300;
+  --rg-audit: #2f6f73;
+  --rg-waived: #6a4a7e;
+  --rg-shadow-popover: 0 8px 24px rgba(60, 40, 20, 0.14);
+  color-scheme: light;
+  --rg-heat: color-mix(in srgb, var(--rg-danger) 55%, var(--rg-gold));
+  --rg-resp-covered: color-mix(in srgb, var(--rg-muted) 60%, var(--rg-surface));
+  --rg-font-sans: var(--font-source-sans, "Source Sans 3"), system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --rg-font-mono: var(--font-source-code, "Source Code Pro"), ui-monospace, "Cascadia Mono", Consolas, "Liberation Mono", monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-palette="parchment"]:not([data-theme="light"]) {
+    --rg-paper: #1c1612;
+    --rg-surface: #251e18;
+    --rg-line: #4d4034;
+    --rg-control: #8f7d68;
+    --rg-ink: #f1e8d8;
+    --rg-muted: #c4b6a0;
+    --rg-accent: #f0906c;
+    --rg-accent-soft: #4a2a1d;
+    --rg-on-accent: #1c1612;
+    --rg-gold: #e0b050;
+    --rg-gold-ink: #f2d38a;
+    --rg-gold-soft: #413116;
+    --rg-success: #9bd47a;
+    --rg-success-soft: #2a3d1e;
+    --rg-danger: #ff9a8a;
+    --rg-danger-soft: #4a2420;
+    --rg-info: #c9a8e0;
+    --rg-caution: #f2d38a;
+    --rg-audit: #7fcfd0;
+    --rg-waived: #c9a8e0;
+    --rg-shadow-popover: 0 8px 24px rgba(0, 0, 0, 0.45);
+    color-scheme: dark;
+  }
+}
+:root[data-palette="parchment"][data-theme="dark"] {
+  --rg-paper: #1c1612;
+  --rg-surface: #251e18;
+  --rg-line: #4d4034;
+  --rg-control: #8f7d68;
+  --rg-ink: #f1e8d8;
+  --rg-muted: #c4b6a0;
+  --rg-accent: #f0906c;
+  --rg-accent-soft: #4a2a1d;
+  --rg-on-accent: #1c1612;
+  --rg-gold: #e0b050;
+  --rg-gold-ink: #f2d38a;
+  --rg-gold-soft: #413116;
+  --rg-success: #9bd47a;
+  --rg-success-soft: #2a3d1e;
+  --rg-danger: #ff9a8a;
+  --rg-danger-soft: #4a2420;
+  --rg-info: #c9a8e0;
+  --rg-caution: #f2d38a;
+  --rg-audit: #7fcfd0;
+  --rg-waived: #c9a8e0;
+  --rg-shadow-popover: 0 8px 24px rgba(0, 0, 0, 0.45);
+  color-scheme: dark;
+}
+
+/* Slate */
+:root[data-palette="slate"] {
+  --rg-paper: #f1f3f6;
+  --rg-surface: #ffffff;
+  --rg-line: #cbd1da;
+  --rg-control: #767f90;
+  --rg-ink: #1a2030;
+  --rg-muted: #4b5567;
+  --rg-accent: #4338ca;
+  --rg-accent-soft: #e8e9fb;
+  --rg-on-accent: #ffffff;
+  --rg-gold: #f0b429;
+  --rg-gold-ink: #6b4a00;
+  --rg-gold-soft: #fbebc2;
+  --rg-success: #13733a;
+  --rg-success-soft: #dcf3e4;
+  --rg-danger: #b42318;
+  --rg-danger-soft: #fbe4e1;
+  --rg-info: #0b6a84;
+  --rg-caution: #6b4a00;
+  --rg-audit: #6d28d9;
+  --rg-waived: #0b6a84;
+  --rg-shadow-popover: 0 8px 24px rgba(26, 32, 48, 0.14);
+  color-scheme: light;
+  --rg-heat: color-mix(in srgb, var(--rg-danger) 55%, var(--rg-gold));
+  --rg-resp-covered: color-mix(in srgb, var(--rg-muted) 60%, var(--rg-surface));
+  --rg-font-sans: var(--font-inter, Inter), system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --rg-font-mono: var(--font-jetbrains-mono, "JetBrains Mono"), ui-monospace, "Cascadia Mono", Consolas, "Liberation Mono", monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-palette="slate"]:not([data-theme="light"]) {
+    --rg-paper: #0f1219;
+    --rg-surface: #171b25;
+    --rg-line: #343b4c;
+    --rg-control: #7e889c;
+    --rg-ink: #e4e8f0;
+    --rg-muted: #a5aec0;
+    --rg-accent: #a5b4fc;
+    --rg-accent-soft: #272a5c;
+    --rg-on-accent: #0f1219;
+    --rg-gold: #e0b04a;
+    --rg-gold-ink: #f4d68a;
+    --rg-gold-soft: #3b3015;
+    --rg-success: #5fd38b;
+    --rg-success-soft: #17382a;
+    --rg-danger: #f5a097;
+    --rg-danger-soft: #402320;
+    --rg-info: #67d3e8;
+    --rg-caution: #f4d68a;
+    --rg-audit: #c4b5fd;
+    --rg-waived: #67d3e8;
+    --rg-shadow-popover: 0 8px 24px rgba(0, 0, 0, 0.45);
+    color-scheme: dark;
+  }
+}
+:root[data-palette="slate"][data-theme="dark"] {
+  --rg-paper: #0f1219;
+  --rg-surface: #171b25;
+  --rg-line: #343b4c;
+  --rg-control: #7e889c;
+  --rg-ink: #e4e8f0;
+  --rg-muted: #a5aec0;
+  --rg-accent: #a5b4fc;
+  --rg-accent-soft: #272a5c;
+  --rg-on-accent: #0f1219;
+  --rg-gold: #e0b04a;
+  --rg-gold-ink: #f4d68a;
+  --rg-gold-soft: #3b3015;
+  --rg-success: #5fd38b;
+  --rg-success-soft: #17382a;
+  --rg-danger: #f5a097;
+  --rg-danger-soft: #402320;
+  --rg-info: #67d3e8;
+  --rg-caution: #f4d68a;
+  --rg-audit: #c4b5fd;
+  --rg-waived: #67d3e8;
+  --rg-shadow-popover: 0 8px 24px rgba(0, 0, 0, 0.45);
+  color-scheme: dark;
+}
+
+/* Forest */
+:root[data-palette="forest"] {
+  --rg-paper: #f0f4ee;
+  --rg-surface: #fdfefc;
+  --rg-line: #c5d3c0;
+  --rg-control: #6b8265;
+  --rg-ink: #17281c;
+  --rg-muted: #46594a;
+  --rg-accent: #14583a;
+  --rg-accent-soft: #dcf0e0;
+  --rg-on-accent: #ffffff;
+  --rg-gold: #e5b23b;
+  --rg-gold-ink: #5f4400;
+  --rg-gold-soft: #f7e8b6;
+  --rg-success: #296e2d;
+  --rg-success-soft: #e0f1da;
+  --rg-danger: #a63a24;
+  --rg-danger-soft: #f8e1db;
+  --rg-info: #1d5f78;
+  --rg-caution: #5f4400;
+  --rg-audit: #7a4a9e;
+  --rg-waived: #1d5f78;
+  --rg-shadow-popover: 0 8px 24px rgba(23, 40, 28, 0.14);
+  color-scheme: light;
+  --rg-heat: color-mix(in srgb, var(--rg-danger) 55%, var(--rg-gold));
+  --rg-resp-covered: color-mix(in srgb, var(--rg-muted) 60%, var(--rg-surface));
+  --rg-font-sans: var(--font-public-sans, "Public Sans"), system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --rg-font-mono: var(--font-plex-mono, "IBM Plex Mono"), ui-monospace, "Cascadia Mono", Consolas, "Liberation Mono", monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-palette="forest"]:not([data-theme="light"]) {
+    --rg-paper: #0d1a12;
+    --rg-surface: #13241a;
+    --rg-line: #2c4535;
+    --rg-control: #6f9680;
+    --rg-ink: #dcebe0;
+    --rg-muted: #a7bfae;
+    --rg-accent: #6fd08f;
+    --rg-accent-soft: #17402a;
+    --rg-on-accent: #0d1a12;
+    --rg-gold: #dbb04f;
+    --rg-gold-ink: #f1d795;
+    --rg-gold-soft: #3a3016;
+    --rg-success: #9ad86a;
+    --rg-success-soft: #24401a;
+    --rg-danger: #f0998a;
+    --rg-danger-soft: #432520;
+    --rg-info: #6cc4e0;
+    --rg-caution: #f1d795;
+    --rg-audit: #d3b4ee;
+    --rg-waived: #6cc4e0;
+    --rg-shadow-popover: 0 8px 24px rgba(0, 0, 0, 0.45);
+    color-scheme: dark;
+  }
+}
+:root[data-palette="forest"][data-theme="dark"] {
+  --rg-paper: #0d1a12;
+  --rg-surface: #13241a;
+  --rg-line: #2c4535;
+  --rg-control: #6f9680;
+  --rg-ink: #dcebe0;
+  --rg-muted: #a7bfae;
+  --rg-accent: #6fd08f;
+  --rg-accent-soft: #17402a;
+  --rg-on-accent: #0d1a12;
+  --rg-gold: #dbb04f;
+  --rg-gold-ink: #f1d795;
+  --rg-gold-soft: #3a3016;
+  --rg-success: #9ad86a;
+  --rg-success-soft: #24401a;
+  --rg-danger: #f0998a;
+  --rg-danger-soft: #432520;
+  --rg-info: #6cc4e0;
+  --rg-caution: #f1d795;
+  --rg-audit: #d3b4ee;
+  --rg-waived: #6cc4e0;
+  --rg-shadow-popover: 0 8px 24px rgba(0, 0, 0, 0.45);
+  color-scheme: dark;
+}
+
 
 /* Legacy --ems-* names: aliases of the Register tokens, so call sites that
    still use them follow the new look and both themes with no dark block of

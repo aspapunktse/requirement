@@ -13,7 +13,7 @@ const FOCUS = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visi
 export function ModeSwitch({ className = "" }: { className?: string }) {
   const choice = useSyncExternalStore(subscribeMode, getModeSnapshot, getModeServerSnapshot);
   return (
-    <div role="group" aria-label="Mode" className={`rounded-[10px] border border-rg-line bg-rg-surface p-0.5 ${className}`}>
+    <div role="group" aria-label="Mode" className={`rounded-[10px] border border-rg-control bg-rg-surface p-0.5 ${className}`}>
       {MODE_CHOICES.map(({ value, label }) => (
         <button
           key={value}
