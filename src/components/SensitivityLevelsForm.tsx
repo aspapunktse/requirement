@@ -24,7 +24,21 @@ const toDraft = (level: SensitivityLevelInfo): Draft => ({
 });
 
 /** A colour field: the browser's picker and the hex text. The picker only takes a full `#rrggbb`, so it shows the saved colour until the hex is one. */
-function ColourField({ id, name, value, fallback, onChange }: { id: string; name: string; value: string; fallback: string; onChange: (value: string) => void }) {
+function ColourField({
+  id,
+  name,
+  value,
+  fallback,
+  disabled,
+  onChange,
+}: {
+  id: string;
+  name: string;
+  value: string;
+  fallback: string;
+  disabled: boolean;
+  onChange: (value: string) => void;
+}) {
   return (
     <span className="flex items-center gap-1.5">
       <input
@@ -32,6 +46,7 @@ function ColourField({ id, name, value, fallback, onChange }: { id: string; name
         aria-label={`${name} picker`}
         className="h-9 w-10 flex-none cursor-pointer rounded-[var(--rg-radius-md)] border border-rg-line bg-rg-surface p-0.5"
         value={isHexColour(value.trim()) ? value.trim().toLowerCase() : fallback.toLowerCase()}
+        disabled={disabled}
         onChange={(event) => onChange(event.target.value.toUpperCase())}
       />
       <input
@@ -41,13 +56,17 @@ function ColourField({ id, name, value, fallback, onChange }: { id: string; name
         value={value}
         maxLength={7}
         spellCheck={false}
+        disabled={disabled}
         onChange={(event) => onChange(event.target.value)}
       />
     </span>
   );
 }
 
-/** One level: the draft being edited, its live preview and contrast, and a Save for this level alone. Saves with PATCH /api/sensitivity-levels. */
+/**
+ * One level: the draft being edited, its live preview and contrast, and a Save for this level alone. Saves with PATCH
+ * /api/sensitivity-levels. The fields are locked while a save is pending, so the saved response never overwrites later edits.
+ */
 function LevelRow({
   saved,
   siblings,
@@ -145,6 +164,7 @@ function LevelRow({
           value={draft.label}
           maxLength={MAX_SENSITIVITY_LABEL_LENGTH + 10}
           autoComplete="off"
+          disabled={saving}
           onChange={(event) => edit({ label: event.target.value })}
         />
         <textarea
@@ -153,18 +173,19 @@ function LevelRow({
           rows={2}
           value={draft.description}
           maxLength={MAX_SENSITIVITY_DESCRIPTION_LENGTH + 50}
+          disabled={saving}
           onChange={(event) => edit({ description: event.target.value })}
         />
       </div>
 
       <div className="flex flex-col gap-1.5">
         <span className={`${CAPTION_CLASS} lg:sr-only`}>Text colour</span>
-        <ColourField id={`sensitivity-${n}-text`} name={`Text colour, level ${n}`} value={draft.textColor} fallback={saved.textColor} onChange={(value) => edit({ textColor: value })} />
+        <ColourField id={`sensitivity-${n}-text`} name={`Text colour, level ${n}`} value={draft.textColor} fallback={saved.textColor} disabled={saving} onChange={(value) => edit({ textColor: value })} />
       </div>
 
       <div className="flex flex-col gap-1.5">
         <span className={`${CAPTION_CLASS} lg:sr-only`}>Background colour</span>
-        <ColourField id={`sensitivity-${n}-background`} name={`Background colour, level ${n}`} value={draft.backgroundColor} fallback={saved.backgroundColor} onChange={(value) => edit({ backgroundColor: value })} />
+        <ColourField id={`sensitivity-${n}-background`} name={`Background colour, level ${n}`} value={draft.backgroundColor} fallback={saved.backgroundColor} disabled={saving} onChange={(value) => edit({ backgroundColor: value })} />
       </div>
 
       <div className="flex flex-col gap-1.5 text-sm">

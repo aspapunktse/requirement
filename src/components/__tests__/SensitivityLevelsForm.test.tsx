@@ -47,6 +47,23 @@ describe("SensitivityLevelsForm (#291)", () => {
     expect(JSON.parse(init.body)).toMatchObject({ level: 3, label: "Confidential", textColor: "#854D0E", backgroundColor: "#FEF9C3" });
   });
 
+  it("locks the row's fields while its save is pending, so the response can't overwrite later edits", async () => {
+    let resolve: (response: Response) => void = () => {};
+    vi.stubGlobal("fetch", vi.fn().mockReturnValue(new Promise<Response>((done) => (resolve = done))));
+    renderForm();
+    const label = screen.getByLabelText("Label for level 3");
+    await userEvent.clear(label);
+    await userEvent.type(label, "Confidential");
+    await userEvent.click(screen.getByRole("button", { name: "Save level 3" }));
+    for (const name of ["Label for level 3", "Description for level 3", "Text colour, level 3 hex", "Text colour, level 3 picker", "Background colour, level 3 hex", "Background colour, level 3 picker"]) {
+      expect(screen.getByLabelText(name)).toBeDisabled();
+    }
+    expect(screen.getByLabelText("Label for level 2")).toBeEnabled();
+    resolve(json({ level: { ...levels[2], label: "Confidential" } }));
+    await waitFor(() => expect(within(row(3)).getByRole("status")).toHaveTextContent("Saved"));
+    expect(screen.getByLabelText("Label for level 3")).toBeEnabled();
+  });
+
   it("refuses low contrast, an empty label, a bad colour and a duplicate label before any request", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
