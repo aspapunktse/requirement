@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { NEW_CONTROL_DRAFT, NewControlFields, newControlBody } from "@/components/NewControlFields";
+import type { SensitivityLevelInfo } from "@/lib/sensitivity-level";
 import { canBeControlOwner } from "@/lib/system-permissions";
 import type { UserRole } from "@prisma/client";
 import { frameworkLabel, satisfiesEntries, satisfiesLabel, type ControlMappingForLabel } from "@/lib/framework-label";
@@ -41,15 +42,15 @@ type ControlSummary = {
   owner: ControlOwner | null;
   // Set for a Supplementary Control (authored for a gap in that Framework); null for a base Control.
   originFramework: { id: string; name: string; version: string } | null;
-  minConfidentialityImpactLevel: ImpactLevel | null;
+  minSensitivityLevel: number | null;
+  minSensitivity: { label: string } | null;
   minIntegrityImpactLevel: ImpactLevel | null;
   minAvailabilityImpactLevel: ImpactLevel | null;
 };
 
 const IMPACT_LEVELS: ImpactLevel[] = ["LOW", "MODERATE", "HIGH", "CRITICAL"];
 
-const IMPACT_AXES: { key: "minConfidentialityImpactLevel" | "minIntegrityImpactLevel" | "minAvailabilityImpactLevel"; label: string }[] = [
-  { key: "minConfidentialityImpactLevel", label: "Min. Confidentiality" },
+const IMPACT_AXES: { key: "minIntegrityImpactLevel" | "minAvailabilityImpactLevel"; label: string }[] = [
   { key: "minIntegrityImpactLevel", label: "Min. Integrity" },
   { key: "minAvailabilityImpactLevel", label: "Min. Availability" },
 ];
@@ -59,9 +60,12 @@ function summarizeTags(control: ControlSummary): string {
   if (control.deploymentFacets.length > 0) {
     parts.push(`Facets: ${control.deploymentFacets.map((f) => f.name).join(", ")}`);
   }
-  const thresholds = IMPACT_AXES.filter(({ key }) => control[key]).map(
-    ({ key, label }) => `${label}: ${control[key]}`,
-  );
+  const thresholds = [
+    ...(control.minSensitivityLevel !== null
+      ? [`Min. Sensitivity Level: ${control.minSensitivity?.label ?? control.minSensitivityLevel}`]
+      : []),
+    ...IMPACT_AXES.filter(({ key }) => control[key]).map(({ key, label }) => `${label}: ${control[key]}`),
+  ];
   if (thresholds.length > 0) parts.push(thresholds.join(", "));
   return parts.length > 0 ? parts.join(" · ") : "Unscoped (applies regardless)";
 }
@@ -90,7 +94,7 @@ function OriginBadge({ control }: { control: Pick<ControlSummary, "originFramewo
 type OriginFilter = "ALL" | "BASE" | "SUPPLEMENTARY";
 type OwnerFilter = "ALL" | "UNASSIGNED";
 
-export function ControlLibraryManager() {
+export function ControlLibraryManager({ sensitivityLevels }: { sensitivityLevels: SensitivityLevelInfo[] }) {
   const [controls, setControls] = useState<ControlSummary[]>([]);
   const [deploymentFacets, setDeploymentFacets] = useState<Catalog[]>([]);
   const [users, setUsers] = useState<ControlOwner[]>([]);
@@ -101,10 +105,11 @@ export function ControlLibraryManager() {
   // The Control Owner picked in the form; "" is "No Control Owner".
   const [selectedOwnerId, setSelectedOwnerId] = useState("");
   const [impactLevels, setImpactLevels] = useState<{
-    minConfidentialityImpactLevel: ImpactLevel | null;
     minIntegrityImpactLevel: ImpactLevel | null;
     minAvailabilityImpactLevel: ImpactLevel | null;
-  }>({ minConfidentialityImpactLevel: null, minIntegrityImpactLevel: null, minAvailabilityImpactLevel: null });
+  }>({ minIntegrityImpactLevel: null, minAvailabilityImpactLevel: null });
+  // The minimum Sensitivity Level picked in the form (1 to 5); null is no threshold.
+  const [minSensitivityLevel, setMinSensitivityLevel] = useState<number | null>(null);
 
   const [creating, setCreating] = useState(false);
   const [draft, setDraft] = useState(NEW_CONTROL_DRAFT);
@@ -161,8 +166,8 @@ export function ControlLibraryManager() {
     const control = controls.find((r) => r.id === id);
     setSelectedDeploymentFacetIds(new Set(control?.deploymentFacets.map((t) => t.id) ?? []));
     setSelectedOwnerId(control?.owner?.id ?? "");
+    setMinSensitivityLevel(control?.minSensitivityLevel ?? null);
     setImpactLevels({
-      minConfidentialityImpactLevel: control?.minConfidentialityImpactLevel ?? null,
       minIntegrityImpactLevel: control?.minIntegrityImpactLevel ?? null,
       minAvailabilityImpactLevel: control?.minAvailabilityImpactLevel ?? null,
     });
@@ -186,7 +191,7 @@ export function ControlLibraryManager() {
     const body: {
       deploymentFacetIds?: string[];
       ownerId?: string | null;
-      minConfidentialityImpactLevel?: ImpactLevel | null;
+      minSensitivityLevel?: number | null;
       minIntegrityImpactLevel?: ImpactLevel | null;
       minAvailabilityImpactLevel?: ImpactLevel | null;
     } = {};
@@ -196,7 +201,7 @@ export function ControlLibraryManager() {
     }
     if (selected.applicability !== "ORGANIZATIONAL") {
       body.deploymentFacetIds = Array.from(selectedDeploymentFacetIds);
-      body.minConfidentialityImpactLevel = impactLevels.minConfidentialityImpactLevel;
+      body.minSensitivityLevel = minSensitivityLevel;
       body.minIntegrityImpactLevel = impactLevels.minIntegrityImpactLevel;
       body.minAvailabilityImpactLevel = impactLevels.minAvailabilityImpactLevel;
     }
@@ -432,8 +437,24 @@ export function ControlLibraryManager() {
 
               <fieldset className="flex flex-col gap-2">
                 <legend className="text-sm font-semibold">
-                  Minimum Impact Level thresholds (not classified = no threshold)
+                  Minimum Sensitivity Level and Impact Level thresholds (none = no threshold)
                 </legend>
+                <label className="flex items-center gap-2 text-sm">
+                  Min. Sensitivity Level
+                  <select
+                    aria-label="Min. Sensitivity Level"
+                    className="rounded border border-rg-control p-1 text-sm"
+                    value={minSensitivityLevel ?? ""}
+                    onChange={(event) => setMinSensitivityLevel(event.target.value === "" ? null : Number(event.target.value))}
+                  >
+                    <option value="">No threshold</option>
+                    {sensitivityLevels.map((level) => (
+                      <option key={level.level} value={level.level}>
+                        {level.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
                 {IMPACT_AXES.map(({ key, label }) => (
                   <label key={key} className="flex items-center gap-2 text-sm">
                     {label}

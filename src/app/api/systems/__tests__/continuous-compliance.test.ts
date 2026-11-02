@@ -107,7 +107,7 @@ describe("Continuous compliance: classification and scope change at any lifecycl
 
     // Every System here declares Facet A only; each Control below becomes applicable through exactly one change.
     await makeControl("facet", {}, [facetB]);
-    await makeControl("impact", { minConfidentialityImpactLevel: "HIGH" });
+    await makeControl("impact", { minSensitivityLevel: 4 });
     await makeControl("scope", {});
     await makeControl("provider", {});
     await mapControlsToBase([control.facet, control.impact, control.provider]);
@@ -200,7 +200,7 @@ describe("Continuous compliance: classification and scope change at any lifecycl
       facets: system.deploymentFacets.map((f) => f.id).sort(),
       providerDependencies: system.providerDependencies.map((d) => d.providerId).sort(),
       scopes: system.frameworkScopes.map((f) => f.id).sort(),
-      impact: [system.confidentialityImpactLevel, system.integrityImpactLevel, system.availabilityImpactLevel],
+      impact: [system.sensitivityLevel, system.integrityImpactLevel, system.availabilityImpactLevel],
       assessments: (await prisma.controlAssessment.findMany({ where: { systemId }, orderBy: { controlId: "asc" } })).map(
         (a) => `${a.controlId}:${a.status}:${a.assessedById}`,
       ),
@@ -253,7 +253,7 @@ describe("Continuous compliance: classification and scope change at any lifecycl
         return control.impact;
       },
       ok: 200,
-      run: (id, u) => patchSystem(req(`/api/systems/${id}`, "PATCH", u, { confidentialityImpactLevel: "HIGH" }), ctx(id)),
+      run: (id, u) => patchSystem(req(`/api/systems/${id}`, "PATCH", u, { sensitivityLevel: 4 }), ctx(id)),
     },
     "Framework Scope": {
       get control() {

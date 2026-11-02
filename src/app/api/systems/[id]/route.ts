@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { authenticate } from "@/lib/api-authz";
 import { getVisibleSystem } from "@/lib/system-visibility";
 import { canChangeSystemClassification, changeSystemClassification } from "@/lib/system-classification-change";
+import { sensitivityLevelSchema } from "@/lib/sensitivity-level";
 
 const impactLevelSchema = z.nativeEnum(ImpactLevel).nullable();
 
@@ -23,17 +24,17 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/systems/
 const updateSystemSchema = z
   .object({
     deploymentFacetIds: z.array(z.string().min(1)).min(1).optional(),
-    confidentialityImpactLevel: impactLevelSchema.optional(),
+    sensitivityLevel: sensitivityLevelSchema.optional(),
     integrityImpactLevel: impactLevelSchema.optional(),
     availabilityImpactLevel: impactLevelSchema.optional(),
   })
   .refine(
     (data) =>
       data.deploymentFacetIds !== undefined ||
-      data.confidentialityImpactLevel !== undefined ||
+      data.sensitivityLevel !== undefined ||
       data.integrityImpactLevel !== undefined ||
       data.availabilityImpactLevel !== undefined,
-    { message: "Provide at least one of deploymentFacetIds or an Impact Level axis" },
+    { message: "Provide at least one of deploymentFacetIds, sensitivityLevel or an Impact Level axis" },
   );
 
 /**
@@ -66,12 +67,12 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/system
   const parsed = updateSystemSchema.safeParse(await request.json());
   if (!parsed.success) {
     return NextResponse.json(
-      { error: "At least one of deploymentFacetIds or an Impact Level axis is required" },
+      { error: "At least one of deploymentFacetIds, sensitivityLevel (1 to 5 or null) or an Impact Level axis is required" },
       { status: 400 },
     );
   }
 
-  const { deploymentFacetIds, confidentialityImpactLevel, integrityImpactLevel, availabilityImpactLevel } =
+  const { deploymentFacetIds, sensitivityLevel, integrityImpactLevel, availabilityImpactLevel } =
     parsed.data;
 
   if (deploymentFacetIds !== undefined) {
@@ -85,7 +86,7 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/system
     system,
     {
       deploymentFacetIds,
-      confidentialityImpactLevel,
+      sensitivityLevel,
       integrityImpactLevel,
       availabilityImpactLevel,
     },

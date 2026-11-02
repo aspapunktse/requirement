@@ -2,11 +2,12 @@ import type { ImpactLevel } from "@prisma/client";
 
 /**
  * The wording of the System onboarding interview (design proposal A, issue #258): the seven steps, the
- * plain-language questions and the options of the three Impact Level steps. The Deployment Facets,
+ * plain-language questions and the options of the two Impact Level steps. The Sensitivity step lists the
+ * Sensitivity Levels from the catalog (ADR 0011), so it has no options here. The Deployment Facets,
  * Frameworks and Providers are not here: they come from the catalogs.
  */
 
-export type ImpactAxisKey = "confidentialityImpactLevel" | "integrityImpactLevel" | "availabilityImpactLevel";
+export type ImpactAxisKey = "integrityImpactLevel" | "availabilityImpactLevel";
 
 export type InterviewStepKey = "delivery" | "sensitivity" | "integrity" | "downtime" | "laws" | "relies" | "review";
 
@@ -61,16 +62,7 @@ export const INTERVIEW_STEPS: InterviewStep[] = [
 
 export type ImpactOption = { level: ImpactLevel; title: string; hint: string };
 
-export const IMPACT_STEPS: Record<"sensitivity" | "integrity" | "downtime", { axis: ImpactAxisKey; options: ImpactOption[] }> = {
-  sensitivity: {
-    axis: "confidentialityImpactLevel",
-    options: [
-      { level: "LOW", title: "Public or internal only", hint: "Price lists, intranet pages, internal guides." },
-      { level: "MODERATE", title: "Internal business data", hint: "Plans, internal reports, ordinary customer contact details." },
-      { level: "HIGH", title: "Confidential", hint: "Contracts, financials, HR records, customer data in bulk." },
-      { level: "CRITICAL", title: "Strictly confidential", hint: "Trade secrets, health data, security keys." },
-    ],
-  },
+export const IMPACT_STEPS: Record<"integrity" | "downtime", { axis: ImpactAxisKey; options: ImpactOption[] }> = {
   integrity: {
     axis: "integrityImpactLevel",
     options: [

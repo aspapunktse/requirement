@@ -3,6 +3,14 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ControlLibraryManager } from "../ControlLibraryManager";
 
+const LEVELS = [
+  { level: 1, label: "Public", description: "d1", textColor: "#475569", backgroundColor: "#F1F5F9" },
+  { level: 2, label: "Internal", description: "d2", textColor: "#1D4ED8", backgroundColor: "#EFF6FF" },
+  { level: 3, label: "Sensitive", description: "d3", textColor: "#854D0E", backgroundColor: "#FEF9C3" },
+  { level: 4, label: "Highly Sensitive", description: "d4", textColor: "#9A3412", backgroundColor: "#FFEDD5" },
+  { level: 5, label: "Critical Sensitivity", description: "d5", textColor: "#991B1B", backgroundColor: "#FEE2E2" },
+];
+
 const baseControl = {
   description: "desc",
   category: "Security",
@@ -23,7 +31,8 @@ const baseControl = {
       framework: { id: string; name: string; version: string; status?: "DRAFT" | "PUBLISHED" };
     };
   }[],
-  minConfidentialityImpactLevel: null,
+  minSensitivityLevel: null as number | null,
+  minSensitivity: null as { label: string } | null,
   minIntegrityImpactLevel: null,
   minAvailabilityImpactLevel: null,
 };
@@ -107,7 +116,7 @@ describe("ControlLibraryManager", () => {
   });
 
   it("lists Controls with a tag summary", async () => {
-    render(<ControlLibraryManager />);
+    render(<ControlLibraryManager sensitivityLevels={LEVELS} />);
     expect(await screen.findByText("A.5.3")).toBeInTheDocument();
     expect(screen.getByText("A.5.1")).toBeInTheDocument();
   });
@@ -125,7 +134,7 @@ describe("ControlLibraryManager", () => {
         originFramework: { id: "f2", name: "NIS2", version: "2022" },
       },
     ];
-    render(<ControlLibraryManager />);
+    render(<ControlLibraryManager sensitivityLevels={LEVELS} />);
 
     const table = within(await screen.findByRole("table"));
     expect(table.getByText("Supplementary · NIS2:2022")).toBeInTheDocument();
@@ -148,7 +157,7 @@ describe("ControlLibraryManager", () => {
 
   it("lets an admin scope a Control to a Deployment Facet and save", async () => {
     const user = userEvent.setup();
-    render(<ControlLibraryManager />);
+    render(<ControlLibraryManager sensitivityLevels={LEVELS} />);
 
     await user.selectOptions(await screen.findByLabelText("Control"), "r1");
     await user.click(screen.getByLabelText("On-Premises Datacenter"));
@@ -162,10 +171,36 @@ describe("ControlLibraryManager", () => {
       expect(patchCall).toBeTruthy();
       expect(JSON.parse(patchCall![1].body)).toEqual({
         deploymentFacetIds: ["st1"],
-        minConfidentialityImpactLevel: null,
+        minSensitivityLevel: null,
         minIntegrityImpactLevel: null,
         minAvailabilityImpactLevel: null,
       });
+    });
+  });
+
+  it("offers the five Sensitivity Levels as the minimum and saves the picked one", async () => {
+    const user = userEvent.setup();
+    render(<ControlLibraryManager sensitivityLevels={LEVELS} />);
+
+    await user.selectOptions(await screen.findByLabelText("Control"), "r1");
+    const select = screen.getByLabelText("Min. Sensitivity Level");
+    expect(within(select).getAllByRole("option").map((option) => option.textContent)).toEqual([
+      "No threshold",
+      "Public",
+      "Internal",
+      "Sensitive",
+      "Highly Sensitive",
+      "Critical Sensitivity",
+    ]);
+    await user.selectOptions(select, "Highly Sensitive");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => {
+      const patchCall = (fetch as ReturnType<typeof vi.fn>).mock.calls.find(
+        ([url, init]) => typeof url === "string" && url.endsWith("/api/controls/r1") && init?.method === "PATCH",
+      );
+      expect(patchCall).toBeTruthy();
+      expect(JSON.parse(patchCall![1].body)).toMatchObject({ minSensitivityLevel: 4 });
     });
   });
 
@@ -179,7 +214,7 @@ describe("ControlLibraryManager", () => {
 
     it("lists each Control's Control Owner, or No Control Owner", async () => {
       controls[0] = { ...controls[0], owner: { id: "u1", name: "Ada Admin" } };
-      render(<ControlLibraryManager />);
+      render(<ControlLibraryManager sensitivityLevels={LEVELS} />);
 
       const table = within(await screen.findByRole("table"));
       expect(table.getByRole("columnheader", { name: "Control Owner" })).toBeInTheDocument();
@@ -204,7 +239,7 @@ describe("ControlLibraryManager", () => {
           originFramework: { id: "f2", name: "NIS2", version: "2022" },
         },
       ];
-      render(<ControlLibraryManager />);
+      render(<ControlLibraryManager sensitivityLevels={LEVELS} />);
 
       const table = within(await screen.findByRole("table"));
       expect(table.getByText("A.5.3")).toBeInTheDocument();
@@ -225,7 +260,7 @@ describe("ControlLibraryManager", () => {
 
     it("offers every User in the picker and saves the chosen Control Owner", async () => {
       const user = userEvent.setup();
-      render(<ControlLibraryManager />);
+      render(<ControlLibraryManager sensitivityLevels={LEVELS} />);
 
       await user.selectOptions(await screen.findByLabelText("Control"), "r2");
       const picker = screen.getByLabelText("Control Owner");
@@ -245,7 +280,7 @@ describe("ControlLibraryManager", () => {
     it("does not offer an Internal Auditor in the picker (#147)", async () => {
       users = [...users, { id: "u3", name: "Ivy Auditor", email: "ivy@example.com", role: "INTERNAL_AUDITOR" }];
       const user = userEvent.setup();
-      render(<ControlLibraryManager />);
+      render(<ControlLibraryManager sensitivityLevels={LEVELS} />);
 
       await user.selectOptions(await screen.findByLabelText("Control"), "r2");
       const picker = screen.getByLabelText("Control Owner");
@@ -259,7 +294,7 @@ describe("ControlLibraryManager", () => {
     it("pre-selects the current Control Owner and clears it with No Control Owner", async () => {
       controls[1] = { ...controls[1], owner: { id: "u1", name: "Ada Admin" } };
       const user = userEvent.setup();
-      render(<ControlLibraryManager />);
+      render(<ControlLibraryManager sensitivityLevels={LEVELS} />);
 
       await user.selectOptions(await screen.findByLabelText("Control"), "r2");
       const picker = screen.getByLabelText("Control Owner");
@@ -274,7 +309,7 @@ describe("ControlLibraryManager", () => {
     it("does not send ownerId when the Control Owner was not touched", async () => {
       controls[1] = { ...controls[1], owner: { id: "u1", name: "Ada Admin" } };
       const user = userEvent.setup();
-      render(<ControlLibraryManager />);
+      render(<ControlLibraryManager sensitivityLevels={LEVELS} />);
 
       await user.selectOptions(await screen.findByLabelText("Control"), "r2");
       await user.click(screen.getByRole("button", { name: "Save" }));
@@ -287,7 +322,7 @@ describe("ControlLibraryManager", () => {
       usersStatus = 404;
       controls[1] = { ...controls[1], owner: { id: "u1", name: "Ada Admin" } };
       const user = userEvent.setup();
-      render(<ControlLibraryManager />);
+      render(<ControlLibraryManager sensitivityLevels={LEVELS} />);
 
       await user.selectOptions(await screen.findByLabelText("Control"), "r2");
       const picker = screen.getByLabelText("Control Owner");
@@ -319,7 +354,7 @@ describe("ControlLibraryManager", () => {
       ],
     };
     const user = userEvent.setup();
-    render(<ControlLibraryManager />);
+    render(<ControlLibraryManager sensitivityLevels={LEVELS} />);
 
     await user.selectOptions(await screen.findByLabelText("Control"), "r1");
 
@@ -352,7 +387,7 @@ describe("ControlLibraryManager", () => {
       ],
     };
     const user = userEvent.setup();
-    render(<ControlLibraryManager />);
+    render(<ControlLibraryManager sensitivityLevels={LEVELS} />);
 
     await user.selectOptions(await screen.findByLabelText("Control"), "r1");
 
@@ -368,7 +403,7 @@ describe("ControlLibraryManager", () => {
 
   it("says so when a Control satisfies no Requirement yet", async () => {
     const user = userEvent.setup();
-    render(<ControlLibraryManager />);
+    render(<ControlLibraryManager sensitivityLevels={LEVELS} />);
 
     await user.selectOptions(await screen.findByLabelText("Control"), "r1");
 
@@ -377,18 +412,18 @@ describe("ControlLibraryManager", () => {
 
   it("hides Deployment Facet and Impact Level selection for an ORGANIZATIONAL control", async () => {
     const user = userEvent.setup();
-    render(<ControlLibraryManager />);
+    render(<ControlLibraryManager sensitivityLevels={LEVELS} />);
 
     await user.selectOptions(await screen.findByLabelText("Control"), "r2");
 
     expect(screen.queryByLabelText("On-Premises Datacenter")).not.toBeInTheDocument();
-    expect(screen.queryByLabelText("Min. Confidentiality")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Min. Sensitivity Level")).not.toBeInTheDocument();
     expect(screen.getByText(/never assessed per System/)).toBeInTheDocument();
   });
 
   it("creates a new Control via the create form", async () => {
     const user = userEvent.setup();
-    render(<ControlLibraryManager />);
+    render(<ControlLibraryManager sensitivityLevels={LEVELS} />);
 
     await screen.findByLabelText("Control");
     await user.click(screen.getByRole("button", { name: "+ New Control" }));

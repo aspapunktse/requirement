@@ -84,7 +84,7 @@ async function loadLaunchInputs(tx: Prisma.TransactionClient, internalAuditId: s
       title: true,
       applicability: true,
       ownerId: true,
-      minConfidentialityImpactLevel: true,
+      minSensitivityLevel: true,
       minIntegrityImpactLevel: true,
       minAvailabilityImpactLevel: true,
       deploymentFacets: { select: { id: true } },
@@ -98,7 +98,7 @@ async function loadLaunchInputs(tx: Prisma.TransactionClient, internalAuditId: s
     select: {
       id: true,
       name: true,
-      confidentialityImpactLevel: true,
+      sensitivityLevel: true,
       integrityImpactLevel: true,
       availabilityImpactLevel: true,
       deploymentFacets: { select: { id: true } },

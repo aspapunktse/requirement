@@ -142,9 +142,21 @@ describe("parseFrameworkImport", () => {
       applicability: "PER_SYSTEM",
       question: "Is it done?",
       deploymentFacets: ["Cloud IaaS/PaaS"],
-      minConfidentialityImpactLevel: "HIGH",
+      minSensitivityLevel: 4,
     });
     expect(parseFrameworkImport(file).ok).toBe(true);
+  });
+
+  it.each([0, 6, 2.5, "HIGH"])("rejects the minimum Sensitivity Level %j", (value) => {
+    const file = validFile();
+    Object.assign(file.supplementaryControls[0], { applicability: "PER_SYSTEM", question: "Is it done?", minSensitivityLevel: value });
+    expect(parseFrameworkImport(file).ok).toBe(false);
+  });
+
+  it("rejects the retired minConfidentialityImpactLevel key", () => {
+    const file = validFile();
+    Object.assign(file.supplementaryControls[0], { applicability: "PER_SYSTEM", question: "Is it done?", minConfidentialityImpactLevel: "HIGH" });
+    expect(problemsOf(file).some((p) => p.includes("minConfidentialityImpactLevel"))).toBe(true);
   });
 
   it("rejects unknown keys, so a typo is not silently ignored", () => {

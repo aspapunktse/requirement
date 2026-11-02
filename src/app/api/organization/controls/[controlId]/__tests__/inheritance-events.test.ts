@@ -312,7 +312,7 @@ describe("PATCH /api/organization/controls/[controlId]: Change Events for inheri
   });
 
   it("covers a Both Control that applies to a System by Impact Level and Framework Scope only (the in-memory applicability matches)", async () => {
-    // A System with a High confidentiality level gets the event for a Control that needs it; a Low one does not.
+    // A System at Highly Sensitive gets the event for a Control that needs it; an Internal one does not.
     const high = await prisma.control.create({
       data: {
         code: `TEST-ORGEV-HIGH-${suffix}`,
@@ -321,16 +321,16 @@ describe("PATCH /api/organization/controls/[controlId]: Change Events for inheri
         category: "Test",
         applicability: "BOTH",
         question: "Does it?",
-        minConfidentialityImpactLevel: "HIGH",
+        minSensitivityLevel: 4,
         deploymentFacets: { connect: { id: facetId } },
       },
     });
     const highRequirementId = await mapControlsToBase([high.id]);
-    const make = (key: string, level: "HIGH" | "LOW") =>
+    const make = (key: string, level: number) =>
       prisma.system.create({
-        data: { name: `Test OrgEvents ${key} ${suffix}`, ownerId, status: "ONBOARDED", confidentialityImpactLevel: level, deploymentFacets: { connect: { id: facetId } } },
+        data: { name: `Test OrgEvents ${key} ${suffix}`, ownerId, status: "ONBOARDED", sensitivityLevel: level, deploymentFacets: { connect: { id: facetId } } },
       });
-    const [highSystem, lowSystem] = [await make("high", "HIGH"), await make("low", "LOW")];
+    const [highSystem, lowSystem] = [await make("high", 4), await make("low", 2)];
     try {
       const response = await patch(high.id, adminId, { status: "FULFILLED" });
       expect(response.status).toBe(200);

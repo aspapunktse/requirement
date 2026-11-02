@@ -21,13 +21,13 @@ function ctxFor(id: string) {
   return { params: Promise.resolve({ id }) };
 }
 
-describe("Impact Level threshold applicability", () => {
+describe("Sensitivity Level and Impact Level threshold applicability", () => {
   let ownerId: string;
   let facetId: string;
   let systemId: string;
   const controlIds: string[] = [];
   let noThresholdId: string;
-  let highConfidentialityId: string;
+  let highlySensitiveId: string;
   let criticalAvailabilityId: string;
 
   beforeAll(async () => {
@@ -49,7 +49,7 @@ describe("Impact Level threshold applicability", () => {
         deploymentFacets: { connect: [{ id: facetId }] },
         ownerId,
         status: "DRAFT",
-        confidentialityImpactLevel: "MODERATE",
+        sensitivityLevel: 3,
       },
     });
     systemId = system.id;
@@ -65,15 +65,15 @@ describe("Impact Level threshold applicability", () => {
         deploymentFacets: { connect: [{ id: facetId }] }, // scoped, so it doesn't apply to other files' Systems (#231)
       },
     });
-    const highConfidentiality = await prisma.control.create({
+    const highlySensitive = await prisma.control.create({
       data: {
         code: `IMP-CONF-${suffix}`,
-        title: "Requires High Confidentiality",
+        title: "Test Requires Highly Sensitive (step-up authentication)",
         description: "desc",
         category: "Security",
         applicability: "PER_SYSTEM",
         deploymentFacets: { connect: [{ id: facetId }] }, // scoped, so it doesn't apply to other files' Systems (#231)
-        minConfidentialityImpactLevel: "HIGH",
+        minSensitivityLevel: 4,
       },
     });
     const criticalAvailability = await prisma.control.create({
@@ -88,9 +88,9 @@ describe("Impact Level threshold applicability", () => {
       },
     });
     noThresholdId = noThreshold.id;
-    highConfidentialityId = highConfidentiality.id;
+    highlySensitiveId = highlySensitive.id;
     criticalAvailabilityId = criticalAvailability.id;
-    controlIds.push(noThresholdId, highConfidentialityId, criticalAvailabilityId);
+    controlIds.push(noThresholdId, highlySensitiveId, criticalAvailabilityId);
     await mapControlsToBase(controlIds);
   });
 
@@ -126,18 +126,31 @@ describe("Impact Level threshold applicability", () => {
     const response = await GET(requestAs(systemId, ownerId), ctxFor(systemId));
     const body = await response.json();
     const ids = body.assessments.map((a: { control: { id: string } }) => a.control.id);
-    // System's confidentialityImpactLevel is MODERATE, Control needs HIGH.
-    expect(ids).not.toContain(highConfidentialityId);
+    // System's Sensitivity Level is 3 (Sensitive), the Control needs 4 (Highly Sensitive).
+    expect(ids).not.toContain(highlySensitiveId);
+  });
+
+  it("excludes a Sensitivity Level minimum for a System with no level", async () => {
+    await prisma.system.update({ where: { id: systemId }, data: { sensitivityLevel: null } });
+    try {
+      const response = await GET(requestAs(systemId, ownerId), ctxFor(systemId));
+      const body = await response.json();
+      const ids = body.assessments.map((a: { control: { id: string } }) => a.control.id);
+      expect(ids).not.toContain(highlySensitiveId);
+      expect(ids).toContain(noThresholdId);
+    } finally {
+      await prisma.system.update({ where: { id: systemId }, data: { sensitivityLevel: 3 } });
+    }
   });
 
   it("includes a Control once the System's declared level meets the threshold", async () => {
-    await prisma.system.update({ where: { id: systemId }, data: { confidentialityImpactLevel: "CRITICAL" } });
+    await prisma.system.update({ where: { id: systemId }, data: { sensitivityLevel: 5 } });
 
     const response = await GET(requestAs(systemId, ownerId), ctxFor(systemId));
     const body = await response.json();
     const ids = body.assessments.map((a: { control: { id: string } }) => a.control.id);
-    expect(ids).toContain(highConfidentialityId);
+    expect(ids).toContain(highlySensitiveId);
 
-    await prisma.system.update({ where: { id: systemId }, data: { confidentialityImpactLevel: "MODERATE" } });
+    await prisma.system.update({ where: { id: systemId }, data: { sensitivityLevel: 3 } });
   });
 });

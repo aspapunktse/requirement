@@ -22,7 +22,7 @@ export const isStatus = (value: string): value is OnboardingStatus => (STATUS_OR
 
 export const IMPACT_ORDER: ImpactLevel[] = ["LOW", "MODERATE", "HIGH", "CRITICAL"];
 export const IMPACT_LABEL: Record<ImpactLevel, string> = { LOW: "Low", MODERATE: "Moderate", HIGH: "High", CRITICAL: "Critical" };
-/** 1 (Low) to 4 (Critical): the height of a C · I · A bar; 0 stands for not classified. */
+/** 1 (Low) to 4 (Critical): the height of an Integrity or Availability bar; 0 stands for not classified. */
 export const IMPACT_RANK: Record<ImpactLevel, number> = { LOW: 1, MODERATE: 2, HIGH: 3, CRITICAL: 4 };
 /** The "highest Impact Level" filter's choices; NONE is a System with no axis classified. */
 export type HighestImpact = ImpactLevel | "NONE";
@@ -41,8 +41,10 @@ export type SystemRow = {
   /** Deployment Facets, by name. */
   facets: { id: string; name: string }[];
   businessUnits: { id: string; name: string }[];
-  /** The Impact Level on each CIA axis; null means not classified. */
-  confidentiality: ImpactLevel | null;
+  /** The Sensitivity Level (1 to 5) and its label; null means not set. */
+  sensitivityLevel: number | null;
+  sensitivityLabel: string | null;
+  /** The Impact Level on the Integrity and Availability axes; null means not classified. */
   integrity: ImpactLevel | null;
   availability: ImpactLevel | null;
   /** Open Assessment Queries the acting user can act on. */

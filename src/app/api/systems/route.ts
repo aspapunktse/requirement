@@ -5,12 +5,14 @@ import { prisma } from "@/lib/prisma";
 import { authenticate } from "@/lib/api-authz";
 import { getVisibleSystems } from "@/lib/system-visibility";
 import { canCreateSystem } from "@/lib/system-permissions";
+import { sensitivityLevelSchema } from "@/lib/sensitivity-level";
 import { logChangeEvent } from "@/lib/change-events";
 import { applyFrameworkScopeDeclaredIn } from "@/lib/framework-scope";
 import { declareProviderDependencyIn } from "@/lib/provider-dependencies";
 import { lockProvider, PROVIDER_TRANSACTION_TIMEOUT_MS } from "@/lib/provider-inheritance";
 
 const impactLevelSchema = z.nativeEnum(ImpactLevel).optional();
+
 
 export async function GET(request: NextRequest) {
   const auth = await authenticate(request);
@@ -24,7 +26,7 @@ const createSystemSchema = z.object({
   name: z.string().min(1),
   vendor: z.string().optional(),
   description: z.string().optional(),
-  confidentialityImpactLevel: impactLevelSchema,
+  sensitivityLevel: sensitivityLevelSchema.optional(),
   integrityImpactLevel: impactLevelSchema,
   availabilityImpactLevel: impactLevelSchema,
   deploymentFacetIds: z.array(z.string().min(1)).min(1),

@@ -54,6 +54,7 @@ describe("System write permissions (#78)", () => {
         name: `Test SysWrite System ${SUFFIX}-${systemIds.length}`,
         ownerId: users[ownerKey],
         status,
+        sensitivityLevel: 3, // submitting needs one
         deploymentFacets: { connect: { id: facetId } },
         businessUnits: { connect: { id: businessUnitId } },
       },
@@ -378,7 +379,7 @@ describe("System write permissions (#78)", () => {
         id: systemId,
         deploymentFacets: [{ id: facetId }],
         frameworkScopes: [],
-        confidentialityImpactLevel: null,
+        sensitivityLevel: null,
         integrityImpactLevel: null,
         availabilityImpactLevel: null,
       });

@@ -46,6 +46,14 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+const LEVELS = [
+  { level: 1, label: "Public", description: "Information anyone may see.", textColor: "#475569", backgroundColor: "#F1F5F9" },
+  { level: 2, label: "Internal", description: "Everyday business information.", textColor: "#1D4ED8", backgroundColor: "#EFF6FF" },
+  { level: 3, label: "Sensitive", description: "Would cause harm if it leaked.", textColor: "#854D0E", backgroundColor: "#FEF9C3" },
+  { level: 4, label: "Highly Sensitive", description: "Would seriously harm people.", textColor: "#9A3412", backgroundColor: "#FFEDD5" },
+  { level: 5, label: "Critical Sensitivity", description: "Would threaten the organisation.", textColor: "#991B1B", backgroundColor: "#FEE2E2" },
+];
+
 function renderProfile(props: Partial<React.ComponentProps<typeof SystemProfile>> = {}) {
   return render(
     <SystemProfile
@@ -55,7 +63,9 @@ function renderProfile(props: Partial<React.ComponentProps<typeof SystemProfile>
       canManageBusinessUnits
       canManageFrameworkScopes
       deploymentFacetIds={["f1"]}
-      impactLevels={{ confidentialityImpactLevel: "HIGH", integrityImpactLevel: null, availabilityImpactLevel: "LOW" }}
+      impactLevels={{ integrityImpactLevel: null, availabilityImpactLevel: "LOW" }}
+      sensitivityLevel={4}
+      sensitivityLevels={LEVELS}
       {...props}
     />,
   );
@@ -229,7 +239,8 @@ describe("Deployment Facets", () => {
     expect(await screen.findByRole("checkbox", { name: "SaaS" })).toBeDisabled();
     expect(screen.queryByRole("button", { name: "Change Deployment Facets" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Change Impact Levels" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "High" , pressed: true })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Highly Sensitive", pressed: true })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Change Sensitivity Level" })).not.toBeInTheDocument();
   });
 
   it("says when the Facets can't be loaded, and loads them again on request", async () => {
@@ -242,19 +253,59 @@ describe("Deployment Facets", () => {
   });
 });
 
+describe("Sensitivity Level", () => {
+  const group = () => within(screen.getByRole("group", { name: "Sensitivity Level" }));
+
+  it("lists Not set and the five levels with the current one pressed, and describes each", () => {
+    renderProfile();
+    expect(group().getAllByRole("button").map((button) => button.textContent)).toEqual(["Not set", "Public", "Internal", "Sensitive", "Highly Sensitive", "Critical Sensitivity"]);
+    expect(group().getByRole("button", { name: "Highly Sensitive" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByText(/Would threaten the organisation\./)).toBeInTheDocument();
+  });
+
+  it("saves only when the level changed, sending just the level", async () => {
+    const user = userEvent.setup();
+    renderProfile();
+    const save = screen.getByRole("button", { name: "Change Sensitivity Level" });
+    expect(save).toBeDisabled();
+
+    await user.click(group().getByRole("button", { name: "Critical Sensitivity" }));
+    await user.click(save);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/systems/s1",
+      expect.objectContaining({ method: "PATCH", body: JSON.stringify({ sensitivityLevel: 5 }) }),
+    );
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+  });
+
+  it("can clear the level, and shows the API's refusal", async () => {
+    const user = userEvent.setup();
+    fetchMock.mockImplementation((url: string, init?: RequestInit) =>
+      init?.method === "PATCH" ? respond({ error: "Only the System's owner or an Admin can change this System's classification" }, 403) : respond({ deploymentFacets: [] }),
+    );
+    renderProfile();
+    await user.click(group().getByRole("button", { name: "Not set" }));
+    await user.click(screen.getByRole("button", { name: "Change Sensitivity Level" }));
+    expect(fetchMock).toHaveBeenCalledWith("/api/systems/s1", expect.objectContaining({ body: JSON.stringify({ sensitivityLevel: null }) }));
+    expect(await screen.findByText(/Only the System's owner or an Admin/)).toBeInTheDocument();
+    expect(refresh).not.toHaveBeenCalled();
+  });
+});
+
 describe("Impact Level", () => {
   const axis = (name: string) => within(screen.getByRole("group", { name }));
 
   it("shows a segmented control per axis with the current level pressed, Not classified included", () => {
     renderProfile();
-    expect(axis("Confidentiality").getByRole("button", { name: "High" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.queryByRole("group", { name: "Confidentiality" })).not.toBeInTheDocument();
     expect(axis("Integrity").getByRole("button", { name: "Not classified" })).toHaveAttribute("aria-pressed", "true");
     expect(axis("Availability").getByRole("button", { name: "Low" })).toHaveAttribute("aria-pressed", "true");
     expect(axis("Integrity").getAllByRole("button").map((button) => button.textContent)).toEqual(["Not classified", "Low", "Moderate", "High", "Critical"]);
-    expect(screen.getByText(/Changing it recomputes the applicable Controls/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Changing it recomputes the applicable Controls/)).toHaveLength(2); // the Sensitivity Level and Impact Level cards
   });
 
-  it("saves only when a level changed, sending all three axes", async () => {
+  it("saves only when a level changed, sending both axes", async () => {
     const user = userEvent.setup();
     renderProfile();
     const save = screen.getByRole("button", { name: "Change Impact Levels" });
@@ -268,7 +319,7 @@ describe("Impact Level", () => {
       "/api/systems/s1",
       expect.objectContaining({
         method: "PATCH",
-        body: JSON.stringify({ confidentialityImpactLevel: "HIGH", integrityImpactLevel: "CRITICAL", availabilityImpactLevel: null }),
+        body: JSON.stringify({ integrityImpactLevel: "CRITICAL", availabilityImpactLevel: null }),
       }),
     );
     await waitFor(() => expect(refresh).toHaveBeenCalled());

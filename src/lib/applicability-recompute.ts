@@ -60,7 +60,7 @@ export type RecomputeSummary = {
 
 const CLASSIFICATION_SELECT = {
   id: true,
-  confidentialityImpactLevel: true,
+  sensitivityLevel: true,
   integrityImpactLevel: true,
   availabilityImpactLevel: true,
   deploymentFacets: { select: { id: true } },
@@ -88,7 +88,7 @@ function classificationKey(s: ClassifiedSystem): string {
   return [
     ids(s.deploymentFacets),
     ids(s.frameworkScopes),
-    level(s.confidentialityImpactLevel),
+    s.sensitivityLevel === null ? "-" : String(s.sensitivityLevel),
     level(s.integrityImpactLevel),
     level(s.availabilityImpactLevel),
   ].join("|");

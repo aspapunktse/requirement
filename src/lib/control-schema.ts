@@ -33,14 +33,14 @@ export const QUESTION_REQUIRED_ISSUE = {
  */
 export const createControlSchema = controlFieldsSchema.refine(hasRequiredQuestion, QUESTION_REQUIRED_ISSUE);
 
-export const ORGANIZATIONAL_SCOPING_ERROR = "ORGANIZATIONAL controls cannot be scoped to Deployment Facets or Impact Level";
+export const ORGANIZATIONAL_SCOPING_ERROR = "ORGANIZATIONAL controls cannot be scoped to Deployment Facets, Sensitivity Level or Impact Level";
 
-/** An ORGANIZATIONAL Control is never assessed per System, so it can't carry Deployment Facets or Impact Level thresholds. */
+/** An ORGANIZATIONAL Control is never assessed per System, so it can't carry Deployment Facets, Sensitivity Level or Impact Level thresholds. */
 export function isScopedOrganizationalControl(
   applicability: string,
   scoping: {
     deploymentFacetCount?: number;
-    minConfidentialityImpactLevel?: string | null;
+    minSensitivityLevel?: number | null;
     minIntegrityImpactLevel?: string | null;
     minAvailabilityImpactLevel?: string | null;
   },
@@ -48,7 +48,7 @@ export function isScopedOrganizationalControl(
   return (
     applicability === "ORGANIZATIONAL" &&
     ((scoping.deploymentFacetCount ?? 0) > 0 ||
-      scoping.minConfidentialityImpactLevel != null ||
+      scoping.minSensitivityLevel != null ||
       scoping.minIntegrityImpactLevel != null ||
       scoping.minAvailabilityImpactLevel != null)
   );

@@ -102,7 +102,7 @@ type DerivationControl = {
   coverage: MappingCoverage;
   applicability: ControlApplicability;
   deploymentFacets: { id: string }[];
-  minConfidentialityImpactLevel: ImpactLevel | null;
+  minSensitivityLevel: number | null;
   minIntegrityImpactLevel: ImpactLevel | null;
   minAvailabilityImpactLevel: ImpactLevel | null;
   mappings: { requirement: { framework: { id: string; status: string; isBase: boolean } } }[];
@@ -224,7 +224,7 @@ async function readFrameworkDerivationData(frameworkId: string, db: DerivationDb
                   code: true,
                   title: true,
                   applicability: true,
-                  minConfidentialityImpactLevel: true,
+                  minSensitivityLevel: true,
                   minIntegrityImpactLevel: true,
                   minAvailabilityImpactLevel: true,
                   deploymentFacets: { select: { id: true } },

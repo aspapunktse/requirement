@@ -14,6 +14,16 @@ export const APPLICABLE_APPLICABILITIES = ["PER_SYSTEM", "BOTH"] as const;
 const IMPACT_LEVEL_RANK: Record<ImpactLevel, number> = { LOW: 0, MODERATE: 1, HIGH: 2, CRITICAL: 3 };
 
 /**
+ * Does a System's Sensitivity Level (1-5) meet a Control's minimum? A null minimum is always met; a
+ * System with no level never meets a minimum (ADR 0011).
+ */
+function meetsSensitivityMinimum(systemLevel: number | null, minimum: number | null): boolean {
+  if (minimum === null) return true;
+  if (systemLevel === null) return false;
+  return systemLevel >= minimum;
+}
+
+/**
  * Does a System's declared level on one CIA axis meet a Control's
  * minimum threshold on that axis? A null threshold means the Control
  * doesn't care about this axis (always met). A null System level means
@@ -27,19 +37,19 @@ function meetsImpactThreshold(systemLevel: ImpactLevel | null, minimum: ImpactLe
   return IMPACT_LEVEL_RANK[systemLevel] >= IMPACT_LEVEL_RANK[minimum];
 }
 
-/** Does `classification` meet every Impact Level threshold `control` sets? */
+/** Does `classification` meet every Impact Level and Sensitivity Level threshold `control` sets? */
 export function meetsAllImpactThresholds(
   classification: Pick<
     SystemClassification,
-    "confidentialityImpactLevel" | "integrityImpactLevel" | "availabilityImpactLevel"
+    "sensitivityLevel" | "integrityImpactLevel" | "availabilityImpactLevel"
   >,
   control: Pick<
     ControlImpactThresholds,
-    "minConfidentialityImpactLevel" | "minIntegrityImpactLevel" | "minAvailabilityImpactLevel"
+    "minSensitivityLevel" | "minIntegrityImpactLevel" | "minAvailabilityImpactLevel"
   >,
 ): boolean {
   return (
-    meetsImpactThreshold(classification.confidentialityImpactLevel, control.minConfidentialityImpactLevel) &&
+    meetsSensitivityMinimum(classification.sensitivityLevel, control.minSensitivityLevel) &&
     meetsImpactThreshold(classification.integrityImpactLevel, control.minIntegrityImpactLevel) &&
     meetsImpactThreshold(classification.availabilityImpactLevel, control.minAvailabilityImpactLevel)
   );
@@ -56,14 +66,14 @@ export function meetsAllImpactThresholds(
 export type SystemClassification = {
   deploymentFacets: { id: string }[];
   frameworkScopes: { id: string }[];
-  confidentialityImpactLevel: ImpactLevel | null;
+  sensitivityLevel: number | null;
   integrityImpactLevel: ImpactLevel | null;
   availabilityImpactLevel: ImpactLevel | null;
 };
 
-/** A Control's Impact Level thresholds, as far as applicability filtering cares. */
+/** A Control's Impact Level and Sensitivity Level thresholds, as far as applicability filtering cares. */
 export type ControlImpactThresholds = {
-  minConfidentialityImpactLevel: ImpactLevel | null;
+  minSensitivityLevel: number | null;
   minIntegrityImpactLevel: ImpactLevel | null;
   minAvailabilityImpactLevel: ImpactLevel | null;
 };

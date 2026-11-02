@@ -9,6 +9,7 @@ import { canManageFrameworkScopes } from "@/lib/framework-scope";
 import { assessmentEditAccess } from "@/lib/system-permissions";
 import { canManageProvider } from "@/lib/control-offering-rules";
 import { listControlOfferings, listOfferableControls } from "@/lib/control-offerings";
+import { listSensitivityLevels } from "@/lib/sensitivity-level-data";
 import { canManageProviderDependencies } from "@/lib/provider-dependency-rules";
 import { listDependents, listProviderChoices, listProviderDependencies } from "@/lib/provider-dependencies";
 import "@/app/home/home.css";
@@ -62,7 +63,7 @@ export default async function SystemDetailPage({ params }: PageProps<"/systems/[
   const { view, system, frameworkRequirements } = page;
   const canManageThisProvider = canManageProvider(user, system);
   const canManageDependencies = canManageProviderDependencies(user, system);
-  const [offerings, offerable, dependencies, providerChoices, dependents] = await Promise.all([
+  const [offerings, offerable, dependencies, providerChoices, dependents, sensitivityLevels] = await Promise.all([
     listControlOfferings(system),
     canManageThisProvider ? listOfferableControls(system) : Promise.resolve([]),
     listProviderDependencies(system, user),
@@ -70,6 +71,7 @@ export default async function SystemDetailPage({ params }: PageProps<"/systems/[
     canManageDependencies ? listProviderChoices() : Promise.resolve([]),
     // Who depends on this Provider is for its owner or an Admin.
     system.isProvider && canManageThisProvider ? listDependents(system.id, user) : Promise.resolve([]),
+    listSensitivityLevels(),
   ]);
   const canChangeClassification = canChangeSystemClassification(user, system);
 
@@ -125,8 +127,9 @@ export default async function SystemDetailPage({ params }: PageProps<"/systems/[
         canManageBusinessUnits={canManageBusinessUnits(user, system)}
         canManageFrameworkScopes={canManageFrameworkScopes(user, system)}
         deploymentFacetIds={system.deploymentFacets.map((facet) => facet.id)}
+        sensitivityLevel={system.sensitivityLevel}
+        sensitivityLevels={sensitivityLevels}
         impactLevels={{
-          confidentialityImpactLevel: system.confidentialityImpactLevel,
           integrityImpactLevel: system.integrityImpactLevel,
           availabilityImpactLevel: system.availabilityImpactLevel,
         }}

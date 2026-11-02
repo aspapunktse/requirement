@@ -380,7 +380,7 @@ describe("INTERNAL_AUDITOR role (#147)", () => {
   ])("can't change %s", (_name, draft, approved, inReview) => {
     const base = () => `/api/systems/${draft()}`;
     it.each([
-      ["PATCH /api/systems/[id] (classification)", () => changeSystemClassification(req(base(), iaId, "PATCH", { confidentialityImpactLevel: "HIGH" }), ctx({ id: draft() }))],
+      ["PATCH /api/systems/[id] (classification)", () => changeSystemClassification(req(base(), iaId, "PATCH", { sensitivityLevel: 4 }), ctx({ id: draft() }))],
       ["PATCH /api/systems/[id] (deployment facets)", () => changeSystemClassification(req(base(), iaId, "PATCH", { deploymentFacetIds: [] }), ctx({ id: draft() }))],
       ["PATCH .../assessments/[controlId]", () => updateAssessment(req(`${base()}/assessments/${controlId}`, iaId, "PATCH", { status: "FULFILLED" }), ctx({ id: draft(), controlId }))],
       ["PATCH .../assessments/[controlId] (waive)", () => updateAssessment(req(`${base()}/assessments/${controlId}`, iaId, "PATCH", { status: "WAIVED", notes: "x" }), ctx({ id: draft(), controlId }))],

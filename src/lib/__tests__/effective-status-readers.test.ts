@@ -102,6 +102,7 @@ describe("effective status in the readers", { timeout: 60_000 }, () => {
             name: `Test EffStatus ${key} ${suffix}`,
             ownerId,
             status: "ONBOARDED",
+            sensitivityLevel: 3, // submitting needs one
             deploymentFacets: { connect: { id: facetId } },
             frameworkScopes: { connect: [{ id: lenientId }, { id: strictId }] },
             ...over,

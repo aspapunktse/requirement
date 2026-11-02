@@ -60,7 +60,8 @@ export type DecisionStep = { reviewGroupId: string | null; name: string };
 
 /** The one action that comes next for the acting user (decision 2a on #243). */
 export type NextStep =
-  | { kind: "submit"; blockedBy: number }
+  /** `needsSensitivityLevel`: the System has no Sensitivity Level, which the submit route refuses (#290); absent otherwise. */
+  | { kind: "submit"; blockedBy: number; needsSensitivityLevel?: true }
   | { kind: "decide"; steps: DecisionStep[] }
   | { kind: "onboard" }
   | { kind: "none" };
@@ -120,7 +121,9 @@ export type SystemPageView = {
     ownerId: string;
     ownerName: string;
     facets: { id: string; name: string }[];
-    confidentiality: ImpactLevel | null;
+    /** The Sensitivity Level (1 to 5) and its label; null when not set. */
+    sensitivityLevel: number | null;
+    sensitivityLabel: string | null;
     integrity: ImpactLevel | null;
     availability: ImpactLevel | null;
     /** ISO timestamp. */

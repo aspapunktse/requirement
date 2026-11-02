@@ -168,7 +168,7 @@ async function writeInheritedStatusEvents(
         id: true,
         code: true,
         applicability: true,
-        minConfidentialityImpactLevel: true,
+        minSensitivityLevel: true,
         minIntegrityImpactLevel: true,
         minAvailabilityImpactLevel: true,
         deploymentFacets: { select: { id: true } },
@@ -179,7 +179,7 @@ async function writeInheritedStatusEvents(
       where: scope.systemsWhere,
       select: {
         id: true,
-        confidentialityImpactLevel: true,
+        sensitivityLevel: true,
         integrityImpactLevel: true,
         availabilityImpactLevel: true,
         deploymentFacets: { select: { id: true } },

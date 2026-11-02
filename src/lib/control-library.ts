@@ -28,7 +28,9 @@ export type ControlLibraryRow = {
   intent: string | null;
   examples: string[];
   deploymentFacets: string[];
-  minConfidentialityImpactLevel: ImpactLevel | null;
+  minSensitivityLevel: number | null;
+  /** The label of the minimum Sensitivity Level; null when there is none. */
+  minSensitivityLabel: string | null;
   minIntegrityImpactLevel: ImpactLevel | null;
   minAvailabilityImpactLevel: ImpactLevel | null;
   /** The Control Owner's name; null while unassigned. */
@@ -94,7 +96,8 @@ export async function loadControlLibrary(user: { role: UserRole }): Promise<Cont
         intent: control.intent,
         examples: control.examples,
         deploymentFacets: control.deploymentFacets.map((facet) => facet.name).sort((a, b) => a.localeCompare(b)),
-        minConfidentialityImpactLevel: control.minConfidentialityImpactLevel,
+        minSensitivityLevel: control.minSensitivityLevel,
+        minSensitivityLabel: control.minSensitivity?.label ?? null,
         minIntegrityImpactLevel: control.minIntegrityImpactLevel,
         minAvailabilityImpactLevel: control.minAvailabilityImpactLevel,
         ownerName: control.owner?.name ?? null,

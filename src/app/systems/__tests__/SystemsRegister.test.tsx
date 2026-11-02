@@ -219,7 +219,7 @@ describe("search and filters", () => {
 });
 
 describe("table", () => {
-  it("shows the System, Status, Owner, Deployment, C·I·A, Business Unit, Requirements met and Updated", () => {
+  it("shows the System, Status, Owner, Deployment, Sensitivity and impact, Business Unit, Requirements met and Updated", () => {
     renderRegister();
     const jira = rowOf("Jira");
     expect(within(jira).getByRole("link", { name: "Jira" })).toHaveAttribute("href", "/systems/s-jira");
@@ -230,7 +230,7 @@ describe("table", () => {
     expect(jira).toHaveTextContent("Finance");
     expect(jira).toHaveTextContent("9/10");
     expect(jira).toHaveTextContent("5 d ago");
-    expect(within(jira).getByRole("img", { name: "Confidentiality moderate, Integrity moderate, Availability moderate" })).toBeInTheDocument();
+    expect(within(jira).getByRole("img", { name: "Sensitivity Level sensitive, Integrity moderate, Availability moderate" })).toBeInTheDocument();
 
     const billing = rowOf("Billing engine");
     expect(billing).toHaveTextContent("Built in-house");
@@ -238,7 +238,7 @@ describe("table", () => {
     expect(within(billing).getByText("+1")).toBeInTheDocument();
     expect(within(billing).getByText("Cloud IaaS/PaaS")).toBeInTheDocument();
     expect(within(billing).getByText("On-Premises Datacenter")).toBeInTheDocument();
-    expect(within(billing).getByRole("img", { name: "Confidentiality high, Integrity critical, Availability not classified" })).toBeInTheDocument();
+    expect(within(billing).getByRole("img", { name: "Sensitivity Level highly sensitive, Integrity critical, Availability not classified" })).toBeInTheDocument();
     expect(within(billing).getByText("Engineering")).toBeInTheDocument();
 
     expect(within(rowOf("Okta")).getByText("Provider")).toBeInTheDocument();
@@ -341,9 +341,9 @@ describe("paging", () => {
     expect(pageNumbers(1, 20)).toEqual([1, 2, "gap", 19, 20]);
   });
 
-  it("explains the C·I·A bars in the footer", () => {
+  it("explains the Integrity and Availability bars in the footer", () => {
     renderRegister();
-    const legend = screen.getByLabelText("CIA impact legend");
+    const legend = screen.getByLabelText("Impact legend");
     for (const text of ["not classified", "low", "moderate", "high", "critical"]) expect(legend).toHaveTextContent(text);
   });
 });

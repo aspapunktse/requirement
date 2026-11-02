@@ -14,7 +14,7 @@ const control = (code: string, patch: Partial<OnboardingControl> = {}): Onboardi
   title: `Title ${code}`,
   applicability: "PER_SYSTEM",
   deploymentFacetIds: [],
-  minConfidentialityImpactLevel: null,
+  minSensitivityLevel: null,
   minIntegrityImpactLevel: null,
   minAvailabilityImpactLevel: null,
   frameworkIds: ["base"],
@@ -24,6 +24,7 @@ const control = (code: string, patch: Partial<OnboardingControl> = {}): Onboardi
 });
 
 const catalog: OnboardingCatalog = {
+  sensitivityLevels: [],
   deploymentFacets: [],
   frameworks: [
     { id: "base", name: "Base", version: "1", description: null, isBase: true, onboardingQuestion: null, onboardingHint: null },
@@ -36,7 +37,7 @@ const catalog: OnboardingCatalog = {
   controls: [
     control("A-1"),
     control("A-2", { frameworkIds: ["gdpr"] }),
-    control("A-3", { minConfidentialityImpactLevel: "HIGH" }),
+    control("A-3", { minSensitivityLevel: 4 }),
     control("A-4", { applicability: "BOTH", organizationFulfilled: true }),
     control("A-5", { offerings: [{ providerId: "p1", type: "FULL", customerResponsibility: null, fulfilled: true }] }),
     control("A-6", { offerings: [{ providerId: "p1", type: "FULL", customerResponsibility: null, fulfilled: false }] }),
@@ -57,8 +58,8 @@ describe("evaluateOnboarding", () => {
   it("applies the real rules: base Framework, Framework Scope, Impact Level thresholds, no Published mapping", () => {
     expect(Object.keys(groupOf(EMPTY_ANSWERS))).toEqual(["A-1", "A-4", "A-5", "A-6", "A-7"]);
     expect(Object.keys(groupOf({ ...EMPTY_ANSWERS, frameworkScopeIds: ["gdpr"] }))).toContain("A-2");
-    expect(Object.keys(groupOf({ ...EMPTY_ANSWERS, confidentialityImpactLevel: "CRITICAL" }))).toContain("A-3");
-    expect(Object.keys(groupOf({ ...EMPTY_ANSWERS, confidentialityImpactLevel: "MODERATE" }))).not.toContain("A-3");
+    expect(Object.keys(groupOf({ ...EMPTY_ANSWERS, sensitivityLevel: 5 }))).toContain("A-3");
+    expect(Object.keys(groupOf({ ...EMPTY_ANSWERS, sensitivityLevel: 3 }))).not.toContain("A-3");
     // Never a Control that maps to no Published Framework, and the library counts every Control.
     expect(evaluateOnboarding(catalog, EMPTY_ANSWERS).counts).toMatchObject({ library: 8, applicable: 5 });
   });
@@ -88,7 +89,7 @@ describe("evaluateOnboarding", () => {
   it("compares two evaluations as added, removed and moved", () => {
     const before = evaluateOnboarding(catalog, EMPTY_ANSWERS);
     expect(compareEvaluations(before, evaluateOnboarding(catalog, { ...EMPTY_ANSWERS, providerIds: ["p1"] }))).toEqual({ added: 0, removed: 0, moved: 2 });
-    expect(compareEvaluations(before, evaluateOnboarding(catalog, { ...EMPTY_ANSWERS, frameworkScopeIds: ["gdpr"], confidentialityImpactLevel: "HIGH" }))).toEqual({
+    expect(compareEvaluations(before, evaluateOnboarding(catalog, { ...EMPTY_ANSWERS, frameworkScopeIds: ["gdpr"], sensitivityLevel: 4 }))).toEqual({
       added: 2,
       removed: 0,
       moved: 0,

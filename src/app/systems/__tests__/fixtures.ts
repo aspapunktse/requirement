@@ -11,7 +11,7 @@ export const row = (over: Partial<SystemRow> & Pick<SystemRow, "id" | "name">): 
   ownerName: "Priya Shah",
   facets: [{ id: "f-saas", name: "SaaS" }],
   businessUnits: [{ id: "b-fin", name: "Finance" }],
-  confidentiality: "MODERATE",
+  sensitivityLevel: 3, sensitivityLabel: "Sensitive",
   integrity: "MODERATE",
   availability: "MODERATE",
   openQuestions: 0,
@@ -33,7 +33,7 @@ export const ROWS: SystemRow[] = [
     ownerName: "Elena Voss",
     facets: [{ id: "f-cloud", name: "Cloud IaaS/PaaS" }, { id: "f-onprem", name: "On-Premises Datacenter" }],
     businessUnits: [{ id: "b-eng", name: "Engineering" }, { id: "b-fin", name: "Finance" }],
-    confidentiality: "HIGH",
+    sensitivityLevel: 4, sensitivityLabel: "Highly Sensitive",
     integrity: "CRITICAL",
     availability: null,
     openQuestions: 3,
@@ -51,7 +51,7 @@ export const ROWS: SystemRow[] = [
     ownerName: "Elena Voss",
     businessUnits: [],
     facets: [],
-    confidentiality: null,
+    sensitivityLevel: null, sensitivityLabel: null,
     integrity: null,
     availability: null,
     met: null,
@@ -59,7 +59,7 @@ export const ROWS: SystemRow[] = [
     needsAttention: true,
     updatedAt: "2026-06-01T09:00:00.000Z",
   }),
-  row({ id: "s-hub", name: "=HYPERLINK(hub)", vendor: 'Acme, "Inc"', status: "REJECTED", ownerId: "u-priya", needsAttention: true, confidentiality: "LOW", integrity: "LOW", availability: "LOW", met: 0, applicable: 4 }),
+  row({ id: "s-hub", name: "=HYPERLINK(hub)", vendor: 'Acme, "Inc"', status: "REJECTED", ownerId: "u-priya", needsAttention: true, sensitivityLevel: 2, sensitivityLabel: "Internal", integrity: "LOW", availability: "LOW", met: 0, applicable: 4 }),
 ];
 
 export const view = (over: Partial<SystemsView> = {}): SystemsView => ({

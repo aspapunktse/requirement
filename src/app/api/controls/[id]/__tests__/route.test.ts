@@ -6,6 +6,8 @@ import { GET, PATCH } from "../route";
 
 const ADMIN_EMAIL = "test-control-library-admin@example.com";
 const VIEWER_EMAIL = "test-control-library-viewer@example.com";
+const CM_EMAIL = "test-control-library-cm@example.com";
+const OWNER_EMAIL = "test-control-library-system-owner@example.com";
 
 function urlFor(id: string) {
   return `http://localhost/api/controls/${id}`;
@@ -24,6 +26,8 @@ function ctxFor(id: string) {
 describe("/api/controls/[id]", () => {
   let adminId: string;
   let viewerId: string;
+  let complianceManagerId: string;
+  let systemOwnerId: string;
   let perSystemControlId: string;
   let organizationalControlId: string;
   let systemTypeAId: string;
@@ -44,8 +48,20 @@ describe("/api/controls/[id]", () => {
       update: {},
       create: { email: VIEWER_EMAIL, name: "Control Library Viewer", role: "VIEWER" },
     });
+    const complianceManager = await prisma.user.upsert({
+      where: { email: CM_EMAIL },
+      update: {},
+      create: { email: CM_EMAIL, name: "Control Library Compliance Manager", role: "COMPLIANCE_MANAGER" },
+    });
+    const systemOwner = await prisma.user.upsert({
+      where: { email: OWNER_EMAIL },
+      update: {},
+      create: { email: OWNER_EMAIL, name: "Control Library System Owner", role: "SYSTEM_OWNER" },
+    });
     adminId = admin.id;
     viewerId = viewer.id;
+    complianceManagerId = complianceManager.id;
+    systemOwnerId = systemOwner.id;
 
     const systemTypeA = await prisma.deploymentFacet.create({
       data: { name: `Test Type A ${Date.now()}` },
@@ -73,7 +89,7 @@ describe("/api/controls/[id]", () => {
   });
 
   afterAll(async () => {
-    await prisma.user.deleteMany({ where: { email: { in: [ADMIN_EMAIL, VIEWER_EMAIL] } } });
+    await prisma.user.deleteMany({ where: { email: { in: [ADMIN_EMAIL, VIEWER_EMAIL, CM_EMAIL, OWNER_EMAIL] } } });
     await prisma.deploymentFacet.deleteMany({ where: { id: { in: [systemTypeAId, systemTypeBId] } } });
     await prisma.framework.deleteMany({ where: { id: { in: [frameworkAId, frameworkBId] } } });
   });
@@ -257,5 +273,53 @@ describe("/api/controls/[id]", () => {
       ctxFor(perSystemControlId),
     );
     expect(response.status).toBe(400);
+  });
+
+  describe("minimum Sensitivity Level", () => {
+    const patchLevel = (userId: string, value: unknown) =>
+      PATCH(
+        requestAs(perSystemControlId, userId, { method: "PATCH", body: JSON.stringify({ minSensitivityLevel: value }) }),
+        ctxFor(perSystemControlId),
+      );
+    const stored = async () => (await prisma.control.findUniqueOrThrow({ where: { id: perSystemControlId } })).minSensitivityLevel;
+
+    it("lets a Compliance Manager and an Admin set it, and clear it", async () => {
+      const set = await patchLevel(complianceManagerId, 4);
+      expect(set.status).toBe(200);
+      expect((await set.json()).control).toMatchObject({ minSensitivityLevel: 4, minSensitivity: { label: "Highly Sensitive" } });
+      expect(await stored()).toBe(4);
+
+      expect((await patchLevel(adminId, 5)).status).toBe(200);
+      expect(await stored()).toBe(5);
+      expect((await patchLevel(adminId, null)).status).toBe(200);
+      expect(await stored()).toBeNull();
+    });
+
+    it.each([0, 6, 1.5, "HIGH", "4"])("rejects %j with 400 and changes nothing", async (value) => {
+      await prisma.control.update({ where: { id: perSystemControlId }, data: { minSensitivityLevel: 3 } });
+      expect((await patchLevel(adminId, value)).status).toBe(400);
+      expect(await stored()).toBe(3);
+    });
+
+    it("refuses a System Owner, a Viewer and an unauthenticated request with 403/401, and changes nothing", async () => {
+      await prisma.control.update({ where: { id: perSystemControlId }, data: { minSensitivityLevel: 3 } });
+      expect((await patchLevel(systemOwnerId, 5)).status).toBe(403);
+      expect((await patchLevel(viewerId, 5)).status).toBe(403);
+      const anonymous = await PATCH(
+        requestAs(perSystemControlId, null, { method: "PATCH", body: JSON.stringify({ minSensitivityLevel: 5 }) }),
+        ctxFor(perSystemControlId),
+      );
+      expect(anonymous.status).toBe(401);
+      expect(await stored()).toBe(3);
+    });
+
+    it("rejects a minimum on an ORGANIZATIONAL Control and changes nothing", async () => {
+      const response = await PATCH(
+        requestAs(organizationalControlId, adminId, { method: "PATCH", body: JSON.stringify({ minSensitivityLevel: 4 }) }),
+        ctxFor(organizationalControlId),
+      );
+      expect(response.status).toBe(400);
+      expect((await prisma.control.findUniqueOrThrow({ where: { id: organizationalControlId } })).minSensitivityLevel).toBeNull();
+    });
   });
 });

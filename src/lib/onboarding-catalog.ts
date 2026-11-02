@@ -25,6 +25,10 @@ export async function loadOnboardingCatalog(): Promise<OnboardingCatalog> {
   return prisma.$transaction(
     async (tx) => {
       // Sequential: one connection.
+      const sensitivityLevels = await tx.sensitivityLevel.findMany({
+        orderBy: { level: "asc" },
+        select: { level: true, label: true, description: true },
+      });
       const deploymentFacets = await tx.deploymentFacet.findMany({
         orderBy: { name: "asc" },
         select: { id: true, name: true, description: true },
@@ -41,7 +45,7 @@ export async function loadOnboardingCatalog(): Promise<OnboardingCatalog> {
           id: true,
           name: true,
           status: true,
-          confidentialityImpactLevel: true,
+          sensitivityLevel: true,
           integrityImpactLevel: true,
           availabilityImpactLevel: true,
           deploymentFacets: { select: { id: true } },
@@ -56,7 +60,7 @@ export async function loadOnboardingCatalog(): Promise<OnboardingCatalog> {
           code: true,
           title: true,
           applicability: true,
-          minConfidentialityImpactLevel: true,
+          minSensitivityLevel: true,
           minIntegrityImpactLevel: true,
           minAvailabilityImpactLevel: true,
           deploymentFacets: { select: { id: true } },
@@ -109,6 +113,7 @@ export async function loadOnboardingCatalog(): Promise<OnboardingCatalog> {
       }
 
       return {
+        sensitivityLevels,
         deploymentFacets,
         frameworks,
         providers: providerSystems.map((provider) => ({ id: provider.id, name: provider.name, onboarded: provider.status === "ONBOARDED" })),
@@ -119,7 +124,7 @@ export async function loadOnboardingCatalog(): Promise<OnboardingCatalog> {
             title: control.title,
             applicability: control.applicability === "BOTH" ? "BOTH" : "PER_SYSTEM",
             deploymentFacetIds: control.deploymentFacets.map((facet) => facet.id),
-            minConfidentialityImpactLevel: control.minConfidentialityImpactLevel,
+            minSensitivityLevel: control.minSensitivityLevel,
             minIntegrityImpactLevel: control.minIntegrityImpactLevel,
             minAvailabilityImpactLevel: control.minAvailabilityImpactLevel,
             frameworkIds: [

@@ -43,7 +43,7 @@ export type OnboardingControl = {
   title: string;
   applicability: "PER_SYSTEM" | "BOTH";
   deploymentFacetIds: string[];
-  minConfidentialityImpactLevel: ImpactLevel | null;
+  minSensitivityLevel: number | null;
   minIntegrityImpactLevel: ImpactLevel | null;
   minAvailabilityImpactLevel: ImpactLevel | null;
   /** The Published Frameworks (base included) one of whose Requirements the Control is mapped to. */
@@ -69,6 +69,8 @@ export type OnboardingFramework = {
 export type OnboardingProvider = { id: string; name: string; onboarded: boolean };
 
 export type OnboardingCatalog = {
+  /** The five Sensitivity Levels in order (ADR 0011), for the Sensitivity step. */
+  sensitivityLevels: { level: number; label: string; description: string }[];
   deploymentFacets: OnboardingFacet[];
   /** Published Frameworks only. */
   frameworks: OnboardingFramework[];
@@ -78,7 +80,7 @@ export type OnboardingCatalog = {
 
 export type OnboardingAnswers = {
   deploymentFacetIds: string[];
-  confidentialityImpactLevel: ImpactLevel | null;
+  sensitivityLevel: number | null;
   integrityImpactLevel: ImpactLevel | null;
   availabilityImpactLevel: ImpactLevel | null;
   /** Declared Framework Scope (never the base Framework, which is always in). */
@@ -88,7 +90,7 @@ export type OnboardingAnswers = {
 
 export const EMPTY_ANSWERS: OnboardingAnswers = {
   deploymentFacetIds: [],
-  confidentialityImpactLevel: null,
+  sensitivityLevel: null,
   integrityImpactLevel: null,
   availabilityImpactLevel: null,
   frameworkScopeIds: [],
@@ -124,7 +126,7 @@ export function applies(catalog: OnboardingCatalog, control: OnboardingControl, 
     {
       deploymentFacets: answers.deploymentFacetIds.map((id) => ({ id })),
       frameworkScopes: answers.frameworkScopeIds.map((id) => ({ id })),
-      confidentialityImpactLevel: answers.confidentialityImpactLevel,
+      sensitivityLevel: answers.sensitivityLevel,
       integrityImpactLevel: answers.integrityImpactLevel,
       availabilityImpactLevel: answers.availabilityImpactLevel,
     },

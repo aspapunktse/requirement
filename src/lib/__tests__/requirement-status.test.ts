@@ -79,7 +79,7 @@ describe("derived Requirement status", () => {
     const a2 = await control("A2", { deploymentFacets: { connect: { id: facetId } } });
     const high = await control("HIGH", {
       deploymentFacets: { connect: { id: facetId } },
-      minConfidentialityImpactLevel: "HIGH",
+      minSensitivityLevel: 4,
     });
     const org = await control("ORG", { applicability: "ORGANIZATIONAL" });
     controlIds = { a1: a1.id, a2: a2.id, org: org.id, high: high.id };
@@ -124,7 +124,7 @@ describe("derived Requirement status", () => {
       await mk("high", {
         frameworkScopes: scopes,
         deploymentFacets: { connect: { id: facetId } },
-        confidentialityImpactLevel: "HIGH",
+        sensitivityLevel: 4,
       })
     ).id;
 
@@ -164,7 +164,7 @@ describe("derived Requirement status", () => {
     expect(rows.get(requirementIds.r5)!.basis).toBe("ACCEPTED_GAP");
     expect(status("r4")).toBe("NOT_MET"); // no mapped Controls: the flagged default
     expect(status("r6")).toBe("NOT_MET"); // Organizational Control counts on every System in scope (#122), Not Started here
-    expect(status("r7")).toBe("NOT_APPLICABLE"); // threshold Control: System has no Confidentiality level
+    expect(status("r7")).toBe("NOT_APPLICABLE"); // threshold Control: System has no Sensitivity Level
   });
 
   it("on a System without the facet: Requirements mapped only to facet-scoped Controls are Not Applicable", async () => {
@@ -189,7 +189,7 @@ describe("derived Requirement status", () => {
     const r2 = rows.get(requirementIds.r2)!;
     expect(r2.status).toBe("PARTIALLY_MET");
     expect(r2.controls.find((c) => c.controlId === controlIds.a2)!.assessmentStatus).toBe("NOT_STARTED");
-    // The threshold Control applies here (Confidentiality HIGH) and is Not Started.
+    // The threshold Control applies here (Sensitivity Level 4) and is Not Started.
     expect(rows.get(requirementIds.r7)!.status).toBe("NOT_MET");
   });
 

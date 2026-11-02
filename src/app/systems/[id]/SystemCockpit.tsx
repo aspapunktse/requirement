@@ -221,7 +221,7 @@ export function SystemCockpit({ view, panels }: { view: SystemPageView; panels: 
                   ))}
                 </span>
               )}
-              <CiaBars confidentiality={system.confidentiality} integrity={system.integrity} availability={system.availability} />
+              <CiaBars sensitivityLabel={system.sensitivityLabel} integrity={system.integrity} availability={system.availability} />
               {system.vendor && <span>Vendor {system.vendor}</span>}
             </div>
             {system.description && <p className="sc-desc">{system.description}</p>}
@@ -232,8 +232,8 @@ export function SystemCockpit({ view, panels }: { view: SystemPageView; panels: 
                 <button
                   type="button"
                   className="hc-btn primary"
-                  disabled={busy || next.blockedBy > 0}
-                  aria-describedby={next.blockedBy > 0 ? "sc-submit-hint" : undefined}
+                  disabled={busy || next.blockedBy > 0 || next.needsSensitivityLevel === true}
+                  aria-describedby={next.blockedBy > 0 ? "sc-submit-hint" : next.needsSensitivityLevel ? "sc-submit-level-hint" : undefined}
                   onClick={() => post("submit", "Failed to submit for review")}
                 >
                   Submit for review
@@ -241,6 +241,11 @@ export function SystemCockpit({ view, panels }: { view: SystemPageView; panels: 
                 {next.blockedBy > 0 && (
                   <button type="button" id="sc-submit-hint" className="sc-link sc-hint-link" onClick={() => goTab("controls", { scroll: true })}>
                     {next.blockedBy} mandatory {next.blockedBy === 1 ? "Control" : "Controls"} not addressed
+                  </button>
+                )}
+                {next.needsSensitivityLevel && (
+                  <button type="button" id="sc-submit-level-hint" className="sc-link sc-hint-link" onClick={() => goTab("profile", { scroll: true })}>
+                    Set the Sensitivity Level first
                   </button>
                 )}
               </>
@@ -507,11 +512,14 @@ export function SystemCockpit({ view, panels }: { view: SystemPageView; panels: 
               </button>
             </div>
             <div className="hc-card-b sc-prof">
+              <div>
+                <h3 className="sc-sub">Sensitivity Level</h3>
+                <span className="muted">{system.sensitivityLabel ?? "Not set"}</span>
+              </div>
               <div className="sc-ciabars">
                 <h3 className="sc-sub">Impact Level</h3>
                 {(
                   [
-                    ["C", "Confidentiality", system.confidentiality],
                     ["I", "Integrity", system.integrity],
                     ["A", "Availability", system.availability],
                   ] as const

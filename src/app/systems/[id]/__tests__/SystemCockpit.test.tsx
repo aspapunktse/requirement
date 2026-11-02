@@ -48,7 +48,8 @@ const view = (over: Partial<SystemPageView> = {}): SystemPageView => ({
     ownerId: "u-me",
     ownerName: "Marcus Lindqvist",
     facets: [{ id: "f1", name: "SaaS" }],
-    confidentiality: "HIGH",
+    sensitivityLevel: 4,
+    sensitivityLabel: "Highly Sensitive",
     integrity: "MODERATE",
     availability: null,
     createdAt: "2026-09-01T09:00:00.000Z",
@@ -112,7 +113,7 @@ describe("header (#243)", () => {
     expect(screen.getByText("Owned by Marcus Lindqvist")).toBeInTheDocument();
     expect(screen.getByText("(you)")).toBeInTheDocument();
     expect(screen.getByText("SaaS", { selector: ".facet" })).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: "Confidentiality high, Integrity moderate, Availability not classified" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Sensitivity Level highly sensitive, Integrity moderate, Availability not classified" })).toBeInTheDocument();
     expect(screen.getByText("Vendor ServiceNow Inc")).toBeInTheDocument();
     expect(screen.getByText("IT service management.")).toBeInTheDocument();
 
@@ -150,6 +151,15 @@ describe("header (#243)", () => {
     expect(fetch).not.toHaveBeenCalled();
     await userEvent.click(screen.getByRole("button", { name: "41 mandatory Controls not addressed" }));
     expect(window.location.hash).toBe("#controls");
+  });
+
+  it("disables Submit for review while the System has no Sensitivity Level, with a hint that opens the Profile tab", async () => {
+    renderCockpit({ nextStep: { kind: "submit", blockedBy: 0, needsSensitivityLevel: true } });
+    const submit = screen.getByRole("button", { name: "Submit for review" });
+    expect(submit).toBeDisabled();
+    expect(submit).toHaveAccessibleDescription("Set the Sensitivity Level first");
+    await userEvent.click(screen.getByRole("button", { name: "Set the Sensitivity Level first" }));
+    expect(window.location.hash).toBe("#profile");
   });
 
   it("says 'Control' for a single one", () => {
@@ -467,7 +477,8 @@ describe("Overview tiles (#243)", () => {
     expect(within(risks).getByText("Mitigated").previousElementSibling).toHaveTextContent("1");
     const classification = screen.getByRole("region", { name: "Classification" });
     expect(within(classification).getByRole("img", { name: "Availability: Not classified" })).toBeInTheDocument();
-    expect(within(classification).getByRole("img", { name: "Confidentiality: High" })).toBeInTheDocument();
+    expect(within(classification).getByText("Highly Sensitive")).toBeInTheDocument();
+    expect(within(classification).queryByRole("img", { name: /Confidentiality/ })).not.toBeInTheDocument();
     for (const tag of ["SaaS", "Finance", "GDPR:2016"]) expect(within(classification).getByText(tag)).toBeInTheDocument();
     const activity = screen.getByRole("region", { name: "Recent activity" });
     expect(within(activity).getAllByRole("listitem")).toHaveLength(2);

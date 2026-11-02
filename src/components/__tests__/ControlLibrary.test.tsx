@@ -16,7 +16,8 @@ const base: ControlLibraryRow = {
   intent: null,
   examples: [],
   deploymentFacets: [],
-  minConfidentialityImpactLevel: null,
+  minSensitivityLevel: null,
+  minSensitivityLabel: null,
   minIntegrityImpactLevel: null,
   minAvailabilityImpactLevel: null,
   ownerName: null,
@@ -37,7 +38,8 @@ const rows: ControlLibraryRow[] = [
     intent: "Protect data",
     examples: ["TLS everywhere"],
     deploymentFacets: ["Cloud", "SaaS"],
-    minConfidentialityImpactLevel: "HIGH",
+    minSensitivityLevel: 4,
+    minSensitivityLabel: "Highly Sensitive",
     ownerName: "Olivia Owner",
     mappings: [
       { id: "m1", coverage: "FULL", requirementCode: "A.8.24", requirementTitle: "Cryptography", framework: { id: "f1", label: "ISO/IEC 27001:2022" }, draft: false },
@@ -77,7 +79,7 @@ describe("ControlLibrary (#169)", () => {
     expect(detail.getByText("TLS everywhere")).toBeInTheDocument();
     expect(detail.getByText("Olivia Owner")).toBeInTheDocument();
     expect(detail.getByText("Cloud, SaaS")).toBeInTheDocument();
-    expect(detail.getByText("Min. Confidentiality: HIGH")).toBeInTheDocument();
+    expect(detail.getByText("Min. Sensitivity Level: Highly Sensitive")).toBeInTheDocument();
     expect(detail.getByText("Base Control")).toBeInTheDocument();
     const mapped = detail.getByRole("list", { name: "Requirements mapped to A.8.24" });
     expect(within(mapped).getByText(/Full Coverage/)).toBeInTheDocument();

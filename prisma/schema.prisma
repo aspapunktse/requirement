@@ -39,10 +39,11 @@ enum RiskSeverity {
   CRITICAL
 }
 
-// One shared ordinal scale reused across Confidentiality, Integrity, and
-// Availability — simpler to build/administer than three independent scales,
-// and this app has no existing BIA/FIPS-199-style framework to match
-// instead. See ADR 0003.
+// One shared ordinal scale reused across Integrity and Availability —
+// simpler to build/administer than independent scales, and this app has no
+// existing BIA/FIPS-199-style framework to match instead. See ADR 0003.
+// Confidentiality is not on this scale: the Sensitivity Level replaces it
+// (ADR 0011).
 enum ImpactLevel {
   LOW
   MODERATE
@@ -119,6 +120,21 @@ model User {
   organizationImplementationsUpdated OrganizationControlImplementation[] @relation("OrganizationImplementationUpdatedBy")
 }
 
+// One of the five fixed, ordered Sensitivity Levels (ADR 0011): 1 Public,
+// 2 Internal, 3 Sensitive, 4 Highly Sensitive, 5 Critical Sensitivity. The
+// ordinal is the key and what Controls compare by. Label, description and colours
+// are display text. The rows are inserted by a migration (not the seed), so
+// every database has them. A CHECK constraint keeps `level` within 1-5.
+model SensitivityLevel {
+  level           Int       @id
+  label           String
+  description     String
+  textColor       String
+  backgroundColor String
+  systems         System[]  @relation("SystemSensitivityLevel")
+  controls        Control[] @relation("ControlMinSensitivityLevel")
+}
+
 // A system or cloud solution being onboarded into the enterprise.
 model System {
   id                         String            @id @default(cuid())
@@ -126,12 +142,16 @@ model System {
   vendor                     String?
   description                String?
   status                     OnboardingStatus  @default(DRAFT)
-  // Self-declared Impact Level on each CIA axis, independently — null means
-  // "not yet classified" on that axis, distinct from LOW. Replaces the old
-  // unenforced free-text dataClassification field. See ADR 0003.
-  confidentialityImpactLevel ImpactLevel?
+  // Self-declared Impact Level on the Integrity and Availability axes,
+  // independently — null means "not yet classified" on that axis, distinct
+  // from LOW. See ADR 0003.
   integrityImpactLevel       ImpactLevel?
   availabilityImpactLevel    ImpactLevel?
+  // The Sensitivity Level (1-5, a SensitivityLevel row) of the information the
+  // System handles; null until the owner sets it. Replaces the Confidentiality
+  // Impact Level (ADR 0011). A Control's minimum is compared by this number.
+  sensitivityLevel           Int?
+  sensitivity                SensitivityLevel? @relation("SystemSensitivityLevel", fields: [sensitivityLevel], references: [level], onDelete: Restrict)
   ownerId                    String
   owner                      User              @relation("SystemOwner", fields: [ownerId], references: [id])
   // One or more deployment facets this System spans (e.g. On-Prem, Cloud) —
@@ -394,14 +414,17 @@ model Control {
   // regardless of facet" (how the Annex A seed ships). Must stay empty for
   // ORGANIZATIONAL controls, which are never assessed per System.
   deploymentFacets              DeploymentFacet[]
-  // Minimum required Impact Level on each CIA axis, independently — null
-  // means no threshold on that axis. A Control can combine thresholds
-  // on one, two, or all three axes; each is a "System's level on this axis
-  // must be >= this" comparison, not a membership check like facet
-  // scoping. See ADR 0003.
-  minConfidentialityImpactLevel ImpactLevel?
+  // Minimum required Impact Level on the Integrity and Availability axes,
+  // independently — null means no threshold on that axis. Each is a "System's
+  // level on this axis must be >= this" comparison, not a membership check
+  // like facet scoping. See ADR 0003.
   minIntegrityImpactLevel       ImpactLevel?
   minAvailabilityImpactLevel    ImpactLevel?
+  // Minimum Sensitivity Level (1-5): the Control applies only to a System whose
+  // level is at or above it; null means no threshold, and a System with no
+  // level never meets one (ADR 0011).
+  minSensitivityLevel           Int?
+  minSensitivity                SensitivityLevel?                  @relation("ControlMinSensitivityLevel", fields: [minSensitivityLevel], references: [level], onDelete: Restrict)
   // Which Requirements this Control satisfies, and how fully. The only way
   // a Control is tied to a Framework — there is no direct Framework tag
   // (ADR 0005, was `frameworks` before #72).
