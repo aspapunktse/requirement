@@ -19,6 +19,8 @@ export type Control = {
   /** A free string ("A.5 Organizational", "6 Planning"): the Controls tab groups by it. */
   category: string;
   mandatory: boolean;
+  /** The lowest Sensitivity Level (1 to 5) a System must have for this Control to apply; null or absent means every level. */
+  minSensitivityLevel?: number | null;
   question: string | null;
   /** Why the question matters, shown with it. */
   intent?: string | null;

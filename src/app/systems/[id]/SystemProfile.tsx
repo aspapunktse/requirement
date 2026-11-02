@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import type { ImpactLevel } from "@prisma/client";
 import { frameworkLabel } from "@/lib/framework-label";
 import { IMPACT_LABEL, IMPACT_ORDER } from "@/app/systems/systems-types";
+import { SensitivityChip } from "@/components/SensitivityChip";
+import { SensitivityLevelPicker } from "@/components/SensitivityLevelPicker";
 import type { SensitivityLevelInfo } from "@/lib/sensitivity-level";
 import { formatDay } from "./system-page-logic";
 import { useRemote } from "./use-remote";
@@ -329,30 +331,17 @@ function SensitivityLevelCard({
             {error}
           </p>
         )}
-        <div className="sc-lvl-row">
-          <b id="sc-lvl-sensitivity">Sensitivity Level</b>
-          <div className="sc-seg" role="group" aria-labelledby="sc-lvl-sensitivity">
-            {([null, ...levels] as (SensitivityLevelInfo | null)[]).map((level) => (
-              <button
-                key={level?.level ?? "none"}
-                type="button"
-                aria-pressed={chosen === (level?.level ?? null)}
-                disabled={!canChange}
-                title={level?.description}
-                onClick={() => setChosen(level?.level ?? null)}
-              >
-                {level ? level.label : "Not set"}
-              </button>
-            ))}
-          </div>
-        </div>
-        <ul className="sc-faint">
-          {levels.map((level) => (
-            <li key={level.level}>
-              <b>{level.label}</b>: {level.description}
-            </li>
-          ))}
-        </ul>
+        <b id="sc-lvl-sensitivity">Sensitivity Level</b>
+        <SensitivityLevelPicker
+          levels={levels}
+          value={chosen}
+          onChange={setChosen}
+          name="sc-sensitivity"
+          labelledBy="sc-lvl-sensitivity"
+          disabled={!canChange}
+          noneLabel={<SensitivityChip level={null} />}
+          noneDescription="No level declared. The System can't be submitted for review until one is picked."
+        />
         {canChange ? (
           <div className="sc-btnrow">
             <button type="button" className="hc-btn primary" onClick={handleSave} disabled={saving || unchanged}>

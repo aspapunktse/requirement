@@ -86,6 +86,7 @@ export default async function SystemDetailPage({ params }: PageProps<"/systems/[
         systemOwnerId={system.ownerId}
         readOnly={!canWriteSystems(user)}
         assessmentEditAccess={assessmentEditAccess(user, system)}
+        sensitivityLevels={sensitivityLevels}
       />
     ),
     requirements: <SystemRequirements frameworks={view.frameworks} entries={frameworkRequirements} />,

@@ -1,4 +1,5 @@
 import type { ImpactLevel, OnboardingStatus, UserRole } from "@prisma/client";
+import type { SensitivityLevelInfo } from "@/lib/sensitivity-level";
 
 /**
  * The serialisable shapes the Systems list passes from the server (`systems-data.ts`) to its client
@@ -28,6 +29,11 @@ export const IMPACT_RANK: Record<ImpactLevel, number> = { LOW: 1, MODERATE: 2, H
 export type HighestImpact = ImpactLevel | "NONE";
 export const HIGHEST_IMPACT_ORDER: HighestImpact[] = ["NONE", ...IMPACT_ORDER];
 export const HIGHEST_IMPACT_LABEL: Record<HighestImpact, string> = { NONE: "Not classified", ...IMPACT_LABEL };
+
+/** The Sensitivity filter's choices: a level "1" to "5", or "none" for a System with no level set. */
+export type SensitivityFilterValue = "1" | "2" | "3" | "4" | "5" | "none";
+export const SENSITIVITY_FILTER_ORDER: SensitivityFilterValue[] = ["1", "2", "3", "4", "5", "none"];
+export const isSensitivityFilterValue = (value: string): value is SensitivityFilterValue => (SENSITIVITY_FILTER_ORDER as string[]).includes(value);
 
 export type SystemRow = {
   id: string;
@@ -74,10 +80,12 @@ export type SystemsView = {
   trends: Partial<Record<ViewKey, number[]>>;
   /** The base Framework the fulfilment figures are against, e.g. "ISO/IEC 27001:2022"; null when there is none. */
   baseFramework: string | null;
+  /** The five Sensitivity Levels with their live labels, for the Sensitivity filter (a level no System has yet is still offered). */
+  sensitivityLevels: SensitivityLevelInfo[];
 };
 
 /** Everything the URL carries, parsed (see `systems-state.ts`). */
-export type SortKey = "name" | "status" | "owner" | "cia" | "unit" | "prog" | "upd";
+export type SortKey = "name" | "status" | "owner" | "sens" | "cia" | "unit" | "prog" | "upd";
 export type GroupKey = "" | "owner" | "unit" | "facet";
 
 export type RegisterState = {
@@ -88,6 +96,8 @@ export type RegisterState = {
   units: string[];
   facets: string[];
   impact: HighestImpact[];
+  /** Sensitivity Levels to show, "none" being Not set; empty shows every level. */
+  sens: SensitivityFilterValue[];
   sort: SortKey;
   /** 1 ascending, -1 descending. */
   dir: 1 | -1;

@@ -24,6 +24,7 @@ import {
   type StaleAssessmentApi,
   type UserRole,
 } from "./controls-model";
+import type { SensitivityLevelInfo } from "@/lib/sensitivity-level";
 import { Stack } from "./Stack";
 import { currentControlCode, subscribeToHash, writeHash } from "./system-hash";
 import { controlHash, controlIsDone } from "./system-page-logic";
@@ -81,6 +82,7 @@ export function SystemControls({
   systemOwnerId,
   readOnly = false,
   assessmentEditAccess = "full",
+  sensitivityLevels,
 }: {
   systemId: string;
   userRole: UserRole;
@@ -90,6 +92,8 @@ export function SystemControls({
   readOnly?: boolean;
   /** How far the user's right to edit Assessments / answer Self-Assessment Questions reaches (#78): "waive-only" offers just Waived / Not Applicable / N/A, "none" hides every edit control but keeps Assessment Queries. */
   assessmentEditAccess?: AssessmentEditAccess;
+  /** The Sensitivity Levels with their live labels, for the drawer's "From <label>" chip. */
+  sensitivityLevels: SensitivityLevelInfo[];
 }) {
   const router = useRouter();
   const editAccess: AssessmentEditAccess = readOnly ? "none" : assessmentEditAccess;
@@ -220,6 +224,7 @@ export function SystemControls({
       systemOwnerId={systemOwnerId}
       readOnly={readOnly}
       editAccess={editAccess}
+      sensitivityLevels={sensitivityLevels}
       onClose={closeDrawer}
       onSaved={(assessment) => {
         updateRow(openRow.row.control.id, (row) => (openRow.stale ? { ...row, assessment } : withSavedAssessment(row, assessment)), openRow.stale);

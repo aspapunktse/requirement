@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { NEW_CONTROL_DRAFT, NewControlFields, newControlBody } from "@/components/NewControlFields";
+import { SensitivityChip } from "@/components/SensitivityChip";
+import { SensitivityLevelPicker } from "@/components/SensitivityLevelPicker";
 import type { SensitivityLevelInfo } from "@/lib/sensitivity-level";
 import { canBeControlOwner } from "@/lib/system-permissions";
 import type { UserRole } from "@prisma/client";
@@ -55,19 +57,33 @@ const IMPACT_AXES: { key: "minIntegrityImpactLevel" | "minAvailabilityImpactLeve
   { key: "minAvailabilityImpactLevel", label: "Min. Availability" },
 ];
 
-function summarizeTags(control: ControlSummary): string {
-  const parts: string[] = [];
+/** The scoping summary of a Control: Facets, "From <level>" as a chip, and the Impact Level thresholds. */
+function ControlTags({ control }: { control: ControlSummary }) {
+  const parts: ReactNode[] = [];
   if (control.deploymentFacets.length > 0) {
     parts.push(`Facets: ${control.deploymentFacets.map((f) => f.name).join(", ")}`);
   }
-  const thresholds = [
-    ...(control.minSensitivityLevel !== null
-      ? [`Min. Sensitivity Level: ${control.minSensitivity?.label ?? control.minSensitivityLevel}`]
-      : []),
-    ...IMPACT_AXES.filter(({ key }) => control[key]).map(({ key, label }) => `${label}: ${control[key]}`),
-  ];
-  if (thresholds.length > 0) parts.push(thresholds.join(", "));
-  return parts.length > 0 ? parts.join(" · ") : "Unscoped (applies regardless)";
+  if (control.minSensitivityLevel !== null) {
+    parts.push(
+      <span key="sens" className="inline-flex flex-wrap items-center gap-1.5 align-middle">
+        From
+        <SensitivityChip level={control.minSensitivityLevel} label={control.minSensitivity?.label} />
+      </span>,
+    );
+  }
+  const impact = IMPACT_AXES.filter(({ key }) => control[key]).map(({ key, label }) => `${label}: ${control[key]}`);
+  if (impact.length > 0) parts.push(impact.join(", "));
+  if (parts.length === 0) return <>Unscoped (applies regardless)</>;
+  return (
+    <>
+      {parts.map((part, index) => (
+        <Fragment key={index}>
+          {index > 0 && " · "}
+          {part}
+        </Fragment>
+      ))}
+    </>
+  );
 }
 
 /** The reverse view's order: by Framework, then Requirement code. */
@@ -315,7 +331,7 @@ export function ControlLibraryManager({ sensitivityLevels }: { sensitivityLevels
                 </td>
                 <td className="p-2 text-rg-muted">{satisfiesEntries(control.mappings).join(", ")}</td>
                 <td className="p-2 text-rg-muted">{control.owner?.name ?? "No Control Owner"}</td>
-                <td className="p-2 text-rg-muted">{summarizeTags(control)}</td>
+                <td className="p-2 text-rg-muted"><ControlTags control={control} /></td>
               </tr>
             ))}
           </tbody>
@@ -439,22 +455,18 @@ export function ControlLibraryManager({ sensitivityLevels }: { sensitivityLevels
                 <legend className="text-sm font-semibold">
                   Minimum Sensitivity Level and Impact Level thresholds (none = no threshold)
                 </legend>
-                <label className="flex items-center gap-2 text-sm">
-                  Min. Sensitivity Level
-                  <select
-                    aria-label="Min. Sensitivity Level"
-                    className="rounded border border-rg-control p-1 text-sm"
-                    value={minSensitivityLevel ?? ""}
-                    onChange={(event) => setMinSensitivityLevel(event.target.value === "" ? null : Number(event.target.value))}
-                  >
-                    <option value="">No threshold</option>
-                    {sensitivityLevels.map((level) => (
-                      <option key={level.level} value={level.level}>
-                        {level.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <div className="flex flex-col gap-1 text-sm">
+                  <b id="clm-min-sensitivity">Min. Sensitivity Level</b>
+                  <SensitivityLevelPicker
+                    levels={sensitivityLevels}
+                    value={minSensitivityLevel}
+                    onChange={setMinSensitivityLevel}
+                    name="clm-min-sensitivity"
+                    labelledBy="clm-min-sensitivity"
+                    noneLabel={<span className="text-[0.85rem] font-bold">No threshold</span>}
+                    noneDescription="Applies to a System at every level, including one with no level set."
+                  />
+                </div>
                 {IMPACT_AXES.map(({ key, label }) => (
                   <label key={key} className="flex items-center gap-2 text-sm">
                     {label}

@@ -15,6 +15,7 @@ import { ChangeOwnerDialog } from "@/components/ChangeOwnerDialog";
 import { canChangeOwner } from "@/lib/system-permissions";
 import { canWriteInternalAudits } from "@/lib/internal-audit-rules";
 import { AddToInternalAuditDialog } from "./AddToInternalAuditDialog";
+import { SensitivityChip } from "@/components/SensitivityChip";
 import { CiaBars } from "./CiaBars";
 import { BULK_ACTIONS, canChangeAnyOwner } from "./bulk-actions";
 import { PAGE_SIZES, SHOW_COMPACT_TOGGLE, SHOW_JUMP_PALETTE, SHOW_STAT_TRENDS } from "./systems-config";
@@ -60,6 +61,7 @@ const FILTERS: { key: FilterKey; label: string }[] = [
   { key: "owners", label: "Owner" },
   { key: "units", label: "Business Unit" },
   { key: "facets", label: "Deployment Facet" },
+  { key: "sens", label: "Sensitivity" },
   { key: "impact", label: "Highest Impact Level" },
 ];
 
@@ -68,7 +70,8 @@ const COLUMNS: { key: SortKey | "go" | "facets"; label: string; sortable: boolea
   { key: "status", label: "Status", sortable: true, className: "c-status" },
   { key: "owner", label: "Owner", sortable: true, className: "c-owner" },
   { key: "facets", label: "Deployment", sortable: false, className: "c-facets" },
-  { key: "cia", label: "Sensitivity · I · A", sortable: true, className: "c-cia" },
+  { key: "sens", label: "Sensitivity", sortable: true, className: "c-sens" },
+  { key: "cia", label: "I · A", sortable: true, className: "c-cia" },
   { key: "unit", label: "Business Unit", sortable: true, className: "c-unit" },
   { key: "prog", label: "Requirements met", sortable: true, className: "c-prog" },
   { key: "upd", label: "Updated", sortable: true, className: "c-upd" },
@@ -193,7 +196,7 @@ export function SystemsRegister({ view, initialQuery }: { view: SystemsView; ini
     update({ [key]: current.includes(value) ? current.filter((v) => v !== value) : [...current, value] } as Partial<RegisterState>);
   }
   function clearFilters() {
-    update({ view: "all", status: "", q: "", owners: [], units: [], facets: [], impact: [] });
+    update({ view: "all", status: "", q: "", owners: [], units: [], facets: [], impact: [], sens: [] });
     setOpenFilter(null);
   }
   function sortBy(key: SortKey) {
@@ -280,8 +283,11 @@ export function SystemsRegister({ view, initialQuery }: { view: SystemsView; ini
             </span>
           )}
         </td>
+        <td className="c-sens">
+          <SensitivityChip level={row.sensitivityLevel} label={row.sensitivityLabel ?? undefined} />
+        </td>
         <td className="c-cia">
-          <CiaBars sensitivityLabel={row.sensitivityLabel} integrity={row.integrity} availability={row.availability} />
+          <CiaBars integrity={row.integrity} availability={row.availability} />
         </td>
         <td className="c-unit muted" title={units.join(", ")}>
           {units.length === 0 ? (
@@ -495,7 +501,7 @@ export function SystemsRegister({ view, initialQuery }: { view: SystemsView; ini
             </kbd>
           </label>
           {FILTERS.map((filter) => {
-            const options = filterOptions(rows, filter.key);
+            const options = filterOptions(rows, filter.key, view.sensitivityLevels);
             const chosen = state[filter.key] as string[];
             const nameOf = (value: string) => options.find((option) => option.value === value)?.label ?? value;
             const text = chosen.length === 0 ? `+ ${filter.label}` : chosen.length === 1 ? `${filter.label}: ${nameOf(chosen[0])}` : `${filter.label}: ${chosen.length}`;
@@ -518,7 +524,11 @@ export function SystemsRegister({ view, initialQuery }: { view: SystemsView; ini
                     {options.map((option) => (
                       <label key={option.value}>
                         <input type="checkbox" checked={chosen.includes(option.value)} onChange={() => toggleFilterValue(filter.key, option.value)} />
-                        <span>{option.label}</span>
+                        {filter.key === "sens" ? (
+                          <SensitivityChip level={option.value === "none" ? null : Number(option.value)} label={option.label} />
+                        ) : (
+                          <span>{option.label}</span>
+                        )}
                         <span>{base.filter((row) => filterValues(row, filter.key).includes(option.value)).length}</span>
                       </label>
                     ))}

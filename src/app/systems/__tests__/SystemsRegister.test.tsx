@@ -183,6 +183,32 @@ describe("search and filters", () => {
     expect(screen.queryByRole("group", { name: "Owner" })).not.toBeInTheDocument();
   });
 
+  it("filters by Sensitivity Level with chips and a count each, Not set included, and keeps it in the URL", async () => {
+    renderRegister();
+    await userEvent.click(screen.getByRole("button", { name: /\+ Sensitivity/ }));
+    const menu = screen.getByRole("group", { name: "Sensitivity" });
+    // All five levels and Not set are offered, with the count of Systems at each.
+    expect(within(menu).getAllByRole("checkbox")).toHaveLength(6);
+    expect(within(menu).getByLabelText(/Sensitivity Level: Sensitive/).closest("label")).toHaveTextContent("2");
+    expect(within(menu).getByLabelText(/Sensitivity Level: Critical Sensitivity/).closest("label")).toHaveTextContent("0");
+    await userEvent.click(within(menu).getByLabelText(/Sensitivity Level: Sensitive/));
+    expect(names()).toEqual(["Jira", "Okta"]);
+    expect(screen.getByRole("button", { name: /Sensitivity: Sensitive/ })).toBeInTheDocument();
+    await userEvent.click(within(menu).getByLabelText(/Sensitivity Level: Not set/));
+    expect(names()).toEqual(["Jira", "Legacy CRM", "Okta"]);
+    expect(screen.getByRole("button", { name: /Sensitivity: 2/ })).toBeInTheDocument();
+    expect(search()).toBe("?sens=3&sens=none");
+    await userEvent.click(screen.getByRole("button", { name: /Clear filters/ }));
+    expect(search()).toBe("");
+    expect(names()).toHaveLength(5);
+  });
+
+  it("restores the Sensitivity filter from the URL and combines it with the other filters", () => {
+    renderRegister({}, "sens=2&sens=4&sens=bogus&owners=u-elena");
+    expect(names()).toEqual(["Billing engine"]);
+    expect(screen.getByRole("button", { name: /Sensitivity: 2/ })).toBeInTheDocument();
+  });
+
   it("filters by Business Unit, Deployment Facet and highest Impact Level", async () => {
     renderRegister();
     await userEvent.click(screen.getByRole("button", { name: /\+ Business Unit/ }));
@@ -230,7 +256,8 @@ describe("table", () => {
     expect(jira).toHaveTextContent("Finance");
     expect(jira).toHaveTextContent("9/10");
     expect(jira).toHaveTextContent("5 d ago");
-    expect(within(jira).getByRole("img", { name: "Sensitivity Level sensitive, Integrity moderate, Availability moderate" })).toBeInTheDocument();
+    expect(within(jira).getByRole("img", { name: "Sensitivity Level: Sensitive" })).toBeInTheDocument();
+    expect(within(jira).getByRole("img", { name: "Integrity moderate, Availability moderate" })).toBeInTheDocument();
 
     const billing = rowOf("Billing engine");
     expect(billing).toHaveTextContent("Built in-house");
@@ -238,7 +265,8 @@ describe("table", () => {
     expect(within(billing).getByText("+1")).toBeInTheDocument();
     expect(within(billing).getByText("Cloud IaaS/PaaS")).toBeInTheDocument();
     expect(within(billing).getByText("On-Premises Datacenter")).toBeInTheDocument();
-    expect(within(billing).getByRole("img", { name: "Sensitivity Level highly sensitive, Integrity critical, Availability not classified" })).toBeInTheDocument();
+    expect(within(billing).getByRole("img", { name: "Sensitivity Level: Highly Sensitive" })).toBeInTheDocument();
+    expect(within(billing).getByRole("img", { name: "Integrity critical, Availability not classified" })).toBeInTheDocument();
     expect(within(billing).getByText("Engineering")).toBeInTheDocument();
 
     expect(within(rowOf("Okta")).getByText("Provider")).toBeInTheDocument();
@@ -278,6 +306,23 @@ describe("table", () => {
     expect(names()).toEqual(["Okta", "Jira", "Billing engine", "=HYPERLINK(hub)", "Legacy CRM"]);
     expect(header("Requirements met")).toHaveAttribute("aria-sort", "descending");
     expect(search()).toBe("?sort=prog&dir=desc");
+  });
+
+  it("sorts by Sensitivity Level, Public first, with Systems that have no level last", async () => {
+    renderRegister();
+    const header = within(table()).getByRole("columnheader", { name: /Sensitivity/ });
+    await userEvent.click(within(header).getByRole("button"));
+    expect(names()).toEqual(["=HYPERLINK(hub)", "Jira", "Okta", "Billing engine", "Legacy CRM"]);
+    expect(header).toHaveAttribute("aria-sort", "ascending");
+    expect(search()).toBe("?sort=sens");
+    await userEvent.click(within(header).getByRole("button"));
+    expect(names()).toEqual(["Billing engine", "Jira", "Okta", "=HYPERLINK(hub)", "Legacy CRM"]);
+    expect(search()).toBe("?sort=sens&dir=desc");
+  });
+
+  it("shows Not set as a chip for a System with no level", () => {
+    renderRegister();
+    expect(within(rowOf("Legacy CRM")).getByRole("img", { name: "Sensitivity Level: Not set" })).toBeInTheDocument();
   });
 
   it("groups by owner, with a lane header and a count per group, and by Business Unit", async () => {

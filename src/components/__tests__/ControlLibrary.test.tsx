@@ -79,7 +79,10 @@ describe("ControlLibrary (#169)", () => {
     expect(detail.getByText("TLS everywhere")).toBeInTheDocument();
     expect(detail.getByText("Olivia Owner")).toBeInTheDocument();
     expect(detail.getByText("Cloud, SaaS")).toBeInTheDocument();
-    expect(detail.getByText("Min. Sensitivity Level: Highly Sensitive")).toBeInTheDocument();
+    // "From" and the level as a chip, with the live label, in the row and in the detail.
+    expect(detail.getAllByRole("img", { name: "Sensitivity Level: Highly Sensitive" })).toHaveLength(2);
+    expect(within(item.querySelector("summary") as HTMLElement).getByRole("img", { name: "Sensitivity Level: Highly Sensitive" })).toBeInTheDocument();
+    expect(detail.getAllByText("From").length).toBeGreaterThan(0);
     expect(detail.getByText("Base Control")).toBeInTheDocument();
     const mapped = detail.getByRole("list", { name: "Requirements mapped to A.8.24" });
     expect(within(mapped).getByText(/Full Coverage/)).toBeInTheDocument();
@@ -93,6 +96,8 @@ describe("ControlLibrary (#169)", () => {
     await user.click(screen.getByText("Notify the CSIRT"));
     const item = screen.getByText("Notify the CSIRT").closest("details") as HTMLElement;
     expect(within(item).getAllByText("Applies regardless")).toHaveLength(2);
+    expect(within(item).getByText("Every level")).toBeInTheDocument();
+    expect(within(item).queryByRole("img", { name: /Sensitivity Level/ })).not.toBeInTheDocument();
     expect(within(item).getByText("No Control Owner")).toBeInTheDocument();
     expect(within(item).getByText(/Supplementary, authored for Next Law:1/)).toBeInTheDocument();
   });

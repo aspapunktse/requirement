@@ -14,6 +14,8 @@ import {
   resetToInheritedRefusal,
   type EffectiveStatus,
 } from "@/lib/effective-status";
+import { SensitivityChip } from "@/components/SensitivityChip";
+import type { SensitivityLevelInfo } from "@/lib/sensitivity-level";
 import { ControlQueries } from "./ControlQueries";
 import {
   rowSourceKey,
@@ -313,6 +315,7 @@ export function ControlDrawer({
   systemOwnerId,
   readOnly,
   editAccess,
+  sensitivityLevels,
   onClose,
   onSaved,
   onQueriesChanged,
@@ -328,6 +331,8 @@ export function ControlDrawer({
   systemOwnerId: string;
   readOnly: boolean;
   editAccess: AssessmentEditAccess;
+  /** The Sensitivity Levels with their live labels, for the "From <label>" chip. */
+  sensitivityLevels: SensitivityLevelInfo[];
   onClose: () => void;
   onSaved: (assessment: NonNullable<Assessment>) => void;
   onQueriesChanged: (queries: AssessmentQuery[]) => void;
@@ -489,6 +494,16 @@ export function ControlDrawer({
               {rowSourceLabel(row)}
             </span>
             {control.mandatory && <span className="sc-tag">Mandatory</span>}
+            <span className="sc-minlevel">
+              {control.minSensitivityLevel ? (
+                <>
+                  <span>From</span>
+                  <SensitivityChip level={control.minSensitivityLevel} label={sensitivityLevels.find((level) => level.level === control.minSensitivityLevel)?.label} />
+                </>
+              ) : (
+                <span>Every level</span>
+              )}
+            </span>
           </div>
         </header>
 
