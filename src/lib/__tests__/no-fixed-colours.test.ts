@@ -15,6 +15,8 @@ import { describe, expect, it } from "vitest";
 /** Files that may hold colours, and why. Paths are relative to the repository root, with `/` separators. */
 const ALLOWED_FILES: Record<string, string> = {
   "src/lib/palette.ts": "The theme list: each swatch shows another theme's colours, so they are data, not UI colour in use.",
+  "src/lib/sensitivity-level-defaults.ts":
+    "The five Sensitivity Levels' default wording and colours, a copy of the migration's INSERT (kept equal by a test) for the Admin form's Default button and the token CSS fallback.",
 };
 
 const PALETTE_NAMES =
