@@ -1,6 +1,9 @@
 import { getActingUser } from "@/lib/acting-user";
 import { APP_SETTINGS, readAppSettings, SETTING_SECTIONS } from "@/lib/app-settings";
 import { AppSettingsForm } from "@/components/AppSettingsForm";
+import { SensitivityLevelsForm } from "@/components/SensitivityLevelsForm";
+import { listSensitivityLevels } from "@/lib/sensitivity-level-data";
+import { DEFAULT_SENSITIVITY_LEVELS } from "@/lib/sensitivity-level-defaults";
 
 /** Settings (#240): the Admin-editable App Settings, a section each, rendered from the registry in `src/lib/app-settings.ts`. */
 export default async function SettingsPage() {
@@ -15,10 +18,15 @@ export default async function SettingsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl p-6">
+    <div className="mx-auto max-w-6xl p-6">
       <h1 className="mb-1 text-2xl">Settings</h1>
-      <p className="mb-5 text-sm text-rg-muted">Changes take effect at once. Each change is recorded in Recent activity.</p>
-      <AppSettingsForm sections={SETTING_SECTIONS} definitions={APP_SETTINGS} values={await readAppSettings()} />
+      <p className="mb-5 text-sm text-rg-muted">Changes take effect at once. Each App Settings change is recorded in Recent activity.</p>
+      <div className="max-w-2xl">
+        <AppSettingsForm sections={SETTING_SECTIONS} definitions={APP_SETTINGS} values={await readAppSettings()} />
+      </div>
+      <div className="mt-5">
+        <SensitivityLevelsForm levels={await listSensitivityLevels()} defaults={DEFAULT_SENSITIVITY_LEVELS} />
+      </div>
     </div>
   );
 }
