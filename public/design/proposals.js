@@ -3,6 +3,35 @@
 // `id` is the vote key: keep it stable once people have voted, or the votes are orphaned.
 window.DESIGN_PARTS = [
   {
+    id: "sensitivity",
+    name: "Sensitivity Levels",
+    added: "2026-11-02",
+    question: "How should a System's Sensitivity Level look everywhere it appears, and how should owners pick it and Admins set its colours?",
+    proposals: [
+      {
+        id: "sensitivity-a",
+        label: "A",
+        title: "Label chip",
+        href: "/design/sensitivity/proposal-a.html",
+        summary: "A compact pill with five small bars filled up to the level before the label; owners pick from a list of chips with descriptions, and Admins edit one table row per level.",
+      },
+      {
+        id: "sensitivity-b",
+        label: "B",
+        title: "Scale",
+        href: "/design/sensitivity/proposal-b.html",
+        summary: "The label pill is followed by a five-segment meter; the Systems list filters with a histogram of the scale, owners climb a ladder from Public to Critical Sensitivity, and Admins edit the whole scale with a live light and dark preview.",
+      },
+      {
+        id: "sensitivity-c",
+        label: "C",
+        title: "Tag with icon",
+        href: "/design/sensitivity/proposal-c.html",
+        summary: "A tag with a coloured left edge and an icon per level (globe, building, padlock, double padlock, shield); owners pick from cards with example information, and Admins edit a form beside a live preview of the list row, header and drawer.",
+      },
+    ],
+  },
+  {
     id: "themes",
     name: "Themes",
     added: "2026-11-02",
