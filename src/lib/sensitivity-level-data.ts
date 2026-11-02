@@ -16,7 +16,7 @@ export type SaveSensitivityLevelResult =
   | { ok: false; status: 400 | 404; errors: string[] };
 
 /**
- * Saves one level's label, description and colours (#291). Locks the five rows first, so two Admins saving at once
+ * Saves one level's label, description and colours (#291). Locks the five rows first (FOR NO KEY UPDATE, so System and Control writes that reference a level are not blocked), so two Admins saving at once
  * cannot both pass the unique-label check, then validates against the levels as stored. Not a Change Event.
  * Every query inside the transaction uses `tx`.
  */
@@ -26,7 +26,7 @@ export async function saveSensitivityLevel(input: unknown): Promise<SaveSensitiv
   const edit = parsed.data;
 
   return prisma.$transaction(async (tx): Promise<SaveSensitivityLevelResult> => {
-    await tx.$queryRaw`SELECT "level" FROM "SensitivityLevel" ORDER BY "level" FOR UPDATE`;
+    await tx.$queryRaw`SELECT "level" FROM "SensitivityLevel" ORDER BY "level" FOR NO KEY UPDATE`;
     const all = await listSensitivityLevels(tx);
     if (!all.some((row) => row.level === edit.level)) return { ok: false, status: 404, errors: ["No such Sensitivity Level."] };
     const problems = checkSensitivityLevelEdit(edit, all);
