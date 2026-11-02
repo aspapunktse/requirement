@@ -12,44 +12,6 @@
 <link rel="stylesheet" href="demo.css">
 <script src="../shared/themes.js"></script>
 <style>
-/* Proposal A: a Theme button in the header, next to Mode. It opens a popover of theme cards (name, swatches
-   in the current mode, a font sample). Hovering or focusing a card previews it on the whole page; clicking
-   applies and saves it; Escape or leaving puts the saved theme back. Mode sits at the bottom of the popover. */
-.th-wrap { position: relative; }
-.th-btn { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--control, var(--line)); background: var(--surface); color: var(--ink); border-radius: 10px; padding: 6px 10px; font: inherit; font-size: .84rem; font-weight: 650; cursor: pointer; white-space: nowrap; }
-.th-btn:hover { border-color: var(--accent); }
-.th-btn .sw i { width: 8px; height: 14px; }
-.th-btn .sw { border-radius: 5px; }
-.th-pop { position: absolute; right: 0; top: calc(100% + 8px); z-index: 50; width: min(380px, calc(100vw - 32px)); background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 18px 48px rgba(10, 25, 35, .22); padding: 8px; animation: ab-pop .16s ease-out; }
-.th-pop[hidden] { display: none; }
-.th-pop h2 { font-size: .68rem; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); padding: 6px 8px 6px; }
-.th-list { display: grid; gap: 6px; max-height: min(60vh, 460px); overflow: auto; padding: 2px; }
-.th-card { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 4px 12px; align-items: center; text-align: left; width: 100%; border: 1px solid var(--line-soft); background: var(--raised); border-radius: 12px; padding: 10px 12px; cursor: pointer; }
-.th-card:hover, .th-card.pv { border-color: var(--accent); }
-.th-card[aria-checked="true"] { border-color: var(--accent); background: var(--accent-soft); box-shadow: 0 0 0 1px var(--accent); }
-.th-card .sw { grid-row: span 2; }
-.th-card .sw i { width: 14px; height: 40px; }
-.th-card b { font-size: .92rem; }
-.th-card .tick { color: var(--accent); font-weight: 800; opacity: 0; }
-.th-card[aria-checked="true"] .tick { opacity: 1; }
-.th-card small { grid-column: 2 / -1; color: var(--muted); font-size: .78rem; line-height: 1.35; }
-.th-card .spec { grid-column: 1 / -1; display: grid; gap: 2px; padding-top: 4px; border-top: 1px dashed var(--line-soft); margin-top: 2px; color: var(--ink); }
-.th-card .spec span:first-child { font-size: 1rem; font-weight: 650; }
-.th-card .spec span:last-child { font-size: .78rem; color: var(--muted); }
-.th-mode { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 8px 4px; margin-top: 6px; border-top: 1px solid var(--line-soft); }
-.th-mode > span { font-size: .68rem; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
-.th-seg { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--control, var(--line)); border-radius: 10px; background: var(--surface); }
-.th-seg button { border: 0; border-radius: 8px; background: none; color: var(--muted); font-size: .8rem; font-weight: 650; padding: 5px 11px; cursor: pointer; }
-.th-seg button:hover { color: var(--ink); }
-.th-seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); font-weight: 750; }
-.th-note { padding: 6px 8px 2px; font-size: .74rem; color: var(--muted); }
-.th-live { position: absolute; left: -9999px; }
-@media (max-width: 640px) {
-  .th-btn .th-l, .th-btn .th-caret { display: none; }
-  .th-btn { padding: 6px; }
-  .th-pop { position: fixed; left: 16px; right: 16px; top: 60px; width: auto; }
-}
-@media (prefers-reduced-motion: reduce) { .th-pop { animation: none; } }
 .page-note { color: var(--muted); font-size: .84rem; }
 </style>
 </head>
@@ -59,97 +21,15 @@
   <p class="page-note">Proposal A: open <b>Theme</b> in the header. The sample page below is a stand-in for any page in the app.</p>
   <div id="demo"></div>
 </main>
-<div class="th-live" role="status" aria-live="polite" id="thLive"></div>
 
 <script src="../shared/kit.js"></script>
 <script src="demo.js"></script>
 <script src="../shared/appbar.js"></script>
 <script>
-(function () {
-  const { esc } = window.Kit;
-  const $ = (id) => document.getElementById(id);
-  ThemeDemo.mount($('demo'));
-
-  const MODES = [['system', 'System'], ['light', 'Light'], ['dark', 'Dark']];
-  const barHtml = () => {
-    const t = Themes.get(Themes.saved());
-    return `<div class="th-wrap" id="thWrap">
-      <button type="button" class="th-btn" id="thBtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="thPop" aria-label="Theme: ${esc(t.name)}">
-        ${ThemeDemo.swatch(t.id)}<span class="th-l">Theme</span><span class="ab-caret th-caret">▾</span></button>
-      <div class="th-pop" id="thPop" role="dialog" aria-label="Theme" hidden>
-        <h2>Theme</h2>
-        <div class="th-list" role="radiogroup" aria-label="Theme">${Themes.list.map((x) => `
-          <button type="button" class="th-card" role="radio" data-id="${x.id}" aria-checked="${x.id === Themes.saved()}" tabindex="${x.id === Themes.saved() ? 0 : -1}">
-            ${ThemeDemo.swatch(x.id)}<b>${esc(x.name)}</b><span class="tick" aria-hidden="true">✓</span>
-            <small>${esc(x.character)}</small>
-            <span class="spec" style="font-family:${x.id === 'register' ? 'system-ui, sans-serif' : `'${esc(x.sans)}', system-ui, sans-serif`}"><span>Aa Bb 0123</span><span>${esc(x.sans)} · ${esc(x.mono)}</span></span>
-          </button>`).join('')}</div>
-        <div class="th-mode"><span id="thModeL">Mode</span>
-          <div class="th-seg" role="group" aria-labelledby="thModeL">${MODES.map(([k, l]) => `<button type="button" data-mode="${k}" aria-pressed="${k === Appbar.mode()}">${l}</button>`).join('')}</div></div>
-        <p class="th-note">Colours and fonts only; layout never changes.</p>
-      </div></div>`;
-  };
-
-  Appbar.mount({
-    current: 'systems',
-    proposal: { label: 'A', siblings: [['B', 'proposal-b.html'], ['C', 'proposal-c.html']] },
-    barExtra: barHtml,
-    items: () => Themes.list.map((x) => ({ group: 'Theme', label: x.name, sub: x.sans, icon: 'grid', run: () => Themes.set(x.id) })),
-  });
-
-  const pop = () => $('thPop'), btn = () => $('thBtn');
-  const say = (m) => { $('thLive').textContent = m; };
-  let open = false;
-  function setOpen(v, focusBtn) {
-    open = v;
-    pop().hidden = !v; btn().setAttribute('aria-expanded', String(v));
-    if (v) {
-      Themes.list.forEach((x) => Themes.loadFonts(x.id)); // the font samples need the faces
-      const sel = pop().querySelector('[aria-checked="true"]'); sel.focus();
-    } else { Themes.preview(null); if (focusBtn) btn().focus(); }
-  }
-  function refresh() { // after the saved theme or the mode changed
-    const t = Themes.get(Themes.saved());
-    pop().querySelectorAll('.th-card').forEach((c) => {
-      const on = c.dataset.id === t.id; c.setAttribute('aria-checked', String(on)); c.tabIndex = on ? 0 : -1;
-      c.querySelector('.sw').outerHTML = ThemeDemo.swatch(c.dataset.id);
-    });
-    btn().querySelector('.sw').outerHTML = ThemeDemo.swatch(t.id);
-    btn().setAttribute('aria-label', 'Theme: ' + t.name);
-    pop().querySelectorAll('[data-mode]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.mode === Appbar.mode())));
-  }
-  document.addEventListener('click', (e) => {
-    if (e.target.closest('#thBtn')) return setOpen(!open, false);
-    const card = e.target.closest('.th-card');
-    if (card) { Themes.set(card.dataset.id); refresh(); say(Themes.get(card.dataset.id).name + ' theme applied'); return; }
-    const m = e.target.closest('[data-mode]');
-    if (m) { Appbar.setMode(m.dataset.mode); refresh(); return; }
-    if (open && !e.target.closest('#thWrap')) setOpen(false, false);
-  });
-  // Hover or focus previews; leaving the list (or the popover closing) puts the saved theme back
-  const pv = (id) => { pop().querySelectorAll('.th-card').forEach((c) => c.classList.toggle('pv', c.dataset.id === id)); };
-  document.addEventListener('pointerover', (e) => { const c = e.target.closest && e.target.closest('.th-card'); if (c && open) { Themes.preview(c.dataset.id); pv(c.dataset.id); } });
-  document.addEventListener('pointerout', (e) => { if (open && e.target.closest && e.target.closest('.th-card') && !(e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('.th-card'))) { Themes.preview(document.activeElement.classList && document.activeElement.classList.contains('th-card') ? document.activeElement.dataset.id : null); pv(null); } });
-  document.addEventListener('focusin', (e) => { const c = e.target.closest && e.target.closest('.th-card'); if (c && open) { Themes.preview(c.dataset.id); pv(c.dataset.id); } else if (open && e.target.closest('#thPop')) Themes.preview(null); });
-  document.addEventListener('keydown', (e) => {
-    if (!open) return;
-    if (e.key === 'Escape') { e.stopPropagation(); setOpen(false, true); return; }
-    const c = e.target.closest && e.target.closest('.th-card');
-    if (c && ['ArrowDown', 'ArrowUp', 'ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(e.key)) {
-      e.preventDefault();
-      const cards = [...pop().querySelectorAll('.th-card')]; let i = cards.indexOf(c);
-      i = e.key === 'Home' ? 0 : e.key === 'End' ? cards.length - 1 : (i + (e.key === 'ArrowDown' || e.key === 'ArrowRight' ? 1 : -1) + cards.length) % cards.length;
-      cards[i].focus();
-    }
-  }, true);
-  document.addEventListener('focusout', (e) => { if (open && !(e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('#thWrap'))) { if (e.relatedTarget) setOpen(false, false); } });
-  addEventListener('themes:change', refresh);
-  ThemeDemo.onMode(refresh);
-  // The header re-renders when the acting user changes and builds the button afresh (closed)
-  addEventListener('appbar:render', () => { open = false; Themes.preview(null); });
-  // The header's own click handler resets aria-expanded on its buttons; set ours again afterwards
-  document.addEventListener('click', () => { if (btn()) btn().setAttribute('aria-expanded', String(open)); });
-})();
+// Proposal A shipped (#286): the Theme menu now lives in the shared header (shared/appbar.js), so every /design page
+// has it. This page only shows the sample app page under it.
+ThemeDemo.mount(document.getElementById('demo'));
+Appbar.mount({ current: 'systems', proposal: { label: 'A', siblings: [['B', 'proposal-b.html'], ['C', 'proposal-c.html']] } });
 </script>
 </body>
 </html>

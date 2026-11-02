@@ -19,12 +19,17 @@
 //
 // Theme (palette and fonts, #286): this script also applies the stored theme, so one chosen on any /design page
 // carries across all of them. It loads shared/themes.js (and through it themes.css) when the page has not, and
-// that script owns the 'palette' key. The header has no theme picker: each proposal under /design/themes shows
-// its own. A page can add an item beside the Mode switch with mount({ barExtra: () => '<button ...>' })  (a function, or a string); the header
+// that script owns the 'palette' key. The header carries the Theme menu from the chosen Themes proposal A: a button
+// beside Mode that opens a popover of theme cards (hover or focus previews on the whole page, click keeps it,
+// Escape restores the saved one, arrow keys move, Mode at the bottom), and "Theme: <name>" commands in the palette.
+// A page that shows its own picker opts out with mount({ themePicker: false }). A page can also add an item
+// beside the Mode switch with mount({ barExtra: () => '<button ...>' })  (a function, or a string); the header
 // re-renders on a role change and then fires 'appbar:render' on window so the page can re-bind it.
 (function () {
   const SELF = document.currentScript && document.currentScript.src;
-  if (!window.Themes && SELF) { const t = document.createElement('script'); t.src = new URL('themes.js', SELF).href; document.head.appendChild(t); }
+  // themes.js arrives after this script when the page did not load it, so the header draws the Theme menu once it has
+  if (!window.Themes && SELF) { const t = document.createElement('script'); t.src = new URL('themes.js', SELF).href; t.onload = () => { if (mounted) { render(); renderProto(); } }; document.head.appendChild(t); }
+  let mounted = false;
 
   const MODE_KEY = 'theme'; // the storage key keeps its name; data-theme on <html> is the mode
   const MODES = [['system', 'System'], ['light', 'Light'], ['dark', 'Dark']];
@@ -118,6 +123,93 @@
     return `<a href="${esc(n.href)}" data-keep-role${cur}${title}>${inner}</a>`;
   }
 
+
+  // Theme menu (#286). Swatches show the mode in effect: System follows the OS.
+  const effectiveMode = () => { const m = mode(); return m === 'light' || m === 'dark' ? m : (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'); };
+  const swatch = (id) => `<span class="sw" aria-hidden="true">${window.Themes.get(id).swatch[effectiveMode()].map((c) => `<i style="background:${c}"></i>`).join('')}</span>`;
+  const themeOn = () => !!window.Themes && opts.themePicker !== false;
+  let thOpen = false;
+  function themeHtml() {
+    const T = window.Themes, t = T.get(T.saved());
+    return `<div class="th-wrap" id="thWrap">
+      <button type="button" class="th-btn" id="thBtn" aria-haspopup="dialog" aria-expanded="${thOpen}" aria-controls="thPop" aria-label="Theme: ${esc(t.name)}">
+        ${swatch(t.id)}<span class="th-l">Theme</span><span class="ab-caret th-caret">▾</span></button>
+      <div class="th-pop" id="thPop" role="dialog" aria-label="Theme" ${thOpen ? '' : 'hidden'}>
+        <h2>Theme</h2>
+        <div class="th-list" role="radiogroup" aria-label="Theme">${T.list.map((x) => `
+          <button type="button" class="th-card" role="radio" data-id="${x.id}" aria-checked="${x.id === T.saved()}" tabindex="${x.id === T.saved() ? 0 : -1}">
+            ${swatch(x.id)}<b>${esc(x.name)}</b><span class="tick" aria-hidden="true">✓</span>
+            <small>${esc(x.character)}</small>
+            <span class="spec" style="font-family:${x.id === 'register' ? 'system-ui, sans-serif' : `'${esc(x.sans)}', system-ui, sans-serif`}"><span>Aa Bb 0123</span><span>${esc(x.sans)} · ${esc(x.mono)}</span></span>
+          </button>`).join('')}</div>
+        <div class="th-mode"><span id="thModeL">Mode</span>
+          <div class="th-seg" role="group" aria-labelledby="thModeL">${MODES.map(([k, l]) => `<button type="button" data-th-mode="${k}" aria-pressed="${k === mode()}">${l}</button>`).join('')}</div></div>
+        <p class="th-note">Colours and fonts only; layout never changes.</p>
+      </div></div>
+      <div class="th-live" role="status" aria-live="polite" id="thLive"></div>`;
+  }
+  const thPop = () => $('thPop'), thBtn = () => $('thBtn');
+  function themeSay(m) { const l = $('thLive'); if (l) l.textContent = m; }
+  function setThemeOpen(v, focusBtn) {
+    if (!thBtn()) return;
+    thOpen = v;
+    thPop().hidden = !v; thBtn().setAttribute('aria-expanded', String(v));
+    if (v) {
+      closePops(); // one popover at a time
+      window.Themes.list.forEach((x) => window.Themes.loadFonts(x.id)); // the font samples need the faces
+      thPop().querySelector('[aria-checked="true"]').focus();
+    } else { window.Themes.preview(null); if (focusBtn) thBtn().focus(); }
+  }
+  function themeRefresh() { // after the saved theme or the mode changed
+    if (!thBtn()) return;
+    const T = window.Themes, t = T.get(T.saved());
+    thPop().querySelectorAll('.th-card').forEach((c) => {
+      const on = c.dataset.id === t.id; c.setAttribute('aria-checked', String(on)); c.tabIndex = on ? 0 : -1;
+      c.querySelector('.sw').outerHTML = swatch(c.dataset.id);
+    });
+    thBtn().querySelector('.sw').outerHTML = swatch(t.id);
+    thBtn().setAttribute('aria-label', 'Theme: ' + t.name);
+    thPop().querySelectorAll('[data-th-mode]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.thMode === mode())));
+  }
+  function bindTheme() {
+    document.addEventListener('click', (e) => {
+      if (!themeOn() || !thBtn()) return;
+      if (e.target.closest('#thBtn')) return setThemeOpen(!thOpen, false);
+      const card = e.target.closest('.th-card');
+      if (card) { window.Themes.set(card.dataset.id); themeRefresh(); themeSay(window.Themes.get(card.dataset.id).name + ' theme applied'); return; }
+      const m = e.target.closest('[data-th-mode]');
+      if (m) { setMode(m.dataset.thMode); return; }
+      if (thOpen && !e.target.closest('#thWrap')) setThemeOpen(false, false);
+    });
+    // Hover or focus previews; leaving the list (or closing the popover) puts the saved theme back
+    const pv = (id) => { if (thPop()) thPop().querySelectorAll('.th-card').forEach((c) => c.classList.toggle('pv', c.dataset.id === id)); };
+    const cardOf = (e) => e.target.closest && e.target.closest('.th-card');
+    document.addEventListener('pointerover', (e) => { const c = cardOf(e); if (c && thOpen) { window.Themes.preview(c.dataset.id); pv(c.dataset.id); } });
+    document.addEventListener('pointerout', (e) => {
+      if (thOpen && cardOf(e) && !(e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('.th-card'))) {
+        window.Themes.preview(document.activeElement.classList && document.activeElement.classList.contains('th-card') ? document.activeElement.dataset.id : null); pv(null);
+      }
+    });
+    document.addEventListener('focusin', (e) => { const c = cardOf(e); if (c && thOpen) { window.Themes.preview(c.dataset.id); pv(c.dataset.id); } else if (thOpen && e.target.closest('#thPop')) window.Themes.preview(null); });
+    document.addEventListener('keydown', (e) => {
+      if (!thOpen) return;
+      if (e.key === 'Escape') { e.stopPropagation(); setThemeOpen(false, true); return; }
+      const c = cardOf(e);
+      if (c && ['ArrowDown', 'ArrowUp', 'ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(e.key)) {
+        e.preventDefault();
+        const cards = [...thPop().querySelectorAll('.th-card')]; let i = cards.indexOf(c);
+        i = e.key === 'Home' ? 0 : e.key === 'End' ? cards.length - 1 : (i + (e.key === 'ArrowDown' || e.key === 'ArrowRight' ? 1 : -1) + cards.length) % cards.length;
+        cards[i].focus();
+      }
+    }, true);
+    document.addEventListener('focusout', (e) => { if (thOpen && e.relatedTarget && !(e.relatedTarget.closest && e.relatedTarget.closest('#thWrap'))) setThemeOpen(false, false); });
+    addEventListener('themes:change', themeRefresh);
+    addEventListener('appbar:mode', themeRefresh);
+    matchMedia('(prefers-color-scheme: dark)').addEventListener('change', themeRefresh);
+    // The header re-renders when the acting role changes and builds the button afresh (closed)
+    addEventListener('appbar:render', () => { thOpen = false; if (window.Themes) window.Themes.preview(null); });
+  }
+
   function render() {
     const r = role();
     const cur = NAV.find((n) => n.key === opts.current) || NAV[0];
@@ -135,6 +227,7 @@
       <span class="ab-spacer"></span>
       <button type="button" class="ab-search" id="abJump" aria-label="Jump to (Ctrl+K)">${icon('search')}<span>Jump to…</span><kbd>Ctrl K</kbd></button>
       ${typeof opts.barExtra === 'function' ? opts.barExtra() : (opts.barExtra || '')}
+      ${themeOn() ? themeHtml() : ''}
       ${modeGroup('ab-mode-bar')}
       <div class="ab-user">
         <button type="button" id="abUserBtn" aria-expanded="false" aria-controls="abUser" aria-label="Acting as ${esc(r.person)}, ${esc(r.label)}">
@@ -161,7 +254,7 @@
     const btn = $(btnId), pop = $(popId);
     const open = force ?? pop.hidden;
     document.querySelectorAll('.appbar .ab-pop').forEach((x) => { if (x !== pop) x.hidden = true; });
-    document.querySelectorAll('.appbar [aria-expanded]').forEach((b) => { if (b !== btn) b.setAttribute('aria-expanded', 'false'); });
+    document.querySelectorAll('.appbar [aria-expanded]:not(#thBtn)').forEach((b) => { if (b !== btn) b.setAttribute('aria-expanded', 'false'); });
     pop.hidden = !open; btn.setAttribute('aria-expanded', String(open));
   }
 
@@ -170,7 +263,8 @@
   function allItems() {
     const pages = visibleNav().filter((n) => n.href && n.key !== opts.current).map((n) => ({ group: 'Go to', label: n.long || n.label, icon: n.icon, href: withRole(n.href), sub: 'page' }));
     const own = (opts.items ? opts.items() : []);
-    return own.concat(pages);
+    const themes = themeOn() ? window.Themes.list.map((x) => ({ group: 'Theme', label: 'Theme: ' + x.name, sub: x.id === window.Themes.saved() ? 'Current' : x.sans, icon: 'grid', run: () => { window.Themes.set(x.id); themeRefresh(); } })) : [];
+    return own.concat(pages, themes);
   }
   function renderPal() {
     const q = $('abPalQ').value.trim().toLowerCase();
@@ -187,10 +281,11 @@
   }
   function closePops() {
     document.querySelectorAll('.appbar .ab-pop').forEach((p) => { p.hidden = true; });
-    document.querySelectorAll('.appbar [aria-expanded]').forEach((b) => b.setAttribute('aria-expanded', 'false'));
+    document.querySelectorAll('.appbar [aria-expanded]:not(#thBtn)').forEach((b) => b.setAttribute('aria-expanded', 'false'));
   }
   function openPal() {
     closePops();
+    if (thOpen) setThemeOpen(false, false);
     $('abScrim').hidden = false; $('abPal').hidden = false;
     $('abPalQ').value = ''; palSel = 0; renderPal(); $('abPalQ').focus();
   }
@@ -221,7 +316,7 @@
 
   function mount(o) {
     opts = o || {};
-    render(); renderProto(); mountPal();
+    render(); renderProto(); mountPal(); bindTheme(); mounted = true;
     document.addEventListener('click', (e) => {
       if (e.target.closest('#abMenuBtn')) return toggle('abMenuBtn', 'abMenu');
       if (e.target.closest('#abUserBtn')) return toggle('abUserBtn', 'abUser');
@@ -236,7 +331,7 @@
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); $('abPal').hidden ? openPal() : closePal(); }
       if (e.key === 'Escape') {
         if (!$('abPal').hidden) closePal();
-        const open = document.querySelector('.appbar [aria-expanded="true"]');
+        const open = document.querySelector('.appbar [aria-expanded="true"]:not(#thBtn)');
         if (open) { closePops(); open.focus(); }
       }
     });

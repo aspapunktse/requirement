@@ -148,7 +148,7 @@ function AdminMenu({ item, current, pathname }: { item: NavItem; current: boolea
 
 /**
  * The app header (#65, #256): the wordmark on the left, the main navigation with the current part of the app
- * marked, "Jump to" (Ctrl+K) and the acting user. Items a role can't open are left out. Below 1240px the
+ * marked, "Jump to" (Ctrl+K) and the acting user. Items a role can't open are left out. Below 1360px the
  * navigation collapses into a menu button showing the current page. The header owns the one Ctrl+K palette:
  * a page's own items (registered through `PaletteProvider`) come first, then the "Go to" pages.
  * On the sign-in page (`/`) only the wordmark shows, so the tile picker is the single way to choose a user there.
@@ -215,7 +215,7 @@ ${user?.id ?? ""}`;
 
   return (
     <header className="flex flex-wrap items-center justify-between gap-x-3.5 gap-y-2 border-b border-rg-line bg-rg-surface px-4 py-2.5 sm:px-5 sm:py-3">
-      <div className="flex min-w-0 items-center gap-3 min-[1241px]:gap-5">
+      <div className="flex min-w-0 items-center gap-3 min-[1361px]:gap-5">
         <Link
           href={isSignIn ? "/" : "/home"}
           className={`flex shrink-0 items-center gap-3 rounded-[10px] text-rg-ink no-underline ${FOCUS}`}
@@ -232,7 +232,7 @@ ${user?.id ?? ""}`;
 
         {!isSignIn && items.length > 0 && (
           <>
-            <nav aria-label="Main" className="hidden items-center gap-0.5 min-[1241px]:flex">
+            <nav aria-label="Main" className="hidden items-center gap-0.5 min-[1361px]:flex">
               {items.map((item) =>
                 item.href ? (
                   <Link
@@ -251,7 +251,7 @@ ${user?.id ?? ""}`;
               )}
             </nav>
 
-            <div className="min-w-0 min-[1241px]:hidden">
+            <div className="min-w-0 min-[1361px]:hidden">
               <PopoverMenu
                 id="go-to-menu"
                 buttonClassName={`${BUTTON} max-w-full`}
