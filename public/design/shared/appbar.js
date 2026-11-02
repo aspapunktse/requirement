@@ -205,7 +205,7 @@
     document.addEventListener('focusout', (e) => { if (thOpen && e.relatedTarget && !(e.relatedTarget.closest && e.relatedTarget.closest('#thWrap'))) setThemeOpen(false, false); });
     addEventListener('themes:change', themeRefresh);
     addEventListener('appbar:mode', themeRefresh);
-    matchMedia('(prefers-color-scheme: dark)').addEventListener('change', themeRefresh);
+    if (typeof matchMedia === 'function') matchMedia('(prefers-color-scheme: dark)').addEventListener('change', themeRefresh);
     // The header re-renders when the acting role changes and builds the button afresh (closed)
     addEventListener('appbar:render', () => { thOpen = false; if (window.Themes) window.Themes.preview(null); });
   }
