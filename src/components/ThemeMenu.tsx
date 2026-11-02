@@ -112,7 +112,12 @@ function ThemePanel({ onClose, className, anchorRef }: { onClose: () => void; cl
       role="dialog"
       aria-labelledby={headingId}
       className={className}
-      onFocus={(event) => setFocused((event.target as HTMLElement).closest<HTMLElement>("[data-palette-id]")?.dataset.paletteId ?? null)}
+      onFocus={(event) => {
+        // The latest input wins: a focus change (arrow keys, Tab, a click) drops the hover preview until the
+        // pointer moves onto a card again, so the previewed theme is always the one Enter would keep.
+        setHovered(null);
+        setFocused((event.target as HTMLElement).closest<HTMLElement>("[data-palette-id]")?.dataset.paletteId ?? null);
+      }}
       onKeyDown={(event) => {
         if (event.key === "Escape") {
           event.preventDefault();

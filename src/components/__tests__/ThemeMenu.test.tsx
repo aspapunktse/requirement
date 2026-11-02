@@ -96,6 +96,19 @@ describe("ThemeMenu", () => {
     expect(window.localStorage.getItem(PALETTE_KEY)).toBeNull();
   });
 
+  it("lets the arrow keys take over from a hovered card, so Enter keeps the theme being previewed", async () => {
+    const user = await open();
+    await user.click(card("Parchment"));
+    expect(root).toHaveAttribute("data-palette", "parchment");
+    // The pointer stays on Parchment while the keyboard moves on.
+    await user.keyboard("{ArrowDown}");
+    expect(card("Slate")).toHaveFocus();
+    expect(root).toHaveAttribute("data-palette", "slate");
+    await user.keyboard("{Enter}");
+    expect(window.localStorage.getItem(PALETTE_KEY)).toBe("slate");
+    expect(root).toHaveAttribute("data-palette", "slate");
+  });
+
   it("keeps a theme on click: applies, stores and checks it, and the panel stays open", async () => {
     const user = await open();
     await user.click(card("Parchment"));
