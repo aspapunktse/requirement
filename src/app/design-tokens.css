@@ -13,7 +13,7 @@
 
    Register, the default theme, uses the system UI face and the system
    monospace and loads no web font; the other themes (below) set their own
-   --rg-font-* and self-host theirs (src/app/fonts.ts). Mono is for
+   --rg-font-* and self-host theirs (src/app/theme-fonts.ts). Mono is for
    identifiers and eyebrows only.
    ========================================================================= */
 

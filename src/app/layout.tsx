@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { AppHeader } from "@/components/AppHeader";
 import { PaletteProvider } from "@/components/PaletteProvider";
 import { getActingUser, isDevAuthStubEnabled } from "@/lib/acting-user";
-import { FONT_VARIABLE_CLASSES } from "@/app/fonts";
+import { FONT_VARIABLE_CLASSES } from "@/app/theme-fonts";
 import { MODE_INIT_SCRIPT } from "@/lib/mode";
 import { PALETTE_INIT_SCRIPT } from "@/lib/palette";
 import "./globals.css";
