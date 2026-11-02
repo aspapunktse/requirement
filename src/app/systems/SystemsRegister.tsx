@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type MouseEvent } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type MouseEvent } from "react";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { onboardingStatusTone } from "@/lib/status-tones";
 import { ago, initialsOf } from "@/app/home/home-format";
@@ -128,6 +128,21 @@ export function SystemsRegister({ view, initialQuery }: { view: SystemsView; ini
       document.removeEventListener("mousedown", onPointerDown);
       document.removeEventListener("keydown", onKeyDown);
     };
+  }, [openFilter]);
+
+  // Keep an open filter menu inside the viewport with a 16px gutter: it opens from its button's left edge, so shift it
+  // left when it would run past the right edge (never past the left one). Measured on the DOM, no state, no re-render.
+  useLayoutEffect(() => {
+    if (openFilter === null) return;
+    const wrap = regRef.current?.querySelector<HTMLElement>(`[data-filter="${openFilter}"]`);
+    const menu = wrap?.querySelector<HTMLElement>(".menu");
+    if (!wrap || !menu) return;
+    const GUTTER = 16;
+    menu.style.left = "";
+    const overflow = menu.getBoundingClientRect().right - (window.innerWidth - GUTTER);
+    if (overflow <= 0) return;
+    const buttonLeft = wrap.getBoundingClientRect().left;
+    menu.style.left = `${-Math.min(overflow, Math.max(0, buttonLeft - GUTTER))}px`;
   }, [openFilter]);
 
   function update(patch: Partial<RegisterState>, options: { replace?: boolean; keepPage?: boolean } = {}) {

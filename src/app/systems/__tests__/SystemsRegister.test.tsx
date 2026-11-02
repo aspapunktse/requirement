@@ -209,6 +209,21 @@ describe("search and filters", () => {
     expect(screen.getByRole("button", { name: /Sensitivity: 2/ })).toBeInTheDocument();
   });
 
+  it("shifts a filter menu left when it would run past the right edge of the viewport", async () => {
+    const spy = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+      const at = (left: number, width: number) => ({ left, right: left + width, width, top: 0, bottom: 0, height: 0, x: left, y: 0, toJSON: () => ({}) }) as DOMRect;
+      return this.classList.contains("menu") ? at(839, 230) : this.hasAttribute("data-filter") ? at(839, 120) : at(0, 0);
+    });
+    try {
+      renderRegister();
+      await userEvent.click(screen.getByRole("button", { name: /\+ Sensitivity/ }));
+      // innerWidth 1024: the menu ends at 1069, so it moves 61px left to end at the 16px gutter.
+      expect((screen.getByRole("group", { name: "Sensitivity" }) as HTMLElement).style.left).toBe(`${-(1069 - (window.innerWidth - 16))}px`);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
   it("filters by Business Unit, Deployment Facet and highest Impact Level", async () => {
     renderRegister();
     await userEvent.click(screen.getByRole("button", { name: /\+ Business Unit/ }));
