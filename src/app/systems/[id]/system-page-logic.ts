@@ -65,7 +65,7 @@ export function sourceKeyOf(source: EffectiveSource): SourceKey {
  * The one action that comes next for the acting user in the header (decision 2a on #243), by the very
  * rules the APIs enforce, so it never offers an action the API would refuse and never hides one it allows:
  * - Submit for review: a Draft, for whoever `canSubmit` (`POST /api/systems/[id]/submit`); shown but disabled
- *   (`blockedBy` > 0) while mandatory Controls are not addressed, as the route refuses then (decision 6a on #243);
+ *   (`blockedBy` > 0) while mandatory Controls are not addressed or the System has no Sensitivity Level, as the route refuses then (decision 6a on #243, #290);
  * - Approve… / Reject: an In Review System with an open Review Step the user may decide
  *   (`userCanDecideStep`, which `GET /api/systems/[id]/approvals` reports as `canDecide`);
  * - Mark Onboarded: an Approved System, for whoever `canMarkOnboarded` (`POST .../onboard`).
@@ -79,10 +79,14 @@ export function nextStepFor(input: {
   decidableSteps: DecisionStep[];
   /** Mandatory Controls not yet addressed (`getUnaddressedMandatoryControls`): the submit route refuses while there are any. */
   unaddressedMandatory?: number;
+  /** The System has no Sensitivity Level: the submit route refuses (#290). */
+  missingSensitivityLevel?: boolean;
 }): NextStep {
   switch (input.status) {
     case "DRAFT":
-      return input.canSubmit ? { kind: "submit", blockedBy: input.unaddressedMandatory ?? 0 } : { kind: "none" };
+      return input.canSubmit
+        ? { kind: "submit", blockedBy: input.unaddressedMandatory ?? 0, ...(input.missingSensitivityLevel && { needsSensitivityLevel: true as const }) }
+        : { kind: "none" };
     case "IN_REVIEW":
       return input.decidableSteps.length > 0 ? { kind: "decide", steps: input.decidableSteps } : { kind: "none" };
     case "APPROVED":

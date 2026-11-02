@@ -106,7 +106,7 @@ const CONTROL_SELECT = {
   id: true,
   code: true,
   applicability: true,
-  minConfidentialityImpactLevel: true,
+  minSensitivityLevel: true,
   minIntegrityImpactLevel: true,
   minAvailabilityImpactLevel: true,
   deploymentFacets: { select: { id: true } },
@@ -115,7 +115,7 @@ const CONTROL_SELECT = {
 
 const SYSTEM_SELECT = {
   id: true,
-  confidentialityImpactLevel: true,
+  sensitivityLevel: true,
   integrityImpactLevel: true,
   availabilityImpactLevel: true,
   deploymentFacets: { select: { id: true } },

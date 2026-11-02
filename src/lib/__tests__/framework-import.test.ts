@@ -229,7 +229,7 @@ describe("loadFramework (#144)", { timeout: 60_000 }, () => {
       ).toBe(0);
     });
 
-    it("gives a Supplementary Control its Deployment Facets and Impact Level threshold", async () => {
+    it("gives a Supplementary Control its Deployment Facets and Sensitivity Level threshold", async () => {
       const name = freshName();
       await loaded(
         fileFor(name, {
@@ -238,7 +238,7 @@ describe("loadFramework (#144)", { timeout: 60_000 }, () => {
               applicability: "BOTH",
               question: "Done?",
               deploymentFacets: [facetName],
-              minConfidentialityImpactLevel: "HIGH",
+              minSensitivityLevel: 4,
             }),
           ],
         }),
@@ -248,7 +248,7 @@ describe("loadFramework (#144)", { timeout: 60_000 }, () => {
         include: { deploymentFacets: true, organizationImplementation: true },
       });
       expect(control.deploymentFacets.map((f) => f.name)).toEqual([facetName]);
-      expect(control.minConfidentialityImpactLevel).toBe("HIGH");
+      expect(control.minSensitivityLevel).toBe(4);
       expect(control.organizationImplementation).not.toBeNull();
     });
   });
@@ -638,7 +638,7 @@ describe("loadFramework (#144)", { timeout: 60_000 }, () => {
       const summary = await loaded(
         fileFor(name, {
           supplementaryControls: [
-            supplementary("P2", { applicability: "PER_SYSTEM", question: "Done?", minConfidentialityImpactLevel: "CRITICAL" }),
+            supplementary("P2", { applicability: "PER_SYSTEM", question: "Done?", minSensitivityLevel: 5 }),
           ],
           requirements: [requirement("R-1", [map(`${CODE_PREFIX}-P2`)])],
         }),
@@ -677,7 +677,7 @@ describe("loadFramework (#144)", { timeout: 60_000 }, () => {
       // The threshold stops the Control applying to the System: its untouched Assessment goes.
       const summary = await loaded(
         fileFor(draft, {
-          supplementaryControls: [scoped({ minConfidentialityImpactLevel: "CRITICAL" })],
+          supplementaryControls: [scoped({ minSensitivityLevel: 5 })],
           requirements: [requirement("R-1", [map(supCode)])],
         }),
       );

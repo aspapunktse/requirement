@@ -329,7 +329,7 @@ describe("getComplianceForSystems", () => {
         where: { id: systemAId },
         select: {
           id: true,
-          confidentialityImpactLevel: true,
+          sensitivityLevel: true,
           integrityImpactLevel: true,
           availabilityImpactLevel: true,
           deploymentFacets: { select: { id: true } },

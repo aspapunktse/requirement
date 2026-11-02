@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import type { ImpactLevel, OnboardingStatus } from "@prisma/client";
+import type { OnboardingStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { ACTING_USER_COOKIE } from "@/lib/acting-user";
 import { getStaleAssessments } from "@/lib/control-assessments";
@@ -132,7 +132,7 @@ describe("Recompute affected Systems on catalog changes (#87)", { timeout: 60_00
     facets?: string[];
     scope?: string[];
     status?: OnboardingStatus;
-    level?: ImpactLevel;
+    level?: number;
   }) {
     const system = await prisma.system.create({
       data: {
@@ -140,7 +140,7 @@ describe("Recompute affected Systems on catalog changes (#87)", { timeout: 60_00
         ownerId,
         status: opts.status ?? "DRAFT",
         onboardedAt: opts.status === "ONBOARDED" ? new Date() : null,
-        confidentialityImpactLevel: opts.level ?? null,
+        sensitivityLevel: opts.level ?? null,
         deploymentFacets: { connect: (opts.facets ?? [facetA]).map((id) => ({ id })) },
         frameworkScopes: { connect: (opts.scope ?? []).map((id) => ({ id })) },
       },
@@ -558,21 +558,21 @@ describe("Recompute affected Systems on catalog changes (#87)", { timeout: 60_00
       expect(events[events.length - 1].detail).toContain("1 kept as stale");
     });
 
-    it("an Impact Level threshold edit recomputes the Systems on either side of it", async () => {
+    it("a Sensitivity Level threshold edit recomputes the Systems on either side of it", async () => {
       const published = await makeFramework("PUBLISHED");
       const requirement = await makeRequirement(published.id);
       const control = await makeControl([facetA]);
       await mapDirect(requirement.id, control.id);
-      const low = await makeSystem({ scope: [published.id], level: "LOW" });
-      const high = await makeSystem({ scope: [published.id], level: "HIGH" });
+      const low = await makeSystem({ scope: [published.id], level: 2 });
+      const high = await makeSystem({ scope: [published.id], level: 4 });
       await onFrameworkPublished(published.id);
       expect((await rows(low.id, [control.id])).size).toBe(1);
 
-      expect((await patchCtl(control.id, { minConfidentialityImpactLevel: "MODERATE" })).status).toBe(200);
+      expect((await patchCtl(control.id, { minSensitivityLevel: 3 })).status).toBe(200);
       expect((await rows(low.id, [control.id])).size).toBe(0);
       expect((await rows(high.id, [control.id])).size).toBe(1);
 
-      expect((await patchCtl(control.id, { minConfidentialityImpactLevel: null })).status).toBe(200);
+      expect((await patchCtl(control.id, { minSensitivityLevel: null })).status).toBe(200);
       expect((await rows(low.id, [control.id])).size).toBe(1);
     });
 
@@ -593,7 +593,7 @@ describe("Recompute affected Systems on catalog changes (#87)", { timeout: 60_00
         { title: "Renamed" },
         { mandatory: false },
         { deploymentFacetIds: [facetB, facetA] }, // same set, different order
-        { minConfidentialityImpactLevel: null }, // already unset
+        { minSensitivityLevel: null }, // already unset
       ]) {
         expect((await patchCtl(control.id, body)).status).toBe(200);
         expect(await fingerprint(system.id)).toEqual(removedByHand);

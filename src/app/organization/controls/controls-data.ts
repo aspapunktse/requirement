@@ -50,7 +50,7 @@ export async function loadOrganizationControlsView(user: { id: string; name: str
           applicability: true,
           ownerId: true,
           owner: { select: { name: true } },
-          minConfidentialityImpactLevel: true,
+          minSensitivityLevel: true,
           minIntegrityImpactLevel: true,
           minAvailabilityImpactLevel: true,
           deploymentFacets: { select: { id: true } },
@@ -66,7 +66,7 @@ export async function loadOrganizationControlsView(user: { id: string; name: str
       const systems = await tx.system.findMany({
         select: {
           id: true,
-          confidentialityImpactLevel: true,
+          sensitivityLevel: true,
           integrityImpactLevel: true,
           availabilityImpactLevel: true,
           deploymentFacets: { select: { id: true } },

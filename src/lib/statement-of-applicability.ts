@@ -56,7 +56,7 @@ export async function readStatementInputs(
       title: true,
       applicability: true,
       soaExclusionJustification: true,
-      minConfidentialityImpactLevel: true,
+      minSensitivityLevel: true,
       minIntegrityImpactLevel: true,
       minAvailabilityImpactLevel: true,
       deploymentFacets: { select: { id: true } },
@@ -83,7 +83,7 @@ export async function readStatementInputs(
   const systems = await tx.system.findMany({
     select: {
       id: true,
-      confidentialityImpactLevel: true,
+      sensitivityLevel: true,
       integrityImpactLevel: true,
       availabilityImpactLevel: true,
       deploymentFacets: { select: { id: true } },

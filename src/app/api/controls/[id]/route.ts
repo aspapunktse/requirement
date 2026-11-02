@@ -8,6 +8,7 @@ import { canBeControlOwner, CONTROL_OWNER_REFUSAL } from "@/lib/system-permissio
 import { redactDraftOrigin } from "@/lib/frameworks";
 import { loadControlFor } from "@/lib/control-library";
 import { isScopedOrganizationalControl, ORGANIZATIONAL_SCOPING_ERROR } from "@/lib/control-schema";
+import { sensitivityLevelSchema } from "@/lib/sensitivity-level";
 import { finishRecompute, prepareRecompute, scopeForControl } from "@/lib/applicability-recompute";
 
 const impactLevelSchema = z.nativeEnum(ImpactLevel).nullable();
@@ -34,7 +35,7 @@ const updateControlSchema = z
     intent: z.string().nullable().optional(),
     examples: z.array(z.string()).optional(),
     deploymentFacetIds: z.array(z.string()).optional(),
-    minConfidentialityImpactLevel: impactLevelSchema.optional(),
+    minSensitivityLevel: sensitivityLevelSchema.optional(),
     minIntegrityImpactLevel: impactLevelSchema.optional(),
     minAvailabilityImpactLevel: impactLevelSchema.optional(),
     // The Control Owner: a User id, or null to clear it. Any User qualifies, whatever their role.
@@ -84,7 +85,7 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/contro
     intent,
     examples,
     deploymentFacetIds,
-    minConfidentialityImpactLevel,
+    minSensitivityLevel,
     minIntegrityImpactLevel,
     minAvailabilityImpactLevel,
     ownerId,
@@ -101,7 +102,7 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/contro
   if (
     isScopedOrganizationalControl(control.applicability, {
       deploymentFacetCount: deploymentFacetIds?.length,
-      minConfidentialityImpactLevel,
+      minSensitivityLevel,
       minIntegrityImpactLevel,
       minAvailabilityImpactLevel,
     })
@@ -112,8 +113,7 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/contro
   const scopingChanged =
     (deploymentFacetIds !== undefined &&
       !sameIds(deploymentFacetIds, control.deploymentFacets.map((f) => f.id))) ||
-    (minConfidentialityImpactLevel !== undefined &&
-      minConfidentialityImpactLevel !== control.minConfidentialityImpactLevel) ||
+    (minSensitivityLevel !== undefined && minSensitivityLevel !== control.minSensitivityLevel) ||
     (minIntegrityImpactLevel !== undefined && minIntegrityImpactLevel !== control.minIntegrityImpactLevel) ||
     (minAvailabilityImpactLevel !== undefined && minAvailabilityImpactLevel !== control.minAvailabilityImpactLevel);
   // Snapshot before the write, so the recompute can tell what just stopped applying.
@@ -134,7 +134,7 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/contro
         ...(deploymentFacetIds !== undefined && {
           deploymentFacets: { set: deploymentFacetIds.map((facetId) => ({ id: facetId })) },
         }),
-        ...(minConfidentialityImpactLevel !== undefined && { minConfidentialityImpactLevel }),
+        ...(minSensitivityLevel !== undefined && { minSensitivityLevel }),
         ...(minIntegrityImpactLevel !== undefined && { minIntegrityImpactLevel }),
         ...(minAvailabilityImpactLevel !== undefined && { minAvailabilityImpactLevel }),
         ...(ownerId !== undefined && { ownerId }),

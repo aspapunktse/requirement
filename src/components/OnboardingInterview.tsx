@@ -262,7 +262,7 @@ export function OnboardingInterview() {
           name: name.trim(),
           vendor: vendor.trim() || undefined,
           description: description.trim() || undefined,
-          confidentialityImpactLevel: answers.confidentialityImpactLevel ?? undefined,
+          sensitivityLevel: answers.sensitivityLevel ?? undefined,
           integrityImpactLevel: answers.integrityImpactLevel ?? undefined,
           availabilityImpactLevel: answers.availabilityImpactLevel ?? undefined,
           deploymentFacetIds: answers.deploymentFacetIds,
@@ -288,7 +288,33 @@ export function OnboardingInterview() {
   const askable = data.frameworks.filter((f) => !f.isBase && f.onboardingQuestion);
   const others = data.frameworks.filter((f) => !f.isBase && !f.onboardingQuestion);
 
-  function renderImpactStep(which: "sensitivity" | "integrity" | "downtime") {
+  function renderSensitivityStep() {
+    const chosen = answers.sensitivityLevel;
+    return (
+      <div className="ob-opts" role="radiogroup" aria-labelledby="ob-q-title">
+        {data.sensitivityLevels.map((option) => (
+          <OptionCard
+            key={option.level}
+            type="radio"
+            name="ob-sensitivity"
+            title={option.label}
+            hint={option.description}
+            checked={chosen === option.level}
+            selected={chosen === option.level}
+            effect={effectOf({ ...answers, sensitivityLevel: option.level })}
+            onChange={() => apply({ ...answers, sensitivityLevel: option.level }, option.label)}
+          />
+        ))}
+        {chosen !== null && (
+          <button type="button" className="ob-link" onClick={() => apply({ ...answers, sensitivityLevel: null }, "Cleared: sensitivity")}>
+            Clear my answer
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  function renderImpactStep(which: "integrity" | "downtime") {
     const { axis, options } = IMPACT_STEPS[which];
     const chosen = answers[axis];
     return (
@@ -377,6 +403,7 @@ export function OnboardingInterview() {
           </div>
         );
       case "sensitivity":
+        return renderSensitivityStep();
       case "integrity":
       case "downtime":
         return renderImpactStep(stepKey);
@@ -448,7 +475,12 @@ export function OnboardingInterview() {
     }
   }
 
-  function levelAnswer(which: "sensitivity" | "integrity" | "downtime") {
+  function sensitivityAnswer() {
+    const option = data.sensitivityLevels.find((o) => o.level === answers.sensitivityLevel);
+    return option ? option.label : "Not answered";
+  }
+
+  function levelAnswer(which: "integrity" | "downtime") {
     const { axis, options } = IMPACT_STEPS[which];
     const level = answers[axis];
     const option = options.find((o) => o.level === level);
@@ -476,7 +508,7 @@ export function OnboardingInterview() {
           "Not answered"
         ),
       },
-      { key: "sensitivity", stepIndex: 1, label: "Sensitivity", value: levelAnswer("sensitivity") },
+      { key: "sensitivity", stepIndex: 1, label: "Sensitivity", value: sensitivityAnswer() },
       { key: "integrity", stepIndex: 2, label: "Integrity", value: levelAnswer("integrity") },
       { key: "downtime", stepIndex: 3, label: "Downtime", value: levelAnswer("downtime") },
       {
@@ -494,7 +526,7 @@ export function OnboardingInterview() {
           <div className="hc-card-h">
             <h3>Your answers</h3>
             <CiaBars
-              confidentiality={answers.confidentialityImpactLevel}
+              sensitivityLabel={data.sensitivityLevels.find((o) => o.level === answers.sensitivityLevel)?.label ?? null}
               integrity={answers.integrityImpactLevel}
               availability={answers.availabilityImpactLevel}
             />

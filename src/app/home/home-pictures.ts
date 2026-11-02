@@ -67,7 +67,7 @@ export async function loadPipelinePicture(userId: string, flags: Map<string, str
           id: true,
           name: true,
           status: true,
-          confidentialityImpactLevel: true,
+          sensitivityLevel: true,
           integrityImpactLevel: true,
           availabilityImpactLevel: true,
           deploymentFacets: { select: { id: true } },

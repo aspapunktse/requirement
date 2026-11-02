@@ -33,7 +33,7 @@ export function inView(row: SystemRow, view: ViewKey): boolean {
     case "attention":
       return row.needsAttention;
     case "unclassified":
-      return row.confidentiality === null || row.integrity === null || row.availability === null;
+      return row.sensitivityLevel === null || row.integrity === null || row.availability === null;
     case "providers":
       return row.isProvider;
   }
@@ -46,12 +46,12 @@ export function viewCounts(rows: SystemRow[]): Record<ViewKey, number> {
 
 // Highest Impact Level
 
-const levels = (row: SystemRow): (ImpactLevel | null)[] => [row.confidentiality, row.integrity, row.availability];
+const levels = (row: SystemRow): (ImpactLevel | null)[] => [row.integrity, row.availability];
 
 /** 0 for not classified, then 1 (Low) to 4 (Critical). */
 const impactRank = (level: ImpactLevel | null) => (level === null ? 0 : IMPACT_ORDER.indexOf(level) + 1);
 
-/** The highest of the three axes' Impact Levels; NONE when none is classified. */
+/** The higher of the Integrity and Availability Impact Levels (the Sensitivity Level is not an Impact Level); NONE when none is classified. */
 export function highestImpact(row: SystemRow): HighestImpact {
   const top = Math.max(...levels(row).map(impactRank));
   return top === 0 ? "NONE" : IMPACT_ORDER[top - 1];
@@ -194,7 +194,7 @@ export const CSV_HEADER = [
   "Open questions",
   "Owner",
   "Deployment Facets",
-  "Confidentiality",
+  "Sensitivity Level",
   "Integrity",
   "Availability",
   "Business Units",
@@ -225,7 +225,7 @@ export function systemsCsv(rows: SystemRow[]): string {
         row.openQuestions,
         row.ownerName,
         row.facets.map((facet) => facet.name).join("; "),
-        levelLabel(row.confidentiality),
+        row.sensitivityLabel ?? "Not set",
         levelLabel(row.integrity),
         levelLabel(row.availability),
         row.businessUnits.map((unit) => unit.name).join("; "),

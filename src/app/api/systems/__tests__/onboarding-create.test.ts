@@ -53,7 +53,7 @@ describe("POST /api/systems: Framework Scope and Providers in one transaction", 
   it("creates the System with its Framework Scope, Provider dependency and every Change Event", async () => {
     const response = await create(fx.users.owner, {
       vendor: "Acme",
-      confidentialityImpactLevel: "HIGH",
+      sensitivityLevel: 4,
       frameworkScopeIds: [fx.frameworkId],
       providerIds: [providerId],
     });
@@ -64,7 +64,7 @@ describe("POST /api/systems: Framework Scope and Providers in one transaction", 
       where: { id },
       include: { frameworkScopes: true, deploymentFacets: true, providerDependencies: true },
     });
-    expect(system).toMatchObject({ name: NAME, vendor: "Acme", status: "DRAFT", ownerId: fx.users.owner, confidentialityImpactLevel: "HIGH" });
+    expect(system).toMatchObject({ name: NAME, vendor: "Acme", status: "DRAFT", ownerId: fx.users.owner, sensitivityLevel: 4 });
     expect(system.frameworkScopes.map((f) => f.id)).toEqual([fx.frameworkId]);
     expect(system.deploymentFacets.map((f) => f.id)).toEqual([fx.facets.live]);
     expect(system.providerDependencies.map((d) => d.providerId)).toEqual([providerId]);
@@ -99,6 +99,17 @@ describe("POST /api/systems: Framework Scope and Providers in one transaction", 
     const [a, b] = [await snapshot(oneStep), await snapshot(twoSteps)];
     expect(a.events.length).toBeGreaterThanOrEqual(4);
     expect(a).toEqual(b);
+  });
+
+  it.each([0, 6, "HIGH"])("refuses the Sensitivity Level %j with 400 and creates nothing", async (value) => {
+    const before = await owned();
+    expect((await create(fx.users.owner, { sensitivityLevel: value })).status).toBe(400);
+    expect(await owned()).toBe(before);
+  });
+
+  it("creates a System with no Sensitivity Level when none is given", async () => {
+    const id = await created(await create(fx.users.owner, {}));
+    expect(await prisma.system.findUniqueOrThrow({ where: { id } })).toMatchObject({ sensitivityLevel: null });
   });
 
   it("ignores repeated ids", async () => {

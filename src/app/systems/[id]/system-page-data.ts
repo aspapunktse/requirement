@@ -39,6 +39,7 @@ const SYSTEM_INCLUDE = {
   // Declared Framework Scope rows, ids only: applicability needs them (ADR 0007).
   frameworkScopes: { select: { id: true } },
   owner: true,
+  sensitivity: { select: { label: true } },
   businessUnits: { select: { id: true, name: true }, orderBy: { name: "asc" } },
 } satisfies Prisma.SystemInclude;
 
@@ -195,7 +196,8 @@ export async function loadSystemPage(user: User, id: string, now = new Date()): 
           ownerId: system.ownerId,
           ownerName: system.owner.name,
           facets: [...system.deploymentFacets].sort((a, b) => a.name.localeCompare(b.name)).map((facet) => ({ id: facet.id, name: facet.name })),
-          confidentiality: system.confidentialityImpactLevel,
+          sensitivityLevel: system.sensitivityLevel,
+          sensitivityLabel: system.sensitivity?.label ?? null,
           integrity: system.integrityImpactLevel,
           availability: system.availabilityImpactLevel,
           createdAt: system.createdAt.toISOString(),
@@ -218,6 +220,7 @@ export async function loadSystemPage(user: User, id: string, now = new Date()): 
           canMarkOnboarded: canMarkOnboarded(user, system),
           decidableSteps,
           unaddressedMandatory,
+          missingSensitivityLevel: system.sensitivityLevel === null,
         }),
         canChangeOwner: canChangeOwner(user, system),
         headline: {

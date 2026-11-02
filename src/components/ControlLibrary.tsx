@@ -10,7 +10,6 @@ type OriginFilter = "ALL" | "BASE" | "SUPPLEMENTARY";
 type ApplicabilityFilter = "ALL" | ControlLibraryRow["applicability"];
 
 const IMPACT_AXES = [
-  { key: "minConfidentialityImpactLevel", label: "Min. Confidentiality" },
   { key: "minIntegrityImpactLevel", label: "Min. Integrity" },
   { key: "minAvailabilityImpactLevel", label: "Min. Availability" },
 ] as const;
@@ -19,7 +18,10 @@ const selectClass = "rounded border border-rg-control p-1 text-sm";
 
 /** "Draft Framework" marks only appear for a viewer who can see Drafts (the server never sends them otherwise). */
 function ControlDetail({ control }: { control: ControlLibraryRow }) {
-  const thresholds = IMPACT_AXES.filter(({ key }) => control[key]).map(({ key, label }) => `${label}: ${control[key]}`);
+  const thresholds = [
+    ...(control.minSensitivityLevel !== null ? [`Min. Sensitivity Level: ${control.minSensitivityLabel ?? control.minSensitivityLevel}`] : []),
+    ...IMPACT_AXES.filter(({ key }) => control[key]).map(({ key, label }) => `${label}: ${control[key]}`),
+  ];
   return (
     <div className="flex flex-col gap-3 border-t border-rg-line p-3 text-sm">
       <p>{control.description}</p>
@@ -38,13 +40,13 @@ function ControlDetail({ control }: { control: ControlLibraryRow }) {
         {control.applicability === "ORGANIZATIONAL" ? (
           <>
             <dt className="text-rg-muted">Scoping</dt>
-            <dd>Organizational Controls are not scoped to Deployment Facets or Impact Levels.</dd>
+            <dd>Organizational Controls are not scoped to Deployment Facets, Sensitivity Levels or Impact Levels.</dd>
           </>
         ) : (
           <>
             <dt className="text-rg-muted">Deployment Facets</dt>
             <dd>{control.deploymentFacets.length > 0 ? control.deploymentFacets.join(", ") : "Applies regardless"}</dd>
-            <dt className="text-rg-muted">Impact Levels</dt>
+            <dt className="text-rg-muted">Sensitivity and Impact Levels</dt>
             <dd>{thresholds.length > 0 ? thresholds.join(", ") : "Applies regardless"}</dd>
           </>
         )}

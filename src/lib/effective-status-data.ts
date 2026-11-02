@@ -81,7 +81,7 @@ export async function loadProviderSources(
           id: true,
           name: true,
           status: true,
-          confidentialityImpactLevel: true,
+          sensitivityLevel: true,
           integrityImpactLevel: true,
           availabilityImpactLevel: true,
           deploymentFacets: { select: { id: true } },
@@ -110,7 +110,7 @@ export async function loadProviderSources(
       select: {
         id: true,
         applicability: true,
-        minConfidentialityImpactLevel: true,
+        minSensitivityLevel: true,
         minIntegrityImpactLevel: true,
         minAvailabilityImpactLevel: true,
         deploymentFacets: { select: { id: true } },

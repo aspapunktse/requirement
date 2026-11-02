@@ -136,6 +136,8 @@ export function setupProviderFixtures(label: string) {
         ownerId: options.ownerId ?? ctx.users.owner,
         status: options.status ?? "ONBOARDED",
         isProvider: options.isProvider ?? false,
+        // Sensitive: a System can only be submitted for review with a Sensitivity Level.
+        sensitivityLevel: 3,
         deploymentFacets: { connect: (options.facets ?? [ctx.facets.live, ctx.facets.stale]).map((id) => ({ id })) },
         frameworkScopes: { connect: [{ id: ctx.frameworkId }] },
       },

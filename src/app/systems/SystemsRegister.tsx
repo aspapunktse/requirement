@@ -68,7 +68,7 @@ const COLUMNS: { key: SortKey | "go" | "facets"; label: string; sortable: boolea
   { key: "status", label: "Status", sortable: true, className: "c-status" },
   { key: "owner", label: "Owner", sortable: true, className: "c-owner" },
   { key: "facets", label: "Deployment", sortable: false, className: "c-facets" },
-  { key: "cia", label: "C · I · A", sortable: true, className: "c-cia" },
+  { key: "cia", label: "Sensitivity · I · A", sortable: true, className: "c-cia" },
   { key: "unit", label: "Business Unit", sortable: true, className: "c-unit" },
   { key: "prog", label: "Requirements met", sortable: true, className: "c-prog" },
   { key: "upd", label: "Updated", sortable: true, className: "c-upd" },
@@ -281,7 +281,7 @@ export function SystemsRegister({ view, initialQuery }: { view: SystemsView; ini
           )}
         </td>
         <td className="c-cia">
-          <CiaBars confidentiality={row.confidentiality} integrity={row.integrity} availability={row.availability} />
+          <CiaBars sensitivityLabel={row.sensitivityLabel} integrity={row.integrity} availability={row.availability} />
         </td>
         <td className="c-unit muted" title={units.join(", ")}>
           {units.length === 0 ? (
@@ -590,8 +590,8 @@ export function SystemsRegister({ view, initialQuery }: { view: SystemsView; ini
           </table>
         </div>
         <div className="sy-foot">
-          <div className="legend" aria-label="CIA impact legend">
-            <span>CIA impact:</span>
+          <div className="legend" aria-label="Impact legend">
+            <span>Integrity and Availability impact:</span>
             {(["not classified", "low", "moderate", "high", "critical"] as const).map((text, level) => (
               <span key={text}>
                 <span className="cia" aria-hidden="true">

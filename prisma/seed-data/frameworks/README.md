@@ -29,7 +29,7 @@ Files load in file-name order. A file whose Requirements map to Supplementary Co
       "question": "…",                            // required unless ORGANIZATIONAL
       "intent": "…", "examples": ["…"], "mandatory": true,
       "deploymentFacets": ["Cloud IaaS/PaaS"],    // names of existing Deployment Facets
-      "minConfidentialityImpactLevel": "HIGH" }   // also Integrity, Availability; LOW|MODERATE|HIGH|CRITICAL
+      "minSensitivityLevel": 4 }   // 1 Public to 5 Critical Sensitivity; also minIntegrityImpactLevel, minAvailabilityImpactLevel: LOW|MODERATE|HIGH|CRITICAL
   ],
   "requirements": [
     { "code": "CEK-03", "section": "Cryptography", "title": "Data Encryption", "text": "<own-words paraphrase>",
@@ -50,7 +50,7 @@ Files load in file-name order. A file whose Requirements map to Supplementary Co
 - **Omitted optional fields are left as they are** on an existing row (and take the default on a new one). To clear a nullable field, write `null`.
 - **Nothing is deleted except mappings.** A mapping missing from a listed Requirement is removed. A Requirement or Supplementary Control in the database but not in the file is kept (the summary lists the Requirements), because deleting a Requirement loses its gap acceptance. Remove one in the UI.
 - **A Supplementary Control** can only be created or updated by the file of its own Framework. A code that already exists as a base Control, or belongs to another Framework, makes the file invalid, and so does a changed `applicability`.
-- **Draft Frameworks are inert**, so loading into one writes no Change Events and recomputes nothing. The one exception: changing the Deployment Facets or Impact Level thresholds of an existing Supplementary Control that is also mapped to a Requirement of a Published Framework recomputes the Systems it reaches, as editing a Control in the UI does.
+- **Draft Frameworks are inert**, so loading into one writes no Change Events and recomputes nothing. The one exception: changing the Deployment Facets, Sensitivity Level or Impact Level thresholds of an existing Supplementary Control that is also mapped to a Requirement of a Published Framework recomputes the Systems it reaches, as editing a Control in the UI does.
 - **Published Frameworks are refused** (exit 1, nothing changed) unless `--allow-published` is given. With the flag the changes go through the same code as the UI: each mapping added, removed or changed in Coverage writes a Control Mapping Change Event (actor `system`, naming the file), a Full mapping clears a gap acceptance, and the Systems that have the Framework in scope are recomputed. The Framework stays Published.
 - **`isBase` is never created or changed.** A file with `"isBase": true` is accepted only if it matches the existing base Framework by name and version (which is Published, so it needs the flag), and a file for the base Framework must say `"isBase": true`.
 - **`supersedes`** names another Framework by name and version, which must exist, and may not form a loop.

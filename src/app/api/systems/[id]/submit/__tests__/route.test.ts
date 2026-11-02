@@ -19,7 +19,7 @@ async function fulfillAllMandatoryControls(systemId: string, deploymentFacetIds:
     id: systemId,
     deploymentFacets: deploymentFacetIds.map((id) => ({ id })),
     frameworkScopes: [],
-    confidentialityImpactLevel: null,
+    sensitivityLevel: null,
     integrityImpactLevel: null,
     availabilityImpactLevel: null,
   });
@@ -148,6 +148,7 @@ describe("POST /api/systems/[id]/submit", () => {
         frameworkScopes: { connect: { id: organizationalFrameworkId } },
         ownerId,
         status: "DRAFT",
+        sensitivityLevel: 3,
       },
     });
     systemId = system.id;
@@ -180,6 +181,23 @@ describe("POST /api/systems/[id]/submit", () => {
   it("returns 404 for a System the acting user cannot see", async () => {
     const response = await POST(requestAs(systemId, viewerId), ctxFor(systemId));
     expect(response.status).toBe(404);
+  });
+
+  it("refuses to submit a System with no Sensitivity Level, saying so, and changes nothing", async () => {
+    await fulfillAllMandatoryControls(systemId, [systemTypeId]);
+    await prisma.system.update({ where: { id: systemId }, data: { sensitivityLevel: null } });
+    try {
+      const response = await POST(requestAs(systemId, ownerId), ctxFor(systemId));
+      const body = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(body.error).toContain("Sensitivity Level");
+      expect(await prisma.system.findUniqueOrThrow({ where: { id: systemId } })).toMatchObject({ status: "DRAFT", sensitivityLevel: null });
+      expect(await prisma.reviewRound.count({ where: { systemId } })).toBe(0);
+      expect(await prisma.changeEvent.count({ where: { systemId, action: "SYSTEM_SUBMITTED" } })).toBe(0);
+    } finally {
+      await prisma.system.update({ where: { id: systemId }, data: { sensitivityLevel: 3 } });
+    }
   });
 
   it("rejects submission when a mandatory Control is unaddressed, naming it", async () => {

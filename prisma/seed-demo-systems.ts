@@ -166,6 +166,11 @@ async function main() {
     if (rows.length > 0) await prisma.controlAssessment.createMany({ data: rows });
   }
 
+  // The demo data is written with the old C/I/A letters; the Sensitivity Level takes the C letter with the
+  // migration's mapping (LOW -> 2 Internal ... CRITICAL -> 5 Critical Sensitivity), so a fresh seed has the shape
+  // of the migrated dev database. The levels themselves come from the migration, not from here.
+  const SENSITIVITY_OF_CONFIDENTIALITY: Record<ImpactLevel, number> = { LOW: 2, MODERATE: 3, HIGH: 4, CRITICAL: 5 };
+
   function classification(
     facetKeys: (keyof typeof facets)[],
     regimeKeys: (keyof typeof regimes)[] = [],
@@ -179,7 +184,7 @@ async function main() {
       deploymentFacets: facetKeys.map((k) => ({ id: facets[k].id })),
       // Declared Framework Scope rows (here just the regimes); the base Framework (ISO 27001) is always in scope on top.
       frameworkScopes: regimeKeys.map((k) => ({ id: regimes[k].id })),
-      confidentialityImpactLevel: impact.c ?? null,
+      sensitivityLevel: impact.c ? SENSITIVITY_OF_CONFIDENTIALITY[impact.c] : null,
       integrityImpactLevel: impact.i ?? null,
       availabilityImpactLevel: impact.a ?? null,
     };
@@ -196,7 +201,7 @@ async function main() {
       status: "ONBOARDED",
       onboardedAt: new Date(),
       deploymentFacets: { connect: jiraClass.deploymentFacets },
-      confidentialityImpactLevel: jiraClass.confidentialityImpactLevel,
+      sensitivityLevel: jiraClass.sensitivityLevel,
       integrityImpactLevel: jiraClass.integrityImpactLevel,
       availabilityImpactLevel: jiraClass.availabilityImpactLevel,
       businessUnits: { connect: [{ id: businessUnits.Engineering.id }] },
@@ -241,7 +246,7 @@ async function main() {
       status: "ONBOARDED",
       onboardedAt: new Date(),
       deploymentFacets: { connect: confluenceClass.deploymentFacets },
-      confidentialityImpactLevel: confluenceClass.confidentialityImpactLevel,
+      sensitivityLevel: confluenceClass.sensitivityLevel,
       integrityImpactLevel: confluenceClass.integrityImpactLevel,
       availabilityImpactLevel: confluenceClass.availabilityImpactLevel,
       businessUnits: { connect: [{ id: businessUnits.Engineering.id }, { id: businessUnits.Legal.id }] },
@@ -275,7 +280,7 @@ async function main() {
       status: "ONBOARDED",
       onboardedAt: new Date(),
       deploymentFacets: { connect: m365Class.deploymentFacets },
-      confidentialityImpactLevel: m365Class.confidentialityImpactLevel,
+      sensitivityLevel: m365Class.sensitivityLevel,
       integrityImpactLevel: m365Class.integrityImpactLevel,
       availabilityImpactLevel: m365Class.availabilityImpactLevel,
       businessUnits: {
@@ -327,7 +332,7 @@ async function main() {
       status: "IN_REVIEW",
       reviewRounds: { create: {} }, // the open Review Round of the submission
       deploymentFacets: { connect: openTextClass.deploymentFacets },
-      confidentialityImpactLevel: openTextClass.confidentialityImpactLevel,
+      sensitivityLevel: openTextClass.sensitivityLevel,
       integrityImpactLevel: openTextClass.integrityImpactLevel,
       availabilityImpactLevel: openTextClass.availabilityImpactLevel,
       businessUnits: { connect: [{ id: businessUnits.Legal.id }] },
@@ -366,7 +371,7 @@ async function main() {
       status: "DRAFT",
       deploymentFacets: { connect: catiaInitialClass.deploymentFacets },
       frameworkScopes: { connect: catiaInitialClass.frameworkScopes },
-      confidentialityImpactLevel: catiaInitialClass.confidentialityImpactLevel,
+      sensitivityLevel: catiaInitialClass.sensitivityLevel,
       integrityImpactLevel: catiaInitialClass.integrityImpactLevel,
       availabilityImpactLevel: catiaInitialClass.availabilityImpactLevel,
       businessUnits: { connect: [{ id: businessUnits.Engineering.id }] },
@@ -419,7 +424,7 @@ async function main() {
       status: "ONBOARDED",
       onboardedAt: new Date(),
       deploymentFacets: { connect: workdayClass.deploymentFacets },
-      confidentialityImpactLevel: workdayClass.confidentialityImpactLevel,
+      sensitivityLevel: workdayClass.sensitivityLevel,
       integrityImpactLevel: workdayClass.integrityImpactLevel,
       availabilityImpactLevel: workdayClass.availabilityImpactLevel,
       businessUnits: { connect: [{ id: businessUnits.HR.id }] },
@@ -469,7 +474,7 @@ async function main() {
       status: "IN_REVIEW",
       reviewRounds: { create: {} }, // the open Review Round of the submission
       deploymentFacets: { connect: serviceNowClass.deploymentFacets },
-      confidentialityImpactLevel: serviceNowClass.confidentialityImpactLevel,
+      sensitivityLevel: serviceNowClass.sensitivityLevel,
       integrityImpactLevel: serviceNowClass.integrityImpactLevel,
       availabilityImpactLevel: serviceNowClass.availabilityImpactLevel,
       businessUnits: { connect: [{ id: businessUnits["IT Operations"].id }] },
@@ -489,7 +494,7 @@ async function main() {
       status: "ONBOARDED",
       onboardedAt: new Date(),
       deploymentFacets: { connect: githubClass.deploymentFacets },
-      confidentialityImpactLevel: githubClass.confidentialityImpactLevel,
+      sensitivityLevel: githubClass.sensitivityLevel,
       integrityImpactLevel: githubClass.integrityImpactLevel,
       availabilityImpactLevel: githubClass.availabilityImpactLevel,
       businessUnits: { connect: [{ id: businessUnits.Engineering.id }] },
@@ -526,7 +531,7 @@ async function main() {
       status: "ONBOARDED",
       onboardedAt: new Date(),
       deploymentFacets: { connect: entraClass.deploymentFacets },
-      confidentialityImpactLevel: entraClass.confidentialityImpactLevel,
+      sensitivityLevel: entraClass.sensitivityLevel,
       integrityImpactLevel: entraClass.integrityImpactLevel,
       availabilityImpactLevel: entraClass.availabilityImpactLevel,
       businessUnits: { connect: [{ id: businessUnits["IT Operations"].id }] },
@@ -593,7 +598,10 @@ async function main() {
   const ssoClass: SystemClassification = {
     deploymentFacets: unionOf(dependents.map((d) => d.classification.deploymentFacets)),
     frameworkScopes: ssoScopes,
-    confidentialityImpactLevel: highest(dependents.map((d) => d.classification.confidentialityImpactLevel)),
+    sensitivityLevel: dependents.reduce<number | null>(
+      (best, d) => (d.classification.sensitivityLevel !== null && (best === null || d.classification.sensitivityLevel > best) ? d.classification.sensitivityLevel : best),
+      null,
+    ),
     integrityImpactLevel: highest(dependents.map((d) => d.classification.integrityImpactLevel)),
     availabilityImpactLevel: highest(dependents.map((d) => d.classification.availabilityImpactLevel)),
   };
@@ -607,7 +615,7 @@ async function main() {
       isProvider: true,
       deploymentFacets: { connect: ssoClass.deploymentFacets },
       frameworkScopes: { connect: ssoScopes },
-      confidentialityImpactLevel: ssoClass.confidentialityImpactLevel,
+      sensitivityLevel: ssoClass.sensitivityLevel,
       integrityImpactLevel: ssoClass.integrityImpactLevel,
       availabilityImpactLevel: ssoClass.availabilityImpactLevel,
     },

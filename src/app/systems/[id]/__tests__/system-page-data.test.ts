@@ -121,7 +121,7 @@ beforeAll(async () => {
 
   s = await makeSystem("S", owner.id, {
     vendor: "Test Vendor",
-    confidentialityImpactLevel: "HIGH",
+    sensitivityLevel: 4,
     deploymentFacets: { connect: { id: f1Id } },
     frameworkScopes: { connect: { id: frameworkId } },
     businessUnits: { connect: { id: unitId } },
@@ -212,7 +212,7 @@ describe("visibility is unchanged", () => {
 describe("the header", () => {
   it("carries the System's identity", async () => {
     const view = await mine();
-    expect(view.system).toMatchObject({ id: s, status: "DRAFT", isProvider: false, vendor: "Test Vendor", ownerId: owner.id, ownerName: owner.name, confidentiality: "HIGH", integrity: null });
+    expect(view.system).toMatchObject({ id: s, status: "DRAFT", isProvider: false, vendor: "Test Vendor", ownerId: owner.id, ownerName: owner.name, sensitivityLevel: 4, sensitivityLabel: "Highly Sensitive", integrity: null });
     expect(view.system.facets.map((facet) => facet.id)).toEqual([f1Id]);
     expect(view.note).toBe(`Not submitted yet · ${owner.name} is still assembling the System`);
   });
@@ -444,7 +444,7 @@ describe("the next step per role (never an action the API would refuse)", () => 
     expect(view.nextStep).toEqual({ kind: "submit", blockedBy: unaddressed.length });
     // The route refuses (400) while any is left, and accepts once none is: here, a System with no Facet,
     // blocked only by whatever unscoped mandatory Controls the database holds (none on an unseeded one).
-    const plain = await makeSystem("plain", owner.id);
+    const plain = await makeSystem("plain", owner.id, { sensitivityLevel: 3 });
     const plainView = (await pageFor(owner, plain))!.view;
     expect(plainView.nextStep.kind).toBe("submit");
     const blockedBy = plainView.nextStep.kind === "submit" ? plainView.nextStep.blockedBy : -1;
@@ -452,6 +452,15 @@ describe("the next step per role (never an action the API would refuse)", () => 
       const response = await postSubmit(requestAs(owner.id, id, "submit"), ctxFor(id));
       expect(response.status, id).toBe(blocked === 0 ? 200 : 400);
     }
+  });
+
+  it("blocks Submit for review while the System has no Sensitivity Level, as the submit route does", async () => {
+    const noLevel = await makeSystem("no-level", owner.id);
+    const view = (await pageFor(owner, noLevel))!.view;
+    expect(view.nextStep).toMatchObject({ kind: "submit", needsSensitivityLevel: true });
+    const response = await postSubmit(requestAs(owner.id, noLevel, "submit"), ctxFor(noLevel));
+    expect(response.status).toBe(400);
+    expect(await prisma.system.findUniqueOrThrow({ where: { id: noLevel } })).toMatchObject({ status: "DRAFT" });
   });
 
   it("offers the Review Steps a user may decide, as the approvals API reports canDecide", async () => {

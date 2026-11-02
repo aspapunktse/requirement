@@ -81,7 +81,7 @@ beforeAll(async () => {
   s2 = await system("S2", owner.id, {
     status: "IN_REVIEW",
     isProvider: true,
-    confidentialityImpactLevel: "HIGH",
+    sensitivityLevel: 4,
     integrityImpactLevel: "LOW",
     deploymentFacets: { connect: { id: facetId } },
     businessUnits: { connect: [{ id: unitId }, { id: unit2Id }] },
@@ -144,7 +144,7 @@ describe("a row", () => {
     expect(row).toMatchObject({ name: `Test Systems S2 ${suffix}`, vendor: null, isProvider: true, status: "IN_REVIEW", ownerId: owner.id, ownerName: owner.name });
     expect(row.facets).toEqual([{ id: facetId, name: `Test Systems Facet ${suffix}` }]);
     expect(row.businessUnits.map((b) => b.id).sort()).toEqual([unitId, unit2Id].sort());
-    expect([row.confidentiality, row.integrity, row.availability]).toEqual(["HIGH", "LOW", null]);
+    expect([row.sensitivityLevel, row.sensitivityLabel, row.integrity, row.availability]).toEqual([4, "Highly Sensitive", "LOW", null]);
     expect((await rowsOf(owner)).byId.get(s1)?.vendor).toBe("Vendor One");
   });
 

@@ -103,7 +103,7 @@ async function main() {
       name: true,
       status: true,
       isProvider: true,
-      confidentialityImpactLevel: true,
+      sensitivityLevel: true,
       integrityImpactLevel: true,
       availabilityImpactLevel: true,
       deploymentFacets: { select: { id: true, name: true } },
@@ -119,7 +119,7 @@ async function main() {
       code: true,
       title: true,
       applicability: true,
-      minConfidentialityImpactLevel: true,
+      minSensitivityLevel: true,
       minIntegrityImpactLevel: true,
       minAvailabilityImpactLevel: true,
       deploymentFacets: { select: { id: true } },
@@ -161,7 +161,7 @@ async function main() {
     const providerClass: SystemClassification = {
       deploymentFacets: [...facets.keys()].map((id) => ({ id })),
       frameworkScopes: [...scopes.keys()].map((id) => ({ id })),
-      confidentialityImpactLevel: highest(declaring.map((s) => s.confidentialityImpactLevel)),
+      sensitivityLevel: declaring.reduce<number | null>((best, s) => (s.sensitivityLevel !== null && (best === null || s.sensitivityLevel > best) ? s.sensitivityLevel : best), null),
       integrityImpactLevel: highest(declaring.map((s) => s.integrityImpactLevel)),
       availabilityImpactLevel: highest(declaring.map((s) => s.availabilityImpactLevel)),
     };
@@ -179,7 +179,7 @@ async function main() {
     console.log(
       `  Classification (union of the ${declaring.length} declaring System(s)): Deployment Facets: ${facets.size ? [...facets.values()].sort().join(", ") : "none"}; ` +
         `Framework Scope rows: ${scopes.size ? [...scopes.values()].sort().join(", ") : "none"}; ` +
-        `Impact Levels C/I/A: ${providerClass.confidentialityImpactLevel ?? "-"}/${providerClass.integrityImpactLevel ?? "-"}/${providerClass.availabilityImpactLevel ?? "-"}`,
+        `Sensitivity Level / Impact Levels I/A: ${providerClass.sensitivityLevel ?? "-"}/${providerClass.integrityImpactLevel ?? "-"}/${providerClass.availabilityImpactLevel ?? "-"}`,
     );
     console.log(`  Declaring Systems (each depends on the Provider and gets one "system" Change Event): ${declaring.length}`);
     for (const s of declaring) console.log(`    - ${s.name} [${s.status}${s.isProvider ? ", Provider" : ""}]`);

@@ -75,6 +75,7 @@
 
 /* C · I · A: three small bars (shared with the System page header, `.sc`), tall for a high Impact Level; dashed when not classified */
 :is(.sy, .sc) .cia { display: inline-flex; gap: 3px; align-items: end; height: 16px; }
+:is(.sy, .sc) .cia .cia-s { align-self: center; margin-right: 4px; font-size: 11px; color: var(--rg-muted); white-space: nowrap; }
 :is(.sy, .sc) .cia i { width: 5px; border-radius: 1px; background: var(--rg-line); }
 :is(.sy, .sc) .cia i[data-l="0"] { height: 3px; background: transparent; border: 1px dashed var(--rg-muted); }
 :is(.sy, .sc) .cia i[data-l="1"] { height: 5px; background: var(--rg-muted); }

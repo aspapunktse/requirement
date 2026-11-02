@@ -5,17 +5,16 @@ import { useRouter } from "next/navigation";
 import type { ImpactLevel } from "@prisma/client";
 import { frameworkLabel } from "@/lib/framework-label";
 import { IMPACT_LABEL, IMPACT_ORDER } from "@/app/systems/systems-types";
+import type { SensitivityLevelInfo } from "@/lib/sensitivity-level";
 import { formatDay } from "./system-page-logic";
 import { useRemote } from "./use-remote";
 
 type ImpactLevels = {
-  confidentialityImpactLevel: ImpactLevel | null;
   integrityImpactLevel: ImpactLevel | null;
   availabilityImpactLevel: ImpactLevel | null;
 };
 
 const AXES: { key: keyof ImpactLevels; label: string }[] = [
-  { key: "confidentialityImpactLevel", label: "Confidentiality" },
   { key: "integrityImpactLevel", label: "Integrity" },
   { key: "availabilityImpactLevel", label: "Availability" },
 ];
@@ -274,6 +273,100 @@ function DeploymentFacets({ systemId, canChange, currentIds }: { systemId: strin
   );
 }
 
+/**
+ * The System's Sensitivity Level (ADR 0011): one of the five levels, each with its description, or not set. The owner or
+ * an Admin changes it at any Onboarding Status; changing it recomputes the applicable Controls, and a System with no level
+ * can't be submitted for review.
+ */
+function SensitivityLevelCard({
+  systemId,
+  canChange,
+  current,
+  levels,
+}: {
+  systemId: string;
+  canChange: boolean;
+  current: number | null;
+  levels: SensitivityLevelInfo[];
+}) {
+  const router = useRouter();
+  const [chosen, setChosen] = useState<number | null>(current);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const unchanged = chosen === current;
+
+  async function handleSave() {
+    setError(null);
+    if (unchanged) return;
+    setSaving(true);
+    try {
+      const response = await fetch(`/api/systems/${systemId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sensitivityLevel: chosen }),
+      });
+      if (!response.ok) {
+        setError(await errorOf(response, "Failed to change the Sensitivity Level"));
+        return;
+      }
+      router.refresh();
+    } catch {
+      setError("Failed to change the Sensitivity Level");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <section className="hc-card" aria-labelledby="sc-sens-h">
+      <div className="hc-card-h">
+        <h2 id="sc-sens-h">Sensitivity Level</h2>
+        <p>How sensitive the information in this System is. Changing it recomputes the applicable Controls.</p>
+      </div>
+      <div className="hc-card-b sc-formblock">
+        {error && (
+          <p role="alert" className="sc-err">
+            {error}
+          </p>
+        )}
+        <div className="sc-lvl-row">
+          <b id="sc-lvl-sensitivity">Sensitivity Level</b>
+          <div className="sc-seg" role="group" aria-labelledby="sc-lvl-sensitivity">
+            {([null, ...levels] as (SensitivityLevelInfo | null)[]).map((level) => (
+              <button
+                key={level?.level ?? "none"}
+                type="button"
+                aria-pressed={chosen === (level?.level ?? null)}
+                disabled={!canChange}
+                title={level?.description}
+                onClick={() => setChosen(level?.level ?? null)}
+              >
+                {level ? level.label : "Not set"}
+              </button>
+            ))}
+          </div>
+        </div>
+        <ul className="sc-faint">
+          {levels.map((level) => (
+            <li key={level.level}>
+              <b>{level.label}</b>: {level.description}
+            </li>
+          ))}
+        </ul>
+        {canChange ? (
+          <div className="sc-btnrow">
+            <button type="button" className="hc-btn primary" onClick={handleSave} disabled={saving || unchanged}>
+              Change Sensitivity Level
+            </button>
+          </div>
+        ) : (
+          <p className="sc-faint">Only the System&apos;s owner or an Admin can change its classification.</p>
+        )}
+      </div>
+    </section>
+  );
+}
+
 function ImpactLevelsCard({ systemId, canChange, current }: { systemId: string; canChange: boolean; current: ImpactLevels }) {
   const router = useRouter();
   const [levels, setLevels] = useState<ImpactLevels>(current);
@@ -308,7 +401,7 @@ function ImpactLevelsCard({ systemId, canChange, current }: { systemId: string; 
     <section className="hc-card" aria-labelledby="sc-impact-h">
       <div className="hc-card-h">
         <h2 id="sc-impact-h">Impact Level</h2>
-        <p>Set per axis. Changing it recomputes the applicable Controls.</p>
+        <p>Set per axis (Integrity and Availability). Changing it recomputes the applicable Controls.</p>
       </div>
       <div className="hc-card-b sc-formblock">
         {error && (
@@ -508,7 +601,7 @@ function TagRelation({ resourcePath, resourceKey, catalogPath, catalogKey, idFie
 
 /**
  * The Profile tab (design proposal A, #245): About (editable by the System's owner or an Admin, #246), Deployment
- * Facets, Impact Level per axis, and Business Units and Framework Scope as tags. The permissions are the page's,
+ * Facets, Sensitivity Level, Impact Level per axis (Integrity and Availability), and Business Units and Framework Scope as tags. The permissions are the page's,
  * computed with the rules the API enforces; every control calls the API it always did.
  */
 export function SystemProfile({
@@ -519,6 +612,8 @@ export function SystemProfile({
   canManageFrameworkScopes,
   deploymentFacetIds,
   impactLevels,
+  sensitivityLevel,
+  sensitivityLevels,
 }: {
   systemId: string;
   about: SystemAbout;
@@ -527,11 +622,14 @@ export function SystemProfile({
   canManageFrameworkScopes: boolean;
   deploymentFacetIds: string[];
   impactLevels: ImpactLevels;
+  sensitivityLevel: number | null;
+  sensitivityLevels: SensitivityLevelInfo[];
 }) {
   return (
     <div className="sc-stackgap">
       <About systemId={systemId} about={about} canEdit={canChangeClassification} />
       <DeploymentFacets systemId={systemId} canChange={canChangeClassification} currentIds={deploymentFacetIds} />
+      <SensitivityLevelCard systemId={systemId} canChange={canChangeClassification} current={sensitivityLevel} levels={sensitivityLevels} />
       <ImpactLevelsCard systemId={systemId} canChange={canChangeClassification} current={impactLevels} />
       <section className="hc-card" aria-labelledby="sc-scope-h">
         <div className="hc-card-h">

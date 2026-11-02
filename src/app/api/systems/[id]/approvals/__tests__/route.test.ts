@@ -19,7 +19,7 @@ async function fulfillAllMandatoryControls(systemId: string, deploymentFacetIds:
     id: systemId,
     deploymentFacets: deploymentFacetIds.map((id) => ({ id })),
     frameworkScopes: [],
-    confidentialityImpactLevel: null,
+    sensitivityLevel: null,
     integrityImpactLevel: null,
     availabilityImpactLevel: null,
   });
@@ -91,12 +91,12 @@ describe("/api/systems/[id]/approvals", () => {
     systemTypeId = systemType.id;
 
     const inReviewSystem = await prisma.system.create({
-      data: { name: "In Review System", deploymentFacets: { connect: [{ id: systemTypeId }] }, ownerId, status: "IN_REVIEW" },
+      data: { name: "In Review System", deploymentFacets: { connect: [{ id: systemTypeId }] }, ownerId, status: "IN_REVIEW", sensitivityLevel: 3 },
     });
     inReviewSystemId = inReviewSystem.id;
 
     const draftSystem = await prisma.system.create({
-      data: { name: "Draft System", deploymentFacets: { connect: [{ id: systemTypeId }] }, ownerId, status: "DRAFT" },
+      data: { name: "Draft System", deploymentFacets: { connect: [{ id: systemTypeId }] }, ownerId, status: "DRAFT", sensitivityLevel: 3 },
     });
     draftSystemId = draftSystem.id;
 

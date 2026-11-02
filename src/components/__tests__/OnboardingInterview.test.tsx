@@ -16,7 +16,7 @@ const control = (code: string, patch: Partial<OnboardingControl> = {}): Onboardi
   title: `Title of ${code}`,
   applicability: "PER_SYSTEM",
   deploymentFacetIds: [],
-  minConfidentialityImpactLevel: null,
+  minSensitivityLevel: null,
   minIntegrityImpactLevel: null,
   minAvailabilityImpactLevel: null,
   frameworkIds: ["base"],
@@ -26,6 +26,13 @@ const control = (code: string, patch: Partial<OnboardingControl> = {}): Onboardi
 });
 
 const catalog: OnboardingCatalog = {
+  sensitivityLevels: [
+    { level: 1, label: "Public", description: "Information anyone may see." },
+    { level: 2, label: "Internal", description: "Everyday business information." },
+    { level: 3, label: "Sensitive", description: "Would cause harm if it leaked." },
+    { level: 4, label: "Highly Sensitive", description: "Would seriously harm people." },
+    { level: 5, label: "Critical Sensitivity", description: "Would threaten the organisation." },
+  ],
   deploymentFacets: [
     { id: "f-saas", name: "Software as a service", description: "We subscribe to it and log in" },
     { id: "f-prem", name: "On-premises", description: "We run it in our own data centre" },
@@ -43,7 +50,7 @@ const catalog: OnboardingCatalog = {
     control("C-1"),
     control("C-2", { deploymentFacetIds: ["f-prem"] }),
     control("C-3", { frameworkIds: ["gdpr"] }),
-    control("C-4", { minConfidentialityImpactLevel: "HIGH" }),
+    control("C-4", { minSensitivityLevel: 4 }),
     control("C-5", { offerings: [{ providerId: "p1", type: "FULL", customerResponsibility: null, fulfilled: true }] }),
     control("C-6", { offerings: [{ providerId: "p1", type: "SHARED", customerResponsibility: "Review the access list", fulfilled: false }] }),
     control("C-7", { frameworkIds: ["ccm"] }),
@@ -169,12 +176,12 @@ describe("OnboardingInterview", () => {
 
     await user.click(screen.getByRole("checkbox", { name: "Software as a service" }));
     await next(user);
-    // Sensitivity: High adds C-4. The radio that is selected says so.
-    expect(screen.getByRole("radio", { name: "Confidential" })).toHaveAccessibleDescription(/\+1/);
-    expect(screen.getByRole("radio", { name: "Public or internal only" })).toHaveAccessibleDescription(/No change/);
-    await user.click(screen.getByRole("radio", { name: "Confidential" }));
-    expect(screen.getByRole("radio", { name: "Confidential" })).toHaveAccessibleDescription(/Selected/);
-    expect(screen.getByRole("radio", { name: "Public or internal only" })).toHaveAccessibleDescription(/−1/);
+    // Sensitivity: Highly Sensitive adds C-4. The radio that is selected says so.
+    expect(screen.getByRole("radio", { name: /^Highly Sensitive/ })).toHaveAccessibleDescription(/\+1/);
+    expect(screen.getByRole("radio", { name: /^Internal/ })).toHaveAccessibleDescription(/No change/);
+    await user.click(screen.getByRole("radio", { name: /^Highly Sensitive/ }));
+    expect(screen.getByRole("radio", { name: /^Highly Sensitive/ })).toHaveAccessibleDescription(/Selected/);
+    expect(screen.getByRole("radio", { name: /^Internal/ })).toHaveAccessibleDescription(/−1/);
     expect(screen.getByRole("heading", { name: /4 Controls apply/ })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Clear my answer" }));
     expect(screen.getByRole("heading", { name: /3 Controls apply/ })).toBeInTheDocument();
@@ -227,7 +234,7 @@ describe("OnboardingInterview", () => {
     await fill(user, screen.getByLabelText("System name"), "  Payroll  ");
     await user.click(screen.getByRole("checkbox", { name: "On-premises" }));
     await user.click(screen.getByRole("button", { name: "Sensitivity" }));
-    await user.click(screen.getByRole("radio", { name: "Confidential" }));
+    await user.click(screen.getByRole("radio", { name: /^Highly Sensitive/ }));
     await user.click(screen.getByRole("button", { name: "Laws and standards" }));
     await user.click(screen.getByRole("radio", { name: "Yes" }));
     await user.click(screen.getByRole("button", { name: "Relies on" }));
@@ -238,19 +245,19 @@ describe("OnboardingInterview", () => {
     expect(screen.getByText("Step 7 of 7")).toBeInTheDocument();
     const rows = screen.getByText("Your answers").closest(".ob-sum") as HTMLElement;
     expect(within(rows).getByText("Delivery").nextElementSibling).toHaveTextContent("On-premises");
-    expect(within(rows).getByText("Sensitivity").nextElementSibling).toHaveTextContent("Confidential (High)");
+    expect(within(rows).getByText("Sensitivity").nextElementSibling).toHaveTextContent("Highly Sensitive");
     expect(within(rows).getByText("Integrity").nextElementSibling).toHaveTextContent("Not answered");
     expect(within(rows).getByText("Downtime").nextElementSibling).toHaveTextContent("Not answered");
     expect(within(rows).getByText("Laws and standards").nextElementSibling).toHaveTextContent("GDPR 2016");
     expect(within(rows).getByText("Relies on").nextElementSibling).toHaveTextContent("Landing Zone");
-    expect(screen.getByRole("img", { name: /Confidentiality high, Integrity not classified, Availability not classified/ })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /Sensitivity Level highly sensitive, Integrity not classified, Availability not classified/ })).toBeInTheDocument();
     expect(screen.getByText(/Controls apply\./)).toHaveTextContent("6 Controls apply. 4 need work from you; the rest are shared or already covered.");
     expect(screen.getByText(/Your answers can change later/)).toBeInTheDocument();
 
     // Edit goes back to the step, and the answer is kept.
     await user.click(screen.getByRole("button", { name: "Edit Sensitivity" }));
     expect(questionTitle()).toHaveTextContent("What is the most sensitive information in it?");
-    expect(screen.getByRole("radio", { name: "Confidential" })).toBeChecked();
+    expect(screen.getByRole("radio", { name: /^Highly Sensitive/ })).toBeChecked();
     await user.click(screen.getByRole("button", { name: "Review" }));
     expect(questionTitle()).toHaveTextContent("Review and create");
   }, LONG_WALKTHROUGH);
@@ -260,7 +267,7 @@ describe("OnboardingInterview", () => {
     await fill(user, screen.getByLabelText("System name"), "  Payroll  ");
     await user.click(screen.getByRole("checkbox", { name: "On-premises" }));
     await user.click(screen.getByRole("button", { name: "Sensitivity" }));
-    await user.click(screen.getByRole("radio", { name: "Confidential" }));
+    await user.click(screen.getByRole("radio", { name: /^Highly Sensitive/ }));
     await user.click(screen.getByRole("button", { name: "Laws and standards" }));
     await user.click(screen.getByRole("radio", { name: "Yes" }));
     await user.click(screen.getByRole("button", { name: "Relies on" }));
@@ -276,7 +283,7 @@ describe("OnboardingInterview", () => {
       name: "Payroll",
       vendor: "Acme",
       description: "Pays people",
-      confidentialityImpactLevel: "HIGH",
+      sensitivityLevel: 4,
       deploymentFacetIds: ["f-prem"],
       frameworkScopeIds: ["gdpr"],
       providerIds: ["p1"],
@@ -298,7 +305,7 @@ describe("OnboardingInterview", () => {
     expect(push).not.toHaveBeenCalled();
     // Only the name and a Facet are sent when nothing else was answered.
     expect(postedBody()).toMatchObject({ name: "Payroll", deploymentFacetIds: ["f-saas"], frameworkScopeIds: [], providerIds: [] });
-    expect(postedBody()).not.toHaveProperty("confidentialityImpactLevel");
+    expect(postedBody()).not.toHaveProperty("sensitivityLevel");
     expect(screen.getByRole("button", { name: "Create System" })).toBeEnabled();
   });
 

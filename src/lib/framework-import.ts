@@ -123,8 +123,11 @@ function diffControl(file: ImportSupplementaryControl, existing: ControlRow): Co
   if (file.examples !== undefined && !sameList(file.examples, existing.examples)) data.examples = file.examples;
 
   let scopingChanged = false;
+  if (file.minSensitivityLevel !== undefined && file.minSensitivityLevel !== existing.minSensitivityLevel) {
+    data.minSensitivityLevel = file.minSensitivityLevel;
+    scopingChanged = true;
+  }
   const levels = [
-    ["minConfidentialityImpactLevel", file.minConfidentialityImpactLevel],
     ["minIntegrityImpactLevel", file.minIntegrityImpactLevel],
     ["minAvailabilityImpactLevel", file.minAvailabilityImpactLevel],
   ] as const;
@@ -438,7 +441,7 @@ export async function loadFramework(db: Db, data: FrameworkImport, options: Load
             question: c.question ?? null,
             intent: c.intent ?? null,
             examples: c.examples ?? [],
-            minConfidentialityImpactLevel: c.minConfidentialityImpactLevel ?? null,
+            minSensitivityLevel: c.minSensitivityLevel ?? null,
             minIntegrityImpactLevel: c.minIntegrityImpactLevel ?? null,
             minAvailabilityImpactLevel: c.minAvailabilityImpactLevel ?? null,
             originFrameworkId: frameworkId,

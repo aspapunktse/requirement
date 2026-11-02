@@ -6,6 +6,7 @@ import {
   ORGANIZATIONAL_SCOPING_ERROR,
   QUESTION_REQUIRED_ISSUE,
 } from "./control-schema";
+import { sensitivityLevelSchema } from "./sensitivity-level";
 
 /**
  * The Framework import format (PRD 0001 F-IMP.1, #144): one JSON file per
@@ -30,7 +31,8 @@ const supplementaryControlSchema = z
     ...controlFieldsSchema.shape,
     /** Deployment Facets by name; they must already exist (the loader never creates a Facet). */
     deploymentFacets: z.array(text).optional(),
-    minConfidentialityImpactLevel: impactLevel.nullable().optional(),
+    /** Minimum Sensitivity Level, an integer 1 (Public) to 5 (Critical Sensitivity). */
+    minSensitivityLevel: sensitivityLevelSchema.optional(),
     minIntegrityImpactLevel: impactLevel.nullable().optional(),
     minAvailabilityImpactLevel: impactLevel.nullable().optional(),
   })
@@ -39,7 +41,7 @@ const supplementaryControlSchema = z
     (control) =>
       !isScopedOrganizationalControl(control.applicability, {
         deploymentFacetCount: control.deploymentFacets?.length,
-        minConfidentialityImpactLevel: control.minConfidentialityImpactLevel,
+        minSensitivityLevel: control.minSensitivityLevel,
         minIntegrityImpactLevel: control.minIntegrityImpactLevel,
         minAvailabilityImpactLevel: control.minAvailabilityImpactLevel,
       }),

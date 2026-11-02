@@ -294,7 +294,7 @@ describe("COMPLIANCE_MANAGER role (#71)", () => {
     const base = () => `/api/systems/${systemId}`;
     it.each([
       ["POST /api/systems (create)", () => createSystem(req("/api/systems", "POST", cmId, { name: `CM System ${SUFFIX}`, deploymentFacetIds: [facetId] }))],
-      ["PATCH /api/systems/[id] (classification)", () => changeSystemClassification(req(base(), "PATCH", cmId, { confidentialityImpactLevel: "HIGH" }), ctx({ id: systemId }))],
+      ["PATCH /api/systems/[id] (classification)", () => changeSystemClassification(req(base(), "PATCH", cmId, { sensitivityLevel: 4 }), ctx({ id: systemId }))],
       ["PATCH .../assessments/[controlId]", () => updateAssessment(req(`${base()}/assessments/${controlId}`, "PATCH", cmId, { status: "FULFILLED" }), ctx({ id: systemId, controlId }))],
       ["PATCH .../assessments/[controlId]/answer", () => answerSelfAssessment(req(`${base()}/assessments/${controlId}/answer`, "PATCH", cmId, { answer: "YES" }), ctx({ id: systemId, controlId }))],
       ["POST .../queries (raise)", () => raiseQuery(req(`${base()}/assessments/${controlId}/queries`, "POST", cmId, { body: "Why?" }), ctx({ id: systemId, controlId }))],
@@ -321,7 +321,7 @@ describe("COMPLIANCE_MANAGER role (#71)", () => {
         include: { businessUnits: true, frameworkScopes: true, providerDependencies: true },
       });
       expect(system.status).toBe("DRAFT");
-      expect(system.confidentialityImpactLevel).toBeNull();
+      expect(system.sensitivityLevel).toBeNull();
       expect(system.businessUnits.map((b) => b.id)).toEqual([businessUnitId]);
       expect(system.frameworkScopes.map((f) => f.id)).toEqual([frameworkId]);
       expect(system.providerDependencies.map((d) => d.providerId)).toEqual([providerId]);

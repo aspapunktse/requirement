@@ -55,7 +55,9 @@ describe("highest Impact Level and fulfilment", () => {
     expect(highestImpact(ROWS[1])).toBe("CRITICAL");
     expect(highestImpact(ROWS[0])).toBe("MODERATE");
     expect(highestImpact(ROWS[3])).toBe("NONE");
-    expect(highestImpact(row({ id: "x", name: "x", confidentiality: "LOW", integrity: null, availability: null }))).toBe("LOW");
+    // The Sensitivity Level is not an Impact Level: a System with only that set is not classified on any axis.
+    expect(highestImpact(row({ id: "x", name: "x", sensitivityLevel: 2, sensitivityLabel: "Internal", integrity: null, availability: null }))).toBe("NONE");
+    expect(highestImpact(row({ id: "y", name: "y", integrity: null, availability: "LOW" }))).toBe("LOW");
   });
 
   it("is met over applicable, null when nothing is measured", () => {
@@ -167,15 +169,15 @@ describe("Export CSV", () => {
     expect(body()).toHaveLength(ROWS.length + 1);
   });
 
-  it("lists every Deployment Facet and Business Unit, the three Impact Levels and the fulfilment", () => {
+  it("lists every Deployment Facet and Business Unit, the Sensitivity Level, the two Impact Levels and the fulfilment", () => {
     const line = body()[2];
     expect(line).toBe(
-      '"Billing engine","Built in-house","No","In Review","3","Elena Voss","Cloud IaaS/PaaS; On-Premises Datacenter","High","Critical","Not classified","Engineering; Finance","3","10","30","2026-10-24"',
+      '"Billing engine","Built in-house","No","In Review","3","Elena Voss","Cloud IaaS/PaaS; On-Premises Datacenter","Highly Sensitive","Critical","Not classified","Engineering; Finance","3","10","30","2026-10-24"',
     );
   });
 
   it("leaves the figures empty when nothing is measured", () => {
-    expect(body()[4]).toBe('"Legacy CRM","Built in-house","No","Draft","0","Elena Voss","","Not classified","Not classified","Not classified","","","","","2026-06-01"');
+    expect(body()[4]).toBe('"Legacy CRM","Built in-house","No","Draft","0","Elena Voss","","Not set","Not classified","Not classified","","","","","2026-06-01"');
   });
 
   it("quotes commas and quotes and neutralises a formula in a cell, so a spreadsheet shows text", () => {

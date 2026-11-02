@@ -1,4 +1,4 @@
-import type { ImpactLevel, UserRole } from "@prisma/client";
+import type { ImpactLevel, Prisma, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { diffApplicabilityOps, getApplicableControls, type SystemClassification } from "@/lib/control-assessments";
 import { logChangeEvent } from "@/lib/change-events";
@@ -8,7 +8,7 @@ import { isSystemOwnerOrAdmin } from "@/lib/system-permissions";
 
 /**
  * Who may change a System's classification — its declared Deployment
- * Facets or Impact Level axes: ADMIN, or the System's owner (`ownerId`,
+ * Facets, Sensitivity Level or Impact Level axes: ADMIN, or the System's owner (`ownerId`,
  * whatever their role — see `isSystemOwnerOrAdmin`). One shared rule across
  * the axes — see ADR 0003.
  *
@@ -27,14 +27,15 @@ export function canChangeSystemClassification(
 
 export type ClassificationChanges = {
   deploymentFacetIds?: string[];
-  confidentialityImpactLevel?: ImpactLevel | null;
+  /** The System's Sensitivity Level, 1 to 5 (ADR 0011). */
+  sensitivityLevel?: number | null;
   integrityImpactLevel?: ImpactLevel | null;
   availabilityImpactLevel?: ImpactLevel | null;
 };
 
 /**
  * Change a System's classification (at any lifecycle stage, ADR 0006) — any combination of Deployment
- * Facets and/or Impact Level axes in one call — and recompute its
+ * Facets, Sensitivity Level and/or Impact Level axes in one call — and recompute its
  * Control Assessment set to match: create rows for newly-applicable Controls
  * (NOT_STARTED), and remove rows for no-longer-applicable ones —
  * but only if untouched (still NOT_STARTED and never manually edited, i.e.
@@ -70,6 +71,13 @@ export async function changeSystemClassification(
   return recordProviderChange(system, () => applyClassificationChange(system, changes, actorId));
 }
 
+/** "Sensitive" for 3, "not set" for null; falls back to the number if the row is missing. */
+async function levelLabel(tx: Pick<Prisma.TransactionClient, "sensitivityLevel">, level: number | null) {
+  if (level === null) return "not set";
+  const row = await tx.sensitivityLevel.findUnique({ where: { level }, select: { label: true } });
+  return row?.label ?? String(level);
+}
+
 async function applyClassificationChange(
   system: SystemClassification & { id: string },
   changes: ClassificationChanges,
@@ -81,10 +89,7 @@ async function applyClassificationChange(
         ? changes.deploymentFacetIds.map((id) => ({ id }))
         : system.deploymentFacets,
     frameworkScopes: system.frameworkScopes,
-    confidentialityImpactLevel:
-      changes.confidentialityImpactLevel !== undefined
-        ? changes.confidentialityImpactLevel
-        : system.confidentialityImpactLevel,
+    sensitivityLevel: changes.sensitivityLevel !== undefined ? changes.sensitivityLevel : system.sensitivityLevel,
     integrityImpactLevel:
       changes.integrityImpactLevel !== undefined ? changes.integrityImpactLevel : system.integrityImpactLevel,
     availabilityImpactLevel:
@@ -98,18 +103,17 @@ async function applyClassificationChange(
     getApplicableControls(newClassification),
   ]);
 
-  const { added, deleteOp, createOp } = diffApplicabilityOps(system.id, oldApplicable, newApplicable);
-
-  const [, removed] = await prisma.$transaction([
-    prisma.system.update({
+  // The classification, the Assessment rows and the Change Event commit together; every query uses `tx`.
+  const { added, removed } = await prisma.$transaction(async (tx) => {
+    const { added, deleteOp, createOp } = diffApplicabilityOps(system.id, oldApplicable, newApplicable, tx);
+    const before = await tx.system.findUniqueOrThrow({ where: { id: system.id }, select: { sensitivityLevel: true } });
+    await tx.system.update({
       where: { id: system.id },
       data: {
         ...(changes.deploymentFacetIds !== undefined && {
           deploymentFacets: { set: changes.deploymentFacetIds.map((id) => ({ id })) },
         }),
-        ...(changes.confidentialityImpactLevel !== undefined && {
-          confidentialityImpactLevel: changes.confidentialityImpactLevel,
-        }),
+        ...(changes.sensitivityLevel !== undefined && { sensitivityLevel: changes.sensitivityLevel }),
         ...(changes.integrityImpactLevel !== undefined && {
           integrityImpactLevel: changes.integrityImpactLevel,
         }),
@@ -117,17 +121,18 @@ async function applyClassificationChange(
           availabilityImpactLevel: changes.availabilityImpactLevel,
         }),
       },
-    }),
-    deleteOp,
-    createOp,
-  ]);
+    });
+    const removed = await deleteOp;
+    await createOp;
 
-  await logChangeEvent(
-    system.id,
-    "CLASSIFICATION_CHANGED",
-    `Classification changed (+${added}/-${removed.count} Control Assessment(s))`,
-    actorId,
-  );
+    let detail = `Classification changed (+${added}/-${removed.count} Control Assessment(s))`;
+    if (changes.sensitivityLevel !== undefined && changes.sensitivityLevel !== before.sensitivityLevel) {
+      detail += `; Sensitivity Level: ${await levelLabel(tx, before.sensitivityLevel)} → ${await levelLabel(tx, changes.sensitivityLevel)}`;
+    }
+    await logChangeEvent(system.id, "CLASSIFICATION_CHANGED", detail, actorId, tx);
+    return { added, removed };
+  });
+
   // A Deployment Facet or Impact Level change can move a Review Group's remit while In Review (#199).
   await reconcileReviewSteps(system.id);
 

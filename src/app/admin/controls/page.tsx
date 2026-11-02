@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getActingUser } from "@/lib/acting-user";
 import { ControlLibraryManager } from "@/components/ControlLibraryManager";
+import { listSensitivityLevels } from "@/lib/sensitivity-level-data";
 import { ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE } from "@/lib/catalog";
 
 export default async function ControlLibraryPage() {
@@ -14,7 +15,7 @@ export default async function ControlLibraryPage() {
     return (
       <p className="p-6 text-rg-muted">
         Only Compliance Managers and Admins can author Controls and map them to Deployment
-        Facets and Impact Levels.{" "}
+        Facets, Sensitivity Levels and Impact Levels.{" "}
         <Link href="/controls" className="text-ems-blue hover:underline">
           Read the Control Library
         </Link>
@@ -26,7 +27,7 @@ export default async function ControlLibraryPage() {
   return (
     <div className="mx-auto max-w-4xl p-6">
       <h1 className="mb-4 text-2xl">Control Library</h1>
-      <ControlLibraryManager />
+      <ControlLibraryManager sensitivityLevels={await listSensitivityLevels()} />
     </div>
   );
 }
