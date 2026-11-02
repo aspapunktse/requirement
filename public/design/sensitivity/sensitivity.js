@@ -303,7 +303,9 @@
   const TABS = [['chip', 'The chip', chipSheet], ['systems', 'Systems list', systemsList], ['system', 'System details', systemPage],
     ['interview', 'Onboarding interview', interview], ['controls', 'Control Library', controlLibrary], ['settings', 'Admin settings', settingsFrame]];
   let Vc, host;
-  function setTab(id) { S.tab = id; try { history.replaceState(null, '', '#' + id); } catch (e) { /* sandboxed */ } renderTabs(); }
+  // The hash carries the acting role (read by the shared header) and the tab: #role=ADMIN&tab=settings
+  const roleHash = () => { const m = location.hash.match(/role=[A-Z_]+/); return m ? m[0] + '&' : ''; };
+  function setTab(id) { S.tab = id; try { history.replaceState(null, '', '#' + roleHash() + 'tab=' + id); } catch (e) { /* sandboxed */ } renderTabs(); }
   function renderTabs() {
     host.innerHTML = `<div class="tabs" role="tablist" aria-label="Surfaces">${TABS.map(([k, l]) => `<button role="tab" id="t-${k}" aria-selected="${k === S.tab}" aria-controls="panel" data-t="${k}">${l}</button>`).join('')}</div><div class="panel" id="panel" role="tabpanel" aria-labelledby="t-${S.tab}"></div>`;
     host.querySelectorAll('[data-t]').forEach((b) => { b.onclick = () => setTab(b.dataset.t); });
@@ -311,7 +313,7 @@
   }
   function mount(el, V) {
     Vc = V; host = el;
-    const h = location.hash.slice(1); if (TABS.some((t) => t[0] === h)) S.tab = h;
+    const m = location.hash.match(/(?:^#|tab=)([a-z]+)$/); const h = m && m[1]; if (TABS.some((t) => t[0] === h)) S.tab = h;
     listeners.push(() => { if (S.tab !== 'settings') renderTabs(); });
     renderTabs();
   }
