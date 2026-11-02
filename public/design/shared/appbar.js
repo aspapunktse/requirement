@@ -11,31 +11,42 @@
 // (#role=SYSTEM_OWNER), the same way the Home proposals keep it, and nav links carry it along.
 // Pages listen for the 'appbar:role' event (detail = role) and read Appbar.role().
 //
-// Theme: the header carries the System / Light / Dark switch (also in the narrow-screen menu), the same as the app
-// (#282). The choice is kept in localStorage under 'theme' ('light' | 'dark'; no entry = System, which follows the OS)
-// and applied as data-theme on <html> as soon as this script runs, so load it in <head> or early in <body>.
-// A page does not need its own theme button.
+// Mode: the header carries the System / Light / Dark switch (also in the narrow-screen menu), the same as the app
+// (#282, renamed Mode in #286: "Theme" now means the palette-and-font picker). The choice is kept in localStorage
+// under 'theme' ('light' | 'dark'; no entry = System, which follows the OS) and applied as data-theme on <html> as
+// soon as this script runs, so load it in <head> or early in <body>. A page does not need its own Mode button.
+// Read it with Appbar.mode(), change it with Appbar.setMode('light' | 'dark' | 'system').
+//
+// Theme (palette and fonts, #286): this script also applies the stored theme, so one chosen on any /design page
+// carries across all of them. It loads shared/themes.js (and through it themes.css) when the page has not, and
+// that script owns the 'palette' key. The header has no theme picker: each proposal under /design/themes shows
+// its own. A page can add an item beside the Mode switch with mount({ barExtra: () => '<button ...>' })  (a function, or a string); the header
+// re-renders on a role change and then fires 'appbar:render' on window so the page can re-bind it.
 (function () {
-  const THEME_KEY = 'theme';
-  const THEMES = [['system', 'System'], ['light', 'Light'], ['dark', 'Dark']];
-  const readTheme = () => { try { const t = localStorage.getItem(THEME_KEY); return t === 'light' || t === 'dark' ? t : 'system'; } catch (e) { return 'system'; } };
-  let current = readTheme(); // what is applied on this page, even when storage is blocked
-  const theme = () => current;
-  const applyTheme = (t) => { if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); else document.documentElement.removeAttribute('data-theme'); };
-  function setTheme(t) {
-    applyTheme(t);
+  const SELF = document.currentScript && document.currentScript.src;
+  if (!window.Themes && SELF) { const t = document.createElement('script'); t.src = new URL('themes.js', SELF).href; document.head.appendChild(t); }
+
+  const MODE_KEY = 'theme'; // the storage key keeps its name; data-theme on <html> is the mode
+  const MODES = [['system', 'System'], ['light', 'Light'], ['dark', 'Dark']];
+  const readMode = () => { try { const t = localStorage.getItem(MODE_KEY); return t === 'light' || t === 'dark' ? t : 'system'; } catch (e) { return 'system'; } };
+  let current = readMode(); // what is applied on this page, even when storage is blocked
+  const mode = () => current;
+  const applyMode = (t) => { if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); else document.documentElement.removeAttribute('data-theme'); };
+  function setMode(t) {
+    applyMode(t);
     current = t;
-    try { if (t === 'system') localStorage.removeItem(THEME_KEY); else localStorage.setItem(THEME_KEY, t); } catch (e) { /* storage blocked: holds for this page only */ }
-    syncTheme();
+    try { if (t === 'system') localStorage.removeItem(MODE_KEY); else localStorage.setItem(MODE_KEY, t); } catch (e) { /* storage blocked: holds for this page only */ }
+    syncMode();
+    dispatchEvent(new CustomEvent('appbar:mode', { detail: t }));
   }
-  function syncTheme() {
-    const cur = theme();
-    document.querySelectorAll('.ab-theme [data-theme-set]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.themeSet === cur)));
+  function syncMode() {
+    const cur = mode();
+    document.querySelectorAll('.ab-mode [data-mode-set]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.modeSet === cur)));
   }
-  const themeGroup = (cls) => `<div class="ab-theme ${cls}" role="group" aria-label="Theme">${THEMES.map(([k, l]) =>
-    `<button type="button" data-theme-set="${k}" aria-pressed="${k === theme()}">${l}</button>`).join('')}</div>`;
-  applyTheme(theme());
-  addEventListener('storage', (e) => { if (e.key === null || e.key === THEME_KEY) { current = readTheme(); applyTheme(current); syncTheme(); } });
+  const modeGroup = (cls) => `<div class="ab-mode ${cls}" role="group" aria-label="Mode">${MODES.map(([k, l]) =>
+    `<button type="button" data-mode-set="${k}" aria-pressed="${k === mode()}">${l}</button>`).join('')}</div>`;
+  applyMode(mode());
+  addEventListener('storage', (e) => { if (e.key === null || e.key === MODE_KEY) { current = readMode(); applyMode(current); syncMode(); dispatchEvent(new CustomEvent('appbar:mode', { detail: current })); } });
 
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
   const initials = (n) => n.split(' ').map((p) => p[0]).join('').slice(0, 2);
@@ -110,7 +121,7 @@
   function render() {
     const r = role();
     const cur = NAV.find((n) => n.key === opts.current) || NAV[0];
-    $('appbar').className = 'appbar' + (visibleNav().length > NAV.length - 1 ? ' ab-many' : '');
+    $('appbar').className = 'appbar' + (visibleNav().length > NAV.length - 1 ? ' ab-many' : '') + (opts.barExtra ? ' ab-extra' : '');
     $('appbar').innerHTML = `
       <a class="ab-brand" href="${withRole(NAV[0].href)}" data-keep-role aria-label="ISMS - system onboarding, Home">
         <span class="ab-mark" aria-hidden="true"><span></span></span>
@@ -118,12 +129,13 @@
       </a>
       <div class="ab-menu">
         <button type="button" id="abMenuBtn" aria-expanded="false" aria-controls="abMenu">${icon('menu')}<span class="ab-menu-l">${esc(cur.label)}</span><span class="ab-caret">▾</span></button>
-        <div class="ab-pop" id="abMenu" hidden><span class="ab-label">Go to</span>${visibleNav().map((n) => navLink(n, true)).join('')}<span class="ab-label ab-theme-label">Theme</span>${themeGroup('ab-theme-menu')}</div>
+        <div class="ab-pop" id="abMenu" hidden><span class="ab-label">Go to</span>${visibleNav().map((n) => navLink(n, true)).join('')}<span class="ab-label ab-mode-label">Mode</span>${modeGroup('ab-mode-menu')}</div>
       </div>
       <nav class="ab-nav" aria-label="Main">${visibleNav().map((n) => navLink(n, false)).join('')}</nav>
       <span class="ab-spacer"></span>
       <button type="button" class="ab-search" id="abJump" aria-label="Jump to (Ctrl+K)">${icon('search')}<span>Jump to…</span><kbd>Ctrl K</kbd></button>
-      ${themeGroup('ab-theme-bar')}
+      ${typeof opts.barExtra === 'function' ? opts.barExtra() : (opts.barExtra || '')}
+      ${modeGroup('ab-mode-bar')}
       <div class="ab-user">
         <button type="button" id="abUserBtn" aria-expanded="false" aria-controls="abUser" aria-label="Acting as ${esc(r.person)}, ${esc(r.label)}">
           <span class="ab-av">${esc(initials(r.person))}</span><span class="ab-who"><b>${esc(r.person)}</b><small>${esc(r.label)}</small></span><span class="ab-caret">▾</span>
@@ -132,6 +144,7 @@
           `<button type="button" role="menuitemradio" aria-label="${esc(x.person)}, ${esc(x.label)}" aria-checked="${x.key === r.key}" data-role="${x.key}"><span class="ab-av">${esc(initials(x.person))}</span><span>${esc(x.person)}<br><small>${esc(x.label)}</small></span></button>`).join('')}</div>
       </div>`;
     document.querySelectorAll('[data-keep-role]').forEach((a) => { a.href = withRole(a.getAttribute('href')); });
+    dispatchEvent(new CustomEvent('appbar:render'));
   }
 
   function renderProto() {
@@ -213,8 +226,8 @@
       if (e.target.closest('#abMenuBtn')) return toggle('abMenuBtn', 'abMenu');
       if (e.target.closest('#abUserBtn')) return toggle('abUserBtn', 'abUser');
       if (e.target.closest('#abJump')) return openPal();
-      const tb = e.target.closest('[data-theme-set]');
-      if (tb) { setTheme(tb.dataset.themeSet); return; }
+      const tb = e.target.closest('[data-mode-set]');
+      if (tb) { setMode(tb.dataset.modeSet); return; }
       const rb = e.target.closest('[data-role]');
       if (rb) { setRole(rb.dataset.role); return; }
       if (!e.target.closest('.ab-pop')) closePops();
@@ -230,5 +243,5 @@
     addEventListener('hashchange', () => { render(); renderProto(); dispatchEvent(new CustomEvent('appbar:role', { detail: role() })); });
   }
 
-  window.Appbar = { mount, theme, setTheme, role, roleKey, setRole, withRole, icon, NAV, ROLES, open: openPal };
+  window.Appbar = { mount, mode, setMode, role, roleKey, setRole, withRole, icon, NAV, ROLES, open: openPal };
 })();

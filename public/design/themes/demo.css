@@ -1,0 +1,80 @@
+/* The sample app page the Themes proposals show behind their pickers (demo.js). It is built from the shared
+   kit parts and the Register tokens, so every theme is judged on real parts. It scopes itself to its own box
+   (container queries), so two copies can sit side by side, each with its own data-palette. */
+.dm { container-type: inline-size; position: relative; overflow: clip; display: grid; gap: 16px; align-content: start; padding: 16px; background: var(--paper); color: var(--ink); font-family: var(--font); font-size: 14px; line-height: 1.5; }
+.dm > * { min-width: 0; }
+.dm .mono, .dm .kbd, .dm .eyebrow, .dm .facet { font-family: var(--mono); }
+.dm .hero { padding: 22px; }
+.dm .hero .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+@container (max-width: 760px) { .dm .hero { grid-template-columns: 1fr; padding: 18px; } }
+.dm .btn.danger { background: var(--bad); border-color: var(--bad); color: var(--on-accent); }
+.dm .btn.danger:hover { filter: brightness(1.08); }
+.dm .btn[disabled] { opacity: .5; cursor: not-allowed; }
+.dm .btn.primary:hover { filter: brightness(1.08); }
+.dm .stat .k { text-transform: none; }
+
+/* Register card */
+.dm .reg { overflow: clip; }
+.dm .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--line-soft); }
+.dm .toolbar .search { flex: 1 1 200px; max-width: 340px; }
+.dm .tablewrap { overflow-x: auto; }
+.dm table { width: 100%; border-collapse: separate; border-spacing: 0; min-width: 640px; }
+.dm thead th { background: var(--raised); text-align: left; font-size: .72rem; font-weight: 750; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); padding: 9px 12px; border-bottom: 1px solid var(--line-soft); white-space: nowrap; }
+.dm thead th:first-child, .dm tbody td:first-child { padding-left: 18px; }
+.dm tbody td { padding: 10px 12px; border-bottom: 1px solid var(--line-soft); vertical-align: middle; }
+.dm tbody tr:hover td { background: var(--raised); }
+.dm tbody tr.sel td { background: var(--accent-soft); }
+.dm tbody tr:last-child td { border-bottom: 0; }
+.dm .name { display: flex; flex-direction: column; min-width: 0; }
+.dm .name b { font-weight: 650; }
+.dm .name small { color: var(--faint); font-size: .78rem; }
+.dm .owner { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.dm .facets { display: flex; gap: 4px; }
+.dm td .link { color: var(--accent); font-weight: 650; background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.dm .fld { border: 1px solid var(--control, var(--line)); background: var(--surface); border-radius: 10px; padding: 7px 10px; width: 100%; font-size: .86rem; }
+.dm .fld:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
+.dm .fld.bad { border-color: var(--bad); }
+.dm .help { font-size: .78rem; color: var(--muted); }
+.dm .help.bad { color: var(--bad); font-weight: 600; }
+.dm label.f { display: grid; gap: 4px; font-size: .82rem; font-weight: 650; }
+.dm input[type=checkbox], .dm input[type=radio] { accent-color: var(--accent); width: 15px; height: 15px; }
+
+/* Lower row: chart, form, overlays */
+.dm .trio { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; align-items: start; }
+.dm .trio > * { min-width: 0; }
+.dm .form { display: grid; gap: 12px; }
+.dm .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.dm .chart svg { width: 100%; height: auto; display: block; }
+.dm .chart .axis { fill: var(--muted); font-size: 10px; font-family: var(--font); }
+.dm .chart .grid { stroke: var(--line-soft); }
+.dm .legend { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: .76rem; color: var(--muted); margin-top: 8px; }
+.dm .legend span { display: inline-flex; align-items: center; gap: 6px; }
+.dm .legend i { width: 9px; height: 9px; border-radius: 3px; }
+.dm .kpi { display: flex; align-items: end; gap: 12px; margin-bottom: 8px; }
+.dm .kpi b { font-size: 1.9rem; line-height: 1; font-weight: 780; letter-spacing: -.02em; }
+.dm .kpi small { color: var(--ok); font-weight: 650; }
+.dm .pop { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); padding: 6px; display: grid; }
+.dm .pop button { display: flex; align-items: center; gap: 8px; border: 0; background: none; text-align: left; padding: 7px 8px; border-radius: 9px; cursor: pointer; font-size: .86rem; font-weight: 620; }
+.dm .pop button:hover, .dm .pop button.is-focus { background: var(--raised); }
+.dm .pop button[aria-checked="true"] { background: var(--accent-soft); color: var(--accent); }
+.dm .pop .lbl { padding: 6px 8px 2px; font-size: .68rem; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.dm .is-focus { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Drawer: slides in over the sample page */
+.dm .scrim { position: absolute; inset: 0; background: color-mix(in srgb, var(--ink) 40%, transparent); opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 5; }
+.dm .drawer { position: absolute; top: 0; right: 0; bottom: 0; width: min(380px, 92%); background: var(--surface); border-left: 1px solid var(--line); box-shadow: var(--shadow); transform: translateX(104%); transition: transform .25s ease; z-index: 6; display: grid; grid-template-rows: auto 1fr auto; visibility: hidden; }
+.dm.drawer-open .scrim { opacity: 1; pointer-events: auto; }
+.dm.drawer-open .drawer { transform: none; visibility: visible; }
+.dm .drawer header { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 14px 16px; border-bottom: 1px solid var(--line-soft); }
+.dm .drawer header h2 { font-size: 1rem; }
+.dm .drawer .body { padding: 14px 16px; display: grid; gap: 12px; align-content: start; overflow: auto; }
+.dm .drawer footer { display: flex; gap: 8px; justify-content: flex-end; padding: 12px 16px; border-top: 1px solid var(--line-soft); background: var(--raised); }
+@media (prefers-reduced-motion: reduce) { .dm .scrim, .dm .drawer { transition: none; } }
+
+/* Layout check (proposal C): outline every box of the sample page */
+.dm.outline * { outline: 1px solid color-mix(in srgb, var(--bad) 55%, transparent); outline-offset: -1px; }
+.dm.outline svg *, .dm.outline option { outline: 0; }
+
+/* Swatch strip: paper, surface, accent, ink */
+.sw { display: inline-flex; border-radius: 8px; overflow: hidden; border: 1px solid color-mix(in srgb, currentColor 30%, transparent); flex: none; }
+.sw i { width: 18px; height: 22px; }

@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Appearance Settings Page</title>
+<link rel="stylesheet" href="../systems/systems.css">
+<link rel="stylesheet" href="../shared/appbar.css">
+<link rel="stylesheet" href="../shared/kit.css">
+<link rel="stylesheet" href="../shared/themes.css">
+<link rel="stylesheet" href="demo.css">
+<script src="../shared/themes.js"></script>
+<style>
+/* Proposal B: an Appearance page (reached from the acting-user menu in the app). Theme cards carry a
+   thumbnail of the app drawn in that theme (data-palette on the thumbnail itself), Mode is its own choice,
+   a specimen shows the selected fonts, and a live preview shows real components. Choosing applies at once. */
+.head h1 { font-size: clamp(1.5rem, 3vw, 2rem); }
+.head p { color: var(--muted); margin-top: 4px; max-width: 64ch; }
+.crumbs { font-size: .8rem; color: var(--muted); margin-bottom: 6px; }
+.crumbs a { color: var(--accent); }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; padding: 14px 18px 18px; }
+.tc { display: grid; gap: 10px; text-align: left; border: 1px solid var(--line); background: var(--surface); border-radius: 16px; padding: 10px; cursor: pointer; color: var(--ink); font: inherit; min-width: 0; }
+.tc:hover { border-color: var(--accent); }
+.tc[aria-checked="true"] { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft), var(--shadow); }
+.tc .meta { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 8px; align-items: center; padding: 0 4px 2px; }
+.tc .meta b { font-size: .95rem; }
+.tc .meta .ck { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--control, var(--line)); display: grid; place-items: center; color: transparent; font-size: .7rem; font-weight: 800; }
+.tc[aria-checked="true"] .meta .ck { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.tc .meta small { grid-column: 1 / -1; color: var(--muted); font-size: .78rem; line-height: 1.35; }
+.tc .fonts { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; padding: 0 4px; font-size: .78rem; color: var(--muted); }
+.tc .pair { display: inline-flex; gap: 6px; align-items: center; }
+.tc .pair .sw i { width: 12px; height: 14px; }
+.tc .pair .sw { border-radius: 5px; }
+
+/* The thumbnail: a fixed-size miniature of the app in the card's own theme. It follows the page's mode. */
+.mini { background: var(--paper); color: var(--ink); font-family: var(--font); border: 1px solid var(--line); border-radius: 10px; padding: 7px; display: grid; gap: 6px; font-size: 9px; line-height: 1.3; overflow: hidden; }
+.mini .mb { display: flex; align-items: center; gap: 4px; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 3px 5px; }
+.mini .mk { width: 10px; height: 10px; border-radius: 3px; background: var(--accent); }
+.mini .mb b { font-size: 7px; font-weight: 650; color: var(--muted); padding: 1px 4px; border-radius: 4px; }
+.mini .mb b.on { background: var(--accent-soft); color: var(--accent); }
+.mini .mb .av { margin-left: auto; width: 10px; height: 10px; border-radius: 50%; background: var(--accent); }
+.mini .mh { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 7px; border: 1px solid var(--line); border-radius: 8px; background: linear-gradient(135deg, var(--surface), color-mix(in srgb, var(--accent-soft) 60%, var(--surface))); }
+.mini .mh h4 { margin: 0; font-size: 12px; font-weight: 750; letter-spacing: -.01em; }
+.mini .mh p { margin: 1px 0 4px; color: var(--muted); font-size: 8px; }
+.mini .btns { display: flex; gap: 3px; }
+.mini .btns i { font-style: normal; font-size: 7px; font-weight: 650; padding: 1px 6px; border-radius: 5px; border: 1px solid var(--control, var(--line)); background: var(--surface); }
+.mini .btns i.p { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.mini .btns i.d { background: var(--bad); border-color: var(--bad); color: var(--on-accent); }
+.mini .mr { width: 34px; height: 34px; border-radius: 50%; background: conic-gradient(var(--ok) 0 46%, var(--gold) 0 66%, var(--bad) 0 76%, var(--done) 0 100%); -webkit-mask: radial-gradient(circle, transparent 11px, #000 12px); mask: radial-gradient(circle, transparent 11px, #000 12px); }
+.mini .ms { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+.mini .ms div { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 3px 5px; color: var(--muted); font-size: 7px; }
+.mini .ms em { display: block; font-style: normal; color: var(--ink); font-size: 12px; font-weight: 780; line-height: 1.1; }
+.mini .ms div:nth-child(2) em { color: var(--gold-ink); } .mini .ms div:nth-child(3) em { color: var(--bad); }
+.mini .mt { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.mini .mt div { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 6px; align-items: center; padding: 3px 6px; border-top: 1px solid var(--line-soft); font-size: 8px; }
+.mini .mt div:first-child { border-top: 0; background: var(--raised); color: var(--muted); font-size: 6.5px; font-weight: 750; letter-spacing: .05em; text-transform: uppercase; }
+.mini .mt code { font-family: var(--mono); font-size: 7px; color: var(--muted); }
+.mini .c { font-size: 7px; font-weight: 650; padding: 0 5px; border-radius: 99px; background: var(--ok-soft); color: var(--ok); }
+.mini .c.w { background: var(--gold-soft); color: var(--gold-ink); } .mini .c.b { background: var(--bad-soft); color: var(--bad); }
+
+.two { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px; align-items: start; }
+.two > * { min-width: 0; }
+.modes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; padding: 14px 18px 4px; }
+.mo { display: grid; gap: 6px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); padding: 10px; text-align: left; cursor: pointer; font: inherit; color: var(--ink); }
+.mo:hover { border-color: var(--accent); }
+.mo[aria-checked="true"] { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.mo .pv { height: 38px; border-radius: 8px; border: 1px solid var(--line); background: linear-gradient(90deg, #fff 50%, #151a22 50%); }
+.mo .pv.l { background: #fff; } .mo .pv.d { background: #151a22; }
+.mo b { font-size: .88rem; }
+.mo small { color: var(--muted); font-size: .76rem; line-height: 1.3; }
+.mode-note { padding: 10px 18px 16px; color: var(--muted); font-size: .82rem; }
+.spec { padding: 14px 18px 18px; display: grid; gap: 12px; }
+.spec h3 { font-size: 1.6rem; letter-spacing: -.02em; font-weight: 760; }
+.spec p.body { max-width: 62ch; }
+.spec .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; }
+.spec .grid div { border: 1px solid var(--line-soft); border-radius: 10px; padding: 8px 10px; background: var(--raised); }
+.spec .grid small { display: block; color: var(--muted); font-size: .72rem; }
+.spec .grid span { font-weight: 650; }
+.spec .mono { font-family: var(--mono); font-size: .86rem; background: var(--raised); border: 1px solid var(--line-soft); border-radius: 10px; padding: 8px 10px; overflow-x: auto; white-space: pre; }
+.spec .names { color: var(--muted); font-size: .82rem; }
+.previewbox { margin: 14px 18px 18px; border: 1px solid var(--line); border-radius: 14px; overflow: clip; }
+.th-live { position: absolute; left: -9999px; }
+@media (max-width: 640px) { .modes { grid-template-columns: 1fr; } .cards { padding-inline: 12px; } }
+</style>
+</head>
+<body>
+<header id="appbar"></header>
+<main class="app">
+  <div class="head">
+    <div class="crumbs"><a href="/design/home/proposal-a.html" data-keep-role>Home</a> / Account / Appearance</div>
+    <h1>Appearance</h1>
+    <p>Choose how the app looks: its colours and its typeface. This only changes the look. Every page keeps the same layout, and the choice stays in this browser.</p>
+  </div>
+
+  <section class="card" aria-labelledby="thH">
+    <div class="card-h"><h2 id="thH">Theme</h2><p>Each thumbnail shows the app in that theme, in the current mode</p></div>
+    <div class="cards" role="radiogroup" aria-labelledby="thH" id="cards"></div>
+    <div style="padding:0 18px 16px"><button type="button" class="btn ghost" id="reset">Reset to Register</button></div>
+  </section>
+
+  <div class="two">
+    <section class="card" aria-labelledby="mdH">
+      <div class="card-h"><h2 id="mdH">Mode</h2><p>Light or dark, in every theme</p></div>
+      <div class="modes" role="radiogroup" aria-labelledby="mdH" id="modes"></div>
+      <p class="mode-note">System follows your device and changes with it, for example at night.</p>
+    </section>
+    <section class="card" aria-labelledby="fnH">
+      <div class="card-h"><h2 id="fnH">Fonts</h2><p id="fnSub"></p></div>
+      <div class="spec">
+        <h3>Controls fulfilled: 71%</h3>
+        <p class="body">The quick brown fox jumps over the lazy dog. A Control is fulfilled when every Requirement it covers is Met on the System. Sizes, weights and line breaks are the same in every theme.</p>
+        <div class="grid"><div><small>Regular 400</small><span style="font-weight:400">Hamburgefonstiv</span></div><div><small>Medium 650</small><span style="font-weight:650">Hamburgefonstiv</span></div><div><small>Bold 750</small><span style="font-weight:750">Hamburgefonstiv</span></div><div><small>Numerals</small><span class="num">0123456789</span></div></div>
+        <div class="mono">A.5.1  Policies  ·  ISO27001:2022
+SELECT * FROM controls WHERE met = 1;</div>
+        <div class="names" id="fnNames"></div>
+      </div>
+    </section>
+  </div>
+
+  <section class="card" aria-labelledby="pvH">
+    <div class="card-h"><h2 id="pvH">Preview</h2><p>Real parts of the app in the selected theme. Try the buttons, the tabs and the drawer.</p></div>
+    <div class="previewbox"><div id="demo"></div></div>
+  </section>
+</main>
+<div class="th-live" role="status" aria-live="polite" id="thLive"></div>
+
+<script src="../shared/kit.js"></script>
+<script src="demo.js"></script>
+<script src="../shared/appbar.js"></script>
+<script>
+(function () {
+  const { esc } = window.Kit;
+  const $ = (id) => document.getElementById(id);
+  const say = (m) => { $('thLive').textContent = m; };
+  ThemeDemo.mount($('demo'));
+  Themes.list.forEach((t) => Themes.loadFonts(t.id)); // the thumbnails show each face, so this page loads all of them
+
+  const thumb = (id) => `<div class="mini" data-palette="${id}" aria-hidden="true">
+    <div class="mb"><i class="mk"></i><b class="on">Home</b><b>Systems</b><b>Controls</b><span class="av"></span></div>
+    <div class="mh"><div><h4>Overview</h4><p>41 Systems, 8 in review</p><div class="btns"><i class="p">New</i><i>Export</i><i class="d">Reject</i></div></div><div class="mr"></div></div>
+    <div class="ms"><div>Systems<em>41</em></div><div>Review<em>8</em></div><div>Attention<em>4</em></div></div>
+    <div class="mt"><div><span>System</span><span>Status</span><span>Done</span></div>
+      <div><span>Payroll</span><span class="c">Approved</span><code>82%</code></div>
+      <div><span>Customer portal</span><span class="c w">In review</span><code>61%</code></div>
+      <div><span>Legacy CRM</span><span class="c b">Rejected</span><code>34%</code></div></div></div>`;
+
+  function renderCards() {
+    const cur = Themes.saved();
+    $('cards').innerHTML = Themes.list.map((t) => `
+      <button type="button" class="tc" role="radio" data-id="${t.id}" aria-checked="${t.id === cur}" tabindex="${t.id === cur ? 0 : -1}">
+        ${thumb(t.id)}
+        <span class="meta"><b>${esc(t.name)}</b><span class="ck" aria-hidden="true">✓</span><small>${esc(t.character)}</small></span>
+        <span class="fonts"><span style="font-family:${t.id === 'register' ? 'system-ui, sans-serif' : `'${esc(t.sans)}', system-ui, sans-serif`}">${esc(t.sans)}</span>
+          <span class="pair" title="Light and dark"><span class="sw-l">${ThemeDemo.swatch(t.id, 'light')}</span>${ThemeDemo.swatch(t.id, 'dark')}</span></span>
+      </button>`).join('');
+  }
+  const MODES = [['system', 'System', 'Follow my device', 'pv'], ['light', 'Light', 'Always light', 'pv l'], ['dark', 'Dark', 'Always dark', 'pv d']];
+  function renderModes() {
+    $('modes').innerHTML = MODES.map(([k, l, d, c]) => `<button type="button" class="mo" role="radio" data-mode="${k}" aria-checked="${k === Appbar.mode()}" tabindex="${k === Appbar.mode() ? 0 : -1}"><span class="${c}"></span><b>${l}</b><small>${d}</small></button>`).join('');
+  }
+  function renderSpec() {
+    const t = Themes.get(Themes.saved());
+    $('fnSub').textContent = t.name;
+    $('fnNames').innerHTML = `Text: <b>${esc(t.sans)}</b> · Code: <b>${esc(t.mono)}</b>${t.fonts ? ' · loaded from Google Fonts here; the app self-hosts only the chosen theme' : ' · the system faces, nothing to download'}`;
+  }
+  function refresh() { renderCards(); renderModes(); renderSpec(); }
+
+  // Radio groups: arrows move and select, Home/End jump, Tab leaves the group
+  function radios(group, onPick) {
+    group.addEventListener('click', (e) => { const b = e.target.closest('[role=radio]'); if (b) onPick(b, true); });
+    group.addEventListener('keydown', (e) => {
+      const items = [...group.querySelectorAll('[role=radio]')], b = e.target.closest('[role=radio]'); if (!b) return;
+      let i = items.indexOf(b);
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') i = (i + 1) % items.length;
+      else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') i = (i - 1 + items.length) % items.length;
+      else if (e.key === 'Home') i = 0; else if (e.key === 'End') i = items.length - 1;
+      else if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); return onPick(b, true); }
+      else return;
+      e.preventDefault(); onPick(items[i], false);
+    });
+  }
+  const focusBack = (sel) => { const e = document.querySelector(sel); if (e) e.focus(); };
+  radios($('cards'), (b) => { Themes.set(b.dataset.id); refresh(); focusBack('#cards [data-id="' + b.dataset.id + '"]'); say(Themes.get(b.dataset.id).name + ' theme applied'); });
+  radios($('modes'), (b) => { Appbar.setMode(b.dataset.mode); refresh(); focusBack('#modes [data-mode="' + b.dataset.mode + '"]'); say(b.querySelector('b').textContent + ' mode applied'); });
+  $('reset').addEventListener('click', () => { Themes.set('register'); refresh(); say('Register theme applied'); });
+
+  Appbar.mount({ current: 'home', proposal: { label: 'B', siblings: [['A', 'proposal-a.html'], ['C', 'proposal-c.html']] },
+    items: () => Themes.list.map((x) => ({ group: 'Theme', label: x.name, sub: x.sans, icon: 'grid', run: () => { Themes.set(x.id); refresh(); } })) });
+  addEventListener('themes:change', refresh);
+  ThemeDemo.onMode(refresh);
+  refresh();
+})();
+</script>
+</body>
+</html>
