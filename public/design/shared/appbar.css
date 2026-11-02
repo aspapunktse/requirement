@@ -105,6 +105,9 @@
   .appbar.ab-many .ab-nav { display: none; }
   .appbar.ab-many .ab-menu { display: block; }
 }
+/* A page that adds an item to the bar (mount({ barExtra })) has less room, so the nav is always the compact menu */
+.appbar.ab-extra .ab-nav { display: none; }
+.appbar.ab-extra .ab-menu { display: block; }
 @media (max-width: 900px) {
   .ab-search { min-width: 0; }
   .ab-search span, .ab-search kbd { display: none; }

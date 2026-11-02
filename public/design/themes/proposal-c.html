@@ -33,11 +33,11 @@
 .tg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); font-weight: 750; }
 .chk { display: inline-flex; align-items: center; gap: 8px; font-weight: 650; font-size: .86rem; cursor: pointer; }
 
-.caps { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.caps { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
 .cap { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 10px; }
 .cap b { font-size: 1rem; } .cap small { color: var(--muted); }
-.stage { position: relative; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
-.stage > .dm { border: 1px solid var(--line); border-radius: 16px; }
+.stage { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.stage > .dm { min-width: 0; max-width: 100%; border: 1px solid var(--line); border-radius: 16px; }
 .stage.split { display: block; border: 1px solid var(--line); border-radius: 16px; overflow: clip; }
 .stage.split > .dm { border: 0; border-radius: 0; }
 .stage.split > .p2 { position: absolute; top: 0; left: 0; width: 100%; clip-path: inset(0 0 0 var(--cut, 50%)); }
@@ -47,7 +47,7 @@
 .slide { display: none; padding: 0 0 4px; }
 .slide.on { display: block; }
 .slide input { width: 100%; accent-color: var(--accent); height: 24px; }
-@media (max-width: 1100px) { .stage:not(.split) { grid-template-columns: 1fr; } .caps { grid-template-columns: 1fr; } }
+@media (max-width: 1100px) { .stage:not(.split) { grid-template-columns: minmax(0, 1fr); } .caps { grid-template-columns: minmax(0, 1fr); } }
 
 .read { padding: 4px 0 8px; }
 .read table { width: 100%; border-collapse: collapse; font-size: .82rem; }
@@ -64,8 +64,8 @@
 .sum { padding: 4px 18px 14px; font-weight: 650; font-size: .86rem; }
 .read-wrap { overflow-x: auto; }
 .read-wrap table { min-width: 460px; }
-.rd { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; align-items: start; }
-@media (max-width: 1100px) { .rd { grid-template-columns: 1fr; } }
+.rd { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+@media (max-width: 1100px) { .rd { grid-template-columns: minmax(0, 1fr); } }
 
 .lay { padding: 12px 18px 16px; display: grid; gap: 8px; font-size: .86rem; }
 .lay[hidden] { display: none; }

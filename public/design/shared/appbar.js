@@ -121,7 +121,7 @@
   function render() {
     const r = role();
     const cur = NAV.find((n) => n.key === opts.current) || NAV[0];
-    $('appbar').className = 'appbar' + (visibleNav().length > NAV.length - 1 ? ' ab-many' : '');
+    $('appbar').className = 'appbar' + (visibleNav().length > NAV.length - 1 ? ' ab-many' : '') + (opts.barExtra ? ' ab-extra' : '');
     $('appbar').innerHTML = `
       <a class="ab-brand" href="${withRole(NAV[0].href)}" data-keep-role aria-label="ISMS - system onboarding, Home">
         <span class="ab-mark" aria-hidden="true"><span></span></span>
