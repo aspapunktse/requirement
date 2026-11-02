@@ -529,7 +529,7 @@ describe("AppHeader theme menu", () => {
 
   it("puts the Theme button beside the Mode switch, hidden below 640px like the Mode copy", () => {
     render(<AppHeader devStub={false} user={acting} />);
-    const button = screen.getByRole("button", { name: "Theme: Register" });
+    const button = screen.getByRole("button", { name: "Theme" });
     const classes = button.className.split(/\s+/);
     expect(classes).toContain("hidden");
     expect(classes).toContain("sm:inline-flex");

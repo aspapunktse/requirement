@@ -34,7 +34,7 @@ afterEach(() => {
   root.removeAttribute("data-theme");
 });
 
-const button = () => screen.getByRole("button", { name: /^Theme:/ });
+const button = () => screen.getByRole("button", { name: "Theme" });
 const cards = () => within(screen.getByRole("radiogroup", { name: "Theme" })).getAllByRole("radio");
 const card = (name: string) => screen.getByRole("radio", { name: new RegExp(`^${name}`) });
 
@@ -48,7 +48,7 @@ async function open() {
 describe("ThemeMenu", () => {
   it("is a closed button that names the saved theme", () => {
     render(<Harness />);
-    expect(button()).toHaveAccessibleName("Theme: Register");
+    expect(button()).toHaveAttribute("title", "Theme: Register");
     expect(button()).toHaveAttribute("aria-expanded", "false");
     expect(button()).toHaveAttribute("aria-haspopup", "dialog");
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
@@ -103,7 +103,7 @@ describe("ThemeMenu", () => {
     expect(window.localStorage.getItem(PALETTE_KEY)).toBe("parchment");
     expect(card("Parchment")).toHaveAttribute("aria-checked", "true");
     expect(card("Register")).toHaveAttribute("aria-checked", "false");
-    expect(button()).toHaveAccessibleName("Theme: Parchment");
+    expect(button()).toHaveAttribute("title", "Theme: Parchment");
     expect(screen.getByRole("status")).toHaveTextContent("Parchment theme applied");
     expect(screen.getByRole("dialog")).toBeInTheDocument();
   });
@@ -196,12 +196,12 @@ describe("ThemeMenu", () => {
       window.dispatchEvent(new StorageEvent("storage", { key: PALETTE_KEY, newValue: "forest" }));
     });
     expect(card("Forest")).toHaveAttribute("aria-checked", "true");
-    expect(button()).toHaveAccessibleName("Theme: Forest");
+    expect(button()).toHaveAttribute("title", "Theme: Forest");
   });
 
   it("shows a stored theme", () => {
     window.localStorage.setItem(PALETTE_KEY, "contrast");
     render(<Harness />);
-    expect(button()).toHaveAccessibleName("Theme: High contrast");
+    expect(button()).toHaveAttribute("title", "Theme: High contrast");
   });
 });

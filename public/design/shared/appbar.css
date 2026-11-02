@@ -106,6 +106,8 @@
 .th-seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); font-weight: 750; }
 .th-note { padding: 6px 8px 2px; font-size: .74rem; color: var(--muted); }
 .th-live { position: absolute; left: -9999px; }
+/* Where the full navigation is shown the button is the swatch and a caret only, to leave the bar on one row */
+@media (min-width: 1241px) { .th-btn .th-l { display: none; } .th-btn { padding: 6px 8px; } }
 @media (prefers-reduced-motion: reduce) { .th-pop { animation: none; } }
 
 /* Ctrl+K palette, as on Home (#226) */
@@ -132,12 +134,12 @@
 .ab-proto [aria-current] { background: var(--paper); color: var(--ink); }
 .ab-proto .ab-all { opacity: .75; }
 
-@media (max-width: 1360px) {
+@media (max-width: 1240px) {
   .ab-nav { display: none; }
   .ab-menu { display: block; }
 }
 /* With the Admin item the row is one item longer, so it collapses to the menu sooner */
-@media (max-width: 1520px) {
+@media (max-width: 1400px) {
   .appbar.ab-many .ab-nav { display: none; }
   .appbar.ab-many .ab-menu { display: block; }
 }

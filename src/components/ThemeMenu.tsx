@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, useSyncExternalStore, type KeyboardEvent } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, useSyncExternalStore, type KeyboardEvent, type RefObject } from "react";
 import { ModeSwitch } from "@/components/ModeSwitch";
 import { useExclusivePopover } from "@/components/useExclusivePopover";
 import { getEffectiveDarkServerSnapshot, getEffectiveDarkSnapshot, subscribeEffectiveDark } from "@/lib/mode";
@@ -43,13 +43,37 @@ function Swatch({ palette, small = false }: { palette: Palette; small?: boolean 
   );
 }
 
-function ThemePanel({ onClose, className }: { onClose: () => void; className: string }) {
+function ThemePanel({ onClose, className, anchorRef }: { onClose: () => void; className: string; anchorRef: RefObject<HTMLElement | null> }) {
   const saved = useSavedPalette();
   const [hovered, setHovered] = useState<PaletteId | null>(null);
   const [focused, setFocused] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState("");
   const cardRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const headingId = useId();
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  // From 640px up the panel is placed under the button, right-aligned to it but kept 16px inside the viewport;
+  // below that it spans the screen (the classes) and the button is hidden.
+  useLayoutEffect(() => {
+    const panel = panelRef.current;
+    const anchor = anchorRef.current;
+    if (!panel || !anchor) return;
+    function place() {
+      if (!panel || !anchor) return;
+      const wide = window.innerWidth >= 640 && getComputedStyle(anchor).display !== "none";
+      if (!wide) {
+        panel.style.left = panel.style.top = "";
+        return;
+      }
+      const box = anchor.getBoundingClientRect();
+      const width = panel.offsetWidth;
+      panel.style.left = `${Math.max(16, Math.min(box.right - width, window.innerWidth - width - 16))}px`;
+      panel.style.top = `${box.bottom + 8}px`;
+    }
+    place();
+    window.addEventListener("resize", place);
+    return () => window.removeEventListener("resize", place);
+  }, [anchorRef]);
 
   // Hover or focus previews a theme on the whole page without saving it; closing the panel (which unmounts
   // this) puts the saved one back.
@@ -84,6 +108,7 @@ function ThemePanel({ onClose, className }: { onClose: () => void; className: st
 
   return (
     <div
+      ref={panelRef}
       role="dialog"
       aria-labelledby={headingId}
       className={className}
@@ -199,12 +224,14 @@ export function ThemeMenu({ open, onOpenChange }: { open: boolean; onOpenChange:
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
-        aria-label={`Theme: ${saved.name}`}
+        aria-label="Theme"
+        title={`Theme: ${saved.name}`}
         onClick={() => onOpenChange(!open)}
-        className={`hidden items-center gap-2 rounded-[10px] border border-rg-control bg-rg-surface px-2.5 py-1.5 text-[13.5px] font-semibold text-rg-ink hover:border-rg-accent sm:inline-flex ${FOCUS}`}
+        className={`hidden items-center gap-2 rounded-[10px] border border-rg-control bg-rg-surface px-2 py-1.5 text-[13.5px] font-semibold text-rg-ink hover:border-rg-accent sm:inline-flex min-[1241px]:gap-1.5 ${FOCUS}`}
       >
         <Swatch palette={saved} small />
-        <span>Theme</span>
+        {/* Where the full navigation is shown the button is just the swatch and a caret, to leave the header on one row. */}
+        <span className="min-[1241px]:hidden">Theme</span>
         <span aria-hidden className="text-[10px] text-rg-muted">
           ▾
         </span>
@@ -213,7 +240,8 @@ export function ThemeMenu({ open, onOpenChange }: { open: boolean; onOpenChange:
         <div id={panelId}>
           <ThemePanel
             onClose={() => close(true)}
-            className="fixed inset-x-4 top-[60px] z-40 max-h-[calc(100vh-76px)] overflow-auto rounded-[16px] border border-rg-line bg-rg-surface p-2 text-rg-ink shadow-[var(--rg-shadow-popover)] sm:absolute sm:inset-x-auto sm:top-[calc(100%+8px)] sm:right-0 sm:w-[380px] sm:max-h-none sm:overflow-visible"
+            anchorRef={buttonRef}
+            className="fixed inset-x-4 top-[60px] z-40 max-h-[calc(100vh-76px)] overflow-auto rounded-[16px] border border-rg-line bg-rg-surface p-2 text-rg-ink shadow-[var(--rg-shadow-popover)] sm:inset-x-auto sm:w-[380px] sm:max-h-[calc(100vh-80px)]"
           />
         </div>
       )}
