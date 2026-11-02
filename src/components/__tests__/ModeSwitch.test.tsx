@@ -1,13 +1,13 @@
 import { act, cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ThemeSwitch } from "../ThemeSwitch";
-import { THEME_INIT_SCRIPT, THEME_KEY, resetThemeStateForTests } from "@/lib/theme";
+import { ModeSwitch } from "../ModeSwitch";
+import { MODE_INIT_SCRIPT, MODE_KEY, resetModeStateForTests } from "@/lib/mode";
 
 const root = document.documentElement;
 
 beforeEach(() => {
-  resetThemeStateForTests();
+  resetModeStateForTests();
   vi.stubGlobal("matchMedia", (query: string) => ({ matches: false, media: query, addEventListener: vi.fn(), removeEventListener: vi.fn() }));
   window.localStorage.clear();
   root.removeAttribute("data-theme");
@@ -21,10 +21,10 @@ afterEach(() => {
 
 const pressed = (name: string) => screen.getByRole("button", { name }).getAttribute("aria-pressed");
 
-describe("ThemeSwitch", () => {
+describe("ModeSwitch", () => {
   it("starts on System when nothing is stored", () => {
-    render(<ThemeSwitch />);
-    expect(screen.getByRole("group", { name: "Theme" })).toBeInTheDocument();
+    render(<ModeSwitch />);
+    expect(screen.getByRole("group", { name: "Mode" })).toBeInTheDocument();
     expect(pressed("System")).toBe("true");
     expect(pressed("Light")).toBe("false");
     expect(pressed("Dark")).toBe("false");
@@ -33,35 +33,35 @@ describe("ThemeSwitch", () => {
 
   it("applies and stores Dark, then Light, then clears on System", async () => {
     const user = userEvent.setup();
-    render(<ThemeSwitch />);
+    render(<ModeSwitch />);
 
     await user.click(screen.getByRole("button", { name: "Dark" }));
     expect(root).toHaveAttribute("data-theme", "dark");
-    expect(window.localStorage.getItem(THEME_KEY)).toBe("dark");
+    expect(window.localStorage.getItem(MODE_KEY)).toBe("dark");
     expect(pressed("Dark")).toBe("true");
     expect(pressed("System")).toBe("false");
 
     await user.click(screen.getByRole("button", { name: "Light" }));
     expect(root).toHaveAttribute("data-theme", "light");
-    expect(window.localStorage.getItem(THEME_KEY)).toBe("light");
+    expect(window.localStorage.getItem(MODE_KEY)).toBe("light");
     expect(pressed("Light")).toBe("true");
 
     await user.click(screen.getByRole("button", { name: "System" }));
     expect(root).not.toHaveAttribute("data-theme");
-    expect(window.localStorage.getItem(THEME_KEY)).toBeNull();
+    expect(window.localStorage.getItem(MODE_KEY)).toBeNull();
     expect(pressed("System")).toBe("true");
   });
 
   it("shows a stored choice", () => {
-    window.localStorage.setItem(THEME_KEY, "dark");
-    render(<ThemeSwitch />);
+    window.localStorage.setItem(MODE_KEY, "dark");
+    render(<ModeSwitch />);
     expect(pressed("Dark")).toBe("true");
     expect(pressed("System")).toBe("false");
   });
 
   it("treats an unknown stored value as System", () => {
-    window.localStorage.setItem(THEME_KEY, "purple");
-    render(<ThemeSwitch />);
+    window.localStorage.setItem(MODE_KEY, "purple");
+    render(<ModeSwitch />);
     expect(pressed("System")).toBe("true");
   });
 
@@ -73,7 +73,7 @@ describe("ThemeSwitch", () => {
       throw new Error("blocked");
     });
     const user = userEvent.setup();
-    render(<ThemeSwitch />);
+    render(<ModeSwitch />);
     expect(pressed("System")).toBe("true");
     await user.click(screen.getByRole("button", { name: "Dark" }));
     expect(root).toHaveAttribute("data-theme", "dark");
@@ -86,24 +86,24 @@ describe("ThemeSwitch", () => {
   });
 
   it("follows a change made in another tab", () => {
-    render(<ThemeSwitch />);
-    window.localStorage.setItem(THEME_KEY, "light");
+    render(<ModeSwitch />);
+    window.localStorage.setItem(MODE_KEY, "light");
     act(() => {
-      window.dispatchEvent(new StorageEvent("storage", { key: THEME_KEY, newValue: "light" }));
+      window.dispatchEvent(new StorageEvent("storage", { key: MODE_KEY, newValue: "light" }));
     });
     expect(pressed("Light")).toBe("true");
     expect(root).toHaveAttribute("data-theme", "light");
   });
 });
 
-describe("THEME_INIT_SCRIPT", () => {
-  const run = () => new Function(THEME_INIT_SCRIPT)();
+describe("MODE_INIT_SCRIPT", () => {
+  const run = () => new Function(MODE_INIT_SCRIPT)();
 
   it("sets data-theme from a stored light or dark choice", () => {
-    window.localStorage.setItem(THEME_KEY, "dark");
+    window.localStorage.setItem(MODE_KEY, "dark");
     run();
     expect(root).toHaveAttribute("data-theme", "dark");
-    window.localStorage.setItem(THEME_KEY, "light");
+    window.localStorage.setItem(MODE_KEY, "light");
     run();
     expect(root).toHaveAttribute("data-theme", "light");
   });
@@ -111,7 +111,7 @@ describe("THEME_INIT_SCRIPT", () => {
   it("leaves the attribute off for nothing or junk stored", () => {
     run();
     expect(root).not.toHaveAttribute("data-theme");
-    window.localStorage.setItem(THEME_KEY, "junk");
+    window.localStorage.setItem(MODE_KEY, "junk");
     run();
     expect(root).not.toHaveAttribute("data-theme");
   });

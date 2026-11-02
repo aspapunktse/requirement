@@ -256,7 +256,7 @@ describe("HomeCommandCenter: Ctrl+K palette", () => {
     expect(dialog).toBeInTheDocument();
     const box = within(dialog).getByRole("combobox");
     expect(box).toHaveFocus();
-    expect(within(dialog).getAllByRole("option")).toHaveLength(7);
+    expect(within(dialog).getAllByRole("option")).toHaveLength(7 + 5); // plus the five Theme commands
 
     await user.type(box, "cloud");
     const options = within(dialog).getAllByRole("option");

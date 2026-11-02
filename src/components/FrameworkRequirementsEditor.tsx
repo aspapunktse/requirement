@@ -63,7 +63,7 @@ function RequirementFields({
   idPrefix: string;
 }) {
   const hintId = `${idPrefix}-text-hint`;
-  const inputClass = "rounded border border-zinc-200 p-2 text-sm dark:border-zinc-800 dark:bg-transparent";
+  const inputClass = "rounded border border-rg-control p-2 text-sm";
   return (
     <>
       <div className="flex flex-wrap gap-2">
@@ -102,7 +102,7 @@ function RequirementFields({
         onChange={(event) => onChange({ text: event.target.value })}
         required
       />
-      <p id={hintId} className="text-xs text-zinc-500">
+      <p id={hintId} className="text-xs text-rg-muted">
         {textHint(licensing)}
       </p>
     </>
@@ -212,19 +212,19 @@ export function FrameworkRequirementsEditor({
   return (
     <div className="flex flex-col gap-6">
       {error && (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="text-sm text-rg-danger">
           {error}
         </p>
       )}
 
-      {groups.length === 0 && <p className="text-sm text-zinc-500">No Requirements yet. Add the first one below.</p>}
+      {groups.length === 0 && <p className="text-sm text-rg-muted">No Requirements yet. Add the first one below.</p>}
 
       {groups.map(({ section, items }) => (
         <section key={section} aria-label={`Section ${section}`} className="flex flex-col gap-3">
-          <h2 className="border-b border-zinc-200 pb-1 text-base dark:border-zinc-800">{section}</h2>
+          <h2 className="border-b border-rg-line pb-1 text-base">{section}</h2>
           <ul className="flex flex-col gap-3">
             {items.map((requirement) => (
-              <li key={requirement.id} className="rounded border border-zinc-200 p-3 dark:border-zinc-800">
+              <li key={requirement.id} className="rounded border border-rg-line p-3">
                 {editingId === requirement.id ? (
                   <form onSubmit={handleSaveEdit} className="flex flex-col gap-2">
                     <RequirementFields
@@ -262,7 +262,7 @@ export function FrameworkRequirementsEditor({
                         </Button>
                       </span>
                     </div>
-                    <p className="mt-1 whitespace-pre-line text-sm text-zinc-600 dark:text-zinc-400">
+                    <p className="mt-1 whitespace-pre-line text-sm text-rg-muted">
                       {requirement.text}
                     </p>
                   </>
@@ -283,7 +283,7 @@ export function FrameworkRequirementsEditor({
 
       <form
         onSubmit={handleCreate}
-        className="flex flex-col gap-2 border-t border-zinc-200 pt-4 dark:border-zinc-800"
+        className="flex flex-col gap-2 border-t border-rg-line pt-4"
       >
         <h2 className="text-base">Add a Requirement</h2>
         <RequirementFields

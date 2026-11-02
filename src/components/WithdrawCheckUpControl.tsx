@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { MAX_WITHDRAWAL_REASON_LENGTH, validateWithdrawal } from "@/lib/check-up-withdrawal-rules";
 
-const INPUT_CLASSES = "w-full rounded border border-zinc-200 p-2 text-sm dark:border-zinc-800 dark:bg-transparent";
+const INPUT_CLASSES = "w-full rounded border border-rg-control p-2 text-sm";
 
 /**
  * An Internal Auditor's withdrawal of a Check-up that has not been evaluated (PRD 0001 F-IA.8, #158):
@@ -74,7 +74,7 @@ export function WithdrawCheckUpControl({ checkUpId, label = "Withdraw" }: { chec
         />
       </label>
       {problems.length > 0 && (
-        <ul role="alert" className="list-disc pl-5 text-sm text-red-600">
+        <ul role="alert" className="list-disc pl-5 text-sm text-rg-danger">
           {problems.map((problem) => (
             <li key={problem}>{problem}</li>
           ))}

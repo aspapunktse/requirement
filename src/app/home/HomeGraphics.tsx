@@ -45,11 +45,11 @@ export function Icon({ name, size = 18 }: { name: HomeIconKey; size?: number }) 
 /** The icon and hue of a task's kind, as in the design's KIND badges. */
 export const KIND: Record<string, { icon: HomeIconKey; hue: string }> = {
   System: { icon: "system", hue: "var(--rg-accent)" },
-  Query: { icon: "query", hue: "#6c7fd8" },
+  Query: { icon: "query", hue: "var(--rg-info)" },
   Risk: { icon: "risk", hue: "var(--rg-danger)" },
   Control: { icon: "control", hue: "var(--rg-success)" },
-  "Check-up": { icon: "checkup", hue: "#b07a12" },
-  Audit: { icon: "audit", hue: "#8a5cc2" },
+  "Check-up": { icon: "checkup", hue: "var(--rg-caution)" },
+  Audit: { icon: "audit", hue: "var(--rg-audit)" },
 };
 export const kindOf = (kind: string) => KIND[kind] ?? { icon: "grid" as const, hue: "var(--rg-muted)" };
 

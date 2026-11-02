@@ -5,13 +5,9 @@
 
 .sl {
   --sl-wait: color-mix(in srgb, var(--rg-muted) 70%, var(--rg-surface));
-  --sl-waived: #7b6bb0;
+  --sl-waived: var(--rg-waived);
 }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .sl, :root:not([data-theme="light"]) .sl-drawer-root { --sl-waived: #a99be0; }
-}
-:root[data-theme="dark"] .sl, :root[data-theme="dark"] .sl-drawer-root { --sl-waived: #a99be0; }
-.sl-drawer-root { --sl-wait: color-mix(in srgb, var(--rg-muted) 70%, var(--rg-surface)); --sl-waived: #7b6bb0; --rg-line-soft: var(--hc-line-soft); }
+.sl-drawer-root { --sl-wait: color-mix(in srgb, var(--rg-muted) 70%, var(--rg-surface)); --sl-waived: var(--rg-waived); --rg-line-soft: var(--hc-line-soft); }
 
 /* Status colours: dots, stacked bars, ring legends */
 .sl-s-FULFILLED { background: var(--rg-success); }

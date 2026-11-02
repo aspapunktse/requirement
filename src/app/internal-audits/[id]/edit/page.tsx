@@ -8,22 +8,22 @@ export default async function EditInternalAuditPage({ params }: PageProps<"/inte
   const user = await getActingUser();
 
   if (!user) {
-    return <p className="p-6 text-zinc-600 dark:text-zinc-400">Pick a user to act as first.</p>;
+    return <p className="p-6 text-rg-muted">Pick a user to act as first.</p>;
   }
 
   if (!canWriteInternalAudits(user)) {
-    return <p className="p-6 text-zinc-600 dark:text-zinc-400">Only an Internal Auditor can edit an Internal Audit.</p>;
+    return <p className="p-6 text-rg-muted">Only an Internal Auditor can edit an Internal Audit.</p>;
   }
 
   const audit = await getInternalAudit(id);
 
   if (!audit) {
-    return <p className="p-6 text-zinc-600 dark:text-zinc-400">Internal Audit not found.</p>;
+    return <p className="p-6 text-rg-muted">Internal Audit not found.</p>;
   }
 
   const refusal = internalAuditEditRefusal(audit.status);
   if (refusal) {
-    return <p className="p-6 text-zinc-600 dark:text-zinc-400">{refusal}.</p>;
+    return <p className="p-6 text-rg-muted">{refusal}.</p>;
   }
 
   const [{ controls, systems }, filterOptions] = await Promise.all([listAuditChoices(), listSystemFilterOptions()]);

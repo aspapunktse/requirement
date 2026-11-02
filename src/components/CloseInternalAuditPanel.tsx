@@ -51,7 +51,7 @@ export function CloseInternalAuditPanel({
 
   const blocked = unfinished.length > 0;
   return (
-    <section className="mb-6 rounded border border-zinc-200 p-3 dark:border-zinc-800" aria-label="Close this Internal Audit">
+    <section className="mb-6 rounded border border-rg-line p-3" aria-label="Close this Internal Audit">
       <h2 className="mb-1 text-lg">Close this Internal Audit</h2>
       {blocked ? (
         <div className="mb-2 text-sm" data-testid="close-blockers">
@@ -68,7 +68,7 @@ export function CloseInternalAuditPanel({
         <p className="mb-2 text-sm">Every Check-up is evaluated or withdrawn, so this audit can be closed. Closing makes it read-only for everyone.</p>
       )}
       {problems.length > 0 && (
-        <ul role="alert" className="mb-2 list-disc pl-6 text-sm text-red-600">
+        <ul role="alert" className="mb-2 list-disc pl-6 text-sm text-rg-danger">
           {problems.map((problem) => (
             <li key={problem}>{problem}</li>
           ))}

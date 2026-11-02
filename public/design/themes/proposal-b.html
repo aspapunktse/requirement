@@ -185,7 +185,7 @@ SELECT * FROM controls WHERE met = 1;</div>
   radios($('modes'), (b) => { Appbar.setMode(b.dataset.mode); refresh(); focusBack('#modes [data-mode="' + b.dataset.mode + '"]'); say(b.querySelector('b').textContent + ' mode applied'); });
   $('reset').addEventListener('click', () => { Themes.set('register'); refresh(); say('Register theme applied'); });
 
-  Appbar.mount({ current: 'home', proposal: { label: 'B', siblings: [['A', 'proposal-a.html'], ['C', 'proposal-c.html']] },
+  Appbar.mount({ themePicker: false, current: 'home', proposal: { label: 'B', siblings: [['A', 'proposal-a.html'], ['C', 'proposal-c.html']] },
     items: () => Themes.list.map((x) => ({ group: 'Theme', label: x.name, sub: x.sans, icon: 'grid', run: () => { Themes.set(x.id); refresh(); } })) });
   addEventListener('themes:change', refresh);
   ThemeDemo.onMode(refresh);

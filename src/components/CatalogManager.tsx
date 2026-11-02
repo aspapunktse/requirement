@@ -126,22 +126,22 @@ export function CatalogManager({
 
   return (
     <div className="flex flex-col gap-6">
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-rg-danger">{error}</p>}
 
       <ul className="flex flex-col gap-3">
         {items.map((item) => {
           const draft = draftFor(item);
           return (
-            <li key={item.id} className="rounded border border-zinc-200 p-3 dark:border-zinc-800">
+            <li key={item.id} className="rounded border border-rg-line p-3">
               <input
                 aria-label={`Name for ${item.name}`}
-                className="w-full rounded border border-zinc-200 p-2 text-sm font-medium dark:border-zinc-800 dark:bg-transparent"
+                className="w-full rounded border border-rg-control p-2 text-sm font-medium"
                 value={draft.name}
                 onChange={(event) => updateDraft(item, { name: event.target.value })}
               />
               <textarea
                 aria-label={`Description for ${item.name}`}
-                className="mt-2 w-full rounded border border-zinc-200 p-2 text-sm dark:border-zinc-800 dark:bg-transparent"
+                className="mt-2 w-full rounded border border-rg-control p-2 text-sm"
                 value={draft.description}
                 onChange={(event) => updateDraft(item, { description: event.target.value })}
               />
@@ -158,13 +158,13 @@ export function CatalogManager({
 
       <form
         onSubmit={handleCreate}
-        className="flex flex-col gap-2 border-t border-zinc-200 pt-4 dark:border-zinc-800"
+        className="flex flex-col gap-2 border-t border-rg-line pt-4"
       >
         <h2 className="text-base">Add a {itemLabel}</h2>
         <input
           aria-label="Name"
           placeholder="Name"
-          className="rounded border border-zinc-200 p-2 text-sm dark:border-zinc-800 dark:bg-transparent"
+          className="rounded border border-rg-control p-2 text-sm"
           value={newName}
           onChange={(event) => setNewName(event.target.value)}
           required
@@ -172,7 +172,7 @@ export function CatalogManager({
         <textarea
           aria-label={`New ${itemLabel} description`}
           placeholder="Description (optional)"
-          className="rounded border border-zinc-200 p-2 text-sm dark:border-zinc-800 dark:bg-transparent"
+          className="rounded border border-rg-control p-2 text-sm"
           value={newDescription}
           onChange={(event) => setNewDescription(event.target.value)}
         />

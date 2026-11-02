@@ -256,13 +256,13 @@ export function ControlLibraryManager() {
 
   return (
     <div className="flex flex-col gap-6">
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-rg-danger">{error}</p>}
 
       <label className="flex items-center gap-2 text-sm">
         Show
         <select
           aria-label="Origin filter"
-          className="rounded border border-zinc-200 p-1 text-sm dark:border-zinc-800 dark:bg-transparent"
+          className="rounded border border-rg-control p-1 text-sm"
           value={originFilter}
           onChange={(event) => setOriginFilter(event.target.value as OriginFilter)}
         >
@@ -276,7 +276,7 @@ export function ControlLibraryManager() {
         Owner
         <select
           aria-label="Control Owner filter"
-          className="rounded border border-zinc-200 p-1 text-sm dark:border-zinc-800 dark:bg-transparent"
+          className="rounded border border-rg-control p-1 text-sm"
           value={ownerFilter}
           onChange={(event) => setOwnerFilter(event.target.value as OwnerFilter)}
         >
@@ -285,10 +285,10 @@ export function ControlLibraryManager() {
         </select>
       </label>
 
-      <div className="overflow-x-auto rounded border border-zinc-200 dark:border-zinc-800">
+      <div className="overflow-x-auto rounded border border-rg-line">
         <table className="w-full text-left text-sm">
           <thead>
-            <tr className="border-b border-zinc-200 dark:border-zinc-800">
+            <tr className="border-b border-rg-line">
               <th className="p-2 font-semibold">Code</th>
               <th className="p-2 font-semibold">Title</th>
               <th className="p-2 font-semibold">Satisfies</th>
@@ -308,9 +308,9 @@ export function ControlLibraryManager() {
                   {control.title}
                   <OriginBadge control={control} />
                 </td>
-                <td className="p-2 text-zinc-500">{satisfiesEntries(control.mappings).join(", ")}</td>
-                <td className="p-2 text-zinc-500">{control.owner?.name ?? "No Control Owner"}</td>
-                <td className="p-2 text-zinc-500">{summarizeTags(control)}</td>
+                <td className="p-2 text-rg-muted">{satisfiesEntries(control.mappings).join(", ")}</td>
+                <td className="p-2 text-rg-muted">{control.owner?.name ?? "No Control Owner"}</td>
+                <td className="p-2 text-rg-muted">{summarizeTags(control)}</td>
               </tr>
             ))}
           </tbody>
@@ -322,7 +322,7 @@ export function ControlLibraryManager() {
           Control
           <select
             aria-label="Control"
-            className="rounded border border-zinc-200 p-2 dark:border-zinc-800 dark:bg-transparent"
+            className="rounded border border-rg-control p-2"
             value={selectedId}
             onChange={(event) => selectControl(event.target.value)}
           >
@@ -342,7 +342,7 @@ export function ControlLibraryManager() {
       {creating && (
         <form
           onSubmit={handleCreate}
-          className="flex flex-col gap-2 rounded border border-zinc-200 p-4 dark:border-zinc-800"
+          className="flex flex-col gap-2 rounded border border-rg-line p-4"
         >
           <h3 className="text-sm font-semibold">New Control</h3>
           <NewControlFields draft={draft} onChange={(patch) => setDraft((prev) => ({ ...prev, ...patch }))} />
@@ -353,12 +353,12 @@ export function ControlLibraryManager() {
       )}
 
       {selected && (
-        <div className="flex flex-col gap-4 rounded border border-zinc-200 p-4 dark:border-zinc-800">
+        <div className="flex flex-col gap-4 rounded border border-rg-line p-4">
           <h3 className="text-sm font-semibold">
             {selected.code} — {selected.title}
           </h3>
 
-          <p className="text-sm text-zinc-500">
+          <p className="text-sm text-rg-muted">
             {satisfiesLabel(selected.mappings) ?? "Satisfies: no Framework Requirement yet"}
           </p>
 
@@ -374,7 +374,7 @@ export function ControlLibraryManager() {
                     >
                       {frameworkLabel(mapping.requirement.framework)} {mapping.requirement.code}
                     </Link>
-                    <span className="text-zinc-500">
+                    <span className="text-rg-muted">
                       {` — ${mapping.requirement.title} · ${mapping.coverage === "FULL" ? "Full" : "Partial"} coverage`}
                       {mapping.requirement.framework.status === "DRAFT" ? " · Draft Framework" : ""}
                     </span>
@@ -388,7 +388,7 @@ export function ControlLibraryManager() {
             Control Owner
             <select
               aria-label="Control Owner"
-              className="rounded border border-zinc-200 p-1 text-sm dark:border-zinc-800 dark:bg-transparent"
+              className="rounded border border-rg-control p-1 text-sm"
               value={selectedOwnerId}
               onChange={(event) => setSelectedOwnerId(event.target.value)}
             >
@@ -406,7 +406,7 @@ export function ControlLibraryManager() {
           </label>
 
           {selected.applicability === "ORGANIZATIONAL" ? (
-            <p className="text-sm text-zinc-500">
+            <p className="text-sm text-rg-muted">
               Organizational controls are never assessed per System, so they can&apos;t be
               scoped to Deployment Facets or Impact Level.
             </p>
@@ -439,7 +439,7 @@ export function ControlLibraryManager() {
                     {label}
                     <select
                       aria-label={label}
-                      className="rounded border border-zinc-200 p-1 text-sm dark:border-zinc-800 dark:bg-transparent"
+                      className="rounded border border-rg-control p-1 text-sm"
                       value={impactLevels[key] ?? ""}
                       onChange={(event) =>
                         setImpactLevels((prev) => ({

@@ -86,23 +86,23 @@ export function RiskRow({
   }
 
   return (
-    <li className="rounded border border-zinc-200 p-3 dark:border-zinc-800">
+    <li className="rounded border border-rg-line p-3">
       <div className="mb-1 flex items-center gap-2 font-medium">
         <span>{risk.title}</span>
         <StatusChip tone={riskStatusTone(risk.status)}>{risk.status}</StatusChip>
       </div>
-      <p className="text-sm text-zinc-500">{risk.description}</p>
-      <p className="text-xs text-zinc-500">
+      <p className="text-sm text-rg-muted">{risk.description}</p>
+      <p className="text-xs text-rg-muted">
         Severity: {risk.severity} · Likelihood: {risk.likelihood}
       </p>
       {risk.controlAssessment && (
-        <p className="text-xs text-zinc-500">
+        <p className="text-xs text-rg-muted">
           Originated from {risk.controlAssessment.control.code} —{" "}
           {risk.controlAssessment.control.title}
         </p>
       )}
       {risk.checkUp && (
-        <p className="text-xs text-zinc-500">
+        <p className="text-xs text-rg-muted">
           Opened by an Internal Audit Nonconformity
           {canOpenCheckUp && (
             <>
@@ -114,20 +114,20 @@ export function RiskRow({
           )}
         </p>
       )}
-      {risk.owner && <p className="text-xs text-zinc-500">Owner: {risk.owner.name}</p>}
+      {risk.owner && <p className="text-xs text-rg-muted">Owner: {risk.owner.name}</p>}
       {risk.mitigationPlan && (
-        <p className="text-xs text-zinc-500">Mitigation plan: {risk.mitigationPlan}</p>
+        <p className="text-xs text-rg-muted">Mitigation plan: {risk.mitigationPlan}</p>
       )}
 
       {canManageStatus && (
-        <div className="mt-2 flex flex-col gap-2 border-t border-zinc-200 pt-2 dark:border-zinc-800">
-          {error && <p className="text-sm text-red-600">{error}</p>}
+        <div className="mt-2 flex flex-col gap-2 border-t border-rg-line pt-2">
+          {error && <p className="text-sm text-rg-danger">{error}</p>}
 
           <label className="flex flex-col gap-1 text-sm">
             Status
             <select
               aria-label={`Status for ${risk.title}`}
-              className="rounded border border-zinc-200 p-2 dark:border-zinc-800 dark:bg-transparent"
+              className="rounded border border-rg-control p-2"
               value={status}
               onChange={(event) => setStatus(event.target.value as RiskStatus)}
             >
@@ -144,7 +144,7 @@ export function RiskRow({
               Owner
               <select
                 aria-label={`Owner for ${risk.title}`}
-                className="rounded border border-zinc-200 p-2 dark:border-zinc-800 dark:bg-transparent"
+                className="rounded border border-rg-control p-2"
                 value={ownerId}
                 onChange={(event) => setOwnerId(event.target.value)}
               >
@@ -162,7 +162,7 @@ export function RiskRow({
             {status === "MITIGATED" ? "Mitigation Plan (required)" : "Mitigation Plan (optional)"}
             <textarea
               aria-label={`Mitigation plan for ${risk.title}`}
-              className="rounded border border-zinc-200 p-2 dark:border-zinc-800 dark:bg-transparent"
+              className="rounded border border-rg-control p-2"
               value={mitigationPlan}
               onChange={(event) => setMitigationPlan(event.target.value)}
             />

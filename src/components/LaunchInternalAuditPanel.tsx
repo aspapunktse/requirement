@@ -70,7 +70,7 @@ export function LaunchInternalAuditPanel({
 
   if (launched) {
     return (
-      <section className="mb-6 rounded border border-zinc-200 p-3 dark:border-zinc-800" aria-label="Launch summary">
+      <section className="mb-6 rounded border border-rg-line p-3" aria-label="Launch summary">
         <h2 className="mb-1 text-lg">Launched</h2>
         <p className="mb-1 text-sm">{launched.summary}.</p>
         <SkippedList report={launched} />
@@ -82,14 +82,14 @@ export function LaunchInternalAuditPanel({
 
   const blocked = preview.blockers.length > 0;
   return (
-    <section className="mb-6 rounded border border-zinc-200 p-3 dark:border-zinc-800" aria-label="Launch preview">
+    <section className="mb-6 rounded border border-rg-line p-3" aria-label="Launch preview">
       <h2 className="mb-1 text-lg">Launch preview</h2>
       <p className="mb-1 text-sm">{blocked ? `If it could be launched now: ${preview.summary}.` : `Launching creates ${preview.summary}.`}</p>
       <SkippedList report={preview} />
       {blocked && (
         <div role="alert" className="mt-2 text-sm">
-          <p className="font-medium text-red-600">Launch is blocked:</p>
-          <ul className="list-disc pl-6 text-red-600">
+          <p className="font-medium text-rg-danger">Launch is blocked:</p>
+          <ul className="list-disc pl-6 text-rg-danger">
             {preview.blockers.map((blocker) => (
               <li key={blocker.message}>{blocker.message}</li>
             ))}
@@ -97,7 +97,7 @@ export function LaunchInternalAuditPanel({
         </div>
       )}
       {error.length > 0 && (
-        <ul role="alert" className="mt-2 list-disc pl-6 text-sm text-red-600">
+        <ul role="alert" className="mt-2 list-disc pl-6 text-sm text-rg-danger">
           {error.map((problem) => (
             <li key={problem}>{problem}</li>
           ))}

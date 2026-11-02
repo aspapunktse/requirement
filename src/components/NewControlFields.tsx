@@ -45,7 +45,7 @@ export function newControlBody(draft: NewControlDraft) {
   };
 }
 
-const INPUT_CLASS = "rounded border border-zinc-200 p-2 text-sm dark:border-zinc-800 dark:bg-transparent";
+const INPUT_CLASS = "rounded border border-rg-control p-2 text-sm";
 
 /**
  * The form fields for authoring a Control, shared by the Control Library's
@@ -106,7 +106,7 @@ export function NewControlFields({
         Applicability
         <select
           aria-label="Applicability"
-          className="rounded border border-zinc-200 p-2 dark:border-zinc-800 dark:bg-transparent"
+          className="rounded border border-rg-control p-2"
           value={draft.applicability}
           onChange={(event) => onChange({ applicability: event.target.value as ControlApplicability })}
         >

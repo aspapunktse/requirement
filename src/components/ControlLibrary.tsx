@@ -15,36 +15,36 @@ const IMPACT_AXES = [
   { key: "minAvailabilityImpactLevel", label: "Min. Availability" },
 ] as const;
 
-const selectClass = "rounded border border-zinc-200 p-1 text-sm dark:border-zinc-800 dark:bg-transparent";
+const selectClass = "rounded border border-rg-control p-1 text-sm";
 
 /** "Draft Framework" marks only appear for a viewer who can see Drafts (the server never sends them otherwise). */
 function ControlDetail({ control }: { control: ControlLibraryRow }) {
   const thresholds = IMPACT_AXES.filter(({ key }) => control[key]).map(({ key, label }) => `${label}: ${control[key]}`);
   return (
-    <div className="flex flex-col gap-3 border-t border-zinc-100 p-3 text-sm dark:border-zinc-900">
+    <div className="flex flex-col gap-3 border-t border-rg-line p-3 text-sm">
       <p>{control.description}</p>
 
       <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1">
-        <dt className="text-zinc-500">Category</dt>
+        <dt className="text-rg-muted">Category</dt>
         <dd>{control.category}</dd>
-        <dt className="text-zinc-500">Applicability</dt>
+        <dt className="text-rg-muted">Applicability</dt>
         <dd>{APPLICABILITY_LABEL[control.applicability]}</dd>
-        <dt className="text-zinc-500">Mandatory</dt>
+        <dt className="text-rg-muted">Mandatory</dt>
         <dd>{control.mandatory ? "Mandatory" : "Not mandatory"}</dd>
-        <dt className="text-zinc-500">Control Owner</dt>
+        <dt className="text-rg-muted">Control Owner</dt>
         <dd>{control.ownerName ?? "No Control Owner"}</dd>
-        <dt className="text-zinc-500">Origin</dt>
+        <dt className="text-rg-muted">Origin</dt>
         <dd>{control.origin ? `Supplementary, authored for ${control.origin.label}${control.origin.draft ? " (Draft Framework)" : ""}` : "Base Control"}</dd>
         {control.applicability === "ORGANIZATIONAL" ? (
           <>
-            <dt className="text-zinc-500">Scoping</dt>
+            <dt className="text-rg-muted">Scoping</dt>
             <dd>Organizational Controls are not scoped to Deployment Facets or Impact Levels.</dd>
           </>
         ) : (
           <>
-            <dt className="text-zinc-500">Deployment Facets</dt>
+            <dt className="text-rg-muted">Deployment Facets</dt>
             <dd>{control.deploymentFacets.length > 0 ? control.deploymentFacets.join(", ") : "Applies regardless"}</dd>
-            <dt className="text-zinc-500">Impact Levels</dt>
+            <dt className="text-rg-muted">Impact Levels</dt>
             <dd>{thresholds.length > 0 ? thresholds.join(", ") : "Applies regardless"}</dd>
           </>
         )}
@@ -54,9 +54,9 @@ function ControlDetail({ control }: { control: ControlLibraryRow }) {
         <div>
           <h3 className="font-semibold">Self-Assessment Question</h3>
           <p>{control.question}</p>
-          {control.intent && <p className="mt-1 text-zinc-500">Intent: {control.intent}</p>}
+          {control.intent && <p className="mt-1 text-rg-muted">Intent: {control.intent}</p>}
           {control.examples.length > 0 && (
-            <ul aria-label={`Examples for ${control.code}`} className="mt-1 list-disc pl-5 text-zinc-500">
+            <ul aria-label={`Examples for ${control.code}`} className="mt-1 list-disc pl-5 text-rg-muted">
               {control.examples.map((example) => (
                 <li key={example}>{example}</li>
               ))}
@@ -68,7 +68,7 @@ function ControlDetail({ control }: { control: ControlLibraryRow }) {
       <div>
         <h3 className="font-semibold">Mapped Requirements</h3>
         {control.mappings.length === 0 ? (
-          <p className="text-zinc-500">No Framework Requirement yet.</p>
+          <p className="text-rg-muted">No Framework Requirement yet.</p>
         ) : (
           <ul aria-label={`Requirements mapped to ${control.code}`} className="flex flex-col gap-1">
             {control.mappings.map((mapping) => (
@@ -76,7 +76,7 @@ function ControlDetail({ control }: { control: ControlLibraryRow }) {
                 <Link href={`/frameworks/${mapping.framework.id}/coverage`} className="text-ems-blue hover:underline">
                   {mapping.framework.label} {mapping.requirementCode}
                 </Link>
-                <span className="text-zinc-500">
+                <span className="text-rg-muted">
                   {` — ${mapping.requirementTitle} · ${mapping.coverage === "FULL" ? "Full" : "Partial"} Coverage`}
                   {mapping.draft ? " · Draft Framework" : ""}
                 </span>
@@ -116,7 +116,7 @@ export function ControlLibrary({ rows }: { rows: ControlLibraryRow[] }) {
             type="search"
             aria-label="Search Controls"
             placeholder="Code or title"
-            className="rounded border border-zinc-200 p-1 text-sm dark:border-zinc-800 dark:bg-transparent"
+            className="rounded border border-rg-control p-1 text-sm"
             value={text}
             onChange={(event) => setText(event.target.value)}
           />
@@ -150,16 +150,16 @@ export function ControlLibrary({ rows }: { rows: ControlLibraryRow[] }) {
         </label>
       </div>
 
-      <p className="text-sm text-zinc-500" aria-live="polite">
+      <p className="text-sm text-rg-muted" aria-live="polite">
         Showing {visible.length} of {rows.length} Controls
       </p>
 
       {visible.length === 0 ? (
-        <p className="text-sm text-zinc-500">No Controls match.</p>
+        <p className="text-sm text-rg-muted">No Controls match.</p>
       ) : (
         <ul className="flex flex-col gap-2">
           {visible.map((control) => (
-            <li key={control.id} className="rounded border border-zinc-200 dark:border-zinc-800">
+            <li key={control.id} className="rounded border border-rg-line">
               <details>
                 <summary className="flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-1 p-2 text-sm">
                   <span className="whitespace-nowrap font-medium">{control.code}</span>

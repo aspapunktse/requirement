@@ -6,12 +6,12 @@ export default async function BusinessRiskOwnerPage() {
   const user = await getActingUser();
 
   if (!user) {
-    return <p className="p-6 text-zinc-600 dark:text-zinc-400">Pick a user to act as first.</p>;
+    return <p className="p-6 text-rg-muted">Pick a user to act as first.</p>;
   }
 
   if (user.role !== "BUSINESS_RISK_OWNER" && user.role !== "ADMIN") {
     return (
-      <p className="p-6 text-zinc-600 dark:text-zinc-400">
+      <p className="p-6 text-rg-muted">
         Only Business Risk Owners and Admins can view this dashboard.
       </p>
     );
@@ -25,7 +25,7 @@ export default async function BusinessRiskOwnerPage() {
   return (
     <div className="mx-auto max-w-2xl p-6">
       <h1 className="mb-1 text-2xl">Business Risk Owner Dashboard</h1>
-      <p className="mb-4 text-sm text-zinc-500">
+      <p className="mb-4 text-sm text-rg-muted">
         Compliance percentage (Requirements met, per Framework), System portfolio, and Risks for Systems within your assigned Business Unit(s) and
         Framework(s).
       </p>

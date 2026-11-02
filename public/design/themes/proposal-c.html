@@ -215,7 +215,7 @@
   ThemeDemo.onMode(refresh);
   if (document.fonts) { document.fonts.addEventListener('loadingdone', scheduleCheck); document.fonts.ready.then(scheduleCheck); }
 
-  Appbar.mount({ current: 'systems', proposal: { label: 'C', siblings: [['A', 'proposal-a.html'], ['B', 'proposal-b.html']] },
+  Appbar.mount({ themePicker: false, current: 'systems', proposal: { label: 'C', siblings: [['A', 'proposal-a.html'], ['B', 'proposal-b.html']] },
     items: () => Themes.list.map((x) => ({ group: 'Theme', label: x.name, sub: x.sans, icon: 'grid', run: () => Themes.set(x.id) })) });
   refresh(); setView('side');
 })();

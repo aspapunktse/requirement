@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { UserRole } from "@prisma/client";
 import { usePagePalette } from "@/components/PaletteProvider";
 import { AppHeader } from "../AppHeader";
+import { PALETTE_KEY, resetPaletteStateForTests } from "@/lib/palette";
 import { withHeader } from "./with-header";
 
 let pathname = "/home";
@@ -356,6 +357,11 @@ describe("AppHeader: Ctrl+K palette", () => {
       "Check-ups",
       "Statement of Applicability",
       "Frameworks",
+      "Theme: Register",
+      "Theme: High contrast",
+      "Theme: Parchment",
+      "Theme: Slate",
+      "Theme: Forest",
     ]);
     expect(within(dialogs[0]).getByText("Go to")).toBeInTheDocument();
     await user.type(within(dialogs[0]).getByRole("combobox"), "framew");
@@ -383,12 +389,12 @@ describe("AppHeader: Ctrl+K palette", () => {
     const dialog = screen.getByRole("dialog");
     const options = within(dialog).getAllByRole("option");
     expect(options[0]).toHaveTextContent("Review the cloud policy");
-    expect(options).toHaveLength(7);
+    expect(options).toHaveLength(12);
     expect(within(dialog).getByRole("combobox")).toHaveAttribute("placeholder", "Jump to a task…");
     const groups = within(dialog)
-      .getAllByText(/^(Tasks|Go to)$/)
+      .getAllByText(/^(Tasks|Go to|Theme)$/)
       .map((el) => el.textContent);
-    expect(groups).toEqual(["Tasks", "Go to"]);
+    expect(groups).toEqual(["Tasks", "Go to", "Theme"]);
   });
 
   it("hands a page item to the page's own handler, and a Go to page to the router", async () => {
@@ -457,7 +463,7 @@ describe("AppHeader: Ctrl+K palette", () => {
     const labels = within(screen.getByRole("dialog"))
       .getAllByRole("option")
       .map((o) => o.querySelector("span")?.textContent);
-    expect(labels).toEqual(["Home", "Controls", "Check-ups", "Statement of Applicability", "Frameworks"]);
+    expect(labels.filter((label) => !label?.startsWith("Theme: "))).toEqual(["Home", "Controls", "Check-ups", "Statement of Applicability", "Frameworks"]);
   });
 
   it("lists the Admin pages under Go to for an Admin only", async () => {
@@ -476,20 +482,20 @@ describe("AppHeader: Ctrl+K palette", () => {
   });
 });
 
-describe("AppHeader theme switch", () => {
-  it("offers the theme switch next to the acting user", () => {
+describe("AppHeader mode switch", () => {
+  it("offers the mode switch next to the acting user", () => {
     pathname = "/home";
     stubFetch();
     render(<AppHeader devStub={false} user={acting} />);
-    expect(screen.getAllByRole("group", { name: "Theme" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("group", { name: "Mode" }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole("button", { name: "Dark" }).length).toBeGreaterThan(0);
   });
 
-  it("hides the bar copy of the switch on narrow screens, with no display class that would beat `hidden`", () => {
+  it("hides the bar copy of the mode switch on narrow screens, with no display class that would beat `hidden`", () => {
     pathname = "/home";
     stubFetch();
     render(<AppHeader devStub={false} user={acting} />);
-    const group = screen.getAllByRole("group", { name: "Theme" })[0];
+    const group = screen.getAllByRole("group", { name: "Mode" })[0];
     const classes = group.className.split(/\s+/);
     expect(classes).toContain("hidden");
     expect(classes).toContain("sm:inline-flex");
@@ -497,16 +503,65 @@ describe("AppHeader theme switch", () => {
     expect(classes).not.toContain("flex");
   });
 
-  it("stacks the Theme row in the Go to menu so it fits a narrow panel", async () => {
+  it("stacks the Mode row in the Go to menu so it fits a narrow panel", async () => {
     pathname = "/home";
     stubFetch();
     render(<AppHeader devStub={false} user={acting} />);
     await userEvent.setup().click(screen.getByRole("button", { name: /Home/ }));
-    const groups = screen.getAllByRole("group", { name: "Theme" });
+    const groups = screen.getAllByRole("group", { name: "Mode" });
     expect(groups).toHaveLength(2);
     const inMenu = groups.find((group) => group.className.includes("w-full"))!;
     expect(inMenu.className).toContain("w-full");
     expect(inMenu.parentElement?.className).toContain("grid");
     expect(inMenu.parentElement?.className).not.toContain("justify-between");
+  });
+});
+
+describe("AppHeader theme menu", () => {
+  beforeEach(() => {
+    pathname = "/home";
+    stubFetch();
+    window.localStorage.clear();
+    resetPaletteStateForTests();
+    document.documentElement.removeAttribute("data-palette");
+  });
+  afterEach(() => document.documentElement.removeAttribute("data-palette"));
+
+  it("puts the Theme button beside the Mode switch, hidden below 640px like the Mode copy", () => {
+    render(<AppHeader devStub={false} user={acting} />);
+    const button = screen.getByRole("button", { name: "Theme" });
+    const classes = button.className.split(/\s+/);
+    expect(classes).toContain("hidden");
+    expect(classes).toContain("sm:inline-flex");
+    const mode = screen.getAllByRole("group", { name: "Mode" })[0];
+    expect(button.compareDocumentPosition(mode) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("opens from the Go to menu on narrow screens, closing the menu", async () => {
+    const user = userEvent.setup();
+    render(<AppHeader devStub={false} user={acting} />);
+    await user.click(screen.getByRole("button", { name: /Home/ }));
+    await user.click(screen.getByRole("button", { name: "Register" }));
+    expect(screen.getByRole("dialog", { name: "Theme" })).toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "Go to" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("radio", { name: /^Forest/ }));
+    expect(document.documentElement).toHaveAttribute("data-palette", "forest");
+  });
+
+  it("lists the themes in the Ctrl+K palette as Theme commands and applies one in place", async () => {
+    const user = userEvent.setup();
+    render(withHeader(null, acting));
+    await user.keyboard("{Control>}k{/Control}");
+    const dialog = screen.getByRole("dialog", { name: "Jump to" });
+    const labels = within(dialog).getAllByRole("option").map((option) => option.textContent);
+    expect(labels).toEqual(expect.arrayContaining([expect.stringContaining("Theme: Register"), expect.stringContaining("Theme: High contrast"), expect.stringContaining("Theme: Slate")]));
+    expect(within(dialog).getByRole("option", { name: /Theme: Register/ })).toHaveTextContent("Current");
+
+    await user.type(within(dialog).getByRole("combobox"), "theme: par");
+    await user.keyboard("{Enter}");
+    expect(push).not.toHaveBeenCalled();
+    expect(document.documentElement).toHaveAttribute("data-palette", "parchment");
+    expect(window.localStorage.getItem(PALETTE_KEY)).toBe("parchment");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 });

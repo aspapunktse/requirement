@@ -80,7 +80,7 @@ export function AddToInternalAuditDialog({
 
   return (
     <>
-      <div className="fixed inset-0 z-50 bg-black/40" onClick={dismiss} aria-hidden="true" />
+      <div className="fixed inset-0 z-50 bg-rg-scrim" onClick={dismiss} aria-hidden="true" />
       <form
         role="dialog"
         aria-modal="true"

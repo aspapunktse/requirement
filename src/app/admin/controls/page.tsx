@@ -7,12 +7,12 @@ export default async function ControlLibraryPage() {
   const user = await getActingUser();
 
   if (!user) {
-    return <p className="p-6 text-zinc-600 dark:text-zinc-400">Pick a user to act as first.</p>;
+    return <p className="p-6 text-rg-muted">Pick a user to act as first.</p>;
   }
 
   if (!ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE.includes(user.role)) {
     return (
-      <p className="p-6 text-zinc-600 dark:text-zinc-400">
+      <p className="p-6 text-rg-muted">
         Only Compliance Managers and Admins can author Controls and map them to Deployment
         Facets and Impact Levels.{" "}
         <Link href="/controls" className="text-ems-blue hover:underline">

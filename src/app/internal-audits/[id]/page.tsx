@@ -40,17 +40,17 @@ export default async function InternalAuditPage({ params }: PageProps<"/internal
   const user = await getActingUser();
 
   if (!user) {
-    return <p className="p-6 text-zinc-600 dark:text-zinc-400">Pick a user to act as first.</p>;
+    return <p className="p-6 text-rg-muted">Pick a user to act as first.</p>;
   }
 
   if (!canReadInternalAudits(user)) {
-    return <p className="p-6 text-zinc-600 dark:text-zinc-400">Internal Audits are not available to your role.</p>;
+    return <p className="p-6 text-rg-muted">Internal Audits are not available to your role.</p>;
   }
 
   const audit = await getInternalAudit(id);
 
   if (!audit) {
-    return <p className="p-6 text-zinc-600 dark:text-zinc-400">Internal Audit not found.</p>;
+    return <p className="p-6 text-rg-muted">Internal Audit not found.</p>;
   }
 
   const canEdit = canWriteInternalAudits(user) && internalAuditEditRefusal(audit.status) === null;
@@ -87,7 +87,7 @@ export default async function InternalAuditPage({ params }: PageProps<"/internal
       <div className="mb-4 flex items-start justify-between gap-4">
         <div>
           <h1 className="mb-2 text-2xl">{audit.title}</h1>
-          <div className="flex flex-wrap items-center gap-3 text-sm text-zinc-500">
+          <div className="flex flex-wrap items-center gap-3 text-sm text-rg-muted">
             <StatusChip tone={internalAuditStatusTone(audit.status)}>{INTERNAL_AUDIT_STATUS_LABEL[audit.status]}</StatusChip>
             <span>Due {audit.dueDate}</span>
             <span>Created by {audit.createdBy.name}</span>
@@ -104,17 +104,17 @@ export default async function InternalAuditPage({ params }: PageProps<"/internal
       </div>
 
       {isDraft && (
-        <p className="mb-4 text-sm text-zinc-500">This is a draft: nothing has been sent to anyone, and no Check-up exists.</p>
+        <p className="mb-4 text-sm text-rg-muted">This is a draft: nothing has been sent to anyone, and no Check-up exists.</p>
       )}
       {audit.launchedAt && (
-        <p className="mb-4 text-sm text-zinc-500">
+        <p className="mb-4 text-sm text-rg-muted">
           Launched {audit.launchedAt.slice(0, 10)}
           {audit.launchedBy ? ` by ${audit.launchedBy.name}` : ""}. Its Controls, Systems and questions can no longer be changed.
         </p>
       )}
 
       {audit.closedAt && (
-        <p className="mb-4 text-sm text-zinc-500">
+        <p className="mb-4 text-sm text-rg-muted">
           Closed {audit.closedAt.slice(0, 10)}
           {audit.closedBy ? ` by ${audit.closedBy.name}` : ""}. The audit, its Check-ups, responses, evaluations and withdrawals are read-only for everyone.
         </p>
@@ -138,13 +138,13 @@ export default async function InternalAuditPage({ params }: PageProps<"/internal
 
       <section className="mb-6">
         <h2 className="mb-1 text-lg">Scope</h2>
-        <p className="text-sm">{audit.scopeDescription || <span className="text-zinc-500">No scope description.</span>}</p>
+        <p className="text-sm">{audit.scopeDescription || <span className="text-rg-muted">No scope description.</span>}</p>
       </section>
 
       <section className="mb-6">
         <h2 className="mb-1 text-lg">Controls ({audit.controls.length})</h2>
         {audit.controls.length === 0 ? (
-          <p className="text-sm text-zinc-500">No Controls. Edit the draft to pick some.</p>
+          <p className="text-sm text-rg-muted">No Controls. Edit the draft to pick some.</p>
         ) : (
           <ul className="flex flex-col gap-1 text-sm">
             {audit.controls.map((control) => (
@@ -159,7 +159,7 @@ export default async function InternalAuditPage({ params }: PageProps<"/internal
       {isDraft && audit.controls.length > 0 && (
         <section className="mb-6">
           <h2 className="mb-1 text-lg">Questions</h2>
-          <p className="mb-2 text-sm text-zinc-500">
+          <p className="mb-2 text-sm text-rg-muted">
             Each Check-up carries a copy of its Control&apos;s questions. A Control starts with its Self-Assessment Question as it was
             when the Control was added to this draft (later edits to the Control don&apos;t change it); a Control without one needs a question
             written before launch.
@@ -173,7 +173,7 @@ export default async function InternalAuditPage({ params }: PageProps<"/internal
                 {canEdit ? (
                   <DraftQuestionsEditor internalAuditId={audit.id} control={control} initialQuestions={control.questions} />
                 ) : control.questions.length === 0 ? (
-                  <p className="text-sm text-zinc-500">No question yet.</p>
+                  <p className="text-sm text-rg-muted">No question yet.</p>
                 ) : (
                   <ol className="list-decimal pl-6 text-sm">
                     {control.questions.map((question, index) => (
@@ -190,11 +190,11 @@ export default async function InternalAuditPage({ params }: PageProps<"/internal
       {!isDraft && (
         <section className="mb-6">
           <h2 className="mb-1 text-lg">Check-ups ({checkUps.length} sent)</h2>
-          <p className="mb-2 text-sm text-zinc-500" data-testid="check-up-progress">
+          <p className="mb-2 text-sm text-rg-muted" data-testid="check-up-progress">
             {progress.sent} sent, {progress.answered} answered, {progress.evaluated} evaluated, {progress.withdrawn} withdrawn, {progress.overdue} overdue
           </p>
           {progress.awaitingEvaluation > 0 && (
-            <p className="mb-2 text-sm text-zinc-500" data-testid="check-up-awaiting-evaluation">
+            <p className="mb-2 text-sm text-rg-muted" data-testid="check-up-awaiting-evaluation">
               {progress.awaitingEvaluation} awaiting evaluation.{" "}
               {nextToEvaluate && (
                 <Link className="underline" href={`/check-ups/${nextToEvaluate.id}`}>
@@ -204,11 +204,11 @@ export default async function InternalAuditPage({ params }: PageProps<"/internal
             </p>
           )}
           {checkUps.length === 0 ? (
-            <p className="text-sm text-zinc-500">No Check-ups.</p>
+            <p className="text-sm text-rg-muted">No Check-ups.</p>
           ) : (
             <table className="w-full text-left text-sm">
               <thead>
-                <tr className="border-b border-zinc-200 dark:border-zinc-800">
+                <tr className="border-b border-rg-line">
                   <th className="py-2 pr-4 font-medium">Control</th>
                   <th className="py-2 pr-4 font-medium">Target</th>
                   <th className="py-2 pr-4 font-medium">Recipient</th>
@@ -219,7 +219,7 @@ export default async function InternalAuditPage({ params }: PageProps<"/internal
               </thead>
               <tbody>
                 {checkUps.map((checkUp) => (
-                  <tr key={checkUp.id} className="border-b border-zinc-100 align-top dark:border-zinc-900">
+                  <tr key={checkUp.id} className="border-b border-rg-line align-top">
                     <td className="py-2 pr-4">
                       <span className="font-medium">{checkUp.control.code}</span> {checkUp.control.title}
                     </td>
@@ -232,13 +232,13 @@ export default async function InternalAuditPage({ params }: PageProps<"/internal
                         "Organization"
                       )}
                     </td>
-                    <td className="py-2 pr-4">{checkUp.recipient ? checkUp.recipient.name : <span className="text-zinc-500">No Control Owner</span>}</td>
+                    <td className="py-2 pr-4">{checkUp.recipient ? checkUp.recipient.name : <span className="text-rg-muted">No Control Owner</span>}</td>
                     <td className="py-2 pr-4">
                       <Link className="underline" href={`/check-ups/${checkUp.id}`}>
                         {checkUp.answered ? "Answered: read the response" : "Not answered"}
                       </Link>
                       {checkUp.response && (
-                        <p className="text-zinc-500">
+                        <p className="text-rg-muted">
                           {checkUp.response.respondedByName}, {checkUp.response.respondedAt.slice(0, 10)}
                         </p>
                       )}
@@ -248,7 +248,7 @@ export default async function InternalAuditPage({ params }: PageProps<"/internal
                       {checkUp.withdrawal ? (
                         <>
                           <StatusChip tone="neutral">Withdrawn</StatusChip>
-                          <p className="text-zinc-500">
+                          <p className="text-rg-muted">
                             {checkUp.withdrawal.withdrawnByName}, {checkUp.withdrawal.withdrawnAt.slice(0, 10)}
                           </p>
                           <p className="whitespace-pre-wrap">{checkUp.withdrawal.reason}</p>
@@ -256,7 +256,7 @@ export default async function InternalAuditPage({ params }: PageProps<"/internal
                       ) : checkUp.evaluation ? (
                         <>
                           <StatusChip tone={checkUpOutcomeTone(checkUp.evaluation.outcome)}>{CHECK_UP_OUTCOME_LABEL[checkUp.evaluation.outcome]}</StatusChip>
-                          <p className="text-zinc-500">
+                          <p className="text-rg-muted">
                             {checkUp.evaluation.evaluatedByName}, {checkUp.evaluation.evaluatedAt.slice(0, 10)}
                           </p>
                         </>
@@ -265,7 +265,7 @@ export default async function InternalAuditPage({ params }: PageProps<"/internal
                           Awaiting evaluation
                         </Link>
                       ) : (
-                        <span className="text-zinc-500">-</span>
+                        <span className="text-rg-muted">-</span>
                       )}
                       {canWithdraw && !checkUp.evaluated && !checkUp.withdrawn && (
                         <div className="mt-1">
@@ -294,7 +294,7 @@ export default async function InternalAuditPage({ params }: PageProps<"/internal
       <section className="mb-6">
         <h2 className="mb-1 text-lg">Systems ({audit.systems.length})</h2>
         {audit.systems.length === 0 ? (
-          <p className="text-sm text-zinc-500">No Systems picked.</p>
+          <p className="text-sm text-rg-muted">No Systems picked.</p>
         ) : (
           <ul className="flex flex-col gap-1 text-sm">
             {audit.systems.map((system) => (

@@ -38,7 +38,7 @@ type Draft = {
   onboardingHint: string;
 };
 
-const INPUT_CLASS = "rounded border border-zinc-200 p-2 text-sm dark:border-zinc-800 dark:bg-transparent";
+const INPUT_CLASS = "rounded border border-rg-control p-2 text-sm";
 
 async function fetchFrameworks(): Promise<FrameworkRow[]> {
   const response = await fetch("/api/frameworks");
@@ -154,7 +154,7 @@ export function FrameworkManager({ initialFrameworks }: { initialFrameworks: Fra
   return (
     <div className="flex flex-col gap-6">
       {error && (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="text-sm text-rg-danger">
           {error}
         </p>
       )}
@@ -164,14 +164,14 @@ export function FrameworkManager({ initialFrameworks }: { initialFrameworks: Fra
           const draft = draftFor(item);
           const label = frameworkLabel(item);
           return (
-            <li key={item.id} className="rounded border border-zinc-200 p-3 dark:border-zinc-800">
+            <li key={item.id} className="rounded border border-rg-line p-3">
               <div className="mb-2 flex flex-wrap items-center gap-2 text-sm">
                 <span className="font-medium">{label}</span>
                 <StatusChip tone={item.status === "PUBLISHED" ? "success" : "warn"}>
                   {item.status === "PUBLISHED" ? "Published" : "Draft"}
                 </StatusChip>
                 {item.isBase && <StatusChip tone="accent">Base Framework</StatusChip>}
-                <span className="text-xs text-zinc-500">
+                <span className="text-xs text-rg-muted">
                   {`${item._count?.requirements ?? 0} Requirements`}
                 </span>
                 <span className="ml-auto flex gap-3">
@@ -216,7 +216,7 @@ export function FrameworkManager({ initialFrameworks }: { initialFrameworks: Fra
                 />
               </div>
               <div className="mt-2 flex flex-wrap gap-2">
-                <label className="flex flex-1 flex-col gap-1 text-xs text-zinc-500">
+                <label className="flex flex-1 flex-col gap-1 text-xs text-rg-muted">
                   Supersedes
                   <select
                     aria-label={`Supersedes for ${label}`}
@@ -234,7 +234,7 @@ export function FrameworkManager({ initialFrameworks }: { initialFrameworks: Fra
                       ))}
                   </select>
                 </label>
-                <label className="flex flex-1 flex-col gap-1 text-xs text-zinc-500">
+                <label className="flex flex-1 flex-col gap-1 text-xs text-rg-muted">
                   Licensing
                   <select
                     aria-label={`Licensing for ${label}`}
@@ -255,7 +255,7 @@ export function FrameworkManager({ initialFrameworks }: { initialFrameworks: Fra
               />
               {!item.isBase && (
                 <div className="mt-2 flex flex-col gap-2">
-                  <label className="flex flex-col gap-1 text-xs text-zinc-500">
+                  <label className="flex flex-col gap-1 text-xs text-rg-muted">
                     Onboarding question (asked as Yes/No when onboarding a System; leave blank for none)
                     <input
                       aria-label={`Onboarding question for ${label}`}
@@ -267,7 +267,7 @@ export function FrameworkManager({ initialFrameworks }: { initialFrameworks: Fra
                     />
                   </label>
                   {draft.onboardingQuestion.trim() && (
-                    <label className="flex flex-col gap-1 text-xs text-zinc-500">
+                    <label className="flex flex-col gap-1 text-xs text-rg-muted">
                       Onboarding hint
                       <input
                         aria-label={`Onboarding hint for ${label}`}
@@ -280,7 +280,7 @@ export function FrameworkManager({ initialFrameworks }: { initialFrameworks: Fra
                     </label>
                   )}
                   {item.status === "DRAFT" && draft.onboardingQuestion.trim() && (
-                    <p className="text-xs text-zinc-500">Not asked until this Framework is published.</p>
+                    <p className="text-xs text-rg-muted">Not asked until this Framework is published.</p>
                   )}
                 </div>
               )}
@@ -314,11 +314,11 @@ export function FrameworkManager({ initialFrameworks }: { initialFrameworks: Fra
         })}
       </ul>
 
-      <p className="border-t border-zinc-200 pt-4 text-sm dark:border-zinc-800">
+      <p className="border-t border-rg-line pt-4 text-sm">
         <Link href="/frameworks/new" className="text-ems-blue hover:underline">
           Add a Framework &rarr;
         </Link>{" "}
-        <span className="text-xs text-zinc-500">New Frameworks start as a Draft, visible only to Compliance Managers and Admins.</span>
+        <span className="text-xs text-rg-muted">New Frameworks start as a Draft, visible only to Compliance Managers and Admins.</span>
       </p>
     </div>
   );

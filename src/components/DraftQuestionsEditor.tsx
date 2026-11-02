@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { validateQuestionList } from "@/lib/check-up-rules";
 
-const INPUT_CLASSES = "w-full rounded border border-zinc-200 p-2 text-sm dark:border-zinc-800 dark:bg-transparent";
+const INPUT_CLASSES = "w-full rounded border border-rg-control p-2 text-sm";
 
 /**
  * The questions of one target Control of a draft Internal Audit (PRD 0001 F-IA.2, #154): edit,
@@ -66,7 +66,7 @@ export function DraftQuestionsEditor({
 
   return (
     <div className="flex flex-col gap-2">
-      {questions.length === 0 && <p className="text-sm text-zinc-500">No question yet: write at least one before launching.</p>}
+      {questions.length === 0 && <p className="text-sm text-rg-muted">No question yet: write at least one before launching.</p>}
       {questions.map((text, index) => (
         <div key={index} className="flex items-start gap-2">
           <textarea
@@ -94,7 +94,7 @@ export function DraftQuestionsEditor({
         </div>
       ))}
       {problems.length > 0 && (
-        <ul role="alert" className="list-disc pl-5 text-sm text-red-600">
+        <ul role="alert" className="list-disc pl-5 text-sm text-rg-danger">
           {problems.map((problem) => (
             <li key={problem}>{problem}</li>
           ))}
@@ -105,7 +105,7 @@ export function DraftQuestionsEditor({
         <Button variant="secondary" disabled={busy} onClick={save} aria-label={`Save questions for ${control.code}`}>
           Save questions
         </Button>
-        {saved && <span className="text-sm text-zinc-500">Saved</span>}
+        {saved && <span className="text-sm text-rg-muted">Saved</span>}
       </div>
     </div>
   );

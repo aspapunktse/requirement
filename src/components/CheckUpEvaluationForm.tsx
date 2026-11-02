@@ -12,7 +12,7 @@ import {
   validateEvaluation,
 } from "@/lib/check-up-evaluation-rules";
 
-const INPUT_CLASSES = "w-full rounded border border-zinc-200 p-2 text-sm dark:border-zinc-800 dark:bg-transparent";
+const INPUT_CLASSES = "w-full rounded border border-rg-control p-2 text-sm";
 
 /**
  * An Internal Auditor's evaluation of an answered Check-up (PRD 0001 F-IA.6, #156): Conforming,
@@ -64,7 +64,7 @@ export function CheckUpEvaluationForm({ checkUpId }: { checkUpId: string }) {
         void submit();
       }}
     >
-      <p className="text-sm text-zinc-500">
+      <p className="text-sm text-rg-muted">
         An evaluation is final: once recorded it can&apos;t be changed, and the recipient can no longer change the response.
       </p>
       <fieldset className="flex flex-wrap gap-4 text-sm">
@@ -88,7 +88,7 @@ export function CheckUpEvaluationForm({ checkUpId }: { checkUpId: string }) {
         />
       </label>
       {problems.length > 0 && (
-        <ul role="alert" className="list-disc pl-5 text-sm text-red-600">
+        <ul role="alert" className="list-disc pl-5 text-sm text-rg-danger">
           {problems.map((problem) => (
             <li key={problem}>{problem}</li>
           ))}

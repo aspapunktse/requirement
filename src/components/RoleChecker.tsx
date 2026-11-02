@@ -72,7 +72,7 @@ export function RoleChecker() {
             return (
               <label
                 key={user.id}
-                className={`-mt-px -ml-px flex min-h-16 min-w-36 flex-1 cursor-pointer flex-col items-center justify-center gap-0.5 border border-zinc-300 px-2 py-2 text-center outline-offset-[-2px] has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-ems-ink-1 dark:border-zinc-700 ${
+                className={`-mt-px -ml-px flex min-h-16 min-w-36 flex-1 cursor-pointer flex-col items-center justify-center gap-0.5 border border-rg-line px-2 py-2 text-center outline-offset-[-2px] has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-ems-ink-1 ${
                   selected ? "bg-rg-accent text-rg-on-accent" : "hover:bg-rg-accent-soft"
                 }`}
               >
@@ -99,7 +99,7 @@ export function RoleChecker() {
         Sign in →
       </Button>
 
-      <div className="mt-8 border-t border-zinc-300 pt-3 dark:border-zinc-700">
+      <div className="mt-8 border-t border-rg-line pt-3">
         <p className="ems-mono-label text-ems-ink-4">{"// Dev auth stub · Not for production"}</p>
       </div>
     </form>

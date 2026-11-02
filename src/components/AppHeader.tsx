@@ -9,12 +9,17 @@ import type { PublicUser } from "@/lib/acting-user";
 import { ADMIN_PAGES, GO_TO_GROUP, currentNavKey, goToPaletteItems, navItemsFor, type NavItem } from "@/components/app-nav";
 import { usePageRegistration, type PageRegistration } from "@/components/PaletteProvider";
 import { RoleSwitcher, UserChip } from "@/components/RoleSwitcher";
-import { ThemeSwitch } from "@/components/ThemeSwitch";
+import { ModeSwitch } from "@/components/ModeSwitch";
+import { ThemeMenu, useSavedPalette } from "@/components/ThemeMenu";
 import { useExclusivePopover } from "@/components/useExclusivePopover";
+import { PALETTES, getPalette, savePalette } from "@/lib/palette";
+
+/** The palette group of the "Theme: <name>" commands (#286). */
+const THEME_GROUP = "Theme";
 
 const FOCUS = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rg-accent";
 const NAV_ITEM = `inline-flex items-center gap-1.5 whitespace-nowrap rounded-[10px] px-2.5 py-1.5 text-[13.5px] font-semibold text-rg-muted transition-colors motion-reduce:transition-none hover:bg-rg-accent-soft hover:text-rg-ink aria-[current=page]:bg-rg-accent-soft aria-[current=page]:font-bold aria-[current=page]:text-rg-accent ${FOCUS}`;
-const BUTTON = `inline-flex items-center gap-2 rounded-[10px] border border-rg-line bg-rg-surface px-2.5 py-1.5 text-[13.5px] font-semibold text-rg-ink hover:border-rg-accent ${FOCUS}`;
+const BUTTON = `inline-flex items-center gap-2 rounded-[10px] border border-rg-control bg-rg-surface px-2.5 py-1.5 text-[13.5px] font-semibold text-rg-ink hover:border-rg-accent ${FOCUS}`;
 const PANEL =
   "absolute top-[calc(100%+8px)] z-40 grid gap-0.5 rounded-[14px] border border-rg-line bg-rg-surface p-1.5 shadow-[var(--rg-shadow-popover)]";
 const PANEL_LINK = `flex items-center gap-2.5 rounded-[10px] px-2.5 py-2 text-sm font-semibold text-rg-ink hover:bg-rg-accent-soft aria-[current=page]:bg-rg-accent-soft aria-[current=page]:text-rg-accent ${FOCUS}`;
@@ -75,6 +80,7 @@ function PopoverMenu({
       <button
         ref={buttonRef}
         type="button"
+        data-menu-id={id}
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
         aria-current={current ? "page" : undefined}
@@ -159,6 +165,8 @@ export function AppHeader({ devStub, user }: { devStub: boolean; user: PublicUse
   const registrationRef = usePageRegistration();
   const { open: paletteOpen, openPalette, closePalette, dismissPalette } = usePaletteToggle();
   const [page, setPage] = useState<PageRegistration | null>(null);
+  const [themeOpen, setThemeOpen] = useState(false);
+  const savedPalette = getPalette(useSavedPalette());
 
   // The header outlives navigation, so a palette (and the page items it took when it opened) must not outlive
   // the page or the acting user that registered them: adjust the state while rendering when either changes.
@@ -189,8 +197,17 @@ ${user?.id ?? ""}`;
     return () => document.removeEventListener("keydown", onKeyDown);
   });
 
-  const paletteItems: PaletteItem[] = [...(page?.items ?? []), ...goToPaletteItems(role, pathname)];
+  const themeItems = PALETTES.map((palette): PaletteItem => ({
+    group: THEME_GROUP,
+    icon: "layers",
+    label: `Theme: ${palette.name}`,
+    meta: palette.id === savedPalette.id ? "Current" : palette.sans,
+    href: `#${palette.id}`,
+  }));
+  const paletteItems: PaletteItem[] = [...(page?.items ?? []), ...goToPaletteItems(role, pathname), ...themeItems];
   function selectItem(item: PaletteItem) {
+    // A theme command applies the theme in place; its `href` only identifies it.
+    if (item.group === THEME_GROUP) return savePalette(item.href.slice(1));
     // The handler of the page the items came from, not whatever page is registered now.
     if (item.group !== GO_TO_GROUP && page?.onSelect) page.onSelect(item);
     else router.push(item.href);
@@ -254,8 +271,13 @@ ${user?.id ?? ""}`;
                   )}
                 </nav>
                 <div className="mt-1 grid gap-1.5 border-t border-rg-line px-2.5 pt-2 sm:hidden">
-                  <span className="text-[11px] font-bold tracking-wider text-rg-muted uppercase">Theme</span>
-                  <ThemeSwitch className="flex w-full [&>button]:flex-1" />
+                  <span className="text-[11px] font-bold tracking-wider text-rg-muted uppercase">Mode</span>
+                  <ModeSwitch className="flex w-full [&>button]:flex-1" />
+                  <span className="mt-1 text-[11px] font-bold tracking-wider text-rg-muted uppercase">Theme</span>
+                  <button type="button" onClick={() => setThemeOpen(true)} aria-haspopup="dialog" className={`${BUTTON} w-full justify-between`}>
+                    {savedPalette.name}
+                    <Chevron />
+                  </button>
                 </div>
                 {items.some((item) => item.key === "admin") && (
                   <nav aria-label="Admin pages" className="mt-1 grid gap-0.5 border-t border-rg-line pt-1">
@@ -282,7 +304,8 @@ ${user?.id ?? ""}`;
               </kbd>
             </button>
           )}
-          <ThemeSwitch className="hidden sm:inline-flex" />
+          <ThemeMenu open={themeOpen} onOpenChange={setThemeOpen} />
+          <ModeSwitch className="hidden sm:inline-flex" />
           {devStub ? <RoleSwitcher /> : user && <UserChip user={user} />}
         </div>
       )}

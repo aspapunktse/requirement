@@ -6,13 +6,13 @@
 
 .oc {
   --oc-wait: color-mix(in srgb, var(--rg-muted) 70%, var(--rg-surface));
-  --oc-waived: #7b6bb0;
+  --oc-waived: var(--rg-waived);
   --oc-na: var(--rg-line);
 }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .oc { --oc-waived: #a99be0; --oc-na: color-mix(in srgb, var(--rg-muted) 38%, var(--rg-surface)); }
+  :root:not([data-theme="light"]) .oc { --oc-na: color-mix(in srgb, var(--rg-muted) 38%, var(--rg-surface)); }
 }
-:root[data-theme="dark"] .oc { --oc-waived: #a99be0; --oc-na: color-mix(in srgb, var(--rg-muted) 38%, var(--rg-surface)); }
+:root[data-theme="dark"] .oc { --oc-na: color-mix(in srgb, var(--rg-muted) 38%, var(--rg-surface)); }
 
 /* Status colours: dots, stacked bars, the ring's legend (the Statement of Applicability uses the same) */
 .oc-s-FULFILLED { background: var(--rg-success); }

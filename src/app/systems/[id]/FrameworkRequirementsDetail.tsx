@@ -61,8 +61,8 @@ export function FrameworkRequirementsDetail({
   const groups = groupBySection(shown);
 
   return (
-    <div id={id} className="flex flex-col gap-4 border-t border-zinc-200 pt-3 dark:border-zinc-800">
-      <p className="text-sm text-zinc-500">
+    <div id={id} className="flex flex-col gap-4 border-t border-rg-line pt-3">
+      <p className="text-sm text-rg-muted">
         {entry.framework.strictComplianceRequired
           ? "Strict Framework: Waived and Not Applicable Control Assessments do not count as fulfilled."
           : "Waived and Not Applicable Control Assessments count as fulfilled."}{" "}
@@ -74,7 +74,7 @@ export function FrameworkRequirementsDetail({
         Show
         <select
           aria-label={`Status filter for ${label}`}
-          className="rounded border border-zinc-200 p-1 text-sm dark:border-zinc-800 dark:bg-transparent"
+          className="rounded border border-rg-control p-1 text-sm"
           value={filter}
           onChange={(event) => setFilter(event.target.value as DerivedStatusFilter)}
         >
@@ -87,11 +87,11 @@ export function FrameworkRequirementsDetail({
         </select>
       </label>
 
-      {groups.length === 0 && <p className="text-sm text-zinc-500">No Requirements match this filter.</p>}
+      {groups.length === 0 && <p className="text-sm text-rg-muted">No Requirements match this filter.</p>}
 
       {groups.map(({ section, items }) => (
         <section key={section} aria-label={`Section ${section}`} className="flex flex-col gap-2">
-          <h3 className="border-b border-zinc-200 pb-1 text-sm font-semibold dark:border-zinc-800">{section}</h3>
+          <h3 className="border-b border-rg-line pb-1 text-sm font-semibold">{section}</h3>
           <ul className="flex flex-col gap-2">
             {items.map((row) => {
               const applicable = row.controls.filter((control) => control.applicable);
@@ -100,7 +100,7 @@ export function FrameworkRequirementsDetail({
                 <li
                   key={row.requirementId}
                   aria-label={`Requirement ${row.code}`}
-                  className="rounded border border-zinc-200 p-2 dark:border-zinc-800"
+                  className="rounded border border-rg-line p-2"
                 >
                   <div className="flex flex-wrap items-baseline gap-2 text-sm">
                     <span className="font-medium">{row.code}</span>
@@ -110,7 +110,7 @@ export function FrameworkRequirementsDetail({
                     </span>
                   </div>
 
-                  {BASIS_NOTE[row.basis] && <p className="mt-1 text-xs text-zinc-500">{BASIS_NOTE[row.basis]}</p>}
+                  {BASIS_NOTE[row.basis] && <p className="mt-1 text-xs text-rg-muted">{BASIS_NOTE[row.basis]}</p>}
 
                   {applicable.length > 0 && (
                     <ul aria-label={`Applicable Controls for ${row.code}`} className="mt-1 flex flex-col gap-0.5 text-sm">
@@ -123,14 +123,14 @@ export function FrameworkRequirementsDetail({
                             <span className="flex flex-wrap items-center gap-2">
                               <span>
                                 <span className="font-medium">{control.code}</span> {control.title}
-                                <span className="text-zinc-500">{` · ${control.coverage === "FULL" ? "Full" : "Partial"} coverage`}</span>
+                                <span className="text-rg-muted">{` · ${control.coverage === "FULL" ? "Full" : "Partial"} coverage`}</span>
                               </span>
                               <StatusChip tone={controlAssessmentStatusTone(status)}>
                                 {CONTROL_ASSESSMENT_STATUS_LABEL[status]}
                               </StatusChip>
                             </span>
                             {control.effective && (
-                              <span className="text-xs text-zinc-500">
+                              <span className="text-xs text-rg-muted">
                                 {[effectiveSourceLabel(control.effective), ...details].join(" · ")}
                                 {override && ` ${override}`}
                               </span>
@@ -142,7 +142,7 @@ export function FrameworkRequirementsDetail({
                   )}
 
                   {notApplicable.length > 0 && (
-                    <p className="mt-1 text-xs text-zinc-500">
+                    <p className="mt-1 text-xs text-rg-muted">
                       {applicable.length === 0
                         ? "None of the mapped Controls apply to this System: "
                         : "Mapped but not applicable to this System: "}

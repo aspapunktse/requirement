@@ -13,7 +13,7 @@ import {
   validateCheckUpResponse,
 } from "@/lib/check-up-response-rules";
 
-const INPUT_CLASSES = "w-full rounded border border-zinc-200 p-2 text-sm dark:border-zinc-800 dark:bg-transparent";
+const INPUT_CLASSES = "w-full rounded border border-rg-control p-2 text-sm";
 
 type QuestionState = { answer: CheckUpAnswer | ""; description: string };
 
@@ -89,7 +89,7 @@ export function CheckUpResponseForm({
         const current = state[question.id];
         const needsDescription = current.answer !== "" && descriptionRequired(current.answer);
         return (
-          <fieldset key={question.id} className="flex flex-col gap-2 rounded border border-zinc-200 p-3 dark:border-zinc-800">
+          <fieldset key={question.id} className="flex flex-col gap-2 rounded border border-rg-line p-3">
             <legend className="px-1 text-sm font-medium">
               {question.position}. {question.text}
             </legend>
@@ -123,7 +123,7 @@ export function CheckUpResponseForm({
 
       <label className="flex flex-col gap-1 text-sm">
         <span className="font-medium">Evidence links</span>
-        <span className="text-zinc-500">One http(s) URL per line, at most {MAX_EVIDENCE_LINKS}. Links only: nothing is uploaded.</span>
+        <span className="text-rg-muted">One http(s) URL per line, at most {MAX_EVIDENCE_LINKS}. Links only: nothing is uploaded.</span>
         <textarea
           className={INPUT_CLASSES}
           rows={3}
@@ -137,7 +137,7 @@ export function CheckUpResponseForm({
       </label>
 
       {problems.length > 0 && (
-        <ul role="alert" className="list-disc pl-5 text-sm text-red-600">
+        <ul role="alert" className="list-disc pl-5 text-sm text-rg-danger">
           {problems.map((problem) => (
             <li key={problem}>{problem}</li>
           ))}
@@ -147,7 +147,7 @@ export function CheckUpResponseForm({
         <Button type="submit" variant="primary" disabled={busy}>
           {changing ? "Save changes" : "Submit response"}
         </Button>
-        {saved && <span className="text-sm text-zinc-500">Saved</span>}
+        {saved && <span className="text-sm text-rg-muted">Saved</span>}
       </div>
     </form>
   );

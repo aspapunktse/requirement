@@ -85,7 +85,7 @@ export function ChangeOwnerDialog({
 
   return (
     <>
-      <div className="fixed inset-0 z-50 bg-black/40" onClick={onClose} aria-hidden="true" />
+      <div className="fixed inset-0 z-50 bg-rg-scrim" onClick={onClose} aria-hidden="true" />
       <form
         role="dialog"
         aria-modal="true"

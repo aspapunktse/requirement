@@ -481,7 +481,7 @@ describe("Ctrl+K palette (#243)", () => {
     render(withHeader(<SystemCockpit view={view()} panels={PANELS} />));
     await userEvent.keyboard("{Control>}k{/Control}");
     const dialog = screen.getByRole("dialog", { name: "Jump to" });
-    expect(within(dialog).getAllByRole("option")).toHaveLength(TAB_KEYS.length + 2);
+    expect(within(dialog).getAllByRole("option")).toHaveLength(TAB_KEYS.length + 2 + 5); // plus the five Theme commands
     await userEvent.type(within(dialog).getByRole("combobox"), "A.8.24");
     expect(within(dialog).getAllByRole("option")).toHaveLength(1);
     await userEvent.keyboard("{Enter}");

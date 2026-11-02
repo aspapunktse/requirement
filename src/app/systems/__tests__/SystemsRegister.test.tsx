@@ -507,7 +507,7 @@ describe("Ctrl+K palette", () => {
     await userEvent.keyboard("{Control>}k{/Control}");
     const dialog = screen.getByRole("dialog", { name: "Jump to" });
     const options = within(dialog).getAllByRole("option");
-    expect(options.map((o) => o.querySelector("span")?.textContent)).toEqual(["New System", "=HYPERLINK(hub)", "Billing engine", "Jira", "Legacy CRM", "Okta"]);
+    expect(options.map((o) => o.querySelector("span")?.textContent)).toEqual(["New System", "=HYPERLINK(hub)", "Billing engine", "Jira", "Legacy CRM", "Okta", "Theme: Register", "Theme: High contrast", "Theme: Parchment", "Theme: Slate", "Theme: Forest"]);
     expect(options[3]).toHaveTextContent("Onboarded · Marcus Lindqvist");
     await userEvent.type(within(dialog).getByRole("combobox"), "okt");
     expect(within(dialog).getAllByRole("option")).toHaveLength(1);

@@ -31,13 +31,13 @@ export default async function CheckUpPage({ params }: PageProps<"/check-ups/[id]
   const user = await getActingUser();
 
   if (!user) {
-    return <p className="p-6 text-zinc-600 dark:text-zinc-400">Pick a user to act as first.</p>;
+    return <p className="p-6 text-rg-muted">Pick a user to act as first.</p>;
   }
 
   const checkUp = await getCheckUpDetail(id);
   const access = checkUp ? checkUpAccess(user, checkUp) : null;
   if (!checkUp || !access?.canRead) {
-    return <p className="p-6 text-zinc-600 dark:text-zinc-400">This Check-up is not available to you.</p>;
+    return <p className="p-6 text-rg-muted">This Check-up is not available to you.</p>;
   }
 
   const isRecipient = checkUp.recipient?.id === user.id;
@@ -62,7 +62,7 @@ export default async function CheckUpPage({ params }: PageProps<"/check-ups/[id]
       <h1 className="mb-2 text-2xl">
         {checkUp.control.code} {checkUp.control.title}
       </h1>
-      <div className="mb-4 flex flex-wrap items-center gap-3 text-sm text-zinc-500">
+      <div className="mb-4 flex flex-wrap items-center gap-3 text-sm text-rg-muted">
         {checkUp.withdrawal ? (
           <StatusChip tone="neutral">Withdrawn</StatusChip>
         ) : checkUp.evaluation ? (
@@ -83,25 +83,25 @@ export default async function CheckUpPage({ params }: PageProps<"/check-ups/[id]
       </div>
 
       {!checkUp.recipient && (
-        <p className="mb-4 text-sm text-zinc-500">
+        <p className="mb-4 text-sm text-rg-muted">
           This Check-up has no recipient: its Control has no Control Owner. Nobody can answer it until one is assigned.
         </p>
       )}
-      {lockedReason && <p className="mb-4 text-sm text-zinc-500">{lockedReason}.</p>}
+      {lockedReason && <p className="mb-4 text-sm text-rg-muted">{lockedReason}.</p>}
       {isRecipient && !access.canAnswer && !lockedReason && (
-        <p className="mb-4 text-sm text-zinc-500">An Internal Auditor can&apos;t answer a Check-up: the role is read-only.</p>
+        <p className="mb-4 text-sm text-rg-muted">An Internal Auditor can&apos;t answer a Check-up: the role is read-only.</p>
       )}
 
       <section className="mb-6">
         <h2 className="mb-2 text-lg">{access.canAnswer ? (checkUp.response ? "Your response" : "Answer the questions") : checkUp.response ? "Response" : "Questions"}</h2>
         {checkUp.response && (
-          <p className="mb-2 text-sm text-zinc-500">
+          <p className="mb-2 text-sm text-rg-muted">
             Submitted by {checkUp.response.respondedBy.name} on {checkUp.response.respondedAt.slice(0, 10)}
             {changedLater ? `, last changed by ${checkUp.response.lastChangedBy.name} on ${checkUp.response.updatedAt.slice(0, 10)}` : ""}.
             {access.canAnswer ? " You can change it until the Internal Auditor evaluates it. Submitting changes no status anywhere." : ""}
           </p>
         )}
-        {!checkUp.response && !access.canAnswer && <p className="mb-2 text-sm text-zinc-500">Not answered yet.</p>}
+        {!checkUp.response && !access.canAnswer && <p className="mb-2 text-sm text-rg-muted">Not answered yet.</p>}
 
         {access.canAnswer ? (
           <CheckUpResponseForm
@@ -113,19 +113,19 @@ export default async function CheckUpPage({ params }: PageProps<"/check-ups/[id]
         ) : (
           <ol className="flex flex-col gap-3 text-sm">
             {checkUp.questions.map((question) => (
-              <li key={question.id} className="rounded border border-zinc-200 p-3 dark:border-zinc-800">
+              <li key={question.id} className="rounded border border-rg-line p-3">
                 <p className="font-medium">
                   {question.position}. {question.text}
                 </p>
                 {question.answer && (
                   <>
                     <p>
-                      <span className="text-zinc-500">Answer: </span>
+                      <span className="text-rg-muted">Answer: </span>
                       {CHECK_UP_ANSWER_LABEL[question.answer.answer]}
                     </p>
                     {question.answer.description && (
                       <p className="whitespace-pre-wrap">
-                        <span className="text-zinc-500">Description: </span>
+                        <span className="text-rg-muted">Description: </span>
                         {question.answer.description}
                       </p>
                     )}
@@ -141,7 +141,7 @@ export default async function CheckUpPage({ params }: PageProps<"/check-ups/[id]
         <section className="mb-6">
           <h2 className="mb-1 text-lg">Evidence links</h2>
           {checkUp.response.evidenceLinks.length === 0 ? (
-            <p className="text-sm text-zinc-500">No evidence links.</p>
+            <p className="text-sm text-rg-muted">No evidence links.</p>
           ) : (
             <ul className="list-disc pl-6 text-sm">
               {checkUp.response.evidenceLinks.map((link) =>
@@ -161,7 +161,7 @@ export default async function CheckUpPage({ params }: PageProps<"/check-ups/[id]
       {checkUp.withdrawal && (
         <section aria-label="Withdrawal" className="mb-6">
           <h2 className="mb-1 text-lg">Withdrawn</h2>
-          <p className="mb-1 text-sm text-zinc-500">
+          <p className="mb-1 text-sm text-rg-muted">
             Withdrawn by {checkUp.withdrawal.withdrawnBy.name} on {checkUp.withdrawal.withdrawnAt.slice(0, 10)}. A withdrawal is final.
           </p>
           <p className="whitespace-pre-wrap text-sm">{checkUp.withdrawal.reason}</p>
@@ -173,14 +173,14 @@ export default async function CheckUpPage({ params }: PageProps<"/check-ups/[id]
           <h2 className="mb-1 text-lg">Evaluation</h2>
           <p className="mb-1 flex items-center gap-2 text-sm">
             <StatusChip tone={checkUpOutcomeTone(checkUp.evaluation.outcome)}>{CHECK_UP_OUTCOME_LABEL[checkUp.evaluation.outcome]}</StatusChip>
-            <span className="text-zinc-500">
+            <span className="text-rg-muted">
               Evaluated by {checkUp.evaluation.evaluatedBy.name} on {checkUp.evaluation.evaluatedAt.slice(0, 10)}. An evaluation is final.
             </span>
           </p>
           {checkUp.evaluation.comment ? (
             <p className="whitespace-pre-wrap text-sm">{checkUp.evaluation.comment}</p>
           ) : (
-            <p className="text-sm text-zinc-500">No comment.</p>
+            <p className="text-sm text-rg-muted">No comment.</p>
           )}
         </section>
       ) : access.canEvaluate ? (
@@ -189,13 +189,13 @@ export default async function CheckUpPage({ params }: PageProps<"/check-ups/[id]
           <CheckUpEvaluationForm checkUpId={checkUp.id} />
         </section>
       ) : (
-        checkUp.answered && !checkUp.withdrawn && <p className="text-sm text-zinc-500">Not evaluated yet.</p>
+        checkUp.answered && !checkUp.withdrawn && <p className="text-sm text-rg-muted">Not evaluated yet.</p>
       )}
 
       {access.canWithdraw && (
         <section aria-label="Withdraw this Check-up" className="mt-6">
           <h2 className="mb-2 text-lg">Withdraw this Check-up</h2>
-          <p className="mb-2 text-sm text-zinc-500">
+          <p className="mb-2 text-sm text-rg-muted">
             Withdraw a Check-up that should not be answered or evaluated after all. It leaves the recipient&apos;s tasks; any response stays on record. A withdrawal is final.
           </p>
           <WithdrawCheckUpControl checkUpId={checkUp.id} />
@@ -217,10 +217,10 @@ export default async function CheckUpPage({ params }: PageProps<"/check-ups/[id]
                 Organization Risks
               </Link>
             ) : (
-              <span className="text-zinc-500">Organization Risk (belongs to no System)</span>
+              <span className="text-rg-muted">Organization Risk (belongs to no System)</span>
             )}
           </p>
-          <p className="whitespace-pre-wrap text-sm text-zinc-600 dark:text-zinc-400">{checkUp.risk.description}</p>
+          <p className="whitespace-pre-wrap text-sm text-rg-muted">{checkUp.risk.description}</p>
         </section>
       )}
     </div>
