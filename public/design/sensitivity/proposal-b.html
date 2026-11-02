@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Sensitivity Levels: Scale</title>
+<link rel="stylesheet" href="../systems/systems.css">
+<link rel="stylesheet" href="../shared/appbar.css">
+<link rel="stylesheet" href="../shared/kit.css">
+<link rel="stylesheet" href="../shared/themes.css">
+<link rel="stylesheet" href="sensitivity.css">
+<script src="../shared/themes.js"></script>
+<style>
+/* Proposal B: the level is a position on a five-step scale. The label pill is followed by a five-segment meter, so the
+   position reads at a glance; the picker is a ladder; the Admin edits the whole scale at once. */
+.sl.scale { background: none; border: 0; padding: 0; gap: 8px; color: inherit; }
+.sl.scale .pill { color: var(--fg); background: var(--bg); border: 1px solid color-mix(in srgb, var(--fg) 38%, transparent); border-radius: 99px; padding: 1px 10px; }
+.sl.scale.none .pill { border-style: dashed; border-color: var(--faint); background: transparent; }
+.meter { display: inline-flex; gap: 2px; flex: none; }
+.meter i { width: 11px; height: 7px; border-radius: 2px; background: color-mix(in srgb, var(--fg) 20%, transparent); }
+.meter i.on { background: var(--fg); }
+.meter i.rng { background: color-mix(in srgb, var(--fg) 85%, transparent); }
+.sl.none .meter i { background: none; border: 1px dashed var(--faint); }
+.sl.scale.sm { gap: 5px; } .sl.scale.sm .meter i { width: 7px; height: 5px; }
+.sl.scale.lg .pill { padding: 3px 13px; } .sl.scale.lg .meter i { width: 16px; height: 9px; }
+.sl.bare { background: none; border: 0; padding: 0; display: flex; }
+.from { font-size: .8rem; color: var(--muted); margin-right: 6px; }
+
+/* Filter: a histogram of the scale; click a step to filter */
+.hist { display: grid; grid-template-columns: repeat(6, minmax(70px, 1fr)); gap: 6px; align-items: end; width: 100%; }
+.hcol { display: grid; justify-items: center; gap: 4px; border: 2px solid transparent; background: none; border-radius: 12px; padding: 6px 4px 4px; cursor: pointer; min-width: 0; }
+.hcol:hover { background: var(--raised); }
+.hcol[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
+.hcol .barbox { height: 44px; display: flex; align-items: flex-end; }
+.hcol .bar { width: 30px; border-radius: 5px 5px 2px 2px; background: var(--fg); min-height: 3px; }
+.hcol.none .bar { background: none; border: 1px dashed var(--faint); }
+.hcol .cnt { font-size: .8rem; font-weight: 700; }
+.hcol .nm { font-size: .7rem; color: var(--muted); font-weight: 650; text-align: center; line-height: 1.2; }
+.fltwrap { flex: 1 1 100%; } .fltwrap .lbl { display: none; } .flt { width: 100%; }
+@media (max-width: 640px) { .hist { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+
+/* Picker: a ladder from Public down to Critical Sensitivity */
+.ladder { display: grid; gap: 0; position: relative; }
+.ladder .cap { font-size: .74rem; color: var(--muted); font-weight: 700; padding: 0 0 6px 38px; }
+.ladder .cap.end { padding: 6px 0 0 38px; }
+.rung { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 0 10px; cursor: pointer; padding: 0; position: relative; }
+.rung .rail { position: relative; display: flex; justify-content: center; }
+.rung .rail::before { content: ""; position: absolute; top: 0; bottom: 0; width: 3px; background: var(--line); }
+.rung:first-of-type .rail::before { top: 50%; } .rung:last-of-type .rail::before { bottom: 50%; }
+.rung.reached .rail::before { background: var(--accent); }
+.rung.cur .rail::before { bottom: 50%; }
+.rung input { position: absolute; opacity: 0; }
+.rung .node { position: relative; align-self: center; width: 18px; height: 18px; border-radius: 50%; background: var(--surface); border: 3px solid var(--line); z-index: 1; }
+.rung.reached .node { border-color: var(--accent); }
+.rung.cur .node { background: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); }
+.rung .body { margin: 4px 0; padding: 9px 12px; border: 1px solid var(--line-soft); border-radius: 12px; background: var(--surface); display: grid; gap: 3px; }
+.rung:hover .body { border-color: var(--accent); }
+.rung.cur .body { border-color: var(--accent); background: var(--raised); box-shadow: 0 0 0 3px var(--accent-soft); }
+.rung input:focus-visible ~ .body { outline: 2px solid var(--accent); outline-offset: 2px; }
+.rung .body small { color: var(--muted); font-size: .84rem; }
+.rung .body em { font-style: normal; font-size: .76rem; color: var(--faint); font-weight: 650; }
+
+/* Admin: the whole scale previewed live above one card per step */
+.strip { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.strip .lane { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; background: var(--surface); }
+.strip .lane.d { background: #14252e; border-color: #2a4150; }
+.strip .lane > b { font-size: .72rem; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+.strip .lane.d > b { color: #9db2bd; }
+.strip .steps { display: grid; gap: 7px; margin-top: 8px; justify-items: start; }
+@media (max-width: 760px) { .strip { grid-template-columns: minmax(0, 1fr); } }
+.step { display: grid; grid-template-columns: 54px minmax(0, 1fr); gap: 14px; margin-top: 12px; }
+.step .no { display: grid; align-content: start; justify-items: center; gap: 6px; font-size: .7rem; font-weight: 750; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+.step .no b { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; border: 3px solid var(--accent); font-size: .95rem; color: var(--ink); background: var(--surface); }
+.step .card-b { border: 1px solid var(--line-soft); border-radius: 14px; background: var(--surface); padding: 14px 16px; display: grid; gap: 12px; }
+.step .grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.step .grid .fld.wide { grid-column: span 2; }
+.step .res { display: flex; flex-wrap: wrap; gap: 10px 22px; align-items: center; }
+@media (max-width: 900px) { .step .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 520px) { .step { grid-template-columns: minmax(0, 1fr); gap: 4px; } .step .no { grid-auto-flow: column; justify-content: start; align-items: center; } .step .grid { grid-template-columns: minmax(0, 1fr); } .step .grid .fld.wide { grid-column: auto; } }
+</style>
+</head>
+<body>
+<header id="appbar"></header>
+<main class="app">
+  <section class="card" style="padding:16px 18px">
+    <span class="eyebrow">Sensitivity Levels &middot; Proposal B</span>
+    <h1 style="margin-top:4px">Scale</h1>
+    <p class="muted lede" style="margin-top:6px">A level is a position on a scale of five. The label pill is followed by a five-segment meter, so how high a System sits is visible next to its name. The Systems list filters with a histogram of the scale, owners climb a ladder from Public to Critical Sensitivity (and see how many Controls each rung brings in), and Admins edit the whole scale with a live preview of all five steps in light and dark.</p>
+  </section>
+  <section class="card panelcard"><div id="stage"></div></section>
+</main>
+
+<script src="../shared/kit.js"></script>
+<script src="data.js"></script>
+<script src="sensitivity.js"></script>
+<script src="../shared/appbar.js"></script>
+<script>
+const esc = Sens.esc;
+const meter = (n, from) => `<span class="meter" aria-hidden="true">${[1, 2, 3, 4, 5].map((i) => `<i class="${from ? (i >= from ? 'rng' : '') : (n && i <= n ? 'on' : '')}"></i>`).join('')}</span>`;
+const withMin = SensData.CONTROLS.filter((c) => c.scope !== 'Organizational' && c.min != null);
+const V = {
+  cue: 'five-segment meter after it',
+  chip(n, o = {}) {
+    const cls = ['sl', 'scale', n ? '' : 'none', o.size || ''].filter(Boolean).join(' ');
+    return `<span class="${cls}"${n ? ` data-l="${n}"` : ''}${o.style ? ` style="${o.style}"` : ''}><span class="pill">${esc(o.label || Sens.labelOf(n))}</span>${meter(n)}</span>`;
+  },
+  // a Control's minimum: "From Highly Sensitive" with the steps it covers lit
+  minCell(n) {
+    if (!n) return '<span class="muted">Every level</span>';
+    const l = Sens.lv(n);
+    return `<span class="sl scale" data-l="${n}"><span class="from">From</span><span class="pill">${esc(l.label)}</span>${meter(n, n)}</span>`;
+  },
+  filter(el, { selected, counts, onChange }) {
+    const max = Math.max(...Object.values(counts), 1);
+    el.innerHTML = `<div class="hist" role="group" aria-label="Filter by Sensitivity Level">${[1, 2, 3, 4, 5, 0].map((n) => `
+      <button type="button" class="hcol${n ? '' : ' none'}" data-n="${n}" aria-pressed="${selected.has(n)}"><span class="barbox"><span class="sl bare${n ? '' : ' none'}"${n ? ` data-l="${n}"` : ''}><i class="bar" style="height:${Math.max(3, Math.round(counts[n] / max * 44))}px"></i></span></span>
+      <span class="cnt num">${counts[n]}</span><span class="nm">${esc(Sens.labelOf(n || null))}</span></button>`).join('')}</div>`;
+    el.onclick = (e) => { const b = e.target.closest('[data-n]'); if (!b) return; const s = new Set(selected), n = +b.dataset.n; if (s.has(n)) s.delete(n); else s.add(n); onChange(s); };
+  },
+  picker(el, { value, name, onPick }) {
+    const lv = Sens.levels();
+    el.innerHTML = `<div class="ladder" role="radiogroup" aria-label="Sensitivity Level"><div class="cap">Least sensitive</div>${lv.map((l) => `
+      <label class="rung"><span class="rail"><span class="node"></span></span><input type="radio" name="${name}" value="${l.n}"${value === l.n ? ' checked' : ''}>
+        <span class="body">${V.chip(l.n)}<small>${esc(l.desc)}</small><em>Brings in ${withMin.filter((c) => c.min <= l.n).length} of ${withMin.length} Controls that set a minimum</em></span></label>`).join('')}<div class="cap end">Most sensitive</div></div>`;
+    const paint = (n) => el.querySelectorAll('.rung').forEach((r, i) => { r.classList.toggle('reached', !!n && i + 1 <= n); r.classList.toggle('cur', !!n && i + 1 === n); });
+    paint(value);
+    el.onchange = (e) => { paint(+e.target.value); onPick(+e.target.value); };
+  },
+  settings(el) {
+    const lv = Sens.levels();
+    el.innerHTML = `
+      <div class="strip" aria-label="The whole scale, previewed live"><div class="lane"><b>Light</b><div class="steps">${lv.map((l) => `<span data-sl="${l.n}"></span>`).join('')}</div></div>
+        <div class="lane d"><b>Dark (derived)</b><div class="steps">${lv.map((l) => `<span data-sd="${l.n}"></span>`).join('')}</div></div></div>
+      ${lv.map((l) => `<section class="step" data-n="${l.n}"><div class="no"><b>${l.n}</b><span>of 5</span></div>
+        <div class="card-b"><div class="grid">${Sens.fields()}</div>
+          <div class="res"><span data-o="chip"></span><span class="ratio" data-o="ratio"></span><span class="ratio ok" data-o="darkRatio"></span></div>
+          <div class="msg" data-o="msg" id="msg-${l.n}" role="alert" hidden></div>
+          <div class="actions"><button class="btn primary" data-o="save">Save</button><button class="btn ghost" data-o="revert">Revert</button><button class="btn ghost" data-o="reset">Default</button><span class="dirty" data-o="dirty" hidden>Unsaved</span></div></div></section>`).join('')}`;
+    el.querySelectorAll('.step').forEach((st) => {
+      const n = +st.dataset.n;
+      Sens.bindLevel(st, n, { chip: (k, o) => V.chip(k, o), onDraft: (c) => {
+        const slot = (sel, style) => { const t = el.querySelector(`[data-${sel}="${n}"]`); if (t) t.innerHTML = V.chip(n, { style, label: c.d.label || 'Label' }); };
+        slot('sl', c.valid ? `--fg:${c.d.fg};--bg:${c.d.bg};` : ''); slot('sd', c.valid ? `--fg:${c.dark.fg};--bg:${c.dark.bg};` : '');
+      } });
+    });
+  },
+};
+Sens.mount(document.getElementById('stage'), V);
+Appbar.mount({ current: 'systems', proposal: { label: 'B', siblings: [['A', 'proposal-a.html'], ['C', 'proposal-c.html']] } });
+</script>
+</body>
+</html>

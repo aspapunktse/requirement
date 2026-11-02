@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Sensitivity Levels: Label Chip</title>
+<link rel="stylesheet" href="../systems/systems.css">
+<link rel="stylesheet" href="../shared/appbar.css">
+<link rel="stylesheet" href="../shared/kit.css">
+<link rel="stylesheet" href="../shared/themes.css">
+<link rel="stylesheet" href="sensitivity.css">
+<script src="../shared/themes.js"></script>
+<style>
+/* Proposal A: a compact pill. Five little bars, filled up to the level, sit before the label, so the position on the
+   scale reads without colour. The picker is a list of radio rows; Admin settings is a table, one row per level. */
+.ticks { display: inline-flex; align-items: flex-end; gap: 2px; height: 11px; flex: none; }
+.ticks i { width: 3px; border-radius: 1px; background: currentColor; opacity: .25; }
+.ticks i:nth-child(1) { height: 5px; } .ticks i:nth-child(2) { height: 6.5px; } .ticks i:nth-child(3) { height: 8px; } .ticks i:nth-child(4) { height: 9.5px; } .ticks i:nth-child(5) { height: 11px; }
+.ticks i.on { opacity: 1; }
+.sl.none .ticks i { opacity: .35; background: none; border: 1px dashed currentColor; width: 3px; }
+.sl.lg .ticks { height: 14px; } .sl.lg .ticks i { width: 4px; } .sl.lg .ticks i:nth-child(1) { height: 6px; } .sl.lg .ticks i:nth-child(2) { height: 8px; } .sl.lg .ticks i:nth-child(3) { height: 10px; } .sl.lg .ticks i:nth-child(4) { height: 12px; } .sl.lg .ticks i:nth-child(5) { height: 14px; }
+.sl.sm .ticks { display: none; }
+.from { font-size: .8rem; color: var(--muted); margin-right: 6px; }
+
+/* Picker: radio rows */
+.opts { display: grid; gap: 8px; }
+.opt { display: grid; grid-template-columns: auto minmax(130px, 190px) minmax(0, 1fr); gap: 4px 12px; align-items: center; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); cursor: pointer; }
+.opt:hover { border-color: var(--accent); }
+.opt:has(input:checked) { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); background: var(--raised); }
+.opt:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+.opt input { accent-color: var(--accent); width: 16px; height: 16px; margin: 0; }
+.opt small { color: var(--muted); font-size: .84rem; }
+@media (max-width: 640px) { .opt { grid-template-columns: auto minmax(0, 1fr); } .opt small { grid-column: 2; } }
+
+/* Admin table */
+.lvtab { min-width: 0; }
+.lvtab tbody { border-top: 1px solid var(--line-soft); }
+.lvtab td { border-bottom: 0; vertical-align: top; }
+.lvtab tr.m td { padding-top: 0; }
+.lvtab .lvno { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 6px; background: var(--raised); border: 1px solid var(--line); font-size: .72rem; font-weight: 700; color: var(--muted); margin-right: 6px; }
+.lvtab .cell { display: grid; gap: 6px; }
+.lvtab .fld { font-weight: 650; }
+.lvtab .btns { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.lvtab .mini { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.lvtab .mini .tile.dark { padding: 4px 8px; }
+.lvwrap { overflow-x: auto; }
+@media (max-width: 900px) {
+  .lvtab, .lvtab thead, .lvtab tbody, .lvtab tr, .lvtab td { display: block; width: 100%; }
+  .lvtab thead { display: none; }
+  .lvtab td::before { content: attr(data-lab); display: block; font-size: .72rem; font-weight: 750; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); margin-bottom: 3px; }
+  .lvtab td { padding: 8px 14px; }
+  .lvtab tr.m td { padding-top: 0; } .lvtab tr.m td::before { display: none; }
+}
+</style>
+</head>
+<body>
+<header id="appbar"></header>
+<main class="app">
+  <section class="card" style="padding:16px 18px">
+    <span class="eyebrow">Sensitivity Levels &middot; Proposal A</span>
+    <h1 style="margin-top:4px">Label chip</h1>
+    <p class="muted lede" style="margin-top:6px">A System's level is a compact pill: five small bars filled up to the level, then the label. The bars give the position on the scale without colour, and the label is always spelled out. Owners pick from a list of chips with their descriptions; Admins edit one table row per level. Use the tabs to see every place the chip appears, and the Mode switch in the header for dark.</p>
+  </section>
+  <section class="card panelcard"><div id="stage"></div></section>
+</main>
+
+<script src="../shared/kit.js"></script>
+<script src="data.js"></script>
+<script src="sensitivity.js"></script>
+<script src="../shared/appbar.js"></script>
+<script>
+const esc = Sens.esc;
+const V = {
+  cue: 'bars before it',
+  chip(n, o = {}) {
+    const cls = ['sl', n ? '' : 'none', o.size || ''].filter(Boolean).join(' ');
+    const label = o.label || Sens.labelOf(n);
+    return `<span class="${cls}"${n ? ` data-l="${n}"` : ''}${o.style ? ` style="${o.style}"` : ''}><span class="ticks" aria-hidden="true">${[1, 2, 3, 4, 5].map((i) => `<i${n && i <= n ? ' class="on"' : ''}></i>`).join('')}</span><span class="lab">${esc(label)}</span></span>`;
+  },
+  minCell(n) { return n ? `<span class="from">From</span>${V.chip(n)}` : '<span class="muted">Every level</span>'; },
+  picker(el, { value, name, onPick }) {
+    el.innerHTML = `<div class="opts" role="radiogroup" aria-label="Sensitivity Level">${Sens.levels().map((l) => `
+      <label class="opt"><input type="radio" name="${name}" value="${l.n}"${value === l.n ? ' checked' : ''}>${V.chip(l.n)}<small>${esc(l.desc)}</small></label>`).join('')}</div>`;
+    el.onchange = (e) => onPick(+e.target.value);
+  },
+  settings(el) {
+    el.innerHTML = `<div class="lvwrap tablewrap"><table class="lvtab"><thead><tr><th>Level</th><th>Label and description</th><th>Text colour</th><th>Background colour</th><th>Contrast (WCAG AA)</th><th>Save</th></tr></thead>
+      ${Sens.levels().map((l) => `<tbody data-n="${l.n}"><tr>
+        <td data-lab="Level"><span class="lvno">${l.n}</span><span data-o="chip"></span></td>
+        <td data-lab="Label and description"><div class="cell"><label class="fld"><span class="sr">Label</span><input data-f="label" maxlength="40" aria-label="Label for level ${l.n}"></label><label class="fld"><textarea data-f="desc" rows="2" aria-label="Description for level ${l.n}"></textarea></label></div></td>
+        <td data-lab="Text colour"><span class="pick fld"><input type="color" data-f="fg" aria-label="Text colour picker, level ${l.n}"><input data-f="fgHex" maxlength="7" spellcheck="false" aria-label="Text colour hex, level ${l.n}"></span></td>
+        <td data-lab="Background colour"><span class="pick fld"><input type="color" data-f="bg" aria-label="Background colour picker, level ${l.n}"><input data-f="bgHex" maxlength="7" spellcheck="false" aria-label="Background colour hex, level ${l.n}"></span></td>
+        <td data-lab="Contrast (WCAG AA)"><div class="cell"><span class="ratio" data-o="ratio"></span>
+          <div class="mini"><span class="tile dark" data-o="dark"></span><span class="ratio ok" data-o="darkRatio"></span></div><small class="muted">Dark is derived from the light pair.</small></div></td>
+        <td data-lab="Save"><div class="btns"><button class="btn primary" data-o="save">Save</button><button class="btn ghost" data-o="revert">Revert</button><button class="btn ghost" data-o="reset" title="Back to the default colours and wording">Default</button><span class="dirty" data-o="dirty" hidden>Unsaved</span></div></td>
+      </tr><tr class="m"><td colspan="6"><div class="msg" data-o="msg" id="msg-${l.n}" role="alert" hidden></div></td></tr></tbody>`).join('')}</table></div>`;
+    el.querySelectorAll('tbody[data-n]').forEach((tb) => Sens.bindLevel(tb, +tb.dataset.n, { chip: (n, o) => V.chip(n, o) }));
+  },
+};
+Sens.mount(document.getElementById('stage'), V);
+Appbar.mount({ current: 'systems', proposal: { label: 'A', siblings: [['B', 'proposal-b.html'], ['C', 'proposal-c.html']] } });
+</script>
+</body>
+</html>
