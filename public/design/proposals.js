@@ -3,6 +3,35 @@
 // `id` is the vote key: keep it stable once people have voted, or the votes are orphaned.
 window.DESIGN_PARTS = [
   {
+    id: "themes",
+    name: "Themes",
+    added: "2026-11-02",
+    question: "How should a user switch the app's theme (colours and fonts) without changing any page's layout, and which themes should ship?",
+    proposals: [
+      {
+        id: "themes-a",
+        label: "A",
+        title: "Header menu",
+        href: "/design/themes/proposal-a.html",
+        summary: "A Theme button beside Mode in the header opens a popover of theme cards with swatches and a font sample; hovering or focusing a card previews it on the whole page, clicking keeps it.",
+      },
+      {
+        id: "themes-b",
+        label: "B",
+        title: "Appearance page",
+        href: "/design/themes/proposal-b.html",
+        summary: "A settings page with a thumbnail of the app in every theme, a separate Mode choice, a font specimen and a live preview of real components.",
+      },
+      {
+        id: "themes-c",
+        label: "C",
+        title: "Compare and check",
+        href: "/design/themes/proposal-c.html",
+        summary: "Pick two themes and see the same page side by side or behind a split slider, with a layout check that outlines and measures every box and a WCAG contrast readout in light and dark.",
+      },
+    ],
+  },
+  {
     id: "deployment-facets",
     name: "Deployment Facets",
     added: "2026-10-30",
