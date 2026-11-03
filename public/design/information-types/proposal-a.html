@@ -133,7 +133,7 @@ function noteHtml() {
   const t = U.cn && IT.typeById(U.cn.id); if (!t) return '';
   const use = IT.users(t.id);
   if (use.length) return IT.inUseHtml(t, use) + '<p style="margin-top:6px"><button class="link" data-dis>Dismiss</button></p>';
-  return `<div class="banner info" role="alert"><b>Delete ${esc(t.name)}?</b> No System declares it, so nothing else changes. This is a Change Event.<div class="acts"><button class="btn danger" data-yes>Delete</button><button class="btn ghost" data-dis>Keep</button></div></div>`;
+  return `<div class="banner info" role="alert"><b>Delete ${esc(t.name)}?</b> No System declares it, so nothing else changes.<div class="acts"><button class="btn danger" data-yes>Delete</button><button class="btn ghost" data-dis>Keep</button></div></div>`;
 }
 function askDelete(el, id) { U.cn = { id }; catalogue(el); el.querySelector('#note').scrollIntoView({ block: 'nearest' }); }
 function drawer(el) {

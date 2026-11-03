@@ -139,7 +139,7 @@ function catalogue(el) {
 function noteHtml(t) {
   const use = IT.users(t.id);
   if (use.length) return IT.inUseHtml(t, use) + '<button class="link" data-dis>Dismiss</button>';
-  return `<div class="banner info" role="alert"><b>Delete ${esc(t.name)}?</b> No System declares it. This is a Change Event.<div class="acts"><button class="btn danger" data-yes>Delete</button><button class="btn ghost" data-dis>Keep</button></div></div>`;
+  return `<div class="banner info" role="alert"><b>Delete ${esc(t.name)}?</b> No System declares it.<div class="acts"><button class="btn danger" data-yes>Delete</button><button class="btn ghost" data-dis>Keep</button></div></div>`;
 }
 
 /* ---------- 2. Where can I put this information? The scale with a cut line ---------- */

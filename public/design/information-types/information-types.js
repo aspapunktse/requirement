@@ -63,7 +63,7 @@
     const flagged = id ? impactOf(typeById(id), v.level).flag : [];
     if (id) Object.assign(typeById(id), { name, desc: v.desc.trim(), level: v.level });
     else { id = 'tn' + (S.nextId++); S.types.push({ id, name, desc: v.desc.trim(), level: v.level }); }
-    toast(flagged.length ? `Saved ${name}. ${plural(flagged.length, 'System')} now below its Information Types. Change Event recorded.` : `Saved ${name}. Change Event recorded.`);
+    toast(flagged.length ? `Saved ${name}. ${plural(flagged.length, 'System')} now below its Information Types.` : `Saved ${name}.`);
     changed();
     return { ok: true, id, flagged };
   }
@@ -72,7 +72,7 @@
     const use = users(id);
     if (use.length) return { ok: false, systems: use };
     const t = typeById(id); S.types = S.types.filter((x) => x.id !== id);
-    toast(`Deleted ${t.name}. Change Event recorded.`); changed();
+    toast(`Deleted ${t.name}.`); changed();
     return { ok: true };
   }
 
@@ -108,7 +108,7 @@
 
   function roleNote(what) {
     const cur = canCurate();
-    return cur ? `<div class="rolenote can" role="note"><b>${esc(roleLabel())}</b> can ${what || 'add, rename, describe, re-level and delete Information Types'}. Every change is a Change Event.</div>`
+    return cur ? `<div class="rolenote can" role="note"><b>${esc(roleLabel())}</b> can ${what || 'add, rename, describe, re-level and delete Information Types'}.</div>`
       : `<div class="rolenote" role="note"><span class="ro">Read only</span><span>As <b>${esc(roleLabel())}</b> you can read the catalogue. The Compliance Manager and an Admin curate it. Switch the acting user in the header to try the editing.</span></div>`;
   }
 

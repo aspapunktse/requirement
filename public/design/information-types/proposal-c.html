@@ -28,13 +28,13 @@ tr.editrow .tform { max-width: 640px; }
 .mxwrap { overflow: auto; border: 1px solid var(--line-soft); border-radius: 12px; background: var(--surface); max-height: 70vh; }
 table.mx { border-collapse: separate; border-spacing: 0; min-width: 0; width: auto; }
 table.mx th, table.mx td { padding: 0; border-bottom: 1px solid var(--line-soft); text-align: center; }
-table.mx thead th { position: sticky; top: 0; z-index: 2; background: var(--raised); vertical-align: bottom; height: 190px; min-width: 44px; width: 44px; padding: 6px 2px; }
+table.mx thead th { position: sticky; top: 0; z-index: 2; background: var(--raised); vertical-align: bottom; height: 250px; min-width: 52px; width: 52px; padding: 6px 2px; }
 table.mx thead th:first-child { left: 0; z-index: 3; min-width: 210px; text-align: left; padding: 9px 12px; vertical-align: bottom; }
 table.mx tbody th { position: sticky; left: 0; z-index: 1; background: var(--surface); text-align: left; padding: 6px 12px; min-width: 210px; font-weight: 650; text-transform: none; letter-spacing: 0; font-size: .86rem; color: var(--ink); border-right: 1px solid var(--line-soft); white-space: normal; }
 table.mx tbody th .sub2 { display: flex; gap: 6px; align-items: center; margin-top: 2px; flex-wrap: wrap; }
 table.mx td { height: 40px; }
 .colbtn { all: unset; cursor: pointer; display: inline-flex; flex-direction: column; align-items: center; gap: 6px; padding: 4px 2px; border-radius: 8px; font-size: .78rem; font-weight: 650; color: var(--ink); }
-.colbtn span.v { writing-mode: vertical-rl; transform: rotate(180deg); white-space: nowrap; max-height: 140px; overflow: hidden; text-overflow: ellipsis; }
+.colbtn span.v { writing-mode: vertical-rl; transform: rotate(180deg); white-space: normal; max-height: 230px; text-align: left; line-height: 1.2; }
 .colbtn:hover { background: var(--accent-soft); } .colbtn:focus-visible { outline: 2px solid var(--accent); }
 .colbtn[aria-pressed="true"] { background: var(--accent-soft); box-shadow: inset 0 -3px 0 var(--accent); }
 td.sel, th.sel { background: color-mix(in srgb, var(--accent-soft) 70%, transparent); }
@@ -176,7 +176,7 @@ function modal(el) {
     ? `<h3 id="mt">Can't delete ${esc(t.name)}</h3><div class="banner bad" role="alert"><span>${plural(use.length, 'System')} declare${use.length === 1 ? 's' : ''} it. <b>Nothing was deleted.</b> Remove it from each System first, or change its Sensitivity Level instead.</span></div>
         <ul class="slist">${use.map((s) => `<li><span>${esc(s.name)}${IT.kind(s)} <span class="muted">${esc(s.owner)}</span></span><button class="link" data-open="${s.id}">Open</button></li>`).join('')}</ul>
         <div class="acts"><button class="btn" data-relevel>Change its level</button><button class="btn primary" data-close>Close</button></div>`
-    : `<h3 id="mt">Delete ${esc(t.name)}?</h3><p>No System declares it, so nothing else changes. This is a Change Event.</p><div class="acts"><button class="btn ghost" data-close>Keep</button><button class="btn danger" data-yes>Delete</button></div>`;
+    : `<h3 id="mt">Delete ${esc(t.name)}?</h3><p>No System declares it, so nothing else changes.</p><div class="acts"><button class="btn ghost" data-close>Keep</button><button class="btn danger" data-yes>Delete</button></div>`;
   m.hidden = false; sc.hidden = false;
   sc.onclick = close; m.querySelectorAll('[data-close]').forEach((b) => { b.onclick = close; });
   m.querySelectorAll('[data-open]').forEach((b) => { b.onclick = () => { S.sys = b.dataset.open; U.cm = null; U.edit = null; IT.setTab('system'); }; });
