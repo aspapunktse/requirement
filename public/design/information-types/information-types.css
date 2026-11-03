@@ -1,0 +1,96 @@
+/* Shared parts of the Information Type proposals (#302). Loads after systems.css (Register tokens), appbar.css, kit.css,
+   themes.css and ../sensitivity/sensitivity.css, which holds the chip plumbing (--s<n> level colours), tables, tabs,
+   System header, the picker rows and the drawer. Colours here are tokens; only the level chip uses the level colours. */
+
+/* ---- the Label chip chosen for Sensitivity Levels (sensitivity/proposal-a.html): bars before the label ---- */
+.ticks { display: inline-flex; align-items: flex-end; gap: 2px; height: 11px; flex: none; }
+.ticks i { width: 3px; border-radius: 1px; background: currentColor; opacity: .25; }
+.ticks i:nth-child(1) { height: 5px; } .ticks i:nth-child(2) { height: 6.5px; } .ticks i:nth-child(3) { height: 8px; } .ticks i:nth-child(4) { height: 9.5px; } .ticks i:nth-child(5) { height: 11px; }
+.ticks i.on { opacity: 1; }
+.sl.none .ticks i { opacity: .35; background: none; border: 1px dashed currentColor; }
+.sl.lg .ticks { height: 14px; } .sl.lg .ticks i { width: 4px; } .sl.lg .ticks i:nth-child(1) { height: 6px; } .sl.lg .ticks i:nth-child(2) { height: 8px; } .sl.lg .ticks i:nth-child(3) { height: 10px; } .sl.lg .ticks i:nth-child(4) { height: 12px; } .sl.lg .ticks i:nth-child(5) { height: 14px; }
+.sl.sm .ticks { display: none; }
+
+/* ---- small shared pieces ---- */
+.tags { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; min-width: 0; }
+.tag { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--raised); border-radius: 8px; padding: 1px 8px; font-size: .78rem; font-weight: 600; max-width: 100%; }
+.tag.more { color: var(--muted); border-style: dashed; background: none; }
+.tag button { all: unset; cursor: pointer; color: var(--muted); padding: 0 2px; border-radius: 4px; line-height: 1; }
+.tag button:hover { color: var(--bad); } .tag button:focus-visible { outline: 2px solid var(--accent); }
+.below { display: inline-flex; align-items: center; gap: 6px; background: var(--gold-soft); color: var(--gold-ink); border: 1px solid var(--gold); border-radius: 99px; padding: 0 9px; font-size: .74rem; font-weight: 720; white-space: nowrap; }
+.below::before { content: "!"; display: inline-grid; place-items: center; width: 13px; height: 13px; border-radius: 50%; background: var(--gold-ink); color: var(--gold-soft); font-size: .62rem; font-weight: 800; }
+.banner { border: 1px solid var(--gold); background: var(--gold-soft); color: var(--gold-ink); border-radius: 12px; padding: 12px 14px; display: grid; gap: 6px; font-size: .88rem; }
+.banner b { font-weight: 740; }
+.banner .acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.banner.info { border-color: var(--line); background: var(--raised); color: var(--ink); }
+.banner.bad { border-color: var(--bad); background: var(--bad-soft); color: var(--bad); }
+.banner.ok { border-color: var(--ok); background: var(--ok-soft); color: var(--ok); }
+.banner ul { margin: 2px 0 0; padding-left: 18px; }
+.banner[hidden] { display: none; }
+.rolenote { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; font-size: .84rem; color: var(--muted); padding: 8px 12px; border: 1px dashed var(--line); border-radius: 10px; }
+.rolenote b { color: var(--ink); }
+.rolenote.can { border-style: solid; border-color: var(--line-soft); background: var(--accent-soft); color: var(--ink); }
+.ro { display: inline-flex; align-items: center; gap: 5px; font-size: .74rem; font-weight: 700; color: var(--muted); border: 1px solid var(--line); border-radius: 99px; padding: 0 8px; }
+.cnt { font-variant-numeric: tabular-nums; }
+.mono { font-family: var(--mono); font-size: .76rem; color: var(--faint); }
+button.link { all: unset; cursor: pointer; color: var(--accent); font-weight: 650; border-radius: 4px; }
+button.link:hover { text-decoration: underline; } button.link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn.danger { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 50%, var(--line)); }
+.btn.danger:hover { background: var(--bad-soft); border-color: var(--bad); }
+.btn[aria-disabled="true"] { opacity: .55; cursor: not-allowed; }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+
+/* ---- type form (add, rename, describe, re-level) ---- */
+.tform { display: grid; gap: 12px; }
+.lvgroup { display: flex; flex-wrap: wrap; gap: 8px; }
+.lvopt { position: relative; cursor: pointer; border-radius: 99px; padding: 2px; border: 2px solid transparent; }
+.lvopt input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.lvopt:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.lvopt:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+.lvopt:has(input:disabled) { opacity: .4; cursor: not-allowed; }
+.lvopt:has(input:disabled) input { cursor: not-allowed; }
+.impact { font-size: .84rem; color: var(--muted); border-left: 3px solid var(--line); padding: 2px 0 2px 10px; }
+.impact.warn { border-left-color: var(--gold); color: var(--gold-ink); background: var(--gold-soft); border-radius: 0 8px 8px 0; padding: 6px 10px; }
+.impact:empty { display: none; }
+.fmsg { color: var(--bad); font-size: .82rem; font-weight: 650; }
+.fmsg:empty { display: none; }
+
+/* ---- modal ---- */
+.modal { position: fixed; z-index: 82; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(520px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow: auto; background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 24px 64px rgba(10, 25, 35, .35); padding: 18px 20px; display: grid; gap: 10px; }
+.modal[hidden] { display: none; }
+.modal h3 { font-size: 1.05rem; }
+.modal .acts { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; margin-top: 4px; }
+
+/* ---- Systems and Provider rows ---- */
+.sysrow { display: flex; align-items: center; justify-content: space-between; gap: 8px 12px; flex-wrap: wrap; }
+.sysrow .nm { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; font-weight: 650; }
+.kindtag { font-family: var(--mono); font-size: .66rem; font-weight: 700; color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; }
+.mark { display: inline-flex; align-items: center; gap: 5px; font-size: .74rem; font-weight: 720; color: var(--accent); white-space: nowrap; }
+.mark::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--accent); }
+.mark.hold { color: var(--ok); } .mark.hold::before { background: none; border: 2px solid var(--ok); }
+.mark.no { color: var(--faint); } .mark.no::before { background: none; border: 2px dashed var(--faint); }
+
+/* ---- tables that turn into cards on a phone ---- */
+@media (max-width: 700px) {
+  table.stack, table.stack thead, table.stack tbody, table.stack tr, table.stack td { display: block; width: 100%; min-width: 0; }
+  table.stack thead { display: none; }
+  table.stack tr { border-bottom: 1px solid var(--line-soft); padding: 8px 0; }
+  table.stack td { border: 0; padding: 4px 14px; }
+  table.stack td[data-lab]::before { content: attr(data-lab); display: block; font-size: .68rem; font-weight: 750; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+  table.stack td.r { text-align: left; }
+}
+
+/* ---- System page mock: the tab strip and the refused submit ---- */
+.systabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line-soft); overflow-x: auto; scrollbar-width: none; }
+.systabs span, .systabs b { padding: 7px 10px; font-size: .84rem; font-weight: 650; color: var(--faint); white-space: nowrap; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.systabs b { color: var(--ink); border-bottom-color: var(--accent); }
+.panel { overflow-wrap: anywhere; }
+.acts2 { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+/* a small square in the level's colour, before a type's name */
+.lvsq { --fg: var(--l-fg); display: inline-block; width: 8px; height: 8px; border-radius: 2px; flex: none; background: var(--fg); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .lvsq { --fg: var(--d-fg); } }
+:root[data-theme="dark"] .lvsq { --fg: var(--d-fg); }
+.lvsq[data-l="1"] { --l-fg: var(--s1-l-fg); --d-fg: var(--s1-d-fg); } .lvsq[data-l="2"] { --l-fg: var(--s2-l-fg); --d-fg: var(--s2-d-fg); }
+.lvsq[data-l="3"] { --l-fg: var(--s3-l-fg); --d-fg: var(--s3-d-fg); } .lvsq[data-l="4"] { --l-fg: var(--s4-l-fg); --d-fg: var(--s4-d-fg); }
+.lvsq[data-l="5"] { --l-fg: var(--s5-l-fg); --d-fg: var(--s5-d-fg); }

@@ -3,6 +3,35 @@
 // `id` is the vote key: keep it stable once people have voted, or the votes are orphaned.
 window.DESIGN_PARTS = [
   {
+    id: "information-types",
+    name: "Information Types",
+    added: "2026-11-03",
+    question: "How should the Information Type catalogue look and be curated, how should an owner declare a System's types under the level floor, and how does anyone find where a kind of information may be put?",
+    proposals: [
+      {
+        id: "information-types-a",
+        label: "A",
+        title: "Register and drawer",
+        href: "/design/information-types/proposal-a.html",
+        summary: "A register table with a drawer to edit or read a type; \"Where can I put this?\" is a pick list with three result groups; the owner ticks types in a list and a level list that disables everything below the floor, with a banner offering to raise the level.",
+      },
+      {
+        id: "information-types-b",
+        label: "B",
+        title: "Ladder",
+        href: "/design/information-types/proposal-b.html",
+        summary: "Everything on the five-level scale: the catalogue is five lanes of cards, \"Where can I put this?\" is the scale with a cut line, the owner's picker is a ladder with locked rungs that asks before raising the level, and the Systems list filters from a sidebar grouped by level.",
+      },
+      {
+        id: "information-types-c",
+        label: "C",
+        title: "Matrix and tags",
+        href: "/design/information-types/proposal-c.html",
+        summary: "Types behave like tags: the catalogue edits in the row and refuses a delete in a dialog, \"Where can I put this?\" is a Systems-by-types matrix, the owner types into a tag field with a level that rises on its own (with Undo), and a tag in the Systems list is a filter.",
+      },
+    ],
+  },
+  {
     id: "sensitivity",
     name: "Sensitivity Levels",
     added: "2026-11-02",

@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Information Types: Register and Drawer</title>
+<link rel="stylesheet" href="../systems/systems.css">
+<link rel="stylesheet" href="../shared/appbar.css">
+<link rel="stylesheet" href="../shared/kit.css">
+<link rel="stylesheet" href="../shared/themes.css">
+<link rel="stylesheet" href="../sensitivity/sensitivity.css">
+<link rel="stylesheet" href="information-types.css">
+<script src="../shared/themes.js"></script>
+<style>
+/* Proposal A: the familiar register. The catalogue is a table, one row per type, and a drawer edits or reads one. "Where can I
+   put this?" is a pick list beside three result groups. The owner's picker is two lists side by side: tick the types, then
+   choose the level, which disables everything below the floor. The Systems list gets a dropdown filter like the others. */
+.opts { display: grid; gap: 8px; }
+.opt { display: grid; grid-template-columns: auto auto minmax(0, 1fr); gap: 4px 12px; align-items: center; padding: 8px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); cursor: pointer; }
+.opt:hover { border-color: var(--accent); }
+.opt:has(input:checked) { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); background: var(--raised); }
+.opt:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+.opt.off { opacity: .55; cursor: not-allowed; border-style: dashed; } .opt.off:hover { border-color: var(--line); }
+.opt input { accent-color: var(--accent); width: 16px; height: 16px; margin: 0; }
+.opt small { color: var(--muted); font-size: .82rem; }
+@media (max-width: 640px) { .opt { grid-template-columns: auto minmax(0, 1fr); } .opt small { grid-column: 2; } }
+
+.crow { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 4px 12px; align-items: center; padding: 8px 10px; border-bottom: 1px solid var(--line-soft); cursor: pointer; }
+.crow:last-child { border-bottom: 0; }
+.crow:hover { background: var(--raised); }
+.crow:has(input:checked) { background: var(--accent-soft); }
+.crow input { accent-color: var(--accent); width: 16px; height: 16px; margin: 0; }
+.crow .cn { display: grid; min-width: 0; } .crow small { color: var(--muted); font-size: .8rem; }
+.crow .sl { justify-self: end; }
+@media (max-width: 640px) { .crow { grid-template-columns: auto minmax(0, 1fr); } .crow .sl { grid-column: 2; justify-self: start; } }
+.clistbox { border: 1px solid var(--line-soft); border-radius: 12px; background: var(--surface); max-height: 360px; overflow-y: auto; margin-top: 8px; }
+.pqs { width: 100%; border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 7px 10px; margin-top: 8px; }
+.pqs:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
+.pk .offer { grid-column: 1 / -1; }
+.pk .offer:empty { display: none; }
+.pk h4 { margin-top: 0; }
+
+.whereg { display: grid; grid-template-columns: minmax(240px, 320px) minmax(0, 1fr); gap: 18px; align-items: start; }
+@media (max-width: 860px) { .whereg { grid-template-columns: minmax(0, 1fr); } }
+.trow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 7px 10px; border-radius: 10px; cursor: pointer; border: 1px solid transparent; }
+.trow:hover { background: var(--raised); }
+.trow:has(input:checked) { background: var(--accent-soft); border-color: var(--accent); }
+.trow:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 1px; }
+.trow input { accent-color: var(--accent); margin: 0; }
+.trow span.t { flex: 1 1 140px; min-width: 0; font-weight: 600; }
+.res h4 { display: flex; align-items: center; gap: 8px; margin: 16px 0 6px; }
+.res h4 .cnt { font-weight: 600; color: var(--muted); }
+.rlist { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.rlist li { padding: 6px 10px; border-radius: 8px; background: var(--raised); }
+.rlist.no li { background: none; border: 1px dashed var(--line); color: var(--muted); }
+.sumline { font-size: 1.02rem; }
+
+.statsrow { padding: 14px 18px 0; }
+.fmenu { position: relative; }
+.fmenu > button { border: 1px dashed var(--line); background: transparent; border-radius: 10px; padding: 6px 11px; cursor: pointer; font-size: .84rem; color: var(--muted); display: inline-flex; gap: 6px; align-items: center; }
+.fmenu > button:hover { border-color: var(--accent); color: var(--ink); }
+.fmenu > button.on { border-style: solid; border-color: var(--accent); color: var(--accent); background: var(--accent-soft); font-weight: 680; }
+.fmenu .menu { position: absolute; z-index: 20; top: calc(100% + 6px); left: 0; width: 320px; max-width: calc(100vw - 48px); max-height: 380px; overflow-y: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 18px 48px rgba(10, 25, 35, .3); padding: 8px; }
+.fmenu .menu[hidden] { display: none; }
+.fmenu .menu label { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 9px; cursor: pointer; font-size: .86rem; }
+.fmenu .menu label:hover { background: var(--raised); }
+.fmenu .menu label .cn2 { margin-left: auto; color: var(--faint); font-size: .76rem; font-variant-numeric: tabular-nums; }
+.fmenu .menu input { accent-color: var(--accent); }
+.fmenu .menu .mh { font-size: .72rem; font-weight: 750; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); padding: 6px 8px 2px; }
+.pills { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.pills .tag button { font-size: .9rem; }
+.dlg-h { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+.dr-body { display: grid; gap: 12px; }
+</style>
+</head>
+<body>
+<header id="appbar"></header>
+<main class="app">
+  <section class="card" style="padding:16px 18px">
+    <span class="eyebrow">Information Types &middot; Proposal A</span>
+    <h1 style="margin-top:4px">Register and drawer</h1>
+    <p class="muted lede" style="margin-top:6px">Information Types sit in the main navigation, beside Systems, because everyone reads them. The catalogue is a register table with a drawer for editing; "Where can I put this information?" is a pick list with three result groups; the owner ticks types in a list and then chooses a level that can't go below them. Use the tabs for each surface, the acting-user menu in the header to see the catalogue read-only or editable, and the Mode switch for dark. <button class="link" id="reset">Restore the sample data</button></p>
+  </section>
+  <section class="card panelcard"><div id="stage"></div></section>
+</main>
+
+<script src="../shared/kit.js"></script>
+<script src="../sensitivity/data.js"></script>
+<script src="../sensitivity/sensitivity.js"></script>
+<script src="data.js"></script>
+<script src="information-types.js"></script>
+<script src="../shared/appbar.js"></script>
+<script>
+const { S, esc, chip, labelOf, plural } = IT;
+const U = S.ui;
+const byLevel = (a, b) => b.level - a.level || a.name.localeCompare(b.name);
+const search = (ph, id, val) => `<label class="search"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="9" cy="9" r="6"/><path d="m14 14 4 4"/></svg><input id="${id}" type="search" placeholder="${ph}" aria-label="${ph}" value="${esc(val || '')}" autocomplete="off"></label>`;
+const refocus = (root, id, pos) => { const e = root.querySelector('#' + id); if (e) { e.focus(); try { e.setSelectionRange(pos, pos); } catch (x) { /* search inputs */ } } };
+
+/* ---------- 1. the catalogue ---------- */
+function catalogue(el) {
+  const cur = IT.canCurate(), q = (U.cq || '').toLowerCase(), sel = U.cl || (U.cl = new Set());
+  const rows = S.types.filter((t) => (!sel.size || sel.has(t.level)) && (!q || (t.name + ' ' + t.desc).toLowerCase().includes(q))).sort(byLevel);
+  const count = (n) => S.types.filter((t) => t.level === n).length;
+  el.innerHTML = `${IT.roleNote()}
+    <div class="toolbar">${search('Search Information Types', 'cq', U.cq)}
+      <div class="fltwrap"><span class="lbl">Level</span><div class="flt">${[1, 2, 3, 4, 5].map((n) => `<button type="button" class="fchip" data-lv="${n}" aria-pressed="${sel.has(n)}">${chip(n)}<em class="num">${count(n)}</em></button>`).join('')}</div></div>
+      <span class="grow"></span>${cur ? '<button class="btn primary" id="add">Add Information Type</button>' : ''}</div>
+    <div id="note" aria-live="polite">${noteHtml()}</div>
+    <div class="tablewrap"><table class="stack"><thead><tr><th>Information Type</th><th>Sensitivity Level</th><th>Declared by</th><th class="r">${cur ? 'Actions' : ''}</th></tr></thead><tbody>
+    ${rows.map((t) => { const use = IT.users(t.id); return `<tr data-id="${t.id}" tabindex="0" aria-label="${esc(t.name)}">
+      <td data-lab="Information Type"><div class="name"><b>${esc(t.name)}</b><small>${esc(t.desc)}</small></div></td>
+      <td data-lab="Sensitivity Level">${chip(t.level)}</td>
+      <td data-lab="Declared by">${use.length ? `<b class="cnt">${plural(use.length, 'System')}</b><div class="muted" style="font-size:.78rem">Can't be deleted while declared</div>` : '<span class="muted">No System yet</span><div class="muted" style="font-size:.78rem">Can be deleted</div>'}</td>
+      <td class="r">${cur ? `<button class="btn" data-edit="${t.id}">Edit</button> <button class="btn danger" data-del="${t.id}" ${use.length ? 'aria-describedby="note"' : ''}>Delete</button>` : '<span class="muted">Open</span>'}</td></tr>`; }).join('') || '<tr><td colspan="4" class="empty">No Information Type matches.</td></tr>'}
+    </tbody></table></div>
+    <div class="foot"><span>${rows.length} of ${S.types.length} Information Types</span><span class="muted">${cur ? 'Click a row to edit it' : 'Click a row to see which Systems declare it'}</span></div>
+    <div class="scrim" hidden></div><aside class="drawer" hidden role="dialog" aria-modal="true" aria-label="Information Type"></aside>`;
+  const qi = el.querySelector('#cq'); qi.oninput = (e) => { U.cq = e.target.value; const p = e.target.selectionStart; catalogue(el); refocus(el, 'cq', p); };
+  el.querySelectorAll('[data-lv]').forEach((b) => { b.onclick = () => { const n = +b.dataset.lv; sel.has(n) ? sel.delete(n) : sel.add(n); catalogue(el); }; });
+  el.querySelectorAll('[data-dis]').forEach((b) => { b.onclick = () => { U.cn = null; catalogue(el); }; });
+  const yes = el.querySelector('[data-yes]'); if (yes) yes.onclick = () => { const id = U.cn.id; U.cn = null; IT.deleteType(id); };
+  const add = el.querySelector('#add'); if (add) add.onclick = () => { U.drawer = { id: null }; catalogue(el); };
+  el.querySelectorAll('[data-edit]').forEach((b) => { b.onclick = (e) => { e.stopPropagation(); U.drawer = { id: b.dataset.edit }; catalogue(el); }; });
+  el.querySelectorAll('[data-del]').forEach((b) => { b.onclick = (e) => { e.stopPropagation(); askDelete(el, b.dataset.del); }; });
+  const open = (e) => { const tr = e.target.closest('tr[data-id]'); if (tr && !e.target.closest('button') && (e.type === 'click' || e.key === 'Enter')) { U.drawer = { id: tr.dataset.id }; catalogue(el); } };
+  el.querySelector('tbody').addEventListener('click', open); el.querySelector('tbody').addEventListener('keydown', open);
+  if (U.drawer) drawer(el);
+}
+// Delete: refused while a System declares the type; otherwise asks first. The note is drawn from U.cn so it survives a redraw.
+function noteHtml() {
+  const t = IT.canCurate() && U.cn && IT.typeById(U.cn.id); if (!t) return '';
+  const use = IT.users(t.id);
+  if (use.length) return IT.inUseHtml(t, use) + '<p style="margin-top:6px"><button class="link" data-dis>Dismiss</button></p>';
+  return `<div class="banner info" role="alert"><b>Delete ${esc(t.name)}?</b> No System declares it, so nothing else changes.<div class="acts"><button class="btn danger" data-yes>Delete</button><button class="btn ghost" data-dis>Keep</button></div></div>`;
+}
+function askDelete(el, id) { U.cn = { id }; catalogue(el); el.querySelector('#note').scrollIntoView({ block: 'nearest' }); }
+function drawer(el) {
+  const dr = el.querySelector('.drawer'), sc = el.querySelector('.scrim'), cur = IT.canCurate();
+  const t = U.drawer.id ? IT.typeById(U.drawer.id) : null;
+  const close = () => { U.drawer = null; dr.hidden = true; sc.hidden = true; };
+  const use = t ? IT.users(t.id) : [];
+  dr.innerHTML = `<div class="dlg-h"><div><span class="eyebrow">${t ? 'Information Type' : 'New'}</span><h3>${t ? esc(t.name) : 'Add an Information Type'}</h3></div><button class="btn ghost" id="x" aria-label="Close">&#10005;</button></div>
+    <div class="dr-body">${cur ? '<div id="frm"></div>' : `<p>${esc(t.desc)}</p><dl class="kv"><dt>Sensitivity Level</dt><dd>${chip(t.level)}</dd></dl>`}
+    ${t ? `<h4>Declared by ${plural(use.length, 'System')}</h4>${use.length ? `<ul class="slist">${use.map((s) => `<li><span>${esc(s.name)}${IT.kind(s)}</span><span>${chip(s.level, { size: 'sm' })}${IT.isBelow(s) ? ' ' + IT.belowChip() : ''}</span></li>`).join('')}</ul>` : '<p class="muted">None. An owner adds it from the System page.</p>'}` : ''}
+    ${t && !cur ? '<p class="muted sub">Only the Compliance Manager or an Admin changes the catalogue.</p>' : ''}</div>`;
+  if (cur) { const f = dr.querySelector('#frm'); f.innerHTML = IT.typeForm(t, 'dr'); IT.bindForm(f, t, { onSave: () => { close(); IT.redraw(); }, onCancel: close }); }
+  dr.hidden = false; sc.hidden = false; dr.querySelector('#x').onclick = close; sc.onclick = close;
+  el.onkeydown = (e) => { if (e.key === 'Escape' && !dr.hidden) close(); };
+  if (!cur) dr.querySelector('#x').focus();
+}
+
+/* ---------- 2. Where can I put this information? ---------- */
+function where(el) {
+  const sorted = S.types.slice().sort(byLevel), q = (U.wq || '').toLowerCase();
+  const t = IT.typeById(U.wt) || IT.typeById('t7');
+  const list = sorted.filter((x) => !q || x.name.toLowerCase().includes(q));
+  const declared = IT.users(t.id), hold = IT.holders(t).filter((s) => !declared.includes(s));
+  const below = S.systems.filter((s) => !declared.includes(s) && !hold.includes(s));
+  const line = (s, mark) => `<li class="sysrow"><span class="nm">${esc(s.name)}${IT.kind(s)}</span><span class="sysrow">${chip(s.level, { size: 'sm' })}${mark}</span></li>`;
+  el.innerHTML = `<div class="whereg"><div>
+      <h3>Pick the information</h3><p class="muted sub">Everyone can use this view.</p>
+      ${search('Search Information Types', 'wq', U.wq)}
+      <div role="radiogroup" aria-label="Information Type" style="margin-top:8px;display:grid;gap:2px">${list.map((x) => `<label class="trow"><input type="radio" name="wt" value="${x.id}"${x.id === t.id ? ' checked' : ''}><span class="t">${esc(x.name)}</span>${chip(x.level, { size: 'sm' })}</label>`).join('') || '<p class="muted">No Information Type matches.</p>'}</div></div>
+    <div class="res" aria-live="polite"><h3>${esc(t.name)} ${chip(t.level, { size: 'lg' })}</h3>
+      <p class="muted sub">${esc(t.desc)}</p>
+      <p class="sumline" style="margin-top:8px"><b>${plural(IT.holders(t).length, 'System')}</b> may hold it: their level is ${chip(t.level, { size: 'sm' })} or above. ${declared.length} declare${declared.length === 1 ? 's' : ''} it${declared.length && declared.some((s) => s.level != null && s.level < t.level) ? `, ${declared.filter((s) => s.level != null && s.level < t.level).length} of them below that level` : ''}.</p>
+      <h4>Already declare it <span class="cnt">${declared.length}</span></h4>
+      <ul class="rlist">${declared.map((s) => line(s, s.level != null && s.level < t.level ? IT.belowChip() : '<span class="mark">Declared</span>')).join('') || '<li class="muted">No System declares it yet.</li>'}</ul>
+      <h4>May hold it <span class="cnt">${hold.length}</span></h4>
+      <ul class="rlist">${hold.map((s) => line(s, '<span class="mark hold">At or above</span>')).join('') || '<li class="muted">No other System is at this level.</li>'}</ul>
+      <h4>Below it, so no <span class="cnt">${below.length}</span></h4>
+      <ul class="rlist no">${below.map((s) => line(s, `<span class="mark no">${s.level == null ? 'No level declared' : 'Below'}</span>`)).join('') || '<li>None.</li>'}</ul>
+      <p class="muted sub" style="margin-top:12px">"May hold it" is about the level only. A System's owner still has to declare the type on its Profile tab before the System counts as holding it.</p></div></div>`;
+  el.querySelectorAll('input[name=wt]').forEach((r) => { r.onchange = () => { U.wt = r.value; where(el); const n = el.querySelector(`input[name=wt][value="${r.value}"]`); if (n) n.focus(); }; });
+  el.querySelector('#wq').oninput = (e) => { U.wq = e.target.value; const p = e.target.selectionStart; where(el); refocus(el, 'wq', p); };
+}
+
+/* ---------- the owner's picker: tick types, then choose a level ---------- */
+const culprit = (d) => { const fl = IT.draftFloor(d); const c = d.types.map(IT.typeById).filter((x) => x && x.level === fl); return c.find((x) => x.id === d.last) || c[0]; };
+function typesBox(d, q) {
+  const list = S.types.filter((t) => !q || (t.name + ' ' + t.desc).toLowerCase().includes(q.toLowerCase())).sort(byLevel);
+  return list.map((t) => `<label class="crow"><input type="checkbox" data-t="${t.id}"${d.types.includes(t.id) ? ' checked' : ''}><span class="cn"><b>${esc(t.name)}</b><small>${esc(t.desc)}</small></span>${chip(t.level)}</label>`).join('') || '<p class="muted" style="padding:10px">No Information Type matches.</p>';
+}
+function offer(d) {
+  if (!IT.draftShort(d)) return '';
+  const fl = IT.draftFloor(d), c = culprit(d);
+  if (d.level == null) return `<div class="banner info" role="note"><span>Pick a Sensitivity Level of at least ${chip(fl, { size: 'sm' })}: ${esc(c.name)} sets that floor.</span></div>`;
+  return `<div class="banner" role="alert"><b>${esc(c.name)} is ${esc(labelOf(c.level))}, above this System's level (${esc(labelOf(d.level))}).</b>
+    <span>A System can't be set below its Information Types. Raise the level to ${chip(fl, { size: 'sm' })} in the same save, or leave ${esc(c.name)} out.</span>
+    <div class="acts"><button class="btn primary" data-act="raise">Raise to ${esc(labelOf(fl))}</button><button class="btn" data-act="undo">Don't add ${esc(c.name)}</button></div></div>`;
+}
+function picker(root, d, st, onChange) {
+  const draw = () => {
+    const fl = IT.draftFloor(d), c = fl ? culprit(d) : null;
+    const act = document.activeElement, fk = act && root.contains(act) ? (act.dataset.t ? `[data-t="${act.dataset.t}"]` : act.name === 'lv' ? `[name=lv][value="${act.value}"]` : null) : null;
+    root.innerHTML = `<div class="two pk"><div><h4>Information Types</h4><p class="muted sub">Tick every kind of information this System may handle. ${d.types.length ? `<b>${d.types.length} ticked.</b>` : ''}</p>
+        <input class="pqs" id="pq" type="search" placeholder="Search Information Types" aria-label="Search Information Types" value="${esc(st.q || '')}" autocomplete="off"><div class="clistbox" id="tl">${typesBox(d, st.q)}</div></div>
+      <div><h4>Sensitivity Level</h4><p class="muted sub">${fl ? `Nothing below ${chip(fl, { size: 'sm' })}: ${esc(c.name)} sets the floor. You may go higher.` : 'No Information Type is ticked, so you set the level freely.'}</p>
+        <div class="opts" role="radiogroup" aria-label="Sensitivity Level">${Sens.levels().map((l) => `<label class="opt${l.n < fl ? ' off' : ''}"><input type="radio" name="lv" value="${l.n}"${d.level === l.n ? ' checked' : ''}${l.n < fl ? ' disabled' : ''}>${chip(l.n)}<small>${l.n < fl ? `Below the floor (${esc(c.name)})` : esc(l.desc)}</small></label>`).join('')}</div></div>
+      <div class="offer" aria-live="polite">${offer(d)}</div></div>`;
+    if (fk) { const n = root.querySelector(fk); if (n) n.focus(); }
+    const pq = root.querySelector('#pq');
+    const bindT = () => root.querySelectorAll('[data-t]').forEach((b) => { b.onchange = () => { if (b.checked) { d.types.push(b.dataset.t); d.last = b.dataset.t; } else d.types = d.types.filter((x) => x !== b.dataset.t); draw(); onChange(); }; });
+    pq.oninput = (e) => { st.q = e.target.value; root.querySelector('#tl').innerHTML = typesBox(d, st.q); bindT(); };
+    bindT();
+    root.querySelectorAll('[name=lv]').forEach((r) => { r.onchange = () => { d.level = +r.value; draw(); onChange(); }; });
+    root.querySelectorAll('[data-act]').forEach((b) => { b.onclick = () => { if (b.dataset.act === 'raise') d.level = IT.draftFloor(d); else d.types = d.types.filter((x) => x !== culprit(d).id); draw(); onChange(); }; });
+  };
+  draw();
+}
+
+/* ---------- 3. System page, Profile tab ---------- */
+function system(el) {
+  const s = IT.sysById(S.sys), can = IT.canDeclare(s), editing = U.edit && U.edit.sid === s.id, below = IT.isBelow(s);
+  const fl = IT.floorOf(s), off = IT.offending(s);
+  el.innerHTML = `${IT.sysHeader(s)}
+    ${below ? `<div class="banner" role="alert"><b>Below its Information Types.</b> ${esc(s.name)} is ${chip(s.level, { size: 'sm' })}, but ${off.map((t) => `${esc(t.name)} is ${esc(labelOf(t.level))}`).join(' and ')}. A curator raised ${off.length === 1 ? 'it' : 'them'} after the owner declared ${off.length === 1 ? 'it' : 'them'}. Nothing changed on its own, but the System can't be submitted for review until the level is ${chip(fl, { size: 'sm' })} or higher.
+      <div class="acts">${can ? `<button class="btn primary" id="fix">Raise to ${esc(labelOf(fl))}</button>` : `<span class="muted">Only ${esc(s.owner)}, its owner, or an Admin can raise it.</span>`}</div></div>` : ''}
+    <div class="two">
+      <section class="subcard"><div class="sysrow"><h3>Information Types</h3>${can && !editing ? '<button class="btn" id="edit">Edit</button>' : ''}</div>
+        <p class="muted sub">What this System may handle. The highest of them sets the least Sensitivity Level it can have.</p>
+        ${IT.typesOf(s).length ? `<ul class="slist" style="margin-top:10px">${IT.typesOf(s).sort(byLevel).map((t) => `<li><span>${esc(t.name)}</span>${chip(t.level)}</li>`).join('')}</ul>` : '<p class="muted" style="margin-top:10px">None declared. The owner sets the Sensitivity Level directly.</p>'}</section>
+      <section class="subcard"><h3>Classification</h3>
+        <dl class="kv"><dt>Deployment</dt><dd>SaaS</dd><dt>Sensitivity Level</dt><dd>${chip(s.level)} ${fl ? `<span class="muted">at least ${esc(labelOf(fl))}</span>` : ''}</dd><dt>Integrity</dt><dd>Moderate</dd><dt>Availability</dt><dd>High</dd></dl>
+        ${can ? '' : `<p class="muted sub" style="margin-top:10px"><span class="ro">Read only</span> Only ${esc(s.owner)} or an Admin changes this. Switch the acting user to ${s.owner === IT.D.ME ? 'System Owner' : 'Admin'} to try.</p>`}</section>
+    </div>
+    ${editing ? '<section class="subcard" id="ed"><div class="sysrow"><h3>Edit Information Types and level</h3></div><div id="pkr"></div><div class="pickacts"><button class="btn primary" id="save">Save</button><button class="btn ghost" id="cancel">Cancel</button><span class="muted" id="hint"></span></div></section>' : ''}`;
+  IT.bindHeader(el, s, { rerender: () => system(el) });
+  const start = (raise) => { const d = IT.draftOf(s); if (raise) d.level = fl; U.edit = { sid: s.id, d, st: {} }; system(el); document.getElementById('ed').scrollIntoView({ block: 'nearest' }); };
+  const eb = el.querySelector('#edit'); if (eb) eb.onclick = () => start(false);
+  const fx = el.querySelector('#fix'); if (fx) fx.onclick = () => start(true);
+  if (editing) {
+    const d = U.edit.d, sv = el.querySelector('#save'), hint = el.querySelector('#hint');
+    const sync = () => { const ok = !IT.draftShort(d) && IT.draftDirty(s, d); sv.disabled = !ok; hint.textContent = IT.draftShort(d) ? 'Resolve the level first.' : (IT.draftDirty(s, d) ? 'One Change Event for the whole save.' : 'No changes yet.'); };
+    picker(el.querySelector('#pkr'), d, U.edit.st, sync); sync();
+    sv.onclick = () => { const e = U.edit; U.edit = null; if (!IT.saveDraft(s, d)) U.edit = e; };
+    el.querySelector('#cancel').onclick = () => { U.edit = null; system(el); };
+  }
+}
+
+/* ---------- 4. Onboarding interview ---------- */
+function interview(el) {
+  const s = IT.sysById('s13');
+  const iv = U.iv || (U.iv = { d: { types: [], level: null }, step: 1, st: {} });
+  const d = iv.d, withMin = iv.step === 1;
+  el.innerHTML = `<div class="interview"><div class="iv-top"><span class="eyebrow">Onboarding interview &middot; ${esc(s.name)}</span><span class="muted">Question ${iv.step === 1 ? 6 : 7} of 12 &middot; Classification</span></div>
+      <div class="prog"><span class="track"><span class="fill" style="width:${iv.step === 1 ? 50 : 58}%"></span></span></div>
+      ${iv.step === 1 ? `<h3 class="iv-q">Which kinds of information may ${esc(s.name)} handle?</h3><p class="muted">Tick every Information Type that applies. The most sensitive one sets the lowest level you can choose next. Nothing fits? Skip it and choose a level yourself.</p>`
+        : `<h3 class="iv-q">How sensitive is ${esc(s.name)}?</h3><p class="muted">${d.types.length ? `You ticked ${IT.plural(d.types.length, 'Information Type')}. The level can't be lower than the most sensitive of them, and you may choose higher.` : 'You ticked no Information Type, so you choose the Sensitivity Level yourself.'}</p>`}
+      <div id="ivp" class="pkwrap"></div>
+      <div class="iv-foot"><button class="btn" id="back"${iv.step === 1 ? ' disabled' : ''}>Back</button><span class="grow"></span>${iv.step === 1 ? '<button class="btn ghost" id="skip">None of these</button>' : '<button class="btn ghost" id="later">Not sure yet</button>'}<button class="btn primary" id="next"></button></div></div>`;
+  const next = el.querySelector('#next');
+  const sync = () => {
+    next.textContent = iv.step === 1 ? 'Next' : 'Save and continue';
+    next.disabled = iv.step === 2 && (IT.draftShort(d) || d.level == null);
+  };
+  const body = el.querySelector('#ivp');
+  if (iv.step === 1) {
+    body.innerHTML = `<input class="pqs" id="pq" type="search" placeholder="Search Information Types" aria-label="Search Information Types" value="${esc(iv.st.q || '')}" style="margin-top:0"><div class="clistbox" id="tl">${typesBox(d, iv.st.q)}</div><p class="muted sub" id="sel" aria-live="polite" style="margin-top:8px"></p>`;
+    const note = () => { const fl = IT.draftFloor(d); body.querySelector('#sel').innerHTML = d.types.length ? `${IT.plural(d.types.length, 'type')} ticked. The highest is ${chip(fl, { size: 'sm' })}, so the level starts there.` : 'Nothing ticked yet.'; };
+    body.querySelector('#pq').oninput = (e) => { iv.st.q = e.target.value; body.querySelector('#tl').innerHTML = typesBox(d, iv.st.q); bindBoxes(); };
+    const bindBoxes = () => body.querySelectorAll('[data-t]').forEach((b) => { b.onchange = () => { if (b.checked) { d.types.push(b.dataset.t); d.last = b.dataset.t; } else d.types = d.types.filter((x) => x !== b.dataset.t); note(); }; });
+    bindBoxes(); note();
+    el.querySelector('#skip').onclick = () => { d.types = []; iv.step = 2; interview(el); };
+  } else {
+    levelOnly(body, d, sync);
+    el.querySelector('#later').onclick = () => { d.level = null; Kit.toast('Saved as Not set. The System can\'t be submitted for review until a level is declared.'); };
+  }
+  el.querySelector('#back').onclick = () => { if (iv.step === 2) { iv.step = 1; interview(el); } };
+  next.onclick = () => {
+    if (iv.step === 1) { if (d.types.length && d.level != null && IT.draftShort(d)) { /* the offer appears on the next screen */ } iv.step = 2; interview(el); }
+    else { Kit.toast(`Saved ${s.name}: ${IT.plural(d.types.length, 'Information Type')}, ${labelOf(d.level)}. Next question (not part of this design).`); }
+  };
+  sync();
+}
+// The second question reuses the level list and the offer from the picker
+function levelOnly(root, d, onChange) {
+  const draw = () => {
+    const fl = IT.draftFloor(d), c = fl ? culprit(d) : null;
+    root.innerHTML = `<div class="opts" role="radiogroup" aria-label="Sensitivity Level">${Sens.levels().map((l) => `<label class="opt${l.n < fl ? ' off' : ''}"><input type="radio" name="lv" value="${l.n}"${d.level === l.n ? ' checked' : ''}${l.n < fl ? ' disabled' : ''}>${chip(l.n)}<small>${l.n < fl ? `Below the floor (${esc(c.name)})` : esc(l.desc)}</small></label>`).join('')}</div>
+      <div class="offer" style="margin-top:10px" aria-live="polite">${fl && d.level == null ? `<div class="banner info" role="note">Choose ${chip(fl, { size: 'sm' })} or higher. ${esc(c.name)} sets the floor.</div>` : offer(d)}</div>`;
+    root.querySelectorAll('[name=lv]').forEach((r) => { r.onchange = () => { d.level = +r.value; draw(); onChange(); }; });
+    root.querySelectorAll('[data-act]').forEach((b) => { b.onclick = () => { if (b.dataset.act === 'raise') d.level = IT.draftFloor(d); else d.types = d.types.filter((x) => x !== culprit(d).id); draw(); onChange(); }; });
+  };
+  draw();
+}
+
+/* ---------- 5. Systems list with the Information Type filter ---------- */
+function list(el) {
+  const L = U.l || (U.l = { q: '', types: new Set(), below: false, open: false });
+  const all = S.systems, nBelow = all.filter(IT.isBelow).length, withTypes = all.filter((s) => s.types.length).length;
+  const rows = all.filter((s) => (!L.below || IT.isBelow(s)) && (!L.types.size || s.types.some((id) => L.types.has(id))) && (!L.q || (s.name + s.vendor + s.owner).toLowerCase().includes(L.q.toLowerCase())));
+  const byL = [5, 4, 3, 2, 1].map((n) => [n, S.types.filter((t) => t.level === n).sort((a, b) => a.name.localeCompare(b.name))]).filter(([, a]) => a.length);
+  el.innerHTML = `<div class="statsrow"><div class="stats">
+      <button class="card stat" data-f="all" aria-pressed="${!L.below && !L.types.size}"><span class="k">All Systems <em>show</em></span><span class="v">${all.length}</span></button>
+      <div class="card stat"><span class="k">Declare Information Types</span><span class="v">${withTypes}</span></div>
+      <button class="card stat warn" data-f="below" aria-pressed="${L.below}"><span class="k">Below its Information Types <em>filter</em></span><span class="v">${nBelow}</span></button></div></div>
+    <div class="toolbar">${search('Search name, vendor or owner', 'q', L.q)}
+      <div class="fmenu"><button type="button" id="ftb" class="${L.types.size ? 'on' : ''}" aria-expanded="${L.open}" aria-haspopup="true">Information Type${L.types.size ? `: ${L.types.size}` : ''} &#9662;</button>
+        <div class="menu" ${L.open ? '' : 'hidden'} role="group" aria-label="Filter by Information Type"><p class="muted sub" style="padding:2px 8px 6px">Systems that declare <b>any</b> of the ticked types.</p>
+        ${byL.map(([n, a]) => `<div class="mh">${esc(labelOf(n))}</div>${a.map((t) => `<label><input type="checkbox" data-ft="${t.id}"${L.types.has(t.id) ? ' checked' : ''}><span>${esc(t.name)}</span><span class="cn2">${IT.users(t.id).length}</span></label>`).join('')}`).join('')}</div></div>
+      <div class="pills">${[...L.types].map((id) => `<span class="tag">${esc(IT.typeById(id).name)} <button data-rm="${id}" aria-label="Remove filter ${esc(IT.typeById(id).name)}">&#10005;</button></span>`).join('')}</div>
+      ${L.types.size || L.below || L.q ? '<button class="btn ghost" id="clr">Clear filters</button>' : ''}</div>
+    <div class="tablewrap"><table class="stack"><thead><tr><th>System</th><th>Status</th><th>Owner</th><th>Sensitivity Level</th><th>Information Types</th></tr></thead><tbody>
+      ${rows.map((s) => `<tr data-id="${s.id}" tabindex="0"><td data-lab="System"><div class="name"><b>${esc(s.name)}${IT.kind(s)}</b><small>${esc(s.vendor || 'Built in-house')}</small></div></td>
+        <td data-lab="Status">${IT.statusChip(s.status)}</td><td data-lab="Owner">${IT.owner(s)}</td>
+        <td data-lab="Sensitivity Level"><div class="tags">${chip(s.level)}${IT.isBelow(s) ? IT.belowChip() : ''}</div></td><td data-lab="Information Types">${IT.tags(s, 2)}</td></tr>`).join('') || '<tr><td colspan="5" class="empty">No System matches.</td></tr>'}
+    </tbody></table></div><div class="foot"><span>${rows.length} of ${all.length} Systems</span><span class="muted">Click a System to open its Profile</span></div>`;
+  el.querySelector('#q').oninput = (e) => { L.q = e.target.value; const p = e.target.selectionStart; list(el); refocus(el, 'q', p); };
+  el.querySelector('#ftb').onclick = (e) => { e.stopPropagation(); L.open = !L.open; list(el); };
+  el.querySelector('.menu').onclick = (e) => e.stopPropagation();
+  el.querySelectorAll('[data-ft]').forEach((c) => { c.onchange = () => { c.checked ? L.types.add(c.dataset.ft) : L.types.delete(c.dataset.ft); list(el); const n = el.querySelector(`[data-ft="${c.dataset.ft}"]`); if (n) n.focus(); }; });
+  el.querySelectorAll('[data-rm]').forEach((b) => { b.onclick = () => { L.types.delete(b.dataset.rm); list(el); }; });
+  el.querySelectorAll('[data-f]').forEach((b) => { b.onclick = () => { if (b.dataset.f === 'all') { L.below = false; L.types = new Set(); } else L.below = !L.below; list(el); }; });
+  const clr = el.querySelector('#clr'); if (clr) clr.onclick = () => { L.q = ''; L.types = new Set(); L.below = false; list(el); };
+  const open = (e) => { const tr = e.target.closest('tr[data-id]'); if (tr && (e.type === 'click' || e.key === 'Enter')) { S.sys = tr.dataset.id; U.edit = null; IT.setTab('system'); } };
+  el.querySelector('tbody').addEventListener('click', open); el.querySelector('tbody').addEventListener('keydown', open);
+}
+document.addEventListener('click', () => { if (U.l && U.l.open) { U.l.open = false; const m = document.querySelector('.fmenu .menu'); if (m) { m.hidden = true; document.getElementById('ftb').setAttribute('aria-expanded', 'false'); } } });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && U.l && U.l.open) { U.l.open = false; const m = document.querySelector('.fmenu .menu'); if (m) m.hidden = true; } });
+
+document.getElementById('reset').onclick = () => { IT.reset(); };
+IT.mount(document.getElementById('stage'), { tabs: [['catalogue', 'Catalogue', catalogue], ['where', 'Where can I put this information?', where], ['system', 'System page: Profile', system], ['interview', 'Onboarding interview', interview], ['list', 'Systems list', list]] });
+Appbar.mount({ current: 'information-types', proposal: { label: 'A', siblings: [['B', 'proposal-b.html'], ['C', 'proposal-c.html']] } });
+</script>
+</body>
+</html>
