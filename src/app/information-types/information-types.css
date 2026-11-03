@@ -1,0 +1,47 @@
+/* The Information Type catalogue (#303, design proposal A "Register and drawer"). It builds on the Home look
+   (`src/app/home/home.css`), the Systems register (`src/app/systems/systems.css`) and the drawer of
+   `src/app/systems/[id]/system-cockpit.css`, and adds only what the catalogue needs. Register tokens (--rg-*). */
+
+.it .it-grow { flex: 1 1 0; }
+.it .muted { color: var(--rg-muted); }
+.sy table.it-t { min-width: 640px; }
+.it .it-actions { white-space: nowrap; text-align: right; }
+.it .it-actions .hc-btn { padding: 4px 10px; }
+.it .it-danger { color: var(--rg-danger); }
+.it .it-danger:hover { border-color: var(--rg-danger); }
+
+/* The type's name opens its drawer */
+.it .it-open { all: unset; box-sizing: border-box; cursor: pointer; color: var(--rg-ink); font-weight: 650; }
+.it .it-open:hover { color: var(--rg-accent); text-decoration: underline; }
+.it .it-open:focus-visible { outline: 2px solid var(--rg-accent); outline-offset: 2px; border-radius: 4px; }
+
+/* The Sensitivity Level filter: one toggle per level, with how many types it holds */
+.it .it-levels { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 0.84rem; }
+.it .it-level { all: unset; box-sizing: border-box; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px 2px 2px; border: 1px solid transparent; border-radius: 99px; }
+.it .it-level:hover { border-color: var(--rg-line); }
+.it .it-level[aria-pressed="true"] { border-color: var(--rg-accent); background: var(--rg-accent-soft); }
+.it .it-level:focus-visible { outline: 2px solid var(--rg-accent); outline-offset: 1px; }
+.it .it-level em { font-style: normal; font-size: 0.76rem; color: var(--rg-muted); font-variant-numeric: tabular-nums; }
+
+/* Notices above the table */
+.it .it-banner { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 0 16px 10px; padding: 10px 12px; border-radius: 10px; font-size: 0.86rem; border: 1px solid var(--rg-line); }
+.it .it-banner.ok { background: var(--rg-accent-soft); color: var(--rg-ink); border-color: color-mix(in srgb, var(--rg-accent) 25%, transparent); }
+.it .it-banner.info { background: var(--hc-raised, var(--rg-surface)); }
+.it .it-banner.warn { background: var(--rg-gold-soft, var(--rg-surface)); border-color: color-mix(in srgb, var(--rg-gold) 45%, transparent); }
+.it .it-acts { display: inline-flex; gap: 8px; margin-left: auto; }
+.it .it-link { all: unset; cursor: pointer; color: var(--rg-accent); text-decoration: underline; }
+.it .it-link:focus-visible { outline: 2px solid var(--rg-accent); outline-offset: 2px; }
+
+/* The drawer's level radios and the list of declaring Systems */
+.it-drawer-root .it-radios { display: grid; gap: 8px; }
+.it-drawer-root .it-legend { font-size: 0.84rem; font-weight: 600; color: var(--rg-muted); }
+.it-drawer-root .it-radio { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 12px; align-items: center; padding: 8px 10px; border: 1px solid var(--rg-line); border-radius: 10px; background: var(--rg-surface); cursor: pointer; }
+.it-drawer-root .it-radio:hover { border-color: var(--rg-accent); }
+.it-drawer-root .it-radio.on { border-color: var(--rg-accent); background: var(--rg-accent-soft); }
+.it-drawer-root .it-radio:has(input:focus-visible) { outline: 2px solid var(--rg-accent); outline-offset: 2px; }
+.it-drawer-root .it-radio input { width: 16px; height: 16px; padding: 0; accent-color: var(--rg-accent); }
+.it-drawer-root .it-radio small { grid-column: 2; color: var(--rg-muted); font-size: 0.8rem; }
+.it-drawer-root .it-systems { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.it-drawer-root .it-systems li { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 10px; border-radius: 8px; background: color-mix(in srgb, var(--rg-paper) 55%, var(--rg-surface)); }
+.it-drawer-root .it-systems a { color: var(--rg-ink); font-weight: 600; text-decoration: none; overflow-wrap: anywhere; }
+.it-drawer-root .it-systems a:hover { color: var(--rg-accent); text-decoration: underline; }

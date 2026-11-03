@@ -232,11 +232,11 @@ export function ThemeMenu({ open, onOpenChange }: { open: boolean; onOpenChange:
         aria-label="Theme"
         title={`Theme: ${saved.name}`}
         onClick={() => onOpenChange(!open)}
-        className={`hidden items-center gap-2 rounded-[10px] border border-rg-control bg-rg-surface px-2 py-1.5 text-[13.5px] font-semibold text-rg-ink hover:border-rg-accent sm:inline-flex min-[1241px]:gap-1.5 ${FOCUS}`}
+        className={`hidden items-center gap-2 rounded-[10px] border border-rg-control bg-rg-surface px-2 py-1.5 text-[13.5px] font-semibold text-rg-ink hover:border-rg-accent sm:inline-flex min-[1401px]:gap-1.5 ${FOCUS}`}
       >
         <Swatch palette={saved} small />
         {/* Where the full navigation is shown the button is just the swatch and a caret, to leave the header on one row. */}
-        <span className="min-[1241px]:hidden">Theme</span>
+        <span className="min-[1401px]:hidden">Theme</span>
         <span aria-hidden className="text-[10px] text-rg-muted">
           ▾
         </span>

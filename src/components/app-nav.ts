@@ -12,6 +12,7 @@ import { canReadOrganizationRisks } from "@/lib/risk-roles";
 export type NavKey =
   | "home"
   | "systems"
+  | "information-types"
   | "controls"
   | "risks"
   | "check-ups"
@@ -41,6 +42,8 @@ const everyone = () => true;
 export const NAV_ITEMS: NavItem[] = [
   { key: "home", label: "Home", icon: "home", href: "/home", prefixes: ["/home"], allows: everyone },
   { key: "systems", label: "Systems", icon: "system", href: "/systems", prefixes: ["/systems"], allows: everyone },
+  // Everyone reads the catalogue, so it sits beside Systems for every role (#302, #303).
+  { key: "information-types", label: "Information Types", icon: "infotype", href: "/information-types", prefixes: ["/information-types"], allows: everyone },
   // The Control Library admin pages also mark Controls and Frameworks, for a role without the Admin item (decision 4a on #256).
   { key: "controls", label: "Controls", icon: "control", href: "/controls", prefixes: ["/controls", "/admin/controls"], allows: everyone },
   { key: "risks", label: "Risks", icon: "risk", href: "/risks/organization", prefixes: ["/risks"], allows: (role) => canReadOrganizationRisks({ role }) },
