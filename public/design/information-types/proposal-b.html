@@ -111,15 +111,15 @@ function catalogue(el) {
   const cur = IT.canCurate();
   const card = (t) => {
     const use = IT.users(t.id);
-    if (U.be === t.id) return `<article class="tcard edit" data-id="${t.id}"><h4>Edit ${esc(t.name)}</h4>${IT.typeForm(t, 'e' + t.id)}</article>`;
+    if (cur && U.be === t.id) return `<article class="tcard edit" data-id="${t.id}"><h4>Edit ${esc(t.name)}</h4>${IT.typeForm(t, 'e' + t.id)}</article>`;
     return `<article class="tcard" data-id="${t.id}"><h4>${esc(t.name)}</h4><p>${esc(t.desc)}</p>
       <div class="used">${use.length ? `<b class="cnt">${plural(use.length, 'System')}</b> ${esc(IT.names(use, 2))}` : '<span>No System declares it</span>'}</div>
       ${cur ? `<div class="btns"><button class="btn" data-edit="${t.id}">Edit</button><button class="btn danger" data-del="${t.id}">${use.length ? 'Delete (in use)' : 'Delete'}</button></div>` : ''}
-      ${U.bn && U.bn.id === t.id ? noteHtml(t) : ''}</article>`;
+      ${cur && U.bn && U.bn.id === t.id ? noteHtml(t) : ''}</article>`;
   };
   const lane = (n) => {
     const ts = S.types.filter((t) => t.level === n).sort(byName), sys = S.systems.filter((s) => ts.some((t) => s.types.includes(t.id))).length;
-    const newHere = U.be === 'new:' + n;
+    const newHere = cur && U.be === 'new:' + n;
     return `<section class="lane" aria-label="${esc(labelOf(n))}"><div class="lane-h"><i class="lvsq" data-l="${n}"></i>${chip(n)}<span class="ld">${esc(levelDesc(n))}</span><small>${plural(ts.length, 'type')} &middot; ${plural(sys, 'System')}</small>${cur && !newHere ? `<button class="btn" data-addat="${n}">Add here</button>` : ''}</div>
       ${ts.length || newHere ? `<div class="cards">${newHere ? `<article class="tcard edit"><h4>New Information Type at ${esc(labelOf(n))}</h4>${IT.typeForm(null, 'new' + n)}</article>` : ''}${ts.map(card).join('')}</div>` : '<p class="emptylane">No Information Type at this level yet.</p>'}</section>`;
   };
@@ -129,7 +129,7 @@ function catalogue(el) {
   el.querySelectorAll('[data-del]').forEach((b) => { b.onclick = () => { U.bn = { id: b.dataset.del }; catalogue(el); }; });
   el.querySelectorAll('[data-dis]').forEach((b) => { b.onclick = () => { U.bn = null; catalogue(el); }; });
   const yes = el.querySelector('[data-yes]'); if (yes) yes.onclick = () => { const id = U.bn.id; U.bn = null; IT.deleteType(id); };
-  if (U.be) {
+  if (U.be && cur) {
     const host = el.querySelector('.tcard.edit'); const t = U.be.startsWith('new:') ? null : IT.typeById(U.be);
     const f = host.querySelector('form'), pre = U.be.startsWith('new:') ? +U.be.slice(4) : null;
     if (pre) { const r = f.querySelector(`input[type=radio][value="${pre}"]`); if (r) r.checked = true; }

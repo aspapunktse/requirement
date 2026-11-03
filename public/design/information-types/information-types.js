@@ -187,7 +187,7 @@
     const m = location.hash.match(/(?:^#|tab=)([a-z]+)$/); const h = m && m[1];
     S.tab = P.tabs.some((t) => t[0] === h) ? h : P.tabs[0][0];
     listeners.push(draw);
-    addEventListener('appbar:role', () => { S.ui.edit = null; S.ui.drawer = null; draw(); });
+    addEventListener('appbar:role', () => { ['edit', 'drawer', 'be', 'bn', 'ce', 'cm', 'cn'].forEach((k) => { S.ui[k] = null; }); draw(); });
     draw();
   }
   function reset() { S.types = clone(D.TYPES); S.systems = clone(D.SYSTEMS); Object.keys(S.ui).forEach((k) => delete S.ui[k]); changed(); toast('Sample data restored.'); }

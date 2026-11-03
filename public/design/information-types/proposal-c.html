@@ -153,8 +153,8 @@ function catalogue(el) {
     <div class="toolbar">${cur ? '<button class="btn primary" id="add">New Information Type</button>' : ''}<span class="muted">${plural(S.types.length, 'Information Type')}, ${plural(S.types.filter((t) => IT.users(t.id).length).length, 'type')} in use</span>
       <label class="sortbar">Sort by <select class="sel" id="sort"><option value="level"${sort === 'level' ? ' selected' : ''}>Level, highest first</option><option value="name"${sort === 'name' ? ' selected' : ''}>Name</option><option value="used"${sort === 'used' ? ' selected' : ''}>Most used</option></select></label></div>
     <div class="tablewrap"><table class="stack"><thead><tr><th>Information Type</th><th>Sensitivity Level</th><th>Declared by</th><th class="r">${cur ? 'Actions' : ''}</th></tr></thead><tbody>
-      ${U.ce === 'new' ? formRow(null) : ''}
-      ${rows.map((t) => { const use = IT.users(t.id); return U.ce === t.id ? formRow(t) : `<tr><td data-lab="Information Type"><div class="name"><b>${esc(t.name)}</b><small>${esc(t.desc)}</small></div></td><td data-lab="Sensitivity Level">${chip(t.level)}</td>
+      ${cur && U.ce === 'new' ? formRow(null) : ''}
+      ${rows.map((t) => { const use = IT.users(t.id); return cur && U.ce === t.id ? formRow(t) : `<tr><td data-lab="Information Type"><div class="name"><b>${esc(t.name)}</b><small>${esc(t.desc)}</small></div></td><td data-lab="Sensitivity Level">${chip(t.level)}</td>
         <td data-lab="Declared by"><span class="bar" aria-hidden="true"><i style="width:${Math.round(use.length / max * 100)}%"></i></span><b class="cnt">${plural(use.length, 'System')}</b></td>
         <td class="r">${cur ? `<div class="rowact"><button class="btn" data-edit="${t.id}">Edit</button><button class="btn danger" data-del="${t.id}" aria-haspopup="dialog">Delete</button></div>` : '<span class="muted">Read only</span>'}</td></tr>`; }).join('')}
     </tbody></table></div></div>
@@ -163,9 +163,9 @@ function catalogue(el) {
   const add = el.querySelector('#add'); if (add) add.onclick = () => { U.ce = 'new'; catalogue(el); };
   el.querySelectorAll('[data-edit]').forEach((b) => { b.onclick = () => { U.ce = b.dataset.edit; catalogue(el); }; });
   el.querySelectorAll('[data-del]').forEach((b) => { b.onclick = () => { U.cm = b.dataset.del; modal(el); }; });
-  const er = el.querySelector('tr.editrow');
+  const er = cur ? el.querySelector('tr.editrow') : null;
   if (er) IT.bindForm(er, U.ce === 'new' ? null : IT.typeById(U.ce), { onSave: () => { U.ce = null; IT.redraw(); }, onCancel: () => { U.ce = null; catalogue(el); } });
-  if (U.cm) modal(el);
+  if (U.cm && cur) modal(el);
 }
 // The delete dialog: a refusal that lists the Systems, or a confirmation
 function modal(el) {
@@ -195,7 +195,7 @@ function where(el) {
     if (s.types.includes(x.id)) return s.level != null && s.level < x.level ? ['w', `${s.name} declares ${x.name} but is below it`] : ['d', `${s.name} declares ${x.name}`];
     return s.level != null && s.level >= x.level ? ['h', `${s.name} could hold ${x.name}`] : ['n', `${s.name} is below ${x.name}`];
   };
-  el.innerHTML = `<p style="font-size:1.04rem" aria-live="polite"><b>${esc(t.name)}</b> ${chip(t.level)} &mdash; ${plural(declared.length + hold.length, 'System')} may hold it: ${declared.length} declare${declared.length === 1 ? 's' : ''} it and ${hold.length} could. Pick another type by its column heading, or here: <select class="sel" id="wsel" aria-label="Information Type">${types.map((x) => `<option value="${x.id}"${x.id === t.id ? ' selected' : ''}>${esc(x.name)} (${esc(labelOf(x.level))})</option>`).join('')}</select></p>
+  el.innerHTML = `<p style="font-size:1.04rem" aria-live="polite"><b>${esc(t.name)}</b> ${chip(t.level)} &mdash; ${plural(IT.holders(t).length, 'System')} may hold it (level at or above): ${IT.holders(t).filter((s) => declared.includes(s)).length} declare it and ${hold.length} could. ${declared.length - IT.holders(t).filter((s) => declared.includes(s)).length ? `${declared.length - IT.holders(t).filter((s) => declared.includes(s)).length} more declare it but sit below it.` : ''} Pick another type by its column heading, or here: <select class="sel" id="wsel" aria-label="Information Type">${types.map((x) => `<option value="${x.id}"${x.id === t.id ? ' selected' : ''}>${esc(x.name)} (${esc(labelOf(x.level))})</option>`).join('')}</select></p>
     <div class="legend"><span><i class="cell d"></i> Declares it</span><span><i class="cell h"></i> At or above its level, could</span><span><i class="cell n"></i> Below</span><span><i class="cell w"></i> Declares it but is below it</span></div>
     <div class="mxwrap" tabindex="0" aria-label="Systems against Information Types"><table class="mx"><thead><tr><th scope="col">System</th>${types.map((x) => `<th scope="col" class="${x.id === t.id ? 'sel' : ''}"><button class="colbtn" data-col="${x.id}" aria-pressed="${x.id === t.id}" title="${esc(x.name)}: ${esc(labelOf(x.level))}"><span class="v">${esc(x.name)}</span><i class="lvsq" data-l="${x.level}"></i></button></th>`).join('')}</tr></thead>
       <tbody>${sys.map((s) => `<tr><th scope="row"><div>${esc(s.name)}${IT.kind(s)}</div><div class="sub2">${chip(s.level, { size: 'sm' })}${IT.isBelow(s) ? IT.belowChip() : ''}</div></th>${types.map((x) => { const [c, tip] = cellOf(s, x); return `<td class="${x.id === t.id ? 'sel' : ''}"><i class="cell ${c}" role="img" aria-label="${esc(tip)}" title="${esc(tip)}"></i></td>`; }).join('')}</tr>`).join('')}</tbody></table></div>

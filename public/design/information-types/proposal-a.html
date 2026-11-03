@@ -130,7 +130,7 @@ function catalogue(el) {
 }
 // Delete: refused while a System declares the type; otherwise asks first. The note is drawn from U.cn so it survives a redraw.
 function noteHtml() {
-  const t = U.cn && IT.typeById(U.cn.id); if (!t) return '';
+  const t = IT.canCurate() && U.cn && IT.typeById(U.cn.id); if (!t) return '';
   const use = IT.users(t.id);
   if (use.length) return IT.inUseHtml(t, use) + '<p style="margin-top:6px"><button class="link" data-dis>Dismiss</button></p>';
   return `<div class="banner info" role="alert"><b>Delete ${esc(t.name)}?</b> No System declares it, so nothing else changes.<div class="acts"><button class="btn danger" data-yes>Delete</button><button class="btn ghost" data-dis>Keep</button></div></div>`;
@@ -165,7 +165,7 @@ function where(el) {
       <div role="radiogroup" aria-label="Information Type" style="margin-top:8px;display:grid;gap:2px">${list.map((x) => `<label class="trow"><input type="radio" name="wt" value="${x.id}"${x.id === t.id ? ' checked' : ''}><span class="t">${esc(x.name)}</span>${chip(x.level, { size: 'sm' })}</label>`).join('') || '<p class="muted">No Information Type matches.</p>'}</div></div>
     <div class="res" aria-live="polite"><h3>${esc(t.name)} ${chip(t.level, { size: 'lg' })}</h3>
       <p class="muted sub">${esc(t.desc)}</p>
-      <p class="sumline" style="margin-top:8px"><b>${plural(declared.length + hold.length, 'System')}</b> may hold it: their level is ${chip(t.level, { size: 'sm' })} or above. ${declared.length} already declare${declared.length === 1 ? 's' : ''} it.</p>
+      <p class="sumline" style="margin-top:8px"><b>${plural(IT.holders(t).length, 'System')}</b> may hold it: their level is ${chip(t.level, { size: 'sm' })} or above. ${declared.length} declare${declared.length === 1 ? 's' : ''} it${declared.length && declared.some((s) => s.level != null && s.level < t.level) ? `, ${declared.filter((s) => s.level != null && s.level < t.level).length} of them below that level` : ''}.</p>
       <h4>Already declare it <span class="cnt">${declared.length}</span></h4>
       <ul class="rlist">${declared.map((s) => line(s, s.level != null && s.level < t.level ? IT.belowChip() : '<span class="mark">Declared</span>')).join('') || '<li class="muted">No System declares it yet.</li>'}</ul>
       <h4>May hold it <span class="cnt">${hold.length}</span></h4>
@@ -202,8 +202,9 @@ function picker(root, d, st, onChange) {
       <div class="offer" aria-live="polite">${offer(d)}</div></div>`;
     if (fk) { const n = root.querySelector(fk); if (n) n.focus(); }
     const pq = root.querySelector('#pq');
-    pq.oninput = (e) => { st.q = e.target.value; root.querySelector('#tl').innerHTML = typesBox(d, st.q); };
-    root.querySelectorAll('[data-t]').forEach((b) => { b.onchange = () => { if (b.checked) { d.types.push(b.dataset.t); d.last = b.dataset.t; } else d.types = d.types.filter((x) => x !== b.dataset.t); draw(); onChange(); }; });
+    const bindT = () => root.querySelectorAll('[data-t]').forEach((b) => { b.onchange = () => { if (b.checked) { d.types.push(b.dataset.t); d.last = b.dataset.t; } else d.types = d.types.filter((x) => x !== b.dataset.t); draw(); onChange(); }; });
+    pq.oninput = (e) => { st.q = e.target.value; root.querySelector('#tl').innerHTML = typesBox(d, st.q); bindT(); };
+    bindT();
     root.querySelectorAll('[name=lv]').forEach((r) => { r.onchange = () => { d.level = +r.value; draw(); onChange(); }; });
     root.querySelectorAll('[data-act]').forEach((b) => { b.onclick = () => { if (b.dataset.act === 'raise') d.level = IT.draftFloor(d); else d.types = d.types.filter((x) => x !== culprit(d).id); draw(); onChange(); }; });
   };
