@@ -7,6 +7,7 @@ import { getComplianceForSystems } from "@/lib/compliance";
 import { frameworkLabel } from "@/lib/framework-label";
 import { canCreateSystem } from "@/lib/system-permissions";
 import { roleLabel } from "@/app/home/role-label";
+import { listSensitivityLevels } from "@/lib/sensitivity-level-data";
 import { readSystemsThresholds, type SystemsThresholds } from "@/lib/app-settings";
 import { fulfilment, roleViewNeedsFulfilment, roleViewOf } from "./systems-logic";
 import { loadSystemsTrends } from "./systems-trends";
@@ -153,10 +154,10 @@ export async function loadSystemRowsForCounts(user: User, now: Date): Promise<Sy
 
 /** What the Systems list page renders for `user`, all read in one snapshot. */
 export async function loadSystemsView(user: User & { name: string }, now = new Date()): Promise<SystemsView> {
-  const { rows, baseFramework, trends, thresholds } = await prisma.$transaction(
+  const { rows, baseFramework, trends, thresholds, sensitivityLevels } = await prisma.$transaction(
     async (tx) => {
       const read = await readSystemRows(tx, user, now);
-      return { rows: read.rows, baseFramework: read.baseFramework, thresholds: read.thresholds, trends: await loadSystemsTrends(tx, user, read.rows, read.where, now) };
+      return { rows: read.rows, baseFramework: read.baseFramework, thresholds: read.thresholds, trends: await loadSystemsTrends(tx, user, read.rows, read.where, now), sensitivityLevels: await listSensitivityLevels(tx) };
     },
     { isolationLevel: "RepeatableRead" },
   );
@@ -171,5 +172,6 @@ export async function loadSystemsView(user: User & { name: string }, now = new D
     roleView: roleViewOf(user.role, thresholds.underFulfilledPercent),
     trends,
     baseFramework,
+    sensitivityLevels,
   };
 }

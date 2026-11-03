@@ -1,9 +1,11 @@
 import type { ImpactLevel, UserRole } from "@prisma/client";
 import { csvFilename, toCsv } from "@/lib/csv";
+import type { SensitivityLevelInfo } from "@/lib/sensitivity-level";
 import {
   HIGHEST_IMPACT_LABEL,
   IMPACT_LABEL,
   IMPACT_ORDER,
+  SENSITIVITY_FILTER_ORDER,
   STATUS_LABEL,
   STATUS_ORDER,
   VIEW_KEYS,
@@ -66,8 +68,8 @@ export function fulfilment(row: Pick<SystemRow, "met" | "applicable">): number |
 
 // Filters
 
-export type FilterKey = "owners" | "units" | "facets" | "impact";
-export const FILTER_KEYS: FilterKey[] = ["owners", "units", "facets", "impact"];
+export type FilterKey = "owners" | "units" | "facets" | "impact" | "sens";
+export const FILTER_KEYS: FilterKey[] = ["owners", "units", "facets", "impact", "sens"];
 
 /** The values of the row a filter looks at. */
 export function filterValues(row: SystemRow, key: FilterKey): string[] {
@@ -80,11 +82,13 @@ export function filterValues(row: SystemRow, key: FilterKey): string[] {
       return row.facets.map((facet) => facet.id);
     case "impact":
       return [highestImpact(row)];
+    case "sens":
+      return [row.sensitivityLevel === null ? "none" : String(row.sensitivityLevel)];
   }
 }
 
 /** The rows in the saved view that match the search and the filters (the status tab is applied by the caller). */
-export function matchRows(rows: SystemRow[], state: Pick<RegisterState, "view" | "q" | "owners" | "units" | "facets" | "impact">): SystemRow[] {
+export function matchRows(rows: SystemRow[], state: Pick<RegisterState, "view" | "q" | "owners" | "units" | "facets" | "impact" | "sens">): SystemRow[] {
   const q = state.q.trim().toLowerCase();
   return rows.filter((row) => {
     if (!inView(row, state.view)) return false;
@@ -97,8 +101,15 @@ export function matchRows(rows: SystemRow[], state: Pick<RegisterState, "view" |
 export const hasActiveFilters = (state: RegisterState) =>
   state.view !== "all" || state.status !== "" || state.q.trim() !== "" || FILTER_KEYS.some((key) => state[key].length > 0);
 
-/** The options of a filter among `rows`, with a label, sorted by label (Impact Levels in ascending order). */
-export function filterOptions(rows: SystemRow[], key: FilterKey): { value: string; label: string }[] {
+/**
+ * The options of a filter among `rows`, with a label, sorted by label (Impact Levels and Sensitivity Levels in ascending order).
+ * The Sensitivity options come from `sensitivityLevels` (all five, then Not set), so a level no System has yet is still offered.
+ */
+export function filterOptions(rows: SystemRow[], key: FilterKey, sensitivityLevels: readonly Pick<SensitivityLevelInfo, "level" | "label">[] = []): { value: string; label: string }[] {
+  if (key === "sens") {
+    const label = (value: string) => (value === "none" ? "Not set" : (sensitivityLevels.find((level) => String(level.level) === value)?.label ?? `Level ${value}`));
+    return SENSITIVITY_FILTER_ORDER.map((value) => ({ value, label: label(value) }));
+  }
   if (key === "impact") return (Object.keys(HIGHEST_IMPACT_LABEL) as HighestImpact[]).map((value) => ({ value, label: HIGHEST_IMPACT_LABEL[value] }));
   const found = new Map<string, string>();
   for (const row of rows) {
@@ -123,6 +134,9 @@ function sortValue(row: SystemRow, sort: SortKey): string | number | null {
       return STATUS_ORDER.indexOf(row.status);
     case "owner":
       return row.ownerName.toLowerCase();
+    case "sens":
+      // The level itself, Public first when ascending; a System with no level has no value and sorts last.
+      return row.sensitivityLevel;
     case "cia":
       // Highest impact first when ascending, as in the prototype.
       return -Math.max(...levels(row).map(impactRank));

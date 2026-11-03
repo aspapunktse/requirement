@@ -32,6 +32,24 @@ const POLICIES = control("A.5.1", { title: "Policies for information security", 
 const policiesRow = (extra: Record<string, unknown> = {}) =>
   rowOf(POLICIES, assessment("IN_PROGRESS", { evidence: "Policy doc v2", queries: [openQuery("q1", "Which version?")] }), [], extra);
 
+describe("minimum Sensitivity Level", () => {
+  it("shows From and the level's chip for a Control with a minimum", async () => {
+    const minimum = control("A.8.24", { minSensitivityLevel: 4 });
+    stubApi([rowOf(minimum, null)]);
+    const { drawer } = await renderDrawer("A.8.24");
+    expect(drawer.getByText("From")).toBeInTheDocument();
+    expect(drawer.getByRole("img", { name: "Sensitivity Level: Highly Sensitive" })).toBeInTheDocument();
+    expect(drawer.queryByText("Every level")).not.toBeInTheDocument();
+  });
+
+  it("says Every level for a Control without a minimum", async () => {
+    stubApi([rowOf(control("A.5.2"), null)]);
+    const { drawer } = await renderDrawer("A.5.2");
+    expect(drawer.getByText("Every level")).toBeInTheDocument();
+    expect(drawer.queryByRole("img", { name: /Sensitivity Level/ })).not.toBeInTheDocument();
+  });
+});
+
 /** The options of a Status select that can be picked. */
 const enabledOptions = (drawer: ReturnType<typeof within>, code: string) =>
   Array.from((drawer.getByLabelText(`Status for ${code}`) as HTMLSelectElement).options)

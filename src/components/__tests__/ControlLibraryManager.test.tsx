@@ -183,16 +183,17 @@ describe("ControlLibraryManager", () => {
     render(<ControlLibraryManager sensitivityLevels={LEVELS} />);
 
     await user.selectOptions(await screen.findByLabelText("Control"), "r1");
-    const select = screen.getByLabelText("Min. Sensitivity Level");
-    expect(within(select).getAllByRole("option").map((option) => option.textContent)).toEqual([
-      "No threshold",
+    const group = within(screen.getByRole("radiogroup", { name: "Min. Sensitivity Level" }));
+    expect(group.getAllByRole("radio").map((radio) => radio.getAttribute("aria-labelledby") && document.getElementById(radio.getAttribute("aria-labelledby")!)?.textContent)).toEqual([
       "Public",
       "Internal",
       "Sensitive",
       "Highly Sensitive",
       "Critical Sensitivity",
+      "No threshold",
     ]);
-    await user.selectOptions(select, "Highly Sensitive");
+    expect(group.getByRole("radio", { name: "No threshold" })).toBeChecked();
+    await user.click(group.getByRole("radio", { name: "Sensitivity Level: Highly Sensitive" }));
     await user.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() => {

@@ -133,6 +133,17 @@ describe("OnboardingInterview", () => {
     expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
   });
 
+  it("shows each Sensitivity Level as its chip with its description", async () => {
+    const user = await setup();
+    await user.click(screen.getByRole("checkbox", { name: "Software as a service" }));
+    await next(user);
+    const radios = screen.getAllByRole("radio");
+    expect(radios).toHaveLength(5);
+    const critical = screen.getByRole("radio", { name: "Sensitivity Level: Critical Sensitivity" });
+    expect(critical).toHaveAccessibleDescription(/Would threaten the organisation\./);
+    expect(screen.getByRole("img", { name: "Sensitivity Level: Public" })).toHaveStyle({ color: "var(--rg-sensitivity-1-fg)" });
+  });
+
   it("steps forward and back, and jumps through the stepper", async () => {
     const user = await setup();
     await user.click(screen.getByRole("checkbox", { name: "Software as a service" }));
@@ -177,11 +188,11 @@ describe("OnboardingInterview", () => {
     await user.click(screen.getByRole("checkbox", { name: "Software as a service" }));
     await next(user);
     // Sensitivity: Highly Sensitive adds C-4. The radio that is selected says so.
-    expect(screen.getByRole("radio", { name: /^Highly Sensitive/ })).toHaveAccessibleDescription(/\+1/);
-    expect(screen.getByRole("radio", { name: /^Internal/ })).toHaveAccessibleDescription(/No change/);
-    await user.click(screen.getByRole("radio", { name: /^Highly Sensitive/ }));
-    expect(screen.getByRole("radio", { name: /^Highly Sensitive/ })).toHaveAccessibleDescription(/Selected/);
-    expect(screen.getByRole("radio", { name: /^Internal/ })).toHaveAccessibleDescription(/−1/);
+    expect(screen.getByRole("radio", { name: "Sensitivity Level: Highly Sensitive" })).toHaveAccessibleDescription(/\+1/);
+    expect(screen.getByRole("radio", { name: "Sensitivity Level: Internal" })).toHaveAccessibleDescription(/No change/);
+    await user.click(screen.getByRole("radio", { name: "Sensitivity Level: Highly Sensitive" }));
+    expect(screen.getByRole("radio", { name: "Sensitivity Level: Highly Sensitive" })).toHaveAccessibleDescription(/Selected/);
+    expect(screen.getByRole("radio", { name: "Sensitivity Level: Internal" })).toHaveAccessibleDescription(/−1/);
     expect(screen.getByRole("heading", { name: /4 Controls apply/ })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Clear my answer" }));
     expect(screen.getByRole("heading", { name: /3 Controls apply/ })).toBeInTheDocument();
@@ -234,7 +245,7 @@ describe("OnboardingInterview", () => {
     await fill(user, screen.getByLabelText("System name"), "  Payroll  ");
     await user.click(screen.getByRole("checkbox", { name: "On-premises" }));
     await user.click(screen.getByRole("button", { name: "Sensitivity" }));
-    await user.click(screen.getByRole("radio", { name: /^Highly Sensitive/ }));
+    await user.click(screen.getByRole("radio", { name: "Sensitivity Level: Highly Sensitive" }));
     await user.click(screen.getByRole("button", { name: "Laws and standards" }));
     await user.click(screen.getByRole("radio", { name: "Yes" }));
     await user.click(screen.getByRole("button", { name: "Relies on" }));
@@ -250,14 +261,15 @@ describe("OnboardingInterview", () => {
     expect(within(rows).getByText("Downtime").nextElementSibling).toHaveTextContent("Not answered");
     expect(within(rows).getByText("Laws and standards").nextElementSibling).toHaveTextContent("GDPR 2016");
     expect(within(rows).getByText("Relies on").nextElementSibling).toHaveTextContent("Landing Zone");
-    expect(screen.getByRole("img", { name: /Sensitivity Level highly sensitive, Integrity not classified, Availability not classified/ })).toBeInTheDocument();
+    expect(within(rows.querySelector(".hc-card-h") as HTMLElement).getByRole("img", { name: "Sensitivity Level: Highly Sensitive" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Integrity not classified, Availability not classified" })).toBeInTheDocument();
     expect(screen.getByText(/Controls apply\./)).toHaveTextContent("6 Controls apply. 4 need work from you; the rest are shared or already covered.");
     expect(screen.getByText(/Your answers can change later/)).toBeInTheDocument();
 
     // Edit goes back to the step, and the answer is kept.
     await user.click(screen.getByRole("button", { name: "Edit Sensitivity" }));
     expect(questionTitle()).toHaveTextContent("What is the most sensitive information in it?");
-    expect(screen.getByRole("radio", { name: /^Highly Sensitive/ })).toBeChecked();
+    expect(screen.getByRole("radio", { name: "Sensitivity Level: Highly Sensitive" })).toBeChecked();
     await user.click(screen.getByRole("button", { name: "Review" }));
     expect(questionTitle()).toHaveTextContent("Review and create");
   }, LONG_WALKTHROUGH);
@@ -267,7 +279,7 @@ describe("OnboardingInterview", () => {
     await fill(user, screen.getByLabelText("System name"), "  Payroll  ");
     await user.click(screen.getByRole("checkbox", { name: "On-premises" }));
     await user.click(screen.getByRole("button", { name: "Sensitivity" }));
-    await user.click(screen.getByRole("radio", { name: /^Highly Sensitive/ }));
+    await user.click(screen.getByRole("radio", { name: "Sensitivity Level: Highly Sensitive" }));
     await user.click(screen.getByRole("button", { name: "Laws and standards" }));
     await user.click(screen.getByRole("radio", { name: "Yes" }));
     await user.click(screen.getByRole("button", { name: "Relies on" }));

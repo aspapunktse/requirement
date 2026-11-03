@@ -1,3 +1,4 @@
+import { DEFAULT_SENSITIVITY_LEVELS } from "@/lib/sensitivity-level-defaults";
 import type { SystemRow, SystemsView } from "../systems-types";
 
 /** Row and view builders for the Systems list's unit and component tests. */
@@ -73,5 +74,6 @@ export const view = (over: Partial<SystemsView> = {}): SystemsView => ({
   roleView: { label: "Owned by me", warn: false },
   trends: { all: [3, 4, 5], attention: [1, 2, 3] },
   baseFramework: "ISO/IEC 27001:2022",
+  sensitivityLevels: [...DEFAULT_SENSITIVITY_LEVELS],
   ...over,
 });

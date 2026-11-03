@@ -148,6 +148,12 @@ describe("a row", () => {
     expect((await rowsOf(owner)).byId.get(s1)?.vendor).toBe("Vendor One");
   });
 
+  it("lists the five Sensitivity Levels with their labels, for the Sensitivity filter, in order", async () => {
+    const { view } = await rowsOf(owner);
+    expect(view.sensitivityLevels.map((level) => level.level)).toEqual([1, 2, 3, 4, 5]);
+    expect(view.sensitivityLevels.every((level) => level.label.length > 0)).toBe(true);
+  });
+
   it("counts Requirements met the way the compliance figure does (base Framework)", async () => {
     const row = (await rowsOf(owner)).byId.get(s2) as SystemRow;
     const direct = (await getComplianceForSystems({ id: s2 })).bySystem[0];

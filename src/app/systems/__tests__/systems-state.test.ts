@@ -18,6 +18,7 @@ describe("the list's state in the URL", () => {
       units: ["b-1"],
       facets: ["f-1"],
       impact: ["HIGH" as const, "NONE" as const],
+      sens: ["2" as const, "none" as const],
       sort: "prog" as const,
       dir: -1 as const,
       group: "unit" as const,
@@ -26,6 +27,12 @@ describe("the list's state in the URL", () => {
     };
     const query = serializeRegisterState(state);
     expect(parse(query)).toEqual(state);
+  });
+
+  it("keeps only valid Sensitivity filter values, and writes the levels and none as repeated sens params", () => {
+    expect(parse("sens=1&sens=5&sens=none&sens=6&sens=0&sens=x&sens=1").sens).toEqual(["1", "5", "none"]);
+    expect(serializeRegisterState({ ...DEFAULT_STATE, sens: ["3", "none"] })).toBe("sens=3&sens=none");
+    expect(parse("sort=sens").sort).toBe("sens");
   });
 
   it("falls back to the default for anything it does not recognise", () => {

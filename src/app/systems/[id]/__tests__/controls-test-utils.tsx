@@ -1,6 +1,7 @@
 import { render, screen, within } from "@testing-library/react";
 import { vi } from "vitest";
 import { resolveEffectiveStatus, type InheritanceSource, type ProviderSource } from "@/lib/effective-status";
+import { DEFAULT_SENSITIVITY_LEVELS } from "@/lib/sensitivity-level-defaults";
 import { SystemControls } from "../SystemControls";
 
 /** Fixtures and helpers shared by the Controls tab's tests (#244). */
@@ -12,6 +13,7 @@ export type TestControl = {
   description: string;
   category: string;
   mandatory: boolean;
+  minSensitivityLevel?: number | null;
   question: string | null;
   intent?: string | null;
   examples?: string[];
@@ -106,7 +108,7 @@ export function stubApi(rows: unknown[], options: { stale?: unknown[]; handle?: 
 type Props = Partial<React.ComponentProps<typeof SystemControls>>;
 
 export const renderControls = (props: Props = {}) =>
-  render(<SystemControls systemId="s1" userRole="SYSTEM_OWNER" currentUserId="owner" systemOwnerId="owner" {...props} />);
+  render(<SystemControls systemId="s1" userRole="SYSTEM_OWNER" currentUserId="owner" systemOwnerId="owner" sensitivityLevels={[...DEFAULT_SENSITIVITY_LEVELS]} {...props} />);
 
 /** Renders the tab with the URL naming a Control, and returns queries scoped to its drawer. */
 export async function renderDrawer(code: string, props: Props = {}) {

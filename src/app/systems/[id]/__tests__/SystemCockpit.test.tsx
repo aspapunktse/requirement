@@ -113,7 +113,10 @@ describe("header (#243)", () => {
     expect(screen.getByText("Owned by Marcus Lindqvist")).toBeInTheDocument();
     expect(screen.getByText("(you)")).toBeInTheDocument();
     expect(screen.getByText("SaaS", { selector: ".facet" })).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: "Sensitivity Level highly sensitive, Integrity moderate, Availability not classified" })).toBeInTheDocument();
+    // The Sensitivity Level is a chip beside the name; the header's bars carry I and A only.
+    const title = screen.getByRole("heading", { level: 1, name: "ServiceNow" }).parentElement as HTMLElement;
+    expect(within(title).getByRole("img", { name: "Sensitivity Level: Highly Sensitive" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Integrity moderate, Availability not classified" })).toBeInTheDocument();
     expect(screen.getByText("Vendor ServiceNow Inc")).toBeInTheDocument();
     expect(screen.getByText("IT service management.")).toBeInTheDocument();
 
@@ -477,7 +480,7 @@ describe("Overview tiles (#243)", () => {
     expect(within(risks).getByText("Mitigated").previousElementSibling).toHaveTextContent("1");
     const classification = screen.getByRole("region", { name: "Classification" });
     expect(within(classification).getByRole("img", { name: "Availability: Not classified" })).toBeInTheDocument();
-    expect(within(classification).getByText("Highly Sensitive")).toBeInTheDocument();
+    expect(within(classification).getByRole("img", { name: "Sensitivity Level: Highly Sensitive" })).toBeInTheDocument();
     expect(within(classification).queryByRole("img", { name: /Confidentiality/ })).not.toBeInTheDocument();
     for (const tag of ["SaaS", "Finance", "GDPR:2016"]) expect(within(classification).getByText(tag)).toBeInTheDocument();
     const activity = screen.getByRole("region", { name: "Recent activity" });

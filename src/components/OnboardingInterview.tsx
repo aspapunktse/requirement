@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { ImpactLevel } from "@prisma/client";
 import { Button } from "@/components/ui/Button";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { CiaBars } from "@/app/systems/CiaBars";
+import { SensitivityChip } from "@/components/SensitivityChip";
 import {
   IMPACT_LEVEL_WORD,
   IMPACT_STEPS,
@@ -97,7 +98,7 @@ function OptionCard({
 }: {
   type: "radio" | "checkbox";
   name: string;
-  title: string;
+  title: ReactNode;
   hint?: string | null;
   checked: boolean;
   disabled?: boolean;
@@ -297,7 +298,7 @@ export function OnboardingInterview() {
             key={option.level}
             type="radio"
             name="ob-sensitivity"
-            title={option.label}
+            title={<SensitivityChip level={option.level} label={option.label} />}
             hint={option.description}
             checked={chosen === option.level}
             selected={chosen === option.level}
@@ -525,11 +526,16 @@ export function OnboardingInterview() {
         <div className="ob-sum hc-card">
           <div className="hc-card-h">
             <h3>Your answers</h3>
-            <CiaBars
-              sensitivityLabel={data.sensitivityLevels.find((o) => o.level === answers.sensitivityLevel)?.label ?? null}
-              integrity={answers.integrityImpactLevel}
-              availability={answers.availabilityImpactLevel}
-            />
+            <span className="inline-flex flex-wrap items-center justify-end gap-2">
+              <SensitivityChip
+                level={answers.sensitivityLevel}
+                label={data.sensitivityLevels.find((o) => o.level === answers.sensitivityLevel)?.label}
+              />
+              <CiaBars
+                integrity={answers.integrityImpactLevel}
+                availability={answers.availabilityImpactLevel}
+              />
+            </span>
           </div>
           <dl className="ob-dl">
             {rows.map((row) => (

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type MouseEvent } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type MouseEvent } from "react";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { onboardingStatusTone } from "@/lib/status-tones";
 import { ago, initialsOf } from "@/app/home/home-format";
@@ -15,6 +15,7 @@ import { ChangeOwnerDialog } from "@/components/ChangeOwnerDialog";
 import { canChangeOwner } from "@/lib/system-permissions";
 import { canWriteInternalAudits } from "@/lib/internal-audit-rules";
 import { AddToInternalAuditDialog } from "./AddToInternalAuditDialog";
+import { SensitivityChip } from "@/components/SensitivityChip";
 import { CiaBars } from "./CiaBars";
 import { BULK_ACTIONS, canChangeAnyOwner } from "./bulk-actions";
 import { PAGE_SIZES, SHOW_COMPACT_TOGGLE, SHOW_JUMP_PALETTE, SHOW_STAT_TRENDS } from "./systems-config";
@@ -60,6 +61,7 @@ const FILTERS: { key: FilterKey; label: string }[] = [
   { key: "owners", label: "Owner" },
   { key: "units", label: "Business Unit" },
   { key: "facets", label: "Deployment Facet" },
+  { key: "sens", label: "Sensitivity" },
   { key: "impact", label: "Highest Impact Level" },
 ];
 
@@ -68,7 +70,8 @@ const COLUMNS: { key: SortKey | "go" | "facets"; label: string; sortable: boolea
   { key: "status", label: "Status", sortable: true, className: "c-status" },
   { key: "owner", label: "Owner", sortable: true, className: "c-owner" },
   { key: "facets", label: "Deployment", sortable: false, className: "c-facets" },
-  { key: "cia", label: "Sensitivity · I · A", sortable: true, className: "c-cia" },
+  { key: "sens", label: "Sensitivity", sortable: true, className: "c-sens" },
+  { key: "cia", label: "I · A", sortable: true, className: "c-cia" },
   { key: "unit", label: "Business Unit", sortable: true, className: "c-unit" },
   { key: "prog", label: "Requirements met", sortable: true, className: "c-prog" },
   { key: "upd", label: "Updated", sortable: true, className: "c-upd" },
@@ -125,6 +128,26 @@ export function SystemsRegister({ view, initialQuery }: { view: SystemsView; ini
       document.removeEventListener("mousedown", onPointerDown);
       document.removeEventListener("keydown", onKeyDown);
     };
+  }, [openFilter]);
+
+  // Keep an open filter menu inside the register card (and the viewport) with a 16px gutter: it opens from its button's
+  // left edge, so shift it left when it would run past the right bound, never past the left one. The bound is the card's
+  // own edge, not `window.innerWidth`, which grows with an overflowing menu on a phone and includes the scrollbar on a
+  // desktop. Measured on the DOM, no state, no re-render.
+  useLayoutEffect(() => {
+    if (openFilter === null) return;
+    const card = regRef.current;
+    const wrap = card?.querySelector<HTMLElement>(`[data-filter="${openFilter}"]`);
+    const menu = wrap?.querySelector<HTMLElement>(".menu");
+    if (!card || !wrap || !menu) return;
+    const GUTTER = 16;
+    const bounds = card.getBoundingClientRect();
+    const rightLimit = Math.min(document.documentElement.clientWidth, bounds.right) - GUTTER;
+    menu.style.left = "";
+    const overflow = menu.getBoundingClientRect().right - rightLimit;
+    if (overflow <= 0) return;
+    const room = Math.max(0, wrap.getBoundingClientRect().left - bounds.left);
+    menu.style.left = `${-Math.min(overflow, room)}px`;
   }, [openFilter]);
 
   function update(patch: Partial<RegisterState>, options: { replace?: boolean; keepPage?: boolean } = {}) {
@@ -193,7 +216,7 @@ export function SystemsRegister({ view, initialQuery }: { view: SystemsView; ini
     update({ [key]: current.includes(value) ? current.filter((v) => v !== value) : [...current, value] } as Partial<RegisterState>);
   }
   function clearFilters() {
-    update({ view: "all", status: "", q: "", owners: [], units: [], facets: [], impact: [] });
+    update({ view: "all", status: "", q: "", owners: [], units: [], facets: [], impact: [], sens: [] });
     setOpenFilter(null);
   }
   function sortBy(key: SortKey) {
@@ -280,8 +303,11 @@ export function SystemsRegister({ view, initialQuery }: { view: SystemsView; ini
             </span>
           )}
         </td>
+        <td className="c-sens">
+          <SensitivityChip level={row.sensitivityLevel} label={row.sensitivityLabel ?? undefined} />
+        </td>
         <td className="c-cia">
-          <CiaBars sensitivityLabel={row.sensitivityLabel} integrity={row.integrity} availability={row.availability} />
+          <CiaBars integrity={row.integrity} availability={row.availability} />
         </td>
         <td className="c-unit muted" title={units.join(", ")}>
           {units.length === 0 ? (
@@ -495,7 +521,7 @@ export function SystemsRegister({ view, initialQuery }: { view: SystemsView; ini
             </kbd>
           </label>
           {FILTERS.map((filter) => {
-            const options = filterOptions(rows, filter.key);
+            const options = filterOptions(rows, filter.key, view.sensitivityLevels);
             const chosen = state[filter.key] as string[];
             const nameOf = (value: string) => options.find((option) => option.value === value)?.label ?? value;
             const text = chosen.length === 0 ? `+ ${filter.label}` : chosen.length === 1 ? `${filter.label}: ${nameOf(chosen[0])}` : `${filter.label}: ${chosen.length}`;
@@ -518,7 +544,11 @@ export function SystemsRegister({ view, initialQuery }: { view: SystemsView; ini
                     {options.map((option) => (
                       <label key={option.value}>
                         <input type="checkbox" checked={chosen.includes(option.value)} onChange={() => toggleFilterValue(filter.key, option.value)} />
-                        <span>{option.label}</span>
+                        {filter.key === "sens" ? (
+                          <SensitivityChip level={option.value === "none" ? null : Number(option.value)} label={option.label} />
+                        ) : (
+                          <span>{option.label}</span>
+                        )}
                         <span>{base.filter((row) => filterValues(row, filter.key).includes(option.value)).length}</span>
                       </label>
                     ))}

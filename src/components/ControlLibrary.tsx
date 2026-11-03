@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { SensitivityChip } from "@/components/SensitivityChip";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { APPLICABILITY_LABEL } from "@/lib/statement-of-applicability-rules";
 import type { ControlLibraryRow } from "@/lib/control-library";
@@ -16,10 +17,20 @@ const IMPACT_AXES = [
 
 const selectClass = "rounded border border-rg-control p-1 text-sm";
 
+/** "From <level>" as a chip when the Control sets a minimum Sensitivity Level, "Every level" when it doesn't. */
+function MinimumSensitivity({ control }: { control: ControlLibraryRow }) {
+  if (control.minSensitivityLevel === null) return <span className="text-rg-muted">Every level</span>;
+  return (
+    <span className="inline-flex flex-wrap items-center gap-2">
+      <span className="text-rg-muted">From</span>
+      <SensitivityChip level={control.minSensitivityLevel} label={control.minSensitivityLabel ?? undefined} />
+    </span>
+  );
+}
+
 /** "Draft Framework" marks only appear for a viewer who can see Drafts (the server never sends them otherwise). */
 function ControlDetail({ control }: { control: ControlLibraryRow }) {
   const thresholds = [
-    ...(control.minSensitivityLevel !== null ? [`Min. Sensitivity Level: ${control.minSensitivityLabel ?? control.minSensitivityLevel}`] : []),
     ...IMPACT_AXES.filter(({ key }) => control[key]).map(({ key, label }) => `${label}: ${control[key]}`),
   ];
   return (
@@ -46,7 +57,11 @@ function ControlDetail({ control }: { control: ControlLibraryRow }) {
           <>
             <dt className="text-rg-muted">Deployment Facets</dt>
             <dd>{control.deploymentFacets.length > 0 ? control.deploymentFacets.join(", ") : "Applies regardless"}</dd>
-            <dt className="text-rg-muted">Sensitivity and Impact Levels</dt>
+            <dt className="text-rg-muted">Sensitivity Level</dt>
+            <dd>
+              <MinimumSensitivity control={control} />
+            </dd>
+            <dt className="text-rg-muted">Impact Levels</dt>
             <dd>{thresholds.length > 0 ? thresholds.join(", ") : "Applies regardless"}</dd>
           </>
         )}
@@ -167,6 +182,7 @@ export function ControlLibrary({ rows }: { rows: ControlLibraryRow[] }) {
                   <span className="whitespace-nowrap font-medium">{control.code}</span>
                   <span className="flex-1">{control.title}</span>
                   <StatusChip tone="neutral">{APPLICABILITY_LABEL[control.applicability]}</StatusChip>
+                  {control.applicability !== "ORGANIZATIONAL" && control.minSensitivityLevel !== null && <MinimumSensitivity control={control} />}
                   {control.origin && <StatusChip tone="accent">Supplementary</StatusChip>}
                   {!control.mandatory && <StatusChip tone="warn">Not mandatory</StatusChip>}
                 </summary>

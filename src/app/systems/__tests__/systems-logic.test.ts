@@ -87,6 +87,22 @@ describe("search and filters", () => {
     expect(ids(matchRows(ROWS, state({ owners: ["u-elena"], impact: ["NONE"] })))).toEqual(["s-legacy"]);
   });
 
+  it("filters by Sensitivity Level, Not set included: OR within the filter, AND with the others", () => {
+    expect(ids(matchRows(ROWS, state({ sens: ["3"] })))).toEqual(["s-jira", "s-okta"]);
+    expect(ids(matchRows(ROWS, state({ sens: ["none"] })))).toEqual(["s-legacy"]);
+    expect(ids(matchRows(ROWS, state({ sens: ["2", "4", "none"] })))).toEqual(["s-billing", "s-legacy", "s-hub"]);
+    expect(ids(matchRows(ROWS, state({ sens: ["5"] })))).toEqual([]);
+    expect(ids(matchRows(ROWS, state({ sens: ["3", "none"], owners: ["u-elena"] })))).toEqual(["s-legacy"]);
+  });
+
+  it("offers every Sensitivity Level with its live label, then Not set, whether or not a System has it", () => {
+    const levels = [1, 2, 3, 4, 5].map((level) => ({ level, label: `Renamed ${level}` }));
+    expect(filterOptions(ROWS, "sens", levels)).toEqual([
+      ...levels.map((l) => ({ value: String(l.level), label: l.label })),
+      { value: "none", label: "Not set" },
+    ]);
+  });
+
   it("combines with the saved view", () => {
     expect(ids(matchRows(ROWS, state({ view: "attention", owners: ["u-priya"] })))).toEqual(["s-hub"]);
   });
@@ -100,7 +116,7 @@ describe("search and filters", () => {
 
   it("knows when anything narrows the list", () => {
     expect(hasActiveFilters(DEFAULT_STATE)).toBe(false);
-    for (const over of [{ view: "mine" as const }, { status: "DRAFT" as const }, { q: "x" }, { owners: ["a"] }, { impact: ["LOW" as const] }]) {
+    for (const over of [{ view: "mine" as const }, { status: "DRAFT" as const }, { q: "x" }, { owners: ["a"] }, { impact: ["LOW" as const] }, { sens: ["none" as const] }]) {
       expect(hasActiveFilters({ ...DEFAULT_STATE, ...over })).toBe(true);
     }
     expect(hasActiveFilters({ ...DEFAULT_STATE, q: "   " })).toBe(false);
@@ -119,6 +135,11 @@ describe("sorting", () => {
 
   it("sorts by the highest impact, highest first when ascending, as in the prototype", () => {
     expect(ids(sortRows(ROWS, "cia", 1))).toEqual(["s-billing", "s-jira", "s-okta", "s-hub", "s-legacy"]);
+  });
+
+  it("sorts by Sensitivity Level, Public first, and keeps Systems with no level last in both directions", () => {
+    expect(ids(sortRows(ROWS, "sens", 1))).toEqual(["s-hub", "s-jira", "s-okta", "s-billing", "s-legacy"]);
+    expect(ids(sortRows(ROWS, "sens", -1))).toEqual(["s-billing", "s-jira", "s-okta", "s-hub", "s-legacy"]);
   });
 
   it("sorts by fulfilment and keeps Systems with no figure last in both directions", () => {

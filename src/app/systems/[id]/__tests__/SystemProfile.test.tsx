@@ -239,7 +239,8 @@ describe("Deployment Facets", () => {
     expect(await screen.findByRole("checkbox", { name: "SaaS" })).toBeDisabled();
     expect(screen.queryByRole("button", { name: "Change Deployment Facets" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Change Impact Levels" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Highly Sensitive", pressed: true })).toBeDisabled();
+    expect(screen.getByRole("radio", { name: "Sensitivity Level: Highly Sensitive" })).toBeDisabled();
+    expect(screen.getByRole("radio", { name: "Sensitivity Level: Public" })).toBeDisabled();
     expect(screen.queryByRole("button", { name: "Change Sensitivity Level" })).not.toBeInTheDocument();
   });
 
@@ -254,13 +255,24 @@ describe("Deployment Facets", () => {
 });
 
 describe("Sensitivity Level", () => {
-  const group = () => within(screen.getByRole("group", { name: "Sensitivity Level" }));
+  const group = () => within(screen.getByRole("radiogroup", { name: "Sensitivity Level" }));
 
-  it("lists Not set and the five levels with the current one pressed, and describes each", () => {
+  it("lists the five levels as chips with their description, then Not set, with the current one checked", () => {
     renderProfile();
-    expect(group().getAllByRole("button").map((button) => button.textContent)).toEqual(["Not set", "Public", "Internal", "Sensitive", "Highly Sensitive", "Critical Sensitivity"]);
-    expect(group().getByRole("button", { name: "Highly Sensitive" })).toHaveAttribute("aria-pressed", "true");
+    expect(group().getAllByRole("radio").map((radio) => radio.getAttribute("aria-label") ?? document.getElementById(radio.getAttribute("aria-labelledby")!)?.textContent)).toEqual([
+      "Public",
+      "Internal",
+      "Sensitive",
+      "Highly Sensitive",
+      "Critical Sensitivity",
+      "Not set",
+    ]);
+    expect(group().getByRole("radio", { name: "Sensitivity Level: Highly Sensitive" })).toBeChecked();
+    expect(group().getByRole("radio", { name: "Sensitivity Level: Highly Sensitive" })).toHaveAccessibleDescription("Would seriously harm people.");
+    expect(group().getByRole("radio", { name: "Sensitivity Level: Not set" })).not.toBeChecked();
     expect(screen.getByText(/Would threaten the organisation\./)).toBeInTheDocument();
+    // The chip carries the live token colours, so an Admin's rename or recolour shows without a deploy.
+    expect(group().getByRole("img", { name: "Sensitivity Level: Public" })).toHaveStyle({ color: "var(--rg-sensitivity-1-fg)" });
   });
 
   it("saves only when the level changed, sending just the level", async () => {
@@ -269,7 +281,7 @@ describe("Sensitivity Level", () => {
     const save = screen.getByRole("button", { name: "Change Sensitivity Level" });
     expect(save).toBeDisabled();
 
-    await user.click(group().getByRole("button", { name: "Critical Sensitivity" }));
+    await user.click(group().getByRole("radio", { name: "Sensitivity Level: Critical Sensitivity" }));
     await user.click(save);
 
     expect(fetchMock).toHaveBeenCalledWith(
@@ -285,7 +297,7 @@ describe("Sensitivity Level", () => {
       init?.method === "PATCH" ? respond({ error: "Only the System's owner or an Admin can change this System's classification" }, 403) : respond({ deploymentFacets: [] }),
     );
     renderProfile();
-    await user.click(group().getByRole("button", { name: "Not set" }));
+    await user.click(group().getByRole("radio", { name: "Sensitivity Level: Not set" }));
     await user.click(screen.getByRole("button", { name: "Change Sensitivity Level" }));
     expect(fetchMock).toHaveBeenCalledWith("/api/systems/s1", expect.objectContaining({ body: JSON.stringify({ sensitivityLevel: null }) }));
     expect(await screen.findByText(/Only the System's owner or an Admin/)).toBeInTheDocument();

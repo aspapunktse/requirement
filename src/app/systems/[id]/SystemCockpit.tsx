@@ -17,6 +17,7 @@ import "@/app/home/home.css";
 import "@/app/systems/systems.css";
 import "./system-cockpit.css";
 import { CiaBars } from "@/app/systems/CiaBars";
+import { SensitivityChip } from "@/components/SensitivityChip";
 import { IMPACT_LABEL, IMPACT_RANK, STATUS_LABEL } from "@/app/systems/systems-types";
 import { DecisionDialog } from "./DecisionDialog";
 import { RiskGrid } from "./RiskGrid";
@@ -201,7 +202,10 @@ export function SystemCockpit({ view, panels }: { view: SystemPageView; panels: 
             {initialsOf(system.name).toUpperCase()}
           </span>
           <div className="sc-who">
-            <h1 id="sc-title">{system.name}</h1>
+            <div className="sc-titlerow">
+              <h1 id="sc-title">{system.name}</h1>
+              <SensitivityChip level={system.sensitivityLevel} label={system.sensitivityLabel ?? undefined} size="lg" />
+            </div>
             <div className="sc-meta">
               <StatusChip tone={onboardingStatusTone(system.status)}>{STATUS_LABEL[system.status]}</StatusChip>
               {system.isProvider && <StatusChip tone="accent">Provider</StatusChip>}
@@ -221,7 +225,7 @@ export function SystemCockpit({ view, panels }: { view: SystemPageView; panels: 
                   ))}
                 </span>
               )}
-              <CiaBars sensitivityLabel={system.sensitivityLabel} integrity={system.integrity} availability={system.availability} />
+              <CiaBars integrity={system.integrity} availability={system.availability} />
               {system.vendor && <span>Vendor {system.vendor}</span>}
             </div>
             {system.description && <p className="sc-desc">{system.description}</p>}
@@ -514,7 +518,7 @@ export function SystemCockpit({ view, panels }: { view: SystemPageView; panels: 
             <div className="hc-card-b sc-prof">
               <div>
                 <h3 className="sc-sub">Sensitivity Level</h3>
-                <span className="muted">{system.sensitivityLabel ?? "Not set"}</span>
+                <SensitivityChip level={system.sensitivityLevel} label={system.sensitivityLabel ?? undefined} />
               </div>
               <div className="sc-ciabars">
                 <h3 className="sc-sub">Impact Level</h3>

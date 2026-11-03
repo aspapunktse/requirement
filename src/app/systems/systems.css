@@ -27,11 +27,11 @@
 .sy-filter > button { border: 1px dashed var(--rg-line); background: transparent; border-radius: 10px; padding: 6px 11px; cursor: pointer; font: inherit; font-size: 0.84rem; color: var(--rg-muted); display: inline-flex; gap: 6px; align-items: center; font-weight: 600; }
 .sy-filter > button:hover { border-color: var(--rg-accent); color: var(--rg-ink); }
 .sy-filter > button.on { border-style: solid; border-color: var(--rg-accent); color: var(--rg-accent); background: var(--rg-accent-soft); font-weight: 680; }
-.sy-filter .menu { position: absolute; z-index: 20; top: calc(100% + 6px); left: 0; min-width: 230px; max-height: 320px; overflow-y: auto; background: var(--rg-surface); border: 1px solid var(--rg-line); border-radius: 14px; box-shadow: 0 18px 48px rgba(10, 25, 35, 0.18); padding: 6px; animation: hc-pop-menu 0.16s ease-out; }
+.sy-filter .menu { position: absolute; z-index: 20; top: calc(100% + 6px); left: 0; min-width: min(230px, calc(100vw - 32px)); max-width: calc(100vw - 32px); max-height: 320px; overflow-y: auto; background: var(--rg-surface); border: 1px solid var(--rg-line); border-radius: 14px; box-shadow: 0 18px 48px rgba(10, 25, 35, 0.18); padding: 6px; animation: hc-pop-menu 0.16s ease-out; }
 @keyframes hc-pop-menu { from { opacity: 0; transform: translateY(-4px); } }
 .sy-filter .menu label { display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 9px; cursor: pointer; font-size: 0.86rem; }
 .sy-filter .menu label:hover { background: var(--hc-raised); }
-.sy-filter .menu label span:last-child { margin-left: auto; color: var(--rg-muted); font-size: 0.76rem; font-variant-numeric: tabular-nums; }
+.sy-filter .menu label > span:last-child { margin-left: auto; color: var(--rg-muted); font-size: 0.76rem; font-variant-numeric: tabular-nums; }
 .sy-filter .menu input { accent-color: var(--rg-accent); }
 .sy-filter .menu .none { padding: 8px; color: var(--rg-muted); font-size: 0.84rem; }
 .sy-toolbar .spacer { flex: 1; }
@@ -75,7 +75,6 @@
 
 /* C · I · A: three small bars (shared with the System page header, `.sc`), tall for a high Impact Level; dashed when not classified */
 :is(.sy, .sc) .cia { display: inline-flex; gap: 3px; align-items: end; height: 16px; }
-:is(.sy, .sc) .cia .cia-s { align-self: center; margin-right: 4px; font-size: 11px; color: var(--rg-muted); white-space: nowrap; }
 :is(.sy, .sc) .cia i { width: 5px; border-radius: 1px; background: var(--rg-line); }
 :is(.sy, .sc) .cia i[data-l="0"] { height: 3px; background: transparent; border: 1px dashed var(--rg-muted); }
 :is(.sy, .sc) .cia i[data-l="1"] { height: 5px; background: var(--rg-muted); }
@@ -131,7 +130,7 @@
   .sy tbody td.chk { grid-row: 1 / span 3; }
   .sy tbody td.c-name { grid-column: 2; }
   .sy tbody td.c-status { grid-column: 3; grid-row: 1; }
-  .sy tbody td.c-owner, .sy tbody td.c-prog { grid-column: 2 / span 2; }
+  .sy tbody td.c-owner, .sy tbody td.c-sens, .sy tbody td.c-prog { grid-column: 2 / span 2; }
   .sy tbody td.c-facets, .sy tbody td.c-cia, .sy tbody td.c-unit, .sy tbody td.c-upd, .sy tbody td.go { display: none !important; }
   .sy tbody tr:not(.sy-row), .sy tbody tr:not(.sy-row) td { display: block; }
   .sy .sy-grp td { top: 0; }

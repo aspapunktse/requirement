@@ -21,6 +21,7 @@
 .sc-mark { width: 56px; height: 56px; border-radius: 14px; display: grid; place-items: center; flex: none; font-weight: 800; font-size: 1.15rem; letter-spacing: 0.02em; background: var(--rg-accent); color: var(--rg-on-accent); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.15); }
 .sc-who { flex: 1 1 320px; min-width: 0; display: grid; gap: 8px; }
 .sc-who h1 { font-size: clamp(1.5rem, 3vw, 1.9rem); line-height: 1.2; letter-spacing: -0.02em; overflow-wrap: anywhere; }
+.sc-titlerow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; min-width: 0; }
 .sc-meta { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; font-size: 0.86rem; color: var(--rg-muted); }
 .sc-meta .owner { display: inline-flex; align-items: center; gap: 8px; color: var(--rg-ink); }
 .sc-meta .av { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--rg-accent-soft); color: var(--rg-accent); font-size: 0.66rem; font-weight: 750; flex: none; }
@@ -224,6 +225,7 @@
 .sc-drawer .hc-btn.ghost:hover { border-color: var(--rg-line); }
 .sc-eyebrow { font-family: var(--rg-font-mono); font-size: 0.74rem; font-weight: 700; letter-spacing: 0.06em; color: var(--rg-accent); text-transform: uppercase; overflow-wrap: anywhere; }
 .sc-dmeta { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.sc-minlevel { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 0.8rem; color: var(--rg-muted); }
 .sc-tag { font-size: 0.7rem; font-weight: 700; color: var(--rg-muted); border: 1px solid var(--rg-line); border-radius: 4px; padding: 0 5px; text-transform: uppercase; letter-spacing: 0.03em; }
 .sc-dbody { flex: 1; padding: 16px 20px 28px; overflow: auto; display: grid; gap: 16px; align-content: start; }
 .sc-dbody > * { min-width: 0; }

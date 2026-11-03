@@ -2,6 +2,7 @@ import type { UserRole } from "@prisma/client";
 import { DEFAULT_PAGE_SIZE, PAGE_SIZES } from "./systems-config";
 import {
   HIGHEST_IMPACT_ORDER,
+  isSensitivityFilterValue,
   isStatus,
   VIEW_KEYS,
   type GroupKey,
@@ -20,7 +21,7 @@ import {
  *   filter set to the user for every other role.
  */
 
-const SORT_KEYS: SortKey[] = ["name", "status", "owner", "cia", "unit", "prog", "upd"];
+const SORT_KEYS: SortKey[] = ["name", "status", "owner", "sens", "cia", "unit", "prog", "upd"];
 const GROUP_KEYS: GroupKey[] = ["", "owner", "unit", "facet"];
 
 export const DEFAULT_STATE: RegisterState = {
@@ -31,6 +32,7 @@ export const DEFAULT_STATE: RegisterState = {
   units: [],
   facets: [],
   impact: [],
+  sens: [],
   sort: "name",
   dir: 1,
   group: "",
@@ -57,6 +59,7 @@ export function parseRegisterState(params: Params, user: { id: string; role: Use
     units: uniq(params.getAll("units")),
     facets: uniq(params.getAll("facets")),
     impact: uniq(params.getAll("impact")).filter((value): value is HighestImpact => HIGHEST_IMPACT_ORDER.includes(value as HighestImpact)),
+    sens: uniq(params.getAll("sens")).filter(isSensitivityFilterValue),
     sort: SORT_KEYS.includes(sort as SortKey) ? (sort as SortKey) : "name",
     dir: params.get("dir") === "desc" ? -1 : 1,
     group: GROUP_KEYS.includes(group as GroupKey) ? (group as GroupKey) : "",
@@ -76,7 +79,7 @@ export function serializeRegisterState(state: RegisterState): string {
   if (state.view !== "all") params.set("view", state.view);
   if (state.status) params.set("status", state.status);
   if (state.q) params.set("q", state.q);
-  for (const key of ["owners", "units", "facets", "impact"] as const) for (const value of state[key]) params.append(key, value);
+  for (const key of ["owners", "units", "facets", "impact", "sens"] as const) for (const value of state[key]) params.append(key, value);
   if (state.sort !== "name") params.set("sort", state.sort);
   if (state.dir === -1) params.set("dir", "desc");
   if (state.group) params.set("group", state.group);
