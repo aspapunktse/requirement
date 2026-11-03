@@ -35,65 +35,68 @@ export async function countVisibleSystemsByFramework(user: { id: string; role: U
  * RepeatableRead transaction, every query on `tx`, so the figures agree even while the data changes.
  */
 export async function loadFrameworksView(user: { id: string; role: UserRole }): Promise<CatalogView> {
-  const canCurate = canSeeDraftFrameworks(user);
-  const rows = await prisma.$transaction(
-    async (tx) => {
-      const frameworks = await tx.framework.findMany({
-        where: visibleFrameworksWhere(user),
-        select: {
-          id: true,
-          name: true,
-          version: true,
-          description: true,
-          isBase: true,
-          strictComplianceRequired: true,
-          status: true,
-          createdAt: true,
-          reviewGroup: { select: { name: true } },
-          _count: { select: { originatedControls: true } },
-        },
-      });
-      const breakdowns = await loadCoverageBreakdowns(
-        frameworks.map((framework) => framework.id),
-        tx,
-      );
-      // The lineage follows supersedes links through Drafts this user can't see before filtering them out (#146);
-      // only the filtered result is rendered, so a hidden Draft's name and version never leave the server.
-      const lineages = buildLineages(
-        await tx.framework.findMany({ select: { id: true, name: true, version: true, status: true, supersedesId: true } }),
-        canCurate,
-      );
-      const systems = await countVisibleSystemsByFramework(user, tx);
+  return prisma.$transaction((tx) => readFrameworksView(tx, user), { isolationLevel: "RepeatableRead" });
+}
 
-      return frameworks.map((framework) => {
-        const breakdown = breakdowns[framework.id];
-        const family = frameworkFamily(framework);
-        return {
-          id: framework.id,
-          name: framework.name,
-          version: framework.version,
-          description: framework.description,
-          isBase: framework.isBase,
-          strict: framework.strictComplianceRequired,
-          status: framework.status,
-          group: family.group,
-          family: family.family,
-          level: family.level,
-          requirements: breakdown.total,
-          covered: breakdown.covered,
-          accepted: breakdown.accepted,
-          gaps: breakdown.gaps,
-          partialOnly: breakdown.partialOnly,
-          systems: framework.status === "DRAFT" ? null : systems.countFor(framework),
-          reviewGroup: framework.reviewGroup?.name ?? null,
-          supplementary: framework.status === "DRAFT" ? framework._count.originatedControls : 0,
-          updatedAt: latestChange(framework.createdAt, [breakdown.latestChange]).toISOString(),
-          lineage: lineages.get(framework.id) ?? [],
-        };
-      });
+/**
+ * The reads behind `loadFrameworksView`, on the caller's transaction client (every query on `tx`). Exported so a
+ * test can read the view and a comparison figure on one snapshot (#298).
+ */
+export async function readFrameworksView(tx: Prisma.TransactionClient, user: { id: string; role: UserRole }): Promise<CatalogView> {
+  const canCurate = canSeeDraftFrameworks(user);
+  const frameworks = await tx.framework.findMany({
+    where: visibleFrameworksWhere(user),
+    select: {
+      id: true,
+      name: true,
+      version: true,
+      description: true,
+      isBase: true,
+      strictComplianceRequired: true,
+      status: true,
+      createdAt: true,
+      reviewGroup: { select: { name: true } },
+      _count: { select: { originatedControls: true } },
     },
-    { isolationLevel: "RepeatableRead" },
+  });
+  const breakdowns = await loadCoverageBreakdowns(
+    frameworks.map((framework) => framework.id),
+    tx,
   );
+  // The lineage follows supersedes links through Drafts this user can't see before filtering them out (#146);
+  // only the filtered result is rendered, so a hidden Draft's name and version never leave the server.
+  const lineages = buildLineages(
+    await tx.framework.findMany({ select: { id: true, name: true, version: true, status: true, supersedesId: true } }),
+    canCurate,
+  );
+  const systems = await countVisibleSystemsByFramework(user, tx);
+
+  const rows = frameworks.map((framework) => {
+    const breakdown = breakdowns[framework.id];
+    const family = frameworkFamily(framework);
+    return {
+      id: framework.id,
+      name: framework.name,
+      version: framework.version,
+      description: framework.description,
+      isBase: framework.isBase,
+      strict: framework.strictComplianceRequired,
+      status: framework.status,
+      group: family.group,
+      family: family.family,
+      level: family.level,
+      requirements: breakdown.total,
+      covered: breakdown.covered,
+      accepted: breakdown.accepted,
+      gaps: breakdown.gaps,
+      partialOnly: breakdown.partialOnly,
+      systems: framework.status === "DRAFT" ? null : systems.countFor(framework),
+      reviewGroup: framework.reviewGroup?.name ?? null,
+      supplementary: framework.status === "DRAFT" ? framework._count.originatedControls : 0,
+      updatedAt: latestChange(framework.createdAt, [breakdown.latestChange]).toISOString(),
+      lineage: lineages.get(framework.id) ?? [],
+    };
+  });
 
   return { userId: user.id, role: user.role, roleLabel: roleLabel(user.role), canCurate, rows };
 }

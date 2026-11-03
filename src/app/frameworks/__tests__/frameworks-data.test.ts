@@ -3,7 +3,7 @@ import type { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { visibleSystemsWhere } from "@/lib/system-visibility";
 import { getBaseFramework } from "@/test/framework-fixtures";
-import { loadFrameworksView } from "../frameworks-data";
+import { loadFrameworksView, readFrameworksView } from "../frameworks-data";
 import type { CatalogRow } from "../frameworks-types";
 
 /**
@@ -172,8 +172,16 @@ describe("the Systems count", () => {
   it("counts every visible System for the base Framework, as many as visibleSystemsWhere admits", async () => {
     const base = await getBaseFramework();
     for (const key of ["cm", "owner", "viewer"]) {
-      const expected = await prisma.system.count({ where: await visibleSystemsWhere(users[key]) });
-      expect(find(await rowsOf(key), base.id)?.systems).toBe(expected);
+      // The count and the view share one RepeatableRead snapshot: other test files create and delete Systems
+      // concurrently, so two separate global reads can disagree (#298).
+      const { expected, view } = await prisma.$transaction(
+        async (tx) => ({
+          expected: await tx.system.count({ where: await visibleSystemsWhere(users[key], tx) }),
+          view: await readFrameworksView(tx, users[key]),
+        }),
+        { isolationLevel: "RepeatableRead" },
+      );
+      expect(find(view.rows, base.id)?.systems).toBe(expected);
     }
   });
 
