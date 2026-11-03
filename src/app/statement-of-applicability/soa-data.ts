@@ -1,4 +1,4 @@
-import type { UserRole } from "@prisma/client";
+import type { Prisma, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { roleLabel } from "@/app/home/role-label";
 import { ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE } from "@/lib/catalog";
@@ -54,64 +54,67 @@ export function requirementGroups(mappings: SoaMapping[]): SoaRequirementGroup[]
  * and Systems there are.
  */
 export async function loadSoaView(user: { id: string; role: UserRole }): Promise<SoaView> {
+  return prisma.$transaction((tx) => readSoaView(tx, user), { isolationLevel: "RepeatableRead" });
+}
+
+/**
+ * The reads behind `loadSoaView`, on the caller's transaction client (every query on `tx`). Exported so a test can
+ * read the view and the API's rows on one snapshot (#298).
+ */
+export async function readSoaView(tx: Prisma.TransactionClient, user: { id: string; role: UserRole }): Promise<SoaView> {
   const showDrafts = canSeeDraftFrameworks(user);
-  return prisma.$transaction(
-    async (tx) => {
-      const inputs = await readStatementInputs(tx);
-      const details = await tx.control.findMany({
-        select: {
-          id: true,
-          description: true,
-          category: true,
-          owner: { select: { name: true } },
-          originFramework: { select: { id: true, name: true, version: true, status: true } },
-        },
-      });
-      const visibleSystems = await tx.system.findMany({
-        where: await visibleSystemsWhere(user, tx),
-        orderBy: [{ name: "asc" }, { id: "asc" }],
-        select: { id: true, name: true },
-      });
-
-      const detailById = new Map(details.map((detail) => [detail.id, detail]));
-      const controlById = new Map(inputs.controls.map((control) => [control.id, control]));
-      const indexBySystemId = new Map(visibleSystems.map((system, index) => [system.id, index]));
-      const statusesByControlId = deriveSystemStatuses(inputs);
-
-      const rows = deriveStatementOfApplicability(inputs).map((row): SoaLedgerRow => {
-        const detail = detailById.get(row.controlId);
-        const origin = detail?.originFramework ?? null;
-        const systemStatuses: SoaSystemStatus[] = [];
-        for (const { systemId, status } of statusesByControlId.get(row.controlId) ?? []) {
-          const index = indexBySystemId.get(systemId);
-          if (index !== undefined) systemStatuses.push([index, status]);
-        }
-        return {
-          ...row,
-          description: detail?.description ?? "",
-          category: detail?.category ?? "",
-          sourceKey: origin ? origin.id : BASE_SOURCE_KEY,
-          sourceLabel: !origin
-            ? BASE_SOURCE_LABEL
-            : origin.status === "PUBLISHED" || showDrafts
-              ? `Supplementary · ${frameworkLabel(origin)}`
-              : "Supplementary · Draft Framework",
-          ownerName: detail?.owner?.name ?? null,
-          requirements: row.included ? requirementGroups(controlById.get(row.controlId)?.mappings ?? []) : [],
-          systemStatuses,
-          hiddenSystemCount: row.systemRollup ? Math.max(0, row.systemRollup.total - systemStatuses.length) : 0,
-        };
-      });
-
-      return {
-        userId: user.id,
-        role: user.role,
-        roleLabel: roleLabel(user.role),
-        canEdit: ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE.includes(user.role),
-        rows,
-        systems: visibleSystems,
-      };
+  const inputs = await readStatementInputs(tx);
+  const details = await tx.control.findMany({
+    select: {
+      id: true,
+      description: true,
+      category: true,
+      owner: { select: { name: true } },
+      originFramework: { select: { id: true, name: true, version: true, status: true } },
     },
-    { isolationLevel: "RepeatableRead" },
-  );
+  });
+  const visibleSystems = await tx.system.findMany({
+    where: await visibleSystemsWhere(user, tx),
+    orderBy: [{ name: "asc" }, { id: "asc" }],
+    select: { id: true, name: true },
+  });
+
+  const detailById = new Map(details.map((detail) => [detail.id, detail]));
+  const controlById = new Map(inputs.controls.map((control) => [control.id, control]));
+  const indexBySystemId = new Map(visibleSystems.map((system, index) => [system.id, index]));
+  const statusesByControlId = deriveSystemStatuses(inputs);
+
+  const rows = deriveStatementOfApplicability(inputs).map((row): SoaLedgerRow => {
+    const detail = detailById.get(row.controlId);
+    const origin = detail?.originFramework ?? null;
+    const systemStatuses: SoaSystemStatus[] = [];
+    for (const { systemId, status } of statusesByControlId.get(row.controlId) ?? []) {
+      const index = indexBySystemId.get(systemId);
+      if (index !== undefined) systemStatuses.push([index, status]);
+    }
+    return {
+      ...row,
+      description: detail?.description ?? "",
+      category: detail?.category ?? "",
+      sourceKey: origin ? origin.id : BASE_SOURCE_KEY,
+      sourceLabel: !origin
+        ? BASE_SOURCE_LABEL
+        : origin.status === "PUBLISHED" || showDrafts
+          ? `Supplementary · ${frameworkLabel(origin)}`
+          : "Supplementary · Draft Framework",
+      ownerName: detail?.owner?.name ?? null,
+      requirements: row.included ? requirementGroups(controlById.get(row.controlId)?.mappings ?? []) : [],
+      systemStatuses,
+      hiddenSystemCount: row.systemRollup ? Math.max(0, row.systemRollup.total - systemStatuses.length) : 0,
+    };
+  });
+
+  return {
+    userId: user.id,
+    role: user.role,
+    roleLabel: roleLabel(user.role),
+    canEdit: ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE.includes(user.role),
+    rows,
+    systems: visibleSystems,
+  };
 }

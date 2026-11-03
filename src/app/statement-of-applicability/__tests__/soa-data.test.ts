@@ -2,9 +2,9 @@ import { afterAll, describe, expect, it } from "vitest";
 import type { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { frameworkLabel } from "@/lib/framework-label";
-import { loadStatementOfApplicability } from "@/lib/statement-of-applicability";
+import { deriveStatementOfApplicability, readStatementInputs } from "@/lib/statement-of-applicability";
 import { setupProviderFixtures } from "@/test/provider-fixtures";
-import { BASE_SOURCE_KEY, BASE_SOURCE_LABEL, loadSoaView, requirementGroups } from "../soa-data";
+import { BASE_SOURCE_KEY, BASE_SOURCE_LABEL, loadSoaView, readSoaView, requirementGroups } from "../soa-data";
 
 /**
  * The Statement of Applicability page's server side (#272), against real Postgres with its own `Test SOA272 ...`
@@ -52,8 +52,15 @@ describe("loadSoaView (#272)", () => {
 
   it("holds exactly the rows of the API, one per Control, plus the ledger's own fields", async () => {
     await setup();
-    const { view } = await rowOf(asCompliance(), ctx.controls.perSystem.id);
-    const api = await loadStatementOfApplicability();
+    // Both reads share one RepeatableRead snapshot: other test files create and delete Controls concurrently, so two
+    // separate global reads can disagree (#298).
+    const { view, api } = await prisma.$transaction(
+      async (tx) => ({
+        view: await readSoaView(tx, asCompliance()),
+        api: deriveStatementOfApplicability(await readStatementInputs(tx)),
+      }),
+      { isolationLevel: "RepeatableRead" },
+    );
     expect(view.rows.map((row) => row.controlId)).toEqual(api.map((row) => row.controlId));
     for (const base of api.filter((row) => Object.values(ctx.controls).some((control) => control.id === row.controlId))) {
       expect(view.rows.find((row) => row.controlId === base.controlId)).toMatchObject(base);
