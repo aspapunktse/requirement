@@ -18,6 +18,7 @@ const ICON_PATHS: Record<HomeIconKey, string> = {
   risk: "M10 3l6 3v4c0 4-3 6-6 7-3-1-6-3-6-7V6z",
   control: "M4 10l4 4 8-8M3 3h14v14H3z",
   checkup: "M6 3h8v14H6zM8 7h4M8 10l1.5 1.5L12 9",
+  infotype: "M3 3h7l7 7-7 7-7-7zM6.5 6.5h.01",
   audit: "M4 4h9l3 3v10H4zM8 11a2 2 0 1 0 4 0 2 2 0 0 0-4 0M11.5 12.5L14 15",
   arrow: "M5 10h10M11 6l4 4-4 4",
   bolt: "M11 2L4 11h5l-1 7 7-9h-5z",

@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { PrismaClient, type Control } from "@prisma/client";
 import { createOrganizationImplementationFor } from "../src/lib/organization-implementation";
+import { DEFAULT_SENSITIVITY_LEVELS } from "../src/lib/sensitivity-level-defaults";
 
 const prisma = new PrismaClient();
 
@@ -161,6 +162,24 @@ async function main() {
         },
       });
     }
+  }
+
+  // Example Information Types for the dev DB (#303). Idempotent by name, and `update: {}` leaves a curated type
+  // as it is. The level is looked up by the default label's ordinal, because the labels are editable. No seeded
+  // System declares any, so the seeded figures don't move.
+  const levelOf = (defaultLabel: string) => {
+    const level = DEFAULT_SENSITIVITY_LEVELS.find((candidate) => candidate.label === defaultLabel)?.level;
+    if (level === undefined) throw new Error(`No default Sensitivity Level labelled ${defaultLabel}`);
+    return level;
+  };
+  const exampleInformationTypes = [
+    { name: "Customer personal data", description: "Names, contact details and account data of customers and their staff.", sensitivityLevel: levelOf("Sensitive") },
+    { name: "Payroll", description: "Salaries, bonuses, tax and bank details for paying employees.", sensitivityLevel: levelOf("Highly Sensitive") },
+    { name: "Source code", description: "Application and infrastructure code, build scripts and repository history.", sensitivityLevel: levelOf("Sensitive") },
+    { name: "Published marketing content", description: "Web pages, brochures and press releases that are already public.", sensitivityLevel: levelOf("Public") },
+  ];
+  for (const informationType of exampleInformationTypes) {
+    await prisma.informationType.upsert({ where: { name: informationType.name }, update: {}, create: informationType });
   }
 
   console.log(

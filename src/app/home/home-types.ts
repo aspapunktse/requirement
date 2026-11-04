@@ -62,6 +62,7 @@ export type HomeIconKey =
   | "control"
   | "checkup"
   | "audit"
+  | "infotype"
   | "arrow"
   | "bolt";
 

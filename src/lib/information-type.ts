@@ -1,0 +1,65 @@
+import type { UserRole } from "@prisma/client";
+import { z } from "zod";
+import { MAX_SENSITIVITY_LEVEL, MIN_SENSITIVITY_LEVEL } from "@/lib/sensitivity-level";
+
+/**
+ * Information Types (#303, ADR 0012): a catalogue of kinds of information, each with one Sensitivity Level.
+ * Everyone signed in reads it; the Compliance Manager and an Admin curate it (create, rename, describe, change the
+ * level, delete). Catalogue edits are not Change Events, and changing a type's level changes nothing on any System.
+ */
+export const ROLES_ALLOWED_TO_CURATE_INFORMATION_TYPES: UserRole[] = ["ADMIN", "COMPLIANCE_MANAGER"];
+
+export function canCurateInformationTypes(user: { role: UserRole } | null | undefined): boolean {
+  return !!user && ROLES_ALLOWED_TO_CURATE_INFORMATION_TYPES.includes(user.role);
+}
+
+export const MAX_INFORMATION_TYPE_NAME_LENGTH = 80;
+export const MAX_INFORMATION_TYPE_DESCRIPTION_LENGTH = 300;
+
+const name = z
+  .string({ error: "Give the Information Type a name." })
+  .trim()
+  .min(1, "Give the Information Type a name.")
+  .max(MAX_INFORMATION_TYPE_NAME_LENGTH, `The name can be at most ${MAX_INFORMATION_TYPE_NAME_LENGTH} characters.`);
+
+/** An empty description is the same as none. */
+const description = z
+  .string()
+  .trim()
+  .max(MAX_INFORMATION_TYPE_DESCRIPTION_LENGTH, `The description can be at most ${MAX_INFORMATION_TYPE_DESCRIPTION_LENGTH} characters.`)
+  .nullable()
+  .transform((value) => (value ? value : null));
+
+const level = z
+  .number({ error: "Choose a Sensitivity Level." })
+  .int("Choose a Sensitivity Level.")
+  .min(MIN_SENSITIVITY_LEVEL, "Choose a Sensitivity Level.")
+  .max(MAX_SENSITIVITY_LEVEL, "Choose a Sensitivity Level.");
+
+export const createInformationTypeSchema = z.object({
+  name,
+  description: description.optional().default(null),
+  sensitivityLevel: level,
+});
+
+export const updateInformationTypeSchema = z
+  .object({ name: name.optional(), description: description.optional(), sensitivityLevel: level.optional() })
+  .refine((data) => data.name !== undefined || data.description !== undefined || data.sensitivityLevel !== undefined, {
+    message: "Provide at least one of name, description or sensitivityLevel to update.",
+  });
+
+/** One Information Type as the page and the API show it. */
+export type InformationTypeRow = {
+  id: string;
+  name: string;
+  description: string | null;
+  sensitivityLevel: number;
+  /** How many Systems declare it, whether or not the viewer may see them. */
+  systemCount: number;
+};
+
+/** A System that declares a type, as the drawer lists it: only Systems the viewer may see. */
+export type DeclaringSystem = { id: string; name: string; vendor: string | null; sensitivityLevel: number | null };
+
+export const IN_USE_MESSAGE = (count: number) =>
+  `This Information Type is declared by ${count} System${count === 1 ? "" : "s"} and can't be deleted. Remove it from ${count === 1 ? "that System" : "those Systems"} first.`;

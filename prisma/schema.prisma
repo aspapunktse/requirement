@@ -133,6 +133,24 @@ model SensitivityLevel {
   backgroundColor String
   systems         System[]  @relation("SystemSensitivityLevel")
   controls        Control[] @relation("ControlMinSensitivityLevel")
+  informationTypes InformationType[] @relation("InformationTypeSensitivityLevel")
+}
+
+// A kind of information the enterprise handles (e.g. Customer personal data, Payroll), kept in a catalogue the
+// Compliance Manager or an Admin curates, each with one Sensitivity Level (ADR 0012). A System declares any
+// number of them (declaring is a later issue); the highest level among them is the floor for the System's own.
+// Raising a type's level never changes a System. Carries only a level: no Frameworks (#300).
+model InformationType {
+  id               String           @id @default(cuid())
+  name             String           @unique
+  description      String?
+  sensitivityLevel Int
+  sensitivity      SensitivityLevel @relation("InformationTypeSensitivityLevel", fields: [sensitivityLevel], references: [level], onDelete: Restrict)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  // Systems that declare this type.
+  systems System[]
 }
 
 // A system or cloud solution being onboarded into the enterprise.
@@ -157,6 +175,8 @@ model System {
   // One or more deployment facets this System spans (e.g. On-Prem, Cloud) —
   // a Hybrid System is simply one that declares more than one. See ADR 0003.
   deploymentFacets           DeploymentFacet[]
+  // The Information Types the System declares (ADR 0012).
+  informationTypes           InformationType[]
   createdAt                  DateTime          @default(now())
   updatedAt                  DateTime          @updatedAt
   // When the System was actually marked Onboarded — distinct from Approval
