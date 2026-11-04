@@ -53,12 +53,13 @@
 .it .it-sub { margin: 0 0 8px; font-size: 0.86rem; }
 .it .hc-search { max-width: none; }
 .it .it-pick { margin-top: 8px; display: grid; gap: 2px; }
-.it .it-trow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 7px 10px; border-radius: 10px; cursor: pointer; border: 1px solid transparent; }
+.it .it-trow { display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; padding: 7px 10px; border-radius: 10px; cursor: pointer; border: 1px solid transparent; }
 .it .it-trow:hover { background: var(--hc-raised, var(--rg-surface)); }
 .it .it-trow:has(input:checked) { background: var(--rg-accent-soft); border-color: var(--rg-accent); }
 .it .it-trow:has(input:focus-visible) { outline: 2px solid var(--rg-accent); outline-offset: 1px; }
 .it .it-trow input { accent-color: var(--rg-accent); margin: 0; }
-.it .it-trow .t { flex: 1 1 140px; min-width: 0; font-weight: 600; }
+.it .it-trow .t { flex: 1; min-width: 0; overflow-wrap: anywhere; font-weight: 600; }
+.it .it-trow > :not(.t):not(input) { flex-shrink: 0; }
 .it .it-res h4 { display: flex; align-items: center; gap: 8px; margin: 16px 0 6px; }
 .it .it-res h4 .cnt { font-weight: 600; color: var(--rg-muted); font-variant-numeric: tabular-nums; }
 .it .it-sumline { font-size: 1.02rem; margin: 8px 0 0; }

@@ -85,9 +85,9 @@ export function WhereCanIPut({ view, initialTypeId }: { view: WhereView; initial
       </section>
 
       <section className="hc-card" aria-labelledby="itw-h">
-        <div className="hc-card-h">
-          <h2 id="itw-h">Where it may go</h2>
-        </div>
+        <h2 id="itw-h" className="sr-only">
+          Where it may go
+        </h2>
         <div className="it-whereg">
           <div>
             <h3 className="it-h3">Pick the information</h3>
