@@ -263,6 +263,9 @@ export function InformationTypeDrawer({
                 </>
               )}
               {type.systemCount > 0 && canCurate && <p className="sc-faint">A type that Systems declare can&apos;t be deleted.</p>}
+              <p>
+                <Link href={`/information-types/where?type=${encodeURIComponent(type.id)}`}>Where can I put this information?</Link>
+              </p>
             </section>
           )}
         </div>

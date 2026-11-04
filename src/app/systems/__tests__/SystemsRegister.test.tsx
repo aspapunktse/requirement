@@ -95,7 +95,7 @@ describe("hero", () => {
 describe("stat cards as saved views", () => {
   const card = (label: RegExp) => screen.getByRole("button", { name: label });
 
-  it("shows the five views with their counts and the role view's own name", () => {
+  it("shows the views with their counts and the role view's own name", () => {
     renderRegister();
     const stats = screen.getByRole("region", { name: "Saved views" });
     expect(within(stats).getAllByRole("button").map((b) => b.querySelector(".k")?.textContent?.replace(/(Filter →|On ✕)$/, ""))).toEqual([
@@ -104,6 +104,7 @@ describe("stat cards as saved views", () => {
       "Needs attention",
       "Not classified",
       "Providers",
+      "Below its Information Types",
     ]);
     expect(within(card(/^Needs attention/)).getByText("3")).toBeInTheDocument();
     expect(within(card(/^Not classified/)).getByText("2")).toBeInTheDocument();
@@ -129,6 +130,102 @@ describe("stat cards as saved views", () => {
     expect(card(/^All Systems/).querySelector("svg polyline")).not.toBeNull();
     expect(card(/^Needs attention/).querySelector("svg polyline")).not.toBeNull();
     expect(card(/^Providers/).querySelector("svg")).toBeNull();
+  });
+});
+
+describe("Information Types", () => {
+  const stats = () => screen.getByRole("region", { name: "Saved views" });
+  const typeFilter = () => screen.getByRole("button", { name: /^(\+ )?Information Type(:|\s|▾)/ });
+  const menu = () => screen.getByRole("group", { name: "Information Type" });
+
+  it("counts the Systems that declare any type in a card that is not a filter", () => {
+    renderRegister();
+    // Jira, Billing engine, Legacy CRM and the hub System declare one; Okta none.
+    const declare = within(stats()).getByText("Declare Information Types").closest(".hc-stat") as HTMLElement;
+    expect(declare.tagName).toBe("DIV");
+    expect(within(declare).getByText("4")).toBeInTheDocument();
+    expect(within(stats()).queryByRole("button", { name: /^Declare Information Types/ })).toBeNull();
+  });
+
+  it("the Below its Information Types card toggles a warn-style view that is kept in the URL and cleared by Clear filters", async () => {
+    renderRegister();
+    const below = within(stats()).getByRole("button", { name: /^Below its Information Types/ });
+    expect(below).toHaveClass("warn");
+    expect(within(below).getByText("1")).toBeInTheDocument();
+    await userEvent.click(below);
+    expect(below).toHaveAttribute("aria-pressed", "true");
+    expect(names()).toEqual(["=HYPERLINK(hub)"]);
+    expect(search()).toBe("?view=below");
+    await userEvent.click(screen.getByRole("button", { name: "Clear filters" }));
+    expect(names()).toHaveLength(5);
+    expect(search()).toBe("");
+  });
+
+  it("adds an Information Types column after Sensitivity: the first two types, then +N, or None declared", () => {
+    renderRegister();
+    const headers = [...table().querySelectorAll("thead th")].map((th) => th.textContent?.replace(/[▲▼]/g, "").trim());
+    expect(headers.indexOf("Information Types")).toBe(headers.indexOf("Sensitivity") + 1);
+    expect(within(table().querySelector("thead") as HTMLElement).queryByRole("button", { name: /Information Types/ })).toBeNull();
+    const billing = rowOf("Billing engine").querySelector(".c-itypes") as HTMLElement;
+    expect(billing.textContent).toBe("PayrollCustomer data+1");
+    expect(billing.querySelector(".more")).toHaveAttribute("title", "Invoices");
+    expect((rowOf("Jira").querySelector(".c-itypes") as HTMLElement).textContent).toBe("Customer data");
+    expect((rowOf("Okta").querySelector(".c-itypes") as HTMLElement).textContent).toBe("None declared");
+  });
+
+  it("flags a System below its Information Types next to the level chip, and only that System", () => {
+    renderRegister();
+    expect(within(rowOf("=HYPERLINK(hub)")).getByText("Below its Information Types")).toBeInTheDocument();
+    expect(within(rowOf("Billing engine")).queryByText("Below its Information Types")).toBeNull();
+    expect(within(rowOf("Jira")).queryByText("Below its Information Types")).toBeNull();
+  });
+
+  it("the filter menu groups the types by level, says declares any, and shows a count per type", async () => {
+    renderRegister();
+    await userEvent.click(typeFilter());
+    expect(within(menu()).getByText(/declare/)).toHaveTextContent("Systems that declare any of the ticked types.");
+    const headings = [...menu().querySelectorAll(".mh")].map((h) => h.textContent);
+    expect(headings).toEqual(["Highly Sensitive", "Sensitive", "Public"]);
+    const count = (name: string) => (within(menu()).getByText(name).closest("label") as HTMLElement).lastElementChild?.textContent;
+    expect(count("Payroll")).toBe("1");
+    expect(count("Customer data")).toBe("3");
+    expect(count("Invoices")).toBe("2");
+    expect(count("Meeting notes")).toBe("0");
+  });
+
+  it("ticking types narrows to Systems that declare any of them, with removable pills and the URL", async () => {
+    renderRegister();
+    await userEvent.click(typeFilter());
+    await userEvent.click(within(menu()).getByRole("checkbox", { name: /Payroll/ }));
+    expect(names()).toEqual(["Billing engine"]);
+    expect(search()).toBe("?it=t-payroll");
+    await userEvent.click(within(menu()).getByRole("checkbox", { name: /Invoices/ }));
+    expect(names()).toEqual(["Billing engine", "Legacy CRM"]);
+    expect(search()).toBe("?it=t-payroll&it=t-invoices");
+    expect(screen.getByRole("button", { name: /^Information Type: 2/ })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Remove filter Payroll" }));
+    expect(names()).toEqual(["Billing engine", "Legacy CRM"]);
+    expect(search()).toBe("?it=t-invoices");
+    await userEvent.click(screen.getByRole("button", { name: "Clear filters" }));
+    expect(names()).toHaveLength(5);
+    expect(search()).toBe("");
+    expect(screen.queryByRole("button", { name: /^Remove filter/ })).toBeNull();
+  });
+
+  it("combines with another filter", async () => {
+    renderRegister();
+    await userEvent.click(within(stats()).getByRole("button", { name: /^Needs attention/ }));
+    await userEvent.click(typeFilter());
+    await userEvent.click(within(menu()).getByRole("checkbox", { name: /Customer data/ }));
+    expect(names()).toEqual(["=HYPERLINK(hub)", "Billing engine"]);
+    expect(search()).toBe("?view=attention&it=t-customer");
+  });
+
+  it("restores the filter from the URL, and drops an id that is not in the catalogue", () => {
+    renderRegister({}, "it=t-payroll&it=gone");
+    expect(names()).toEqual(["Billing engine"]);
+    expect(screen.getByRole("button", { name: /^Information Type: 1/ })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /^Remove filter/ })).toHaveLength(1);
   });
 });
 
@@ -281,7 +378,7 @@ describe("table", () => {
     const billing = rowOf("Billing engine");
     expect(billing).toHaveTextContent("Built in-house");
     expect(within(billing).getByLabelText("3 open questions")).toBeInTheDocument();
-    expect(within(billing).getByText("+1")).toBeInTheDocument();
+    expect(billing.querySelector(".c-unit .more")).toHaveTextContent("+1");
     expect(within(billing).getByText("Cloud IaaS/PaaS")).toBeInTheDocument();
     expect(within(billing).getByText("On-Premises Datacenter")).toBeInTheDocument();
     expect(within(billing).getByRole("img", { name: "Sensitivity Level: Highly Sensitive" })).toBeInTheDocument();

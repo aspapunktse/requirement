@@ -7,8 +7,8 @@ import type { SensitivityLevelInfo } from "@/lib/sensitivity-level";
  */
 
 /** The stat cards, which are also the saved views. "mine" is the acting role's own view. */
-export type ViewKey = "all" | "mine" | "attention" | "unclassified" | "providers";
-export const VIEW_KEYS: ViewKey[] = ["all", "mine", "attention", "unclassified", "providers"];
+export type ViewKey = "all" | "mine" | "attention" | "unclassified" | "providers" | "below";
+export const VIEW_KEYS: ViewKey[] = ["all", "mine", "attention", "unclassified", "providers", "below"];
 
 /** Onboarding Statuses in lifecycle order (the tabs, the ring and the Status sort). */
 export const STATUS_ORDER: OnboardingStatus[] = ["DRAFT", "IN_REVIEW", "APPROVED", "ONBOARDED", "REJECTED"];
@@ -50,6 +50,10 @@ export type SystemRow = {
   /** The Sensitivity Level (1 to 5) and its label; null means not set. */
   sensitivityLevel: number | null;
   sensitivityLabel: string | null;
+  /** The Information Types it declares, highest level first and then by name. */
+  informationTypes: { id: string; name: string; sensitivityLevel: number }[];
+  /** "Below its Information Types" (CONTEXT.md): a level is declared and is lower than the highest level among its types. */
+  belowInformationTypes: boolean;
   /** The Impact Level on the Integrity and Availability axes; null means not classified. */
   integrity: ImpactLevel | null;
   availability: ImpactLevel | null;
@@ -82,6 +86,8 @@ export type SystemsView = {
   baseFramework: string | null;
   /** The five Sensitivity Levels with their live labels, for the Sensitivity filter (a level no System has yet is still offered). */
   sensitivityLevels: SensitivityLevelInfo[];
+  /** The whole Information Type catalogue, for the Information Type filter (a type no visible System declares is still offered). */
+  informationTypes: { id: string; name: string; sensitivityLevel: number }[];
 };
 
 /** Everything the URL carries, parsed (see `systems-state.ts`). */
@@ -98,6 +104,8 @@ export type RegisterState = {
   impact: HighestImpact[];
   /** Sensitivity Levels to show, "none" being Not set; empty shows every level. */
   sens: SensitivityFilterValue[];
+  /** Information Type ids: Systems that declare any of them; empty shows every System. */
+  it: string[];
   sort: SortKey;
   /** 1 ascending, -1 descending. */
   dir: 1 | -1;

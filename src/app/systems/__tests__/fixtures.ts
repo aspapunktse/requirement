@@ -13,6 +13,8 @@ export const row = (over: Partial<SystemRow> & Pick<SystemRow, "id" | "name">): 
   facets: [{ id: "f-saas", name: "SaaS" }],
   businessUnits: [{ id: "b-fin", name: "Finance" }],
   sensitivityLevel: 3, sensitivityLabel: "Sensitive",
+  informationTypes: [],
+  belowInformationTypes: false,
   integrity: "MODERATE",
   availability: "MODERATE",
   openQuestions: 0,
@@ -25,7 +27,17 @@ export const row = (over: Partial<SystemRow> & Pick<SystemRow, "id" | "name">): 
 });
 
 export const ROWS: SystemRow[] = [
-  row({ id: "s-jira", name: "Jira", vendor: "Atlassian", ownerId: "u-me", ownerName: "Marcus Lindqvist", inRoleView: true, met: 9, applicable: 10 }),
+  row({
+    id: "s-jira",
+    name: "Jira",
+    vendor: "Atlassian",
+    ownerId: "u-me",
+    ownerName: "Marcus Lindqvist",
+    inRoleView: true,
+    met: 9,
+    applicable: 10,
+    informationTypes: [{ id: "t-customer", name: "Customer data", sensitivityLevel: 3 }],
+  }),
   row({
     id: "s-billing",
     name: "Billing engine",
@@ -35,6 +47,11 @@ export const ROWS: SystemRow[] = [
     facets: [{ id: "f-cloud", name: "Cloud IaaS/PaaS" }, { id: "f-onprem", name: "On-Premises Datacenter" }],
     businessUnits: [{ id: "b-eng", name: "Engineering" }, { id: "b-fin", name: "Finance" }],
     sensitivityLevel: 4, sensitivityLabel: "Highly Sensitive",
+    informationTypes: [
+      { id: "t-payroll", name: "Payroll", sensitivityLevel: 4 },
+      { id: "t-customer", name: "Customer data", sensitivityLevel: 3 },
+      { id: "t-invoices", name: "Invoices", sensitivityLevel: 3 },
+    ],
     integrity: "CRITICAL",
     availability: null,
     openQuestions: 3,
@@ -53,6 +70,7 @@ export const ROWS: SystemRow[] = [
     businessUnits: [],
     facets: [],
     sensitivityLevel: null, sensitivityLabel: null,
+    informationTypes: [{ id: "t-invoices", name: "Invoices", sensitivityLevel: 3 }],
     integrity: null,
     availability: null,
     met: null,
@@ -60,7 +78,15 @@ export const ROWS: SystemRow[] = [
     needsAttention: true,
     updatedAt: "2026-06-01T09:00:00.000Z",
   }),
-  row({ id: "s-hub", name: "=HYPERLINK(hub)", vendor: 'Acme, "Inc"', status: "REJECTED", ownerId: "u-priya", needsAttention: true, sensitivityLevel: 2, sensitivityLabel: "Internal", integrity: "LOW", availability: "LOW", met: 0, applicable: 4 }),
+  row({ id: "s-hub", name: "=HYPERLINK(hub)", vendor: 'Acme, "Inc"', status: "REJECTED", ownerId: "u-priya", needsAttention: true, sensitivityLevel: 2, sensitivityLabel: "Internal", informationTypes: [{ id: "t-customer", name: "Customer data", sensitivityLevel: 3 }], belowInformationTypes: true, integrity: "LOW", availability: "LOW", met: 0, applicable: 4 }),
+];
+
+/** The catalogue the Information Type filter offers: Customer data and Invoices are Sensitive, Payroll Highly Sensitive. */
+export const TYPES = [
+  { id: "t-payroll", name: "Payroll", sensitivityLevel: 4 },
+  { id: "t-customer", name: "Customer data", sensitivityLevel: 3 },
+  { id: "t-invoices", name: "Invoices", sensitivityLevel: 3 },
+  { id: "t-unused", name: "Meeting notes", sensitivityLevel: 1 },
 ];
 
 export const view = (over: Partial<SystemsView> = {}): SystemsView => ({
@@ -75,5 +101,6 @@ export const view = (over: Partial<SystemsView> = {}): SystemsView => ({
   trends: { all: [3, 4, 5], attention: [1, 2, 3] },
   baseFramework: "ISO/IEC 27001:2022",
   sensitivityLevels: [...DEFAULT_SENSITIVITY_LEVELS],
+  informationTypes: TYPES,
   ...over,
 });

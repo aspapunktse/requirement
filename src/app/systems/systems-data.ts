@@ -7,6 +7,8 @@ import { getComplianceForSystems } from "@/lib/compliance";
 import { frameworkLabel } from "@/lib/framework-label";
 import { canCreateSystem } from "@/lib/system-permissions";
 import { roleLabel } from "@/app/home/role-label";
+import { isBelowInformationTypes } from "@/lib/information-type-floor";
+import { listInformationTypes } from "@/lib/information-type-data";
 import { listSensitivityLevels } from "@/lib/sensitivity-level-data";
 import { readSystemsThresholds, type SystemsThresholds } from "@/lib/app-settings";
 import { fulfilment, roleViewNeedsFulfilment, roleViewOf } from "./systems-logic";
@@ -53,6 +55,7 @@ export async function readSystemRows(
       businessUnits: { select: { id: true, name: true }, orderBy: { name: "asc" } },
       sensitivityLevel: true,
       sensitivity: { select: { label: true } },
+      informationTypes: { select: { id: true, name: true, sensitivityLevel: true } },
       integrityImpactLevel: true,
       availabilityImpactLevel: true,
       updatedAt: true,
@@ -92,6 +95,8 @@ export async function readSystemRows(
       businessUnits: system.businessUnits,
       sensitivityLevel: system.sensitivityLevel,
       sensitivityLabel: system.sensitivity?.label ?? null,
+      informationTypes: [...system.informationTypes].sort((a, b) => b.sensitivityLevel - a.sensitivityLevel || a.name.localeCompare(b.name)),
+      belowInformationTypes: isBelowInformationTypes(system.sensitivityLevel, system.informationTypes),
       integrity: system.integrityImpactLevel,
       availability: system.availabilityImpactLevel,
       openQuestions: queryCounts.get(system.id) ?? 0,
@@ -154,10 +159,12 @@ export async function loadSystemRowsForCounts(user: User, now: Date): Promise<Sy
 
 /** What the Systems list page renders for `user`, all read in one snapshot. */
 export async function loadSystemsView(user: User & { name: string }, now = new Date()): Promise<SystemsView> {
-  const { rows, baseFramework, trends, thresholds, sensitivityLevels } = await prisma.$transaction(
+  const { rows, baseFramework, trends, thresholds, sensitivityLevels, informationTypes } = await prisma.$transaction(
     async (tx) => {
       const read = await readSystemRows(tx, user, now);
-      return { rows: read.rows, baseFramework: read.baseFramework, thresholds: read.thresholds, trends: await loadSystemsTrends(tx, user, read.rows, read.where, now), sensitivityLevels: await listSensitivityLevels(tx) };
+      return { rows: read.rows, baseFramework: read.baseFramework, thresholds: read.thresholds, trends: await loadSystemsTrends(tx, user, read.rows, read.where, now), sensitivityLevels: await listSensitivityLevels(tx),
+        informationTypes: (await listInformationTypes(tx)).map(({ id, name, sensitivityLevel }) => ({ id, name, sensitivityLevel })),
+      };
     },
     { isolationLevel: "RepeatableRead" },
   );
@@ -173,5 +180,6 @@ export async function loadSystemsView(user: User & { name: string }, now = new D
     trends,
     baseFramework,
     sensitivityLevels,
+    informationTypes,
   };
 }

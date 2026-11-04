@@ -24,7 +24,7 @@ const ids = (rows: { id: string }[]) => rows.map((r) => r.id);
 
 describe("saved views", () => {
   it("counts each view over the rows", () => {
-    expect(viewCounts(ROWS)).toEqual({ all: 5, mine: 1, attention: 3, unclassified: 2, providers: 1 });
+    expect(viewCounts(ROWS)).toEqual({ all: 5, mine: 1, attention: 3, unclassified: 2, providers: 1, below: 1 });
   });
 
   it("Not classified is any CIA axis unset", () => {
@@ -93,6 +93,23 @@ describe("search and filters", () => {
     expect(ids(matchRows(ROWS, state({ sens: ["2", "4", "none"] })))).toEqual(["s-billing", "s-legacy", "s-hub"]);
     expect(ids(matchRows(ROWS, state({ sens: ["5"] })))).toEqual([]);
     expect(ids(matchRows(ROWS, state({ sens: ["3", "none"], owners: ["u-elena"] })))).toEqual(["s-legacy"]);
+  });
+
+  it("filters by Information Type: declares ANY of the ticked ones, AND with the other filters", () => {
+    // Jira declares Customer data; Billing Customer data, Invoices and Payroll; Legacy Invoices; Hub Customer data.
+    expect(ids(matchRows(ROWS, state({ it: ["t-payroll"] })))).toEqual(["s-billing"]);
+    expect(ids(matchRows(ROWS, state({ it: ["t-invoices"] })))).toEqual(["s-billing", "s-legacy"]);
+    expect(ids(matchRows(ROWS, state({ it: ["t-payroll", "t-invoices"] })))).toEqual(["s-billing", "s-legacy"]);
+    expect(ids(matchRows(ROWS, state({ it: ["t-customer"] })))).toEqual(["s-jira", "s-billing", "s-hub"]);
+    expect(ids(matchRows(ROWS, state({ it: ["t-unused"] })))).toEqual([]);
+    expect(ids(matchRows(ROWS, state({ it: ["t-customer"], owners: ["u-elena"] })))).toEqual(["s-billing"]);
+    expect(ids(matchRows(ROWS, state({ it: ["t-customer"], view: "below" })))).toEqual(["s-hub"]);
+  });
+
+  it("the Below its Information Types view holds the flagged Systems, and an Information Type filter counts as active", () => {
+    expect(ids(ROWS.filter((r) => inView(r, "below")))).toEqual(["s-hub"]);
+    expect(hasActiveFilters({ ...DEFAULT_STATE, it: ["t-payroll"] })).toBe(true);
+    expect(hasActiveFilters({ ...DEFAULT_STATE, view: "below" })).toBe(true);
   });
 
   it("offers every Sensitivity Level with its live label, then Not set, whether or not a System has it", () => {

@@ -19,6 +19,7 @@ describe("the list's state in the URL", () => {
       facets: ["f-1"],
       impact: ["HIGH" as const, "NONE" as const],
       sens: ["2" as const, "none" as const],
+      it: ["t-1", "t-2"],
       sort: "prog" as const,
       dir: -1 as const,
       group: "unit" as const,
@@ -33,6 +34,18 @@ describe("the list's state in the URL", () => {
     expect(parse("sens=1&sens=5&sens=none&sens=6&sens=0&sens=x&sens=1").sens).toEqual(["1", "5", "none"]);
     expect(serializeRegisterState({ ...DEFAULT_STATE, sens: ["3", "none"] })).toBe("sens=3&sens=none");
     expect(parse("sort=sens").sort).toBe("sens");
+  });
+
+  it("writes the Information Type filter as repeated it params, and drops an id that is not in the catalogue", () => {
+    expect(serializeRegisterState({ ...DEFAULT_STATE, it: ["t-1", "t-2"] })).toBe("it=t-1&it=t-2");
+    expect(parse("it=t-1&it=t-1&it=&it=t-2").it).toEqual(["t-1", "t-2"]);
+    const known = new Set(["t-1"]);
+    expect(parseRegisterState(new URLSearchParams("it=t-1&it=gone"), { id: "u-me", role: "ADMIN" }, known).it).toEqual(["t-1"]);
+  });
+
+  it("reads the Below its Information Types card as a view", () => {
+    expect(parse("view=below").view).toBe("below");
+    expect(serializeRegisterState({ ...DEFAULT_STATE, view: "below" })).toBe("view=below");
   });
 
   it("falls back to the default for anything it does not recognise", () => {

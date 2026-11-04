@@ -137,3 +137,23 @@
   .sy-toolbar .hc-search { max-width: none; }
   .sy .hc-card-h p { display: none; }
 }
+
+/* Information Types (#305, design proposal A "Systems list"): the tags in the register, the "below" flag, the filter menu */
+.it-tags { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; min-width: 0; }
+.it-tag { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--rg-line); background: var(--hc-raised, var(--rg-surface)); border-radius: 8px; padding: 1px 8px; font-size: 0.78rem; font-weight: 600; max-width: 100%; color: var(--rg-ink); }
+.it-tag.more { color: var(--rg-muted); border-style: dashed; background: none; }
+.it-tag button { all: unset; cursor: pointer; color: var(--rg-muted); padding: 0 2px; border-radius: 4px; line-height: 1; }
+.it-tag button:hover { color: var(--rg-danger); }
+.it-tag button:focus-visible { outline: 2px solid var(--rg-accent); }
+.it-lvsq { display: inline-block; width: 8px; height: 8px; border-radius: 2px; flex: none; }
+.it-below { display: inline-flex; align-items: center; gap: 6px; background: var(--rg-gold-soft); color: var(--rg-gold-ink); border: 1px solid var(--rg-gold); border-radius: 99px; padding: 0 9px; font-size: 0.74rem; font-weight: 720; white-space: nowrap; }
+.it-below::before { content: "!"; display: inline-grid; place-items: center; width: 13px; height: 13px; border-radius: 50%; background: var(--rg-gold-ink); color: var(--rg-gold-soft); font-size: 0.62rem; font-weight: 800; }
+.sy .sy-sens { display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; }
+.sy .sy-pills { display: inline-flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.sy-filter[data-filter="it"] .menu { width: 320px; }
+.sy-filter .menu .hint { margin: 0; padding: 2px 8px 6px; font-size: 0.8rem; color: var(--rg-muted); }
+.sy-filter .menu .mh { font-size: 0.72rem; font-weight: 750; letter-spacing: 0.05em; text-transform: uppercase; color: var(--rg-muted); padding: 6px 8px 2px; }
+.sy-filter .menu label .it-lvsq + span { margin-right: auto; }
+@media (max-width: 720px) {
+  .sy tbody td.c-itypes { grid-column: 2 / span 2; }
+}

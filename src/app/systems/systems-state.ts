@@ -33,6 +33,7 @@ export const DEFAULT_STATE: RegisterState = {
   facets: [],
   impact: [],
   sens: [],
+  it: [],
   sort: "name",
   dir: 1,
   group: "",
@@ -44,7 +45,11 @@ type Params = { get(name: string): string | null; getAll(name: string): string[]
 
 const uniq = (values: string[]) => [...new Set(values.filter((value) => value !== ""))];
 
-export function parseRegisterState(params: Params, user: { id: string; role: UserRole }): RegisterState {
+/**
+ * `knownTypeIds`, when given, are the Information Types that exist: an `it` id outside them (a type deleted since the
+ * link was shared, or a typo) is dropped rather than leaving a filter nobody can see or remove.
+ */
+export function parseRegisterState(params: Params, user: { id: string; role: UserRole }, knownTypeIds?: ReadonlySet<string>): RegisterState {
   const view = params.get("view");
   const status = params.get("status") ?? "";
   const sort = params.get("sort");
@@ -60,6 +65,7 @@ export function parseRegisterState(params: Params, user: { id: string; role: Use
     facets: uniq(params.getAll("facets")),
     impact: uniq(params.getAll("impact")).filter((value): value is HighestImpact => HIGHEST_IMPACT_ORDER.includes(value as HighestImpact)),
     sens: uniq(params.getAll("sens")).filter(isSensitivityFilterValue),
+    it: uniq(params.getAll("it")).filter((id) => !knownTypeIds || knownTypeIds.has(id)),
     sort: SORT_KEYS.includes(sort as SortKey) ? (sort as SortKey) : "name",
     dir: params.get("dir") === "desc" ? -1 : 1,
     group: GROUP_KEYS.includes(group as GroupKey) ? (group as GroupKey) : "",
@@ -79,7 +85,7 @@ export function serializeRegisterState(state: RegisterState): string {
   if (state.view !== "all") params.set("view", state.view);
   if (state.status) params.set("status", state.status);
   if (state.q) params.set("q", state.q);
-  for (const key of ["owners", "units", "facets", "impact", "sens"] as const) for (const value of state[key]) params.append(key, value);
+  for (const key of ["owners", "units", "facets", "impact", "sens", "it"] as const) for (const value of state[key]) params.append(key, value);
   if (state.sort !== "name") params.set("sort", state.sort);
   if (state.dir === -1) params.set("dir", "desc");
   if (state.group) params.set("group", state.group);
