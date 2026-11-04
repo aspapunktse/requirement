@@ -1,9 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import type { UserRole } from "@prisma/client";
+import type { Prisma, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { whereCounts, whereGroupOf } from "@/lib/information-type-where";
 import { loadSystemsView } from "@/app/systems/systems-data";
-import { loadWhereView, pickType } from "../where-data";
+import { loadWhereView, pickType, readWhereView } from "../where-data";
 
 /**
  * The data behind "Where can I put this information?" (#305), against real Postgres with its own `Test #305 …` fixtures
@@ -80,8 +80,8 @@ afterAll(async () => {
 });
 
 /** The share of the Systems that are not our fixtures (a seeded database has some), so the counts can be checked exactly. */
-async function otherSystemsCounts() {
-  const others = await prisma.system.findMany({ where: { id: { notIn: created.systems } }, select: { sensitivityLevel: true, informationTypes: { select: { id: true } } } });
+async function otherSystemsCounts(tx: Prisma.TransactionClient) {
+  const others = await tx.system.findMany({ where: { id: { notIn: created.systems } }, select: { sensitivityLevel: true, informationTypes: { select: { id: true } } } });
   return whereCounts(mid, others.map((system) => ({ sensitivityLevel: system.sensitivityLevel, typeIds: system.informationTypes.map((type) => type.id) })));
 }
 
@@ -104,8 +104,10 @@ describe("loadWhereView", () => {
   });
 
   it("counts every System in the figures, from the type's side", async () => {
-    const view = await loadWhereView(admin);
-    const other = await otherSystemsCounts();
+    // One snapshot for both reads: other test files create and delete Systems concurrently.
+    const { view, other } = await prisma.$transaction(async (tx) => ({ view: await readWhereView(tx, admin), other: await otherSystemsCounts(tx) }), {
+      isolationLevel: "RepeatableRead",
+    });
     expect(view.counts[mid.id]).toEqual({
       declared: 3 + other.declared,
       hold: 3 + other.hold,
@@ -117,14 +119,15 @@ describe("loadWhereView", () => {
   });
 
   it("lists only the Systems the acting System Owner can see, while the counts stay over all Systems", async () => {
-    const view = await loadWhereView(ownerA);
+    const { view, admins } = await prisma.$transaction(async (tx) => ({ view: await readWhereView(tx, ownerA), admins: await readWhereView(tx, admin) }), {
+      isolationLevel: "RepeatableRead",
+    });
     const names = view.systems.filter((system) => fixtureIds().has(system.id)).map((system) => Object.keys(sys).find((key) => sys[key] === system.id));
     expect(names.sort()).toEqual(["a-equal", "a-high", "a-low", "a-none", "a-one", "b-open"]);
     expect(view.systems.some((system) => system.id === sys["b-hidden"] || system.id === sys["b-hid2"])).toBe(false);
     expect(listed(view, "declared")).toEqual(["a-high", "a-low"]);
     expect(listed(view, "hold")).toEqual(["a-equal", "b-open"]);
     // The counts include the two hidden Systems (b-hidden declares, b-hid2 may hold).
-    const admins = await loadWhereView(admin);
     expect(view.counts).toEqual(admins.counts);
     // The Provider flag is carried.
     expect(view.systems.find((system) => system.id === sys["b-open"])?.isProvider).toBe(true);

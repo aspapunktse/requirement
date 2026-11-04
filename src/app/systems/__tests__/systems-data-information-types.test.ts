@@ -69,11 +69,15 @@ describe("the Systems list rows (#305)", () => {
 
   it("count the Below its Information Types view among the stat cards, and the daily job records it", async () => {
     const view = await loadSystemsView(owner);
-    expect(viewCounts(view.rows).below).toBe(1);
-    const rows = systemsSnapshotRows(view.rows);
-    expect(rows.find((row) => row.statKey === systemsStatKey("below"))?.value).toBe(1);
+    // The owner also sees every Onboarded System, so other test files' fixtures may add to the count: check ours inside it.
+    expect(view.rows.filter((row) => row.belowInformationTypes && created.systems.includes(row.id)).map((row) => row.id)).toEqual([sys["below"]]);
+    const live = viewCounts(view.rows).below;
+    expect(live).toBeGreaterThanOrEqual(1);
+    expect(systemsSnapshotRows(view.rows).find((row) => row.statKey === systemsStatKey("below"))?.value).toBe(live);
     await recordStatSnapshots(new Date(), { userIds: [owner.id] });
     const stored = await prisma.statSnapshot.findMany({ where: { userId: owner.id, statKey: "systems:below" } });
-    expect(stored.map((row) => row.value)).toEqual([1]);
-  });
+    expect(stored).toHaveLength(1);
+    expect(stored[0].value).toBeGreaterThanOrEqual(1);
+    // The job computes every Home figure for the user as well, which is slow while other test files load the database.
+  }, 60_000);
 });

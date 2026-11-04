@@ -1,4 +1,4 @@
-import type { UserRole } from "@prisma/client";
+import type { Prisma, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { visibleSystemsWhere } from "@/lib/system-visibility";
 import { listInformationTypes } from "@/lib/information-type-data";
@@ -26,28 +26,28 @@ export type WhereView = {
 
 /** One RepeatableRead transaction, every query on `tx`, so the counts and the lists agree. */
 export async function loadWhereView(user: { id: string; role: UserRole }): Promise<WhereView> {
-  return prisma.$transaction(
-    async (tx) => {
-      const types = await listInformationTypes(tx);
-      const levels = await listSensitivityLevels(tx);
-      const visible = await visibleSystemsWhere(user, tx);
-      const all = await tx.system.findMany({
-        select: { id: true, name: true, isProvider: true, sensitivityLevel: true, informationTypes: { select: { id: true } } },
-        orderBy: [{ name: "asc" }, { id: "asc" }],
-      });
-      const visibleIds = new Set((await tx.system.findMany({ where: visible, select: { id: true } })).map((system) => system.id));
-      const facts = all.map((system) => ({ ...system, typeIds: system.informationTypes.map((type) => type.id) }));
-      return {
-        types,
-        levels,
-        systems: facts
-          .filter((system) => visibleIds.has(system.id))
-          .map((system): WhereSystem => ({ id: system.id, name: system.name, isProvider: system.isProvider, sensitivityLevel: system.sensitivityLevel, typeIds: system.typeIds })),
-        counts: Object.fromEntries(types.map((type) => [type.id, whereCounts(type, facts)])),
-      };
-    },
-    { isolationLevel: "RepeatableRead" },
-  );
+  return prisma.$transaction((tx) => readWhereView(tx, user), { isolationLevel: "RepeatableRead" });
+}
+
+/** All the reads of the view on the caller's client; the caller owns the snapshot (a test compares two reads in one). */
+export async function readWhereView(tx: Prisma.TransactionClient, user: { id: string; role: UserRole }): Promise<WhereView> {
+  const types = await listInformationTypes(tx);
+  const levels = await listSensitivityLevels(tx);
+  const visible = await visibleSystemsWhere(user, tx);
+  const all = await tx.system.findMany({
+    select: { id: true, name: true, isProvider: true, sensitivityLevel: true, informationTypes: { select: { id: true } } },
+    orderBy: [{ name: "asc" }, { id: "asc" }],
+  });
+  const visibleIds = new Set((await tx.system.findMany({ where: visible, select: { id: true } })).map((system) => system.id));
+  const facts = all.map((system) => ({ ...system, typeIds: system.informationTypes.map((type) => type.id) }));
+  return {
+    types,
+    levels,
+    systems: facts
+      .filter((system) => visibleIds.has(system.id))
+      .map((system): WhereSystem => ({ id: system.id, name: system.name, isProvider: system.isProvider, sensitivityLevel: system.sensitivityLevel, typeIds: system.typeIds })),
+    counts: Object.fromEntries(types.map((type) => [type.id, whereCounts(type, facts)])),
+  };
 }
 
 /** The type to show first: the one named in the URL, else the first (highest level) one. Null with an empty catalogue. */
