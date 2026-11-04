@@ -53,6 +53,8 @@ const view = (over: Partial<SystemPageView> = {}): SystemPageView => ({
     informationTypes: [],
     informationTypeFloor: null,
     belowInformationTypes: false,
+    suggestedFrameworks: [],
+    hasSuggestedFrameworksToReview: false,
     integrity: "MODERATE",
     availability: null,
     createdAt: "2026-09-01T09:00:00.000Z",
@@ -175,6 +177,18 @@ describe("header (#243)", () => {
     expect(submit).toHaveAccessibleDescription("Level is below its Information Types");
     await userEvent.click(screen.getByRole("button", { name: "Level is below its Information Types" }));
     expect(window.location.hash).toBe("#profile");
+  });
+
+  it("shows the Suggested Frameworks notice, and its link opens the Profile tab, scrolls to the section and focuses it (#300)", async () => {
+    const system = { ...view().system, suggestedFrameworks: [{ frameworkId: "fw", label: "GDPR:1", name: "GDPR", types: ["Payroll"], state: "open" as const }], hasSuggestedFrameworksToReview: true };
+    const scrolled = vi.fn();
+    Element.prototype.scrollIntoView = scrolled;
+    render(<SystemCockpit view={view({ system })} panels={{ ...PANELS, profile: <div id="sc-suggest" tabIndex={-1}>Suggested</div> }} />);
+    expect(screen.getByTestId("suggested-frameworks-notice")).toHaveTextContent("Its Information Types suggest GDPR for its Framework Scope.");
+    await userEvent.click(screen.getByRole("button", { name: "Review on the Profile tab" }));
+    expect(window.location.hash).toBe("#profile");
+    await waitFor(() => expect(document.activeElement).toBe(document.getElementById("sc-suggest")));
+    expect(scrolled).toHaveBeenCalled();
   });
 
   it("says 'Control' for a single one", () => {

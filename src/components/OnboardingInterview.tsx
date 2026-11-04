@@ -15,11 +15,15 @@ import {
   IMPACT_STEPS,
   INTERVIEW_STEPS,
 } from "@/app/systems/new/interview-steps";
+import { suggestionSentence, type Suggestion } from "@/lib/framework-suggestions";
 import {
   compareEvaluations,
+  declinedToSend,
   EMPTY_ANSWERS,
   evaluateOnboarding,
+  interviewSuggestions,
   isNoEffect,
+  isSuggested,
   ONBOARDING_GROUPS,
   providerOfferCount,
   toggled,
@@ -278,6 +282,7 @@ export function OnboardingInterview() {
           availabilityImpactLevel: answers.availabilityImpactLevel ?? undefined,
           deploymentFacetIds: answers.deploymentFacetIds,
           frameworkScopeIds: answers.frameworkScopeIds,
+          declinedFrameworkIds: declinedToSend(data, answers).length > 0 ? declinedToSend(data, answers) : undefined,
           providerIds: answers.providerIds,
         }),
       });
@@ -296,8 +301,10 @@ export function OnboardingInterview() {
 
   const framework = (id: string) => data.frameworks.find((f) => f.id === id);
   const baseFramework = data.frameworks.find((f) => f.isBase);
-  const askable = data.frameworks.filter((f) => !f.isBase && f.onboardingQuestion);
-  const others = data.frameworks.filter((f) => !f.isBase && !f.onboardingQuestion);
+  // A Framework a declared Information Type suggests is asked as a suggestion, not by its own question (decision 5 on #300).
+  const suggestions = interviewSuggestions(data, answers);
+  const askable = data.frameworks.filter((f) => !f.isBase && f.onboardingQuestion && !isSuggested(suggestions, f.id));
+  const others = data.frameworks.filter((f) => !f.isBase && !f.onboardingQuestion && !isSuggested(suggestions, f.id));
 
   function toggleType(type: { id: string }, on: boolean) {
     setAnswers((previous) => ({ ...previous, informationTypeIds: toggled(previous.informationTypeIds, type.id, on) }));
@@ -386,6 +393,53 @@ export function OnboardingInterview() {
     );
   }
 
+  /** A Framework an Information Type suggests: Yes puts it in the scope, No leaves it out (recorded when the System is created). */
+  function renderSuggestion(suggestion: Suggestion) {
+    const item = suggestion.framework;
+    const inScope = suggestion.state === "in-scope";
+    const leftOut = suggestion.state === "left-out";
+    const set = (yes: boolean) =>
+      apply(
+        {
+          ...answers,
+          frameworkScopeIds: toggled(answers.frameworkScopeIds, item.id, yes),
+          declinedFrameworkIds: toggled(answers.declinedFrameworkIds, item.id, !yes),
+        },
+        `${item.name}: ${yes ? "Yes" : "No"}`,
+      );
+    const withScope = (yes: boolean) => ({ ...answers, frameworkScopeIds: toggled(answers.frameworkScopeIds, item.id, yes) });
+    return (
+      <fieldset key={item.id} className="ob-q" data-suggested={item.id}>
+        <legend>
+          {suggestionSentence(suggestion)} Put {item.name} in scope?
+        </legend>
+        <p className="ob-opt-h">Suggested by the Information Types you declared. You can change this later on the System&apos;s Profile.</p>
+        <div className="ob-yn">
+          <OptionCard
+            type="radio"
+            name={`ob-sug-${item.id}`}
+            title="Yes"
+            hint={`${item.name} applies`}
+            checked={inScope}
+            selected={inScope}
+            effect={effectOf(withScope(true))}
+            onChange={() => set(true)}
+          />
+          <OptionCard
+            type="radio"
+            name={`ob-sug-${item.id}`}
+            title="No"
+            hint="Leave it out"
+            checked={leftOut}
+            selected={leftOut}
+            effect={effectOf(withScope(false))}
+            onChange={() => set(false)}
+          />
+        </div>
+      </fieldset>
+    );
+  }
+
   function renderQuestion(item: OnboardingFramework) {
     const inScope = answers.frameworkScopeIds.includes(item.id);
     const answered = questionsAnswered.includes(item.id);
@@ -455,6 +509,7 @@ export function OnboardingInterview() {
       case "laws":
         return (
           <div className="ob-laws">
+            {suggestions.map(renderSuggestion)}
             {askable.map(renderQuestion)}
             {baseFramework && (
               <p className="ob-base">
@@ -485,7 +540,7 @@ export function OnboardingInterview() {
                 </div>
               </fieldset>
             )}
-            {askable.length === 0 && others.length === 0 && <p className="hc-empty">No other laws or standards are published yet.</p>}
+            {suggestions.length === 0 && askable.length === 0 && others.length === 0 && <p className="hc-empty">No other laws or standards are published yet.</p>}
           </div>
         );
       case "relies":

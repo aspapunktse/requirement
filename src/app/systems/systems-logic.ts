@@ -40,6 +40,8 @@ export function inView(row: SystemRow, view: ViewKey): boolean {
       return row.isProvider;
     case "below":
       return row.belowInformationTypes;
+    case "suggested":
+      return row.hasSuggestedFrameworks;
   }
 }
 

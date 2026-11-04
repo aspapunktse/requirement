@@ -130,6 +130,14 @@ export type SystemPageView = {
     informationTypeFloor: number | null;
     /** The level is declared and below the floor: flagged on the Profile tab, and the submit route refuses. */
     belowInformationTypes: boolean;
+    /**
+     * The Frameworks its Information Types suggest that are not in its Framework Scope (ADR 0013), open ones first
+     * by Framework name: `open` still to decide, `left-out` declined by the owner. `name` is the Framework's name
+     * without its version, for a sentence.
+     */
+    suggestedFrameworks: { frameworkId: string; label: string; name: string; types: string[]; state: "open" | "left-out" }[];
+    /** At least one suggestion is open: flagged for the owner on the System page and in the Systems list. It never blocks a submit. */
+    hasSuggestedFrameworksToReview: boolean;
     integrity: ImpactLevel | null;
     availability: ImpactLevel | null;
     /** ISO timestamp. */

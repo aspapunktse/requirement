@@ -82,3 +82,13 @@
 .it .it-mark.hold::before { background: none; border: 2px solid var(--rg-success); }
 .it .it-mark.no { color: var(--rg-muted); }
 .it .it-mark.no::before { background: none; border: 2px dashed var(--rg-muted); }
+
+/* The suggested Frameworks a curator picks in the drawer (ADR 0013) */
+.it-drawer-root .it-frameworks { border: 0; margin: 0; padding: 0; display: grid; gap: 6px; min-width: 0; }
+.it-drawer-root .it-frameworks p { margin: 0; }
+.it-drawer-root .it-fw { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; padding: 6px 10px; border: 1px solid var(--rg-line); border-radius: 10px; background: var(--rg-surface); cursor: pointer; }
+.it-drawer-root .it-fw:hover { border-color: var(--rg-accent); }
+.it-drawer-root .it-fw:has(input:checked) { border-color: var(--rg-accent); background: var(--rg-accent-soft); }
+.it-drawer-root .it-fw:has(input:focus-visible) { outline: 2px solid var(--rg-accent); outline-offset: 2px; }
+.it-drawer-root .it-fw input { width: 16px; height: 16px; margin: 0; accent-color: var(--rg-accent); }
+.it-drawer-root .it-fw small { flex-basis: 100%; padding-left: 24px; color: var(--rg-muted); font-size: 0.8rem; }

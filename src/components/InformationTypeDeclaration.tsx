@@ -8,7 +8,7 @@ import type { SensitivityLevelInfo } from "@/lib/sensitivity-level";
 /** What the pieces need of a level: its number and its (editable) label. */
 export type LevelLabel = Pick<SensitivityLevelInfo, "level" | "label">;
 /** A type to tick: the catalogue row without its System count. */
-export type TickableType = Omit<InformationTypeRow, "systemCount">;
+export type TickableType = Omit<InformationTypeRow, "systemCount" | "suggestedFrameworks">;
 
 /**
  * The pieces of declaring Information Types (#304, ADR 0012, design proposal A), shared by the System page's Profile

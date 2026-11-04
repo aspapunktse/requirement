@@ -9,7 +9,9 @@ import {
   MAX_INFORMATION_TYPE_NAME_LENGTH,
   type DeclaringSystem,
   type InformationTypeRow,
+  type SuggestedFrameworkRef,
 } from "@/lib/information-type";
+import { frameworkLabel } from "@/lib/framework-label";
 import type { SensitivityLevelInfo } from "@/lib/sensitivity-level";
 import "@/app/home/home.css";
 import "@/app/systems/[id]/system-cockpit.css";
@@ -24,11 +26,14 @@ type Declaring = { state: "loading" } | { state: "error" } | { state: "ready"; s
  * The drawer of the Information Type catalogue (#303): for a curator a form to add or change a type (name,
  * description, Sensitivity Level), for everyone else the type read-only. An existing type also lists the Systems
  * that declare it, as many as the acting user may see. Changing the level changes nothing on those Systems (ADR 0012),
- * and the form says so. The route decides who may write; a refusal or a duplicate name is shown here.
+ * and the form says so. A curator also picks the Frameworks the type suggests (ADR 0013): the Systems that declare it are
+ * offered them for their Framework Scope, and flagged when the list changes; nothing is added to any scope. The route
+ * decides who may write; a refusal or a duplicate name is shown here.
  */
 export function InformationTypeDrawer({
   type,
   levels,
+  frameworkChoices = [],
   canCurate,
   onClose,
   onSaved,
@@ -36,6 +41,8 @@ export function InformationTypeDrawer({
   /** The type to show, or null to add a new one. */
   type: InformationTypeRow | null;
   levels: SensitivityLevelInfo[];
+  /** The Frameworks a curator can pick from: every one except the base Framework. */
+  frameworkChoices?: SuggestedFrameworkRef[];
   canCurate: boolean;
   onClose: () => void;
   onSaved: (row: InformationTypeRow, created: boolean) => void;
@@ -51,6 +58,7 @@ export function InformationTypeDrawer({
   const [name, setName] = useState(type?.name ?? "");
   const [description, setDescription] = useState(type?.description ?? "");
   const [level, setLevel] = useState<number | null>(type?.sensitivityLevel ?? null);
+  const [frameworkIds, setFrameworkIds] = useState<string[]>(type?.suggestedFrameworks.map((framework) => framework.id) ?? []);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [declaring, setDeclaring] = useState<Declaring>({ state: "loading" });
@@ -113,7 +121,9 @@ export function InformationTypeDrawer({
   }
 
   const trimmedName = name.trim();
-  const changed = !type || trimmedName !== type.name || description.trim() !== (type.description ?? "") || level !== type.sensitivityLevel;
+  const savedFrameworkIds = type?.suggestedFrameworks.map((framework) => framework.id) ?? [];
+  const frameworksChanged = frameworkIds.length !== savedFrameworkIds.length || frameworkIds.some((id) => !savedFrameworkIds.includes(id));
+  const changed = !type || trimmedName !== type.name || description.trim() !== (type.description ?? "") || level !== type.sensitivityLevel || frameworksChanged;
   const canSave = canCurate && trimmedName !== "" && level !== null && changed && !saving;
   const levelChanged = !!type && level !== null && level !== type.sensitivityLevel;
 
@@ -126,7 +136,7 @@ export function InformationTypeDrawer({
       const response = await fetch(type ? `/api/information-types/${type.id}` : "/api/information-types", {
         method: type ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: trimmedName, description: description.trim() || null, sensitivityLevel: level }),
+        body: JSON.stringify({ name: trimmedName, description: description.trim() || null, sensitivityLevel: level, frameworkIds }),
       });
       const body = await response.json().catch(() => null);
       if (!response.ok) {
@@ -202,6 +212,32 @@ export function InformationTypeDrawer({
                   </label>
                 ))}
               </div>
+              <fieldset className="it-frameworks">
+                <legend className="it-legend">Suggested Frameworks</legend>
+                <p className="sc-faint">
+                  A System that declares this type is offered these Frameworks for its Framework Scope. Its owner decides; nothing is added automatically.
+                </p>
+                {frameworkChoices.length === 0 && <p className="sc-faint">There are no other Frameworks to suggest yet.</p>}
+                {frameworkChoices.map((framework) => (
+                  <label key={framework.id} className="it-fw">
+                    <input
+                      type="checkbox"
+                      checked={frameworkIds.includes(framework.id)}
+                      onChange={(event) =>
+                        setFrameworkIds((current) => (event.target.checked ? [...current, framework.id] : current.filter((id) => id !== framework.id)))
+                      }
+                    />
+                    <span>{frameworkLabel(framework)}</span>
+                    {framework.status === "DRAFT" && <small>Draft: suggests nothing until it is published</small>}
+                  </label>
+                ))}
+              </fieldset>
+              {type && type.systemCount > 0 && frameworksChanged && (
+                <p className="sc-callout" role="note">
+                  {plural(type.systemCount, "System")} declare{type.systemCount === 1 ? "s" : ""} this type. Changing its Frameworks flags{" "}
+                  {type.systemCount === 1 ? "that System" : "those Systems"} for {type.systemCount === 1 ? "its owner" : "their owners"} to review; their Framework Scope isn&apos;t changed.
+                </p>
+              )}
               {type && type.systemCount > 0 && (
                 <p className="sc-callout" role="note">
                   {plural(type.systemCount, "System")} declare{type.systemCount === 1 ? "s" : ""} this type.{" "}
@@ -227,6 +263,18 @@ export function InformationTypeDrawer({
                   <dt>Sensitivity Level</dt>
                   <dd>
                     <SensitivityChip level={type.sensitivityLevel} label={labelOf(type.sensitivityLevel)} />
+                  </dd>
+                  <dt>Suggested Frameworks</dt>
+                  <dd>
+                    {type.suggestedFrameworks.length === 0 ? (
+                      <span className="sc-faint">None</span>
+                    ) : (
+                      <ul className="sc-tags" aria-label="Suggested Frameworks">
+                        {type.suggestedFrameworks.map((framework) => (
+                          <li key={framework.id}>{frameworkLabel(framework)}</li>
+                        ))}
+                      </ul>
+                    )}
                   </dd>
                 </dl>
                 <p className="sc-faint">Only the Compliance Manager or an Admin changes the catalogue.</p>

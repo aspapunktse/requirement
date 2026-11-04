@@ -20,9 +20,9 @@ beforeEach(() => {
 afterEach(cleanup);
 
 const TYPES = [
-  { id: "t-pay", name: "Payroll", description: "Salaries and bank details.", sensitivityLevel: 4, systemCount: 1 },
-  { id: "t-cust", name: "Customer data", description: "Names and contact details.", sensitivityLevel: 3, systemCount: 2 },
-  { id: "t-notes", name: "Meeting notes", description: null, sensitivityLevel: 1, systemCount: 0 },
+  { id: "t-pay", name: "Payroll", description: "Salaries and bank details.", sensitivityLevel: 4, systemCount: 1, suggestedFrameworks: [] },
+  { id: "t-cust", name: "Customer data", description: "Names and contact details.", sensitivityLevel: 3, systemCount: 2, suggestedFrameworks: [] },
+  { id: "t-notes", name: "Meeting notes", description: null, sensitivityLevel: 1, systemCount: 0, suggestedFrameworks: [] },
 ];
 const sys = (id: string, name: string, level: number | null, typeIds: string[] = [], isProvider = false): WhereSystem => ({ id, name, isProvider, sensitivityLevel: level, typeIds });
 // Customer data is Sensitive (3): Jira declares it at 4; Hub declares it at 2 (below); Okta is a Provider at 5 (may hold);

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { controlAppliesToSystem } from "@/lib/control-applicability";
 import { loadOrganizationStatuses } from "@/lib/effective-status-data";
+import { canBeSuggested } from "@/lib/framework-suggestions";
 import type { OnboardingCatalog, OnboardingControl, OnboardingOffering } from "@/lib/onboarding-interview";
 
 /**
@@ -29,10 +30,21 @@ export async function loadOnboardingCatalog(): Promise<OnboardingCatalog> {
         orderBy: { level: "asc" },
         select: { level: true, label: true, description: true },
       });
-      const informationTypes = await tx.informationType.findMany({
+      const informationTypeRows = await tx.informationType.findMany({
         orderBy: [{ sensitivityLevel: "desc" }, { name: "asc" }],
-        select: { id: true, name: true, description: true, sensitivityLevel: true },
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          sensitivityLevel: true,
+          suggestedFrameworks: { select: { id: true, status: true, isBase: true } },
+        },
       });
+      // Only Published, non-base Frameworks suggest anything (ADR 0013); a Draft one is not revealed here.
+      const informationTypes = informationTypeRows.map(({ suggestedFrameworks, ...type }) => ({
+        ...type,
+        suggestedFrameworkIds: suggestedFrameworks.filter(canBeSuggested).map((framework) => framework.id).sort(),
+      }));
       const deploymentFacets = await tx.deploymentFacet.findMany({
         orderBy: { name: "asc" },
         select: { id: true, name: true, description: true },

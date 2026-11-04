@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { usePagePalette } from "@/components/PaletteProvider";
 import { Icon } from "@/app/home/HomeGraphics";
 import { SensitivityChip } from "@/components/SensitivityChip";
-import type { InformationTypeRow } from "@/lib/information-type";
+import type { InformationTypeRow, SuggestedFrameworkRef } from "@/lib/information-type";
 import type { SensitivityLevelInfo } from "@/lib/sensitivity-level";
 import "@/app/home/home.css";
 import "@/app/systems/systems.css";
@@ -30,10 +30,13 @@ type Pending = { id: string; error: string | null } | null;
 export function InformationTypesRegister({
   initialTypes,
   levels,
+  frameworkChoices = [],
   canCurate,
 }: {
   initialTypes: InformationTypeRow[];
   levels: SensitivityLevelInfo[];
+  /** The Frameworks a curator can pick a type's suggestions from (every one but the base Framework); none for anyone else. */
+  frameworkChoices?: SuggestedFrameworkRef[];
   canCurate: boolean;
 }) {
   const [types, setTypes] = useState(initialTypes);
@@ -276,6 +279,7 @@ export function InformationTypesRegister({
           key={drawer.id ?? "new"}
           type={drawer.id ? (types.find((row) => row.id === drawer.id) ?? null) : null}
           levels={levels}
+          frameworkChoices={frameworkChoices}
           canCurate={canCurate}
           onClose={() => setDrawer(null)}
           onSaved={saved}

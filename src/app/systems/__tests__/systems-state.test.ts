@@ -48,6 +48,11 @@ describe("the list's state in the URL", () => {
     expect(serializeRegisterState({ ...DEFAULT_STATE, view: "below" })).toBe("view=below");
   });
 
+  it("reads the Suggested Frameworks to review card as a view (#300)", () => {
+    expect(parse("view=suggested").view).toBe("suggested");
+    expect(serializeRegisterState({ ...DEFAULT_STATE, view: "suggested" })).toBe("view=suggested");
+  });
+
   it("falls back to the default for anything it does not recognise", () => {
     expect(parse("view=nope&status=PAUSED&sort=secret&group=x&page=-2&per=7&impact=HUGE&dir=sideways")).toEqual(DEFAULT_STATE);
     expect(parse("page=abc").page).toBe(1);

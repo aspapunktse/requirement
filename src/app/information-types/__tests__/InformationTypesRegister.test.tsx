@@ -6,9 +6,9 @@ import type { InformationTypeRow } from "@/lib/information-type";
 import { InformationTypesRegister } from "../InformationTypesRegister";
 
 const types: InformationTypeRow[] = [
-  { id: "t1", name: "Test Payroll", description: "Salaries and bank details.", sensitivityLevel: 4, systemCount: 2 },
-  { id: "t2", name: "Test Source code", description: "Repositories.", sensitivityLevel: 3, systemCount: 0 },
-  { id: "t3", name: "Test Marketing", description: null, sensitivityLevel: 1, systemCount: 0 },
+  { id: "t1", name: "Test Payroll", description: "Salaries and bank details.", sensitivityLevel: 4, systemCount: 2, suggestedFrameworks: [] },
+  { id: "t2", name: "Test Source code", description: "Repositories.", sensitivityLevel: 3, systemCount: 0, suggestedFrameworks: [] },
+  { id: "t3", name: "Test Marketing", description: null, sensitivityLevel: 1, systemCount: 0, suggestedFrameworks: [] },
 ];
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 const detail = (row: InformationTypeRow, systems: unknown[] = []) => json({ informationType: row, systems });
@@ -95,7 +95,7 @@ describe("InformationTypesRegister: read-only (#303)", () => {
 
 describe("InformationTypesRegister: editing (#303)", () => {
   it("adds a type with POST and lists it", async () => {
-    const created: InformationTypeRow = { id: "t4", name: "Test Invoices", description: "Supplier invoices.", sensitivityLevel: 2, systemCount: 0 };
+    const created: InformationTypeRow = { id: "t4", name: "Test Invoices", description: "Supplier invoices.", sensitivityLevel: 2, systemCount: 0, suggestedFrameworks: [] };
     const fetchMock = vi.fn().mockResolvedValue(json({ informationType: created }, 201));
     vi.stubGlobal("fetch", fetchMock);
     renderRegister(true);
@@ -114,7 +114,7 @@ describe("InformationTypesRegister: editing (#303)", () => {
     expect(fetchMock).toHaveBeenCalledWith("/api/information-types", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: "Test Invoices", description: "Supplier invoices.", sensitivityLevel: 2 }),
+      body: JSON.stringify({ name: "Test Invoices", description: "Supplier invoices.", sensitivityLevel: 2, frameworkIds: [] }),
     });
     expect(screen.getByRole("button", { name: "Test Invoices" })).toBeInTheDocument();
     expect(screen.getByText("Added Test Invoices.")).toBeInTheDocument();
@@ -140,7 +140,7 @@ describe("InformationTypesRegister: editing (#303)", () => {
     expect(fetchMock).toHaveBeenCalledWith("/api/information-types/t1", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: "Test Payroll", description: "Salaries and bank details.", sensitivityLevel: 5 }),
+      body: JSON.stringify({ name: "Test Payroll", description: "Salaries and bank details.", sensitivityLevel: 5, frameworkIds: [] }),
     });
     expect(within(rowOf("Test Payroll")).getByRole("img", { name: "Sensitivity Level: Critical Sensitivity" })).toBeInTheDocument();
   });

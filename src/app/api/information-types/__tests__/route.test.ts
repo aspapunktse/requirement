@@ -51,6 +51,7 @@ describe("/api/information-types", () => {
         description: "Listed.",
         sensitivityLevel: 4,
         systemCount: 0,
+        suggestedFrameworks: [],
       });
     }
   });

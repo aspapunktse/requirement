@@ -7,8 +7,8 @@ import type { SensitivityLevelInfo } from "@/lib/sensitivity-level";
  */
 
 /** The stat cards, which are also the saved views. "mine" is the acting role's own view. */
-export type ViewKey = "all" | "mine" | "attention" | "unclassified" | "providers" | "below";
-export const VIEW_KEYS: ViewKey[] = ["all", "mine", "attention", "unclassified", "providers", "below"];
+export type ViewKey = "all" | "mine" | "attention" | "unclassified" | "providers" | "below" | "suggested";
+export const VIEW_KEYS: ViewKey[] = ["all", "mine", "attention", "unclassified", "providers", "below", "suggested"];
 
 /** Onboarding Statuses in lifecycle order (the tabs, the ring and the Status sort). */
 export const STATUS_ORDER: OnboardingStatus[] = ["DRAFT", "IN_REVIEW", "APPROVED", "ONBOARDED", "REJECTED"];
@@ -54,6 +54,8 @@ export type SystemRow = {
   informationTypes: { id: string; name: string; sensitivityLevel: number }[];
   /** "Below its Information Types" (CONTEXT.md): a level is declared and is lower than the highest level among its types. */
   belowInformationTypes: boolean;
+  /** It has Suggested Frameworks to review (ADR 0013): a Framework its Information Types suggest is not in its scope and not left out. */
+  hasSuggestedFrameworks: boolean;
   /** The Impact Level on the Integrity and Availability axes; null means not classified. */
   integrity: ImpactLevel | null;
   availability: ImpactLevel | null;

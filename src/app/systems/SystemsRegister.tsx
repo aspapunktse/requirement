@@ -201,8 +201,9 @@ export function SystemsRegister({ view, initialQuery }: { view: SystemsView; ini
     unclassified: "warn",
     providers: undefined,
     below: "warn",
+    suggested: "warn",
   };
-  const statLabel: Record<ViewKey, string> = { all: "All Systems", mine: own.label, attention: "Needs attention", unclassified: "Not classified", providers: "Providers", below: "Below its Information Types" };
+  const statLabel: Record<ViewKey, string> = { all: "All Systems", mine: own.label, attention: "Needs attention", unclassified: "Not classified", providers: "Providers", below: "Below its Information Types", suggested: "Suggested Frameworks to review" };
 
   function toggleSelect(id: string) {
     setSelected((current) => {
@@ -321,6 +322,7 @@ export function SystemsRegister({ view, initialQuery }: { view: SystemsView; ini
         </td>
         <td className="c-itypes">
           <InformationTypeTags types={row.informationTypes} levels={view.sensitivityLevels} />
+          {row.hasSuggestedFrameworks && <span className="it-below">Suggested Frameworks to review</span>}
         </td>
         <td className="c-cia">
           <CiaBars integrity={row.integrity} availability={row.availability} />

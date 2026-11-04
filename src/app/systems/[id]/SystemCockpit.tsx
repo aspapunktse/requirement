@@ -6,6 +6,7 @@ import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyn
 import { StatusChip } from "@/components/ui/StatusChip";
 import { ChangeOwnerDialog } from "@/components/ChangeOwnerDialog";
 import { compliancePercentage, formatCompliancePercentage } from "@/lib/requirement-status-rules";
+import { joinNames } from "@/lib/framework-suggestions";
 import { onboardingStatusTone } from "@/lib/status-tones";
 import { ago, initialsOf } from "@/app/home/home-format";
 import { Ring } from "@/app/home/HomeGraphics";
@@ -89,6 +90,15 @@ export function SystemCockpit({ view, panels }: { view: SystemPageView; panels: 
     if (options.scroll) tabsRef.current?.scrollIntoView?.({ block: "start", behavior: prefersReducedMotion() ? "auto" : "smooth" });
   }
   const goTab = (key: TabKey, options: { scroll?: boolean } = {}) => goHash(`#${key}`, options);
+  /** Switch to the Profile tab, then bring the Suggested Frameworks section into view and focus it (it renders after the switch). */
+  function reviewSuggestions() {
+    goTab("profile");
+    setTimeout(() => {
+      const section = document.getElementById("sc-suggest");
+      section?.scrollIntoView?.({ block: "start", behavior: prefersReducedMotion() ? "auto" : "smooth" });
+      section?.focus({ preventScroll: true });
+    }, 0);
+  }
 
   // Coming back to the Overview shows what was changed on another tab: the tiles are read on the server.
   const previousTab = useRef(tab);
@@ -300,6 +310,18 @@ export function SystemCockpit({ view, panels }: { view: SystemPageView; panels: 
         {error && (
           <p role="alert" className="sc-error">
             {error}
+          </p>
+        )}
+        {system.hasSuggestedFrameworksToReview && (
+          <p className="sc-callout warn" role="note" data-testid="suggested-frameworks-notice">
+            <span>
+              <b>Suggested Frameworks to review.</b> Its Information Types suggest{" "}
+              {joinNames(system.suggestedFrameworks.filter((suggestion) => suggestion.state === "open").map((suggestion) => suggestion.name))} for its Framework Scope.
+              Nothing is added until its owner decides.{" "}
+              <button type="button" className="sc-link" onClick={reviewSuggestions}>
+                Review on the Profile tab
+              </button>
+            </span>
           </p>
         )}
 

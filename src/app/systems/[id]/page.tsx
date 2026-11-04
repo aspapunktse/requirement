@@ -132,6 +132,7 @@ export default async function SystemDetailPage({ params }: PageProps<"/systems/[
         sensitivityLevels={sensitivityLevels}
         informationTypes={view.system.informationTypes}
         belowInformationTypes={view.system.belowInformationTypes}
+        suggestedFrameworks={view.system.suggestedFrameworks}
         impactLevels={{
           integrityImpactLevel: system.integrityImpactLevel,
           availabilityImpactLevel: system.availabilityImpactLevel,

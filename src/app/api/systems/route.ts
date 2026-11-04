@@ -16,6 +16,7 @@ import {
   readInformationTypesOrRefuse,
 } from "@/lib/system-information-types";
 import { lockProvider, PROVIDER_TRANSACTION_TIMEOUT_MS } from "@/lib/provider-inheritance";
+import { SUGGESTING_TYPE_SELECT, declinesForCreate } from "@/lib/framework-suggestions-data";
 
 const impactLevelSchema = z.nativeEnum(ImpactLevel).optional();
 
@@ -40,6 +41,8 @@ const createSystemSchema = z.object({
   deploymentFacetIds: z.array(z.string().min(1)).min(1),
   // The onboarding interview's Laws and standards and Relies on answers (#258).
   frameworkScopeIds: z.array(z.string().min(1)).max(200).optional(),
+  // Suggested Frameworks the owner answered No to (ADR 0013): each must be one a declared Information Type suggests.
+  declinedFrameworkIds: z.array(z.string().min(1)).max(200).optional(),
   providerIds: z.array(z.string().min(1)).max(200).optional(),
 });
 
@@ -54,6 +57,7 @@ class CreateRefused extends Error {
 }
 
 const NOT_PUBLISHED_FRAMEWORKS = "Every Framework Scope id must be a Published Framework that is not the base Framework";
+const NOT_SUGGESTED = "Every declined Framework id must be a Framework that one of the System's Information Types suggests, and not in its Framework Scope";
 const NOT_PROVIDERS = "Every Provider id must be a System that is marked as a Provider";
 
 export async function POST(request: NextRequest) {
@@ -74,7 +78,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { deploymentFacetIds, frameworkScopeIds = [], providerIds = [], informationTypeIds = [], ...rest } = parsed.data;
+  const { deploymentFacetIds, frameworkScopeIds = [], providerIds = [], informationTypeIds = [], declinedFrameworkIds = [], ...rest } = parsed.data;
   const scopeIds = [...new Set(frameworkScopeIds)];
   const dependencyIds = [...new Set(providerIds)].sort();
 
@@ -105,6 +109,17 @@ export async function POST(request: NextRequest) {
         const types = await readInformationTypesOrRefuse(tx, informationTypeIds);
         await assertMeetsInformationTypeFloor(tx, rest.sensitivityLevel ?? null, types);
 
+        // The declines are checked against what the declared types really suggest, never against the client's word.
+        const declines =
+          declinedFrameworkIds.length === 0
+            ? []
+            : declinesForCreate(
+                await tx.informationType.findMany({ where: { id: { in: types.map((type) => type.id) } }, select: SUGGESTING_TYPE_SELECT }),
+                declinedFrameworkIds,
+                scopeIds,
+              );
+        if (declines === null) throw new CreateRefused(400, NOT_SUGGESTED);
+
         // Provider locks first, in sorted id order, as `declareProviderDependencyIn` asks of a caller declaring several.
         for (const providerId of dependencyIds) await lockProvider(tx, providerId);
 
@@ -126,6 +141,11 @@ export async function POST(request: NextRequest) {
           const framework = frameworks.find((f) => f.id === frameworkId)!;
           await applyFrameworkScopeDeclaredIn(tx, { ...created, frameworkScopes: declared }, framework, auth.user.id);
           declared.push({ id: framework.id });
+        }
+
+        // The Suggested Frameworks the owner left out, in the same transaction as the System.
+        if (declines.length > 0) {
+          await tx.frameworkSuggestionDecline.createMany({ data: declines.map((decline) => ({ systemId: created.id, ...decline })) });
         }
 
         for (const providerId of dependencyIds) {

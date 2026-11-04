@@ -105,6 +105,7 @@ describe("stat cards as saved views", () => {
       "Not classified",
       "Providers",
       "Below its Information Types",
+      "Suggested Frameworks to review",
     ]);
     expect(within(card(/^Needs attention/)).getByText("3")).toBeInTheDocument();
     expect(within(card(/^Not classified/)).getByText("2")).toBeInTheDocument();

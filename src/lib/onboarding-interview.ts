@@ -1,5 +1,6 @@
 import type { ImpactLevel } from "@prisma/client";
 import { controlAppliesToSystem } from "@/lib/control-applicability";
+import { canBeSuggested, declinesToLeaveOut, suggestionsFor, type Suggestion, type SuggestingType } from "@/lib/framework-suggestions";
 
 /**
  * The System onboarding interview's rules (#258), pure and Prisma-free so the page can
@@ -68,7 +69,14 @@ export type OnboardingFramework = {
 /** All a System owner may learn about a Provider here: its name and whether it is Onboarded. */
 export type OnboardingProvider = { id: string; name: string; onboarded: boolean };
 
-export type OnboardingInformationType = { id: string; name: string; description: string | null; sensitivityLevel: number };
+export type OnboardingInformationType = {
+  id: string;
+  name: string;
+  description: string | null;
+  sensitivityLevel: number;
+  /** The Published, non-base Frameworks the type suggests (ADR 0013); a Draft one suggests nothing, so it is not here. */
+  suggestedFrameworkIds: string[];
+};
 
 export type OnboardingCatalog = {
   /** The five Sensitivity Levels in order (ADR 0011), for the Sensitivity step. */
@@ -91,6 +99,8 @@ export type OnboardingAnswers = {
   availabilityImpactLevel: ImpactLevel | null;
   /** Declared Framework Scope (never the base Framework, which is always in). */
   frameworkScopeIds: string[];
+  /** The Frameworks an Information Type suggests that the owner answered No to (ADR 0013); recorded when the System is created. */
+  declinedFrameworkIds: string[];
   providerIds: string[];
 };
 
@@ -101,6 +111,7 @@ export const EMPTY_ANSWERS: OnboardingAnswers = {
   integrityImpactLevel: null,
   availabilityImpactLevel: null,
   frameworkScopeIds: [],
+  declinedFrameworkIds: [],
   providerIds: [],
 };
 
@@ -117,6 +128,42 @@ export type OnboardingEvaluation = {
   rows: OnboardingRow[];
   counts: Record<OnboardingGroup, number> & { applicable: number; library: number };
 };
+
+/**
+ * The Frameworks the declared Information Types suggest (ADR 0013), in every state: in scope (answered Yes), left out
+ * (answered No) or open (not answered; the System is created flagged). The interview asks these instead of the
+ * Framework's own onboarding question (#258), so the owner is not asked twice.
+ */
+export function interviewSuggestions(catalog: OnboardingCatalog, answers: OnboardingAnswers): Suggestion[] {
+  const frameworks = new Map(catalog.frameworks.map((framework) => [framework.id, framework]));
+  const declared: SuggestingType[] = answers.informationTypeIds.flatMap((id) => {
+    const type = catalog.informationTypes.find((candidate) => candidate.id === id);
+    if (!type) return [];
+    return [
+      {
+        id: type.id,
+        name: type.name,
+        suggestedFrameworks: type.suggestedFrameworkIds.flatMap((frameworkId) => {
+          const framework = frameworks.get(frameworkId);
+          return framework ? [{ id: framework.id, name: framework.name, version: framework.version, status: "PUBLISHED" as const, isBase: framework.isBase }] : [];
+        }),
+      },
+    ];
+  });
+  const declines = answers.declinedFrameworkIds.flatMap((frameworkId) => declinesToLeaveOut(declared, frameworkId));
+  return suggestionsFor(declared, answers.frameworkScopeIds, declines);
+}
+
+/** The Framework ids to send as declined: the answered No that are still suggested by a declared type and not in scope. */
+export function declinedToSend(catalog: OnboardingCatalog, answers: OnboardingAnswers): string[] {
+  const left = new Set(interviewSuggestions(catalog, answers).filter((suggestion) => suggestion.state === "left-out").map((suggestion) => suggestion.framework.id));
+  return answers.declinedFrameworkIds.filter((id) => left.has(id) && !answers.frameworkScopeIds.includes(id));
+}
+
+/** Is this Framework one a suggestion covers, so the interview does not ask its own question (nor list it among the others)? */
+export function isSuggested(suggestions: readonly Suggestion[], frameworkId: string): boolean {
+  return suggestions.some((suggestion) => suggestion.framework.id === frameworkId && canBeSuggested(suggestion.framework));
+}
 
 /** Does the Control apply to a System with these answers? */
 export function applies(catalog: OnboardingCatalog, control: OnboardingControl, answers: OnboardingAnswers): boolean {
