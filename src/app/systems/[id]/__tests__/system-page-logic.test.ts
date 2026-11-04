@@ -16,6 +16,10 @@ describe("nextStepFor: the one action in the header (decision 2a on #243)", () =
     expect(nextStepFor({ status: "DRAFT", canSubmit: false, canMarkOnboarded: true, decidableSteps: [BASE] })).toEqual({ kind: "none" });
   });
 
+  it("marks Submit as blocked while the level is below the System's Information Types (#304)", () => {
+    expect(nextStepFor({ status: "DRAFT", canSubmit: true, canMarkOnboarded: false, decidableSteps: [], belowInformationTypes: true })).toEqual({ kind: "submit", blockedBy: 0, belowInformationTypes: true });
+  });
+
   it("offers Approve / Reject on a System In Review, with exactly the open steps the user may decide", () => {
     expect(nextStepFor({ status: "IN_REVIEW", canSubmit: true, canMarkOnboarded: true, decidableSteps: [BASE, GROUP] })).toEqual({ kind: "decide", steps: [BASE, GROUP] });
     expect(nextStepFor({ status: "IN_REVIEW", canSubmit: true, canMarkOnboarded: true, decidableSteps: [] })).toEqual({ kind: "none" });

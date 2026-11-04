@@ -33,6 +33,10 @@ const catalog: OnboardingCatalog = {
     { level: 4, label: "Highly Sensitive", description: "Would seriously harm people." },
     { level: 5, label: "Critical Sensitivity", description: "Would threaten the organisation." },
   ],
+  informationTypes: [
+    { id: "it-code", name: "Source code", description: "Our own software", sensitivityLevel: 3 },
+    { id: "it-pay", name: "Payroll", description: "Salaries and bank details", sensitivityLevel: 4 },
+  ],
   deploymentFacets: [
     { id: "f-saas", name: "Software as a service", description: "We subscribe to it and log in" },
     { id: "f-prem", name: "On-premises", description: "We run it in our own data centre" },
@@ -353,5 +357,92 @@ describe("OnboardingInterview", () => {
     vi.stubGlobal("fetch", mockFetch({ catalogResponse: () => new Response(JSON.stringify({ error: "Only a System Owner, Risk Owner or Admin can create a System" }), { status: 403 }) }));
     render(<OnboardingInterview />);
     expect(await screen.findByRole("alert")).toHaveTextContent("Only a System Owner, Risk Owner or Admin can create a System");
+  });
+
+  describe("Information Types (#304)", () => {
+    async function toSensitivity() {
+      const user = await setup();
+      await user.click(screen.getByRole("checkbox", { name: "Software as a service" }));
+      await next(user);
+      return user;
+    }
+
+    it("lists the types to tick above the levels, and sets no floor until one is ticked", async () => {
+      await toSensitivity();
+      expect(screen.getByRole("checkbox", { name: "Payroll" })).toHaveAccessibleDescription(/Salaries and bank details/);
+      expect(screen.getByRole("checkbox", { name: "Source code" })).not.toBeChecked();
+      expect(screen.getByRole("radio", { name: "Sensitivity Level: Public" })).toBeEnabled();
+    });
+
+    it("disables the levels below the highest ticked type and says why", async () => {
+      const user = await toSensitivity();
+      await user.click(screen.getByRole("checkbox", { name: "Payroll" }));
+
+      for (const label of ["Public", "Internal", "Sensitive"]) {
+        const radio = screen.getByRole("radio", { name: `Sensitivity Level: ${label}` });
+        expect(radio).toBeDisabled();
+        expect(radio).toHaveAccessibleDescription(/Below the floor \(Payroll\)/);
+      }
+      expect(screen.getByRole("radio", { name: "Sensitivity Level: Highly Sensitive" })).toBeEnabled();
+      expect(screen.getByRole("radio", { name: "Sensitivity Level: Critical Sensitivity" })).toBeEnabled();
+      expect(screen.getByRole("note")).toHaveTextContent("Choose Highly Sensitive or higher. Payroll sets the floor.");
+    });
+
+    it("offers to raise the level, or to leave the type out, when a ticked type is above the chosen level", async () => {
+      const user = await toSensitivity();
+      await user.click(screen.getByRole("radio", { name: "Sensitivity Level: Sensitive" }));
+      await user.click(screen.getByRole("checkbox", { name: "Payroll" }));
+
+      const alert = screen.getByRole("alert");
+      expect(alert).toHaveTextContent("Payroll is Highly Sensitive, above this System's level (Sensitive)");
+      await user.click(within(alert).getByRole("button", { name: "Raise to Highly Sensitive" }));
+      expect(screen.getByRole("radio", { name: "Sensitivity Level: Highly Sensitive" })).toBeChecked();
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    });
+
+    it("unticks the type that sets the floor from the offer", async () => {
+      const user = await toSensitivity();
+      await user.click(screen.getByRole("radio", { name: "Sensitivity Level: Sensitive" }));
+      await user.click(screen.getByRole("checkbox", { name: "Payroll" }));
+      await user.click(screen.getByRole("button", { name: "Don't add Payroll" }));
+      expect(screen.getByRole("checkbox", { name: "Payroll" })).not.toBeChecked();
+      expect(screen.getByRole("radio", { name: "Sensitivity Level: Sensitive" })).toBeChecked();
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    });
+
+    it("sends the ticked types with the level, and shows them in the review", async () => {
+      const user = await toSensitivity();
+      await user.click(screen.getByRole("checkbox", { name: "Payroll" }));
+      await user.click(screen.getByRole("checkbox", { name: "Source code" }));
+      await user.click(screen.getByRole("radio", { name: "Sensitivity Level: Critical Sensitivity" }));
+      await user.click(screen.getByRole("button", { name: "Review" }));
+
+      const rows = screen.getByText("Your answers").closest(".ob-sum") as HTMLElement;
+      expect(within(rows).getByText("Information Types").nextElementSibling).toHaveTextContent("Payroll, Source code");
+      await fill(user, screen.getByLabelText("System name"), "Payroll system");
+      await user.click(screen.getByRole("button", { name: "Create System" }));
+
+      await waitFor(() => expect(push).toHaveBeenCalledWith("/systems/sys1"));
+      expect(postedBody()).toMatchObject({ sensitivityLevel: 5, informationTypeIds: ["it-pay", "it-code"] });
+    });
+
+    it("won't create a System whose level is below its types, and says what to do", async () => {
+      const user = await toSensitivity();
+      await user.click(screen.getByRole("checkbox", { name: "Payroll" }));
+      await user.click(screen.getByRole("button", { name: "Review" }));
+      await fill(user, screen.getByLabelText("System name"), "Payroll system");
+
+      expect(screen.getByRole("button", { name: "Create System" })).toBeDisabled();
+      expect(screen.getByText(/Raise the Sensitivity Level to match its Information Types/)).toBeInTheDocument();
+    });
+
+    it("sends no types when none are ticked", async () => {
+      const user = await toSensitivity();
+      await user.click(screen.getByRole("button", { name: "Review" }));
+      await fill(user, screen.getByLabelText("System name"), "Plain");
+      await user.click(screen.getByRole("button", { name: "Create System" }));
+      await waitFor(() => expect(push).toHaveBeenCalled());
+      expect(postedBody()).not.toHaveProperty("informationTypeIds");
+    });
   });
 });

@@ -463,6 +463,33 @@ describe("the next step per role (never an action the API would refuse)", () => 
     expect(await prisma.system.findUniqueOrThrow({ where: { id: noLevel } })).toMatchObject({ status: "DRAFT" });
   });
 
+  it("flags a System below its Information Types, with its floor, and blocks Submit as the submit route does (#304)", async () => {
+    const informationType = await prisma.informationType.create({ data: { name: `Test #304 page Payroll ${Date.now()}`, sensitivityLevel: 4 } });
+    try {
+      const below = await makeSystem("below-types", owner.id, { sensitivityLevel: 3, informationTypes: { connect: [{ id: informationType.id }] } });
+      const view = (await pageFor(owner, below))!.view;
+      expect(view.system).toMatchObject({
+        informationTypes: [{ id: informationType.id, name: informationType.name, sensitivityLevel: 4 }],
+        informationTypeFloor: 4,
+        belowInformationTypes: true,
+      });
+      expect(view.nextStep).toMatchObject({ kind: "submit", belowInformationTypes: true });
+      const response = await postSubmit(requestAs(owner.id, below, "submit"), ctxFor(below));
+      expect(response.status).toBe(400);
+      expect(await prisma.system.findUniqueOrThrow({ where: { id: below } })).toMatchObject({ status: "DRAFT" });
+
+      // At the floor it is not flagged; with no level it is the missing level that blocks, not the floor.
+      await prisma.system.update({ where: { id: below }, data: { sensitivityLevel: 4 } });
+      const fixed = (await pageFor(owner, below))!.view;
+      expect(fixed.system).toMatchObject({ informationTypeFloor: 4, belowInformationTypes: false });
+      expect(fixed.nextStep).not.toHaveProperty("belowInformationTypes");
+      await prisma.system.update({ where: { id: below }, data: { sensitivityLevel: null } });
+      expect((await pageFor(owner, below))!.view.system.belowInformationTypes).toBe(false);
+    } finally {
+      await prisma.informationType.deleteMany({ where: { id: informationType.id } });
+    }
+  });
+
   it("offers the Review Steps a user may decide, as the approvals API reports canDecide", async () => {
     const expected: Record<string, string[] | string> = {
       owner: "none", // nobody decides a step on a System they own

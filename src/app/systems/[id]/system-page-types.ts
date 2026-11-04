@@ -60,8 +60,8 @@ export type DecisionStep = { reviewGroupId: string | null; name: string };
 
 /** The one action that comes next for the acting user (decision 2a on #243). */
 export type NextStep =
-  /** `needsSensitivityLevel`: the System has no Sensitivity Level, which the submit route refuses (#290); absent otherwise. */
-  | { kind: "submit"; blockedBy: number; needsSensitivityLevel?: true }
+  /** `needsSensitivityLevel`: the System has no Sensitivity Level, which the submit route refuses (#290); absent otherwise. `belowInformationTypes`: its level is below its Information Types, which it also refuses (ADR 0012). */
+  | { kind: "submit"; blockedBy: number; needsSensitivityLevel?: true; belowInformationTypes?: true }
   | { kind: "decide"; steps: DecisionStep[] }
   | { kind: "onboard" }
   | { kind: "none" };
@@ -124,6 +124,12 @@ export type SystemPageView = {
     /** The Sensitivity Level (1 to 5) and its label; null when not set. */
     sensitivityLevel: number | null;
     sensitivityLabel: string | null;
+    /** The Information Types the System declares, with their current levels (ADR 0012). */
+    informationTypes: { id: string; name: string; sensitivityLevel: number }[];
+    /** The highest level among them; null with no types. The Sensitivity Level can't be set below it. */
+    informationTypeFloor: number | null;
+    /** The level is declared and below the floor: flagged on the Profile tab, and the submit route refuses. */
+    belowInformationTypes: boolean;
     integrity: ImpactLevel | null;
     availability: ImpactLevel | null;
     /** ISO timestamp. */

@@ -9,6 +9,12 @@ import { sensitivityLevelSchema } from "@/lib/sensitivity-level";
 import { logChangeEvent } from "@/lib/change-events";
 import { applyFrameworkScopeDeclaredIn } from "@/lib/framework-scope";
 import { declareProviderDependencyIn } from "@/lib/provider-dependencies";
+import {
+  assertMeetsInformationTypeFloor,
+  ClassificationRefused,
+  describeTypesChange,
+  readInformationTypesOrRefuse,
+} from "@/lib/system-information-types";
 import { lockProvider, PROVIDER_TRANSACTION_TIMEOUT_MS } from "@/lib/provider-inheritance";
 
 const impactLevelSchema = z.nativeEnum(ImpactLevel).optional();
@@ -27,6 +33,8 @@ const createSystemSchema = z.object({
   vendor: z.string().optional(),
   description: z.string().optional(),
   sensitivityLevel: sensitivityLevelSchema.optional(),
+  // The Information Types the new System declares (#304); the level must meet their floor.
+  informationTypeIds: z.array(z.string().min(1)).max(500).optional(),
   integrityImpactLevel: impactLevelSchema,
   availabilityImpactLevel: impactLevelSchema,
   deploymentFacetIds: z.array(z.string().min(1)).min(1),
@@ -66,7 +74,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { deploymentFacetIds, frameworkScopeIds = [], providerIds = [], ...rest } = parsed.data;
+  const { deploymentFacetIds, frameworkScopeIds = [], providerIds = [], informationTypeIds = [], ...rest } = parsed.data;
   const scopeIds = [...new Set(frameworkScopeIds)];
   const dependencyIds = [...new Set(providerIds)].sort();
 
@@ -93,6 +101,10 @@ export async function POST(request: NextRequest) {
         const providers = await tx.system.count({ where: { id: { in: dependencyIds }, isProvider: true } });
         if (providers !== dependencyIds.length) throw new CreateRefused(400, NOT_PROVIDERS);
 
+        // The floor on the types the System is created with (ADR 0012): refused before anything is written.
+        const types = await readInformationTypesOrRefuse(tx, informationTypeIds);
+        await assertMeetsInformationTypeFloor(tx, rest.sensitivityLevel ?? null, types);
+
         // Provider locks first, in sorted id order, as `declareProviderDependencyIn` asks of a caller declaring several.
         for (const providerId of dependencyIds) await lockProvider(tx, providerId);
 
@@ -101,10 +113,12 @@ export async function POST(request: NextRequest) {
             ...rest,
             ownerId: auth.user.id,
             deploymentFacets: { connect: deploymentFacetIds.map((id) => ({ id })) },
+            ...(types.length > 0 && { informationTypes: { connect: types.map((type) => ({ id: type.id })) } }),
           },
           include: { deploymentFacets: true, owner: true },
         });
         await logChangeEvent(created.id, "SYSTEM_CREATED", `Created the System "${created.name}"`, auth.user.id, tx);
+        if (types.length > 0) await logChangeEvent(created.id, "CLASSIFICATION_CHANGED", describeTypesChange([], types), auth.user.id, tx);
 
         // Framework Scope in the order asked for, each declaration seeing the ones before it.
         const declared: { id: string }[] = [];
@@ -119,12 +133,13 @@ export async function POST(request: NextRequest) {
           if (!result.ok) throw new CreateRefused(400, NOT_PROVIDERS);
         }
 
-        return tx.system.findUniqueOrThrow({ where: { id: created.id }, include: { deploymentFacets: true, owner: true } });
+        return tx.system.findUniqueOrThrow({ where: { id: created.id }, include: { deploymentFacets: true, owner: true, informationTypes: true } });
       },
       { timeout: PROVIDER_TRANSACTION_TIMEOUT_MS },
     );
     return NextResponse.json({ system }, { status: 201 });
   } catch (error) {
+    if (error instanceof ClassificationRefused) return NextResponse.json({ error: error.message }, { status: error.status });
     if (error instanceof CreateRefused) return NextResponse.json({ error: error.message }, { status: error.status });
     throw error;
   }

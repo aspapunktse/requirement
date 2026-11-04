@@ -5,6 +5,13 @@ import { logChangeEvent } from "@/lib/change-events";
 import { reconcileReviewSteps } from "@/lib/review-steps";
 import { recordProviderChange } from "@/lib/provider-inheritance";
 import { isSystemOwnerOrAdmin } from "@/lib/system-permissions";
+import {
+  assertMeetsInformationTypeFloor,
+  describeTypesChange,
+  readInformationTypesOrRefuse,
+  readSystemInformationTypes,
+  sameTypeSet,
+} from "@/lib/system-information-types";
 
 /**
  * Who may change a System's classification — its declared Deployment
@@ -27,6 +34,11 @@ export function canChangeSystemClassification(
 
 export type ClassificationChanges = {
   deploymentFacetIds?: string[];
+  /**
+   * The Information Types the System declares after the change: a "set" (ADR 0012, #304). The Sensitivity Level the
+   * System ends up with must meet their floor; see `assertMeetsInformationTypeFloor`.
+   */
+  informationTypeIds?: string[];
   /** The System's Sensitivity Level, 1 to 5 (ADR 0011). */
   sensitivityLevel?: number | null;
   integrityImpactLevel?: ImpactLevel | null;
@@ -105,14 +117,34 @@ async function applyClassificationChange(
 
   // The classification, the Assessment rows and the Change Event commit together; every query uses `tx`.
   const { added, removed } = await prisma.$transaction(async (tx) => {
-    const { added, deleteOp, createOp } = diffApplicabilityOps(system.id, oldApplicable, newApplicable, tx);
+    // Lock the System row first: two concurrent requests (one adding a higher type, one lowering the level) would
+    // otherwise both pass the floor check below under READ COMMITTED and leave the System under its floor.
+    await tx.$queryRaw`SELECT id FROM "System" WHERE id = ${system.id} FOR UPDATE`;
+    // The floor first, on what is in the database now and what the System will have after this request: a
+    // refusal throws before anything is written (ADR 0012). A System already below its types may still change
+    // its Facets or Impact Levels; only a request that sets the level or the types must leave it at or above the floor.
     const before = await tx.system.findUniqueOrThrow({ where: { id: system.id }, select: { sensitivityLevel: true } });
+    const typesBefore = await readSystemInformationTypes(tx, system.id);
+    const typesAfter = changes.informationTypeIds !== undefined ? await readInformationTypesOrRefuse(tx, changes.informationTypeIds) : typesBefore;
+    if (changes.sensitivityLevel !== undefined || changes.informationTypeIds !== undefined) {
+      const levelAfter = changes.sensitivityLevel !== undefined ? changes.sensitivityLevel : before.sensitivityLevel;
+      await assertMeetsInformationTypeFloor(tx, levelAfter, typesAfter);
+    }
+    const typesChanged = changes.informationTypeIds !== undefined && !sameTypeSet(typesBefore, typesAfter);
+    const onlyTypes =
+      changes.deploymentFacetIds === undefined &&
+      changes.sensitivityLevel === undefined &&
+      changes.integrityImpactLevel === undefined &&
+      changes.availabilityImpactLevel === undefined;
+
+    const { added, deleteOp, createOp } = diffApplicabilityOps(system.id, oldApplicable, newApplicable, tx);
     await tx.system.update({
       where: { id: system.id },
       data: {
         ...(changes.deploymentFacetIds !== undefined && {
           deploymentFacets: { set: changes.deploymentFacetIds.map((id) => ({ id })) },
         }),
+        ...(typesChanged && { informationTypes: { set: typesAfter.map((type) => ({ id: type.id })) } }),
         ...(changes.sensitivityLevel !== undefined && { sensitivityLevel: changes.sensitivityLevel }),
         ...(changes.integrityImpactLevel !== undefined && {
           integrityImpactLevel: changes.integrityImpactLevel,
@@ -125,11 +157,17 @@ async function applyClassificationChange(
     const removed = await deleteOp;
     await createOp;
 
-    let detail = `Classification changed (+${added}/-${removed.count} Control Assessment(s))`;
-    if (changes.sensitivityLevel !== undefined && changes.sensitivityLevel !== before.sensitivityLevel) {
-      detail += `; Sensitivity Level: ${await levelLabel(tx, before.sensitivityLevel)} → ${await levelLabel(tx, changes.sensitivityLevel)}`;
+    // A request that only declares types has no classification recompute to report: just the types event.
+    if (!onlyTypes) {
+      let detail = `Classification changed (+${added}/-${removed.count} Control Assessment(s))`;
+      if (changes.sensitivityLevel !== undefined && changes.sensitivityLevel !== before.sensitivityLevel) {
+        detail += `; Sensitivity Level: ${await levelLabel(tx, before.sensitivityLevel)} → ${await levelLabel(tx, changes.sensitivityLevel)}`;
+      }
+      await logChangeEvent(system.id, "CLASSIFICATION_CHANGED", detail, actorId, tx);
     }
-    await logChangeEvent(system.id, "CLASSIFICATION_CHANGED", detail, actorId, tx);
+    if (typesChanged) {
+      await logChangeEvent(system.id, "CLASSIFICATION_CHANGED", describeTypesChange(typesBefore, typesAfter), actorId, tx);
+    }
     return { added, removed };
   });
 

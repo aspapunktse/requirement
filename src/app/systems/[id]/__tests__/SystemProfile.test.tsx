@@ -22,6 +22,12 @@ const SCOPES = [
   { id: "fw3", name: "GDPR", version: "2016", description: null, status: "PUBLISHED", isBase: false },
 ];
 
+const TYPES = [
+  { id: "it-pay", name: "Payroll", description: "Salaries and bank details", sensitivityLevel: 4, systemCount: 0 },
+  { id: "it-code", name: "Source code", description: "Our own software", sensitivityLevel: 3, systemCount: 0 },
+  { id: "it-web", name: "Public web content", description: null, sensitivityLevel: 1, systemCount: 0 },
+];
+
 let fetchMock: ReturnType<typeof vi.fn>;
 let scopes = SCOPES;
 
@@ -32,6 +38,7 @@ beforeEach(() => {
     const url = String(input);
     if (url === "/api/deployment-facets") return respond({ deploymentFacets: FACETS });
     if (url === "/api/frameworks") return respond({ frameworks: FRAMEWORKS });
+    if (url === "/api/information-types") return respond({ informationTypes: TYPES });
     if (url === "/api/business-units") return respond({ businessUnits: [{ id: "b1", name: "Finance" }, { id: "b2", name: "HR" }] });
     if (url.endsWith("/business-units")) return respond({ businessUnits: [{ id: "b1", name: "Finance", description: null }] });
     if (url.endsWith("/framework-scopes")) return respond({ frameworkScopes: scopes });
@@ -66,6 +73,8 @@ function renderProfile(props: Partial<React.ComponentProps<typeof SystemProfile>
       impactLevels={{ integrityImpactLevel: null, availabilityImpactLevel: "LOW" }}
       sensitivityLevel={4}
       sensitivityLevels={LEVELS}
+      informationTypes={[]}
+      belowInformationTypes={false}
       {...props}
     />,
   );
@@ -302,6 +311,104 @@ describe("Sensitivity Level", () => {
     expect(fetchMock).toHaveBeenCalledWith("/api/systems/s1", expect.objectContaining({ body: JSON.stringify({ sensitivityLevel: null }) }));
     expect(await screen.findByText(/Only the System's owner or an Admin/)).toBeInTheDocument();
     expect(refresh).not.toHaveBeenCalled();
+  });
+});
+
+describe("Information Types (#304)", () => {
+  const group = () => within(screen.getByRole("radiogroup", { name: "Sensitivity Level" }));
+  const declared = (...ids: string[]) => TYPES.filter((type) => ids.includes(type.id)).map(({ id, name, sensitivityLevel }) => ({ id, name, sensitivityLevel }));
+
+  it("lists the catalogue with the declared types ticked, and no floor while none is", async () => {
+    renderProfile({ informationTypes: declared("it-code"), sensitivityLevel: 3 });
+    expect(await screen.findByRole("checkbox", { name: "Payroll" })).not.toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Source code" })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Payroll" })).toHaveAccessibleDescription(/Salaries and bank details/);
+    // Source code is Sensitive: Public and Internal are below its floor, and say so.
+    expect(group().getByRole("radio", { name: "Sensitivity Level: Internal" })).toBeDisabled();
+    expect(group().getByRole("radio", { name: "Sensitivity Level: Internal" })).toHaveAccessibleDescription("Below the floor (Source code)");
+    expect(group().getByRole("radio", { name: "Sensitivity Level: Sensitive" })).toBeEnabled();
+    expect(group().getByRole("radio", { name: "Sensitivity Level: Not set" })).toBeDisabled();
+  });
+
+  it("sets the level freely when no type is declared", async () => {
+    renderProfile();
+    await screen.findByRole("checkbox", { name: "Payroll" });
+    expect(screen.getByText("No Information Type is ticked, so you set the level freely.")).toBeInTheDocument();
+    expect(group().getByRole("radio", { name: "Sensitivity Level: Public" })).toBeEnabled();
+    expect(group().getByRole("radio", { name: "Sensitivity Level: Not set" })).toBeEnabled();
+  });
+
+  it("offers to raise the level when a ticked type is above it, and saves the types and the level in one request", async () => {
+    const user = userEvent.setup();
+    renderProfile({ sensitivityLevel: 3 });
+    await user.click(await screen.findByRole("checkbox", { name: "Payroll" }));
+
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent("Payroll is Highly Sensitive, above this System's level (Sensitive)");
+    expect(screen.getByRole("button", { name: "Change Sensitivity Level" })).toBeDisabled();
+
+    await user.click(within(alert).getByRole("button", { name: "Raise to Highly Sensitive" }));
+    expect(group().getByRole("radio", { name: "Sensitivity Level: Highly Sensitive" })).toBeChecked();
+    await user.click(screen.getByRole("button", { name: "Change Sensitivity Level" }));
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/systems/s1",
+      expect.objectContaining({ method: "PATCH", body: JSON.stringify({ informationTypeIds: ["it-pay"], sensitivityLevel: 4 }) }),
+    );
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+  });
+
+  it("leaves the type out instead when asked", async () => {
+    const user = userEvent.setup();
+    renderProfile({ sensitivityLevel: 3 });
+    await user.click(await screen.findByRole("checkbox", { name: "Payroll" }));
+    await user.click(screen.getByRole("button", { name: "Don't add Payroll" }));
+    expect(screen.getByRole("checkbox", { name: "Payroll" })).not.toBeChecked();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Change Sensitivity Level" })).toBeDisabled();
+  });
+
+  it("saves a removed type without touching the level", async () => {
+    const user = userEvent.setup();
+    renderProfile({ informationTypes: declared("it-pay", "it-code"), sensitivityLevel: 4 });
+    await user.click(await screen.findByRole("checkbox", { name: "Source code" }));
+    await user.click(screen.getByRole("button", { name: "Change Sensitivity Level" }));
+    expect(fetchMock).toHaveBeenCalledWith("/api/systems/s1", expect.objectContaining({ body: JSON.stringify({ informationTypeIds: ["it-pay"] }) }));
+  });
+
+  it("flags a System below its types, and the owner fixes it with one click that sends just the level", async () => {
+    const user = userEvent.setup();
+    renderProfile({ informationTypes: declared("it-pay"), sensitivityLevel: 3, belowInformationTypes: true });
+    const alert = await screen.findByText("Below its Information Types.");
+    expect(alert.closest("[role=alert]")).toHaveTextContent("Payroll is Highly Sensitive");
+    await user.click(screen.getByRole("button", { name: "Raise to Highly Sensitive" }));
+    expect(fetchMock).toHaveBeenCalledWith("/api/systems/s1", expect.objectContaining({ method: "PATCH", body: JSON.stringify({ sensitivityLevel: 4 }) }));
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+  });
+
+  it("shows someone who can't change it who can fix it, with no button, and no picker to edit the types", () => {
+    renderProfile({ canChangeClassification: false, informationTypes: declared("it-pay"), sensitivityLevel: 3, belowInformationTypes: true });
+    expect(screen.getByText(/Only Marcus Lindqvist, the System's owner, or an Admin can raise it\./)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Raise to Highly Sensitive" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: "Payroll" })).not.toBeInTheDocument();
+    expect(screen.getByRole("list", { name: "Information Types" })).toHaveTextContent("Payroll · Highly Sensitive");
+  });
+
+  it("shows the server's refusal and keeps the choice", async () => {
+    const user = userEvent.setup();
+    fetchMock.mockImplementation((url: string, init?: RequestInit) =>
+      init?.method === "PATCH"
+        ? respond({ error: "The Sensitivity Level can't be lower than the System's Information Types" }, 400)
+        : url === "/api/information-types"
+          ? respond({ informationTypes: TYPES })
+          : respond({ deploymentFacets: [] }),
+    );
+    renderProfile({ sensitivityLevel: 4 });
+    await user.click(await screen.findByRole("checkbox", { name: "Public web content" }));
+    await user.click(screen.getByRole("button", { name: "Change Sensitivity Level" }));
+    expect(await screen.findByText(/can't be lower than the System's Information Types/)).toBeInTheDocument();
+    expect(refresh).not.toHaveBeenCalled();
+    expect(screen.getByRole("checkbox", { name: "Public web content" })).toBeChecked();
   });
 });
 

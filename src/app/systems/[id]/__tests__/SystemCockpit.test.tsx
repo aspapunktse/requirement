@@ -50,6 +50,9 @@ const view = (over: Partial<SystemPageView> = {}): SystemPageView => ({
     facets: [{ id: "f1", name: "SaaS" }],
     sensitivityLevel: 4,
     sensitivityLabel: "Highly Sensitive",
+    informationTypes: [],
+    informationTypeFloor: null,
+    belowInformationTypes: false,
     integrity: "MODERATE",
     availability: null,
     createdAt: "2026-09-01T09:00:00.000Z",
@@ -162,6 +165,15 @@ describe("header (#243)", () => {
     expect(submit).toBeDisabled();
     expect(submit).toHaveAccessibleDescription("Set the Sensitivity Level first");
     await userEvent.click(screen.getByRole("button", { name: "Set the Sensitivity Level first" }));
+    expect(window.location.hash).toBe("#profile");
+  });
+
+  it("disables Submit for review while the level is below the System's Information Types, with a hint that opens the Profile tab", async () => {
+    renderCockpit({ nextStep: { kind: "submit", blockedBy: 0, belowInformationTypes: true } });
+    const submit = screen.getByRole("button", { name: "Submit for review" });
+    expect(submit).toBeDisabled();
+    expect(submit).toHaveAccessibleDescription("Level is below its Information Types");
+    await userEvent.click(screen.getByRole("button", { name: "Level is below its Information Types" }));
     expect(window.location.hash).toBe("#profile");
   });
 
