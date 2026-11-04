@@ -90,6 +90,15 @@ export function SystemCockpit({ view, panels }: { view: SystemPageView; panels: 
     if (options.scroll) tabsRef.current?.scrollIntoView?.({ block: "start", behavior: prefersReducedMotion() ? "auto" : "smooth" });
   }
   const goTab = (key: TabKey, options: { scroll?: boolean } = {}) => goHash(`#${key}`, options);
+  /** Switch to the Profile tab, then bring the Suggested Frameworks section into view and focus it (it renders after the switch). */
+  function reviewSuggestions() {
+    goTab("profile");
+    setTimeout(() => {
+      const section = document.getElementById("sc-suggest");
+      section?.scrollIntoView?.({ block: "start", behavior: prefersReducedMotion() ? "auto" : "smooth" });
+      section?.focus({ preventScroll: true });
+    }, 0);
+  }
 
   // Coming back to the Overview shows what was changed on another tab: the tiles are read on the server.
   const previousTab = useRef(tab);
@@ -309,7 +318,7 @@ export function SystemCockpit({ view, panels }: { view: SystemPageView; panels: 
               <b>Suggested Frameworks to review.</b> Its Information Types suggest{" "}
               {joinNames(system.suggestedFrameworks.filter((suggestion) => suggestion.state === "open").map((suggestion) => suggestion.name))} for its Framework Scope.
               Nothing is added until its owner decides.{" "}
-              <button type="button" className="sc-link" onClick={() => goTab("profile", { scroll: true })}>
+              <button type="button" className="sc-link" onClick={reviewSuggestions}>
                 Review on the Profile tab
               </button>
             </span>

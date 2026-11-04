@@ -361,6 +361,8 @@
 /* Suggested Frameworks under the Framework Scope (ADR 0013) */
 .sc-suggest { justify-items: stretch; width: 100%; }
 .sc-suggest-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
-.sc-suggest-list li.sc-callout { grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px 12px; }
-@media (max-width: 640px) { .sc-suggest-list li.sc-callout { grid-template-columns: minmax(0, 1fr); } }
+.sc-suggest-list li.sc-callout { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+.sc-suggest-list li.sc-callout .sc-btnrow { justify-self: start; }
+.sc-suggest:focus-visible { outline: 2px solid var(--rg-accent); outline-offset: 4px; border-radius: 8px; }
+.sc-suggest-list.quiet li { overflow-wrap: anywhere; }
 .sc-suggest-list.quiet li { font-size: 0.84rem; }

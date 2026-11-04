@@ -787,7 +787,7 @@ function SuggestedFrameworks({
   if (suggestions.length === 0) return null;
 
   return (
-    <div className="sc-rel sc-suggest" role="group" aria-label="Suggested Frameworks">
+    <div id="sc-suggest" tabIndex={-1} className="sc-rel sc-suggest" role="group" aria-label="Suggested Frameworks">
       <h3 className="sc-sub">Suggested Frameworks</h3>
       {error && (
         <p role="alert" className="sc-err">
