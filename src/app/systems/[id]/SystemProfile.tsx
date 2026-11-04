@@ -10,6 +10,7 @@ import { SensitivityLevelPicker } from "@/components/SensitivityLevelPicker";
 import { FloorOffer, InformationTypeChecklist, levelLabelOf } from "@/components/InformationTypeDeclaration";
 import type { InformationTypeRow } from "@/lib/information-type";
 import { floorCulprit, informationTypeFloor, type FloorType } from "@/lib/information-type-floor";
+import { joinNames } from "@/lib/framework-suggestions";
 import type { SensitivityLevelInfo } from "@/lib/sensitivity-level";
 import { formatDay } from "./system-page-logic";
 import { useRemote } from "./use-remote";
@@ -603,6 +604,8 @@ type TagRelationProps = {
   heading: string;
   canManage: boolean;
   emptyLabel: string;
+  /** Changing it reads the declared entries again (the Suggested Frameworks section changed the scope next to it). */
+  reloadKey?: number;
 };
 
 /**
@@ -610,20 +613,22 @@ type TagRelationProps = {
  * the tag's ✕, add from the catalog with "+ Add". The base Framework is "always" in scope and has no ✕. Read-only
  * when the viewer can't manage it.
  */
-function TagRelation({ resourcePath, resourceKey, catalogPath, catalogKey, idField, itemLabel, heading, canManage, emptyLabel }: TagRelationProps) {
+function TagRelation({ resourcePath, resourceKey, catalogPath, catalogKey, idField, itemLabel, heading, canManage, emptyLabel, reloadKey = 0 }: TagRelationProps) {
   const router = useRouter();
   const [adding, setAdding] = useState(false);
   const [selectedId, setSelectedId] = useState("");
   const [error, setError] = useState<string | null>(null);
 
+  // `reloadKey` is a dependency on purpose: a new value makes `read` a new function, which reads again.
   const read = useCallback(async (): Promise<{ declared: CatalogItem[]; catalog: CatalogItem[] }> => {
+    void reloadKey; // read again whenever it changes
     const [declaredResponse, catalogResponse] = await Promise.all([fetch(resourcePath), canManage ? fetch(catalogPath) : Promise.resolve(null)]);
     if (!declaredResponse.ok || (catalogResponse && !catalogResponse.ok)) throw new Error(`Failed to load the ${itemLabel}s`);
     return {
       declared: (await declaredResponse.json())[resourceKey] ?? [],
       catalog: catalogResponse ? ((await catalogResponse.json())[catalogKey] ?? []) : [],
     };
-  }, [resourcePath, resourceKey, catalogPath, catalogKey, canManage, itemLabel]);
+  }, [resourcePath, resourceKey, catalogPath, catalogKey, canManage, itemLabel, reloadKey]);
   const { data: loaded, failed: loadError, reload: load, setData: setLoaded } = useRemote(read);
   const declared = loaded?.declared ?? null;
   const catalog = loaded?.catalog ?? [];
@@ -732,6 +737,122 @@ function TagRelation({ resourcePath, resourceKey, catalogPath, catalogKey, idFie
   );
 }
 
+/** A suggested Framework not in the System's Framework Scope, as the server worked it out (see `framework-suggestions.ts`). */
+export type SuggestedFrameworkItem = { frameworkId: string; label: string; name: string; types: string[]; state: "open" | "left-out" };
+
+/**
+ * The Frameworks the System's Information Types suggest (ADR 0013), under its Framework Scope. The owner (or an Admin)
+ * adds one to the scope (the Framework Scope route) or leaves it out (recorded per type, so it doesn't flag the System
+ * again while the types stay); a left-out one stays listed quietly with a way to add it anyway. Nothing here is
+ * automatic, and the server decides who may write.
+ */
+function SuggestedFrameworks({
+  systemId,
+  suggestions,
+  canManage,
+  onScopeChanged,
+}: {
+  systemId: string;
+  suggestions: SuggestedFrameworkItem[];
+  canManage: boolean;
+  onScopeChanged: () => void;
+}) {
+  const router = useRouter();
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function run(frameworkId: string, request: () => Promise<Response>, fallback: string, scopeChanged: boolean) {
+    setBusyId(frameworkId);
+    setError(null);
+    try {
+      const response = await request();
+      if (!response.ok) {
+        setError(await errorOf(response, fallback));
+        return;
+      }
+      if (scopeChanged) onScopeChanged();
+      // The suggestions, the notice and the Systems list are read on the server.
+      router.refresh();
+    } catch {
+      setError(fallback);
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  const post = (url: string, frameworkId: string) => () =>
+    fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ frameworkId }) });
+  const open = suggestions.filter((suggestion) => suggestion.state === "open");
+  const leftOut = suggestions.filter((suggestion) => suggestion.state === "left-out");
+  if (suggestions.length === 0) return null;
+
+  return (
+    <div className="sc-rel sc-suggest" role="group" aria-label="Suggested Frameworks">
+      <h3 className="sc-sub">Suggested Frameworks</h3>
+      {error && (
+        <p role="alert" className="sc-err">
+          {error}
+        </p>
+      )}
+      {open.length > 0 && (
+        <ul className="sc-suggest-list">
+          {open.map((suggestion) => (
+            <li key={suggestion.frameworkId} className="sc-callout warn">
+              <span>
+                {joinNames(suggestion.types)} {suggestion.types.length === 1 ? "usually falls" : "usually fall"} under {suggestion.name}. Put {suggestion.name} in this System&apos;s Framework Scope?
+              </span>
+              {canManage ? (
+                <span className="sc-btnrow">
+                  <button
+                    type="button"
+                    className="hc-btn primary"
+                    disabled={busyId === suggestion.frameworkId}
+                    aria-label={`Add ${suggestion.label} to scope`}
+                    onClick={() => run(suggestion.frameworkId, post(`/api/systems/${systemId}/framework-scopes`, suggestion.frameworkId), `Failed to add ${suggestion.label}`, true)}
+                  >
+                    Add to scope
+                  </button>
+                  <button
+                    type="button"
+                    className="hc-btn"
+                    disabled={busyId === suggestion.frameworkId}
+                    aria-label={`Leave out ${suggestion.label}`}
+                    onClick={() => run(suggestion.frameworkId, post(`/api/systems/${systemId}/framework-suggestions`, suggestion.frameworkId), `Failed to leave out ${suggestion.label}`, false)}
+                  >
+                    Leave out
+                  </button>
+                </span>
+              ) : (
+                <span className="sc-faint">Only the System&apos;s owner or an Admin decides.</span>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {leftOut.length > 0 && (
+        <ul className="sc-suggest-list quiet" aria-label="Left out">
+          {leftOut.map((suggestion) => (
+            <li key={suggestion.frameworkId} className="sc-faint">
+              Left out: {suggestion.label}, suggested by {joinNames(suggestion.types)}.{" "}
+              {canManage && (
+                <button
+                  type="button"
+                  className="sc-link"
+                  disabled={busyId === suggestion.frameworkId}
+                  aria-label={`Add ${suggestion.label} to scope anyway`}
+                  onClick={() => run(suggestion.frameworkId, post(`/api/systems/${systemId}/framework-scopes`, suggestion.frameworkId), `Failed to add ${suggestion.label}`, true)}
+                >
+                  Add it anyway
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 /**
  * The Profile tab (design proposal A, #245): About (editable by the System's owner or an Admin, #246), Deployment
  * Facets, Information Types and Sensitivity Level, Impact Level per axis (Integrity and Availability), and Business Units and Framework Scope as tags. The permissions are the page's,
@@ -749,6 +870,7 @@ export function SystemProfile({
   sensitivityLevels,
   informationTypes,
   belowInformationTypes,
+  suggestedFrameworks = [],
 }: {
   systemId: string;
   about: SystemAbout;
@@ -763,7 +885,11 @@ export function SystemProfile({
   informationTypes: FloorType[];
   /** The level is declared and below the highest of those types (computed on the server with `isBelowInformationTypes`). */
   belowInformationTypes: boolean;
+  /** The Frameworks its Information Types suggest that are not in its Framework Scope (ADR 0013). */
+  suggestedFrameworks?: SuggestedFrameworkItem[];
 }) {
+  // Bumped when the Suggested Frameworks section changes the Framework Scope, so the tags next to it read it again.
+  const [scopeVersion, setScopeVersion] = useState(0);
   return (
     <div className="sc-stackgap">
       <About systemId={systemId} about={about} canEdit={canChangeClassification} />
@@ -804,6 +930,13 @@ export function SystemProfile({
             heading="Framework Scope"
             canManage={canManageFrameworkScopes}
             emptyLabel="This System isn't in scope for any Framework yet."
+            reloadKey={scopeVersion}
+          />
+          <SuggestedFrameworks
+            systemId={systemId}
+            suggestions={suggestedFrameworks}
+            canManage={canManageFrameworkScopes}
+            onScopeChanged={() => setScopeVersion((current) => current + 1)}
           />
         </div>
       </section>

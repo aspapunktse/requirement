@@ -9,6 +9,8 @@ import { canCreateSystem } from "@/lib/system-permissions";
 import { roleLabel } from "@/app/home/role-label";
 import { isBelowInformationTypes } from "@/lib/information-type-floor";
 import { listInformationTypes } from "@/lib/information-type-data";
+import { hasSuggestedFrameworksToReview } from "@/lib/framework-suggestions";
+import { SUGGESTING_TYPE_SELECT } from "@/lib/framework-suggestions-data";
 import { listSensitivityLevels } from "@/lib/sensitivity-level-data";
 import { readSystemsThresholds, type SystemsThresholds } from "@/lib/app-settings";
 import { fulfilment, roleViewNeedsFulfilment, roleViewOf } from "./systems-logic";
@@ -55,7 +57,10 @@ export async function readSystemRows(
       businessUnits: { select: { id: true, name: true }, orderBy: { name: "asc" } },
       sensitivityLevel: true,
       sensitivity: { select: { label: true } },
-      informationTypes: { select: { id: true, name: true, sensitivityLevel: true } },
+      // The types also carry the Frameworks they suggest, with the System's scope and declines: the flag for Suggested Frameworks to review (ADR 0013).
+      informationTypes: { select: { ...SUGGESTING_TYPE_SELECT, sensitivityLevel: true } },
+      frameworkScopes: { select: { id: true } },
+      frameworkSuggestionDeclines: { select: { informationTypeId: true, frameworkId: true } },
       integrityImpactLevel: true,
       availabilityImpactLevel: true,
       updatedAt: true,
@@ -95,8 +100,11 @@ export async function readSystemRows(
       businessUnits: system.businessUnits,
       sensitivityLevel: system.sensitivityLevel,
       sensitivityLabel: system.sensitivity?.label ?? null,
-      informationTypes: [...system.informationTypes].sort((a, b) => b.sensitivityLevel - a.sensitivityLevel || a.name.localeCompare(b.name)),
+      informationTypes: system.informationTypes
+        .map(({ id, name, sensitivityLevel }) => ({ id, name, sensitivityLevel }))
+        .sort((a, b) => b.sensitivityLevel - a.sensitivityLevel || a.name.localeCompare(b.name)),
       belowInformationTypes: isBelowInformationTypes(system.sensitivityLevel, system.informationTypes),
+      hasSuggestedFrameworks: hasSuggestedFrameworksToReview(system.informationTypes, system.frameworkScopes.map((scope) => scope.id), system.frameworkSuggestionDeclines),
       integrity: system.integrityImpactLevel,
       availability: system.availabilityImpactLevel,
       openQuestions: queryCounts.get(system.id) ?? 0,

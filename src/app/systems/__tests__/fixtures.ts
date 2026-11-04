@@ -15,6 +15,7 @@ export const row = (over: Partial<SystemRow> & Pick<SystemRow, "id" | "name">): 
   sensitivityLevel: 3, sensitivityLabel: "Sensitive",
   informationTypes: [],
   belowInformationTypes: false,
+  hasSuggestedFrameworks: false,
   integrity: "MODERATE",
   availability: "MODERATE",
   openQuestions: 0,

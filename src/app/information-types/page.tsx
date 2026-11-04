@@ -17,11 +17,19 @@ export default async function InformationTypesPage() {
     return <p className="p-6 text-rg-muted">Pick a user to act as first.</p>;
   }
 
-  const { types, levels } = await prisma.$transaction(
-    async (tx) => ({ types: await listInformationTypes(tx), levels: await listSensitivityLevels(tx) }),
+  const canCurate = canCurateInformationTypes(user);
+  const { types, levels, frameworkChoices } = await prisma.$transaction(
+    async (tx) => ({
+      types: await listInformationTypes(tx, canCurate),
+      levels: await listSensitivityLevels(tx),
+      // A curator picks a type's suggested Frameworks from every Framework but the base one (always in scope).
+      frameworkChoices: canCurate
+        ? await tx.framework.findMany({ where: { isBase: false }, select: { id: true, name: true, version: true, status: true }, orderBy: [{ name: "asc" }, { version: "asc" }] })
+        : [],
+    }),
     { isolationLevel: "RepeatableRead" },
   );
 
   // Keyed on the acting user, so switching user starts from a clean state (no open drawer carried over).
-  return <InformationTypesRegister key={user.id} initialTypes={types} levels={levels} canCurate={canCurateInformationTypes(user)} />;
+  return <InformationTypesRegister key={user.id} initialTypes={types} levels={levels} frameworkChoices={frameworkChoices} canCurate={canCurate} />;
 }

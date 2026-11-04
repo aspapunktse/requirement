@@ -139,7 +139,9 @@ model SensitivityLevel {
 // A kind of information the enterprise handles (e.g. Customer personal data, Payroll), kept in a catalogue the
 // Compliance Manager or an Admin curates, each with one Sensitivity Level (ADR 0012). A System declares any
 // number of them (declaring is a later issue); the highest level among them is the floor for the System's own.
-// Raising a type's level never changes a System. Carries only a level: no Frameworks (#300).
+// Raising a type's level never changes a System. It also suggests Frameworks (ADR 0013, #300): a System that
+// declares the type is offered each Published, non-base one for its Framework Scope, which its owner confirms or
+// leaves out; nothing enters a Framework Scope by itself.
 model InformationType {
   id               String           @id @default(cuid())
   name             String           @unique
@@ -151,6 +153,30 @@ model InformationType {
 
   // Systems that declare this type.
   systems System[]
+
+  // The Frameworks this type suggests (ADR 0013). Implicit many-to-many `_InformationTypeSuggestedFramework`:
+  // A = Framework id, B = InformationType id (alphabetical model order). A Draft Framework may be linked; it only
+  // suggests once Published. The base Framework is refused by the API (it is always in scope).
+  suggestedFrameworks         Framework[]                  @relation("InformationTypeSuggestedFramework")
+  // The owners' decisions to leave one of those out, per System.
+  frameworkSuggestionDeclines FrameworkSuggestionDecline[]
+}
+
+// An owner's decision to leave out a Framework that an Information Type suggests, for one System (ADR 0013).
+// One row per (System, Information Type, Framework). While the System still declares the type, the suggestion
+// is not open and the System is not flagged for it. A row goes with the System, the type or the Framework.
+model FrameworkSuggestionDecline {
+  systemId          String
+  system            System          @relation(fields: [systemId], references: [id], onDelete: Cascade)
+  informationTypeId String
+  informationType   InformationType @relation(fields: [informationTypeId], references: [id], onDelete: Cascade)
+  frameworkId       String
+  framework         Framework       @relation(fields: [frameworkId], references: [id], onDelete: Cascade)
+  createdAt         DateTime        @default(now())
+
+  @@id([systemId, informationTypeId, frameworkId])
+  @@index([informationTypeId])
+  @@index([frameworkId])
 }
 
 // A system or cloud solution being onboarded into the enterprise.
@@ -177,6 +203,8 @@ model System {
   deploymentFacets           DeploymentFacet[]
   // The Information Types the System declares (ADR 0012).
   informationTypes           InformationType[]
+  // Suggested Frameworks the owner left out (ADR 0013).
+  frameworkSuggestionDeclines FrameworkSuggestionDecline[]
   createdAt                  DateTime          @default(now())
   updatedAt                  DateTime          @updatedAt
   // When the System was actually marked Onboarded — distinct from Approval
@@ -320,6 +348,9 @@ model Framework {
   // Users assigned this Framework as (part of) their BUSINESS_RISK_OWNER
   // portfolio.
   riskOwners         User[]        @relation("FrameworkRiskOwner")
+  // Information Types that suggest this Framework, and the owners' decisions to leave it out (ADR 0013).
+  suggestedBy        InformationType[]            @relation("InformationTypeSuggestedFramework")
+  suggestionDeclines FrameworkSuggestionDecline[]
 
   // The Review Group that reviews this Framework's non-base Controls on a System; at most one.
   // Restrict: a Review Group can't be deleted while tied (the API checks first and answers 409).

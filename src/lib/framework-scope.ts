@@ -5,6 +5,7 @@ import { logChangeEvent } from "@/lib/change-events";
 import { reconcileReviewSteps, reconcileReviewStepsIn } from "@/lib/review-steps";
 import { recordProviderChange } from "@/lib/provider-inheritance";
 import { isSystemOwnerOrAdmin } from "@/lib/system-permissions";
+import { declinesForRemoval } from "@/lib/framework-suggestions-data";
 
 /**
  * Who may declare or undeclare a System's Framework Scope: ADMIN, or the
@@ -159,6 +160,10 @@ async function removeFrameworkScope(system: ScopeSystem, framework: { id: string
     getApplicableControls({ ...system, frameworkScopes: newScopeIds.map((id) => ({ id })) }),
   ]);
 
+  // Taking out a Framework a declared Information Type suggests is the owner's decision (ADR 0013): it is recorded
+  // in the same transaction, so the System is not flagged for what the owner just removed.
+  const declines = await declinesForRemoval(prisma, system.id, framework.id);
+
   const { added, deleteOp, createOp } = diffApplicabilityOps(system.id, oldApplicable, newApplicable);
   const [, removed] = await prisma.$transaction([
     prisma.system.update({
@@ -167,6 +172,7 @@ async function removeFrameworkScope(system: ScopeSystem, framework: { id: string
     }),
     deleteOp,
     createOp,
+    prisma.frameworkSuggestionDecline.createMany({ data: declines, skipDuplicates: true }),
   ]);
 
   await logChangeEvent(

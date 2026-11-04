@@ -178,8 +178,19 @@ async function main() {
     { name: "Source code", description: "Application and infrastructure code, build scripts and repository history.", sensitivityLevel: levelOf("Sensitive") },
     { name: "Published marketing content", description: "Web pages, brochures and press releases that are already public.", sensitivityLevel: levelOf("Public") },
   ];
+  // The example "personal data" type suggests GDPR (#300, ADR 0013), when that Framework exists and the type is new
+  // here: a curated type keeps the Frameworks its curator chose. Seed only; the migration links nothing.
+  const gdpr = await prisma.framework.findUnique({ where: { name_version: { name: "GDPR", version: "1" } }, select: { id: true, isBase: true } });
   for (const informationType of exampleInformationTypes) {
-    await prisma.informationType.upsert({ where: { name: informationType.name }, update: {}, create: informationType });
+    const existed = (await prisma.informationType.count({ where: { name: informationType.name } })) > 0;
+    await prisma.informationType.upsert({
+      where: { name: informationType.name },
+      update: {},
+      create: {
+        ...informationType,
+        ...(!existed && gdpr && !gdpr.isBase && informationType.name === "Customer personal data" && { suggestedFrameworks: { connect: { id: gdpr.id } } }),
+      },
+    });
   }
 
   console.log(

@@ -36,17 +36,28 @@ const level = z
   .min(MIN_SENSITIVITY_LEVEL, "Choose a Sensitivity Level.")
   .max(MAX_SENSITIVITY_LEVEL, "Choose a Sensitivity Level.");
 
+/** The Frameworks the type suggests (ADR 0013): the whole list, replacing the earlier one. Unknown ids and the base Framework are refused by the route. */
+const frameworkIds = z
+  .array(z.string({ error: "Choose Frameworks from the list." }).min(1, "Choose Frameworks from the list."), { error: "Choose Frameworks from the list." })
+  .max(200, "Choose at most 200 Frameworks.")
+  .transform((ids) => [...new Set(ids)]);
+
 export const createInformationTypeSchema = z.object({
   name,
   description: description.optional().default(null),
   sensitivityLevel: level,
+  frameworkIds: frameworkIds.optional().default([]),
 });
 
 export const updateInformationTypeSchema = z
-  .object({ name: name.optional(), description: description.optional(), sensitivityLevel: level.optional() })
-  .refine((data) => data.name !== undefined || data.description !== undefined || data.sensitivityLevel !== undefined, {
-    message: "Provide at least one of name, description or sensitivityLevel to update.",
-  });
+  .object({ name: name.optional(), description: description.optional(), sensitivityLevel: level.optional(), frameworkIds: frameworkIds.optional() })
+  .refine(
+    (data) => data.name !== undefined || data.description !== undefined || data.sensitivityLevel !== undefined || data.frameworkIds !== undefined,
+    { message: "Provide at least one of name, description, sensitivityLevel or frameworkIds to update." },
+  );
+
+export const BASE_FRAMEWORK_NOT_SUGGESTED = "The base Framework is always in every System's Framework Scope and can't be suggested.";
+export const UNKNOWN_SUGGESTED_FRAMEWORKS = "One or more Framework ids do not exist";
 
 /** One Information Type as the page and the API show it. */
 export type InformationTypeRow = {
@@ -56,7 +67,11 @@ export type InformationTypeRow = {
   sensitivityLevel: number;
   /** How many Systems declare it, whether or not the viewer may see them. */
   systemCount: number;
+  /** The Frameworks it suggests (ADR 0013), by name. A Draft one only for a viewer who may see Drafts; it suggests nothing until Published. */
+  suggestedFrameworks: SuggestedFrameworkRef[];
 };
+
+export type SuggestedFrameworkRef = { id: string; name: string; version: string; status: "DRAFT" | "PUBLISHED" };
 
 /** A System that declares a type, as the drawer lists it: only Systems the viewer may see. */
 export type DeclaringSystem = { id: string; name: string; vendor: string | null; sensitivityLevel: number | null };

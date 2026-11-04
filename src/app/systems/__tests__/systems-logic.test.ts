@@ -24,7 +24,7 @@ const ids = (rows: { id: string }[]) => rows.map((r) => r.id);
 
 describe("saved views", () => {
   it("counts each view over the rows", () => {
-    expect(viewCounts(ROWS)).toEqual({ all: 5, mine: 1, attention: 3, unclassified: 2, providers: 1, below: 1 });
+    expect(viewCounts(ROWS)).toEqual({ all: 5, mine: 1, attention: 3, unclassified: 2, providers: 1, below: 1, suggested: 0 });
   });
 
   it("Not classified is any CIA axis unset", () => {
@@ -110,6 +110,13 @@ describe("search and filters", () => {
     expect(ids(ROWS.filter((r) => inView(r, "below")))).toEqual(["s-hub"]);
     expect(hasActiveFilters({ ...DEFAULT_STATE, it: ["t-payroll"] })).toBe(true);
     expect(hasActiveFilters({ ...DEFAULT_STATE, view: "below" })).toBe(true);
+  });
+
+  it("the Suggested Frameworks to review view holds the Systems with an open suggestion (#300)", () => {
+    const flagged = [{ ...ROWS[0], hasSuggestedFrameworks: true }, ...ROWS.slice(1)];
+    expect(ids(flagged.filter((r) => inView(r, "suggested")))).toEqual([ROWS[0].id]);
+    expect(viewCounts(flagged).suggested).toBe(1);
+    expect(hasActiveFilters({ ...DEFAULT_STATE, view: "suggested" })).toBe(true);
   });
 
   it("offers every Sensitivity Level with its live label, then Not set, whether or not a System has it", () => {

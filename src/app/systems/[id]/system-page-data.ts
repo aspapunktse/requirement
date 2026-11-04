@@ -16,6 +16,8 @@ import { canChangeOwner, canSubmit } from "@/lib/system-permissions";
 import { canMarkOnboarded } from "@/lib/onboarding";
 import { informationTypeFloor, isBelowInformationTypes } from "@/lib/information-type-floor";
 import { frameworkLabel } from "@/lib/framework-label";
+import { suggestionsFor } from "@/lib/framework-suggestions";
+import { SUGGESTING_TYPE_SELECT } from "@/lib/framework-suggestions-data";
 import { buildAttention, controlIsDone, lifecycleNote, nextStepFor, riskGridOf, sourceKeyOf } from "./system-page-logic";
 import {
   CONTROL_STATUS_ORDER,
@@ -43,7 +45,9 @@ const SYSTEM_INCLUDE = {
   sensitivity: { select: { label: true } },
   businessUnits: { select: { id: true, name: true }, orderBy: { name: "asc" } },
   // The declared Information Types with their current levels: the floor of the Sensitivity Level (ADR 0012).
-  informationTypes: { select: { id: true, name: true, sensitivityLevel: true }, orderBy: { name: "asc" } },
+  // They also carry the Frameworks they suggest (ADR 0013), and the owner's decisions to leave one out.
+  informationTypes: { select: { ...SUGGESTING_TYPE_SELECT, sensitivityLevel: true }, orderBy: { name: "asc" } },
+  frameworkSuggestionDeclines: { select: { informationTypeId: true, frameworkId: true } },
 } satisfies Prisma.SystemInclude;
 
 /** The newest Change Events shown in the Recent activity tile. */
@@ -157,6 +161,10 @@ export async function loadSystemPage(user: User, id: string, now = new Date()): 
         ? []
         : [{ id: "created", who: null, what: CHANGE_EVENT_ACTION_LABEL.SYSTEM_CREATED, detail: "", tone: CHANGE_EVENT_ACTION_TONE.SYSTEM_CREATED, at: system.createdAt.toISOString() }];
 
+      // The Frameworks the declared Information Types suggest; the ones still to decide flag the System for its owner (ADR 0013).
+      const suggestions = suggestionsFor(system.informationTypes, system.frameworkScopes.map((scope) => scope.id), system.frameworkSuggestionDeclines);
+      const reviewable = suggestions.filter((suggestion) => suggestion.state !== "in-scope").sort((a, b) => Number(b.state === "open") - Number(a.state === "open"));
+
       const frameworks = frameworkRequirements.map(
         (entry): FrameworkSummary => ({
           id: entry.framework.id,
@@ -201,9 +209,17 @@ export async function loadSystemPage(user: User, id: string, now = new Date()): 
           facets: [...system.deploymentFacets].sort((a, b) => a.name.localeCompare(b.name)).map((facet) => ({ id: facet.id, name: facet.name })),
           sensitivityLevel: system.sensitivityLevel,
           sensitivityLabel: system.sensitivity?.label ?? null,
-          informationTypes: system.informationTypes,
+          informationTypes: system.informationTypes.map(({ id, name, sensitivityLevel }) => ({ id, name, sensitivityLevel })),
           informationTypeFloor: informationTypeFloor(system.informationTypes),
           belowInformationTypes: isBelowInformationTypes(system.sensitivityLevel, system.informationTypes),
+          suggestedFrameworks: reviewable.map((suggestion) => ({
+            frameworkId: suggestion.framework.id,
+            label: frameworkLabel(suggestion.framework),
+            name: suggestion.framework.name,
+            types: suggestion.types.map((type) => type.name),
+            state: suggestion.state === "open" ? ("open" as const) : ("left-out" as const),
+          })),
+          hasSuggestedFrameworksToReview: reviewable.some((suggestion) => suggestion.state === "open"),
           integrity: system.integrityImpactLevel,
           availability: system.availabilityImpactLevel,
           createdAt: system.createdAt.toISOString(),

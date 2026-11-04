@@ -34,8 +34,8 @@ const catalog: OnboardingCatalog = {
     { level: 5, label: "Critical Sensitivity", description: "Would threaten the organisation." },
   ],
   informationTypes: [
-    { id: "it-code", name: "Source code", description: "Our own software", sensitivityLevel: 3 },
-    { id: "it-pay", name: "Payroll", description: "Salaries and bank details", sensitivityLevel: 4 },
+    { id: "it-code", name: "Source code", description: "Our own software", sensitivityLevel: 3, suggestedFrameworkIds: [] },
+    { id: "it-pay", name: "Payroll", description: "Salaries and bank details", sensitivityLevel: 4, suggestedFrameworkIds: [] },
   ],
   deploymentFacets: [
     { id: "f-saas", name: "Software as a service", description: "We subscribe to it and log in" },

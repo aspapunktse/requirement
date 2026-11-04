@@ -53,6 +53,8 @@ const view = (over: Partial<SystemPageView> = {}): SystemPageView => ({
     informationTypes: [],
     informationTypeFloor: null,
     belowInformationTypes: false,
+    suggestedFrameworks: [],
+    hasSuggestedFrameworksToReview: false,
     integrity: "MODERATE",
     availability: null,
     createdAt: "2026-09-01T09:00:00.000Z",
