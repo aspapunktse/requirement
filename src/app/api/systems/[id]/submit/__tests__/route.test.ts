@@ -200,6 +200,32 @@ describe("POST /api/systems/[id]/submit", () => {
     }
   });
 
+  it("refuses to submit a System whose level is below its Information Types, naming the type and the level, and changes nothing (#304)", async () => {
+    await fulfillAllMandatoryControls(systemId, [systemTypeId]);
+    const informationType = await prisma.informationType.create({ data: { name: `Test #304 Submit Payroll ${Date.now()}`, sensitivityLevel: 4 } });
+    // A curator raised the type after the owner declared it: the level (3) is now below it.
+    await prisma.system.update({ where: { id: systemId }, data: { informationTypes: { connect: [{ id: informationType.id }] } } });
+    try {
+      const response = await POST(requestAs(systemId, ownerId), ctxFor(systemId));
+      const body = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(body.error).toContain("below its Information Types");
+      expect(body.error).toContain(informationType.name);
+      expect(await prisma.system.findUniqueOrThrow({ where: { id: systemId } })).toMatchObject({ status: "DRAFT", sensitivityLevel: 3 });
+      expect(await prisma.reviewRound.count({ where: { systemId } })).toBe(0);
+      expect(await prisma.changeEvent.count({ where: { systemId, action: "SYSTEM_SUBMITTED" } })).toBe(0);
+
+      // Raising the level to the floor lets it through.
+      await prisma.system.update({ where: { id: systemId }, data: { sensitivityLevel: 4 } });
+      expect((await POST(requestAs(systemId, ownerId), ctxFor(systemId))).status).toBe(200);
+    } finally {
+      await prisma.reviewRound.deleteMany({ where: { systemId } });
+      await prisma.system.update({ where: { id: systemId }, data: { sensitivityLevel: 3, status: "DRAFT", informationTypes: { set: [] } } });
+      await prisma.informationType.deleteMany({ where: { id: informationType.id } });
+    }
+  });
+
   it("rejects submission when a mandatory Control is unaddressed, naming it", async () => {
     const response = await POST(requestAs(systemId, ownerId), ctxFor(systemId));
     const body = await response.json();

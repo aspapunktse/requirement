@@ -130,6 +130,8 @@ export default async function SystemDetailPage({ params }: PageProps<"/systems/[
         deploymentFacetIds={system.deploymentFacets.map((facet) => facet.id)}
         sensitivityLevel={system.sensitivityLevel}
         sensitivityLevels={sensitivityLevels}
+        informationTypes={view.system.informationTypes}
+        belowInformationTypes={view.system.belowInformationTypes}
         impactLevels={{
           integrityImpactLevel: system.integrityImpactLevel,
           availabilityImpactLevel: system.availabilityImpactLevel,

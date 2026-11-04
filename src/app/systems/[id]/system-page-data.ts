@@ -14,6 +14,7 @@ import { SYSTEM_ACTOR } from "@/lib/change-events";
 import { CHANGE_EVENT_ACTION_LABEL, CHANGE_EVENT_ACTION_TONE } from "@/lib/change-event-labels";
 import { canChangeOwner, canSubmit } from "@/lib/system-permissions";
 import { canMarkOnboarded } from "@/lib/onboarding";
+import { informationTypeFloor, isBelowInformationTypes } from "@/lib/information-type-floor";
 import { frameworkLabel } from "@/lib/framework-label";
 import { buildAttention, controlIsDone, lifecycleNote, nextStepFor, riskGridOf, sourceKeyOf } from "./system-page-logic";
 import {
@@ -41,6 +42,8 @@ const SYSTEM_INCLUDE = {
   owner: true,
   sensitivity: { select: { label: true } },
   businessUnits: { select: { id: true, name: true }, orderBy: { name: "asc" } },
+  // The declared Information Types with their current levels: the floor of the Sensitivity Level (ADR 0012).
+  informationTypes: { select: { id: true, name: true, sensitivityLevel: true }, orderBy: { name: "asc" } },
 } satisfies Prisma.SystemInclude;
 
 /** The newest Change Events shown in the Recent activity tile. */
@@ -198,6 +201,9 @@ export async function loadSystemPage(user: User, id: string, now = new Date()): 
           facets: [...system.deploymentFacets].sort((a, b) => a.name.localeCompare(b.name)).map((facet) => ({ id: facet.id, name: facet.name })),
           sensitivityLevel: system.sensitivityLevel,
           sensitivityLabel: system.sensitivity?.label ?? null,
+          informationTypes: system.informationTypes,
+          informationTypeFloor: informationTypeFloor(system.informationTypes),
+          belowInformationTypes: isBelowInformationTypes(system.sensitivityLevel, system.informationTypes),
           integrity: system.integrityImpactLevel,
           availability: system.availabilityImpactLevel,
           createdAt: system.createdAt.toISOString(),
@@ -221,6 +227,7 @@ export async function loadSystemPage(user: User, id: string, now = new Date()): 
           decidableSteps,
           unaddressedMandatory,
           missingSensitivityLevel: system.sensitivityLevel === null,
+          belowInformationTypes: isBelowInformationTypes(system.sensitivityLevel, system.informationTypes),
         }),
         canChangeOwner: canChangeOwner(user, system),
         headline: {

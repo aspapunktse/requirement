@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/Button";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { CiaBars } from "@/app/systems/CiaBars";
 import { SensitivityChip } from "@/components/SensitivityChip";
+import { FloorOffer, InformationTypeChecklist } from "@/components/InformationTypeDeclaration";
+import { floorCulprit, informationTypeFloor, type FloorType } from "@/lib/information-type-floor";
 import {
   IMPACT_LEVEL_WORD,
   IMPACT_STEPS,
@@ -155,6 +157,7 @@ export function OnboardingInterview() {
   const [step, setStep] = useState(0);
   const [furthest, setFurthest] = useState(0);
   const [note, setNote] = useState<Note>(null);
+  const [lastTypeAdded, setLastTypeAdded] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -248,9 +251,15 @@ export function OnboardingInterview() {
     setFurthest((value) => Math.max(value, index));
   }
 
+  // The floor the ticked Information Types set for the level (ADR 0012): shown here, enforced by the server.
+  const tickedTypes: FloorType[] = answers.informationTypeIds.flatMap((id) => data.informationTypes.find((type) => type.id === id) ?? []);
+  const typeFloor = informationTypeFloor(tickedTypes);
+  const typeCulprit = floorCulprit(tickedTypes, lastTypeAdded);
+  const levelShort = typeFloor !== null && (answers.sensitivityLevel === null || answers.sensitivityLevel < typeFloor);
+
   const hasFacet = answers.deploymentFacetIds.length > 0;
   const stepKey = INTERVIEW_STEPS[step].key;
-  const canCreate = hasFacet && name.trim().length > 0 && !creating;
+  const canCreate = hasFacet && name.trim().length > 0 && !levelShort && !creating;
 
   async function create() {
     setError(null);
@@ -264,6 +273,7 @@ export function OnboardingInterview() {
           vendor: vendor.trim() || undefined,
           description: description.trim() || undefined,
           sensitivityLevel: answers.sensitivityLevel ?? undefined,
+          informationTypeIds: answers.informationTypeIds.length > 0 ? answers.informationTypeIds : undefined,
           integrityImpactLevel: answers.integrityImpactLevel ?? undefined,
           availabilityImpactLevel: answers.availabilityImpactLevel ?? undefined,
           deploymentFacetIds: answers.deploymentFacetIds,
@@ -289,27 +299,61 @@ export function OnboardingInterview() {
   const askable = data.frameworks.filter((f) => !f.isBase && f.onboardingQuestion);
   const others = data.frameworks.filter((f) => !f.isBase && !f.onboardingQuestion);
 
+  function toggleType(type: { id: string }, on: boolean) {
+    setAnswers((previous) => ({ ...previous, informationTypeIds: toggled(previous.informationTypeIds, type.id, on) }));
+    setLastTypeAdded(on ? type.id : null);
+  }
+
   function renderSensitivityStep() {
     const chosen = answers.sensitivityLevel;
     return (
-      <div className="ob-opts" role="radiogroup" aria-labelledby="ob-q-title">
-        {data.sensitivityLevels.map((option) => (
-          <OptionCard
-            key={option.level}
-            type="radio"
-            name="ob-sensitivity"
-            title={<SensitivityChip level={option.level} label={option.label} />}
-            hint={option.description}
-            checked={chosen === option.level}
-            selected={chosen === option.level}
-            effect={effectOf({ ...answers, sensitivityLevel: option.level })}
-            onChange={() => apply({ ...answers, sensitivityLevel: option.level }, option.label)}
+      <div className="ob-laws">
+        {data.informationTypes.length > 0 && (
+          <fieldset className="ob-q">
+            <legend id="ob-types-h">Which kinds of information may it handle?</legend>
+            <p className="ob-opt-h">Tick every Information Type that applies. The most sensitive one sets the lowest level you can choose below. Nothing fits? Skip it and choose a level yourself.</p>
+            <InformationTypeChecklist
+              types={data.informationTypes}
+              levels={data.sensitivityLevels}
+              selectedIds={answers.informationTypeIds}
+              onToggle={(type, on) => toggleType(type, on)}
+              labelledBy="ob-types-h"
+            />
+          </fieldset>
+        )}
+        <div className="ob-opts" role="radiogroup" aria-labelledby="ob-q-title">
+          {data.sensitivityLevels.map((option) => {
+            const blocked = typeFloor !== null && typeCulprit !== null && option.level < typeFloor;
+            return (
+              <OptionCard
+                key={option.level}
+                type="radio"
+                name="ob-sensitivity"
+                title={<SensitivityChip level={option.level} label={option.label} />}
+                hint={blocked && typeCulprit ? `Below the floor (${typeCulprit.name})` : option.description}
+                checked={chosen === option.level}
+                selected={chosen === option.level}
+                disabled={blocked}
+                effect={blocked ? null : effectOf({ ...answers, sensitivityLevel: option.level })}
+                onChange={() => apply({ ...answers, sensitivityLevel: option.level }, option.label)}
+              />
+            );
+          })}
+          {chosen !== null && (
+            <button type="button" className="ob-link" onClick={() => apply({ ...answers, sensitivityLevel: null }, "Cleared: sensitivity")}>
+              Clear my answer
+            </button>
+          )}
+        </div>
+        {levelShort && typeFloor !== null && typeCulprit !== null && (
+          <FloorOffer
+            culprit={typeCulprit}
+            floor={typeFloor}
+            chosen={chosen}
+            levels={data.sensitivityLevels}
+            onRaise={() => apply({ ...answers, sensitivityLevel: typeFloor }, data.sensitivityLevels.find((o) => o.level === typeFloor)?.label ?? "Raised")}
+            onLeaveOut={() => toggleType(typeCulprit, false)}
           />
-        ))}
-        {chosen !== null && (
-          <button type="button" className="ob-link" onClick={() => apply({ ...answers, sensitivityLevel: null }, "Cleared: sensitivity")}>
-            Clear my answer
-          </button>
         )}
       </div>
     );
@@ -510,6 +554,12 @@ export function OnboardingInterview() {
         ),
       },
       { key: "sensitivity", stepIndex: 1, label: "Sensitivity", value: sensitivityAnswer() },
+      {
+        key: "information-types",
+        stepIndex: 1,
+        label: "Information Types",
+        value: tickedTypes.length ? tickedTypes.map((type) => type.name).join(", ") : "None",
+      },
       { key: "integrity", stepIndex: 2, label: "Integrity", value: levelAnswer("integrity") },
       { key: "downtime", stepIndex: 3, label: "Downtime", value: levelAnswer("downtime") },
       {
@@ -639,7 +689,13 @@ export function OnboardingInterview() {
                 </p>
               )}
               {stepKey === "review" && !canCreate && !creating && (
-                <p className="ob-fine">{!hasFacet ? "Pick how you get the system (step 1) before creating it." : "Name the System at the top of the page before creating it."}</p>
+                <p className="ob-fine">
+                  {!hasFacet
+                    ? "Pick how you get the system (step 1) before creating it."
+                    : levelShort
+                      ? "Raise the Sensitivity Level to match its Information Types (step 2) before creating it."
+                      : "Name the System at the top of the page before creating it."}
+                </p>
               )}
               <div className="ob-nav">
                 <Button variant="secondary" disabled={step === 0} onClick={() => goTo(step - 1)}>

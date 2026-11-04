@@ -67,4 +67,14 @@ describe("SensitivityLevelPicker", () => {
     expect(onChange).not.toHaveBeenCalled();
     expect(screen.getByRole("radio", { name: "Sensitivity Level: Public" })).toBeDisabled();
   });
+
+  it("disables a blocked level and the none row, and shows the reason in place of the description", () => {
+    renderPicker({ blockedReason: (level) => (level === "none" ? "Choose Sensitive or higher." : level < 3 ? "Below the floor (Payroll)" : null) });
+    const internal = screen.getByRole("radio", { name: "Sensitivity Level: Internal" });
+    expect(internal).toBeDisabled();
+    expect(internal).toHaveAccessibleDescription("Below the floor (Payroll)");
+    expect(screen.getByRole("radio", { name: "Sensitivity Level: Sensitive" })).toBeEnabled();
+    expect(screen.getByRole("radio", { name: "Sensitivity Level: Not set" })).toBeDisabled();
+    expect(screen.getByRole("radio", { name: "Sensitivity Level: Not set" })).toHaveAccessibleDescription("Choose Sensitive or higher.");
+  });
 });

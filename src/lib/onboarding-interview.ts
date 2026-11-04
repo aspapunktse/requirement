@@ -68,9 +68,13 @@ export type OnboardingFramework = {
 /** All a System owner may learn about a Provider here: its name and whether it is Onboarded. */
 export type OnboardingProvider = { id: string; name: string; onboarded: boolean };
 
+export type OnboardingInformationType = { id: string; name: string; description: string | null; sensitivityLevel: number };
+
 export type OnboardingCatalog = {
   /** The five Sensitivity Levels in order (ADR 0011), for the Sensitivity step. */
   sensitivityLevels: { level: number; label: string; description: string }[];
+  /** The Information Types a System can declare (#304, ADR 0012), highest level first: each sets a floor for the level. */
+  informationTypes: OnboardingInformationType[];
   deploymentFacets: OnboardingFacet[];
   /** Published Frameworks only. */
   frameworks: OnboardingFramework[];
@@ -81,6 +85,8 @@ export type OnboardingCatalog = {
 export type OnboardingAnswers = {
   deploymentFacetIds: string[];
   sensitivityLevel: number | null;
+  /** The Information Types the System handles; the level can't be below the highest of them. */
+  informationTypeIds: string[];
   integrityImpactLevel: ImpactLevel | null;
   availabilityImpactLevel: ImpactLevel | null;
   /** Declared Framework Scope (never the base Framework, which is always in). */
@@ -91,6 +97,7 @@ export type OnboardingAnswers = {
 export const EMPTY_ANSWERS: OnboardingAnswers = {
   deploymentFacetIds: [],
   sensitivityLevel: null,
+  informationTypeIds: [],
   integrityImpactLevel: null,
   availabilityImpactLevel: null,
   frameworkScopeIds: [],

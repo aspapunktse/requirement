@@ -29,6 +29,10 @@ export async function loadOnboardingCatalog(): Promise<OnboardingCatalog> {
         orderBy: { level: "asc" },
         select: { level: true, label: true, description: true },
       });
+      const informationTypes = await tx.informationType.findMany({
+        orderBy: [{ sensitivityLevel: "desc" }, { name: "asc" }],
+        select: { id: true, name: true, description: true, sensitivityLevel: true },
+      });
       const deploymentFacets = await tx.deploymentFacet.findMany({
         orderBy: { name: "asc" },
         select: { id: true, name: true, description: true },
@@ -114,6 +118,7 @@ export async function loadOnboardingCatalog(): Promise<OnboardingCatalog> {
 
       return {
         sensitivityLevels,
+        informationTypes,
         deploymentFacets,
         frameworks,
         providers: providerSystems.map((provider) => ({ id: provider.id, name: provider.name, onboarded: provider.status === "ONBOARDED" })),

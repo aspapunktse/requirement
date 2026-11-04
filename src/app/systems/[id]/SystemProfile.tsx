@@ -7,6 +7,9 @@ import { frameworkLabel } from "@/lib/framework-label";
 import { IMPACT_LABEL, IMPACT_ORDER } from "@/app/systems/systems-types";
 import { SensitivityChip } from "@/components/SensitivityChip";
 import { SensitivityLevelPicker } from "@/components/SensitivityLevelPicker";
+import { FloorOffer, InformationTypeChecklist, levelLabelOf } from "@/components/InformationTypeDeclaration";
+import type { InformationTypeRow } from "@/lib/information-type";
+import { floorCulprit, informationTypeFloor, type FloorType } from "@/lib/information-type-floor";
 import type { SensitivityLevelInfo } from "@/lib/sensitivity-level";
 import { formatDay } from "./system-page-logic";
 import { useRemote } from "./use-remote";
@@ -276,48 +279,111 @@ function DeploymentFacets({ systemId, canChange, currentIds }: { systemId: strin
 }
 
 /**
- * The System's Sensitivity Level (ADR 0011): one of the five levels, each with its description, or not set. The owner or
- * an Admin changes it at any Onboarding Status; changing it recomputes the applicable Controls, and a System with no level
- * can't be submitted for review.
+ * The System's Information Types and Sensitivity Level (ADR 0011, ADR 0012, design proposal A for #302): tick the kinds of
+ * information it handles, then choose the level. The level can't be below the highest of the ticked types, so those levels
+ * are disabled, and a ticked type above the chosen level offers to raise the level in the same save. The owner or an Admin
+ * changes both at any Onboarding Status; one request carries the types and the level, and changing the level recomputes
+ * the applicable Controls. A System with no level can't be submitted for review, nor can one below its types. The server
+ * is the authority on the floor; this computes it only to show what it will accept.
  */
 function SensitivityLevelCard({
   systemId,
   canChange,
   current,
   levels,
+  declaredTypes,
+  belowInformationTypes,
+  ownerName,
 }: {
   systemId: string;
   canChange: boolean;
   current: number | null;
   levels: SensitivityLevelInfo[];
+  declaredTypes: FloorType[];
+  belowInformationTypes: boolean;
+  ownerName: string;
 }) {
   const router = useRouter();
   const [chosen, setChosen] = useState<number | null>(current);
+  const [typeIds, setTypeIds] = useState<string[]>(() => declaredTypes.map((type) => type.id));
+  const [lastAdded, setLastAdded] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const unchanged = chosen === current;
 
-  async function handleSave() {
+  const read = useCallback(async (): Promise<InformationTypeRow[]> => {
+    const response = await fetch("/api/information-types");
+    if (!response.ok) throw new Error("Failed to load the Information Types");
+    return (await response.json()).informationTypes ?? [];
+  }, []);
+  const { data: catalogue, failed: loadError, reload: load } = useRemote(read);
+
+  // The ticked types with their current levels: the catalogue's, falling back to the System's own read.
+  const byId = new Map<string, FloorType>(declaredTypes.map((type) => [type.id, type]));
+  for (const type of catalogue ?? []) byId.set(type.id, { id: type.id, name: type.name, sensitivityLevel: type.sensitivityLevel });
+  const ticked = typeIds.flatMap((id) => byId.get(id) ?? []);
+  const floor = informationTypeFloor(ticked);
+  const culprit = floorCulprit(ticked, lastAdded);
+  const short = floor !== null && (chosen === null || chosen < floor);
+  const savedFloor = informationTypeFloor(declaredTypes);
+
+  const typesUnchanged = sameSet(typeIds, declaredTypes.map((type) => type.id));
+  const unchanged = chosen === current && typesUnchanged;
+
+  async function save(body: { informationTypeIds?: string[]; sensitivityLevel?: number | null }, fallback: string) {
     setError(null);
-    if (unchanged) return;
     setSaving(true);
     try {
       const response = await fetch(`/api/systems/${systemId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sensitivityLevel: chosen }),
+        body: JSON.stringify(body),
       });
       if (!response.ok) {
-        setError(await errorOf(response, "Failed to change the Sensitivity Level"));
-        return;
+        setError(await errorOf(response, fallback));
+        return false;
       }
       router.refresh();
+      return true;
     } catch {
-      setError("Failed to change the Sensitivity Level");
+      setError(fallback);
+      return false;
     } finally {
       setSaving(false);
     }
   }
+
+  async function handleSave() {
+    if (unchanged || short) return;
+    await save(
+      {
+        ...(!typesUnchanged && { informationTypeIds: typeIds }),
+        ...(chosen !== current && { sensitivityLevel: chosen }),
+      },
+      "Failed to change the Sensitivity Level",
+    );
+  }
+
+  /** The fix for a System below its Information Types: raise the saved level to the saved floor, nothing else. */
+  async function handleFix() {
+    if (savedFloor === null) return;
+    if (await save({ sensitivityLevel: savedFloor }, "Failed to raise the Sensitivity Level")) setChosen(savedFloor);
+  }
+
+  function toggle(type: { id: string }, checked: boolean) {
+    setTypeIds((previous) => (checked ? [...previous.filter((id) => id !== type.id), type.id] : previous.filter((id) => id !== type.id)));
+    setLastAdded(checked ? type.id : null);
+  }
+
+  const blockedReason = (level: number | "none") => {
+    if (floor === null || culprit === null) return null;
+    if (level === "none") return `Choose ${levelLabelOf(levels, floor)} or higher: ${culprit.name} sets the floor.`;
+    return level < floor ? `Below the floor (${culprit.name})` : null;
+  };
+
+  // Untouched, a System below its types already has the banner above with the same fix: no second offer.
+  const bannerCoversIt = belowInformationTypes && unchanged;
+  const floorLabel = savedFloor === null ? null : levelLabelOf(levels, savedFloor);
+  const offending = declaredTypes.filter((type) => current !== null && type.sensitivityLevel > current);
 
   return (
     <section className="hc-card" aria-labelledby="sc-sens-h">
@@ -331,7 +397,71 @@ function SensitivityLevelCard({
             {error}
           </p>
         )}
+        {belowInformationTypes && floorLabel !== null && (
+          <div role="alert" className="grid gap-2 rounded-[10px] border border-rg-gold bg-rg-gold-soft p-2.5 text-[0.9rem] text-rg-gold-ink">
+            <b>Below its Information Types.</b>
+            <span>
+              The level is {current === null ? "not set" : levelLabelOf(levels, current)}, but{" "}
+              {offending.map((type) => `${type.name} is ${levelLabelOf(levels, type.sensitivityLevel)}`).join(" and ")}. A curator may have raised{" "}
+              {offending.length === 1 ? "it" : "them"} after the types were declared. Nothing changed on its own, but the System can&apos;t be submitted for
+              review until the level is {floorLabel} or higher.
+            </span>
+            {canChange ? (
+              <span>
+                <button type="button" className="hc-btn primary" onClick={handleFix} disabled={saving}>
+                  Raise to {floorLabel}
+                </button>
+              </span>
+            ) : (
+              <span>Only {ownerName}, the System&apos;s owner, or an Admin can raise it.</span>
+            )}
+          </div>
+        )}
+
+        <b id="sc-types-h">Information Types</b>
+        <p className="sc-faint">What this System may handle. The highest of them sets the least Sensitivity Level it can have.</p>
+        {canChange ? (
+          <>
+            {loadError && (
+              <p role="alert" className="sc-err">
+                Couldn&apos;t load the Information Types.{" "}
+                <button type="button" className="sc-link" onClick={load}>
+                  Try again
+                </button>
+              </p>
+            )}
+            {catalogue === null ? (
+              !loadError && (
+                <p role="status" className="hc-empty">
+                  Loading Information Types…
+                </p>
+              )
+            ) : catalogue.length === 0 ? (
+              <p className="sc-faint">No Information Types exist yet. The Compliance Manager or an Admin adds them; until then you set the level directly.</p>
+            ) : (
+              <InformationTypeChecklist types={catalogue} levels={levels} selectedIds={typeIds} onToggle={toggle} labelledBy="sc-types-h" />
+            )}
+          </>
+        ) : declaredTypes.length === 0 ? (
+          <p className="sc-faint">None declared. The owner sets the Sensitivity Level directly.</p>
+        ) : (
+          <ul aria-labelledby="sc-types-h" className="sc-tags">
+            {declaredTypes.map((type) => (
+              <li key={type.id}>
+                {type.name} · {levelLabelOf(levels, type.sensitivityLevel)}
+              </li>
+            ))}
+          </ul>
+        )}
+
         <b id="sc-lvl-sensitivity">Sensitivity Level</b>
+        {floor !== null && culprit !== null ? (
+          <p className="sc-faint">
+            Nothing below {levelLabelOf(levels, floor)}: {culprit.name} sets the floor. You may go higher.
+          </p>
+        ) : (
+          <p className="sc-faint">No Information Type is ticked, so you set the level freely.</p>
+        )}
         <SensitivityLevelPicker
           levels={levels}
           value={chosen}
@@ -341,10 +471,24 @@ function SensitivityLevelCard({
           disabled={!canChange}
           noneLabel={<SensitivityChip level={null} />}
           noneDescription="No level declared. The System can't be submitted for review until one is picked."
+          blockedReason={blockedReason}
         />
+        {canChange && short && !bannerCoversIt && floor !== null && culprit !== null && (
+          <FloorOffer
+            culprit={culprit}
+            floor={floor}
+            chosen={chosen}
+            levels={levels}
+            onRaise={() => setChosen(floor)}
+            onLeaveOut={() => {
+              setTypeIds((previous) => previous.filter((id) => id !== culprit.id));
+              setLastAdded(null);
+            }}
+          />
+        )}
         {canChange ? (
           <div className="sc-btnrow">
-            <button type="button" className="hc-btn primary" onClick={handleSave} disabled={saving || unchanged}>
+            <button type="button" className="hc-btn primary" onClick={handleSave} disabled={saving || unchanged || short}>
               Change Sensitivity Level
             </button>
           </div>
@@ -590,7 +734,7 @@ function TagRelation({ resourcePath, resourceKey, catalogPath, catalogKey, idFie
 
 /**
  * The Profile tab (design proposal A, #245): About (editable by the System's owner or an Admin, #246), Deployment
- * Facets, Sensitivity Level, Impact Level per axis (Integrity and Availability), and Business Units and Framework Scope as tags. The permissions are the page's,
+ * Facets, Information Types and Sensitivity Level, Impact Level per axis (Integrity and Availability), and Business Units and Framework Scope as tags. The permissions are the page's,
  * computed with the rules the API enforces; every control calls the API it always did.
  */
 export function SystemProfile({
@@ -603,6 +747,8 @@ export function SystemProfile({
   impactLevels,
   sensitivityLevel,
   sensitivityLevels,
+  informationTypes,
+  belowInformationTypes,
 }: {
   systemId: string;
   about: SystemAbout;
@@ -613,12 +759,24 @@ export function SystemProfile({
   impactLevels: ImpactLevels;
   sensitivityLevel: number | null;
   sensitivityLevels: SensitivityLevelInfo[];
+  /** The Information Types the System declares, with their current levels. */
+  informationTypes: FloorType[];
+  /** The level is declared and below the highest of those types (computed on the server with `isBelowInformationTypes`). */
+  belowInformationTypes: boolean;
 }) {
   return (
     <div className="sc-stackgap">
       <About systemId={systemId} about={about} canEdit={canChangeClassification} />
       <DeploymentFacets systemId={systemId} canChange={canChangeClassification} currentIds={deploymentFacetIds} />
-      <SensitivityLevelCard systemId={systemId} canChange={canChangeClassification} current={sensitivityLevel} levels={sensitivityLevels} />
+      <SensitivityLevelCard
+        systemId={systemId}
+        canChange={canChangeClassification}
+        current={sensitivityLevel}
+        levels={sensitivityLevels}
+        declaredTypes={informationTypes}
+        belowInformationTypes={belowInformationTypes}
+        ownerName={about.ownerName}
+      />
       <ImpactLevelsCard systemId={systemId} canChange={canChangeClassification} current={impactLevels} />
       <section className="hc-card" aria-labelledby="sc-scope-h">
         <div className="hc-card-h">

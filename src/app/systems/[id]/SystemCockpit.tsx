@@ -236,8 +236,8 @@ export function SystemCockpit({ view, panels }: { view: SystemPageView; panels: 
                 <button
                   type="button"
                   className="hc-btn primary"
-                  disabled={busy || next.blockedBy > 0 || next.needsSensitivityLevel === true}
-                  aria-describedby={next.blockedBy > 0 ? "sc-submit-hint" : next.needsSensitivityLevel ? "sc-submit-level-hint" : undefined}
+                  disabled={busy || next.blockedBy > 0 || next.needsSensitivityLevel === true || next.belowInformationTypes === true}
+                  aria-describedby={next.blockedBy > 0 ? "sc-submit-hint" : next.needsSensitivityLevel ? "sc-submit-level-hint" : next.belowInformationTypes ? "sc-submit-below-hint" : undefined}
                   onClick={() => post("submit", "Failed to submit for review")}
                 >
                   Submit for review
@@ -250,6 +250,11 @@ export function SystemCockpit({ view, panels }: { view: SystemPageView; panels: 
                 {next.needsSensitivityLevel && (
                   <button type="button" id="sc-submit-level-hint" className="sc-link sc-hint-link" onClick={() => goTab("profile", { scroll: true })}>
                     Set the Sensitivity Level first
+                  </button>
+                )}
+                {next.belowInformationTypes && (
+                  <button type="button" id="sc-submit-below-hint" className="sc-link sc-hint-link" onClick={() => goTab("profile", { scroll: true })}>
+                    Level is below its Information Types
                   </button>
                 )}
               </>

@@ -25,6 +25,7 @@ const control = (code: string, patch: Partial<OnboardingControl> = {}): Onboardi
 
 const catalog: OnboardingCatalog = {
   sensitivityLevels: [],
+  informationTypes: [],
   deploymentFacets: [],
   frameworks: [
     { id: "base", name: "Base", version: "1", description: null, isBase: true, onboardingQuestion: null, onboardingHint: null },

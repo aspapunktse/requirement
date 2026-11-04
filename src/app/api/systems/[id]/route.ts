@@ -6,6 +6,7 @@ import { authenticate } from "@/lib/api-authz";
 import { getVisibleSystem } from "@/lib/system-visibility";
 import { canChangeSystemClassification, changeSystemClassification } from "@/lib/system-classification-change";
 import { sensitivityLevelSchema } from "@/lib/sensitivity-level";
+import { ClassificationRefused } from "@/lib/system-information-types";
 
 const impactLevelSchema = z.nativeEnum(ImpactLevel).nullable();
 
@@ -24,6 +25,8 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/systems/
 const updateSystemSchema = z
   .object({
     deploymentFacetIds: z.array(z.string().min(1)).min(1).optional(),
+    // The Information Types the System declares: the whole set (#304). The level must meet their floor, in the same request.
+    informationTypeIds: z.array(z.string().min(1)).max(500).optional(),
     sensitivityLevel: sensitivityLevelSchema.optional(),
     integrityImpactLevel: impactLevelSchema.optional(),
     availabilityImpactLevel: impactLevelSchema.optional(),
@@ -31,10 +34,11 @@ const updateSystemSchema = z
   .refine(
     (data) =>
       data.deploymentFacetIds !== undefined ||
+      data.informationTypeIds !== undefined ||
       data.sensitivityLevel !== undefined ||
       data.integrityImpactLevel !== undefined ||
       data.availabilityImpactLevel !== undefined,
-    { message: "Provide at least one of deploymentFacetIds, sensitivityLevel or an Impact Level axis" },
+    { message: "Provide at least one of deploymentFacetIds, informationTypeIds, sensitivityLevel or an Impact Level axis" },
   );
 
 /**
@@ -67,12 +71,12 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/system
   const parsed = updateSystemSchema.safeParse(await request.json());
   if (!parsed.success) {
     return NextResponse.json(
-      { error: "At least one of deploymentFacetIds, sensitivityLevel (1 to 5 or null) or an Impact Level axis is required" },
+      { error: "At least one of deploymentFacetIds, informationTypeIds, sensitivityLevel (1 to 5 or null) or an Impact Level axis is required" },
       { status: 400 },
     );
   }
 
-  const { deploymentFacetIds, sensitivityLevel, integrityImpactLevel, availabilityImpactLevel } =
+  const { deploymentFacetIds, informationTypeIds, sensitivityLevel, integrityImpactLevel, availabilityImpactLevel } =
     parsed.data;
 
   if (deploymentFacetIds !== undefined) {
@@ -82,20 +86,29 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/system
     }
   }
 
-  const { added, removed } = await changeSystemClassification(
-    system,
-    {
-      deploymentFacetIds,
-      sensitivityLevel,
-      integrityImpactLevel,
-      availabilityImpactLevel,
-    },
-    auth.user.id,
-  );
+  let result: Awaited<ReturnType<typeof changeSystemClassification>>;
+  try {
+    result = await changeSystemClassification(
+      system,
+      {
+        deploymentFacetIds,
+        informationTypeIds: informationTypeIds && [...new Set(informationTypeIds)],
+        sensitivityLevel,
+        integrityImpactLevel,
+        availabilityImpactLevel,
+      },
+      auth.user.id,
+    );
+  } catch (error) {
+    // A level below the Information Types' floor, or an unknown type: nothing was written (the transaction rolled back).
+    if (error instanceof ClassificationRefused) return NextResponse.json({ error: error.message }, { status: error.status });
+    throw error;
+  }
+  const { added, removed } = result;
 
   const updated = await prisma.system.findUnique({
     where: { id: system.id },
-    include: { deploymentFacets: true, owner: true },
+    include: { deploymentFacets: true, owner: true, informationTypes: true },
   });
 
   return NextResponse.json({ system: updated, added, removed });

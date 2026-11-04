@@ -81,11 +81,13 @@ export function nextStepFor(input: {
   unaddressedMandatory?: number;
   /** The System has no Sensitivity Level: the submit route refuses (#290). */
   missingSensitivityLevel?: boolean;
+  /** The level is below the System's Information Types: the submit route refuses (ADR 0012). */
+  belowInformationTypes?: boolean;
 }): NextStep {
   switch (input.status) {
     case "DRAFT":
       return input.canSubmit
-        ? { kind: "submit", blockedBy: input.unaddressedMandatory ?? 0, ...(input.missingSensitivityLevel && { needsSensitivityLevel: true as const }) }
+        ? { kind: "submit", blockedBy: input.unaddressedMandatory ?? 0, ...(input.missingSensitivityLevel && { needsSensitivityLevel: true as const }), ...(input.belowInformationTypes && { belowInformationTypes: true as const }) }
         : { kind: "none" };
     case "IN_REVIEW":
       return input.decidableSteps.length > 0 ? { kind: "decide", steps: input.decidableSteps } : { kind: "none" };
