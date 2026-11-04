@@ -303,7 +303,8 @@ describe("ControlLibraryWorkbench: table, groups and sorting (#313)", () => {
     expect(unowned.getByText("Both")).toBeInTheDocument();
     expect(rowOf("A.5.3").querySelector("td.c-maps")).toHaveClass("zero");
     expect(rowOf("A.5.3").querySelector("td.c-maps")).toHaveTextContent("0");
-    expect(rowOf("A.5.2").querySelector("td.c-maps")).toHaveTextContent("2");
+    expect(rowOf("A.5.2").querySelector("td.c-maps")).toHaveTextContent("2 Requirements");
+    expect(rowOf("A.5.1").querySelector("td.c-maps")).toHaveTextContent("1 Requirement");
     expect(rowOf("A.5.2").querySelector("td.c-maps")).not.toHaveClass("zero");
     const perSystem = within(rowOf("A.8.1"));
     expect(perSystem.getByText("Per-System")).toBeInTheDocument();
@@ -597,6 +598,8 @@ describe("ControlLibraryWorkbench: selection and bulk Assign owner (#313)", () =
     const form = dialog();
     expect(screen.getByRole("dialog", { name: "Assign a Control Owner to 2 Controls" })).toBeInTheDocument();
     expect(form.getByRole("button", { name: "Apply to 2" })).toBeDisabled();
+    expect(screen.getByTestId("assign-owner-scrim")).toBeInTheDocument();
+    expect(form.getByRole("combobox", { name: "Control Owner" })).toHaveFocus();
     await user.selectOptions(form.getByRole("combobox", { name: "Control Owner" }), PAT);
     await user.click(form.getByRole("button", { name: "Apply to 2" }));
 
@@ -639,8 +642,11 @@ describe("ControlLibraryWorkbench: selection and bulk Assign owner (#313)", () =
     expect(dialog().getByRole("alert")).toHaveTextContent("Control not found: A.5.3");
     expect(within(rowOf("A.5.3")).getByText("Unassigned")).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Bulk actions" })).toHaveTextContent("1 selected");
-    // The dialog can be dismissed with Escape
+    // The dialog can be dismissed with Escape, or by clicking the backdrop
     await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Assign owner…" }));
+    await user.click(screen.getByTestId("assign-owner-scrim"));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 

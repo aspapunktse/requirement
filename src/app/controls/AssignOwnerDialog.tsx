@@ -1,6 +1,7 @@
 "use client";
 
-import { useId, useState, type FormEvent } from "react";
+import { useEffect, useId, useRef, useState, type FormEvent } from "react";
+import "./library.css";
 import { CONTROL_BULK_OWNER_MAX, controlBulkLimitMessage } from "@/lib/control-bulk-rules";
 import type { LibraryRow } from "./library-types";
 
@@ -29,6 +30,13 @@ export function AssignOwnerDialog({
   const [choice, setChoice] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  const formRef = useRef<HTMLFormElement>(null);
+  // Focus returns to where it was when the dialog closes.
+  useEffect(() => {
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    return () => opener?.focus?.();
+  }, []);
 
   const tooMany = rows.length > CONTROL_BULK_OWNER_MAX;
 
@@ -59,14 +67,27 @@ export function AssignOwnerDialog({
 
   return (
     <>
-      <div className="fixed inset-0 z-50 bg-rg-scrim" onClick={onClose} aria-hidden="true" />
+      <div className="cl-modal-scrim bg-rg-scrim" data-testid="assign-owner-scrim" onClick={onClose} aria-hidden="true" />
       <form
+        ref={formRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
         onSubmit={save}
         onKeyDown={(event) => {
           if (event.key === "Escape") onClose();
+          if (event.key !== "Tab" || !formRef.current) return;
+          // Tab stays inside the dialog.
+          const items = [...formRef.current.querySelectorAll<HTMLElement>("select, button:not([disabled])")];
+          const first = items[0];
+          const last = items[items.length - 1];
+          if (event.shiftKey && document.activeElement === first) {
+            event.preventDefault();
+            last?.focus();
+          } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault();
+            first?.focus();
+          }
         }}
         className="fixed left-1/2 top-[12vh] z-[51] flex max-h-[76vh] w-[min(480px,calc(100vw-32px))] -translate-x-1/2 flex-col gap-3 overflow-y-auto rounded-2xl border border-rg-line bg-rg-surface p-5 text-sm text-rg-ink shadow-2xl"
       >

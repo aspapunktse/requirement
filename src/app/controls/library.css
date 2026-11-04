@@ -44,11 +44,11 @@
 .cl-facet legend button, .cl-more { border: 0; background: none; color: var(--rg-accent); font: inherit; font-size: 0.78rem; font-weight: 650; cursor: pointer; text-transform: none; letter-spacing: 0; padding: 2px 6px; text-align: left; border-radius: 6px; }
 .cl-facet legend button:hover, .cl-more:hover { text-decoration: underline; }
 .cl-facet legend button:focus-visible, .cl-more:focus-visible { outline: 2px solid var(--rg-accent); outline-offset: 1px; }
-.cl-opt { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 4px 6px; border-radius: 8px; cursor: pointer; font-size: 0.86rem; }
+.cl-opt { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; align-items: start; padding: 4px 6px; border-radius: 8px; cursor: pointer; font-size: 0.86rem; }
 .cl-opt:hover { background: var(--hc-raised); }
 .cl-opt input { margin: 0; accent-color: var(--rg-accent); width: 15px; height: 15px; }
 .cl-opt input:focus-visible { outline: 2px solid var(--rg-accent); outline-offset: 2px; }
-.cl-opt > span:nth-child(2) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cl-opt > span:nth-child(2) { overflow-wrap: anywhere; }
 .cl-opt .c { color: var(--rg-muted); font-size: 0.76rem; font-variant-numeric: tabular-nums; }
 .cl-opt.zero { opacity: 0.5; }
 .cl-scrim { display: none; }
@@ -101,6 +101,10 @@
 .cl-own.none .av { background: var(--hc-raised); color: var(--rg-muted); border: 1px dashed var(--rg-line); }
 .cl td.c-maps { text-align: right; width: 64px; font-variant-numeric: tabular-nums; }
 .cl td.c-maps.zero { color: var(--rg-danger); font-weight: 700; }
+.cl .cl-maps-word { display: none; }
+
+/* The modal's backdrop (Assign owner) */
+.cl-modal-scrim { position: fixed; inset: 0; background: rgba(10, 25, 35, 0.35); z-index: 50; }
 .cl td.c-status { white-space: nowrap; }
 
 /* Group rows are buttons that collapse; the bar says how many of the group's Controls have an owner */
@@ -171,7 +175,9 @@
   .cl tbody td.c-status { grid-column: 3; grid-row: 1; }
   .cl tbody td.c-ttl { grid-column: 2 / span 2; max-width: none; min-width: 0; }
   .cl tbody td.c-app { grid-column: 2; }
-  .cl tbody td.c-maps { grid-column: 3; text-align: right; }
+  .cl tbody td.c-maps { grid-column: 3; text-align: right; width: auto; }
+  .cl .cl-maps-word { display: inline; font-weight: 500; font-size: 0.78rem; }
+  .cl .hc-stats { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
   .cl tbody td.c-own { grid-column: 2 / span 2; }
   .cl tbody tr:not(.cl-row), .cl tbody tr:not(.cl-row) td { display: block; }
   .cl .sy-grp td { position: static; }

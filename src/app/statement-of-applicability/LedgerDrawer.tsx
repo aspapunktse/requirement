@@ -301,7 +301,7 @@ export function LedgerDrawer({
         </div>
 
         <footer className="sl-dfoot">
-          <Link href="/controls" className="hc-btn" title={`Find ${row.code} in the Control Library`}>
+          <Link href={`/controls#${encodeURIComponent(row.code)}`} className="hc-btn" title={`Find ${row.code} in the Control Library`}>
             Open Control →
           </Link>
           <span className="sl-dnav">

@@ -280,6 +280,10 @@ export function ControlLibraryWorkbench({ view }: { view: LibraryView }) {
         <td className={`c-maps num${row.mappings.length === 0 ? " zero" : ""}`} title="Requirements satisfied">
           <span className="sr-only">Requirements satisfied: </span>
           {row.mappings.length}
+          <span className="cl-maps-word" aria-hidden="true">
+            {" "}
+            {row.mappings.length === 1 ? "Requirement" : "Requirements"}
+          </span>
         </td>
         <td className="c-status">
           {row.orgStatus ? (
