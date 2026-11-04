@@ -117,6 +117,9 @@ async function applyClassificationChange(
 
   // The classification, the Assessment rows and the Change Event commit together; every query uses `tx`.
   const { added, removed } = await prisma.$transaction(async (tx) => {
+    // Lock the System row first: two concurrent requests (one adding a higher type, one lowering the level) would
+    // otherwise both pass the floor check below under READ COMMITTED and leave the System under its floor.
+    await tx.$queryRaw`SELECT id FROM "System" WHERE id = ${system.id} FOR UPDATE`;
     // The floor first, on what is in the database now and what the System will have after this request: a
     // refusal throws before anything is written (ADR 0012). A System already below its types may still change
     // its Facets or Impact Levels; only a request that sets the level or the types must leave it at or above the floor.
