@@ -30,7 +30,9 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/systems/
   const system = await getVisibleSystem(auth.user, id);
   if (!system) return NextResponse.json({ error: "System not found" }, { status: 404 });
 
-  return NextResponse.json({ suggestions: (await readSuggestions(prisma, system.id)).map(toJson) });
+  // Types, scope and declines are read on one snapshot, so a concurrent delete can't show a decided suggestion as open.
+  const suggestions = await prisma.$transaction((tx) => readSuggestions(tx, system.id), { isolationLevel: "RepeatableRead" });
+  return NextResponse.json({ suggestions: suggestions.map(toJson) });
 }
 
 const leaveOutSchema = z.object({ frameworkId: z.string().min(1) });
