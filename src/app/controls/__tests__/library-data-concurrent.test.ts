@@ -1,21 +1,21 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
 import { createFixtureFramework } from "@/test/framework-fixtures";
-import { loadControlLibrary } from "../control-library";
+import { loadControlLibraryView } from "../library-data";
 
-/** A Requirement deleted while the loader runs must not make Prisma find a mapping whose Requirement is gone (#169). */
-describe("loadControlLibrary under concurrent catalog edits", () => {
+/** A Requirement deleted while the loader runs must not make Prisma find a mapping whose Requirement is gone (#313). */
+describe("loadControlLibraryView under concurrent catalog edits", () => {
   const suffix = `${process.pid}-${Date.now()}`;
   let frameworkId: string;
   let controlId: string;
 
   beforeAll(async () => {
-    frameworkId = (await createFixtureFramework("169 concurrent")).id;
+    frameworkId = (await createFixtureFramework("313 concurrent")).id;
     controlId = (
       await prisma.control.create({
         data: {
-          code: `TEST-169-CONC-${suffix}`,
-          title: "Test 169 concurrent",
+          code: `TEST-313-CONC-${suffix}`,
+          title: "Test 313 concurrent",
           description: "d",
           category: "Test",
           applicability: "ORGANIZATIONAL",
@@ -36,9 +36,9 @@ describe("loadControlLibrary under concurrent catalog edits", () => {
         const requirement = await prisma.requirement.create({
           data: {
             frameworkId,
-            code: `TEST-169-CONC-${suffix}-${created}`,
+            code: `TEST-313-CONC-${suffix}-${created}`,
             section: "Test",
-            title: "Test 169 concurrent Requirement",
+            title: "Test 313 concurrent Requirement",
             text: "t",
             mappings: { create: [{ controlId, coverage: "FULL" }] },
           },
@@ -52,7 +52,7 @@ describe("loadControlLibrary under concurrent catalog edits", () => {
     try {
       for (let i = 0; i < 40; i += 1) {
         try {
-          await loadControlLibrary({ role: "VIEWER" });
+          await loadControlLibraryView({ id: "user-viewer", name: "Test 313", role: "VIEWER" });
         } catch (error) {
           errors.push(error);
         }

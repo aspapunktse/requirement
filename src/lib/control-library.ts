@@ -1,52 +1,12 @@
-import type { ControlApplicability, ImpactLevel, UserRole } from "@prisma/client";
+import type { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE } from "@/lib/catalog";
-import { controlIncludeFor, redactDraftOrigin } from "@/lib/frameworks";
-import { frameworkLabel } from "@/lib/framework-label";
-
-/** One Control Mapping on a Control Library row: the Requirement it satisfies and how far. */
-export type ControlLibraryMapping = {
-  id: string;
-  coverage: "FULL" | "PARTIAL";
-  requirementCode: string;
-  requirementTitle: string;
-  framework: { id: string; label: string };
-  /** True for a mapping into a Draft Framework; only a user who can see Drafts ever gets one. */
-  draft: boolean;
-};
-
-/** One row of the read-only Control Library (#169): plain data, safe to hand to a client component. */
-export type ControlLibraryRow = {
-  id: string;
-  code: string;
-  title: string;
-  description: string;
-  category: string;
-  mandatory: boolean;
-  applicability: ControlApplicability;
-  question: string | null;
-  intent: string | null;
-  examples: string[];
-  deploymentFacets: string[];
-  minSensitivityLevel: number | null;
-  /** The label of the minimum Sensitivity Level; null when there is none. */
-  minSensitivityLabel: string | null;
-  minIntegrityImpactLevel: ImpactLevel | null;
-  minAvailabilityImpactLevel: ImpactLevel | null;
-  /** The Control Owner's name; null while unassigned. */
-  ownerName: string | null;
-  /**
-   * The origin Framework of a Supplementary Control; null for a base Control, and also for a
-   * Supplementary Control whose origin is a Draft the viewer can't see (as in `GET /api/controls`).
-   */
-  origin: { id: string; label: string; draft: boolean } | null;
-  mappings: ControlLibraryMapping[];
-};
+import { controlIncludeFor } from "@/lib/frameworks";
 
 /**
  * Every Control with `controlIncludeFor(user)`, ordered by code, as the raw rows (the Draft origin
- * not yet redacted: callers apply `redactDraftOrigin`). Shared by `GET /api/controls` and
- * `loadControlLibrary`.
+ * not yet redacted: callers apply `redactDraftOrigin`), for `GET /api/controls`. The Control Library page
+ * (`loadControlLibraryView`, `src/app/controls/library-data.ts`) reads the same include in its own snapshot.
  *
  * One REPEATABLE READ snapshot: the include nests mappings -> requirement -> framework, and
  * Prisma runs it as several statements. A Requirement deleted between them would otherwise leave a
@@ -66,62 +26,6 @@ export async function loadControlFor(user: { role: UserRole }, id: string) {
     (tx) => tx.control.findUnique({ where: { id }, include: controlIncludeFor(user) }),
     { isolationLevel: "RepeatableRead" },
   );
-}
-
-/**
- * Every Control with what the read-only Control Library page shows (PRD 0001 F-CL, #169),
- * for `user`, in a constant number of queries however many Controls there are (the nested
- * include is a fixed set of statements, not one per Control).
- *
- * The Draft rule is the one `GET /api/controls` applies: `controlIncludeFor` leaves out
- * mappings into a Draft Framework for a user who can't see Drafts and `redactDraftOrigin`
- * hides a Draft origin Framework, so no Draft Framework's name is read at all.
- */
-export async function loadControlLibrary(user: { role: UserRole }): Promise<ControlLibraryRow[]> {
-  const controls = await loadControlsFor(user);
-
-  return controls
-    .map((control) => redactDraftOrigin(user, control))
-    .map((control): ControlLibraryRow => {
-      const origin = control.originFramework;
-      return {
-        id: control.id,
-        code: control.code,
-        title: control.title,
-        description: control.description,
-        category: control.category,
-        mandatory: control.mandatory,
-        applicability: control.applicability,
-        question: control.question,
-        intent: control.intent,
-        examples: control.examples,
-        deploymentFacets: control.deploymentFacets.map((facet) => facet.name).sort((a, b) => a.localeCompare(b)),
-        minSensitivityLevel: control.minSensitivityLevel,
-        minSensitivityLabel: control.minSensitivity?.label ?? null,
-        minIntegrityImpactLevel: control.minIntegrityImpactLevel,
-        minAvailabilityImpactLevel: control.minAvailabilityImpactLevel,
-        ownerName: control.owner?.name ?? null,
-        origin: origin
-          ? { id: origin.id, label: frameworkLabel(origin), draft: origin.status === "DRAFT" }
-          : null,
-        mappings: control.mappings
-          .map((mapping) => ({
-            id: mapping.id,
-            coverage: mapping.coverage,
-            requirementCode: mapping.requirement.code,
-            requirementTitle: mapping.requirement.title,
-            framework: { id: mapping.requirement.framework.id, label: frameworkLabel(mapping.requirement.framework) },
-            draft: mapping.requirement.framework.status === "DRAFT",
-          }))
-          .sort((a, b) =>
-            `${a.framework.label}\u0000${a.requirementCode}`.localeCompare(
-              `${b.framework.label}\u0000${b.requirementCode}`,
-              undefined,
-              { numeric: true },
-            ),
-          ),
-      };
-    });
 }
 
 /** Whether `user` gets the link to the Control Library editor: those who can author Controls. */
