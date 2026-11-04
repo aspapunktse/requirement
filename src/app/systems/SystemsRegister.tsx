@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type MouseEvent } from "react";
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type MouseEvent } from "react";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { onboardingStatusTone } from "@/lib/status-tones";
 import { ago, initialsOf } from "@/app/home/home-format";
@@ -17,6 +17,7 @@ import { canWriteInternalAudits } from "@/lib/internal-audit-rules";
 import { AddToInternalAuditDialog } from "./AddToInternalAuditDialog";
 import { SensitivityChip } from "@/components/SensitivityChip";
 import { CiaBars } from "./CiaBars";
+import { InformationTypeTags, LevelSquare } from "./InformationTypeTags";
 import { BULK_ACTIONS, canChangeAnyOwner } from "./bulk-actions";
 import { PAGE_SIZES, SHOW_COMPACT_TOGGLE, SHOW_JUMP_PALETTE, SHOW_STAT_TRENDS } from "./systems-config";
 import { downloadCsv } from "@/lib/download-csv";
@@ -62,15 +63,18 @@ const FILTERS: { key: FilterKey; label: string }[] = [
   { key: "units", label: "Business Unit" },
   { key: "facets", label: "Deployment Facet" },
   { key: "sens", label: "Sensitivity" },
+  { key: "it", label: "Information Type" },
   { key: "impact", label: "Highest Impact Level" },
 ];
 
-const COLUMNS: { key: SortKey | "go" | "facets"; label: string; sortable: boolean; className: string }[] = [
+const COLUMNS: { key: SortKey | "go" | "facets" | "itypes"; label: string; sortable: boolean; className: string }[] = [
   { key: "name", label: "System", sortable: true, className: "c-name" },
   { key: "status", label: "Status", sortable: true, className: "c-status" },
   { key: "owner", label: "Owner", sortable: true, className: "c-owner" },
   { key: "facets", label: "Deployment", sortable: false, className: "c-facets" },
   { key: "sens", label: "Sensitivity", sortable: true, className: "c-sens" },
+  // Not sortable: a System has any number of types, so there is no one value to order by.
+  { key: "itypes", label: "Information Types", sortable: false, className: "c-itypes" },
   { key: "cia", label: "I · A", sortable: true, className: "c-cia" },
   { key: "unit", label: "Business Unit", sortable: true, className: "c-unit" },
   { key: "prog", label: "Requirements met", sortable: true, className: "c-prog" },
@@ -94,7 +98,9 @@ export function SystemsRegister({ view, initialQuery }: { view: SystemsView; ini
   const router = useRouter();
   const { rows, userId } = view;
   const actor = { id: userId, role: view.role };
-  const [state, setState] = useState<RegisterState>(() => parseRegisterState(new URLSearchParams(initialQuery), { id: userId, role: view.role }));
+  // An Information Type id in the URL that is not in the catalogue is dropped.
+  const knownTypeIds = useMemo(() => new Set(view.informationTypes.map((type) => type.id)), [view.informationTypes]);
+  const [state, setState] = useState<RegisterState>(() => parseRegisterState(new URLSearchParams(initialQuery), { id: userId, role: view.role }, knownTypeIds));
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [compact, setCompact] = useState(false);
   const [changingOwner, setChangingOwner] = useState(false);
@@ -109,10 +115,10 @@ export function SystemsRegister({ view, initialQuery }: { view: SystemsView; ini
   // The state lives in the URL: a change pushes a history entry (typing in the search replaces it), and
   // Back or Forward reads the state from the address again.
   useEffect(() => {
-    const onPopState = () => setState(parseRegisterState(new URLSearchParams(window.location.search), { id: userId, role: view.role }));
+    const onPopState = () => setState(parseRegisterState(new URLSearchParams(window.location.search), { id: userId, role: view.role }, knownTypeIds));
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
-  }, [userId, view.role]);
+  }, [userId, view.role, knownTypeIds]);
 
   useEffect(() => {
     if (openFilter === null) return;
@@ -160,6 +166,9 @@ export function SystemsRegister({ view, initialQuery }: { view: SystemsView; ini
   }
 
   const counts = useMemo(() => viewCounts(rows), [rows]);
+  const declaring = useMemo(() => rows.filter((row) => row.informationTypes.length > 0).length, [rows]);
+  // The Information Type menu counts Systems before its own filter, so an unticked type shows what ticking it would add to.
+  const baseWithoutTypes = useMemo(() => matchRows(rows, { ...state, it: [] }), [rows, state]);
   const base = useMemo(() => matchRows(rows, state), [rows, state]);
   const listed = useMemo(() => base.filter((row) => !state.status || row.status === state.status), [base, state.status]);
   const sorted = useMemo(() => sortRows(listed, state.sort, state.dir), [listed, state.sort, state.dir]);
@@ -191,8 +200,9 @@ export function SystemsRegister({ view, initialQuery }: { view: SystemsView; ini
     attention: "danger",
     unclassified: "warn",
     providers: undefined,
+    below: "warn",
   };
-  const statLabel: Record<ViewKey, string> = { all: "All Systems", mine: own.label, attention: "Needs attention", unclassified: "Not classified", providers: "Providers" };
+  const statLabel: Record<ViewKey, string> = { all: "All Systems", mine: own.label, attention: "Needs attention", unclassified: "Not classified", providers: "Providers", below: "Below its Information Types" };
 
   function toggleSelect(id: string) {
     setSelected((current) => {
@@ -216,7 +226,7 @@ export function SystemsRegister({ view, initialQuery }: { view: SystemsView; ini
     update({ [key]: current.includes(value) ? current.filter((v) => v !== value) : [...current, value] } as Partial<RegisterState>);
   }
   function clearFilters() {
-    update({ view: "all", status: "", q: "", owners: [], units: [], facets: [], impact: [], sens: [] });
+    update({ view: "all", status: "", q: "", owners: [], units: [], facets: [], impact: [], sens: [], it: [] });
     setOpenFilter(null);
   }
   function sortBy(key: SortKey) {
@@ -304,7 +314,13 @@ export function SystemsRegister({ view, initialQuery }: { view: SystemsView; ini
           )}
         </td>
         <td className="c-sens">
-          <SensitivityChip level={row.sensitivityLevel} label={row.sensitivityLabel ?? undefined} />
+          <span className="sy-sens">
+            <SensitivityChip level={row.sensitivityLevel} label={row.sensitivityLabel ?? undefined} />
+            {row.belowInformationTypes && <span className="it-below">Below its Information Types</span>}
+          </span>
+        </td>
+        <td className="c-itypes">
+          <InformationTypeTags types={row.informationTypes} levels={view.sensitivityLevels} />
         </td>
         <td className="c-cia">
           <CiaBars integrity={row.integrity} availability={row.availability} />
@@ -342,6 +358,65 @@ export function SystemsRegister({ view, initialQuery }: { view: SystemsView; ini
           <Icon name="arrow" size={16} />
         </td>
       </tr>
+    );
+  }
+
+  /** The Information Type filter: types grouped by Sensitivity Level, "declares any of" the ticked ones, a pill for each. */
+  function renderTypeFilter(label: string) {
+    const catalogue = view.informationTypes;
+    const chosen = state.it;
+    const open = openFilter === "it";
+    const groups = [5, 4, 3, 2, 1]
+      .map((level) => ({
+        level,
+        label: view.sensitivityLevels.find((info) => info.level === level)?.label ?? `Level ${level}`,
+        types: catalogue.filter((type) => type.sensitivityLevel === level).sort((a, b) => a.name.localeCompare(b.name)),
+      }))
+      .filter((group) => group.types.length > 0);
+    return (
+      <Fragment key="it">
+        <div className={`sy-filter${open ? " open" : ""}`} data-filter="it">
+          <button type="button" className={chosen.length > 0 ? "on" : ""} aria-haspopup="true" aria-expanded={open} aria-controls="sy-menu-it" onClick={() => setOpenFilter(open ? null : "it")}>
+            {chosen.length === 0 ? `+ ${label}` : `${label}: ${chosen.length}`} ▾
+          </button>
+          {open && (
+            <div className="menu" id="sy-menu-it" role="group" aria-label={label}>
+              <p className="hint">
+                Systems that declare <b>any</b> of the ticked types.
+              </p>
+              {groups.length === 0 && <p className="none">No Information Types in the catalogue yet</p>}
+              {groups.map((group) => (
+                <div key={group.level} role="group" aria-label={group.label}>
+                  <div className="mh">{group.label}</div>
+                  {group.types.map((type) => (
+                    <label key={type.id}>
+                      <input type="checkbox" checked={chosen.includes(type.id)} onChange={() => toggleFilterValue("it", type.id)} />
+                      <LevelSquare level={type.sensitivityLevel} />
+                      <span>{type.name}</span>
+                      <span>{baseWithoutTypes.filter((row) => row.informationTypes.some((own) => own.id === type.id)).length}</span>
+                    </label>
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        {chosen.length > 0 && (
+          <span className="sy-pills">
+            {chosen.map((id) => {
+              const name = catalogue.find((type) => type.id === id)?.name ?? id;
+              return (
+                <span key={id} className="it-tag">
+                  {name}
+                  <button type="button" aria-label={`Remove filter ${name}`} onClick={() => toggleFilterValue("it", id)}>
+                    ✕
+                  </button>
+                </span>
+              );
+            })}
+          </span>
+        )}
+      </Fragment>
     );
   }
 
@@ -451,11 +526,20 @@ export function SystemsRegister({ view, initialQuery }: { view: SystemsView; ini
       <section className="hc-stats" aria-label="Saved views">
         {VIEW_KEYS.map((key) => {
           const tone = statTone[key];
+          // A count, not a filter: how many of the Systems declare at least one Information Type.
+          const declareCard =
+            key === "below" ? (
+              <div key="declared" className="hc-card hc-stat" data-stat="declared">
+                <span className="k">Declare Information Types</span>
+                <span className="v">{declaring}</span>
+              </div>
+            ) : null;
           const trend = SHOW_STAT_TRENDS ? view.trends[key] : undefined;
           const pressed = state.view === key;
           return (
-            <button
-              key={key}
+            <Fragment key={key}>
+              {declareCard}
+              <button
               type="button"
               className={`hc-card hc-stat ${tone ?? ""}`}
               aria-pressed={pressed}
@@ -467,7 +551,8 @@ export function SystemsRegister({ view, initialQuery }: { view: SystemsView; ini
               </span>
               <span className="v">{counts[key]}</span>
               {trend && <Spark values={trend} color={STAT_COLOR[tone ?? ""] ?? "var(--rg-accent)"} />}
-            </button>
+              </button>
+            </Fragment>
           );
         })}
       </section>
@@ -521,6 +606,7 @@ export function SystemsRegister({ view, initialQuery }: { view: SystemsView; ini
             </kbd>
           </label>
           {FILTERS.map((filter) => {
+            if (filter.key === "it") return renderTypeFilter(filter.label);
             const options = filterOptions(rows, filter.key, view.sensitivityLevels);
             const chosen = state[filter.key] as string[];
             const nameOf = (value: string) => options.find((option) => option.value === value)?.label ?? value;

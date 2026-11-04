@@ -45,3 +45,39 @@
 .it-drawer-root .it-systems li { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 10px; border-radius: 8px; background: color-mix(in srgb, var(--rg-paper) 55%, var(--rg-surface)); }
 .it-drawer-root .it-systems a { color: var(--rg-ink); font-weight: 600; text-decoration: none; overflow-wrap: anywhere; }
 .it-drawer-root .it-systems a:hover { color: var(--rg-accent); text-decoration: underline; }
+
+/* "Where can I put this information?" (#305, design proposal A): the pick list beside the result */
+.it .it-whereg { display: grid; grid-template-columns: minmax(240px, 320px) minmax(0, 1fr); gap: 18px; align-items: start; padding: 4px 18px 18px; }
+@media (max-width: 860px) { .it .it-whereg { grid-template-columns: minmax(0, 1fr); } }
+.it .it-h3 { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; font-size: 1.05rem; margin: 0 0 4px; }
+.it .it-sub { margin: 0 0 8px; font-size: 0.86rem; }
+.it .hc-search { max-width: none; }
+.it .it-pick { margin-top: 8px; display: grid; gap: 2px; }
+.it .it-trow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 7px 10px; border-radius: 10px; cursor: pointer; border: 1px solid transparent; }
+.it .it-trow:hover { background: var(--hc-raised, var(--rg-surface)); }
+.it .it-trow:has(input:checked) { background: var(--rg-accent-soft); border-color: var(--rg-accent); }
+.it .it-trow:has(input:focus-visible) { outline: 2px solid var(--rg-accent); outline-offset: 1px; }
+.it .it-trow input { accent-color: var(--rg-accent); margin: 0; }
+.it .it-trow .t { flex: 1 1 140px; min-width: 0; font-weight: 600; }
+.it .it-res h4 { display: flex; align-items: center; gap: 8px; margin: 16px 0 6px; }
+.it .it-res h4 .cnt { font-weight: 600; color: var(--rg-muted); font-variant-numeric: tabular-nums; }
+.it .it-sumline { font-size: 1.02rem; margin: 8px 0 0; }
+.it .it-note { margin-top: 12px; }
+.it .it-rlist { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.it .it-rlist li { padding: 6px 10px; border-radius: 8px; background: var(--hc-raised, var(--rg-surface)); }
+.it .it-rlist.no li { background: none; border: 1px dashed var(--rg-line); color: var(--rg-muted); }
+.it .it-rlist li.muted { color: var(--rg-muted); }
+.it .it-rlist li.it-hidden { color: var(--rg-muted); font-size: 0.84rem; background: none; border: 0; padding-top: 2px; }
+.it .it-sysrow { display: flex; align-items: center; justify-content: space-between; gap: 8px 12px; flex-wrap: wrap; }
+.it .it-sysrow .nm { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; font-weight: 650; }
+.it .it-sysrow .nm a { color: var(--rg-ink); text-decoration: none; overflow-wrap: anywhere; }
+.it .it-sysrow .nm a:hover { color: var(--rg-accent); text-decoration: underline; }
+.it .it-sysrow-end { display: flex; align-items: center; gap: 8px 12px; flex-wrap: wrap; }
+.it .kindtag { font-family: var(--rg-font-mono); font-size: 0.66rem; font-weight: 700; color: var(--rg-muted); border: 1px solid var(--rg-line); border-radius: 4px; padding: 0 4px; }
+/* The three marks: solid dot declared, ring may hold, dashed ring no. Not colour alone: the label says it too. */
+.it .it-mark { display: inline-flex; align-items: center; gap: 5px; font-size: 0.74rem; font-weight: 720; color: var(--rg-accent); white-space: nowrap; }
+.it .it-mark::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--rg-accent); }
+.it .it-mark.hold { color: var(--rg-success); }
+.it .it-mark.hold::before { background: none; border: 2px solid var(--rg-success); }
+.it .it-mark.no { color: var(--rg-muted); }
+.it .it-mark.no::before { background: none; border: 2px dashed var(--rg-muted); }

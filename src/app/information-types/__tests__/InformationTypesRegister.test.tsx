@@ -41,6 +41,15 @@ describe("InformationTypesRegister: read-only (#303)", () => {
     expect(screen.getByText(/Only the Compliance Manager or an Admin changes the catalogue/)).toBeInTheDocument();
   });
 
+  it("links to the Where can I put this information? view from the page and from a type's drawer, for everyone", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(detail(types[0], [])));
+    renderRegister(false);
+    expect(screen.getByRole("link", { name: "Where can I put this information?" })).toHaveAttribute("href", "/information-types/where");
+    await userEvent.click(screen.getByRole("button", { name: "Open Test Payroll" }));
+    const dialog = await screen.findByRole("dialog", { name: "Test Payroll" });
+    expect(within(dialog).getByRole("link", { name: "Where can I put this information?" })).toHaveAttribute("href", "/information-types/where?type=t1");
+  });
+
   it("opens a type read-only with the Systems that declare it, and no form", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       detail(types[0], [

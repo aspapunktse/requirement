@@ -1,6 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
+import { usePagePalette } from "@/components/PaletteProvider";
 import { Icon } from "@/app/home/HomeGraphics";
 import { SensitivityChip } from "@/components/SensitivityChip";
 import type { InformationTypeRow } from "@/lib/information-type";
@@ -35,6 +37,16 @@ export function InformationTypesRegister({
   canCurate: boolean;
 }) {
   const [types, setTypes] = useState(initialTypes);
+
+  // Ctrl+K: the view that answers "where can I put this?", and each type's own page of it.
+  const paletteItems = useMemo(
+    () => [
+      { group: "Pages", icon: "search" as const, label: "Where can I put this information?", meta: "which Systems may hold a type", href: "/information-types/where" },
+      ...types.map((row) => ({ group: "Where can I put…", icon: "search" as const, label: row.name, meta: "which Systems may hold it", href: `/information-types/where?type=${encodeURIComponent(row.id)}` })),
+    ],
+    [types],
+  );
+  usePagePalette({ items: paletteItems, placeholder: "Where can I put… (an Information Type)" });
   const [query, setQuery] = useState("");
   const [shownLevels, setShownLevels] = useState<ReadonlySet<number>>(new Set());
   const [drawer, setDrawer] = useState<DrawerState>(null);
@@ -102,6 +114,11 @@ export function InformationTypesRegister({
               ? "You curate the catalogue: add, change and delete types here."
               : "Only the Compliance Manager or an Admin changes the catalogue. Open a type to see which Systems declare it."}
           </p>
+          <div className="actions">
+            <Link href="/information-types/where" className="hc-btn">
+              Where can I put this information?
+            </Link>
+          </div>
         </div>
       </section>
 

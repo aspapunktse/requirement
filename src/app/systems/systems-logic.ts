@@ -38,6 +38,8 @@ export function inView(row: SystemRow, view: ViewKey): boolean {
       return row.sensitivityLevel === null || row.integrity === null || row.availability === null;
     case "providers":
       return row.isProvider;
+    case "below":
+      return row.belowInformationTypes;
   }
 }
 
@@ -68,8 +70,8 @@ export function fulfilment(row: Pick<SystemRow, "met" | "applicable">): number |
 
 // Filters
 
-export type FilterKey = "owners" | "units" | "facets" | "impact" | "sens";
-export const FILTER_KEYS: FilterKey[] = ["owners", "units", "facets", "impact", "sens"];
+export type FilterKey = "owners" | "units" | "facets" | "impact" | "sens" | "it";
+export const FILTER_KEYS: FilterKey[] = ["owners", "units", "facets", "impact", "sens", "it"];
 
 /** The values of the row a filter looks at. */
 export function filterValues(row: SystemRow, key: FilterKey): string[] {
@@ -84,11 +86,13 @@ export function filterValues(row: SystemRow, key: FilterKey): string[] {
       return [highestImpact(row)];
     case "sens":
       return [row.sensitivityLevel === null ? "none" : String(row.sensitivityLevel)];
+    case "it":
+      return row.informationTypes.map((type) => type.id);
   }
 }
 
 /** The rows in the saved view that match the search and the filters (the status tab is applied by the caller). */
-export function matchRows(rows: SystemRow[], state: Pick<RegisterState, "view" | "q" | "owners" | "units" | "facets" | "impact" | "sens">): SystemRow[] {
+export function matchRows(rows: SystemRow[], state: Pick<RegisterState, "view" | "q" | "owners" | "units" | "facets" | "impact" | "sens" | "it">): SystemRow[] {
   const q = state.q.trim().toLowerCase();
   return rows.filter((row) => {
     if (!inView(row, state.view)) return false;
@@ -110,6 +114,8 @@ export function filterOptions(rows: SystemRow[], key: FilterKey, sensitivityLeve
     const label = (value: string) => (value === "none" ? "Not set" : (sensitivityLevels.find((level) => String(level.level) === value)?.label ?? `Level ${value}`));
     return SENSITIVITY_FILTER_ORDER.map((value) => ({ value, label: label(value) }));
   }
+  // The Information Type filter has its own grouped menu, built from the catalogue (`SystemsView.informationTypes`).
+  if (key === "it") return [];
   if (key === "impact") return (Object.keys(HIGHEST_IMPACT_LABEL) as HighestImpact[]).map((value) => ({ value, label: HIGHEST_IMPACT_LABEL[value] }));
   const found = new Map<string, string>();
   for (const row of rows) {
