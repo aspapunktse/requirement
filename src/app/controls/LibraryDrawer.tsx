@@ -7,6 +7,7 @@ import { SensitivityChip } from "@/components/SensitivityChip";
 import { APPLICABILITY_LABEL } from "@/lib/statement-of-applicability-rules";
 import "@/app/systems/[id]/system-cockpit.css";
 import "./library.css";
+import { controlEditHref, controlHref } from "./[code]/control-page-logic";
 import { impactLabel, mappingsByFramework, plural, statusLabelOf } from "./library-logic";
 import { OwnerCell, StatusDot } from "./library-parts";
 import type { LibraryRow } from "./library-types";
@@ -232,12 +233,13 @@ export function LibraryDrawer({
         <footer className="cl-dfoot">
           <span className="cl-dact">
             {canEdit && (
-              <Link href="/admin/controls" className="hc-btn" title={`Edit ${row.code} in the Control Library editor`}>
+              <Link href={controlEditHref(row.code)} className="hc-btn" title={`Edit ${row.code}`}>
                 Edit
               </Link>
             )}
-            {/* The "Open full page →" link to this Control's own page comes with the Control page issue (#314). */}
-            <span className="cl-fullpage" data-slot="open-full-page" />
+            <Link href={controlHref(row.code)} className="hc-btn" data-slot="open-full-page">
+              Open full page →
+            </Link>
           </span>
           <span className="cl-dnav">
             <button type="button" className="hc-btn" title="Previous (k)" onClick={() => onStep(-1)}>

@@ -6,7 +6,7 @@ import { loadControlLibraryView } from "./library-data";
  * The Control Library for every signed-in role (PRD 0001 F-CL, #169), as design proposal A "Workbench" in the
  * Home look (issue #313): each Control with its scoping, Control Owner, Organization status and the Requirements
  * it satisfies. A Draft Framework is invisible to anyone but a Compliance Manager or an Admin, who also get the
- * edit actions (New Control, Edit, bulk Assign owner); the editor itself stays at `/admin/controls`.
+ * edit actions (New Control, Edit, bulk Assign owner); New Control stays at `/admin/controls`; Edit opens the Control's own editor (#314).
  * `loadControlLibraryView` reads everything in one snapshot. `/controls#<code>` opens that Control's drawer.
  */
 export default async function ControlLibraryReadPage() {
