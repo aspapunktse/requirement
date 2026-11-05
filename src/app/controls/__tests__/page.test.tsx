@@ -2,7 +2,10 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { createFixtureFramework, mapControlsToFramework } from "@/test/framework-fixtures";
+import { cleanupFixtureRequirements, createFixtureFramework, mapControlsToFramework } from "@/test/framework-fixtures";
+
+// The client component reads the router; a static render has none.
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 
 const acting = vi.hoisted(() => ({ userId: null as string | null }));
 vi.mock("@/lib/acting-user", async (importOriginal) => {
@@ -13,7 +16,7 @@ vi.mock("@/lib/acting-user", async (importOriginal) => {
 import ControlLibraryReadPage from "../page";
 import AdminControlsPage from "../../admin/controls/page";
 
-// The read-only Control Library page (#169), rendered per role.
+// The Control Library page (#169, #313), rendered per role.
 const SUFFIX = `${process.pid}-${Date.now()}`;
 const ROLES: UserRole[] = [
   "ADMIN",
@@ -44,7 +47,7 @@ describe("the Control Library page", { timeout: 30_000 }, () => {
     const published = await createFixtureFramework("169 page");
     controlId = (
       await prisma.control.create({
-        data: { code: `TEST-169-PAGE-${SUFFIX}`, title: `Test 169 page Control ${SUFFIX}`, description: "d", category: "Test", applicability: "ORGANIZATIONAL" },
+        data: { code: `TEST-169-PAGE-${SUFFIX}`, title: `Test 169 page Control ${SUFFIX}`, description: "d", category: "1 Test 313 page", applicability: "ORGANIZATIONAL" },
       })
     ).id;
     await mapControlsToFramework(published.id, [controlId]);
@@ -52,6 +55,7 @@ describe("the Control Library page", { timeout: 30_000 }, () => {
   });
 
   afterAll(async () => {
+    await cleanupFixtureRequirements();
     await prisma.control.deleteMany({ where: { id: controlId } });
     await prisma.requirement.deleteMany({ where: { frameworkId: draftId } });
     await prisma.framework.deleteMany({ where: { id: draftId } });
@@ -73,16 +77,27 @@ describe("the Control Library page", { timeout: 30_000 }, () => {
     expect(markup.includes('href="/admin/controls"')).toBe(CURATORS.includes(role));
   });
 
-  it.each(ROLES.filter((role) => !CURATORS.includes(role)))("leaks no Draft Framework name in the %s's HTML", async (role) => {
+  // What the browser receives is the view handed to the client component (the RSC payload), not only the HTML.
+  async function viewFor(role: UserRole) {
+    acting.userId = users[role];
+    const element = (await ControlLibraryReadPage()) as { props: { view: { rows: { code: string; mappings: { draft: boolean }[] }[]; canEdit: boolean } } };
+    return element.props.view;
+  }
+
+  it.each(ROLES.filter((role) => !CURATORS.includes(role)))("leaks no Draft Framework name in the %s's HTML or view", async (role) => {
     const markup = await html(ControlLibraryReadPage, role);
     expect(markup).not.toContain(draftName);
     expect(markup).not.toContain(draftId);
+    const view = JSON.stringify(await viewFor(role));
+    expect(view).not.toContain(draftName);
+    expect(view).not.toContain(draftId);
   });
 
-  it.each(CURATORS)("shows the %s the Draft mapping, marked", async (role) => {
-    const markup = await html(ControlLibraryReadPage, role);
-    expect(markup).toContain(draftName);
-    expect(markup).toContain("Draft Framework");
+  it.each(CURATORS)("hands the %s the Draft mapping, marked", async (role) => {
+    const view = await viewFor(role);
+    expect(view.canEdit).toBe(true);
+    expect(JSON.stringify(view)).toContain(draftName);
+    expect(view.rows.find((row) => row.code === `TEST-169-PAGE-${SUFFIX}`)?.mappings.some((mapping) => mapping.draft)).toBe(true);
   });
 
   it("points a role that cannot author Controls from the editor to the read-only page", async () => {

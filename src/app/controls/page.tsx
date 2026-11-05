@@ -1,13 +1,13 @@
-import Link from "next/link";
 import { getActingUser } from "@/lib/acting-user";
-import { canEditControlLibrary, loadControlLibrary } from "@/lib/control-library";
-import { ControlLibrary } from "@/components/ControlLibrary";
-import { buttonClassName } from "@/components/ui/Button";
+import { ControlLibraryWorkbench } from "./ControlLibraryWorkbench";
+import { loadControlLibraryView } from "./library-data";
 
 /**
- * The Control Library, read-only, for every signed-in role (PRD 0001 F-CL, #169): each Control with its
- * scoping, Self-Assessment Question, Control Owner and the Requirements it satisfies. A Draft Framework
- * is invisible to anyone but a Compliance Manager or an Admin, who also get a link to the editor.
+ * The Control Library for every signed-in role (PRD 0001 F-CL, #169), as design proposal A "Workbench" in the
+ * Home look (issue #313): each Control with its scoping, Control Owner, Organization status and the Requirements
+ * it satisfies. A Draft Framework is invisible to anyone but a Compliance Manager or an Admin, who also get the
+ * edit actions (New Control, Edit, bulk Assign owner); the editor itself stays at `/admin/controls`.
+ * `loadControlLibraryView` reads everything in one snapshot. `/controls#<code>` opens that Control's drawer.
  */
 export default async function ControlLibraryReadPage() {
   const user = await getActingUser();
@@ -16,22 +16,8 @@ export default async function ControlLibraryReadPage() {
     return <p className="p-6 text-rg-muted">Pick a user to act as first.</p>;
   }
 
-  const rows = await loadControlLibrary(user);
+  const view = await loadControlLibraryView(user);
 
-  return (
-    <div className="mx-auto max-w-4xl p-6">
-      <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-2xl">Control Library</h1>
-        {canEditControlLibrary(user) && (
-          <Link href="/admin/controls" className={buttonClassName("secondary")}>
-            Edit Controls
-          </Link>
-        )}
-      </div>
-      <p className="mb-4 text-sm text-rg-muted">
-        Every Control, base and Supplementary, with what it applies to and the Framework Requirements it satisfies.
-      </p>
-      <ControlLibrary rows={rows} />
-    </div>
-  );
+  // Keyed on the acting user, so switching user starts from a clean state: no filter, selection or open Control carried over.
+  return <ControlLibraryWorkbench key={user.id} view={view} />;
 }

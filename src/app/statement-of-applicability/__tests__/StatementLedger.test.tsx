@@ -454,7 +454,7 @@ describe("the drawer", () => {
     const list = within(drawer).getByRole("list", { name: "Systems" });
     expect(within(list).getAllByRole("listitem").map((item) => item.textContent)).toEqual(["PayrollFulfilled", "Customer PortalIn Progress", "1 more not visible to you"]);
     expect(within(drawer).queryByRole("textbox")).not.toBeInTheDocument();
-    expect(within(drawer).getByRole("link", { name: "Open Control →" })).toHaveAttribute("href", "/controls");
+    expect(within(drawer).getByRole("link", { name: "Open Control →" })).toHaveAttribute("href", "/controls#A.8.1");
   });
 
   it("shows the Control Owner and the Organization's status", async () => {
