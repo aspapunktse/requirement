@@ -506,16 +506,16 @@ describe("ControlLibraryWorkbench: the drawer (#313)", () => {
     expect(dialog().queryByText(/CSA CCM/)).not.toBeInTheDocument();
   });
 
-  it("offers Edit to a Compliance Manager or an Admin only, and leaves a place for the full page", () => {
+  it("offers Edit (this Control's editor) to a Compliance Manager or an Admin only, and Open full page to everyone", () => {
     window.history.replaceState(null, "", "/controls#A.5.1");
     const { unmount } = renderLibrary(CURATOR);
-    expect(dialog().getByRole("link", { name: "Edit" })).toHaveAttribute("href", "/admin/controls");
-    expect(dialog().queryByRole("link", { name: /Open full page/ })).not.toBeInTheDocument();
-    expect(document.querySelector('[data-slot="open-full-page"]')).toBeInTheDocument();
+    expect(dialog().getByRole("link", { name: "Edit" })).toHaveAttribute("href", "/controls/A.5.1/edit");
+    expect(dialog().getByRole("link", { name: /Open full page/ })).toHaveAttribute("href", "/controls/A.5.1");
     unmount();
     cleanup();
     renderLibrary();
     expect(dialog().queryByRole("link", { name: "Edit" })).not.toBeInTheDocument();
+    expect(dialog().getByRole("link", { name: /Open full page/ })).toHaveAttribute("href", "/controls/A.5.1");
   });
 });
 

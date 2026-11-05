@@ -1,4 +1,4 @@
-import type { UserRole } from "@prisma/client";
+import type { ControlAssessmentStatus, Prisma, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { roleLabel } from "@/app/home/role-label";
 import { controlAppliesToSystem } from "@/lib/control-applicability";
@@ -9,6 +9,101 @@ import { canBeControlOwner } from "@/lib/system-permissions";
 import type { LibraryMapping, LibraryRow, LibrarySource, LibraryView } from "./library-types";
 
 const collator = new Intl.Collator("en", { numeric: true });
+
+/** The Framework columns the row builders read. */
+export type FrameworkSummary = { id: string; name: string; version: string; status: "DRAFT" | "PUBLISHED"; isBase: boolean };
+
+/** A Control read with `controlIncludeFor`, after `redactDraftOrigin`. */
+export type ReadControl = Prisma.ControlGetPayload<{ include: ReturnType<typeof controlIncludeFor> }>;
+
+/**
+ * Where a Control comes from, as the library and the Control page show it. `control` has been through
+ * `redactDraftOrigin`: a Supplementary Control whose Draft origin the viewer can't see reads as plain
+ * "Supplementary" (decision of 2026-11-05 on #314). `baseFramework` is the base Framework the viewer can see.
+ */
+export function librarySourceOf(
+  control: Pick<ReadControl, "originFrameworkId" | "originFramework">,
+  frameworkById: Map<string, FrameworkSummary>,
+  baseFramework: FrameworkSummary | undefined,
+): LibrarySource {
+  const origin = control.originFramework;
+  const originIsBase = control.originFrameworkId !== null && frameworkById.get(control.originFrameworkId)?.isBase === true;
+  if (control.originFrameworkId === null || originIsBase) {
+    return { key: "base", label: baseFramework ? `Base · ${frameworkLabel(baseFramework)}` : "Base", kind: "base", draft: false };
+  }
+  if (origin) {
+    return { key: `fw:${origin.id}`, label: `Supplementary · ${frameworkLabel(origin)}`, kind: "supplementary", draft: origin.status === "DRAFT" };
+  }
+  return { key: "sup", label: "Supplementary", kind: "supplementary", draft: false };
+}
+
+/** The Control Mappings `controlIncludeFor` let through, as rows in Framework then Requirement order. */
+export function libraryMappingsOf(control: Pick<ReadControl, "mappings">): LibraryMapping[] {
+  return control.mappings
+    .map((mapping) => ({
+      id: mapping.id,
+      coverage: mapping.coverage,
+      requirementCode: mapping.requirement.code,
+      requirementTitle: mapping.requirement.title,
+      framework: { id: mapping.requirement.framework.id, label: frameworkLabel(mapping.requirement.framework) },
+      draft: mapping.requirement.framework.status === "DRAFT",
+    }))
+    .sort(
+      (a, b) =>
+        collator.compare(a.framework.label, b.framework.label) ||
+        collator.compare(a.requirementCode, b.requirementCode) ||
+        (a.id < b.id ? -1 : 1),
+    );
+}
+
+/**
+ * The Control shaped for `controlAppliesToSystem`: the Frameworks of its mappings with `isBase` filled in. Only
+ * Published Frameworks count there, so the mappings a Draft-blind viewer doesn't get change nothing.
+ */
+export function classifiedForApplicability(control: ReadControl, frameworkById: Map<string, FrameworkSummary>) {
+  return {
+    ...control,
+    mappings: control.mappings.map((mapping) => ({
+      requirement: {
+        framework: {
+          id: mapping.requirement.framework.id,
+          status: mapping.requirement.framework.status,
+          isBase: frameworkById.get(mapping.requirement.framework.id)?.isBase === true,
+        },
+      },
+    })),
+  };
+}
+
+/** One Control as a library row; the caller decides the Organization status and the number of Systems. */
+export function libraryRowOf(
+  control: ReadControl,
+  parts: { frameworkById: Map<string, FrameworkSummary>; baseFramework: FrameworkSummary | undefined; orgStatus: ControlAssessmentStatus | null; systemCount: number },
+): LibraryRow {
+  return {
+    id: control.id,
+    code: control.code,
+    title: control.title,
+    description: control.description,
+    category: control.category,
+    mandatory: control.mandatory,
+    applicability: control.applicability,
+    question: control.question,
+    intent: control.intent,
+    examples: control.examples,
+    deploymentFacets: control.deploymentFacets.map((facet) => facet.name).sort((a, b) => collator.compare(a, b)),
+    minSensitivityLevel: control.minSensitivityLevel,
+    minSensitivityLabel: control.minSensitivity?.label ?? null,
+    minIntegrityImpactLevel: control.minIntegrityImpactLevel,
+    minAvailabilityImpactLevel: control.minAvailabilityImpactLevel,
+    ownerId: control.owner?.id ?? null,
+    ownerName: control.owner?.name ?? null,
+    source: librarySourceOf(control, parts.frameworkById, parts.baseFramework),
+    orgStatus: parts.orgStatus,
+    systemCount: parts.systemCount,
+    mappings: libraryMappingsOf(control),
+  };
+}
 
 /**
  * Everything the Control Library page shows for the acting user (design proposal A "Workbench", issue #313):
@@ -52,85 +147,14 @@ export async function loadControlLibraryView(user: { id: string; name: string; r
       const rows = controls
         .map((control) => redactDraftOrigin(user, control))
         .map((control): LibraryRow => {
-          const origin = control.originFramework;
-          const originIsBase = control.originFrameworkId !== null && frameworkById.get(control.originFrameworkId)?.isBase === true;
-          let source: LibrarySource;
-          if (control.originFrameworkId === null || originIsBase) {
-            source = {
-              key: "base",
-              label: baseFramework ? `Base · ${frameworkLabel(baseFramework)}` : "Base",
-              kind: "base",
-              draft: false,
-            };
-          } else if (origin) {
-            source = {
-              key: `fw:${origin.id}`,
-              label: `Supplementary · ${frameworkLabel(origin)}`,
-              kind: "supplementary",
-              draft: origin.status === "DRAFT",
-            };
-          } else {
-            source = { key: "sup", label: "Supplementary", kind: "supplementary", draft: false };
-          }
-
-          const mappings: LibraryMapping[] = control.mappings
-            .map((mapping) => ({
-              id: mapping.id,
-              coverage: mapping.coverage,
-              requirementCode: mapping.requirement.code,
-              requirementTitle: mapping.requirement.title,
-              framework: { id: mapping.requirement.framework.id, label: frameworkLabel(mapping.requirement.framework) },
-              draft: mapping.requirement.framework.status === "DRAFT",
-            }))
-            .sort(
-              (a, b) =>
-                collator.compare(a.framework.label, b.framework.label) ||
-                collator.compare(a.requirementCode, b.requirementCode) ||
-                (a.id < b.id ? -1 : 1),
-            );
-
           const hasOrganizationStatus = control.applicability !== "PER_SYSTEM";
-          const reachesSystems = control.applicability !== "ORGANIZATIONAL";
-          // controlAppliesToSystem reads the Frameworks of the mappings: only Published ones count, so the mappings
-          // a Draft-blind viewer doesn't get change nothing. `isBase` comes from the Frameworks read above.
-          const classified = reachesSystems
-            ? {
-                ...control,
-                mappings: control.mappings.map((mapping) => ({
-                  requirement: {
-                    framework: {
-                      id: mapping.requirement.framework.id,
-                      status: mapping.requirement.framework.status,
-                      isBase: frameworkById.get(mapping.requirement.framework.id)?.isBase === true,
-                    },
-                  },
-                })),
-              }
-            : null;
-
-          return {
-            id: control.id,
-            code: control.code,
-            title: control.title,
-            description: control.description,
-            category: control.category,
-            mandatory: control.mandatory,
-            applicability: control.applicability,
-            question: control.question,
-            intent: control.intent,
-            examples: control.examples,
-            deploymentFacets: control.deploymentFacets.map((facet) => facet.name).sort((a, b) => collator.compare(a, b)),
-            minSensitivityLevel: control.minSensitivityLevel,
-            minSensitivityLabel: control.minSensitivity?.label ?? null,
-            minIntegrityImpactLevel: control.minIntegrityImpactLevel,
-            minAvailabilityImpactLevel: control.minAvailabilityImpactLevel,
-            ownerId: control.owner?.id ?? null,
-            ownerName: control.owner?.name ?? null,
-            source,
+          const classified = control.applicability !== "ORGANIZATIONAL" ? classifiedForApplicability(control, frameworkById) : null;
+          return libraryRowOf(control, {
+            frameworkById,
+            baseFramework,
             orgStatus: hasOrganizationStatus ? (statusByControl.get(control.id) ?? "NOT_STARTED") : null,
             systemCount: classified ? systems.filter((system) => controlAppliesToSystem(classified, system)).length : 0,
-            mappings,
-          };
+          });
         });
 
       return {
