@@ -3,6 +3,35 @@
 // `id` is the vote key: keep it stable once people have voted, or the votes are orphaned.
 window.DESIGN_PARTS = [
   {
+    id: "control-page",
+    name: "Control page",
+    added: "2026-11-05",
+    question: "How should the full page for one Control read, and how does it show what the Control satisfies, how the Organization implements it and where it applies?",
+    proposals: [
+      {
+        id: "control-page-a",
+        label: "A",
+        title: "Document",
+        href: "/design/control-page/proposal-a.html",
+        summary: "One column of cards in the Home look, read top to bottom: the Control, Scope, Satisfies, Organization implementation, Systems. A strip under the header jumps to a card and counts what is in it; the Systems card opens with one bar over every System, then lists the ones you can see with a status filter.",
+      },
+      {
+        id: "control-page-b",
+        label: "B",
+        title: "Side rail and tabs",
+        href: "/design/control-page/proposal-b.html",
+        summary: "A sticky rail beside the page keeps the owner, the Scope and the three counts (Requirements, Organization status, Systems) in view; the main card shows one section at a time in tabs, each reachable from its count in the rail and from the URL. On a phone the rail becomes a summary above the tabs.",
+      },
+      {
+        id: "control-page-c",
+        label: "C",
+        title: "Coverage map",
+        href: "/design/control-page/proposal-c.html",
+        summary: "Leads with what the Control is for: Requirements as tiles in a lane per Framework (Full or Partial), beside the Organization's implementation and a grid of Systems coloured by effective status. A ring in the hero counts Fulfilled Systems and its legend filters the grid; the plain description and Scope come after the map.",
+      },
+    ],
+  },
+  {
     id: "information-types",
     name: "Information Types",
     added: "2026-11-03",

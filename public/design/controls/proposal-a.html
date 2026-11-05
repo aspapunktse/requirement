@@ -135,7 +135,7 @@ body.drawer-open .drawer { transform: none; }
 <aside class="drawer" id="drawer" aria-label="Control details" aria-hidden="true">
   <header><span class="muted small" id="pos"></span><div><button class="btn ghost" id="prev" title="Previous (k)">↑</button><button class="btn ghost" id="next" title="Next (j)">↓</button><button class="btn ghost" id="close" title="Close (Esc)">✕</button></div></header>
   <div class="scroll" id="detail"></div>
-  <footer><button class="btn">Edit</button><a class="btn primary" href="#">Open full page →</a></footer>
+  <footer><button class="btn">Edit</button><a class="btn primary" id="fullPage" href="../control-page/proposal-a.html">Open full page →</a></footer>
 </aside>
 
 <script src="data.js"></script>
@@ -261,6 +261,7 @@ body.drawer-open .drawer { transform: none; }
     state.active = id;
     const c = CONTROLS[id], i = visible.indexOf(c);
     $('detail').innerHTML = detailHtml(c);
+    $("fullPage").href = Appbar.withRole("../control-page/proposal-a.html?code=" + encodeURIComponent(c.code)); // the Control page (#314)
     $('pos').textContent = i >= 0 ? `${i + 1} of ${visible.length}` : '';
     document.body.classList.add('drawer-open');
     $('drawer').setAttribute('aria-hidden', 'false');
