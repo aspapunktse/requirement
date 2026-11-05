@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Control Page: Side Rail and Tabs</title>
+<link rel="stylesheet" href="../systems/systems.css">
+<link rel="stylesheet" href="../shared/appbar.css">
+<link rel="stylesheet" href="../shared/kit.css">
+<link rel="stylesheet" href="../shared/themes.css">
+<link rel="stylesheet" href="control-page.css">
+<script src="../shared/themes.js"></script>
+<style>
+/* Proposal B: a rail and tabs. The facts that stay true wherever you read (owner, scope, how many Requirements and
+   Systems) sit in a sticky rail on the right; the main column is a card with tabs, one section at a time: the Control,
+   what it Satisfies, the Organization implementation, the Systems. Each fact in the rail opens its tab. On a phone the
+   rail becomes a summary above the tabs. The open tab is kept in the URL (?tab=), so a link can point at one. */
+.shell { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 18px; align-items: start; }
+.shell > * { min-width: 0; }
+.main { display: grid; gap: 16px; }
+.head { padding: 20px 22px; display: grid; gap: 12px; }
+.head-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+.head-top > div { min-width: 0; display: grid; gap: 6px; }
+.rail { position: sticky; top: 76px; display: grid; gap: 14px; }
+.rail .card-b { display: grid; gap: 14px; }
+.rail dl.kv { grid-template-columns: max-content minmax(0, 1fr); gap: 8px 14px; }
+.facts { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.facts button { width: 100%; text-align: left; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; align-items: center; padding: 9px 12px; border: 1px solid var(--line-soft); border-radius: 12px; background: var(--raised); color: var(--ink); font: inherit; cursor: pointer; }
+.facts button:hover { border-color: var(--accent); }
+.facts button[aria-current="true"] { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.facts b { font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+.facts span { font-size: .84rem; color: var(--muted); }
+.facts small { grid-column: 1 / -1; color: var(--faint); font-size: .76rem; }
+.pane { padding: 18px; display: grid; gap: 14px; }
+.pane:focus-visible { outline-offset: -2px; }
+.pane h2 { font-size: 1.05rem; }
+.search-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.search-row .search { flex: 1 1 220px; max-width: 360px; }
+@media (max-width: 960px) {
+  .shell { grid-template-columns: minmax(0, 1fr); }
+  .rail { position: static; order: -1; }
+}
+@media (max-width: 640px) { .head { padding: 16px; } .pane { padding: 14px; } }
+</style>
+</head>
+<body>
+<header id="appbar"></header>
+<main class="app">
+  <div id="proto"></div>
+  <div id="page"></div>
+</main>
+
+<script src="../shared/kit.js"></script>
+<script src="../sensitivity/data.js"></script>
+<script src="../sensitivity/sensitivity.js"></script>
+<script src="../controls/data.js"></script>
+<script src="data.js"></script>
+<script src="control-page.js"></script>
+<script src="../shared/appbar.js"></script>
+<script>
+const { esc, plural, h } = CP;
+const ui = { tab: new URLSearchParams(location.search).get('tab') || 'control', q: '', code: null };
+
+function setTabUrl() { const u = new URL(location.href); u.searchParams.set('tab', ui.tab); try { history.replaceState(null, '', u.pathname + u.search + u.hash); } catch (e) { /* a file: preview may refuse */ } }
+
+function render(el, m) {
+  if (m.state === 'notfound') { el.innerHTML = h.notFound(m); document.title = 'Control not found'; return; }
+  if (ui.code !== m.code) { ui.code = m.code; ui.q = ''; }
+  const c = m.c, perSystem = c.applicability !== 'ORGANIZATIONAL', hasOrg = !!m.org;
+  document.title = `${c.code} ${c.title}: Control page`;
+  const tabs = [['control', 'The Control', '']];
+  tabs.push(['satisfies', 'Satisfies', m.req.total]);
+  if (hasOrg) tabs.push(['implementation', 'Organization implementation', '']);
+  if (perSystem) tabs.push(['systems', 'Systems', m.sys.all.length]);
+  if (!tabs.some((t) => t[0] === ui.tab)) ui.tab = 'control';
+
+  const vis = m.sys.visible;
+  const q = ui.q.trim().toLowerCase();
+  const shown = q ? vis.filter((s) => (s.name + ' ' + s.owner + ' ' + s.bu).toLowerCase().includes(q)) : vis;
+
+  const panel = {
+    control: () => `<h2>The Control</h2>${h.controlBody(m)}`,
+    satisfies: () => `<h2>Satisfies</h2><p class="muted small">${m.req.total ? `${plural(m.req.total, 'Requirement')} in ${plural(m.groups.length, 'Framework')}: ${m.req.full} Full, ${m.req.partial} Partial.` : ''}</p>${h.satisfiesBody(m, true)}`,
+    implementation: () => hasOrg ? `<h2>Organization implementation</h2>${h.orgBody(m)}` : '',
+    systems: () => perSystem ? `<h2>Systems</h2>
+      ${m.sys.all.length ? `<div>${h.statusBar(m)}</div>` : ''}${h.scopeNote(m)}
+      ${vis.length ? `<div class="search-row"><label class="search"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="9" cy="9" r="6"/><path d="m14 14 4 4"/></svg><span class="sr">Search the listed Systems</span><input id="sq" type="search" placeholder="Search name, owner or Business Unit" autocomplete="off" value="${esc(ui.q)}"></label>
+        <span class="muted small" aria-live="polite">${shown.length} of ${plural(vis.length, 'listed System')}</span></div>
+        ${shown.length ? h.sysList(shown, m) : '<p class="muted">No listed System matches.</p>'}` : h.sysEmpty(m)}` : '',
+  };
+
+  el.innerHTML = `
+    <section class="card head" aria-labelledby="ctitle" style="margin-bottom:18px">
+      ${h.crumb(m)}
+      <div class="head-top">
+        <div><span class="code">${esc(c.code)}</span><h1 class="title" id="ctitle">${esc(c.title)}</h1></div>
+        ${h.editBtn(m)}
+      </div>
+      <div class="tags">${h.chips(m)}</div>
+    </section>
+    <div class="shell">
+      <div class="main card">
+        <div class="tabs" role="tablist" aria-label="Sections of ${esc(c.code)}">${tabs.map(([k, l, n]) =>
+          `<button type="button" role="tab" id="tab-${k}" aria-controls="pane" aria-selected="${ui.tab === k}" tabindex="${ui.tab === k ? 0 : -1}" data-tab="${k}">${l}${n !== '' ? `<span class="n">${n}</span>` : ''}</button>`).join('')}</div>
+        <div class="pane" id="pane" role="tabpanel" tabindex="0" aria-labelledby="tab-${ui.tab}">${panel[ui.tab]()}</div>
+      </div>
+      <aside class="rail" aria-label="Summary of ${esc(c.code)}">
+        <section class="card"><div class="card-h"><h2>Scope</h2></div><div class="card-b">
+          <dl class="kv"><dt>Control Owner</dt><dd>${h.owner(c.owner)}</dd>
+          <dt>Applicability</dt><dd>${{ ORGANIZATIONAL: 'Organizational', PER_SYSTEM: 'Per System', BOTH: 'Both' }[c.applicability]}</dd></dl>
+          ${h.scopeBody(m)}</div></section>
+        <section class="card" aria-label="Where it counts"><div class="card-b"><ul class="facts">
+          <li><button type="button" data-go="satisfies" ${ui.tab === 'satisfies' ? 'aria-current="true"' : ''}><span>Satisfies</span><b>${m.req.total}</b><small>${m.req.total ? `${plural(m.groups.length, 'Framework')} · ${m.req.full} Full · ${m.req.partial} Partial` : 'Not mapped to any Requirement'}</small></button></li>
+          ${hasOrg ? `<li><button type="button" data-go="implementation" ${ui.tab === 'implementation' ? 'aria-current="true"' : ''}><span>Organization</span>${h.statusChip(m.org.status)}<small>${m.org.updated ? `Updated ${CP.fmtDate(m.org.updated)}` : 'Not described yet'}</small></button></li>` : ''}
+          ${perSystem ? `<li><button type="button" data-go="systems" ${ui.tab === 'systems' ? 'aria-current="true"' : ''}><span>Systems</span><b>${m.sys.all.length}</b><small>${vis.length === m.sys.all.length ? 'All visible to you' : `You can see ${vis.length} of ${m.sys.all.length}`}</small></button></li>` : ''}
+        </ul></div></section>
+      </aside>
+    </div>`;
+
+  const go = (k, focus) => { ui.tab = k; setTabUrl(); render(el, m); if (focus) el.querySelector(`#tab-${k}`).focus(); };
+  const tabEls = [...el.querySelectorAll('[role="tab"]')];
+  tabEls.forEach((t, i) => {
+    t.onclick = () => go(t.dataset.tab, true);
+    t.onkeydown = (e) => {
+      const to = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: tabEls.length - 1 }[e.key];
+      if (to === undefined) return;
+      e.preventDefault(); go(tabEls[(to + tabEls.length) % tabEls.length].dataset.tab, true);
+    };
+  });
+  el.querySelectorAll('[data-go]').forEach((b) => { b.onclick = () => { go(b.dataset.go, false); el.querySelector('#pane').focus(); }; });
+  const sq = el.querySelector('#sq');
+  if (sq) sq.oninput = (e) => { ui.q = e.target.value; const p = e.target.selectionStart; render(el, m); const n = el.querySelector('#sq'); n.focus(); n.setSelectionRange(p, p); };
+}
+
+CP.mount({ render });
+Appbar.mount({ current: 'controls', proposal: { label: 'B', siblings: [['A', 'proposal-a.html'], ['C', 'proposal-c.html']] }, items: CP.paletteItems });
+</script>
+</body>
+</html>

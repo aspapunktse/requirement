@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Control Page: Coverage Map</title>
+<link rel="stylesheet" href="../systems/systems.css">
+<link rel="stylesheet" href="../shared/appbar.css">
+<link rel="stylesheet" href="../shared/kit.css">
+<link rel="stylesheet" href="../shared/themes.css">
+<link rel="stylesheet" href="control-page.css">
+<script src="../shared/themes.js"></script>
+<style>
+/* Proposal C: a coverage map. The page leads with what a Control is for: the Requirements it satisfies, drawn as tiles
+   grouped by Framework (the stripe shows Full or Partial), and the Systems it applies to, drawn as a grid of tiles
+   coloured by effective status. A hero in the Home look carries the title and a ring of how many Systems have the Control
+   Fulfilled; its legend filters the grid. The Organization's own implementation sits at the head of the Systems side, and the
+   plain reading (description, Self-Assessment Question, Scope) comes after the map. */
+.hero .head-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+.hero .lede { max-width: 56ch; }
+.hero h1 { overflow-wrap: anywhere; }
+.hero .owner-line { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: center; margin-top: 10px; color: var(--muted); font-size: .86rem; }
+.hero .move { flex-wrap: wrap; }
+.hero .move .orgstat { display: grid; gap: 6px; }
+.map { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+.map > .card { min-width: 0; }
+.map.single { grid-template-columns: minmax(0, 1fr); }
+@media (max-width: 960px) { .map { grid-template-columns: minmax(0, 1fr); } }
+
+.lane { margin-top: 14px; border: 1px solid var(--line-soft); border-radius: 14px; overflow: clip; }
+.lane .lane-h { border-top: 0; }
+.lane .lane-h b { font-weight: 750; color: var(--ink); text-transform: none; letter-spacing: 0; font-size: .86rem; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; padding: 10px; }
+.tile { display: grid; gap: 2px; align-content: start; padding: 9px 11px 9px 13px; border-radius: 10px; background: var(--raised); border: 1px solid var(--line-soft); position: relative; min-width: 0; }
+.tile::before { content: ""; position: absolute; left: 0; top: 8px; bottom: 8px; width: 4px; border-radius: 0 3px 3px 0; background: var(--ok); }
+.tile.partial::before { background: repeating-linear-gradient(45deg, var(--gold) 0 3px, transparent 3px 6px); }
+.tile .top { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+.tile .rt { font-size: .84rem; overflow-wrap: anywhere; }
+
+.orgbox { display: grid; gap: 8px; padding: 12px 14px; border: 1px solid var(--line-soft); border-radius: 14px; background: var(--raised); margin-bottom: 14px; }
+.orgbox .kv { grid-template-columns: max-content minmax(0, 1fr); }
+.sgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(176px, 1fr)); gap: 8px; list-style: none; margin: 12px 0 0; padding: 0; }
+.stile { display: grid; gap: 6px; align-content: start; height: 100%; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line-soft); border-top: 4px solid var(--line); background: var(--raised); color: var(--ink); text-decoration: none; min-width: 0; }
+.stile:hover { border-color: var(--accent); }
+.stile.st-FULFILLED { border-top-color: var(--ok); } .stile.st-IN_PROGRESS { border-top-color: var(--gold); } .stile.st-NOT_STARTED { border-top-color: var(--faint); }
+.stile.st-NOT_APPLICABLE { border-top-color: var(--line); } .stile.st-WAIVED { border-top-color: var(--bad); }
+.stile b { overflow-wrap: anywhere; } .stile small { color: var(--faint); font-size: .76rem; }
+.fine { color: var(--muted); font-size: .8rem; margin-top: 10px; }
+.details { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 18px; align-items: start; }
+.details > .card { min-width: 0; }
+@media (max-width: 960px) { .details { grid-template-columns: minmax(0, 1fr); } }
+</style>
+</head>
+<body>
+<header id="appbar"></header>
+<main class="app">
+  <div id="proto"></div>
+  <div id="page" class="stack" style="gap:18px"></div>
+</main>
+
+<script src="../shared/kit.js"></script>
+<script src="../sensitivity/data.js"></script>
+<script src="../sensitivity/sensitivity.js"></script>
+<script src="../controls/data.js"></script>
+<script src="data.js"></script>
+<script src="control-page.js"></script>
+<script src="../shared/appbar.js"></script>
+<script>
+const { esc, plural, h } = CP;
+const ui = { filter: 'all', code: null };
+const COLOR = { FULFILLED: 'var(--ok)', IN_PROGRESS: 'var(--gold)', NOT_STARTED: 'var(--faint)', NOT_APPLICABLE: 'var(--line)', WAIVED: 'var(--bad)' };
+
+function lane(gr) {
+  return `<section class="lane" aria-label="${esc(gr.fw.name)}">
+    <div class="lane-h"><b>${esc(gr.fw.name)}</b>${gr.fw.draft ? '<span class="tag draft">Draft Framework</span>' : ''}<small>${plural(gr.items.length, 'Requirement')} · ${gr.full} Full · ${gr.partial} Partial</small></div>
+    <ul class="tiles" style="list-style:none;margin:0" aria-label="Requirements in ${esc(gr.fw.name)}">${gr.items.map((r) => `<li class="tile ${r.cov === 'FULL' ? 'full' : 'partial'}">
+      <span class="top"><span class="rcode">${esc(r.code)}</span>${h.cov(r.cov)}</span><span class="rt">${esc(r.title)}</span></li>`).join('')}</ul></section>`;
+}
+
+function render(el, m) {
+  if (m.state === 'notfound') { el.innerHTML = h.notFound(m); document.title = 'Control not found'; return; }
+  if (ui.code !== m.code) { ui.code = m.code; ui.filter = 'all'; }
+  const c = m.c, perSystem = c.applicability !== 'ORGANIZATIONAL', hasOrg = !!m.org;
+  document.title = `${c.code} ${c.title}: Control page`;
+  const all = m.sys.all.length, vis = m.sys.visible;
+  const fulfilled = m.sys.counts.FULFILLED || 0;
+  const shown = ui.filter === 'all' ? vis : vis.filter((s) => s.status === ui.filter);
+  const on = CP.statusOrder.filter((k) => m.sys.counts[k]);
+
+  const side = perSystem
+    ? Kit.ring(all ? [[fulfilled / all, 'var(--ok)']] : [], 78, 9, all ? `${fulfilled}/${all}` : '0', 'Fulfilled')
+    : '';
+  const moveInner = perSystem
+    ? `${side}<ul aria-label="Filter the Systems by effective status">
+        <li><button type="button" data-f="all" aria-pressed="${ui.filter === 'all'}"><i style="background:var(--accent)"></i><b>${all}</b>All Systems</button></li>
+        ${on.map((k) => `<li><button type="button" data-f="${k}" aria-pressed="${ui.filter === k}"><i style="background:${COLOR[k]}"></i><b>${m.sys.counts[k]}</b>${CP.D.STATUS[k].label}</button></li>`).join('')}</ul>`
+    : `<div class="orgstat"><span class="label" style="margin:0">Organization implementation</span>${h.statusChip(m.org.status)}<small class="muted">${m.org.updated ? `Updated ${CP.fmtDate(m.org.updated)}` : 'Not described yet'}</small></div>`;
+
+  const systemsBody = !perSystem ? '' : `
+    ${all ? '' : h.sysEmpty(m)}
+    ${all && !vis.length ? h.sysEmpty(m) : ''}
+    ${vis.length ? `<ul class="sgrid" aria-label="Systems">${shown.map((s) => `<li><a class="stile st-${s.status}" href="${Appbar.withRole('../system/proposal-a.html')}" title="Opens /systems/${esc(s.id)}#controls/${esc(m.code)} in the app">
+        <b>${esc(s.name)}</b>${h.statusChip(s.status)}<small>${s.source === 'org' ? 'Inherited from the Organization · ' : ''}${esc(s.owner)}</small></a></li>`).join('')}</ul>
+      <p class="fine" aria-live="polite">${shown.length === 0 ? 'No listed System has this status.' : `Showing ${plural(shown.length, 'System')} you can see.`}</p>` : ''}
+    ${h.scopeNote(m) ? `<div style="margin-top:10px">${h.scopeNote(m)}</div>` : ''}`;
+
+  el.innerHTML = `
+    <section class="hero" aria-labelledby="ctitle">
+      <div>
+        ${h.crumb(m)}
+        <p class="code" style="margin-top:10px">${esc(c.code)}</p>
+        <h1 id="ctitle">${esc(c.title)}</h1>
+        <div class="chips">${h.chips(m)}</div>
+        <div class="owner-line"><span>Control Owner</span>${h.owner(c.owner)}</div>
+        ${m.can.edit ? `<div class="head-actions">${h.editBtn(m)}</div>` : ''}
+      </div>
+      <div class="move">${moveInner}</div>
+    </section>
+
+    <div class="map">
+      <section class="card" aria-labelledby="h-sat"><div class="card-h"><h2 id="h-sat">Satisfies</h2>
+        <p>${m.req.total ? `${plural(m.req.total, 'Requirement')} in ${plural(m.groups.length, 'Framework')} · ${m.req.full} Full · ${m.req.partial} Partial` : 'No Requirements'}</p></div>
+        <div class="card-b">${m.groups.length ? m.groups.map(lane).join('') : h.unmapped}</div></section>
+
+      <section class="card" aria-labelledby="h-where"><div class="card-h"><h2 id="h-where">${perSystem ? 'Where it applies' : 'Organization implementation'}</h2>
+        <p>${perSystem ? `${plural(all, 'System')}` : 'Implemented once, by the Organization'}</p></div>
+        <div class="card-b">
+          ${hasOrg ? `<div class="orgbox"><span class="label" style="margin:0">Organization implementation</span>${h.orgBody(m)}</div>` : ''}
+          ${perSystem ? `<span class="label">Systems</span>${h.statusBar(m)}${systemsBody}` : ''}
+        </div></section>
+    </div>
+
+    <div class="details">
+      <section class="card" aria-labelledby="h-control"><div class="card-h"><h2 id="h-control">The Control</h2></div><div class="card-b">${h.controlBody(m)}</div></section>
+      <section class="card" aria-labelledby="h-scope"><div class="card-h"><h2 id="h-scope">Scope</h2></div><div class="card-b">${h.scopeBody(m)}</div></section>
+    </div>`;
+
+  el.querySelectorAll('[data-f]').forEach((b) => { b.onclick = () => { ui.filter = ui.filter === b.dataset.f ? 'all' : b.dataset.f; render(el, m); const n = el.querySelector(`[data-f="${ui.filter}"]`); if (n) n.focus(); }; });
+}
+
+CP.mount({ render });
+Appbar.mount({ current: 'controls', proposal: { label: 'C', siblings: [['A', 'proposal-a.html'], ['B', 'proposal-b.html']] }, items: CP.paletteItems });
+</script>
+</body>
+</html>

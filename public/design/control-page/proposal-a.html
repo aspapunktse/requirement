@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Control Page: Document</title>
+<link rel="stylesheet" href="../systems/systems.css">
+<link rel="stylesheet" href="../shared/appbar.css">
+<link rel="stylesheet" href="../shared/kit.css">
+<link rel="stylesheet" href="../shared/themes.css">
+<link rel="stylesheet" href="control-page.css">
+<script src="../shared/themes.js"></script>
+<style>
+/* Proposal A: a document. One column of 16px cards in the Home look, read top to bottom in the order the issue lists
+   them: the Control, its Scope, what it Satisfies, how the Organization implements it, then the Systems. A strip of
+   links under the header jumps to a card and shows what is in it. The Systems card opens with one bar over every
+   System the Control applies to, then lists the ones this user may see, with a filter by effective status. */
+.doc { max-width: 940px; width: 100%; margin: 0 auto; display: grid; gap: 16px; min-width: 0; }
+.head { padding: 20px 22px; display: grid; gap: 12px; }
+.head-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+.head-top > div { min-width: 0; display: grid; gap: 6px; }
+.jump { display: flex; flex-wrap: wrap; gap: 6px; padding: 0; margin: 0; list-style: none; }
+.jump a { display: inline-flex; gap: 7px; align-items: center; padding: 4px 11px; border-radius: 99px; border: 1px solid var(--line); background: var(--surface); color: var(--muted); font-size: .84rem; font-weight: 650; text-decoration: none; }
+.jump a:hover { border-color: var(--accent); color: var(--ink); }
+.jump .n { font-size: .7rem; background: var(--accent-soft); color: var(--accent); border-radius: 99px; padding: 0 7px; font-variant-numeric: tabular-nums; }
+.doc section.card { scroll-margin-top: 80px; }
+.fl { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 14px 0 8px; }
+.fl > span { font-size: .78rem; font-weight: 700; color: var(--muted); margin-right: 4px; }
+.pill { border: 1px solid var(--line); background: var(--surface); border-radius: 99px; padding: 2px 11px; font-size: .8rem; font-weight: 650; color: var(--muted); cursor: pointer; display: inline-flex; gap: 6px; align-items: center; }
+.pill:hover { border-color: var(--accent); }
+.pill[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--ink); }
+.pill b { font-variant-numeric: tabular-nums; }
+@media (max-width: 640px) { .head { padding: 16px; } }
+</style>
+</head>
+<body>
+<header id="appbar"></header>
+<main class="app">
+  <div id="proto"></div>
+  <div class="doc" id="page"></div>
+</main>
+
+<script src="../shared/kit.js"></script>
+<script src="../sensitivity/data.js"></script>
+<script src="../sensitivity/sensitivity.js"></script>
+<script src="../controls/data.js"></script>
+<script src="data.js"></script>
+<script src="control-page.js"></script>
+<script src="../shared/appbar.js"></script>
+<script>
+const { esc, plural, h } = CP;
+const ui = { filter: 'all', code: null };
+
+function render(el, m) {
+  if (m.state === 'notfound') { el.innerHTML = h.notFound(m); document.title = 'Control not found'; return; }
+  if (ui.code !== m.code) { ui.code = m.code; ui.filter = 'all'; }
+  const c = m.c, perSystem = c.applicability !== 'ORGANIZATIONAL', hasOrg = !!m.org;
+  document.title = `${c.code} ${c.title}: Control page`;
+
+  const sections = [['the-control', 'The Control', ''], ['scope', 'Scope', ''], ['satisfies', 'Satisfies', m.req.total]];
+  if (hasOrg) sections.push(['implementation', 'Organization implementation', '']);
+  if (perSystem) sections.push(['systems', 'Systems', m.sys.all.length]);
+
+  const vis = m.sys.visible;
+  const shown = ui.filter === 'all' ? vis : vis.filter((s) => s.status === ui.filter);
+
+  el.innerHTML = `
+    <section class="card head" aria-labelledby="ctitle">
+      ${h.crumb(m)}
+      <div class="head-top">
+        <div><span class="code">${esc(c.code)}</span><h1 class="title" id="ctitle">${esc(c.title)}</h1></div>
+        ${h.editBtn(m)}
+      </div>
+      <div class="tags">${h.chips(m)}</div>
+      <div class="metaline"><span>Control Owner</span>${h.owner(c.owner)}</div>
+    </section>
+
+    <nav aria-label="On this page"><ul class="jump">${sections.map(([id, label, n]) =>
+      `<li><a href="#${id}" data-jump="${id}">${label}${n !== '' ? `<span class="n">${n}</span>` : ''}</a></li>`).join('')}</ul></nav>
+
+    <section class="card" id="the-control" aria-labelledby="h-control"><div class="card-h"><h2 id="h-control">The Control</h2></div><div class="card-b">${h.controlBody(m)}</div></section>
+
+    <section class="card" id="scope" aria-labelledby="h-scope"><div class="card-h"><h2 id="h-scope">Scope</h2><p>Where the Control applies</p></div><div class="card-b">${h.scopeBody(m)}</div></section>
+
+    <section class="card" id="satisfies" aria-labelledby="h-sat"><div class="card-h"><h2 id="h-sat">Satisfies</h2>
+      <p>${m.req.total ? `${plural(m.req.total, 'Requirement')} in ${plural(m.groups.length, 'Framework')} · ${m.req.full} Full · ${m.req.partial} Partial` : 'No Requirements'}</p></div>
+      <div class="card-b">${h.satisfiesBody(m, false)}</div></section>
+
+    ${hasOrg ? `<section class="card" id="implementation" aria-labelledby="h-org"><div class="card-h"><h2 id="h-org">Organization implementation</h2><p>How the Organization implements this Control</p></div><div class="card-b">${h.orgBody(m)}</div></section>` : ''}
+
+    ${perSystem ? `<section class="card" id="systems" aria-labelledby="h-sys"><div class="card-h"><h2 id="h-sys">Systems</h2>
+      <p>Applies to ${plural(m.sys.all.length, 'System')}</p></div><div class="card-b">
+      ${m.sys.all.length ? `${h.statusBar(m)}${h.scopeNote(m) ? `<div style="margin-top:12px">${h.scopeNote(m)}</div>` : ''}` : ''}
+      ${vis.length ? `<div class="fl" role="group" aria-label="Filter the listed Systems by effective status"><span>Show</span>
+        <button type="button" class="pill" data-f="all" aria-pressed="${ui.filter === 'all'}">All <b>${vis.length}</b></button>
+        ${CP.statusOrder.filter((k) => m.sys.seen[k]).map((k) => `<button type="button" class="pill" data-f="${k}" aria-pressed="${ui.filter === k}">${CP.D.STATUS[k].label} <b>${m.sys.seen[k]}</b></button>`).join('')}</div>
+        <div aria-live="polite">${h.sysList(shown, m)}</div>`
+        : `<div style="margin-top:12px">${h.sysEmpty(m)}</div>`}
+      </div></section>` : ''}`;
+
+  el.querySelectorAll('[data-f]').forEach((b) => { b.onclick = () => { ui.filter = b.dataset.f; render(el, m); const n = el.querySelector(`[data-f="${ui.filter}"]`); if (n) n.focus(); }; });
+  el.querySelectorAll('[data-jump]').forEach((a) => { a.onclick = (e) => { e.preventDefault(); const t = document.getElementById(a.dataset.jump); t.scrollIntoView({ behavior: Kit.reduced ? 'auto' : 'smooth', block: 'start' }); t.querySelector('h2').setAttribute('tabindex', '-1'); t.querySelector('h2').focus({ preventScroll: true }); }; });
+}
+
+CP.mount({ render });
+Appbar.mount({ current: 'controls', proposal: { label: 'A', siblings: [['B', 'proposal-b.html'], ['C', 'proposal-c.html']] }, items: CP.paletteItems });
+</script>
+</body>
+</html>
