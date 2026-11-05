@@ -93,16 +93,19 @@
     state.code = code;
     const u = new URL(location.href); u.searchParams.set('code', code);
     try { history.replaceState(null, '', u.pathname + u.search + u.hash); } catch (e) { /* a file: preview may refuse */ }
-    const sel = doc.getElementById('cpCode'); if (sel) sel.value = D.EXAMPLES.some((e) => e[0] === code) ? code : '__other';
+    const sel = doc.getElementById('cpCode'); if (sel) sel.value = isListed(code) ? code : '__other';
     draw();
   }
   const titleOf = (code) => { const c = byCode(code); return c ? c.title : 'Unknown code'; };
+  const UNKNOWN = 'A.99.9';
+  const isListed = (code) => D.EXAMPLES.some((e) => e[0] === code) || code === UNKNOWN;
   function protoBar() {
-    const opts = D.EXAMPLES.map(([code, note]) => `<option value="${esc(code)}">${esc(code)}: ${esc(titleOf(code))} (${esc(note)})</option>`).join('');
-    const other = D.EXAMPLES.some((e) => e[0] === state.code) ? '' : `<option value="__other" selected>${esc(state.code)}</option>`;
+    const sel = (code) => (code === state.code ? ' selected' : '');
+    const opts = D.EXAMPLES.map(([code, note]) => `<option value="${esc(code)}"${sel(code)}>${esc(code)}: ${esc(titleOf(code))} (${esc(note)})</option>`).join('');
+    const other = isListed(state.code) ? '' : `<option value="__other" selected>${esc(state.code)}</option>`;
     return `<div class="proto" role="group" aria-label="Design proposal controls">
       <label for="cpCode"><b>Example Control</b></label>
-      <select id="cpCode" class="sel">${opts}<option value="A.99.9">A.99.9: unknown code (the 404 page)</option>${other}</select>
+      <select id="cpCode" class="sel">${opts}<option value="${UNKNOWN}"${sel(UNKNOWN)}>A.99.9: unknown code (the 404 page)</option>${other}</select>
       <span class="proto-note" id="cpNote" aria-live="polite"></span>
       <span class="proto-hint">Only on this design page. In the app the code comes from the URL.</span></div>`;
   }
