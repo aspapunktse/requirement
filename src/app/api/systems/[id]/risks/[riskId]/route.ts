@@ -10,6 +10,8 @@ import { logChangeEvent } from "@/lib/change-events";
 const updateRiskSchema = z.object({
   status: z.enum(RiskStatus),
   mitigationPlan: z.string().nullable().optional(),
+  /** Who acts on the Risk: any User, whatever their role (#322). Absent leaves it, null unassigns. */
+  ownerId: z.string().min(1).nullable().optional(),
 });
 
 export async function PATCH(
@@ -29,7 +31,7 @@ export async function PATCH(
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid update" }, { status: 400 });
   }
-  const { status, mitigationPlan } = parsed.data;
+  const { status, mitigationPlan, ownerId } = parsed.data;
 
   if (status === "MITIGATED" && !mitigationPlan?.trim()) {
     return NextResponse.json(
@@ -43,9 +45,16 @@ export async function PATCH(
     return NextResponse.json({ error: "Risk not found" }, { status: 404 });
   }
 
+  if (ownerId) {
+    const owner = await prisma.user.findUnique({ where: { id: ownerId }, select: { id: true } });
+    if (!owner) {
+      return NextResponse.json({ error: "The owner must be an existing User" }, { status: 400 });
+    }
+  }
+
   const risk = await prisma.risk.update({
     where: { id: riskId },
-    data: { status, mitigationPlan },
+    data: { status, mitigationPlan, ...(ownerId !== undefined && { ownerId }) },
     include: RISK_INCLUDE,
   });
   if (existing.status !== status) {

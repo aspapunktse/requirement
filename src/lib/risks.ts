@@ -2,7 +2,7 @@ import type { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { isSystemOwnerOrAdmin } from "@/lib/system-permissions";
 
-import { ROLES_ALLOWED_TO_MANAGE_RISK_STATUS } from "@/lib/risk-roles";
+import { ORGANIZATION_RISKS_HREF, ROLES_ALLOWED_TO_MANAGE_RISK_STATUS } from "@/lib/risk-roles";
 
 // The role lists live in `risk-roles.ts`, which is free of server code so the app header can use them too.
 export { ROLES_ALLOWED_TO_MANAGE_RISK_STATUS, ROLES_ALLOWED_TO_READ_ORGANIZATION_RISKS, canReadOrganizationRisks } from "@/lib/risk-roles";
@@ -25,11 +25,8 @@ export function canManageOrganizationRisks(user: { role: UserRole }) {
 /** The Risks that belong to a System. Every per-System and Business Risk Owner view adds this, so a System-less Risk can never leak into one. */
 export const SYSTEM_RISK_WHERE = { systemId: { not: null } } as const;
 
-/** What an Organization Risk's "System" reads as wherever a System's name would be. */
-export const ORGANIZATION_RISK_LABEL = "Organization";
-
-/** Where a Risk Owner follows an Organization Risk. */
-export const ORGANIZATION_RISKS_HREF = "/risks/organization";
+// `ORGANIZATION_RISK_LABEL` and `ORGANIZATION_RISKS_HREF` live in `risk-roles.ts` (client components use them).
+export { ORGANIZATION_RISK_LABEL, ORGANIZATION_RISKS_HREF } from "@/lib/risk-roles";
 
 /** Where a Risk's link goes: its System, or the Organization Risks page for one with none. */
 export function riskHref(risk: { system: { id: string } | null }) {

@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { frameworkLabel } from "@/lib/framework-label";
 import { formatCompliancePercentage } from "@/lib/requirement-status-rules";
+import { RISK_SOURCES, RISK_SOURCE_LABELS, type RiskSourceValue } from "@/lib/risk-source";
 import { onboardingStatusTone, riskStatusTone } from "@/lib/status-tones";
 
 type CatalogItem = { id: string; name: string; version?: string };
@@ -31,6 +32,7 @@ type Risk = {
   severity: string;
   likelihood: string;
   status: string;
+  source: RiskSourceValue;
   system: { id: string; name: string };
   controlAssessment: { control: { code: string; title: string } } | null;
 };
@@ -81,6 +83,7 @@ export function BusinessRiskOwnerDashboard({
 }) {
   const [businessUnitId, setBusinessUnitId] = useState("");
   const [frameworkId, setFrameworkId] = useState("");
+  const [source, setSource] = useState<RiskSourceValue | "">("");
   const [risks, setRisks] = useState<Risk[] | null>(null);
   const [compliance, setCompliance] = useState<Compliance | null>(null);
   const [portfolio, setPortfolio] = useState<PortfolioSystem[] | null>(null);
@@ -88,12 +91,18 @@ export function BusinessRiskOwnerDashboard({
 
   const query = useMemo(() => buildQuery(businessUnitId, frameworkId), [businessUnitId, frameworkId]);
 
+  // The Risk queue alone also filters by Risk Source (#322); compliance and the portfolio have no source.
+  const riskQuery = useMemo(() => {
+    if (!source) return query;
+    return `${query ? `${query}&` : "?"}source=${source}`;
+  }, [query, source]);
+
   useEffect(() => {
     let cancelled = false;
     setError(null);
 
     Promise.all([
-      fetch(`/api/business-risk-owner/risks${query}`),
+      fetch(`/api/business-risk-owner/risks${riskQuery}`),
       fetch(`/api/business-risk-owner/compliance${query}`),
       fetch(`/api/business-risk-owner/portfolio${query}`),
     ]).then(async ([risksRes, complianceRes, portfolioRes]) => {
@@ -118,7 +127,7 @@ export function BusinessRiskOwnerDashboard({
     return () => {
       cancelled = true;
     };
-  }, [query]);
+  }, [query, riskQuery]);
 
   const portfolioByStatus = useMemo(() => {
     if (!portfolio) return null;
@@ -253,6 +262,22 @@ export function BusinessRiskOwnerDashboard({
 
       <section>
         <h2 className="mb-2 text-lg">Risks</h2>
+        <label className="mb-2 flex flex-col gap-1 text-sm">
+          Risk Source
+          <select
+            aria-label="Filter Risks by Risk Source"
+            className="rounded border border-rg-control p-2"
+            value={source}
+            onChange={(event) => setSource(event.target.value as RiskSourceValue | "")}
+          >
+            <option value="">All sources</option>
+            {RISK_SOURCES.map((candidate) => (
+              <option key={candidate} value={candidate}>
+                {RISK_SOURCE_LABELS[candidate]}
+              </option>
+            ))}
+          </select>
+        </label>
         {risks === null ? (
           <p className="text-sm text-rg-muted">Loading…</p>
         ) : risks.length === 0 ? (
@@ -272,6 +297,7 @@ export function BusinessRiskOwnerDashboard({
                 <p className="text-xs text-rg-muted">
                   Severity: {risk.severity} · Likelihood: {risk.likelihood}
                 </p>
+                <p className="text-xs text-rg-muted">Source: {RISK_SOURCE_LABELS[risk.source]}</p>
                 {risk.controlAssessment && (
                   <p className="text-xs text-rg-muted">
                     Originated from {risk.controlAssessment.control.code} —{" "}

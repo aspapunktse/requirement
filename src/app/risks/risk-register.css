@@ -1,0 +1,13 @@
+/* The Risk register (#322), on the Home look (`src/app/home/home.css`): header, stat cards that filter, one card with a table. */
+.rr .hc-toolbar { display: flex; gap: 12px; flex-wrap: wrap; align-items: end; }
+.rr .rr-field { display: flex; flex-direction: column; gap: 4px; font-size: 0.78rem; color: var(--rg-muted); font-weight: 650; }
+.rr .rr-field select { border: 1px solid var(--rg-line); background: var(--rg-surface); color: var(--rg-ink); border-radius: 10px; padding: 7px 10px; font: inherit; font-size: 0.86rem; }
+.rr-tablewrap { overflow-x: auto; border-top: 1px solid var(--hc-line-soft); }
+.rr-table { width: 100%; border-collapse: collapse; font-size: 0.86rem; min-width: 860px; }
+.rr-table th { text-align: left; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--rg-muted); padding: 8px 10px; border-bottom: 1px solid var(--rg-line); white-space: nowrap; }
+.rr-table td { padding: 10px; border-bottom: 1px solid var(--hc-line-soft); vertical-align: middle; }
+.rr-table a { color: var(--rg-ink); font-weight: 650; text-decoration: none; }
+.rr-table a:hover { color: var(--rg-accent); text-decoration: underline; }
+.rr-table .muted { color: var(--rg-muted); }
+.rr-links { font-size: 0.82rem; color: var(--rg-muted); }
+.rr-links a { color: var(--rg-accent); }

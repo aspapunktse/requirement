@@ -1,6 +1,6 @@
 import { getActingUser } from "@/lib/acting-user";
 import { prisma } from "@/lib/prisma";
-import { canManageOrganizationRisks, canReadOrganizationRisks, getOrganizationRisks, ROLES_ALLOWED_TO_MANAGE_RISK_STATUS } from "@/lib/risks";
+import { canManageOrganizationRisks, canReadOrganizationRisks, getOrganizationRisks } from "@/lib/risks";
 import { canReadInternalAudits } from "@/lib/internal-audit-rules";
 import { OrganizationRiskList } from "@/components/OrganizationRiskList";
 import type { Risk } from "@/components/RiskList";
@@ -26,7 +26,8 @@ export default async function OrganizationRisksPage() {
   const [rows, owners] = await Promise.all([
     getOrganizationRisks(),
     canManage
-      ? prisma.user.findMany({ where: { role: { in: [...ROLES_ALLOWED_TO_MANAGE_RISK_STATUS] } }, select: { id: true, name: true }, orderBy: { name: "asc" } })
+      ? // A Risk owner can be any User, whatever their role (#322).
+      prisma.user.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } })
       : Promise.resolve([]),
   ]);
   const risks: Risk[] = rows.map((risk) => ({
@@ -36,6 +37,7 @@ export default async function OrganizationRisksPage() {
     severity: risk.severity,
     likelihood: risk.likelihood,
     status: risk.status,
+    source: risk.source,
     mitigationPlan: risk.mitigationPlan,
     ownerId: risk.ownerId,
     owner: risk.owner && { id: risk.owner.id, name: risk.owner.name },

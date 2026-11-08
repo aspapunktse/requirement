@@ -6,6 +6,12 @@ import type { UserRole } from "@prisma/client";
  * `risks.ts` re-exports these.
  */
 
+/** What an Organization Risk's "System" reads as wherever a System's name would be. */
+export const ORGANIZATION_RISK_LABEL = "Organization";
+
+/** Where a Risk Owner follows an Organization Risk. */
+export const ORGANIZATION_RISKS_HREF = "/risks/organization";
+
 /** Only these roles may change a Risk's status, regardless of who logged it. */
 export const ROLES_ALLOWED_TO_MANAGE_RISK_STATUS: UserRole[] = ["ADMIN", "RISK_OWNER"];
 

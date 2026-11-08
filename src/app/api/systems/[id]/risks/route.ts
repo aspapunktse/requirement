@@ -54,7 +54,8 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems
   // The Risk and the Change Event that records it commit together (#245).
   const risk = await prisma.$transaction(async (tx) => {
     const created = await tx.risk.create({
-      data: { ...parsed.data, systemId: system.id },
+      // The source is the server's to set: an ad hoc Risk, whatever the body says (the schema has no such field).
+      data: { ...parsed.data, systemId: system.id, source: "AD_HOC" },
       include: RISK_INCLUDE,
     });
     await logChangeEvent(

@@ -19,7 +19,7 @@ const updateRiskSchema = z.object({
  * Admin; Mitigated needs a mitigation plan; a status change is a RISK_STATUS_CHANGED Change Event,
  * System-less here). A Risk that belongs to a System is 404 here: it is managed through its System,
  * which also decides who may see it. The Internal Auditor reads these Risks and gets 403. The owner
- * must be a Risk Owner or an Admin.
+ * may be any User, whatever their role (#322, PRD 0002 F-RA.3); an unknown id is 400 and changes nothing.
  */
 export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/risks/[id]">) {
   const auth = await authorize(request, [...ROLES_ALLOWED_TO_MANAGE_RISK_STATUS]);
@@ -43,11 +43,11 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/risks/
 
   if (ownerId) {
     const owner = await prisma.user.findFirst({
-      where: { id: ownerId, role: { in: [...ROLES_ALLOWED_TO_MANAGE_RISK_STATUS] } },
+      where: { id: ownerId },
       select: { id: true },
     });
     if (!owner) {
-      return NextResponse.json({ error: "The owner must be a Risk Owner or an Admin" }, { status: 400 });
+      return NextResponse.json({ error: "The owner must be an existing User" }, { status: 400 });
     }
   }
 
