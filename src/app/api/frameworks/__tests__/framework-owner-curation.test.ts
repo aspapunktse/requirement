@@ -104,7 +104,7 @@ describe("Framework Owner curation (#320)", () => {
     await prisma.framework.updateMany({ where: { reviewGroupId: { in: groupIds } }, data: { reviewGroupId: null } });
     await prisma.reviewGroup.deleteMany({ where: { id: { in: groupIds } } });
     // Supplementary Controls reference their origin Framework, so they go before the fixture Frameworks do.
-    await prisma.control.deleteMany({ where: { code: { startsWith: "TEST-OC-SUP-" }, originFramework: { name: { startsWith: "Test OC " } } } });
+    await prisma.control.deleteMany({ where: { code: { startsWith: "TEST-OC-" }, originFrameworkId: { not: null }, originFramework: { name: { startsWith: "Test OC " } } } });
     await cleanupFixtureRequirements();
     await prisma.requirement.deleteMany({ where: { code: { contains: SUFFIX } } });
     await prisma.control.deleteMany({ where: { OR: [{ id: { in: controlIds } }, { code: { contains: SUFFIX } }] } });
@@ -174,6 +174,29 @@ describe("Framework Owner curation (#320)", () => {
       expect(created.status).toBe(201);
       const { mapping } = await created.json();
       expect((await deleteMapping(requestAs(as("cm"), "DELETE"), ctx({ id: fw.id, requirementId: gapReq, mappingId: mapping.id }))).status).toBe(204);
+    });
+
+    it("refuses a Supplementary Control of another Draft Framework to the owner like an unknown Control, and still lets a Compliance Manager map it", async () => {
+      const otherDraft = await createFixtureFramework("OC Hidden Draft");
+      await prisma.framework.update({ where: { id: otherDraft.id }, data: { status: "DRAFT" } });
+      const hidden = await prisma.control.create({
+        data: {
+          code: `TEST-OC-HID-${SUFFIX}`, title: "Hidden", description: "d", category: "Test", applicability: "ORGANIZATIONAL", mandatory: false,
+          originFrameworkId: otherDraft.id,
+        },
+      });
+      controlIds.push(hidden.id);
+      const before = { mappings: await mappingCount(fw.id), events: await events() };
+      const refused = await createMapping(requestAs(as("owner"), "POST", { controlId: hidden.id, coverage: "FULL" }), ctx({ id: fw.id, requirementId: gapReq }));
+      const unknown = await createMapping(requestAs(as("owner"), "POST", { controlId: "no-such-control", coverage: "FULL" }), ctx({ id: fw.id, requirementId: gapReq }));
+      expect(refused.status).toBe(unknown.status);
+      expect(refused.status).toBe(400);
+      expect(await refused.json()).toEqual(await unknown.json());
+      expect(await mappingCount(fw.id)).toBe(before.mappings);
+      expect(await events()).toBe(before.events);
+      const allowed = await createMapping(requestAs(as("cm"), "POST", { controlId: hidden.id, coverage: "PARTIAL" }), ctx({ id: fw.id, requirementId: gapReq }));
+      expect(allowed.status).toBe(201);
+      await prisma.controlMapping.deleteMany({ where: { controlId: hidden.id } });
     });
 
     it("refuses the same user on another Framework and the base owner on the base, writing nothing", async () => {

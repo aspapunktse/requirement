@@ -4,7 +4,7 @@ import { roleLabel } from "@/app/home/role-label";
 import { countVisibleSystemsByFramework } from "@/app/frameworks/frameworks-data";
 import { deriveCoverageState } from "@/lib/coverage-state";
 import { frameworkLabel } from "@/lib/framework-label";
-import { canCurateFramework, canMarkFirstRound, canSeeDraftFrameworks, visibleOrOwnedFrameworksWhere } from "@/lib/frameworks";
+import { canCurateFramework, canMarkFirstRound, mappableControlsWhere, canSeeDraftFrameworks, visibleOrOwnedFrameworksWhere } from "@/lib/frameworks";
 import { canBeControlOwner } from "@/lib/system-permissions";
 import type { CoverageRow, CoverageView } from "./coverage-types";
 
@@ -96,9 +96,7 @@ export async function loadCoverageView(
       });
       const controlRows = canCurate
         ? await tx.control.findMany({
-            where: canAssignOwner
-              ? {}
-              : { OR: [{ originFrameworkId: null }, { originFrameworkId: frameworkId }, { originFramework: { status: "PUBLISHED" } }] },
+            where: mappableControlsWhere(user, frameworkId),
             orderBy: { code: "asc" },
             select: { id: true, code: true, title: true, originFrameworkId: true } })
         : [];

@@ -3,7 +3,7 @@ import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { authorizeFrameworkCuration } from "@/lib/framework-curation";
-import { logMappingChange } from "@/lib/frameworks";
+import { logMappingChange, mappableControlsWhere } from "@/lib/frameworks";
 import { finishRecompute, prepareRecompute, scopeForMappedControls } from "@/lib/applicability-recompute";
 import { frameworkLabel } from "@/lib/framework-label";
 import { clearGapAcceptance } from "@/lib/framework-coverage";
@@ -45,8 +45,9 @@ export async function POST(
     return NextResponse.json({ error: "Requirement not found" }, { status: 404 });
   }
 
-  const control = await prisma.control.findUnique({
-    where: { id: parsed.data.controlId },
+  // A Control the user may not use (another Draft Framework's Supplementary Control) is refused like an unknown one.
+  const control = await prisma.control.findFirst({
+    where: { id: parsed.data.controlId, ...mappableControlsWhere(auth.user, id) },
     select: { id: true, code: true },
   });
   if (!control) {

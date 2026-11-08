@@ -2,7 +2,7 @@ import Link from "next/link";
 import { getActingUser } from "@/lib/acting-user";
 import { prisma } from "@/lib/prisma";
 import { frameworkLabel } from "@/lib/framework-label";
-import { canCurateFramework, canSeeDraftFrameworks, requirementInclude } from "@/lib/frameworks";
+import { canCurateFramework, mappableControlsWhere, requirementInclude } from "@/lib/frameworks";
 import { FrameworkRequirementsEditor } from "@/components/FrameworkRequirementsEditor";
 import { FrameworkReviewGroup } from "@/components/FrameworkReviewGroup";
 import { StatusChip } from "@/components/ui/StatusChip";
@@ -33,9 +33,7 @@ export default async function FrameworkDetailPage({ params }: PageProps<"/admin/
     }),
     prisma.control.findMany({
       // A Framework Owner doesn't see the Supplementary Controls of other Draft Frameworks.
-      where: canSeeDraftFrameworks(user)
-        ? {}
-        : { OR: [{ originFrameworkId: null }, { originFrameworkId: id }, { originFramework: { status: "PUBLISHED" } }] },
+      where: mappableControlsWhere(user, id),
       orderBy: { code: "asc" },
       select: { id: true, code: true, title: true },
     }),

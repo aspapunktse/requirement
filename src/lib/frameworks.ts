@@ -49,6 +49,17 @@ export function canCurateFramework(
 }
 
 /**
+ * Prisma `where` for the Controls a user may map onto a Requirement of `frameworkId` (#320). A Compliance Manager or
+ * an Admin may use any Control. Anyone else (a Framework Owner) may use a Control with no origin Framework, one
+ * authored for this Framework, or one whose origin Framework is Published: never a Supplementary Control of another
+ * Draft Framework, whose existence stays hidden. The one rule behind the mapping picker lists and the mapping route.
+ */
+export function mappableControlsWhere(user: { role: UserRole }, frameworkId: string): Prisma.ControlWhereInput {
+  if (canSeeDraftFrameworks(user)) return {};
+  return { OR: [{ originFrameworkId: null }, { originFrameworkId: frameworkId }, { originFramework: { status: "PUBLISHED" } }] };
+}
+
+/**
  * Who may mark first-round Controls for a Framework (#319): a Compliance Manager or an Admin, or its owner, the base
  * Framework's owner included, unless the owner's role has become strictly read-only (Internal Auditor).
  */
