@@ -7,6 +7,7 @@ import { getVisibleSystems } from "@/lib/system-visibility";
 import { canCreateSystem } from "@/lib/system-permissions";
 import { sensitivityLevelSchema } from "@/lib/sensitivity-level";
 import { logChangeEvent } from "@/lib/change-events";
+import { BSO_UNKNOWN_USER_REFUSAL } from "@/lib/business-system-owner";
 import { applyFrameworkScopeDeclaredIn } from "@/lib/framework-scope";
 import { declareProviderDependencyIn } from "@/lib/provider-dependencies";
 import {
@@ -44,6 +45,8 @@ const createSystemSchema = z.object({
   // Suggested Frameworks the owner answered No to (ADR 0013): each must be one a declared Information Type suggests.
   declinedFrameworkIds: z.array(z.string().min(1)).max(200).optional(),
   providerIds: z.array(z.string().min(1)).max(200).optional(),
+  // The optional Business System Owner picked in the interview (#321): any User but the creator, who becomes the owner.
+  businessSystemOwnerId: z.string().min(1).nullish(),
 });
 
 /** A refusal found inside the create transaction: thrown to roll everything back, then answered as `status`. */
@@ -58,6 +61,7 @@ class CreateRefused extends Error {
 
 const NOT_PUBLISHED_FRAMEWORKS = "Every Framework Scope id must be a Published Framework that is not the base Framework";
 const NOT_SUGGESTED = "Every declined Framework id must be a Framework that one of the System's Information Types suggests, and not in its Framework Scope";
+const BSO_IS_CREATOR = "The Business System Owner can't be you: you become the System's owner";
 const NOT_PROVIDERS = "Every Provider id must be a System that is marked as a Provider";
 
 export async function POST(request: NextRequest) {
@@ -78,7 +82,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { deploymentFacetIds, frameworkScopeIds = [], providerIds = [], informationTypeIds = [], declinedFrameworkIds = [], ...rest } = parsed.data;
+  const { deploymentFacetIds, frameworkScopeIds = [], providerIds = [], informationTypeIds = [], declinedFrameworkIds = [], businessSystemOwnerId = null, ...rest } = parsed.data;
   const scopeIds = [...new Set(frameworkScopeIds)];
   const dependencyIds = [...new Set(providerIds)].sort();
 
@@ -97,6 +101,13 @@ export async function POST(request: NextRequest) {
   try {
     const system = await prisma.$transaction(
       async (tx) => {
+        // The creator becomes the owner, so can't also be the Business System Owner (#321); the User must exist.
+        if (businessSystemOwnerId === auth.user.id) throw new CreateRefused(400, BSO_IS_CREATOR);
+        const businessSystemOwner = businessSystemOwnerId
+          ? await tx.user.findUnique({ where: { id: businessSystemOwnerId }, select: { id: true, name: true } })
+          : null;
+        if (businessSystemOwnerId && !businessSystemOwner) throw new CreateRefused(400, BSO_UNKNOWN_USER_REFUSAL);
+
         const frameworks = await tx.framework.findMany({
           where: { id: { in: scopeIds }, status: "PUBLISHED", isBase: false },
           select: { id: true, name: true, version: true },
@@ -127,12 +138,29 @@ export async function POST(request: NextRequest) {
           data: {
             ...rest,
             ownerId: auth.user.id,
+            ...(businessSystemOwner && { businessSystemOwnerId: businessSystemOwner.id }),
             deploymentFacets: { connect: deploymentFacetIds.map((id) => ({ id })) },
             ...(types.length > 0 && { informationTypes: { connect: types.map((type) => ({ id: type.id })) } }),
           },
           include: { deploymentFacets: true, owner: true },
         });
-        await logChangeEvent(created.id, "SYSTEM_CREATED", `Created the System "${created.name}"`, auth.user.id, tx);
+        await logChangeEvent(
+          created.id,
+          "SYSTEM_CREATED",
+          `Created the System "${created.name}"`,
+          auth.user.id,
+          tx,
+        );
+        // A Business System Owner picked in the interview is its own event (old none, new the pick), in the same transaction.
+        if (businessSystemOwner) {
+          await logChangeEvent(
+            created.id,
+            "BUSINESS_SYSTEM_OWNER_CHANGED",
+            `Business System Owner changed from none to ${businessSystemOwner.name}`,
+            auth.user.id,
+            tx,
+          );
+        }
         if (types.length > 0) await logChangeEvent(created.id, "CLASSIFICATION_CHANGED", describeTypesChange([], types), auth.user.id, tx);
 
         // Framework Scope in the order asked for, each declaration seeing the ones before it.

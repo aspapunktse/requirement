@@ -26,7 +26,8 @@ export function canWriteSystems(user: { role: UserRole }) {
  * Systems' Risks/compliance data via the Business Risk Owner dashboard, so
  * drilling into a System's own page from there (e.g. the System Portfolio,
  * see #62) shouldn't 404; everyone else sees Systems they own (any status)
- * plus every ONBOARDED System. A member of a Review Group additionally sees every
+ * plus every ONBOARDED System. The System's Business System Owner (#321, PRD 0002 F-BSO.3) sees
+ * it too, in any status, whatever their role: visibility only, it gives no write rights. A member of a Review Group additionally sees every
  * System, in any status, that has one of their groups' Frameworks in its declared
  * Framework Scope (`reviewGroupScopeWhere`, #201).
  */
@@ -38,7 +39,11 @@ export async function visibleSystemsWhere(
   if (FULL_VISIBILITY_ROLES.includes(user.role)) {
     return {};
   }
-  const ownedOrOnboarded: Prisma.SystemWhereInput[] = [{ ownerId: user.id }, { status: "ONBOARDED" }];
+  const ownedOrOnboarded: Prisma.SystemWhereInput[] = [
+    { ownerId: user.id },
+    { businessSystemOwnerId: user.id },
+    { status: "ONBOARDED" },
+  ];
   const throughReviewGroup = await reviewGroupScopeWhere(user.id, db);
   if (throughReviewGroup) ownedOrOnboarded.push(throughReviewGroup);
   if (user.role === "BUSINESS_RISK_OWNER") {

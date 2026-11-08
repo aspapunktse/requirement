@@ -47,6 +47,8 @@ const view = (over: Partial<SystemPageView> = {}): SystemPageView => ({
     isProvider: false,
     ownerId: "u-me",
     ownerName: "Marcus Lindqvist",
+    businessSystemOwnerId: null,
+    businessSystemOwnerName: null,
     facets: [{ id: "f1", name: "SaaS" }],
     sensitivityLevel: 4,
     sensitivityLabel: "Highly Sensitive",
@@ -63,6 +65,7 @@ const view = (over: Partial<SystemPageView> = {}): SystemPageView => ({
   note: "Not submitted yet · Marcus Lindqvist is still assembling the System",
   nextStep: { kind: "submit", blockedBy: 0 },
   canChangeOwner: true,
+  canChangeBusinessSystemOwner: true,
   headline: { baseFramework: "ISO/IEC 27001:2022", met: 5, applicable: 8, controlsDone: 6, controlsTotal: 9, openRisks: 2 },
   frameworks: [
     { id: "fw-iso", label: "ISO/IEC 27001:2022", isBase: true, met: 5, partial: 2, notMet: 1, notApplicable: 3, applicable: 8 },
@@ -269,6 +272,48 @@ describe("header (#243)", () => {
 
     renderCockpit({ canChangeOwner: false });
     expect(screen.queryByRole("button", { name: "More actions" })).not.toBeInTheDocument();
+  });
+
+  it("shows the Business System Owner, or Not set, beside the owner", () => {
+    const { unmount } = renderCockpit();
+    expect(screen.getByTestId("business-system-owner")).toHaveTextContent("Business System Owner Not set");
+    unmount();
+
+    renderCockpit({ system: { ...view().system, businessSystemOwnerId: "u-bso", businessSystemOwnerName: "Bea Business" } });
+    expect(screen.getByTestId("business-system-owner")).toHaveTextContent("Business System Owner Bea Business");
+  });
+
+  it("offers Change on the Business System Owner to whoever may change it, and saves the pick", async () => {
+    const calls: [string, RequestInit | undefined][] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: string | URL | Request, init?: RequestInit) => {
+        calls.push([String(input), init]);
+        return String(input).includes("bso-candidates")
+          ? json({
+              users: [
+                { id: "u-me", name: "Marcus Lindqvist", email: "m@example.com", role: "SYSTEM_OWNER" },
+                { id: "u-bso", name: "Bea Business", email: "b@example.com", role: "VIEWER" },
+              ],
+            })
+          : json({ changed: true, businessSystemOwner: { id: "u-bso", name: "Bea Business" } });
+      }),
+    );
+    const { unmount } = renderCockpit();
+    await userEvent.click(screen.getByRole("button", { name: "Change Business System Owner" }));
+    const picker = await screen.findByRole("combobox", { name: "Business System Owner" });
+    // The System's owner can't be picked.
+    expect(within(picker).queryByRole("option", { name: /Marcus Lindqvist/ })).not.toBeInTheDocument();
+    await userEvent.selectOptions(picker, "u-bso");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+    const put = calls.find(([url]) => url === "/api/systems/s1/business-system-owner")!;
+    expect(put[1]?.method).toBe("PUT");
+    expect(JSON.parse(String(put[1]?.body))).toEqual({ businessSystemOwnerId: "u-bso" });
+    unmount();
+
+    renderCockpit({ canChangeBusinessSystemOwner: false });
+    expect(screen.queryByRole("button", { name: "Change Business System Owner" })).not.toBeInTheDocument();
   });
 
   it("goes to the Systems list after a non-Admin hands the System away", async () => {

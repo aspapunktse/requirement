@@ -12,7 +12,7 @@ import { loadAttribution } from "@/lib/change-event-attribution";
 import { readCurrentSteps } from "@/lib/review-steps";
 import { SYSTEM_ACTOR } from "@/lib/change-events";
 import { CHANGE_EVENT_ACTION_LABEL, CHANGE_EVENT_ACTION_TONE } from "@/lib/change-event-labels";
-import { canChangeOwner, canSubmit } from "@/lib/system-permissions";
+import { canChangeBusinessSystemOwner, canChangeOwner, canSubmit } from "@/lib/system-permissions";
 import { canMarkOnboarded } from "@/lib/onboarding";
 import { informationTypeFloor, isBelowInformationTypes } from "@/lib/information-type-floor";
 import { frameworkLabel } from "@/lib/framework-label";
@@ -42,6 +42,8 @@ const SYSTEM_INCLUDE = {
   // Declared Framework Scope rows, ids only: applicability needs them (ADR 0007).
   frameworkScopes: { select: { id: true } },
   owner: true,
+  // The Business System Owner (#321), shown beside the owner.
+  businessSystemOwner: { select: { id: true, name: true } },
   sensitivity: { select: { label: true } },
   businessUnits: { select: { id: true, name: true }, orderBy: { name: "asc" } },
   // The declared Information Types with their current levels: the floor of the Sensitivity Level (ADR 0012).
@@ -206,6 +208,8 @@ export async function loadSystemPage(user: User, id: string, now = new Date()): 
           isProvider: system.isProvider,
           ownerId: system.ownerId,
           ownerName: system.owner.name,
+          businessSystemOwnerId: system.businessSystemOwner?.id ?? null,
+          businessSystemOwnerName: system.businessSystemOwner?.name ?? null,
           facets: [...system.deploymentFacets].sort((a, b) => a.name.localeCompare(b.name)).map((facet) => ({ id: facet.id, name: facet.name })),
           sensitivityLevel: system.sensitivityLevel,
           sensitivityLabel: system.sensitivity?.label ?? null,
@@ -246,6 +250,7 @@ export async function loadSystemPage(user: User, id: string, now = new Date()): 
           belowInformationTypes: isBelowInformationTypes(system.sensitivityLevel, system.informationTypes),
         }),
         canChangeOwner: canChangeOwner(user, system),
+        canChangeBusinessSystemOwner: canChangeBusinessSystemOwner(user, system),
         headline: {
           baseFramework: base?.label ?? null,
           met: base?.met ?? 0,

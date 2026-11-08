@@ -95,6 +95,8 @@ model User {
   statSnapshots                      StatSnapshot[]
   appSettingsChanged                 AppSetting[]                        @relation("AppSettingUpdatedBy")
   ownedSystems                       System[]                            @relation("SystemOwner")
+  // Systems this User is the Business System Owner of (#321). Deleting the User leaves them without one.
+  businessOwnedSystems               System[]                            @relation("SystemBusinessOwner")
   assessments                        ControlAssessment[]                 @relation("AssessedBy")
   riskActions                        Risk[]                              @relation("RiskOwner")
   approvals                          Approval[]
@@ -200,6 +202,10 @@ model System {
   sensitivity                 SensitivityLevel?            @relation("SystemSensitivityLevel", fields: [sensitivityLevel], references: [level], onDelete: Restrict)
   ownerId                     String
   owner                       User                         @relation("SystemOwner", fields: [ownerId], references: [id])
+  // The Business System Owner (PRD 0002 F-BSO, ADR 0014, #321): the person who will decide the System's evaluation gates.
+  // Optional for now; any User, whatever their role, but never the System's owner. Deleting the User leaves the System without one.
+  businessSystemOwnerId       String?
+  businessSystemOwner         User?                        @relation("SystemBusinessOwner", fields: [businessSystemOwnerId], references: [id], onDelete: SetNull)
   // One or more deployment facets this System spans (e.g. On-Prem, Cloud) —
   // a Hybrid System is simply one that declares more than one. See ADR 0003.
   deploymentFacets            DeploymentFacet[]
@@ -242,6 +248,8 @@ model System {
   // Curated log of System-lifecycle-relevant mutations, feeding the landing
   // page's "Recent updates" feed. See #58.
   changeEvents         ChangeEvent[]
+
+  @@index([businessSystemOwnerId])
 }
 
 // An admin-curated deployment classification (e.g. On-Premises Datacenter,
@@ -845,6 +853,10 @@ enum ChangeEventAction {
   RISK_LOGGED
   // A System's name, vendor or description was edited (#246): the detail has each changed field's old and new value.
   SYSTEM_DETAILS_CHANGED
+  // The System's owner or an Admin set, changed or cleared the System's Business System Owner (#321). System-scoped,
+  // actor the User who changed it; the detail names the previous and the new Business System Owner. Picking one at
+  // creation writes one too (old none, new the pick), but saving the value it already has writes none.
+  BUSINESS_SYSTEM_OWNER_CHANGED
 }
 
 // A curated, System-lifecycle-relevant mutation record — feeds the landing

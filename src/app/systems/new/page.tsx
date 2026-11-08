@@ -25,5 +25,5 @@ export default async function NewSystemPage() {
     return <Refusal>Only a System Owner, Risk Owner or Admin can create a System.</Refusal>;
   }
 
-  return <OnboardingInterview />;
+  return <OnboardingInterview userId={user.id} />;
 }

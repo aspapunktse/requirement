@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { CiaBars } from "@/app/systems/CiaBars";
 import { SensitivityChip } from "@/components/SensitivityChip";
+import { BusinessSystemOwnerPicker } from "@/components/BusinessSystemOwnerPicker";
 import { FloorOffer, InformationTypeChecklist } from "@/components/InformationTypeDeclaration";
 import { floorCulprit, informationTypeFloor, type FloorType } from "@/lib/information-type-floor";
 import {
@@ -149,7 +150,7 @@ function plural(count: number, one: string, many: string) {
  * `src/lib/onboarding-interview.ts`, run in the browser on the one catalog the page reads, so each option's
  * effect needs no request. "Create System" makes the Draft System with all its answers in one request.
  */
-export function OnboardingInterview() {
+export function OnboardingInterview({ userId }: { /** The acting user, who becomes the owner and so can't be picked as Business System Owner. */ userId?: string } = {}) {
   const router = useRouter();
   const [catalog, setCatalog] = useState<OnboardingCatalog | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -158,6 +159,7 @@ export function OnboardingInterview() {
   const [name, setName] = useState("");
   const [vendor, setVendor] = useState("");
   const [description, setDescription] = useState("");
+  const [businessSystemOwnerId, setBusinessSystemOwnerId] = useState("");
   const [step, setStep] = useState(0);
   const [furthest, setFurthest] = useState(0);
   const [note, setNote] = useState<Note>(null);
@@ -284,6 +286,7 @@ export function OnboardingInterview() {
           frameworkScopeIds: answers.frameworkScopeIds,
           declinedFrameworkIds: declinedToSend(data, answers).length > 0 ? declinedToSend(data, answers) : undefined,
           providerIds: answers.providerIds,
+          businessSystemOwnerId: businessSystemOwnerId || undefined,
         }),
       });
       const body = await response.json().catch(() => null);
@@ -665,6 +668,8 @@ export function OnboardingInterview() {
             Description (optional)
             <textarea className="ob-input" rows={3} value={description} onChange={(event) => setDescription(event.target.value)} />
           </label>
+          <BusinessSystemOwnerPicker value={businessSystemOwnerId} onChange={setBusinessSystemOwnerId} excludeUserId={userId} />
+          <p className="ob-fine">The person who will decide this System&apos;s evaluation gates. You become its owner, so you can&apos;t be it. Optional for now; you or an Admin can set it later.</p>
         </div>
         <p className="ob-sentence">
           {plural(current.counts.applicable, "Control applies", "Controls apply")}. <strong>{yours}</strong> need work from you; the rest are shared or

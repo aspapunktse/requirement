@@ -14,7 +14,7 @@ describe("visibleSystemsWhere", () => {
     "restricts %s to owned Systems plus ONBOARDED ones",
     async (role) => {
       expect(await visibleSystemsWhere({ id: "u1", role })).toEqual({
-        OR: [{ ownerId: "u1" }, { status: "ONBOARDED" }],
+        OR: [{ ownerId: "u1" }, { businessSystemOwnerId: "u1" }, { status: "ONBOARDED" }],
       });
     },
   );
@@ -52,6 +52,7 @@ describe("visibleSystemsWhere", () => {
       expect(where).toEqual({
         OR: [
           { ownerId: userId },
+          { businessSystemOwnerId: userId },
           { status: "ONBOARDED" },
           { OR: [{ businessUnits: { some: { id: { in: [businessUnitId] } } } }] },
         ],
@@ -69,7 +70,7 @@ describe("visibleSystemsWhere", () => {
       try {
         const where = await visibleSystemsWhere({ id: unassigned.id, role: "BUSINESS_RISK_OWNER" });
         expect(where).toEqual({
-          OR: [{ ownerId: unassigned.id }, { status: "ONBOARDED" }, { id: { in: [] } }],
+          OR: [{ ownerId: unassigned.id }, { businessSystemOwnerId: unassigned.id }, { status: "ONBOARDED" }, { id: { in: [] } }],
         });
       } finally {
         await prisma.user.deleteMany({ where: { id: unassigned.id } });
