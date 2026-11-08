@@ -3,6 +3,35 @@
 // `id` is the vote key: keep it stable once people have voted, or the votes are orphaned.
 window.DESIGN_PARTS = [
   {
+    id: "evaluation",
+    name: "Staged evaluation",
+    added: "2026-11-08",
+    question: "How does the System page show a staged evaluation: the Track and stage, the OG1 verdicts, the Advisory Group's Recommendations, the Business System Owner's decision with the Risk summary, and the Risk Analysis record?",
+    proposals: [
+      {
+        id: "evaluation-a",
+        label: "A",
+        title: "Stepper",
+        href: "/design/evaluation/proposal-a.html",
+        summary: "The Cockpit's lifecycle stepper becomes the whole evaluation: one row of stages in the hero (gates are diamonds) that you click to read a stage in the card below, with the decision panel inside the card at a gate, both Tracks in a strip, and What is left, Risk summary and decision history beside it.",
+      },
+      {
+        id: "evaluation-b",
+        label: "B",
+        title: "Journey",
+        href: "/design/evaluation/proposal-b.html",
+        summary: "A vertical rail read top to bottom: done stages fold to one line with their outcome, the current stage is open, later ones say what they need. A sticky panel beside the rail holds the BSO's decision (Recommendations, Risk summary, choices) at a gate, or what is left and who it waits on at any other stage.",
+      },
+      {
+        id: "evaluation-c",
+        label: "C",
+        title: "Gate board",
+        href: "/design/evaluation/proposal-c.html",
+        summary: "Organised around the gates: Self and Full swimlanes share the OG1 column, each gate shows the work leading up to it and its outcome, the System sits in its own lane, and a gate opens in a drawer with its verdicts or Recommendations and the decision panel. A ledger lists every decision with the justification beside advice the BSO went against.",
+      },
+    ],
+  },
+  {
     id: "control-page",
     name: "Control page",
     added: "2026-11-05",
