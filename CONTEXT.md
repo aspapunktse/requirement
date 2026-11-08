@@ -124,6 +124,44 @@ The principle that a System's Control Assessments stay live after onboarding. A 
 **Compliance Percentage**:
 Always for one Framework: the proportion of that Framework's applicable Requirements that are Met, where applicable means every derived status except Not Applicable, and Partially Met counts as not Met. For a given scope (a Business Unit, a Framework, or both combined) it is pooled across every System in that scope that has the Framework in its effective scope (total Met ÷ total applicable, not an average of each System's own percentage), so a System with more applicable Requirements weighs more. A System's own percentage is also shown standalone (on the System page per Framework, and on the Business Risk Owner's portfolio cards). Null, shown as "—", when nothing is applicable. With no Framework filter the headline figure is the **base Framework's**, and the UI says so. A Framework with `strictComplianceRequired` set treats Waived/Not Applicable Control Assessments as not Fulfilled when deriving Met. Requirements satisfied only by Organizational Controls are counted on every System that has the Framework in scope (#122; for ISO/IEC 27001 that is the 61 clauses and Annex A Requirements mapped only to Organizational Controls), so the percentage stays low until the Organization records its implementations. *(Glossary change flagged for the product owner: the "until M3 / aren't counted yet" wording and the UI note are gone, #122.)* "Systems in scope of a Framework" means every System for the base Framework (always in scope), and the Systems with a stored Framework Scope row for any other.
 
+### Evaluation (being designed, 2026-11-08)
+
+*These terms come from the product owner's evaluation flowchart and are still being settled. Where they contradict the entries below (Review Step, Review Round, Onboarding Lifecycle, Approval), these are the direction and the entries below describe what runs today. See [ADR 0014](docs/adr/0014-staged-evaluation-oag-recommends-bso-decides.md) and [PRD 0002](docs/prd/0002-staged-evaluation.md).*
+
+**Business System Owner (BSO)**:
+The person accountable, on the business side, for one System, who decides its evaluation gates (whether to proceed and whether it may operate). Assigned per System, to any User whatever their role, like Control Owner. Not the same as the **System's owner**, who fills in the System's Assessments.
+_Avoid_: System Owner (that's the role, and the System's owner is the `ownerId` person), Business Risk Owner (a read-only portfolio role)
+
+**Requirement Round**:
+One pass of a System's Control Assessments during evaluation. Each Control belongs to the **first round** (the vendor-evaluation questions, answered before the track is chosen) or the **second round** (internal fulfilment, answered later). A stakeholder group's part of a round is the Controls in its remit.
+
+**Onboarding Advisory Group (OAG)**:
+The stakeholder groups with a remit on a System, each of which gives a **Recommendation** on its part (not a decision) for the BSO to decide on: **Recommend**, **Recommend with conditions** or **Advise against**, always with a comment (a condition is free text, not followed up). Like a Review Step, a group's verdict or Recommendation is derived live from the System's scope, reopened by an owner edit in its remit, and shown as the group's, not the person's. The Self track has no Recommendations; OAG groups and Reviewers can still raise Assessment Queries. Made up of the System's Review Groups plus the base review, so which groups take part depends on what applies to the System.
+
+**Risk Analysis**:
+A meeting of the System's stakeholders that gathers its Risks (the open ones already logged and new ones raised there) and decides a Risk owner for each (any User, whatever their role), recorded in the app by a Risk Owner or an Admin who isn't the System's owner: date, participants (Users and named outsiders such as the vendor), notes, Risks reviewed and raised. It is done only when every open Risk on the System has a Risk owner. Open Risks never block a gate; the BSO sees them summarised by severity and Risk Source. Today those Risks come from requirement non-conformance; later they will also cover risks that aren't tied to a Requirement (see **Risk Source**).
+
+**Documentation**:
+What a System must provide besides answering its Controls: System-level documents (such as an architecture description) and evidence on its Control Assessments. The System-level ones come from a catalogue of **Document Requirements** the Compliance Manager curates; each says at which stage and on which tracks it is needed, and a stage can't be passed until every one that applies is provided.
+
+**Track**:
+The way a System is evaluated, chosen at OG1: **Self** (self-assessment: second round, Risk Analysis, then OG3) or **Full** (Qualification, First documentation, OAG review, OG2, second round, Risk Analysis, OAG review, then OG3). Every System starts with the first round and its Risk Analysis. The System's owner submits each round and documentation stage (every mandatory first-round Control needs an Assessment before OG1, every mandatory Control before the second round ends); the Risk Analysis's recorder completes it, and a gate moves on when its deciders decide. Systems already in evaluation when this ships stay on today's flow until the IATO track exists.
+
+**Onboarding Gate (OG)**:
+A decision point in evaluation. **OG1** picks the Track: each OAG group with first-round Controls in its remit gives a verdict on its part, Self or Full, and any Full means Full. **Qualification** (Full track only) is the BSO's check that the System is worth a full evaluation. **OG2** is the BSO's decision to proceed and **OG3** the BSO's decision to operate, each taken after the OAG's Recommendations (Full track). The BSO may decide against an Advise-against Recommendation, with a written justification. At Qualification, OG2 and OG3 the BSO can **Reject** (final: the System is closed and kept read-only) or **Send back** to an earlier stage.
+
+**Authorized to operate (ATO)**:
+The outcome of OG3 when the BSO lets the System operate. Distinct from **Onboarded**, which still means the cutover into operations has happened (see [ADR 0001](docs/adr/0001-separate-approved-and-onboarded-states.md)). An ATO doesn't expire; it is kept current by Continuous Compliance and Change Reviews, and later by **continuous ATO (cATO)**: Internal Audits, Check-ups and some answers re-provided on a cadence (not built yet).
+
+**Interim ATO (IATO)**:
+A time-limited authorization to operate for a System that was already in evaluation when staged evaluation shipped, granted through a track of its own. Not built yet.
+
+**Change Review**:
+A review of a System already in operations when a change brings new requirements to it (for example adding an export control Framework): only the OAG groups whose remit changed give Recommendations, and the BSO decides.
+
+**Risk Source**:
+Where a Risk came from: requirement non-conformance (a "No" Self-Assessment answer), an audit finding (a Nonconformity), or ad hoc. A Risk Analysis groups Risks by it; other kinds of risk will be added as new sources.
+
 ### Risk, approval, and people
 
 **Risk**:
