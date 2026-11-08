@@ -41,11 +41,20 @@ export function RiskRegister({
   initialFilters: Filters;
 }) {
   const router = useRouter();
-  const [filters, setFilters] = useState<Filters>({
+  const fromUrl: Filters = {
     source: known(initialFilters.source, RISK_SOURCES),
     status: known(initialFilters.status, STATUSES),
     severity: known(initialFilters.severity, SEVERITIES),
-  });
+  };
+  const [filters, setFilters] = useState<Filters>(fromUrl);
+  // The URL is the source of truth: when a navigation brings other filters (the header's Risks link drops
+  // them all), follow it. Reset during render, not in an effect, so the table never shows the old filters.
+  const urlKey = `${fromUrl.source}|${fromUrl.status}|${fromUrl.severity}`;
+  const [seenUrlKey, setSeenUrlKey] = useState(urlKey);
+  if (urlKey !== seenUrlKey) {
+    setSeenUrlKey(urlKey);
+    setFilters(fromUrl);
+  }
 
   function update(next: Partial<Filters>) {
     const merged = { ...filters, ...next };

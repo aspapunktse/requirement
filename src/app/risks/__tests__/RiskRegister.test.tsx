@@ -83,6 +83,23 @@ describe("the Risk register (#322)", () => {
     expect(screen.getByLabelText("Filter by status")).toHaveValue("");
   });
 
+  it("follows the URL when a navigation changes its filters, such as the header's Risks link dropping them", async () => {
+    const user = userEvent.setup();
+    const { rerender } = renderRegister({ initialFilters: { source: "AUDIT_FINDING", status: "", severity: "" } });
+    await user.selectOptions(screen.getByLabelText("Filter by severity"), "MEDIUM");
+    expect(titles()).toEqual(["Audit gap"]);
+
+    // Navigating to plain /risks: the page hands the component empty filters, and the table follows.
+    rerender(<RiskRegister rows={ROWS} canReadOrganizationRisks initialFilters={{ source: "", status: "", severity: "" }} />);
+    expect(titles()).toHaveLength(3);
+    expect(screen.getByLabelText("Filter by Risk Source")).toHaveValue("");
+    expect(screen.getByLabelText("Filter by severity")).toHaveValue("");
+
+    // A linked view with other filters is followed too.
+    rerender(<RiskRegister rows={ROWS} canReadOrganizationRisks initialFilters={{ source: "", status: "MITIGATED", severity: "" }} />);
+    expect(titles()).toEqual(["Unpatched server"]);
+  });
+
   it("counts open Risks by source on cards that filter", async () => {
     const user = userEvent.setup();
     renderRegister();
