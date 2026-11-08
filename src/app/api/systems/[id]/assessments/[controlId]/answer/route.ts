@@ -147,6 +147,7 @@ export async function PATCH(
             severity: "MEDIUM",
             likelihood: "MEDIUM",
             controlAssessmentId: saved.id,
+            source: "REQUIREMENT_NONCONFORMANCE",
           },
         });
         await logAutoOpenedRisk(db, {

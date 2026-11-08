@@ -214,6 +214,7 @@ async function main() {
   });
   await prisma.risk.create({
     data: {
+      source: "AD_HOC",
       systemId: jira.id,
       title: "Third-party marketplace apps not centrally reviewed",
       description: "Team-installed Jira/Confluence marketplace apps can request broad OAuth scopes.",
@@ -225,6 +226,7 @@ async function main() {
   });
   await prisma.risk.create({
     data: {
+      source: "AD_HOC",
       systemId: jira.id,
       title: "Guest access left enabled on a project",
       description: "An external-guest project was found with anonymous issue viewing enabled.",
@@ -259,6 +261,7 @@ async function main() {
   });
   await prisma.risk.create({
     data: {
+      source: "AD_HOC",
       systemId: confluence.id,
       title: "Personal data occasionally pasted into meeting-notes pages",
       description: "Spot-check found employee PII pasted into unrestricted spaces.",
@@ -295,6 +298,7 @@ async function main() {
   });
   await prisma.risk.create({
     data: {
+      source: "AD_HOC",
       systemId: m365.id,
       title: "Legacy mail-protocol basic auth still permitted for two service accounts",
       description: "IMAP/SMTP basic auth exceptions predate the Conditional Access rollout.",
@@ -306,6 +310,7 @@ async function main() {
   });
   await prisma.risk.create({
     data: {
+      source: "AD_HOC",
       systemId: m365.id,
       title: "Phishing-simulation click rate above target",
       description: "Quarterly phishing simulation click-through rate exceeded the 5% target.",
@@ -342,6 +347,7 @@ async function main() {
   await fulfillMost({ id: openText.id, ...openTextClass });
   await prisma.risk.create({
     data: {
+      source: "AD_HOC",
       systemId: openText.id,
       title: "Records-retention schedule not yet enforced automatically",
       description: "Legal hold and retention rules are currently applied manually by records staff.",
@@ -452,6 +458,7 @@ async function main() {
   });
   await prisma.risk.create({
     data: {
+      source: "REQUIREMENT_NONCONFORMANCE",
       systemId: workday.id,
       title: "Compensation data not masked in the sandbox/reporting tenant",
       description: "Non-production reporting tenant currently mirrors production compensation fields unmasked.",
@@ -507,6 +514,7 @@ async function main() {
   });
   await prisma.risk.create({
     data: {
+      source: "AD_HOC",
       systemId: github.id,
       title: "A handful of repos still allow direct pushes to main",
       description: "Branch-protection rollout is not yet 100% across all repositories.",
@@ -550,6 +558,7 @@ async function main() {
   });
   await prisma.risk.create({
     data: {
+      source: "AD_HOC",
       systemId: entra.id,
       title: "Privileged Identity Management review overdue for two roles",
       description: "Quarterly access review for Global Administrator and Exchange Administrator is overdue.",

@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { riskStatusTone } from "@/lib/status-tones";
+import { RISK_SOURCE_LABELS, type RiskSourceValue } from "@/lib/risk-source";
 
 type RiskStatus = "OPEN" | "MITIGATED" | "ACCEPTED" | "TRANSFERRED" | "CLOSED";
 type RiskSeverity = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
@@ -16,6 +17,8 @@ export type Risk = {
   severity: RiskSeverity;
   likelihood: RiskSeverity;
   status: RiskStatus;
+  /** Where the Risk came from (#322). */
+  source: RiskSourceValue;
   mitigationPlan: string | null;
   ownerId?: string | null;
   owner?: { id: string; name: string } | null;
@@ -95,6 +98,7 @@ export function RiskRow({
       <p className="text-xs text-rg-muted">
         Severity: {risk.severity} · Likelihood: {risk.likelihood}
       </p>
+      <p className="text-xs text-rg-muted">Source: {RISK_SOURCE_LABELS[risk.source]}</p>
       {risk.controlAssessment && (
         <p className="text-xs text-rg-muted">
           Originated from {risk.controlAssessment.control.code} —{" "}

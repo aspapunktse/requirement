@@ -21,6 +21,7 @@ const risk = (over: Partial<Risk> & { id: string; title: string }): Risk => ({
   severity: "MEDIUM",
   likelihood: "LOW",
   status: "OPEN",
+  source: "AD_HOC",
   mitigationPlan: null,
   owner: null,
   controlAssessment: null,
@@ -31,7 +32,7 @@ const risk = (over: Partial<Risk> & { id: string; title: string }): Risk => ({
 const RISKS: Risk[] = [
   risk({ id: "r1", title: "Weak passwords", severity: "CRITICAL", likelihood: "HIGH", owner: { id: "u1", name: "Elena Voss" } }),
   risk({ id: "r2", title: "Unpatched server", severity: "HIGH", likelihood: "MEDIUM", status: "MITIGATED", mitigationPlan: "Patch monthly" }),
-  risk({ id: "r3", title: "From a finding", checkUp: { id: "cu1" }, controlAssessment: { id: "a1", control: { id: "c1", code: "A.5.1", title: "Policies" } } }),
+  risk({ id: "r3", title: "From a finding", checkUp: { id: "cu1" }, source: "AUDIT_FINDING", controlAssessment: { id: "a1", control: { id: "c1", code: "A.5.1", title: "Policies" } } }),
 ];
 
 let fetchMock: ReturnType<typeof vi.fn>;
@@ -57,12 +58,13 @@ describe("the Risk register", () => {
     renderRisks();
     expect(screen.getByRole("status")).toHaveTextContent("Loading Risks");
     const table = within(await screen.findByRole("table"));
-    expect(table.getAllByRole("columnheader").map((header) => header.textContent)).toEqual(["Risk", "Severity", "Likelihood", "Status", "Owner"]);
+    expect(table.getAllByRole("columnheader").map((header) => header.textContent)).toEqual(["Risk", "Severity", "Likelihood", "Status", "Owner", "Source"]);
     const row = within(table.getByRole("button", { name: /Weak passwords/ }).closest("tr")!);
     expect(row.getByText("Critical")).toBeInTheDocument();
     expect(row.getByText("High")).toBeInTheDocument();
     expect(row.getByText("Open")).toBeInTheDocument();
     expect(row.getByText("Elena Voss")).toBeInTheDocument();
+    expect(row.getByText("Ad hoc")).toBeInTheDocument();
     expect(within(table.getByRole("button", { name: /Unpatched server/ }).closest("tr")!).getByText("Unassigned")).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith("/api/systems/s1/risks");
   });
@@ -71,7 +73,7 @@ describe("the Risk register", () => {
     renderRisks();
     const table = await screen.findByRole("table");
     const hidden = within(table).getAllByRole("columnheader").filter((header) => header.className.includes("hide-sm")).map((header) => header.textContent);
-    expect(hidden).toEqual(["Likelihood", "Owner"]);
+    expect(hidden).toEqual(["Likelihood", "Owner", "Source"]);
   });
 
   it("draws the grid of open Risks only", async () => {
@@ -80,6 +82,46 @@ describe("the Risk register", () => {
     expect(await screen.findByRole("img", { name: "Open Risks by severity and likelihood: 2 open" })).toBeInTheDocument();
     expect(screen.getByTitle("Critical severity, high likelihood: 1")).toHaveTextContent("1");
     expect(screen.getByTitle("High severity, medium likelihood: 0")).toHaveTextContent("");
+  });
+
+  it("shows each Risk's source and filters the register by it (#322)", async () => {
+    const user = userEvent.setup();
+    renderRisks();
+    const table = within(await screen.findByRole("table"));
+    expect(within(table.getByRole("button", { name: /From a finding/ }).closest("tr")!).getByText("Audit finding")).toBeInTheDocument();
+
+    const filter = screen.getByLabelText("Filter by Risk Source");
+    expect(within(filter).getAllByRole("option").map((option) => option.textContent)).toEqual(["All sources", "Requirement non-conformance", "Audit finding", "Ad hoc"]);
+
+    await user.selectOptions(filter, "AUDIT_FINDING");
+    expect(screen.queryByRole("button", { name: /Weak passwords/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /From a finding/ })).toBeInTheDocument();
+
+    await user.selectOptions(filter, "REQUIREMENT_NONCONFORMANCE");
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    expect(screen.getByText("No Risks from this source.")).toBeInTheDocument();
+
+    await user.selectOptions(filter, "");
+    expect(screen.getAllByRole("button", { name: /Weak passwords|Unpatched server|From a finding/ })).toHaveLength(3);
+  });
+
+  it("offers every User as a Risk's owner to those who manage Risks and sends the choice (#322)", async () => {
+    const user = userEvent.setup();
+    renderRisks({ owners: [{ id: "u9", name: "Vera Viewer" }] });
+    await user.click(await screen.findByRole("button", { name: /Unpatched server/ }));
+    fetchMock.mockImplementation(() => respond({ risk: { ...RISKS[1], ownerId: "u9", owner: { id: "u9", name: "Vera Viewer" } } }));
+
+    await user.selectOptions(screen.getByLabelText("Owner for Unpatched server"), "u9");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/systems/s1/risks/r2", expect.objectContaining({ method: "PATCH", body: JSON.stringify({ status: "MITIGATED", mitigationPlan: "Patch monthly", ownerId: "u9" }) }));
+  });
+
+  it("offers no owner choice without owners", async () => {
+    const user = userEvent.setup();
+    renderRisks();
+    await user.click(await screen.findByRole("button", { name: /Unpatched server/ }));
+    expect(screen.queryByLabelText("Owner for Unpatched server")).not.toBeInTheDocument();
   });
 
   it("says so when no Risk is logged", async () => {

@@ -11,6 +11,7 @@ const risk: Risk = {
   severity: "MEDIUM",
   likelihood: "MEDIUM",
   status: "OPEN",
+  source: "AD_HOC",
   mitigationPlan: null,
   ownerId: null,
   owner: null,
@@ -46,6 +47,11 @@ describe("OrganizationRiskList (#157)", () => {
     expect(init.method).toBe("PATCH");
     expect(JSON.parse(init.body as string)).toEqual({ status: "MITIGATED", mitigationPlan: "Rewrite", ownerId: "u1" });
     expect(await screen.findByText("Owner: Rita Risk")).toBeInTheDocument();
+  });
+
+  it("shows the Risk Source (#322)", () => {
+    render(<OrganizationRiskList initialRisks={[{ ...risk, source: "AUDIT_FINDING" }]} canManage={false} canOpenCheckUp={false} owners={owners} />);
+    expect(screen.getByText("Source: Audit finding")).toBeInTheDocument();
   });
 
   it("is read-only without canManage, and links the finding only to those who may open it", () => {

@@ -94,6 +94,13 @@ describe("Risks with no System (#157)", () => {
       await prisma.changeEvent.deleteMany({ where: { actorId: s.roleUser[role], action: "RISK_STATUS_CHANGED", systemId: null } });
     });
 
+    it.each<UserRole>(["SYSTEM_OWNER", "VIEWER", "INTERNAL_AUDITOR", "BUSINESS_RISK_OWNER"])("accepts a %s as the owner: a Risk owner can be any User (#322)", async (ownerRole) => {
+      const response = await manage(s.roleUser.RISK_OWNER, organizationRiskId, { status: "OPEN", ownerId: s.roleUser[ownerRole] });
+      expect(response.status).toBe(200);
+      expect((await prisma.risk.findUniqueOrThrow({ where: { id: organizationRiskId } })).ownerId).toBe(s.roleUser[ownerRole]);
+      await manage(s.roleUser.RISK_OWNER, organizationRiskId, { status: "OPEN", ownerId: null });
+    });
+
     it("refuses the Internal Auditor and every other role", async () => {
       for (const role of ALL_ROLES.filter((r) => r !== "RISK_OWNER" && r !== "ADMIN")) {
         expect((await manage(s.roleUser[role], organizationRiskId, { status: "CLOSED" })).status, role).toBe(403);
@@ -102,12 +109,14 @@ describe("Risks with no System (#157)", () => {
       expect((await prisma.risk.findUniqueOrThrow({ where: { id: organizationRiskId } })).status).toBe("OPEN");
     });
 
-    it("keeps the System route's rules: Mitigated needs a plan, an unknown or System Risk is a 404, the owner must be a Risk Owner or an Admin", async () => {
+    it("keeps the System route's rules: Mitigated needs a plan, an unknown or System Risk is a 404, an unknown owner is a 400", async () => {
       expect((await manage(s.roleUser.RISK_OWNER, organizationRiskId, { status: "MITIGATED" })).status).toBe(400);
       expect((await manage(s.roleUser.RISK_OWNER, "no-such-risk", { status: "OPEN" })).status).toBe(404);
       // A Risk that belongs to a System is managed through its System, not here.
       expect((await manage(s.roleUser.RISK_OWNER, systemRiskId, { status: "CLOSED" })).status).toBe(404);
-      expect((await manage(s.roleUser.RISK_OWNER, organizationRiskId, { status: "OPEN", ownerId: s.systemOwner })).status).toBe(400);
+      const refused = await manage(s.roleUser.RISK_OWNER, organizationRiskId, { status: "CLOSED", ownerId: "no-such-user" });
+      expect(refused.status).toBe(400);
+      expect(await prisma.risk.findUniqueOrThrow({ where: { id: organizationRiskId } })).toMatchObject({ status: "OPEN", ownerId: null });
       expect((await manage(s.roleUser.RISK_OWNER, organizationRiskId, { status: "nonsense" })).status).toBe(400);
       // And the System route does not manage an Organization Risk either.
       const viaSystem = await manageSystemRisk(
