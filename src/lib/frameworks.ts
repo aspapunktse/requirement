@@ -1,6 +1,7 @@
 import { Prisma, type UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE } from "@/lib/catalog";
+import { canBeControlOwner } from "@/lib/system-permissions";
 import { logChangeEvent } from "@/lib/change-events";
 import { frameworkLabel } from "@/lib/framework-label";
 import { finishRecompute, prepareRecompute, scopeForFramework } from "@/lib/applicability-recompute";
@@ -43,7 +44,17 @@ export function canCurateFramework(
   framework: { ownerId: string | null; isBase: boolean },
 ): boolean {
   if (canSeeDraftFrameworks(user)) return true;
-  return !framework.isBase && framework.ownerId !== null && framework.ownerId === user.id;
+  // A strictly read-only role (Internal Auditor) writes nothing, even as a recorded owner whose role changed later.
+  return !framework.isBase && framework.ownerId !== null && framework.ownerId === user.id && canBeControlOwner(user);
+}
+
+/**
+ * Who may mark first-round Controls for a Framework (#319): a Compliance Manager or an Admin, or its owner, the base
+ * Framework's owner included, unless the owner's role has become strictly read-only (Internal Auditor).
+ */
+export function canMarkFirstRound(user: { id: string; role: UserRole }, framework: { ownerId: string | null }): boolean {
+  if (canSeeDraftFrameworks(user)) return true;
+  return framework.ownerId !== null && framework.ownerId === user.id && canBeControlOwner(user);
 }
 
 /**

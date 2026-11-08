@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { authenticate } from "@/lib/api-authz";
-import { ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE } from "@/lib/catalog";
-import { visibleOrOwnedFrameworksWhere } from "@/lib/frameworks";
+import { canMarkFirstRound, visibleOrOwnedFrameworksWhere } from "@/lib/frameworks";
 
 const bodySchema = z.object({ firstRound: z.boolean() });
 
@@ -28,8 +27,7 @@ export async function PUT(request: NextRequest, ctx: RouteContext<"/api/framewor
   });
   if (!framework) return NextResponse.json({ error: "Framework not found" }, { status: 404 });
 
-  const allowed = framework.ownerId === auth.user.id || ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE.includes(auth.user.role);
-  if (!allowed) {
+  if (!canMarkFirstRound(auth.user, framework)) {
     return NextResponse.json(
       { error: "Only the Framework Owner, a Compliance Manager or an Admin can mark first-round Controls" },
       { status: 403 },

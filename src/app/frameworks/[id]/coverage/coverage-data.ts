@@ -4,7 +4,7 @@ import { roleLabel } from "@/app/home/role-label";
 import { countVisibleSystemsByFramework } from "@/app/frameworks/frameworks-data";
 import { deriveCoverageState } from "@/lib/coverage-state";
 import { frameworkLabel } from "@/lib/framework-label";
-import { canCurateFramework, canSeeDraftFrameworks, visibleOrOwnedFrameworksWhere } from "@/lib/frameworks";
+import { canCurateFramework, canMarkFirstRound, canSeeDraftFrameworks, visibleOrOwnedFrameworksWhere } from "@/lib/frameworks";
 import { canBeControlOwner } from "@/lib/system-permissions";
 import type { CoverageRow, CoverageView } from "./coverage-types";
 
@@ -137,7 +137,7 @@ export async function loadCoverageView(
         },
         canAssignOwner,
         owners,
-        canMarkFirstRound: canAssignOwner || framework.ownerId === user.id,
+        canMarkFirstRound: canMarkFirstRound(user, framework),
         firstRound,
         frameworks: switcher
           .map((row) => ({ id: row.id, label: frameworkLabel(row), status: row.status }))

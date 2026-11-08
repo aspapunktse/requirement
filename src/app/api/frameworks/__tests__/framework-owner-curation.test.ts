@@ -356,6 +356,29 @@ describe("Framework Owner curation (#320)", () => {
     });
   });
 
+  describe("an owner whose role later becomes Internal Auditor", () => {
+    it("can no longer curate or mark first round, and nothing changes", async () => {
+      const draft = await createFixtureFramework("OC Auditor");
+      await prisma.framework.update({ where: { id: draft.id }, data: { ownerId: users.other, status: "DRAFT" } });
+      await mapControlsToFramework(draft.id, [c1]);
+      await prisma.user.update({ where: { id: users.other }, data: { role: "INTERNAL_AUDITOR" } });
+      try {
+        const before = await reqCount(draft.id);
+        const body = { code: `TEST-OC-AUD-${SUFFIX}`, section: "Test", title: "New", text: "text" };
+        expect((await createRequirement(requestAs(as("other"), "POST", body), ctx({ id: draft.id }))).status).toBe(403);
+        expect((await publish(requestAs(as("other"), "POST"), ctx({ id: draft.id }))).status).toBe(403);
+        expect((await putFirstRound(requestAs(as("other"), "PUT", { firstRound: true }), ctx({ id: draft.id, controlId: c1 }))).status).toBe(403);
+        expect(await reqCount(draft.id)).toBe(before);
+        expect((await fwFields(draft.id)).status).toBe("DRAFT");
+        expect(await prisma.frameworkFirstRoundControl.count({ where: { frameworkId: draft.id } })).toBe(0);
+        const view = await loadCoverageView({ id: users.other, role: "INTERNAL_AUDITOR" }, draft.id);
+        expect(view).toMatchObject({ canCurate: false, canMarkFirstRound: false });
+      } finally {
+        await prisma.user.update({ where: { id: users.other }, data: { role: "VIEWER" } });
+      }
+    });
+  });
+
   describe("pages", () => {
     const actor = (key: UserKey, role: UserRole) => ({ id: users[key], role });
 
