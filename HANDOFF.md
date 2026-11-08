@@ -82,6 +82,7 @@ Control Library (design proposal A, no milestone):
 
 Staged evaluation (PRD 0002, ADR 0014, no milestone):
 1. #319 Framework Owner and first-round Controls per Framework (stored and shown only). **Done: PR #335.**
+2. #320 Framework Owner curates their own non-base Framework (everything a Compliance Manager does on it, publishing included). **In review.**
 
 Not cut into issues: the PRD's "could" feature F-IMP.4 (UI upload of Framework files, other Frameworks as data). F-OUT.6 is #273.
 
