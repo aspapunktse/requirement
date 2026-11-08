@@ -75,6 +75,24 @@ describe("BusinessRiskOwnerDashboard compliance copy (#90)", () => {
     expect(fetchMock).toHaveBeenCalledWith("/api/business-risk-owner/portfolio?frameworkId=nis2");
   });
 
+  it("shows each Risk's source and asks the Risk queue alone to filter by it (#322)", async () => {
+    const adHoc = { id: "r1", title: "Weak passwords", description: "d", severity: "HIGH", likelihood: "LOW", status: "OPEN", source: "AD_HOC", system: { id: "s1", name: "Jira" }, controlAssessment: null };
+    fetchMock.mockImplementation((url: string) => {
+      if (url.includes("/compliance")) return json({ compliance: complianceFor(iso, true) });
+      if (url.includes("/portfolio")) return json({ portfolio });
+      return json({ risks: url.includes("source=AD_HOC") ? [adHoc] : [adHoc, { ...adHoc, id: "r2", title: "Finding", source: "AUDIT_FINDING" }] });
+    });
+    const user = userEvent.setup();
+    render(<BusinessRiskOwnerDashboard businessUnits={[]} frameworks={[iso, nis2]} />);
+    expect(await screen.findByText("Finding")).toBeInTheDocument();
+    expect(screen.getByText("Source: Audit finding")).toBeInTheDocument();
+
+    await user.selectOptions(screen.getByLabelText("Filter Risks by Risk Source"), "AD_HOC");
+    await waitFor(() => expect(screen.queryByText("Finding")).not.toBeInTheDocument());
+    expect(fetchMock).toHaveBeenCalledWith("/api/business-risk-owner/risks?source=AD_HOC");
+    expect(fetchMock).toHaveBeenCalledWith("/api/business-risk-owner/compliance");
+  });
+
   it("puts the Framework's percentage on the portfolio cards", async () => {
     render(<BusinessRiskOwnerDashboard businessUnits={[]} frameworks={[iso, nis2]} />);
     await screen.findByText("66.7%");

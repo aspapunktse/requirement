@@ -699,6 +699,13 @@ model QueryMessage {
   attributedTo      String?
 }
 
+// Where a Risk came from (CONTEXT.md "Risk Source"). Other kinds of risk will be added as new values.
+enum RiskSource {
+  REQUIREMENT_NONCONFORMANCE // opened by a "No" Self-Assessment answer
+  AUDIT_FINDING // opened by an Internal Auditor's Nonconformity
+  AD_HOC // logged directly
+}
+
 // A risk identified during onboarding of a System, or opened by an Internal Audit's Nonconformity
 // (#157). A Risk belongs to a System, except one opened by an Organization-level Nonconformity,
 // which has no System (`systemId` null) and is linked to the Check-up that opened it. A CHECK
@@ -707,6 +714,10 @@ model QueryMessage {
 // `migrate diff` ignores check constraints).
 model Risk {
   id             String       @id @default(cuid())
+  // Where it came from (#322, PRD 0002 F-RA.1). Always set server-side by whatever creates the Risk,
+  // never by the client. The default is the ad hoc case, so a creation path that forgets to say
+  // lands as ad hoc rather than failing; every path in `src` sets it explicitly.
+  source         RiskSource   @default(AD_HOC)
   systemId       String?
   system         System?      @relation(fields: [systemId], references: [id], onDelete: Cascade)
   title          String

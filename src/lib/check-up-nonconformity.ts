@@ -91,6 +91,7 @@ export async function applyNonconformity({ tx, checkUpId, comment, actorId }: No
     data: {
       systemId: checkUp.system?.id ?? null,
       checkUpId,
+      source: "AUDIT_FINDING",
       title: text.title,
       description: text.description,
       // No input at evaluation, so the same defaults as a Risk a "No" Self-Assessment answer opens;

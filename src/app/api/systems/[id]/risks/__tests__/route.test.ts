@@ -117,6 +117,19 @@ describe("/api/systems/[id]/risks", () => {
     expect(body.risk).toMatchObject({ title: "Test Risk", status: "OPEN", controlAssessment: null });
   });
 
+  it("POST sets the Risk Source to ad hoc and ignores one sent by the client (#322)", async () => {
+    const response = await POST(
+      requestAs(systemId, riskOwnerId, { method: "POST", body: { ...RISK_BODY, source: "AUDIT_FINDING" } }),
+      ctxFor(systemId),
+    );
+    const body = await response.json();
+    if (response.status === 201) createdRiskIds.push(body.risk.id);
+
+    expect(response.status).toBe(201);
+    expect(body.risk.source).toBe("AD_HOC");
+    expect((await prisma.risk.findUniqueOrThrow({ where: { id: body.risk.id } })).source).toBe("AD_HOC");
+  });
+
   it("POST forbids a SYSTEM_OWNER who doesn't own this System (but can see it)", async () => {
     const response = await POST(
       requestAs(onboardedSystemId, otherOwnerId, { method: "POST", body: RISK_BODY }),

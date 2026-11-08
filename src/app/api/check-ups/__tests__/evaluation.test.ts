@@ -117,6 +117,8 @@ describe("Evaluating a Check-up (#156)", () => {
       // nonconformity.test.ts; here only that it opened the one Risk.
       if (outcome === "NONCONFORMITY") {
         expect(await prisma.risk.count({ where: { checkUpId: target.id } })).toBe(1);
+        // The Nonconformity sets the Risk Source: an audit finding (#322).
+        expect((await prisma.risk.findUniqueOrThrow({ where: { checkUpId: target.id } })).source).toBe("AUDIT_FINDING");
       } else {
         expect(await elsewhere()).toEqual(before);
       }
@@ -139,6 +141,7 @@ describe("Evaluating a Check-up (#156)", () => {
       expect(written[0].detail).toContain(target.control.code);
       if (outcome === "NONCONFORMITY") {
         expect(await prisma.risk.count({ where: { checkUpId: target.id, systemId: null } })).toBe(1);
+        expect((await prisma.risk.findUniqueOrThrow({ where: { checkUpId: target.id } })).source).toBe("AUDIT_FINDING");
       } else {
         expect(await elsewhere()).toEqual(before);
       }
