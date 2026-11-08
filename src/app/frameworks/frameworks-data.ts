@@ -56,6 +56,7 @@ export async function readFrameworksView(tx: Prisma.TransactionClient, user: { i
       status: true,
       createdAt: true,
       reviewGroup: { select: { name: true } },
+      owner: { select: { name: true } },
       _count: { select: { originatedControls: true } },
     },
   });
@@ -92,6 +93,7 @@ export async function readFrameworksView(tx: Prisma.TransactionClient, user: { i
       partialOnly: breakdown.partialOnly,
       systems: framework.status === "DRAFT" ? null : systems.countFor(framework),
       reviewGroup: framework.reviewGroup?.name ?? null,
+      ownerName: framework.owner?.name ?? null,
       supplementary: framework.status === "DRAFT" ? framework._count.originatedControls : 0,
       updatedAt: latestChange(framework.createdAt, [breakdown.latestChange]).toISOString(),
       lineage: lineages.get(framework.id) ?? [],

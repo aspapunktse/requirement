@@ -378,6 +378,23 @@ describe("loadFramework (#144)", { timeout: 60_000 }, () => {
       );
     });
 
+    it("drops the first-round marking of a Control whose last mapping to the Framework the file removed (#319)", async () => {
+      const name = freshName();
+      await loaded(fileFor(name, { requirements: [requirement("R-1", [map(orgControl.code), map(orgControl2.code)])] }));
+      const framework = (await frameworkRow(name))!;
+      await prisma.frameworkFirstRoundControl.createMany({
+        data: [
+          { frameworkId: framework.id, controlId: orgControl.id },
+          { frameworkId: framework.id, controlId: orgControl2.id },
+        ],
+      });
+
+      await loaded(fileFor(name, { requirements: [requirement("R-1", [map(orgControl.code)])] }));
+
+      const left = await prisma.frameworkFirstRoundControl.findMany({ where: { frameworkId: framework.id } });
+      expect(left.map((m) => m.controlId)).toEqual([orgControl.id]);
+    });
+
     it("leaves an omitted optional field as it is, and clears it with null", async () => {
       const name = freshName();
       await loaded(fileFor(name, { framework: { description: "keep me", strictComplianceRequired: true } }));

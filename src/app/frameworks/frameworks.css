@@ -55,7 +55,7 @@
 .fc td.gaps b { color: var(--rg-danger); font-weight: 760; }
 .fc td.gaps small { display: block; color: var(--rg-muted); font-size: 0.72rem; white-space: nowrap; }
 .fc .zero { color: var(--rg-muted); opacity: 0.7; }
-.fc td.c-rg { font-size: 0.82rem; color: var(--rg-muted); white-space: nowrap; }
+.fc td.c-rg, .fc td.c-owner { font-size: 0.82rem; color: var(--rg-muted); white-space: nowrap; }
 .fc td.c-upd { white-space: nowrap; font-variant-numeric: tabular-nums; font-size: 0.84rem; }
 .fc .warnline { display: inline-flex; gap: 6px; align-items: center; color: var(--rg-gold-ink); background: var(--rg-gold-soft); border-radius: 8px; padding: 1px 8px; font-size: 0.74rem; font-weight: 650; justify-self: start; }
 .fc td.acts { white-space: nowrap; text-align: right; padding-right: 16px; }
@@ -98,7 +98,7 @@
   .fc .fwcell small { max-width: 100%; }
   .fc .sy-grp td .fc-bar { display: flex; margin: 6px 0 0; width: min(140px, 100%); }
   .fc.fc tbody tr.fc-row td.acts .hc-btn:first-child { opacity: 1; }
-  .fc.fc tbody tr.fc-row td.c-gaps, .fc.fc tbody tr.fc-row td.c-acc, .fc.fc tbody tr.fc-row td.c-sys, .fc.fc tbody tr.fc-row td.c-rg, .fc.fc tbody tr.fc-row td.c-upd { display: none !important; }
+  .fc.fc tbody tr.fc-row td.c-gaps, .fc.fc tbody tr.fc-row td.c-acc, .fc.fc tbody tr.fc-row td.c-sys, .fc.fc tbody tr.fc-row td.c-rg, .fc.fc tbody tr.fc-row td.c-owner, .fc.fc tbody tr.fc-row td.c-upd { display: none !important; }
   .fc.fc table, .fc.fc tbody { display: block; width: 100%; min-width: 0; }
   .fc.fc tbody tr.fc-row { grid-template-columns: minmax(0, 1fr); width: 100%; box-sizing: border-box; }
   .fc.fc tbody tr.fc-row td { min-width: 0; max-width: 100%; }

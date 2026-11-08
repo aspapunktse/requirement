@@ -53,9 +53,14 @@ export type CoverageFramework = {
   /** Only Strict compliance counts Fulfilled: Waived and Not Applicable get no credit. */
   strict: boolean;
   reviewGroup: string | null;
+  /** The Framework Owner (#319); null while the Framework has none. */
+  owner: { id: string; name: string } | null;
   /** Systems the acting user can see that have the Framework in scope; null for a Draft (it reaches no System). */
   systems: number | null;
 };
+
+/** One Control mapped to the Framework, and whether its owner marked it first round for the Framework (#319). */
+export type FirstRoundControl = { controlId: string; code: string; title: string; marked: boolean };
 
 export type CoverageView = {
   userId: string;
@@ -64,6 +69,14 @@ export type CoverageView = {
   /** Compliance Manager or Admin: maps, creates Supplementary Controls and accepts gaps. */
   canCurate: boolean;
   framework: CoverageFramework;
+  /** A Compliance Manager or an Admin: assigns the Framework Owner. */
+  canAssignOwner: boolean;
+  /** The Users who may be picked as Framework Owner; empty unless `canAssignOwner`. */
+  owners: { id: string; name: string }[];
+  /** The Framework's owner, a Compliance Manager or an Admin: marks first-round Controls. Others see them read-only. */
+  canMarkFirstRound: boolean;
+  /** Every Control mapped to the Framework, by code. */
+  firstRound: FirstRoundControl[];
   /** The Frameworks the acting user can see, for the switcher. */
   frameworks: SwitcherFramework[];
   requirements: CoverageRow[];

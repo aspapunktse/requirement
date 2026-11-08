@@ -8,6 +8,7 @@ import { logMappingChange } from "@/lib/frameworks";
 import { finishRecompute, prepareRecompute, scopeForMappedControls } from "@/lib/applicability-recompute";
 import { frameworkLabel } from "@/lib/framework-label";
 import { clearGapAcceptance } from "@/lib/framework-coverage";
+import { dropOrphanedFirstRoundMarkings } from "@/lib/first-round";
 
 type MappingContext = RouteContext<"/api/frameworks/[id]/requirements/[requirementId]/mappings/[mappingId]">;
 
@@ -113,6 +114,8 @@ export async function DELETE(request: NextRequest, ctx: MappingContext) {
   try {
     await prisma.$transaction(async (tx) => {
       await tx.controlMapping.delete({ where: { id: mappingId } });
+      // The Control's last mapping to this Framework going also drops its first-round marking (#319).
+      await dropOrphanedFirstRoundMarkings(tx, existing.requirement.framework.id, [existing.control.id]);
       await logMappingChange(
         {
           change: "removed",

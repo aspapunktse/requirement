@@ -110,6 +110,8 @@ model User {
   queryMessages                      QueryMessage[]
   acceptedGaps                       Requirement[]                       @relation("GapAcceptedBy")
   ownedControls                      Control[]                           @relation("ControlOwner")
+  // Frameworks this User owns (the Framework Owner, #319). Deleting the User leaves them without an owner.
+  ownedFrameworks                    Framework[]                         @relation("FrameworkOwner")
   internalAuditsCreated              InternalAudit[]                     @relation("InternalAuditCreator")
   internalAuditsLaunched             InternalAudit[]                     @relation("InternalAuditLauncher")
   internalAuditsClosed               InternalAudit[]                     @relation("InternalAuditCloser")
@@ -126,13 +128,13 @@ model User {
 // are display text. The rows are inserted by a migration (not the seed), so
 // every database has them. A CHECK constraint keeps `level` within 1-5.
 model SensitivityLevel {
-  level           Int       @id
-  label           String
-  description     String
-  textColor       String
-  backgroundColor String
-  systems         System[]  @relation("SystemSensitivityLevel")
-  controls        Control[] @relation("ControlMinSensitivityLevel")
+  level            Int               @id
+  label            String
+  description      String
+  textColor        String
+  backgroundColor  String
+  systems          System[]          @relation("SystemSensitivityLevel")
+  controls         Control[]         @relation("ControlMinSensitivityLevel")
   informationTypes InformationType[] @relation("InformationTypeSensitivityLevel")
 }
 
@@ -181,36 +183,36 @@ model FrameworkSuggestionDecline {
 
 // A system or cloud solution being onboarded into the enterprise.
 model System {
-  id                         String            @id @default(cuid())
-  name                       String
-  vendor                     String?
-  description                String?
-  status                     OnboardingStatus  @default(DRAFT)
+  id                          String                       @id @default(cuid())
+  name                        String
+  vendor                      String?
+  description                 String?
+  status                      OnboardingStatus             @default(DRAFT)
   // Self-declared Impact Level on the Integrity and Availability axes,
   // independently — null means "not yet classified" on that axis, distinct
   // from LOW. See ADR 0003.
-  integrityImpactLevel       ImpactLevel?
-  availabilityImpactLevel    ImpactLevel?
+  integrityImpactLevel        ImpactLevel?
+  availabilityImpactLevel     ImpactLevel?
   // The Sensitivity Level (1-5, a SensitivityLevel row) of the information the
   // System handles; null until the owner sets it. Replaces the Confidentiality
   // Impact Level (ADR 0011). A Control's minimum is compared by this number.
-  sensitivityLevel           Int?
-  sensitivity                SensitivityLevel? @relation("SystemSensitivityLevel", fields: [sensitivityLevel], references: [level], onDelete: Restrict)
-  ownerId                    String
-  owner                      User              @relation("SystemOwner", fields: [ownerId], references: [id])
+  sensitivityLevel            Int?
+  sensitivity                 SensitivityLevel?            @relation("SystemSensitivityLevel", fields: [sensitivityLevel], references: [level], onDelete: Restrict)
+  ownerId                     String
+  owner                       User                         @relation("SystemOwner", fields: [ownerId], references: [id])
   // One or more deployment facets this System spans (e.g. On-Prem, Cloud) —
   // a Hybrid System is simply one that declares more than one. See ADR 0003.
-  deploymentFacets           DeploymentFacet[]
+  deploymentFacets            DeploymentFacet[]
   // The Information Types the System declares (ADR 0012).
-  informationTypes           InformationType[]
+  informationTypes            InformationType[]
   // Suggested Frameworks the owner left out (ADR 0013).
   frameworkSuggestionDeclines FrameworkSuggestionDecline[]
-  createdAt                  DateTime          @default(now())
-  updatedAt                  DateTime          @updatedAt
+  createdAt                   DateTime                     @default(now())
+  updatedAt                   DateTime                     @updatedAt
   // When the System was actually marked Onboarded — distinct from Approval
   // (a judgment call) and from updatedAt (touched by unrelated edits). See
   // ADR 0001.
-  onboardedAt                DateTime?
+  onboardedAt                 DateTime?
 
   assessments          ControlAssessment[]
   risks                Risk[]
@@ -287,9 +289,9 @@ model ReviewGroup {
   description String?
   createdAt   DateTime @default(now())
 
-  members    User[]      @relation("ReviewGroupMember")
-  frameworks Framework[]
-  approvals  Approval[]
+  members         User[]            @relation("ReviewGroupMember")
+  frameworks      Framework[]
+  approvals       Approval[]
   // Query Messages posted, and Assessment Queries resolved, as this group (#201). SetNull on delete: the
   // row keeps the group's name in its own snapshot column and never turns into a base-step or named one.
   queryMessages   QueryMessage[]    @relation("QueryMessageGroup")
@@ -342,15 +344,23 @@ model Framework {
   requirements       Requirement[]
   // Supplementary Controls authored because a Requirement of this
   // Framework had no covering base Control.
-  originatedControls Control[]     @relation("ControlOriginFramework")
+  originatedControls Control[]                    @relation("ControlOriginFramework")
   // Systems whose audit/certification boundary includes this Framework.
-  scopedSystems      System[]      @relation("SystemFrameworkScope")
+  scopedSystems      System[]                     @relation("SystemFrameworkScope")
   // Users assigned this Framework as (part of) their BUSINESS_RISK_OWNER
   // portfolio.
-  riskOwners         User[]        @relation("FrameworkRiskOwner")
+  riskOwners         User[]                       @relation("FrameworkRiskOwner")
   // Information Types that suggest this Framework, and the owners' decisions to leave it out (ADR 0013).
   suggestedBy        InformationType[]            @relation("InformationTypeSuggestedFramework")
   suggestionDeclines FrameworkSuggestionDecline[]
+
+  // The Framework Owner (#319): the one User who decides which of this Framework's Controls are first round.
+  // Any User, whatever their role; null means no owner (every existing Framework starts that way). Assigned by
+  // a Compliance Manager or an Admin. Deleting the User leaves the Framework unowned. Curation, not a Change Event.
+  ownerId            String?
+  owner              User?                        @relation("FrameworkOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  // The Controls the owner marked first round for this Framework (default: none).
+  firstRoundControls FrameworkFirstRoundControl[]
 
   // The Review Group that reviews this Framework's non-base Controls on a System; at most one.
   // Restrict: a Review Group can't be deleted while tied (the API checks first and answers 409).
@@ -358,6 +368,22 @@ model Framework {
   reviewGroup   ReviewGroup? @relation(fields: [reviewGroupId], references: [id], onDelete: Restrict)
 
   @@unique([name, version])
+  @@index([ownerId])
+}
+
+// One Control marked first round for one Framework (#319, PRD 0002 F-FO): the Framework Owner (or a Compliance
+// Manager or an Admin) decided it is asked in the first Requirement Round whenever the Framework is in a System's
+// effective scope. Only for a Control mapped to the Framework; dropped when its last mapping to the Framework goes.
+// Stored and shown only: it changes nothing about Assessments, submission or compliance yet.
+model FrameworkFirstRoundControl {
+  frameworkId String
+  framework   Framework @relation(fields: [frameworkId], references: [id], onDelete: Cascade)
+  controlId   String
+  control     Control   @relation(fields: [controlId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+
+  @@id([frameworkId, controlId])
+  @@index([controlId])
 }
 
 enum FrameworkLicensing {
@@ -464,37 +490,40 @@ model Control {
   // Deployment Facets this Control is scoped to. Empty means "applies
   // regardless of facet" (how the Annex A seed ships). Must stay empty for
   // ORGANIZATIONAL controls, which are never assessed per System.
-  deploymentFacets              DeploymentFacet[]
+  deploymentFacets           DeploymentFacet[]
   // Minimum required Impact Level on the Integrity and Availability axes,
   // independently — null means no threshold on that axis. Each is a "System's
   // level on this axis must be >= this" comparison, not a membership check
   // like facet scoping. See ADR 0003.
-  minIntegrityImpactLevel       ImpactLevel?
-  minAvailabilityImpactLevel    ImpactLevel?
+  minIntegrityImpactLevel    ImpactLevel?
+  minAvailabilityImpactLevel ImpactLevel?
   // Minimum Sensitivity Level (1-5): the Control applies only to a System whose
   // level is at or above it; null means no threshold, and a System with no
   // level never meets one (ADR 0011).
-  minSensitivityLevel           Int?
-  minSensitivity                SensitivityLevel?                  @relation("ControlMinSensitivityLevel", fields: [minSensitivityLevel], references: [level], onDelete: Restrict)
+  minSensitivityLevel        Int?
+  minSensitivity             SensitivityLevel?                  @relation("ControlMinSensitivityLevel", fields: [minSensitivityLevel], references: [level], onDelete: Restrict)
   // Which Requirements this Control satisfies, and how fully. The only way
   // a Control is tied to a Framework — there is no direct Framework tag
   // (ADR 0005, was `frameworks` before #72).
-  mappings                      ControlMapping[]
+  mappings                   ControlMapping[]
   // Set: a Supplementary Control, authored because a Requirement of this
   // Framework had no covering base Control. Null: a base Control (seeded
   // 1:1 from ISO 27001:2022 Annex A).
-  originFrameworkId             String?
-  originFramework               Framework?                         @relation("ControlOriginFramework", fields: [originFrameworkId], references: [id], onDelete: Restrict)
+  originFrameworkId          String?
+  originFramework            Framework?                         @relation("ControlOriginFramework", fields: [originFrameworkId], references: [id], onDelete: Restrict)
   // The Control Owner: the one User who maintains this Control's Organization
   // Control Implementation (F-CL.3, #119). Any User, whatever their role; null
   // means unassigned (every existing Control starts that way, PRD §9.7).
   // Deleting the User leaves the Control unassigned. Curation, not a Change Event.
-  ownerId                       String?
-  owner                         User?                              @relation("ControlOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  ownerId                    String?
+  owner                      User?                              @relation("ControlOwner", fields: [ownerId], references: [id], onDelete: SetNull)
   // The Organization's own implementation of this Control (#120). Exists for
   // ORGANIZATIONAL and BOTH Controls, never PER_SYSTEM; a missing row reads as
   // Not Started and the first edit creates it.
-  organizationImplementation    OrganizationControlImplementation?
+  organizationImplementation OrganizationControlImplementation?
+
+  // The Frameworks whose owner marked this Control first round (#319).
+  firstRoundFor FrameworkFirstRoundControl[]
 
   // Offerings by Providers of this Control (#123). Deleting the Control removes them.
   offerings ControlOffering[]
@@ -617,25 +646,25 @@ model ControlAssessment {
 // Owner, and not necessarily the original asker) — see `lastMessageAuthorId`
 // below for the "whose turn is it" logic the various open-Query counters use.
 model AssessmentQuery {
-  id                  String            @id @default(cuid())
-  controlAssessmentId String
-  controlAssessment   ControlAssessment @relation(fields: [controlAssessmentId], references: [id], onDelete: Cascade)
-  resolved            Boolean           @default(false)
-  resolvedById        String?
-  resolvedBy          User?             @relation("QueryResolvedBy", fields: [resolvedById], references: [id])
-  resolvedAt          DateTime?
+  id                      String            @id @default(cuid())
+  controlAssessmentId     String
+  controlAssessment       ControlAssessment @relation(fields: [controlAssessmentId], references: [id], onDelete: Cascade)
+  resolved                Boolean           @default(false)
+  resolvedById            String?
+  resolvedBy              User?             @relation("QueryResolvedBy", fields: [resolvedById], references: [id])
+  resolvedAt              DateTime?
   // Who the resolution is attributed to (#201), fixed when it is made, like a Query Message's:
   // a Review Group (id and name) or the base Review Step (name only), otherwise both null (shown named).
   // The name is a snapshot, so it survives the group being renamed or deleted.
   resolvedByReviewGroupId String?
   resolvedByReviewGroup   ReviewGroup?      @relation("QueryResolvedByGroup", fields: [resolvedByReviewGroupId], references: [id], onDelete: SetNull)
   resolvedAttributedTo    String?
-  createdAt           DateTime          @default(now())
+  createdAt               DateTime          @default(now())
   // Denormalized copy of the most recent QueryMessage's authorId, kept in
   // sync on every new message. Lets "is it the System Owner's turn, or the
   // reviewer side's?" be answered with a plain field comparison instead of a
   // subquery against QueryMessage every time a counter is computed.
-  lastMessageAuthorId String
+  lastMessageAuthorId     String
 
   messages QueryMessage[]
 }
@@ -978,7 +1007,7 @@ model CheckUp {
   createdAt            DateTime             @default(now())
 
   // The Check-up's own copy of the questions, taken at launch.
-  questions CheckUpQuestion[]
+  questions  CheckUpQuestion[]
   // Present once the recipient has answered (#155); its existence is what "answered" means.
   response   CheckUpResponse?
   // Present once an Internal Auditor has evaluated it (#156); its existence is what "evaluated" means.
@@ -986,7 +1015,7 @@ model CheckUp {
   // Present once an Internal Auditor has withdrawn it (#158); its existence is what "withdrawn" means.
   withdrawal CheckUpWithdrawal?
   // The Risk a Nonconformity opened (#157); null for any other outcome and before the evaluation.
-  risk Risk?
+  risk       Risk?
 
   @@unique([internalAuditId, controlId, systemId])
   @@index([controlId])

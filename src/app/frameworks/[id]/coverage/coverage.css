@@ -117,3 +117,15 @@
   .cv .sy-grp td { top: 0; }
   .cv-ctl { max-width: 100%; }
 }
+
+/* Framework Owner line and the First round card (#319). */
+.cv .cv-owner { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 10px 0 0; font-size: 0.88rem; color: var(--rg-ink); }
+.cv .cv-owner-k { color: var(--rg-muted); font-weight: 650; }
+.cv .cv-muted { color: var(--rg-muted); }
+.cv .cv-owner-err { flex-basis: 100%; margin: 0; color: var(--rg-danger); font-size: 0.82rem; }
+.cv .cv-first { padding: 16px 18px; display: flex; flex-direction: column; gap: 8px; }
+.cv .cv-first h2 { margin: 0; font-size: 1rem; }
+.cv .cv-first p { margin: 0; font-size: 0.86rem; }
+.cv .cv-first-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 4px 16px; max-height: 320px; overflow-y: auto; }
+.cv .cv-first-list label { display: flex; gap: 8px; align-items: baseline; font-size: 0.86rem; cursor: pointer; }
+.cv .cv-first-code { font-weight: 650; font-variant-numeric: tabular-nums; }

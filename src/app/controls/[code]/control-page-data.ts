@@ -11,6 +11,7 @@ import {
   resolveEffectiveStatus,
 } from "@/lib/effective-status";
 import { loadProviderSources, toOwnAssessment } from "@/lib/effective-status-data";
+import { frameworkLabel } from "@/lib/framework-label";
 import { canSeeDraftFrameworks, controlIncludeFor, redactDraftOrigin } from "@/lib/frameworks";
 import { visibleSystemsWhere } from "@/lib/system-visibility";
 import { classifiedForApplicability, libraryRowOf } from "../library-data";
@@ -76,6 +77,20 @@ export async function loadControlPageView(user: { id: string; name: string; role
           updatedByName: implementation?.updatedBy?.name ?? null,
         };
       }
+
+      // First round (#319): the Frameworks that mark this Control, still mapped to it, as visible to this user.
+      const marks = await tx.frameworkFirstRoundControl.findMany({ where: { controlId: control.id }, select: { frameworkId: true } });
+      const mappedFrameworkIds = new Set(
+        (await tx.controlMapping.findMany({ where: { controlId: control.id }, select: { requirement: { select: { frameworkId: true } } } })).map(
+          (mapping) => mapping.requirement.frameworkId,
+        ),
+      );
+      const firstRoundFor = marks
+        .map((mark) => frameworkById.get(mark.frameworkId))
+        .filter((framework): framework is NonNullable<typeof framework> => !!framework && mappedFrameworkIds.has(framework.id))
+        .filter((framework) => framework.status === "PUBLISHED" || showDrafts)
+        .map((framework) => ({ id: framework.id, label: frameworkLabel(framework), draft: framework.status === "DRAFT" }))
+        .sort((a, b) => collator.compare(a.label, b.label));
 
       let systems: PageSystems | null = null;
       if (reachesSystems) {
@@ -150,6 +165,7 @@ export async function loadControlPageView(user: { id: string; name: string; role
           orgStatus: organization?.status ?? null,
           systemCount: systems?.total ?? 0,
         }),
+        firstRoundFor,
         organization,
         systems,
       };

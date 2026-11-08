@@ -48,6 +48,11 @@ export type ControlPageView = {
   canEdit: boolean;
   /** The Control as the library row shows it (Draft Frameworks left out unless the role sees them). */
   control: LibraryRow;
+  /**
+   * The Frameworks whose owner marked this Control first round (#319), by label. A Draft Framework appears only
+   * for a role that sees Drafts, and a marking without a live mapping is left out.
+   */
+  firstRoundFor: { id: string; label: string; draft: boolean }[];
   /** Organizational and Both Controls only. */
   organization: PageOrganization | null;
   /** Per-System and Both Controls only. */
