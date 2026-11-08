@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { authorize } from "@/lib/api-authz";
-import { ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE } from "@/lib/catalog";
+import { authorizeFrameworkCuration } from "@/lib/framework-curation";
 import { logChangeEvent } from "@/lib/change-events";
 import { frameworkLabel } from "@/lib/framework-label";
 import { onFrameworkPublished } from "@/lib/frameworks";
@@ -15,10 +14,10 @@ import { onFrameworkPublished } from "@/lib/frameworks";
  * returns). See #73, #87, PRD 0001 F-FW.4-5.
  */
 export async function POST(request: NextRequest, ctx: RouteContext<"/api/frameworks/[id]/publish">) {
-  const auth = await authorize(request, ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE);
+  const { id } = await ctx.params;
+  const auth = await authorizeFrameworkCuration(request, id);
   if ("response" in auth) return auth.response;
 
-  const { id } = await ctx.params;
 
   const existing = await prisma.framework.findUnique({
     where: { id },

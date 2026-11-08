@@ -399,7 +399,11 @@ export function RequirementDrawer({
           )}
 
           {!canCurate && (
-            <p className="cv-note">Only a Compliance Manager or an Admin changes mappings and gaps.</p>
+            <p className="cv-note">
+              {framework.isBase
+                ? "Only a Compliance Manager or an Admin changes the base Framework’s mappings and gaps."
+                : "Only this Framework’s owner, a Compliance Manager or an Admin changes mappings and gaps."}
+            </p>
           )}
 
           <section className="sc-dsec" aria-label="Effect on Systems">

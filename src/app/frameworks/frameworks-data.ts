@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { roleLabel } from "@/app/home/role-label";
 import { loadCoverageBreakdowns } from "@/lib/framework-coverage";
 import { frameworkFamily, latestChange } from "@/lib/framework-family";
-import { canSeeDraftFrameworks, visibleFrameworksWhere } from "@/lib/frameworks";
+import { canCurateFramework, canSeeDraftFrameworks, visibleOrOwnedFrameworksWhere } from "@/lib/frameworks";
 import { buildLineages } from "@/lib/framework-lineage";
 import { visibleSystemsWhere } from "@/lib/system-visibility";
 import type { CatalogView } from "./frameworks-types";
@@ -29,8 +29,8 @@ export async function countVisibleSystemsByFramework(user: { id: string; role: U
 
 /**
  * Everything the Framework list shows for the acting user (design proposal A "Catalog table", issue #266).
- * Visibility is unchanged: Drafts only for those who manage the requirement database
- * (`visibleFrameworksWhere`), and the Systems count includes only Systems the user can see
+ * Drafts are visible to those who manage the requirement database and, for their own Draft,
+ * to a Framework Owner (`visibleOrOwnedFrameworksWhere`), and the Systems count includes only Systems the user can see
  * (`visibleSystemsWhere`). The Frameworks, their counts, the Systems and the lineage are read in one
  * RepeatableRead transaction, every query on `tx`, so the figures agree even while the data changes.
  */
@@ -45,7 +45,7 @@ export async function loadFrameworksView(user: { id: string; role: UserRole }): 
 export async function readFrameworksView(tx: Prisma.TransactionClient, user: { id: string; role: UserRole }): Promise<CatalogView> {
   const canCurate = canSeeDraftFrameworks(user);
   const frameworks = await tx.framework.findMany({
-    where: visibleFrameworksWhere(user),
+    where: visibleOrOwnedFrameworksWhere(user),
     select: {
       id: true,
       name: true,
@@ -56,6 +56,7 @@ export async function readFrameworksView(tx: Prisma.TransactionClient, user: { i
       status: true,
       createdAt: true,
       reviewGroup: { select: { name: true } },
+      ownerId: true,
       owner: { select: { name: true } },
       _count: { select: { originatedControls: true } },
     },
@@ -94,6 +95,7 @@ export async function readFrameworksView(tx: Prisma.TransactionClient, user: { i
       systems: framework.status === "DRAFT" ? null : systems.countFor(framework),
       reviewGroup: framework.reviewGroup?.name ?? null,
       ownerName: framework.owner?.name ?? null,
+      canCurate: canCurateFramework(user, framework),
       supplementary: framework.status === "DRAFT" ? framework._count.originatedControls : 0,
       updatedAt: latestChange(framework.createdAt, [breakdown.latestChange]).toISOString(),
       lineage: lineages.get(framework.id) ?? [],

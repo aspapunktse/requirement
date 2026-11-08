@@ -2,9 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { authorize } from "@/lib/api-authz";
-import { ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE } from "@/lib/catalog";
-import { logMappingChange } from "@/lib/frameworks";
+import { authorizeFrameworkCuration } from "@/lib/framework-curation";
+import { logMappingChange, mappableControlsWhere } from "@/lib/frameworks";
 import { finishRecompute, prepareRecompute, scopeForMappedControls } from "@/lib/applicability-recompute";
 import { frameworkLabel } from "@/lib/framework-label";
 import { clearGapAcceptance } from "@/lib/framework-coverage";
@@ -29,10 +28,10 @@ export async function POST(
   request: NextRequest,
   ctx: RouteContext<"/api/frameworks/[id]/requirements/[requirementId]/mappings">,
 ) {
-  const auth = await authorize(request, ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE);
+  const { id, requirementId } = await ctx.params;
+  const auth = await authorizeFrameworkCuration(request, id);
   if ("response" in auth) return auth.response;
 
-  const { id, requirementId } = await ctx.params;
   const parsed = createMappingSchema.safeParse(await request.json());
   if (!parsed.success) {
     return NextResponse.json({ error: "controlId and a coverage of FULL or PARTIAL are required" }, { status: 400 });
@@ -46,8 +45,9 @@ export async function POST(
     return NextResponse.json({ error: "Requirement not found" }, { status: 404 });
   }
 
-  const control = await prisma.control.findUnique({
-    where: { id: parsed.data.controlId },
+  // A Control the user may not use (another Draft Framework's Supplementary Control) is refused like an unknown one.
+  const control = await prisma.control.findFirst({
+    where: { id: parsed.data.controlId, ...mappableControlsWhere(auth.user, id) },
     select: { id: true, code: true },
   });
   if (!control) {

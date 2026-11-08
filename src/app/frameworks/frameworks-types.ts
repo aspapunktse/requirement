@@ -38,6 +38,8 @@ export type CatalogRow = {
   reviewGroup: string | null;
   /** The Framework Owner's name (#319); null while the Framework has no owner. */
   ownerName: string | null;
+  /** The acting user may curate this Framework (`canCurateFramework`, #320): publishes it from the row. */
+  canCurate: boolean;
   /** Supplementary Controls authored for the Framework; counted for a Draft only (the Publish dialog). */
   supplementary: number;
   /** ISO timestamp of the latest change (derived, see `latestChange`). */
@@ -50,7 +52,7 @@ export type CatalogView = {
   userId: string;
   role: UserRole;
   roleLabel: string;
-  /** Compliance Manager or Admin: sees Drafts, publishes them and creates Frameworks. */
+  /** Compliance Manager or Admin: sees every Draft and creates Frameworks. Publishing is per row (`CatalogRow.canCurate`). */
   canCurate: boolean;
   rows: CatalogRow[];
 };

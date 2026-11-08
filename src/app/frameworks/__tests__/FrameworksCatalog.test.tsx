@@ -38,6 +38,7 @@ const row = (over: Partial<CatalogRow> & Pick<CatalogRow, "id" | "name">): Catal
   systems: 3,
   reviewGroup: null,
   ownerName: null,
+  canCurate: true,
   supplementary: 0,
   updatedAt: "2026-10-20T09:00:00.000Z",
   lineage: [],
@@ -380,8 +381,18 @@ describe("Publish from the row", () => {
     expect(within(rowOf("f-nis2")).queryByRole("button", { name: /Publish/ })).not.toBeInTheDocument();
     unmount();
     // Defence in depth: even given a Draft row, a role that cannot curate gets no button.
-    render(<FrameworksCatalog view={view({ role: "VIEWER", roleLabel: "Viewer", canCurate: false })} />);
+    render(<FrameworksCatalog view={view({ role: "VIEWER", roleLabel: "Viewer", canCurate: false, rows: ROWS.map((r) => ({ ...r, canCurate: false })) })} />);
     expect(screen.queryByRole("button", { name: /^Publish / })).not.toBeInTheDocument();
+  });
+
+  it("offers Publish per row: a Framework Owner gets it on their own Draft only, and no New Framework", () => {
+    const rows = ROWS.map((r) => ({ ...r, canCurate: r.id === "f-draft-empty" }));
+    render(<FrameworksCatalog view={view({ role: "VIEWER", roleLabel: "Viewer", canCurate: false, rows })} />);
+    const buttons = screen.getAllByRole("button", { name: /^Publish / });
+    expect(buttons).toHaveLength(1);
+    expect(buttons[0]).toHaveAccessibleName("Publish Empty Act:1");
+    expect(within(rowOf("f-draft-empty")).getByRole("button", { name: /^Publish / })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /New Framework/ })).not.toBeInTheDocument();
   });
 
   it("asks first, saying what publishing does, and Cancel sends nothing", async () => {
