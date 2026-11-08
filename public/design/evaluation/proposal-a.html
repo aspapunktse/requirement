@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Staged evaluation: Stepper</title>
+<link rel="stylesheet" href="../systems/systems.css">
+<link rel="stylesheet" href="../shared/appbar.css">
+<link rel="stylesheet" href="../shared/kit.css">
+<link rel="stylesheet" href="../shared/themes.css">
+<link rel="stylesheet" href="evaluation.css">
+<script src="../shared/themes.js"></script>
+<style>
+/* Proposal A: a stepper. The Cockpit's lifecycle stepper grows into the whole evaluation: one row of stages in the
+   hero (gates are diamonds), and you click a stage to read it in the card below. The Evaluation tab opens on the
+   current stage, with the decision panel inside the card when the stage is a gate. Both Tracks sit in a strip above. */
+.stp { list-style: none; margin: 0; padding: 4px 2px 6px; display: flex; overflow-x: auto; scrollbar-width: thin; }
+.stp li { flex: 1 0 96px; position: relative; min-width: 0; }
+.stp li::before { content: ""; position: absolute; top: 17px; left: -50%; width: 100%; height: 3px; background: var(--line); z-index: 0; }
+.stp li:first-child::before { display: none; }
+.stp li.done::before, .stp li.now::before, .stp li.rejected::before { background: var(--accent); }
+.stp li.rejected::before { background: var(--bad); }
+.stp button { all: unset; box-sizing: border-box; width: 100%; display: grid; justify-items: center; gap: 3px; text-align: center; cursor: pointer; padding: 0 4px 4px; position: relative; z-index: 1; border-radius: 10px; }
+.stp button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.nd { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: var(--surface); border: 3px solid var(--line); font-weight: 800; font-size: .86rem; color: var(--on-accent); transition: transform .15s; }
+.stp li.gate .nd { border-radius: 8px; transform: rotate(45deg); }
+.stp li.gate .nd > span { transform: rotate(-45deg); display: block; }
+.stp li.done .nd { background: var(--accent); border-color: var(--accent); }
+.stp li.now .nd { border-color: var(--gold); background: var(--gold-soft); box-shadow: 0 0 0 4px color-mix(in srgb, var(--gold) 25%, transparent); color: var(--gold-ink); }
+.stp li.rejected .nd { background: var(--bad); border-color: var(--bad); }
+.stp li.todo .nd { color: var(--faint); }
+.stp li.sel button { background: color-mix(in srgb, var(--accent) 9%, transparent); }
+.stp button:hover .nd { transform: scale(1.06); } .stp li.gate button:hover .nd { transform: rotate(45deg) scale(1.06); }
+.stp .lb { font-size: .8rem; font-weight: 700; color: var(--ink); line-height: 1.2; margin-top: 4px; }
+.stp li.gate:not(.sel) .lb { margin-top: 6px; }
+.stp li.todo .lb { color: var(--muted); font-weight: 650; }
+.stp small { font-size: .7rem; color: var(--muted); line-height: 1.25; max-width: 14ch; }
+.stp li.fork .nd { border-style: dashed; }
+.evgrid { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(280px, 1fr); gap: 16px; align-items: start; }
+.evgrid > * { min-width: 0; }
+.evgrid .col { display: grid; gap: 16px; }
+@media (max-width: 1020px) { .evgrid { grid-template-columns: minmax(0, 1fr); } }
+.evgrid .col { grid-template-columns: minmax(0, 1fr); }
+.evgrid .card, .evgrid .card-h, .evgrid .card-b { min-width: 0; }
+.evgrid .card-h { flex-wrap: wrap; }
+.evgrid .card-h > * { min-width: 0; }
+.sd-h { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+@media (max-width: 640px) { .stp li { flex-basis: 84px; } }
+@media (prefers-reduced-motion: reduce) { .nd, .stp button:hover .nd { transition: none; transform: none; } }
+</style>
+</head>
+<body>
+<header id="appbar"></header>
+<main class="app">
+  <div id="proto"></div>
+  <div id="page"></div>
+</main>
+
+<script src="../shared/kit.js"></script>
+<script src="data.js"></script>
+<script src="evaluation.js"></script>
+<script src="../shared/appbar.js"></script>
+<script>
+const { esc, ui, ST } = EV;
+
+function stepper(m) {
+  const sel = selected(m);
+  return `<ol class="stp" aria-label="Evaluation stages, ${m.sys.track ? (m.sys.track === 'SELF' ? 'Self' : 'Full') + ' track' : 'Track not chosen'}">${m.stages.map((s) => `
+    <li class="${s.state} ${s.kind} ${s.key === sel ? 'sel' : ''}">
+      <button type="button" data-act="stage" data-v="${s.key}" ${s.state === 'now' ? 'aria-current="step"' : ''} title="${esc(s.long)}">
+        <span class="nd" aria-hidden="true"><span>${s.state === 'done' ? '✓' : s.state === 'rejected' ? '✕' : s.kind === 'gate' ? '' : s.kind === 'fork' ? '?' : s.i + 1}</span></span>
+        <span class="lb">${esc(s.label)}</span><small>${esc(EV.summaryOf(m, s))}</small>
+      </button></li>`).join('')}</ol>`;
+}
+function selected(m) {
+  const k = ui.sel[m.sys.id];
+  return m.stages.some((s) => s.key === k) ? k : m.now.key;
+}
+
+function evaluation(m) {
+  const key = selected(m), s = m.stages.find((x) => x.key === key);
+  const stateChip = { done: EV.chip('success', 'Done', true), now: EV.chip('warn', 'Current stage', true), todo: EV.chip('', 'Later', true), rejected: EV.chip('danger', 'Rejected here', true) }[s.state];
+  const L = m.left;
+  return `<div class="evgrid">
+    <div class="col">
+      <article class="card"><div class="card-h"><h2>Both Tracks</h2><p>${m.sys.track ? 'Self and Full, with this System on its own' : 'OG1 picks one'}</p></div><div class="card-b">${EV.tracksStrip(m)}</div></article>
+      <article class="card" aria-live="polite"><div class="card-h"><div class="sd-h"><h2>${esc(s.long)}</h2>${stateChip}</div>${key !== m.now.key ? `<button class="link" type="button" data-act="stage" data-v="${m.now.key}">Back to the current stage</button>` : ''}</div>
+        <div class="card-b"><p class="muted small" style="margin-bottom:12px">${esc(s.hint)}</p>${EV.stageBody(m, key)}</div></article>
+    </div>
+    <div class="col">
+      <article class="card"><div class="card-h"><h2>What is left</h2><p>${esc(m.now.long)}</p></div><div class="card-b">
+        <ul class="left">${L.items.map((i) => `<li>${esc(i)}</li>`).join('')}</ul>
+        <p class="muted small" style="margin-top:8px">${L.waiting ? `Waiting for ${esc(L.waiting)}.` : ''}${L.next ? ` Next: ${esc(L.next.long)}.` : ''}</p></div></article>
+      ${s.kind === 'gate' && key !== 'og1' && s.state === 'now' ? '' : `<article class="card"><div class="card-b">${EV.riskSummary(m)}</div></article>`}
+      <article class="card"><div class="card-h"><h2>Decision history</h2><p>${m.sys.decisions.length} entries</p></div><div class="card-b">${EV.historyBody(m)}</div></article>
+    </div>
+  </div>`;
+}
+
+EV.mount({
+  render(el, m) {
+    el.innerHTML = EV.page(m, {
+      heroExtra: stepper(m),
+      tracker: (mm) => EV.tracksStrip(mm),
+      evaluation,
+    });
+  },
+});
+Appbar.mount({ current: 'systems', proposal: { label: 'A', siblings: [['B', 'proposal-b.html'], ['C', 'proposal-c.html']] }, items: EV.paletteItems });
+</script>
+</body>
+</html>

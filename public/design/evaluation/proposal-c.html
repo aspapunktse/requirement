@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Staged evaluation: Gate board</title>
+<link rel="stylesheet" href="../systems/systems.css">
+<link rel="stylesheet" href="../shared/appbar.css">
+<link rel="stylesheet" href="../shared/kit.css">
+<link rel="stylesheet" href="../shared/themes.css">
+<link rel="stylesheet" href="evaluation.css">
+<script src="../shared/themes.js"></script>
+<style>
+/* Proposal C: a gate board. The evaluation is organised around its gates, since the gates are where the BSO decides.
+   Two swimlanes, Self and Full, share the OG1 column; each column is a gate with the work that leads up to it. The
+   System sits in its own lane, the other lane is dimmed, and the cell you are in is marked. A gate opens in a drawer
+   (its work, the verdicts or Recommendations, the BSO's decision panel), and a ledger under the board lists every
+   decided gate with the justification beside any advice the BSO went against. */
+.gchips { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.gchip { all: unset; box-sizing: border-box; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; padding: 5px 12px 5px 8px; border: 1px solid var(--line); border-radius: 99px; background: var(--surface); font-size: .84rem; font-weight: 700; }
+.gchip:hover { border-color: var(--accent); }
+.gchip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.gchip .gd { width: 12px; height: 12px; border-radius: 3px; transform: rotate(45deg); background: var(--line); flex: none; }
+.gchip.done .gd { background: var(--ok); } .gchip.now { border-color: var(--gold); background: var(--gold-soft); } .gchip.now .gd { background: var(--gold); }
+.gchip.rejected { border-color: var(--bad); color: var(--bad); } .gchip.rejected .gd { background: var(--bad); }
+.gchip small { font-weight: 600; color: var(--muted); }
+.gchip.against { box-shadow: 0 0 0 2px color-mix(in srgb, var(--bad) 30%, transparent); }
+.board { display: grid; gap: 14px; }
+.lane { display: grid; gap: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); box-shadow: var(--shadow); }
+.lane.dim { background: var(--raised); box-shadow: none; }
+.lane-t { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline; }
+.lane-t h2 { font-size: 1rem; font-weight: 740; }
+.lane-t p { color: var(--muted); font-size: .8rem; }
+.cells { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
+.cells > * { min-width: 0; }
+.cell { display: grid; gap: 8px; align-content: start; padding: 12px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); position: relative; }
+.cell.done { border-color: color-mix(in srgb, var(--ok) 45%, var(--line)); }
+.cell.here { border-color: var(--gold); box-shadow: 0 0 0 3px color-mix(in srgb, var(--gold) 28%, transparent); }
+.cell.rejected { border-color: var(--bad); }
+.cell.todo { background: var(--raised); border-style: dashed; }
+.cell.off, .cell.skip { background: transparent; border-style: dashed; color: var(--faint); }
+.cell.skip { display: grid; place-items: center; text-align: center; font-size: .8rem; min-height: 60px; }
+.cell-h { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; }
+.cell-h b { font-size: .96rem; }
+.gd2 { width: 14px; height: 14px; border-radius: 4px; transform: rotate(45deg); background: var(--line); flex: none; margin: 0 2px; }
+.cell.done .gd2 { background: var(--ok); } .cell.here .gd2 { background: var(--gold); } .cell.rejected .gd2 { background: var(--bad); }
+.here-tag { position: absolute; top: -9px; right: 12px; background: var(--gold); color: var(--ink); font-size: .68rem; font-weight: 800; padding: 0 8px; border-radius: 99px; }
+.work { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.work li { display: grid; grid-template-columns: 12px minmax(0, 1fr); gap: 4px 8px; align-items: baseline; font-size: .82rem; }
+.work i { width: 9px; height: 9px; border-radius: 50%; background: var(--line); }
+.work .done i { background: var(--ok); } .work .now i { background: var(--gold); } .work .rejected i { background: var(--bad); }
+.work small { grid-column: 2; color: var(--muted); font-size: .74rem; }
+.cell .btn { justify-self: start; }
+@media (max-width: 800px) { .cell.skip { display: none; } }
+.ledger td small { display: block; color: var(--muted); }
+.ledger tr.pairrow td { padding-top: 0; border-bottom: 1px solid var(--line-soft); background: var(--bad-soft); }
+.ledger tr.pairrow .pair { margin: 6px 0; }
+.ledger .hide-md { }
+@media (max-width: 760px) { .ledger .hide-md { display: none; } }
+</style>
+</head>
+<body>
+<header id="appbar"></header>
+<main class="app">
+  <div id="proto"></div>
+  <div id="page"></div>
+</main>
+
+<script src="../shared/kit.js"></script>
+<script src="data.js"></script>
+<script src="evaluation.js"></script>
+<script src="../shared/appbar.js"></script>
+<script>
+const { esc, ui, ST, TRACKS } = EV;
+const SHARED = ['r1', 'ra1', 'og1'];
+// Columns of the board: a gate and the work that leads up to it. null = the lane skips the gate.
+const COLS = {
+  SELF: [{ gate: 'og1', work: ['r1', 'ra1'] }, null, null, { gate: 'og3', work: ['r2', 'ra2'] }, { gate: 'ato', work: [] }],
+  FULL: [{ gate: 'og1', work: ['r1', 'ra1'] }, { gate: 'qual', work: [] }, { gate: 'og2', work: ['doc1', 'oag1'] }, { gate: 'og3', work: ['r2', 'ra2', 'oag2'] }, { gate: 'ato', work: [] }],
+};
+const LANE = { SELF: ['Self', 'Self-assessment: second round, Risk Analysis, then OG3. No Recommendations.'], FULL: ['Full', 'Qualification, first documentation, OAG review, OG2, second round, Risk Analysis, OAG review, then OG3.'] };
+
+const stateIn = (m, k, lane) => (m.sys.track === lane || SHARED.includes(k) ? (m.stages.find((x) => x.key === k) || { state: 'off' }).state : 'off');
+const stageOf = (m, k) => m.stages.find((x) => x.key === k);
+const gateOutcome = (m, gate) => {
+  const d = EV.decisionsOf(m.sys, gate)[0], s = stageOf(m, gate);
+  if (s && s.state === 'now') return EV.chip('warn', gate === 'og1' ? 'Verdicts open' : 'Waiting for the BSO', true);
+  if (s && s.state === 'rejected') return EV.chip('danger', 'Rejected', true);
+  if (!d) return '';
+  const O = EV.OUTCOME[gate][d.outcome];
+  return EV.chip(O[1], O[0], true) + (d.against ? EV.chip('danger', 'Against advice', true) : '');
+};
+
+function cell(m, lane, col) {
+  if (!col) return `<div class="cell skip"><span>Not on the ${LANE[lane][0]} track</span></div>`;
+  const st = stateIn(m, col.gate, lane), live = st !== 'off';
+  const here = live && [col.gate, ...col.work].includes(m.now.key) && !(m.sys.track === null && lane === 'FULL' && false);
+  const title = col.gate === 'ato' ? 'Authorized to operate' : EV.GATE_TITLE[col.gate];
+  const state = st === 'off' ? 'off' : here ? (m.rejected ? 'rejected' : 'here') : st;
+  const work = col.work.map((k) => { const s = stageOf(m, k); const sst = live && s ? s.state : 'off'; return `<li class="${sst}"><i></i><span>${esc(ST[k].long)}</span>${live && s ? `<small>${esc(EV.summaryOf(m, s))}</small>` : ''}</li>`; }).join('');
+  if (col.gate === 'ato') return `<div class="cell ${state === 'here' ? 'todo' : state}"><div class="cell-h"><span class="gd2"></span><b>${title}</b></div><p class="muted small">${st === 'done' ? 'Authorized. The System’s owner or an Admin marks it Onboarded.' : 'OG3 authorizes the System to operate.'}</p></div>`;
+  return `<div class="cell ${state}">${here ? `<span class="here-tag">${m.rejected ? 'Rejected here' : 'You are here'}</span>` : ''}
+    <div class="cell-h"><span class="gd2"></span><b>${esc(title.split(':')[0])}</b>${live ? gateOutcome(m, col.gate) : ''}</div>
+    ${col.work.length ? `<ul class="work" aria-label="Work before ${esc(title.split(':')[0])}">${work}</ul>` : ''}
+    ${live ? `<button type="button" class="btn ${here && m.can ? 'primary' : ''}" data-act="gate" data-v="${col.gate}">${here && m.can ? 'Decide' : 'Open'}</button>` : `<p class="muted small">${m.sys.track ? 'Not this System’s Track' : 'Chosen at OG1'}</p>`}</div>`;
+}
+
+function board(m) {
+  return `<div class="board">${['SELF', 'FULL'].map((lane) => {
+    const mine = m.sys.track === lane, dim = m.sys.track && !mine;
+    return `<section class="lane ${dim ? 'dim' : ''}" aria-label="${LANE[lane][0]} track">
+      <div class="lane-t"><h2>${LANE[lane][0]} track</h2>${mine ? EV.chip('warn', 'This System', true) : dim ? EV.chip('', 'Not this System’s Track', true) : ''}<p>${LANE[lane][1]}</p></div>
+      <div class="cells">${COLS[lane].map((c) => cell(m, lane, c)).join('')}</div></section>`;
+  }).join('')}</div>`;
+}
+
+function chips(m) {
+  const gates = m.sys.track ? m.stages.filter((s) => s.kind === 'gate') : [m.stages.find((s) => s.key === 'og1')];
+  return `<div class="gchips" role="group" aria-label="Gates">${gates.map((s) => {
+    const d = EV.decisionsOf(m.sys, s.key)[0];
+    const sm = s.state === 'now' ? 'waiting' : s.state === 'todo' ? 'later' : s.state === 'rejected' ? 'rejected' : d ? (EV.OUTCOME[s.key][d.outcome] || [''])[0].toLowerCase() : 'done';
+    return `<button type="button" class="gchip ${s.state} ${d && d.against ? 'against' : ''}" data-act="gate" data-v="${s.key}" ${s.state === 'now' ? 'aria-current="step"' : ''}><span class="gd" aria-hidden="true"></span>${esc(s.label)} <small>${esc(sm)}${d && d.against ? ', against advice' : ''}</small></button>`;
+  }).join('')}${m.sys.track ? '' : '<span class="muted small">Then Self or Full</span>'}</div>`;
+}
+
+function ledger(m) {
+  const ds = EV.decisionsOf(m.sys);
+  if (!ds.length) return '<p class="muted small">No gate decided yet.</p>';
+  return `<div class="tscroll"><table class="rt ledger"><thead><tr><th>Date</th><th>Gate</th><th>Outcome</th><th class="hide-md">Decided by</th><th>Comment</th></tr></thead><tbody>
+    ${ds.map((d) => { const O = EV.OUTCOME[d.gate][d.outcome], back = d.outcome === 'BACK' ? ` to ${esc(ST[d.backTo].label.toLowerCase())}${d.backTo === 'r1' ? ' (re-runs OG1)' : ''}` : '';
+      return `<tr><td>${EV.fmt(d.on)}</td><td><b>${esc(EV.GATE_TITLE[d.gate].split(':')[0])}</b></td><td>${EV.chip(O[1], O[0], true)}${back}${d.against ? ' ' + EV.chip('danger', 'Against advice', true) : ''}</td><td class="hide-md">${d.by ? esc(d.by) + ' (BSO)' : 'The groups'}</td><td>${esc(d.comment)}</td></tr>
+      ${(d.against || []).map((a) => `<tr class="pairrow"><td colspan="5"><div class="pair"><div class="pair-l"><span class="label">${esc(EV.GROUPS[a.group].name)} advised against</span><p>${esc(a.rec)}</p></div><div class="pair-r"><span class="label">BSO’s justification</span><p>${esc(a.justification)}</p></div></div></td></tr>`).join('')}`; }).join('')}
+  </tbody></table></div>`;
+}
+
+function drawer(m) {
+  const gate = ui.drawer, cols = COLS[m.sys.track || 'FULL'], col = cols.find((c) => c && c.gate === gate);
+  if (!col || !stageOf(m, gate)) return '';
+  const parts = [...col.work, gate].filter((k) => stageOf(m, k));
+  return `<div class="scrim" data-act="close"></div>
+    <aside class="drawer" role="dialog" aria-modal="true" aria-labelledby="dr-t">
+      <header><div><span class="eyebrow">${esc(m.sys.name)}</span><h2 id="dr-t">${esc(EV.GATE_TITLE[gate])}</h2></div><button type="button" class="btn" data-act="close" data-drawer-close>Close</button></header>
+      <div class="body">${parts.map((k) => { const s = stageOf(m, k); return k === gate && s.state === 'now' && gate !== 'og1' ? EV.stageBody(m, k)
+        : `<section class="card"><div class="card-h"><h2>${esc(s.long)}</h2>${EV.chip({ done: 'success', now: 'warn', todo: '', rejected: 'danger' }[s.state], { done: 'Done', now: 'Current', todo: 'Later', rejected: 'Rejected' }[s.state], true)}</div><div class="card-b"><p class="muted small" style="margin-bottom:10px">${esc(s.hint)}</p>${EV.stageBody(m, k)}</div></section>`; }).join('')}</div></aside>`;
+}
+
+function evaluation(m) {
+  return `<div class="card"><div class="card-h"><h2>Gates</h2><p>${m.sys.track ? 'Open a gate for its work, its verdicts or Recommendations and the BSO’s decision' : 'OG1 chooses the Track'}</p></div><div class="card-b">${chips(m)}</div></div>
+    ${board(m)}
+    <article class="card"><div class="card-h"><h2>Gate ledger</h2><p>${plural(m.sys.decisions.length, 'decision')}</p></div><div class="card-b">${ledger(m)}</div></article>
+    ${EV.ui.drawer ? drawer(m) : ''}`;
+}
+const plural = EV.plural;
+
+EV.mount({
+  render(el, m) {
+    el.innerHTML = EV.page(m, { heroExtra: chips(m), tracker: (mm) => chips(mm) + `<div style="margin-top:12px">${EV.tracksStrip(mm)}</div>`, evaluation });
+  },
+});
+Appbar.mount({ current: 'systems', proposal: { label: 'C', siblings: [['A', 'proposal-a.html'], ['B', 'proposal-b.html']] }, items: EV.paletteItems });
+</script>
+</body>
+</html>

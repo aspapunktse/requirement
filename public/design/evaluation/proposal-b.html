@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Staged evaluation: Journey</title>
+<link rel="stylesheet" href="../systems/systems.css">
+<link rel="stylesheet" href="../shared/appbar.css">
+<link rel="stylesheet" href="../shared/kit.css">
+<link rel="stylesheet" href="../shared/themes.css">
+<link rel="stylesheet" href="evaluation.css">
+<script src="../shared/themes.js"></script>
+<style>
+/* Proposal B: a journey. The Evaluation tab is a vertical rail of stages, read top to bottom like a story: done stages
+   fold to one line with their outcome, the current stage is open, later stages say what they need. A sticky panel beside
+   the rail is the BSO's decision panel at a gate (or, at any other stage, what is left and who it waits on), so the
+   decision, the Recommendations and the Risk summary stay in view while you read the history. */
+.jgrid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, 400px); gap: 18px; align-items: start; }
+.jgrid > * { min-width: 0; }
+.side { position: sticky; top: 76px; display: grid; gap: 14px; max-height: calc(100vh - 96px); overflow-y: auto; padding: 2px; }
+@media (max-width: 1020px) { .jgrid { grid-template-columns: 1fr; } .side { position: static; max-height: none; order: -1; } }
+.rail { list-style: none; margin: 0; padding: 0; display: grid; }
+.rail > li { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 10px; position: relative; padding-bottom: 12px; }
+.rail > li::before { content: ""; position: absolute; left: 16px; top: 34px; bottom: -2px; width: 3px; background: var(--line); border-radius: 2px; }
+.rail > li:last-child { padding-bottom: 0; } .rail > li:last-child::before { display: none; }
+.rail > li.done::before { background: var(--accent); }
+.rn { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: .84rem; background: var(--surface); border: 3px solid var(--line); color: var(--faint); z-index: 1; }
+.rail > li.gate .rn { border-radius: 9px; }
+.rail > li.done .rn { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.rail > li.now .rn { border-color: var(--gold); background: var(--gold-soft); color: var(--gold-ink); box-shadow: 0 0 0 4px color-mix(in srgb, var(--gold) 25%, transparent); }
+.rail > li.rejected .rn { background: var(--bad); border-color: var(--bad); color: var(--on-accent); }
+.jb { border: 1px solid var(--line); border-radius: 14px; background: var(--surface); min-width: 0; overflow: clip; }
+.rail > li.now .jb { border-color: var(--gold); box-shadow: var(--shadow); }
+.rail > li.todo .jb { background: var(--raised); border-style: dashed; }
+.jb > button { all: unset; box-sizing: border-box; width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 4px 12px; align-items: center; padding: 11px 14px; cursor: pointer; }
+.jb > button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.jb > button:hover { background: var(--raised); }
+.jb h3 { font-size: .96rem; font-weight: 720; }
+.jb .sum { color: var(--muted); font-size: .8rem; }
+.jb .chev { color: var(--faint); transition: transform .2s; }
+.jb > button[aria-expanded="true"] .chev { transform: rotate(90deg); }
+.jb .jbody { padding: 4px 14px 14px; border-top: 1px solid var(--line-soft); }
+.jb .jbody > .muted.small:first-child { margin: 8px 0 12px; }
+@media (max-width: 520px) { .jb > button { grid-template-columns: minmax(0, 1fr) auto; } .jb > button .chip { grid-column: 1; justify-self: start; } .jb .chev { grid-column: 2; grid-row: 1; } }
+@media (prefers-reduced-motion: reduce) { .jb .chev { transition: none; } }
+.nextup { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.nextup li { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 10px; align-items: start; padding: 7px 10px; border-radius: 10px; background: var(--raised); border: 1px solid var(--line-soft); }
+.nextup li.now { border-color: var(--gold); background: var(--gold-soft); }
+.nextup .dt { width: 14px; height: 14px; border-radius: 50%; border: 3px solid var(--line); margin-top: 3px; } .nextup .gate .dt { border-radius: 4px; }
+.nextup .done .dt { background: var(--accent); border-color: var(--accent); } .nextup .now .dt { border-color: var(--gold); background: var(--gold-soft); }
+.nextup small { display: block; color: var(--muted); }
+</style>
+</head>
+<body>
+<header id="appbar"></header>
+<main class="app">
+  <div id="proto"></div>
+  <div id="page"></div>
+</main>
+
+<script src="../shared/kit.js"></script>
+<script src="data.js"></script>
+<script src="evaluation.js"></script>
+<script src="../shared/appbar.js"></script>
+<script>
+const { esc, ui } = EV;
+const STATE_CHIP = { done: ['success', 'Done'], now: ['warn', 'Current'], todo: ['', 'Later'], rejected: ['danger', 'Rejected'] };
+
+const isOpen = (m, s) => ui.open[m.sys.id + ':' + s.key] ?? (s.state === 'now' || s.state === 'rejected');
+const atGate = (m) => m.now.kind === 'gate' && m.now.key !== 'og1' && !m.rejected;
+
+function block(m, s) {
+  const open = isOpen(m, s), c = STATE_CHIP[s.state];
+  // the live decision sits in the sticky panel, so the rail only points at it
+  const body = s.state === 'now' && atGate(m)
+    ? `<p class="muted small">${esc(s.hint)}</p><div class="callout">The decision is in the decision panel (beside the rail on a wide screen, above it on a narrow one): Recommendations, Risk summary and the BSO’s choices.</div>${EV.decisionsOf(m.sys, s.key).length ? `<h4 class="sub">Earlier decisions at this gate</h4>${EV.historyBody(m, s.key)}` : ''}`
+    : `<p class="muted small">${esc(s.hint)}</p>${EV.stageBody(m, s.key)}`;
+  const glyph = s.state === 'done' ? '✓' : s.state === 'rejected' ? '✕' : s.kind === 'gate' ? 'G' : s.kind === 'fork' ? '?' : s.i + 1;
+  return `<li class="${s.state} ${s.kind}"><span class="rn" aria-hidden="true">${glyph}</span>
+    <div class="jb"><button type="button" data-act="toggle" data-v="${s.key}" aria-expanded="${open}">
+      <div><h3>${esc(s.long)}</h3><span class="sum">${esc(EV.summaryOf(m, s))}</span></div>${EV.chip(c[0], c[1], true)}<span class="chev" aria-hidden="true">▸</span></button>
+      ${open ? `<div class="jbody">${body}</div>` : ''}</div></li>`;
+}
+
+function sidePanel(m) {
+  if (atGate(m)) return EV.decisionPanel(m, m.now.key);
+  const L = m.left;
+  if (m.rejected) return `<section class="dpanel"><div class="dp-h"><div><span class="eyebrow">Closed</span><h3>Rejected at ${esc(m.now.label)}</h3></div></div>${EV.historyBody(m, m.now.key)}<p class="muted small">Reject is final. The System is read-only.</p></section>`;
+  const verdicts = m.now.key === 'og1' ? `<h4 class="sub">OG1 verdicts so far</h4>${EV.verdictsBody(m)}` : '';
+  const rest = m.stages.slice(m.idx, m.idx + 4);
+  return `<section class="dpanel"><div class="dp-h"><div><span class="eyebrow">What is left</span><h3>${esc(m.now.long)}</h3></div>${EV.chip('warn', 'Current', true)}</div>
+    <ul class="left">${L.items.map((i) => `<li>${esc(i)}</li>`).join('')}</ul>
+    <p class="muted small">${L.waiting ? `Waiting for ${esc(L.waiting)}. ` : ''}No gate is open for the BSO yet, so there is nothing to decide.</p>
+    ${verdicts}
+    <h4 class="sub">Coming up</h4><ol class="nextup">${rest.map((s) => `<li class="${s.state} ${s.kind}"><span class="dt"></span><div><b>${esc(s.long)}</b><small>${esc(s.hint)}</small></div></li>`).join('')}</ol></section>`;
+}
+
+function evaluation(m) {
+  return `<div class="jgrid">
+    <ol class="rail" aria-label="Evaluation journey">${m.stages.map((s) => block(m, s)).join('')}</ol>
+    <aside class="side" aria-label="${atGate(m) ? 'Decision' : 'What is left'}">${sidePanel(m)}
+      <article class="card"><div class="card-h"><h2>Both Tracks</h2><p>${m.sys.track ? 'Where this System is' : 'OG1 picks one'}</p></div><div class="card-b">${EV.tracksStrip(m)}</div></article>
+    </aside></div>`;
+}
+
+EV.mount({
+  render(el, m) {
+    el.innerHTML = EV.page(m, {
+      heroExtra: '',
+      tracker: (mm) => `<ol class="nextup">${mm.stages.slice(Math.max(0, mm.idx - 1), mm.idx + 4).map((s) => `<li class="${s.state} ${s.kind}"><span class="dt"></span><div><b>${esc(s.long)}</b><small>${esc(EV.summaryOf(mm, s))}</small></div></li>`).join('')}</ol>`,
+      evaluation,
+    });
+  },
+});
+Appbar.mount({ current: 'systems', proposal: { label: 'B', siblings: [['A', 'proposal-a.html'], ['C', 'proposal-c.html']] }, items: EV.paletteItems });
+</script>
+</body>
+</html>
