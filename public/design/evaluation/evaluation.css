@@ -30,7 +30,10 @@ h4.sub { font-size: .78rem; font-weight: 750; text-transform: uppercase; letter-
 .who-row h1 { font-size: clamp(1.45rem, 2.8vw, 2rem); letter-spacing: -0.02em; overflow-wrap: anywhere; }
 .hero .chips { gap: 8px; }
 .meta-i { display: inline-flex; align-items: center; gap: 6px; font-size: .84rem; color: var(--muted); }
-.hero-extra { grid-column: 1 / -1; }
+.hero > * { min-width: 0; }
+@media (max-width: 760px) { .hero { grid-template-columns: minmax(0, 1fr); } }
+.hero-extra { grid-column: 1 / -1; min-width: 0; max-width: 100%; overflow: hidden; }
+.meta-i { min-width: 0; flex-wrap: wrap; }
 .mv { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; font-size: .82rem; color: var(--muted); }
 .mv li { display: grid; grid-template-columns: 4.6em minmax(0, 1fr); gap: 8px; }
 .mv b { color: var(--ink); overflow-wrap: anywhere; }

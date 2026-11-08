@@ -268,7 +268,7 @@
     body.push(riskSummary(m, { compact: o.compact }));
     return `<section class="dpanel ${o.cls || ''}" aria-label="Decision at ${esc(GATE_TITLE[gate])}">
       <div class="dp-h"><div><span class="eyebrow">${live ? 'Waiting for the BSO' : 'Decision'}</span><h3>${esc(GATE_TITLE[gate])}</h3></div>${live ? chip('warn', 'Open', true) : ''}</div>
-      <p class="muted small">The Onboarding Advisory Group recommends. The Business System Owner decides.</p>
+      <p class="muted small">${sys.track === 'FULL' ? 'The Onboarding Advisory Group recommends. The Business System Owner decides.' : gate === 'og3' ? 'The Business System Owner decides whether the System may operate.' : 'The Business System Owner decides.'}</p>
       ${who}${body.join('')}${recorded}${form}</section>`;
   }
 
