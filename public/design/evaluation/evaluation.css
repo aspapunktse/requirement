@@ -129,6 +129,9 @@ h4.sub { font-size: .78rem; font-weight: 750; text-transform: uppercase; letter-
 /* ---- BSO decision panel ---- */
 .dpanel { display: grid; gap: 12px; padding: 16px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); box-shadow: var(--shadow); }
 .dpanel.inline { box-shadow: none; background: var(--raised); }
+.dpanel { grid-template-columns: minmax(0, 1fr); }
+/* On a phone the Risk summary matrix scrolls in its own box instead of widening the page */
+@media (max-width: 760px) { .rmat { display: block; overflow-x: auto; max-width: 100%; } }
 .dp-h { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; }
 .dp-h h3 { font-size: 1.08rem; font-weight: 740; }
 .dform { display: grid; gap: 12px; padding-top: 12px; border-top: 1px solid var(--line-soft); }
