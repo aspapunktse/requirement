@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { RiskRow, type Risk } from "@/components/RiskList";
 import { StatusChip } from "@/components/ui/StatusChip";
+import { RISK_SOURCES, RISK_SOURCE_LABELS, type RiskSourceValue } from "@/lib/risk-source";
 import { riskSeverityTone, riskStatusTone } from "@/lib/status-tones";
 import { initialsOf } from "@/app/home/home-format";
 import { RiskGrid, SEVERITY_TEXT } from "./RiskGrid";
@@ -105,15 +106,19 @@ export function SystemRisks({
   canLog,
   canManageStatus,
   canOpenCheckUp,
+  owners,
 }: {
   systemId: string;
   canLog: boolean;
   canManageStatus: boolean;
   canOpenCheckUp: boolean;
+  /** Every User, for assigning a Risk's owner (any role); passed only to those who manage Risks. */
+  owners?: { id: string; name: string }[];
 }) {
   const router = useRouter();
   const [logging, setLogging] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [sourceFilter, setSourceFilter] = useState<RiskSourceValue | "">("");
 
   const read = useCallback(async (): Promise<Risk[]> => {
     const response = await fetch(`/api/systems/${systemId}/risks`);
@@ -124,6 +129,7 @@ export function SystemRisks({
 
   const grid = riskGridOf(risks ?? []);
   const open = (risks ?? []).filter((risk) => risk.status === "OPEN").length;
+  const shown = (risks ?? []).filter((risk) => !sourceFilter || risk.source === sourceFilter);
 
   return (
     <section className="hc-card" aria-labelledby="sc-riskreg-h">
@@ -173,6 +179,21 @@ export function SystemRisks({
             {risks.length === 0 ? (
               <p className="hc-empty">No Risks logged for this System.</p>
             ) : (
+              <>
+              <label className="sc-field sc-risks-form">
+                <span>Source</span>
+                <select aria-label="Filter by Risk Source" value={sourceFilter} onChange={(event) => setSourceFilter(event.target.value as RiskSourceValue | "")}>
+                  <option value="">All sources</option>
+                  {RISK_SOURCES.map((source) => (
+                    <option key={source} value={source}>
+                      {RISK_SOURCE_LABELS[source]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {shown.length === 0 ? (
+              <p className="hc-empty">No Risks from this source.</p>
+              ) : (
               <div className="sc-tablewrap">
                 <table className="sc-rt">
                   <thead>
@@ -182,10 +203,11 @@ export function SystemRisks({
                       <th className="hide-sm">Likelihood</th>
                       <th>Status</th>
                       <th className="hide-sm">Owner</th>
+                      <th className="hide-sm">Source</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {risks.map((risk) => {
+                    {shown.map((risk) => {
                       const expanded = openId === risk.id;
                       return (
                         <RiskTableRow
@@ -196,6 +218,7 @@ export function SystemRisks({
                           patchUrl={`/api/systems/${systemId}/risks/${risk.id}`}
                           canManageStatus={canManageStatus}
                           canOpenCheckUp={canOpenCheckUp}
+                          owners={owners}
                           onUpdated={(updated) => {
                             setRisks((previous) => (previous ?? []).map((candidate) => (candidate.id === updated.id ? updated : candidate)));
                             router.refresh();
@@ -206,6 +229,8 @@ export function SystemRisks({
                   </tbody>
                 </table>
               </div>
+              )}
+              </>
             )}
           </>
         )}
@@ -221,6 +246,7 @@ function RiskTableRow({
   patchUrl,
   canManageStatus,
   canOpenCheckUp,
+  owners,
   onUpdated,
 }: {
   risk: Risk;
@@ -229,6 +255,7 @@ function RiskTableRow({
   patchUrl: string;
   canManageStatus: boolean;
   canOpenCheckUp: boolean;
+  owners?: { id: string; name: string }[];
   onUpdated: (risk: Risk) => void;
 }) {
   const detailId = `sc-risk-${risk.id}`;
@@ -262,12 +289,13 @@ function RiskTableRow({
             <span className="muted">Unassigned</span>
           )}
         </td>
+        <td className="hide-sm">{RISK_SOURCE_LABELS[risk.source]}</td>
       </tr>
       {expanded && (
         <tr className="sc-risk-detail">
-          <td colSpan={5} id={detailId}>
+          <td colSpan={6} id={detailId}>
             <ul className="sc-risk-list">
-              <RiskRow risk={risk} patchUrl={patchUrl} canManageStatus={canManageStatus} canOpenCheckUp={canOpenCheckUp} onUpdated={onUpdated} />
+              <RiskRow risk={risk} patchUrl={patchUrl} canManageStatus={canManageStatus} canOpenCheckUp={canOpenCheckUp} owners={canManageStatus ? owners : undefined} onUpdated={onUpdated} />
             </ul>
           </td>
         </tr>

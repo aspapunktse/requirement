@@ -74,7 +74,7 @@ describe("AppHeader", () => {
 
 const mainNav = () => screen.getByRole("navigation", { name: "Main" });
 const navLabels = () => [...mainNav().querySelectorAll("a, button")].map((el) => el.textContent?.replace("▾", "").trim());
-const SHARED = ["Home", "Systems", "Information Types", "Controls", "Check-ups", "SoA", "Frameworks"];
+const SHARED = ["Home", "Systems", "Information Types", "Controls", "Risks", "Check-ups", "SoA", "Frameworks"];
 
 describe("AppHeader: main navigation", () => {
   beforeEach(() => {
@@ -85,7 +85,7 @@ describe("AppHeader: main navigation", () => {
 
   const ITEMS_BY_ROLE: Record<UserRole, string[]> = {
     ADMIN: ["Home", "Systems", "Information Types", "Controls", "Risks", "Check-ups", "Internal Audits", "SoA", "Frameworks", "Admin"],
-    COMPLIANCE_MANAGER: ["Home", "Systems", "Information Types", "Controls", "Check-ups", "Internal Audits", "SoA", "Frameworks"],
+    COMPLIANCE_MANAGER: ["Home", "Systems", "Information Types", "Controls", "Risks", "Check-ups", "Internal Audits", "SoA", "Frameworks"],
     SYSTEM_OWNER: SHARED,
     RISK_OWNER: ["Home", "Systems", "Information Types", "Controls", "Risks", "Check-ups", "Internal Audits", "SoA", "Frameworks"],
     REVIEWER: SHARED,
@@ -113,17 +113,17 @@ describe("AppHeader: main navigation", () => {
     expect(within(mainNav()).getByRole("link", { name: "SoA" })).toHaveAttribute("title", "Statement of Applicability");
   });
 
-  it("links Risks and Internal Audits to their pages for a role that may open them", () => {
+  it("links Risks to the Risk register for every role, and Internal Audits to its page for a role that may open it", () => {
     render(<AppHeader devStub={false} user={asRole("RISK_OWNER")} />);
-    expect(within(mainNav()).getByRole("link", { name: "Risks" })).toHaveAttribute("href", "/risks/organization");
+    expect(within(mainNav()).getByRole("link", { name: "Risks" })).toHaveAttribute("href", "/risks");
     expect(within(mainNav()).getByRole("link", { name: "Internal Audits" })).toHaveAttribute("href", "/internal-audits");
   });
 
   it("follows the acting user when the role changes", () => {
     const { rerender } = render(<AppHeader devStub={false} user={asRole("VIEWER")} />);
-    expect(within(mainNav()).queryByRole("link", { name: "Risks" })).not.toBeInTheDocument();
+    expect(within(mainNav()).queryByRole("link", { name: "Internal Audits" })).not.toBeInTheDocument();
     rerender(<AppHeader devStub={false} user={asRole("RISK_OWNER")} />);
-    expect(within(mainNav()).getByRole("link", { name: "Risks" })).toBeInTheDocument();
+    expect(within(mainNav()).getByRole("link", { name: "Internal Audits" })).toBeInTheDocument();
   });
 
   it.each([
@@ -132,6 +132,7 @@ describe("AppHeader: main navigation", () => {
     ["/systems/abc", "Systems"],
     ["/information-types", "Information Types"],
     ["/controls", "Controls"],
+    ["/risks", "Risks"],
     ["/risks/organization", "Risks"],
     ["/risks/xyz", "Risks"],
     ["/check-ups", "Check-ups"],
@@ -358,6 +359,7 @@ describe("AppHeader: Ctrl+K palette", () => {
       "Systems",
       "Information Types",
       "Controls",
+      "Risks",
       "Check-ups",
       "Statement of Applicability",
       "Frameworks",
@@ -393,7 +395,7 @@ describe("AppHeader: Ctrl+K palette", () => {
     const dialog = screen.getByRole("dialog");
     const options = within(dialog).getAllByRole("option");
     expect(options[0]).toHaveTextContent("Review the cloud policy");
-    expect(options).toHaveLength(13);
+    expect(options).toHaveLength(14);
     expect(within(dialog).getByRole("combobox")).toHaveAttribute("placeholder", "Jump to a task…");
     const groups = within(dialog)
       .getAllByText(/^(Tasks|Go to|Theme)$/)
@@ -467,7 +469,7 @@ describe("AppHeader: Ctrl+K palette", () => {
     const labels = within(screen.getByRole("dialog"))
       .getAllByRole("option")
       .map((o) => o.querySelector("span")?.textContent);
-    expect(labels.filter((label) => !label?.startsWith("Theme: "))).toEqual(["Home", "Information Types", "Controls", "Check-ups", "Statement of Applicability", "Frameworks"]);
+    expect(labels.filter((label) => !label?.startsWith("Theme: "))).toEqual(["Home", "Information Types", "Controls", "Risks", "Check-ups", "Statement of Applicability", "Frameworks"]);
   });
 
   it("lists the Admin pages under Go to for an Admin only", async () => {

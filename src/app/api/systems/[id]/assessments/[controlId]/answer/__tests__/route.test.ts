@@ -204,6 +204,8 @@ describe("PATCH /api/systems/[id]/assessments/[controlId]/answer", () => {
     });
     expect(risks).toHaveLength(1);
     expect(risks[0].systemId).toBe(systemId);
+    // A "No" answer opens a requirement non-conformance Risk (#322).
+    expect(risks[0].source).toBe("REQUIREMENT_NONCONFORMANCE");
   });
 
   it("records the auto-opened Risk as one RISK_LOGGED event by the system, instead of a RISK_STATUS_CHANGED one (#245)", async () => {

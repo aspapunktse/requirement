@@ -138,6 +138,34 @@ describe("PATCH /api/systems/[id]/risks/[riskId]", () => {
     expect(event?.detail).toContain("ACCEPTED");
   });
 
+  it("lets a Risk Owner assign any User as the owner, whatever their role, and unassign (#322)", async () => {
+    // ownerId is a SYSTEM_OWNER here: not a Risk Owner or an Admin.
+    const assigned = await PATCH(requestAs(systemId, riskId, riskOwnerId, { status: "OPEN", ownerId }), ctxFor(systemId, riskId));
+    expect(assigned.status).toBe(200);
+    expect((await assigned.json()).risk.owner).toMatchObject({ id: ownerId });
+    expect((await prisma.risk.findUniqueOrThrow({ where: { id: riskId } })).ownerId).toBe(ownerId);
+
+    // Absent leaves the owner as it is.
+    expect((await PATCH(requestAs(systemId, riskId, riskOwnerId, { status: "ACCEPTED" }), ctxFor(systemId, riskId))).status).toBe(200);
+    expect((await prisma.risk.findUniqueOrThrow({ where: { id: riskId } })).ownerId).toBe(ownerId);
+
+    const cleared = await PATCH(requestAs(systemId, riskId, riskOwnerId, { status: "OPEN", ownerId: null }), ctxFor(systemId, riskId));
+    expect(cleared.status).toBe(200);
+    expect((await prisma.risk.findUniqueOrThrow({ where: { id: riskId } })).ownerId).toBeNull();
+  });
+
+  it("refuses an unknown owner with a 400 and changes nothing", async () => {
+    const response = await PATCH(requestAs(systemId, riskId, riskOwnerId, { status: "CLOSED", ownerId: "no-such-user" }), ctxFor(systemId, riskId));
+    expect(response.status).toBe(400);
+    expect(await prisma.risk.findUniqueOrThrow({ where: { id: riskId } })).toMatchObject({ status: "OPEN", ownerId: null });
+  });
+
+  it("refuses a non-manager's attempt to assign an owner with a 403 and changes nothing", async () => {
+    const response = await PATCH(requestAs(systemId, riskId, ownerId, { status: "OPEN", ownerId: riskOwnerId }), ctxFor(systemId, riskId));
+    expect(response.status).toBe(403);
+    expect((await prisma.risk.findUniqueOrThrow({ where: { id: riskId } })).ownerId).toBeNull();
+  });
+
   it("rejects setting Mitigated without a mitigation plan", async () => {
     const response = await PATCH(
       requestAs(systemId, riskId, riskOwnerId, { status: "MITIGATED" }),

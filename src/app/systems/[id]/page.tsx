@@ -9,6 +9,7 @@ import { canManageFrameworkScopes } from "@/lib/framework-scope";
 import { assessmentEditAccess } from "@/lib/system-permissions";
 import { canManageProvider } from "@/lib/control-offering-rules";
 import { listControlOfferings, listOfferableControls } from "@/lib/control-offerings";
+import { prisma } from "@/lib/prisma";
 import { listSensitivityLevels } from "@/lib/sensitivity-level-data";
 import { canManageProviderDependencies } from "@/lib/provider-dependency-rules";
 import { listDependents, listProviderChoices, listProviderDependencies } from "@/lib/provider-dependencies";
@@ -73,6 +74,9 @@ export default async function SystemDetailPage({ params }: PageProps<"/systems/[
     system.isProvider && canManageThisProvider ? listDependents(system.id, user) : Promise.resolve([]),
     listSensitivityLevels(),
   ]);
+  // A Risk owner can be any User, whatever their role (#322); only those who manage Risks assign one.
+  const canManageRisks = ROLES_ALLOWED_TO_MANAGE_RISK_STATUS.includes(user.role);
+  const riskOwners = canManageRisks ? await prisma.user.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }) : [];
   const canChangeClassification = canChangeSystemClassification(user, system);
 
   const panels = {
@@ -94,8 +98,9 @@ export default async function SystemDetailPage({ params }: PageProps<"/systems/[
       <SystemRisks
         systemId={system.id}
         canLog={canLogRisk(user, system)}
-        canManageStatus={ROLES_ALLOWED_TO_MANAGE_RISK_STATUS.includes(user.role)}
+        canManageStatus={canManageRisks}
         canOpenCheckUp={canReadInternalAudits(user)}
+        owners={riskOwners}
       />
     ),
     providers: (
