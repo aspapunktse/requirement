@@ -5,6 +5,7 @@ import { countVisibleSystemsByFramework } from "@/app/frameworks/frameworks-data
 import { deriveCoverageState } from "@/lib/coverage-state";
 import { frameworkLabel } from "@/lib/framework-label";
 import { canSeeDraftFrameworks, visibleFrameworksWhere } from "@/lib/frameworks";
+import { canBeControlOwner } from "@/lib/system-permissions";
 import type { CoverageRow, CoverageView } from "./coverage-types";
 
 /**
@@ -35,6 +36,8 @@ export async function loadCoverageView(
           isBase: true,
           strictComplianceRequired: true,
           reviewGroup: { select: { name: true } },
+          ownerId: true,
+          owner: { select: { id: true, name: true } },
         },
       });
       if (!framework) return null;
@@ -93,6 +96,20 @@ export async function loadCoverageView(
         ? await tx.control.findMany({ orderBy: { code: "asc" }, select: { id: true, code: true, title: true, originFrameworkId: true } })
         : [];
       const controls = controlRows.map((c) => ({ id: c.id, code: c.code, title: c.title, supplementary: c.originFrameworkId !== null }));
+      // First round (#319): the distinct mapped Controls, each marked or not. A marking counts only while the Control is mapped.
+      const marked = new Set((await tx.frameworkFirstRoundControl.findMany({ where: { frameworkId }, select: { controlId: true } })).map((m) => m.controlId));
+      const mappedControls = new Map<string, { controlId: string; code: string; title: string; marked: boolean }>();
+      for (const row of rows) {
+        for (const mapping of row.mappings) {
+          mappedControls.set(mapping.control.id, { controlId: mapping.control.id, code: mapping.control.code, title: mapping.control.title, marked: marked.has(mapping.control.id) });
+        }
+      }
+      const firstRound = [...mappedControls.values()].sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true }));
+      const owners = canCurate
+        ? (await tx.user.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true, role: true } }))
+            .filter((candidate) => canBeControlOwner(candidate))
+            .map(({ id, name }) => ({ id, name }))
+        : [];
       const systems = framework.status === "DRAFT" ? null : (await countVisibleSystemsByFramework(user, tx)).countFor(framework);
 
       return {
@@ -108,8 +125,13 @@ export async function loadCoverageView(
           isBase: framework.isBase,
           strict: framework.strictComplianceRequired,
           reviewGroup: framework.reviewGroup?.name ?? null,
+          owner: framework.owner,
           systems,
         },
+        canAssignOwner: canCurate,
+        owners,
+        canMarkFirstRound: canCurate || framework.ownerId === user.id,
+        firstRound,
         frameworks: switcher
           .map((row) => ({ id: row.id, label: frameworkLabel(row), status: row.status }))
           .sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true })),

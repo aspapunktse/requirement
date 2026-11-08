@@ -5,6 +5,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { authenticate, authorize } from "@/lib/api-authz";
 import { ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE } from "@/lib/catalog";
+import { canBeControlOwner, CONTROL_OWNER_REFUSAL } from "@/lib/system-permissions";
 import {
   BASE_FRAMEWORK_ERRORS,
   checkBaseFrameworkInvariant,
@@ -35,6 +36,9 @@ const updateFrameworkSchema = z
     onboardingQuestion: optionalText(200),
     onboardingHint: optionalText(500),
     isBase: z.boolean().optional(),
+    // The Framework Owner (#319): a User id, or null to clear it. Any User whatever their role, except a strictly
+    // read-only one (as for a Control Owner); only a Compliance Manager or an Admin gets here. Not a Change Event.
+    ownerId: z.string().min(1).nullable().optional(),
     // Publishing is POST /api/frameworks/[id]/publish; `status` is only accepted here so an attempt to
     // move a Published Framework back to Draft gets a clear refusal instead of being silently ignored.
     status: z.enum(["DRAFT", "PUBLISHED"]).optional(),
@@ -51,7 +55,7 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/framewor
   const { id } = await ctx.params;
   const framework = await prisma.framework.findFirst({
     where: { id, ...visibleFrameworksWhere(auth.user) },
-    include: { _count: { select: { requirements: true } } },
+    include: { _count: { select: { requirements: true } }, owner: { select: { id: true, name: true } } },
   });
   if (!framework) {
     return NextResponse.json({ error: "Framework not found" }, { status: 404 });
@@ -122,6 +126,12 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/framew
     if (violation) {
       return NextResponse.json({ error: BASE_FRAMEWORK_ERRORS[violation] }, { status: 409 });
     }
+  }
+
+  if (parsed.data.ownerId) {
+    const owner = await prisma.user.findUnique({ where: { id: parsed.data.ownerId }, select: { role: true } });
+    if (!owner) return NextResponse.json({ error: "Framework Owner not found: no User has that id" }, { status: 400 });
+    if (!canBeControlOwner(owner)) return NextResponse.json({ error: CONTROL_OWNER_REFUSAL.replace("Control Owner", "Framework Owner") }, { status: 400 });
   }
 
   if (parsed.data.supersedesId && (await wouldCreateSupersedesCycle(id, parsed.data.supersedesId))) {

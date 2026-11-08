@@ -31,7 +31,7 @@ import {
 } from "./frameworks-logic";
 import type { CatalogRow, CatalogView, GroupKey, SortKey, ViewKey } from "./frameworks-types";
 
-type ColumnKey = Exclude<SortKey, "default"> | "status" | "accepted" | "group" | "go";
+type ColumnKey = Exclude<SortKey, "default"> | "status" | "accepted" | "group" | "owner" | "go";
 const COLUMNS: { key: ColumnKey; label: string; sortable: boolean; numeric?: boolean }[] = [
   { key: "name", label: "Framework", sortable: true },
   { key: "status", label: "Status", sortable: false },
@@ -40,6 +40,7 @@ const COLUMNS: { key: ColumnKey; label: string; sortable: boolean; numeric?: boo
   { key: "accepted", label: "Accepted", sortable: false, numeric: true },
   { key: "systems", label: "Systems", sortable: true, numeric: true },
   { key: "group", label: "Review Group", sortable: false },
+  { key: "owner", label: "Framework Owner", sortable: false },
   { key: "updated", label: "Updated", sortable: true },
   { key: "go", label: "Actions", sortable: false },
 ];
@@ -187,6 +188,7 @@ export function FrameworksCatalog({ view }: { view: CatalogView }) {
           )}
         </td>
         <td className="c-rg">{row.isBase ? "Base Review Step" : (row.reviewGroup ?? "—")}</td>
+        <td className="c-owner">{row.ownerName ?? <span className="muted">No owner</span>}</td>
         <td className="c-upd muted" title={row.updatedAt.slice(0, 10)}>
           {formatDate(row.updatedAt)}
         </td>

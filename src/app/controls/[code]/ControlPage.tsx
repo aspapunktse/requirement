@@ -133,7 +133,7 @@ function ScopeBody({ row }: { row: LibraryRow }) {
   );
 }
 
-function SatisfiesBody({ row }: { row: LibraryRow }) {
+function SatisfiesBody({ row, firstRoundFor }: { row: LibraryRow; firstRoundFor: ControlPageView["firstRoundFor"] }) {
   const groups = mappingsByFramework(row);
   const totals = requirementTotals(row.mappings);
   if (groups.length === 0) {
@@ -150,6 +150,15 @@ function SatisfiesBody({ row }: { row: LibraryRow }) {
     <>
       <p className="cp-muted cp-small">
         {plural(totals.total, "Requirement")} in {plural(totals.frameworks, "Framework")}: {totals.full} Full, {totals.partial} Partial.
+      </p>
+      <p className="cp-small" data-testid="first-round-for">
+        {firstRoundFor.length > 0 ? (
+          <>
+            <b>First round for:</b> {firstRoundFor.map((framework) => `${framework.label}${framework.draft ? " (Draft)" : ""}`).join(", ")}
+          </>
+        ) : (
+          <span className="cp-muted">Not first round for any Framework.</span>
+        )}
       </p>
       <div className="cp-fws">
         {groups.map((group) => {
@@ -383,7 +392,7 @@ export function ControlPage({ view, initialTab }: { view: ControlPageView; initi
             {tab === "satisfies" && (
               <>
                 <h2>Satisfies</h2>
-                <SatisfiesBody row={row} />
+                <SatisfiesBody row={row} firstRoundFor={view.firstRoundFor} />
               </>
             )}
             {tab === "implementation" && organization && (

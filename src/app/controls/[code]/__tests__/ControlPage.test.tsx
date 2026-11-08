@@ -35,6 +35,7 @@ function bothView(over: Partial<ControlPageView> = {}): ControlPageView {
       systemCount: 3,
       mappings: [mapping("R-1", "FULL"), mapping("R-2", "PARTIAL")],
     }),
+    firstRoundFor: [],
     organization: { status: "FULFILLED", description: "Done centrally.", updatedOn: "5 Nov 2026", updatedByName: "Pat Peer" },
     systems: {
       total: 3,
@@ -180,5 +181,15 @@ describe("ControlPage (#314)", () => {
     none.systems = { total: 0, counts: { ...COUNTS, NOT_STARTED: 0, FULFILLED: 0 }, list: [] };
     render(<ControlPage view={none} initialTab="systems" />);
     expect(screen.getByText(/applies to none today/)).toBeInTheDocument();
+  });
+});
+
+describe("first round (#319)", () => {
+  it("names the Frameworks that mark the Control first round, Draft ones flagged, or says none does", () => {
+    render(<ControlPage view={bothView({ firstRoundFor: [{ id: "f1", label: "ISO/IEC 27001:2022", draft: false }, { id: "f2", label: "Test Act:1", draft: true }] })} initialTab="satisfies" />);
+    expect(screen.getByTestId("first-round-for").textContent).toBe("First round for: ISO/IEC 27001:2022, Test Act:1 (Draft)");
+    cleanup();
+    render(<ControlPage view={bothView()} initialTab="satisfies" />);
+    expect(screen.getByTestId("first-round-for").textContent).toBe("Not first round for any Framework.");
   });
 });

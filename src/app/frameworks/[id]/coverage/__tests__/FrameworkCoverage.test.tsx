@@ -78,17 +78,28 @@ const view = (over: Partial<CoverageView> = {}): CoverageView => ({
   role: "COMPLIANCE_MANAGER",
   roleLabel: "Compliance Manager",
   canCurate: true,
-  framework: { id: "f1", name: "Test Act", version: "2022", status: "PUBLISHED", isBase: false, strict: true, reviewGroup: "Network Review", systems: 3 },
+  framework: { id: "f1", name: "Test Act", version: "2022", status: "PUBLISHED", isBase: false, strict: true, reviewGroup: "Network Review", owner: null, systems: 3 },
   frameworks: [
     { id: "f1", label: "Test Act:2022", status: "PUBLISHED" },
     { id: "f2", label: "Other Act:1", status: "DRAFT" },
   ],
   requirements: ROWS,
   controls: LIBRARY,
+  canAssignOwner: true,
+  owners: [
+    { id: "u-ann", name: "Ann Owner" },
+    { id: "u-bo", name: "Bo Owner" },
+  ],
+  canMarkFirstRound: true,
+  firstRound: [
+    { controlId: "c-SEC-1", code: "SEC-1", title: "Title of SEC-1", marked: true },
+    { controlId: "c-SEC-2", code: "SEC-2", title: "Title of SEC-2", marked: false },
+  ],
   initialSection: null,
   ...over,
 });
-const readOnlyView = (over: Partial<CoverageView> = {}) => view({ role: "VIEWER", roleLabel: "Viewer", canCurate: false, controls: [], ...over });
+const readOnlyView = (over: Partial<CoverageView> = {}) =>
+  view({ role: "VIEWER", roleLabel: "Viewer", canCurate: false, controls: [], canAssignOwner: false, owners: [], canMarkFirstRound: false, ...over });
 
 const renderLedger = (over: Partial<CoverageView> = {}) => render(<FrameworkCoverage view={view(over)} />);
 const table = () => screen.getByRole("table", { name: /Requirements of Test Act:2022/ });
@@ -749,5 +760,77 @@ describe("the page follows its data", () => {
     expect(screen.getByRole("img", { name: "67% of 6 Requirements are covered or accepted" })).toBeInTheDocument();
     expect(tab(/^A\.5/)).toHaveTextContent("3");
     expect(groupNames()[0]).toBe("A.5 Organizational2/3 covered · 1 gap");
+  });
+});
+
+describe("Framework Owner and first-round Controls (#319)", () => {
+  const framework = (owner: { id: string; name: string } | null) => ({ ...view().framework, owner });
+
+  it("shows 'No owner' to a viewer, with no way to assign one, and the first-round list read-only", () => {
+    render(<FrameworkCoverage view={readOnlyView()} />);
+    const owner = screen.getByRole("group", { name: "Framework Owner" });
+    expect(owner.textContent).toContain("No owner");
+    expect(within(owner).queryByRole("button")).toBeNull();
+    const card = screen.getByRole("region", { name: "First-round Controls" });
+    expect(within(card).getAllByRole("checkbox").every((box) => (box as HTMLInputElement).disabled)).toBe(true);
+    expect(within(card).getByRole("status").textContent).toBe("1 of 2 Controls first round");
+    expect(card.textContent).toContain("Only the Framework Owner");
+  });
+
+  it("lets a curator assign, then clear, the owner through PATCH /api/frameworks/[id]", async () => {
+    renderLedger({ framework: framework({ id: "u-ann", name: "Ann Owner" }) });
+    const owner = screen.getByRole("group", { name: "Framework Owner" });
+    expect(owner.textContent).toContain("Ann Owner");
+    await userEvent.click(within(owner).getByRole("button", { name: "Change owner" }));
+    await userEvent.selectOptions(within(owner).getByRole("combobox"), "u-bo");
+    await userEvent.click(within(owner).getByRole("button", { name: "Save owner" }));
+    await waitFor(() => expect(calls()).toEqual([{ url: "/api/frameworks/f1", method: "PATCH", body: { ownerId: "u-bo" } }]));
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+
+    await userEvent.click(within(owner).getByRole("button", { name: "Change owner" }));
+    await userEvent.click(within(owner).getByRole("button", { name: "Clear owner" }));
+    await waitFor(() => expect(calls().at(-1)).toEqual({ url: "/api/frameworks/f1", method: "PATCH", body: { ownerId: null } }));
+  });
+
+  it("shows a refused owner change and keeps the picker open", async () => {
+    renderLedger();
+    respond(403, { error: "Requires role: ADMIN, COMPLIANCE_MANAGER" });
+    const owner = screen.getByRole("group", { name: "Framework Owner" });
+    await userEvent.click(within(owner).getByRole("button", { name: "Assign owner" }));
+    await userEvent.selectOptions(within(owner).getByRole("combobox"), "u-ann");
+    await userEvent.click(within(owner).getByRole("button", { name: "Save owner" }));
+    expect((await within(owner).findByRole("alert")).textContent).toContain("Requires role");
+    expect(within(owner).getByRole("button", { name: "Save owner" })).toBeTruthy();
+  });
+
+  it("toggles a Control first round through PUT, for someone who may", async () => {
+    renderLedger();
+    const card = screen.getByRole("region", { name: "First-round Controls" });
+    await userEvent.click(within(card).getByRole("checkbox", { name: /SEC-2/ }));
+    await waitFor(() => expect(calls()).toEqual([{ url: "/api/frameworks/f1/first-round-controls/c-SEC-2", method: "PUT", body: { firstRound: true } }]));
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+    await userEvent.click(within(card).getByRole("checkbox", { name: /SEC-1/ }));
+    await waitFor(() => expect(calls().at(-1)).toEqual({ url: "/api/frameworks/f1/first-round-controls/c-SEC-1", method: "PUT", body: { firstRound: false } }));
+  });
+
+  it("lets the Framework's own owner (not a curator) toggle", () => {
+    render(<FrameworkCoverage view={readOnlyView({ framework: framework({ id: "u-cm", name: "Pat" }), canMarkFirstRound: true })} />);
+    const card = screen.getByRole("region", { name: "First-round Controls" });
+    expect(within(card).getAllByRole("checkbox").every((box) => !(box as HTMLInputElement).disabled)).toBe(true);
+    expect(within(screen.getByRole("group", { name: "Framework Owner" })).queryByRole("button")).toBeNull();
+  });
+
+  it("shows a refused toggle and says nothing was saved", async () => {
+    renderLedger();
+    respond(409, { error: "Only a Control mapped to this Framework can be marked first round for it" });
+    const card = screen.getByRole("region", { name: "First-round Controls" });
+    await userEvent.click(within(card).getByRole("checkbox", { name: /SEC-2/ }));
+    expect((await within(card).findByRole("alert")).textContent).toContain("mapped to this Framework");
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it("says so when no Control is mapped", () => {
+    renderLedger({ firstRound: [] });
+    expect(screen.getByRole("region", { name: "First-round Controls" }).textContent).toContain("No Control is mapped to this Framework yet");
   });
 });

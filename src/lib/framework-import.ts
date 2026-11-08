@@ -5,6 +5,7 @@ import { frameworkLabel } from "./framework-label";
 import { checkImportReferences, type FrameworkImport, type ImportRequirement, type ImportSupplementaryControl } from "./framework-import-schema";
 import { logMappingChange, wouldCreateSupersedesCycle } from "./frameworks";
 import { createOrganizationImplementationFor } from "./organization-implementation";
+import { dropOrphanedFirstRoundMarkings } from "./first-round";
 import {
   finishRecompute,
   prepareRecompute,
@@ -493,6 +494,12 @@ export async function loadFramework(db: Db, data: FrameworkImport, options: Load
         where: { id: update.id },
         data: { coverage: update.to, ...(update.rationale !== undefined && { rationale: update.rationale }) },
       });
+    }
+
+    // A Control whose last mapping to this Framework just went is no longer first round for it (#319); checked
+    // after the creates, so a Control that is mapped again in the same file keeps its marking.
+    if (mappingRemovals.length > 0) {
+      await dropOrphanedFirstRoundMarkings(tx, frameworkId, [...new Set(mappingRemovals.map((m) => m.controlId))]);
     }
 
     // A Full mapping makes a Requirement covered, so a gap acceptance on an existing Requirement no longer applies.

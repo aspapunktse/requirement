@@ -112,6 +112,7 @@ describe("the Framework and its Requirements", () => {
       isBase: false,
       strict: true,
       reviewGroup: name("Review Group"),
+      owner: null,
       systems: 0,
     });
   });
@@ -170,5 +171,48 @@ describe("the Control Library", () => {
     }
     expect((await load("cm", published.id))!.controls.find((c) => c.code === `TEST-269-SUP-${suffix}`)?.supplementary).toBe(true);
     for (const key of ["viewer", "owner"]) expect((await load(key, published.id))!.controls).toEqual([]);
+  });
+});
+
+
+describe("the Framework Owner and first-round Controls (#319)", () => {
+  afterAll(async () => {
+    await prisma.framework.update({ where: { id: published.id }, data: { ownerId: null } });
+    await prisma.frameworkFirstRoundControl.deleteMany({ where: { frameworkId: published.id } });
+  });
+
+  it("lists every mapped Control once, by code, each marked or not, and an unowned Framework has no owner", async () => {
+    await prisma.frameworkFirstRoundControl.create({ data: { frameworkId: published.id, controlId: fullControl } });
+    const view = (await load("viewer", published.id))!;
+    expect(view.framework.owner).toBeNull();
+    expect(view.firstRound.map((c) => [c.code.replace(`-${suffix}`, ""), c.marked])).toEqual([
+      ["TEST-269-FULL", true],
+      ["TEST-269-PARTIAL", false],
+      ["TEST-269-SUP", false],
+    ]);
+  });
+
+  it("names the owner, lets only curators assign (with the pickable Users), and the owner or a curator mark", async () => {
+    await prisma.framework.update({ where: { id: published.id }, data: { ownerId: users.owner.id } });
+    const ownerView = (await load("owner", published.id))!;
+    expect(ownerView.framework.owner).toEqual({ id: users.owner.id, name: "Test 269 owner" });
+    expect([ownerView.canAssignOwner, ownerView.canMarkFirstRound, ownerView.owners]).toEqual([false, true, []]);
+
+    const viewer = (await load("viewer", published.id))!;
+    expect([viewer.canAssignOwner, viewer.canMarkFirstRound]).toEqual([false, false]);
+    const other = (await load("other", published.id))!;
+    expect(other.canMarkFirstRound).toBe(false);
+
+    const cm = (await load("cm", published.id))!;
+    expect([cm.canAssignOwner, cm.canMarkFirstRound]).toEqual([true, true]);
+    expect(cm.owners.map((o) => o.id)).toContain(users.owner.id);
+  });
+
+  it("ignores a marking whose Control has no mapping to the Framework", async () => {
+    const stray = (await prisma.control.create({ data: { code: `TEST-269-STRAY-${suffix}`, title: "Stray", description: "d", category: "Test", applicability: "ORGANIZATIONAL" } })).id;
+    controlIds.push(stray);
+    await prisma.frameworkFirstRoundControl.create({ data: { frameworkId: published.id, controlId: stray } });
+    const view = (await load("cm", published.id))!;
+    expect(view.firstRound.map((c) => c.controlId)).not.toContain(stray);
   });
 });

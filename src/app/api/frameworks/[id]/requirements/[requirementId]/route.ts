@@ -7,6 +7,7 @@ import { ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE } from "@/lib/catalog";
 import { logMappingChange, requirementInclude } from "@/lib/frameworks";
 import { finishRecompute, prepareRecompute, scopeForMappedControls } from "@/lib/applicability-recompute";
 import { frameworkLabel } from "@/lib/framework-label";
+import { dropOrphanedFirstRoundMarkings } from "@/lib/first-round";
 
 const updateRequirementSchema = z
   .object({
@@ -102,6 +103,12 @@ export async function DELETE(
   try {
     await prisma.$transaction(async (tx) => {
       await tx.requirement.delete({ where: { id: requirementId } });
+      // Controls whose last mapping to this Framework went with the Requirement lose their first-round marking (#319).
+      await dropOrphanedFirstRoundMarkings(
+        tx,
+        existing.framework.id,
+        existing.mappings.map((mapping) => mapping.control.id),
+      );
       for (const mapping of existing.mappings) {
         await logMappingChange(
           {

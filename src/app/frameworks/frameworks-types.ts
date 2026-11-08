@@ -36,6 +36,8 @@ export type CatalogRow = {
   /** Systems that can see the Framework in their Framework Scope and that the acting user can see; null for a Draft. */
   systems: number | null;
   reviewGroup: string | null;
+  /** The Framework Owner's name (#319); null while the Framework has no owner. */
+  ownerName: string | null;
   /** Supplementary Controls authored for the Framework; counted for a Draft only (the Publish dialog). */
   supplementary: number;
   /** ISO timestamp of the latest change (derived, see `latestChange`). */

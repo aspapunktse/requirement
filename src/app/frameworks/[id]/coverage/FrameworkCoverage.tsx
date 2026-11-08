@@ -29,6 +29,7 @@ import {
   selectRows,
 } from "./coverage-logic";
 import type { CoverageRow, CoverageView, FilterKey } from "./coverage-types";
+import { FirstRoundCard, FrameworkOwnerLine } from "./FirstRound";
 import { ControlChip, RequirementDrawer, type DrawerFocus, type Mutate } from "./RequirementDrawer";
 
 const STATE_TONE: Record<CoverageState, "success" | "danger" | "warn"> = { COVERED: "success", GAP: "danger", ACCEPTED_GAP: "warn" };
@@ -334,6 +335,7 @@ export function FrameworkCoverage({ view }: { view: CoverageView }) {
             )}
             {(framework.isBase || framework.reviewGroup) && <span className="fc-tag">{framework.isBase ? "Base Review Step" : framework.reviewGroup}</span>}
           </div>
+          <FrameworkOwnerLine view={view} mutate={mutate} pending={pending} />
           <p className="hc-lede">
             Which Requirements the Control Library covers, and which it doesn&apos;t. A Requirement is covered when a mapped Control gives Full coverage; Partial mappings alone leave a Coverage Gap. An
             accepted gap counts as resolved.
@@ -393,6 +395,8 @@ export function FrameworkCoverage({ view }: { view: CoverageView }) {
           );
         })}
       </section>
+
+      <FirstRoundCard view={view} mutate={mutate} pending={pending} />
 
       <section className="hc-card sy-reg" aria-label="Requirements">
         <div className="hc-tabs" role="tablist" aria-label="Sections">

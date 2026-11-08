@@ -37,6 +37,7 @@ const row = (over: Partial<CatalogRow> & Pick<CatalogRow, "id" | "name">): Catal
   partialOnly: 0,
   systems: 3,
   reviewGroup: null,
+  ownerName: null,
   supplementary: 0,
   updatedAt: "2026-10-20T09:00:00.000Z",
   lineage: [],
@@ -128,6 +129,18 @@ afterEach(() => {
   refresh.mockClear();
   vi.mocked(downloadCsv).mockClear();
   vi.unstubAllGlobals();
+});
+
+describe("Framework Owner (#319)", () => {
+  it("shows each Framework's owner, or No owner", () => {
+    const rows = [row({ id: "f-a", name: "Alpha Act", ownerName: "Pat Peer" }), row({ id: "f-b", name: "Beta Act" })];
+    render(<FrameworksCatalog view={view({ rows })} />);
+    expect(screen.getByRole("columnheader", { name: "Framework Owner" })).toBeInTheDocument();
+    const alpha = screen.getByText("Alpha Act").closest("tr")!;
+    const beta = screen.getByText("Beta Act").closest("tr")!;
+    expect(alpha.querySelector("td.c-owner")?.textContent).toBe("Pat Peer");
+    expect(beta.querySelector("td.c-owner")?.textContent).toBe("No owner");
+  });
 });
 
 describe("hero", () => {

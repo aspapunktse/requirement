@@ -122,6 +122,27 @@ describe("loadControlPageView (#314)", { timeout: 30_000 }, () => {
     expect(viewer!.control.mappings.length).toBe(curator!.control.mappings.length - 1);
   });
 
+  it("lists the Frameworks that mark the Control first round, a Draft one only for those who see Drafts (#319)", async () => {
+    const control = f.controls.both;
+    expect((await loadControlPageView(as("viewer"), control.code))?.firstRoundFor).toEqual([]);
+    await prisma.frameworkFirstRoundControl.createMany({
+      data: [
+        { frameworkId: draftFrameworkId, controlId: control.id },
+        { frameworkId: secondFrameworkId, controlId: control.id },
+      ],
+    });
+    const viewer = await loadControlPageView(as("viewer"), control.code);
+    expect(viewer?.firstRoundFor.map((fw) => fw.draft)).toEqual([false]);
+    expect(viewer?.firstRoundFor[0].id).toBe(secondFrameworkId);
+    expect(JSON.stringify(viewer)).not.toContain(draftName);
+    const curator = await loadControlPageView(as("admin"), control.code);
+    expect(curator?.firstRoundFor.map((fw) => fw.draft).sort()).toEqual([false, true]);
+    // A marking with no live mapping is left out.
+    await prisma.controlMapping.deleteMany({ where: { controlId: control.id, requirement: { frameworkId: secondFrameworkId } } });
+    expect((await loadControlPageView(as("viewer"), control.code))?.firstRoundFor).toEqual([]);
+    await prisma.frameworkFirstRoundControl.deleteMany({ where: { controlId: control.id } });
+  });
+
   it("carries the Organization implementation of a Both Control, and nothing for a Per-System one", async () => {
     const both = await loadControlPageView(as("viewer"), f.controls.both.code);
     expect(both?.organization).toMatchObject({ status: "FULFILLED", description: "Done by the Organization.", updatedByName: "Test 314 admin" });
