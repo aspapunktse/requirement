@@ -145,6 +145,28 @@ Run `npm run implementer:destroy -- <n> <slug>` in the main checkout. It does th
 - The supervisor updates it in the issue's worktree as the last commit before pushing, after the branch has merged `main`: mark the issue done in "Next up" with one line and the PR number, and change any current-state fact the issue altered (e.g. the seeded row counts).
 - A convention or gotcha that outlives the issue goes into this document's gotchas, not into a per-issue note.
 
+### Context budget: 250k tokens, and the carry-over file
+
+The supervisor's context stays under **250k tokens**, so one session can work the queue issue after issue. The product owner set this up on 2026-11-08. Before it, supervisor sessions grew past 600k.
+
+How it works (Claude Code; the settings live in the untracked `.claude/settings.local.json`):
+
+- **`autoCompactWindow: "250k"`** makes Claude Code compact the conversation automatically before it reaches 250k. Nothing has to be triggered by hand.
+- **`.claude/supervisor-carry-over.md`** holds what compaction must not lose. It is local and untracked, and only the supervisor writes it.
+- **`scripts/claude/context-guard.mjs`** runs as a hook:
+  - after each tool call and prompt it reads the context size; at about 150k it asks for the carry-over file to be refreshed at the next stage boundary, and from about 180k it asks for it before the next step (again every 15k);
+  - before a compaction it appends an auto snapshot (worktrees, open PRs) to the file;
+  - after a compaction, a resume or a new session it puts the file back into context.
+
+Rules for the supervisor:
+
+- **Update the carry-over file at every stage change**, not only when the hook asks: an implementer briefed, a hand-back reviewed, a PR opened, a merge, a CD run watched, a question asked or answered. Small edits, kept current, so a compaction at any moment loses nothing.
+- **Template.** Keep these headings: `Updated` (date, and the context size if known); `In flight` (one entry per issue: number and title, branch, worktree, database, implementer agent id, stage, what is left); `Waiting on CI / CD` (PR number, what was last seen); `Open product-owner questions` (the question, the default the implementer was briefed with, where the answer must be relayed); `Decisions not yet recorded elsewhere`; `Environment` (dev server, which worktree it runs from); `Next action` (one concrete step).
+- **It is a buffer, not a record.** Once an issue is merged and its production run watched, delete its entry: the lasting record is the PR description, the decisions on the issue, and `HANDOFF.md`. A convention that outlives the issue goes into this document.
+- **After a compaction**, trust the carry-over file over the summary, re-read this document and `HANDOFF.md` if the rules or the queue are needed, and continue from "Next action". Background implementers keep running across a compaction and keep their agent ids.
+- **A fresh session** can't message the earlier session's implementers. Review their work in the worktree, or brief a new implementer with what is left.
+- To change the budget, edit `autoCompactWindow` and `CONTEXT_GUARD_LIMIT` together in `.claude/settings.local.json`.
+
 ## Implementer brief template (rules every brief must carry)
 
 - **Read first:**
