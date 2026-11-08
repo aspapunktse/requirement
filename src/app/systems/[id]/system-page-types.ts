@@ -120,6 +120,9 @@ export type SystemPageView = {
     isProvider: boolean;
     ownerId: string;
     ownerName: string;
+    /** The Business System Owner (#321); null when none is set. */
+    businessSystemOwnerId: string | null;
+    businessSystemOwnerName: string | null;
     facets: { id: string; name: string }[];
     /** The Sensitivity Level (1 to 5) and its label; null when not set. */
     sensitivityLevel: number | null;
@@ -149,6 +152,8 @@ export type SystemPageView = {
   nextStep: NextStep;
   /** May the acting user change the System's owner (the ⋯ menu)? */
   canChangeOwner: boolean;
+  /** May the acting user set, change or clear the System's Business System Owner (#321)? The owner or an Admin. */
+  canChangeBusinessSystemOwner: boolean;
   headline: {
     /** The base Framework as the Systems list names it; null when there is none in scope. */
     baseFramework: string | null;

@@ -39,7 +39,7 @@ export async function changeSystemOwners(actor: Actor, systemIds: string[], owne
       const newOwner = await tx.user.findUnique({ where: { id: ownerId }, select: { id: true, name: true, role: true } });
       const systems = await tx.system.findMany({
         where: { AND: [{ id: { in: ids } }, await visibleSystemsWhere(actor, tx)] },
-        select: { id: true, name: true, ownerId: true, owner: { select: { name: true } } },
+        select: { id: true, name: true, ownerId: true, businessSystemOwnerId: true, owner: { select: { name: true } } },
       });
       const byId = new Map(systems.map((system) => [system.id, system]));
       const refusedIds = ids.filter((id) => {
@@ -56,6 +56,16 @@ export async function changeSystemOwners(actor: Actor, systemIds: string[], owne
       }
       if (!newOwner || !canBeSystemOwner(newOwner)) {
         throw new Abort({ ok: false, status: 400, error: NEW_OWNER_REFUSAL });
+      }
+      // The owner can't be the System's Business System Owner (#321): refused for the whole request, ids named.
+      const businessOwned = systems.filter((system) => system.businessSystemOwnerId === newOwner.id).map((system) => system.id);
+      if (businessOwned.length > 0) {
+        throw new Abort({
+          ok: false,
+          status: 400,
+          error: "The new owner is the Business System Owner of a selected System; a System's owner can't also be its Business System Owner",
+          refusedIds: ids.filter((id) => businessOwned.includes(id)),
+        });
       }
 
       const changed: { id: string; name: string }[] = [];
@@ -97,6 +107,17 @@ export async function mayListOwnerCandidates(actor: Actor): Promise<boolean> {
   if (actor.role === "ADMIN") return true;
   if (isReadOnlySystemRole(actor)) return false;
   return (await prisma.system.count({ where: { ownerId: actor.id } })) > 0;
+}
+
+/**
+ * May `actor` see the list of possible Business System Owners (#321)? Any User may be one, but the list holds
+ * names and email addresses, so it is not for every signed-in user: an Admin, a role that may create a System
+ * (it picks one in the interview), or someone who owns a System and isn't a read-only role (they change it on
+ * the System page). Everyone else gets 403.
+ */
+export async function mayListBusinessSystemOwnerCandidates(actor: Actor): Promise<boolean> {
+  if (actor.role === "ADMIN" || ROLES_ALLOWED_TO_CREATE_SYSTEM.includes(actor.role)) return true;
+  return mayListOwnerCandidates(actor);
 }
 
 /** Users who may become a System's owner: those with a System-creating role. */

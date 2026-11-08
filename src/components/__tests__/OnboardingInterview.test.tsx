@@ -71,6 +71,19 @@ function mockFetch(overrides: { onPost?: () => Response; catalogResponse?: () =>
     if (url.endsWith("/api/systems") && method === "POST") {
       return Promise.resolve(overrides.onPost?.() ?? new Response(JSON.stringify({ system: { id: "sys1" } }), { status: 201 }));
     }
+    if (url.endsWith("/api/systems/bso-candidates") && method === "GET") {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            users: [
+              { id: "u-me", name: "Me Myself", email: "me@example.com", role: "SYSTEM_OWNER" },
+              { id: "u-bso", name: "Bea Business", email: "bea@example.com", role: "VIEWER" },
+            ],
+          }),
+          { status: 200 },
+        ),
+      );
+    }
     throw new Error(`Unexpected fetch: ${method} ${url}`);
   });
 }
@@ -86,9 +99,9 @@ const questionTitle = () => document.getElementById("ob-q-title")!;
 /** The long walkthroughs click through ~10 controls; each click re-renders the whole interview, which takes ~3-4 s on a loaded CI runner, so they get more than the default 5 s. */
 const LONG_WALKTHROUGH = 15000;
 
-async function setup() {
+async function setup(userId?: string) {
   const user = userEvent.setup();
-  render(<OnboardingInterview />);
+  render(<OnboardingInterview userId={userId} />);
   await screen.findByRole("heading", { name: "How do you get the system?" });
   return user;
 }
@@ -304,6 +317,22 @@ describe("OnboardingInterview", () => {
       frameworkScopeIds: ["gdpr"],
       providerIds: ["p1"],
     });
+  }, LONG_WALKTHROUGH);
+
+  it("lets the creator pick an optional Business System Owner on the review step, never themself, and sends the pick", async () => {
+    const user = await setup("u-me");
+    await fill(user, screen.getByLabelText("System name"), "Payroll");
+    await user.click(screen.getByRole("checkbox", { name: "On-premises" }));
+    await user.click(screen.getByRole("button", { name: "Review" }));
+
+    const picker = await screen.findByRole("combobox", { name: "Business System Owner (optional)" });
+    await waitFor(() => expect(picker).toBeEnabled());
+    expect(within(picker).getAllByRole("option").map((option) => option.textContent)).toEqual(["Not set", "Bea Business (bea@example.com)"]);
+    await user.selectOptions(picker, "u-bso");
+    await user.click(screen.getByRole("button", { name: "Create System" }));
+
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/systems/sys1"));
+    expect(postedBody()).toMatchObject({ name: "Payroll", businessSystemOwnerId: "u-bso" });
   }, LONG_WALKTHROUGH);
 
   it("needs a name before it creates, and shows the server's refusal", async () => {

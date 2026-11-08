@@ -32,6 +32,7 @@ export const CHANGE_EVENT_ACTION_LABEL: Record<ChangeEventAction, string> = {
   SYSTEM_CREATED: "created a System",
   RISK_LOGGED: "logged a Risk",
   SYSTEM_DETAILS_CHANGED: "edited a System's details",
+  BUSINESS_SYSTEM_OWNER_CHANGED: "changed a System's Business System Owner",
 };
 
 export type ChangeEventTone = "ok" | "warn" | "danger" | "accent";
@@ -61,4 +62,5 @@ export const CHANGE_EVENT_ACTION_TONE: Record<ChangeEventAction, ChangeEventTone
   SYSTEM_CREATED: "ok",
   RISK_LOGGED: "warn",
   SYSTEM_DETAILS_CHANGED: "accent",
+  BUSINESS_SYSTEM_OWNER_CHANGED: "accent",
 };

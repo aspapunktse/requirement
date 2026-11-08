@@ -21,7 +21,10 @@ import type { ControlAssessmentStatus, SelfAssessmentAnswer, UserRole } from "@p
  * - Create a System: SYSTEM_OWNER, RISK_OWNER or ADMIN only (`canCreateSystem`);
  *   the creator becomes the System's owner.
  * - Change a System's owner (#233): the current owner or an ADMIN (`canChangeOwner`), and the
- *   new owner must be a user who could create a System (`canBeSystemOwner`).
+ *   new owner must be a user who could create a System (`canBeSystemOwner`). The new owner can't be the
+ *   System's Business System Owner (#321).
+ * - Change a System's Business System Owner (#321): the owner or an ADMIN (`canChangeBusinessSystemOwner`).
+ *   The Business System Owner themself gets visibility only (`visibleSystemsWhere`), no write rights.
  *
  * "The System's owner" is `system.ownerId`, whatever the owner's role — a
  * RISK_OWNER who owns the System is simply its owner. The exceptions are the
@@ -98,6 +101,11 @@ export function isSystemOwnerOrAdmin(user: Actor, system: OwnedSystem) {
 
 /** May `user` hand `system` to another owner (#233)? The current owner or an ADMIN, as everywhere. */
 export function canChangeOwner(user: Actor, system: OwnedSystem) {
+  return isSystemOwnerOrAdmin(user, system);
+}
+
+/** May `user` set, change or clear `system`'s Business System Owner (#321)? The owner or an ADMIN, at any Onboarding Status. */
+export function canChangeBusinessSystemOwner(user: Actor, system: OwnedSystem) {
   return isSystemOwnerOrAdmin(user, system);
 }
 

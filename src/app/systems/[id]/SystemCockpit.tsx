@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { ChangeOwnerDialog } from "@/components/ChangeOwnerDialog";
+import { ChangeBusinessSystemOwnerDialog } from "@/components/ChangeBusinessSystemOwnerDialog";
 import { compliancePercentage, formatCompliancePercentage } from "@/lib/requirement-status-rules";
 import { joinNames } from "@/lib/framework-suggestions";
 import { onboardingStatusTone } from "@/lib/status-tones";
@@ -70,6 +71,7 @@ export function SystemCockpit({ view, panels }: { view: SystemPageView; panels: 
   const [showAllAttention, setShowAllAttention] = useState(false);
   const [deciding, setDeciding] = useState<"APPROVED" | "REJECTED" | null>(null);
   const [changingOwner, setChangingOwner] = useState(false);
+  const [changingBso, setChangingBso] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   // Bumped after a header action, so the mounted (but hidden) Approval panel is read again.
   const [approvalVersion, setApprovalVersion] = useState(0);
@@ -225,6 +227,25 @@ export function SystemCockpit({ view, panels }: { view: SystemPageView; panels: 
                 </span>
                 Owned by {system.ownerName}
                 {mine && <span className="muted"> (you)</span>}
+              </span>
+              <span className="bso" data-testid="business-system-owner">
+                Business System Owner{" "}
+                {system.businessSystemOwnerName ? (
+                  <b>
+                    {system.businessSystemOwnerName}
+                    {system.businessSystemOwnerId === view.userId && <span className="muted"> (you)</span>}
+                  </b>
+                ) : (
+                  <span className="muted">Not set</span>
+                )}
+                {view.canChangeBusinessSystemOwner && (
+                  <>
+                    {" "}
+                    <button type="button" className="sc-link" aria-label="Change Business System Owner" onClick={() => setChangingBso(true)}>
+                      Change
+                    </button>
+                  </>
+                )}
               </span>
               {system.facets.length > 0 && (
                 <span className="facets" aria-label="Deployment Facets">
@@ -636,6 +657,24 @@ export function SystemCockpit({ view, panels }: { view: SystemPageView; panels: 
           onClose={() => setDeciding(null)}
           onDone={() => {
             setDeciding(null);
+            setApprovalVersion((version) => version + 1);
+            router.refresh();
+          }}
+        />
+      )}
+
+      {changingBso && (
+        <ChangeBusinessSystemOwnerDialog
+          system={{
+            id: system.id,
+            name: system.name,
+            ownerId: system.ownerId,
+            businessSystemOwnerId: system.businessSystemOwnerId,
+            businessSystemOwnerName: system.businessSystemOwnerName,
+          }}
+          onClose={() => setChangingBso(false)}
+          onDone={() => {
+            setChangingBso(false);
             setApprovalVersion((version) => version + 1);
             router.refresh();
           }}

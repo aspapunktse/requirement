@@ -546,6 +546,20 @@ describe("the next step per role (never an action the API would refuse)", () => 
     for (const u of [owner, admin, reviewer, riskOwner, manager]) flags.push((await pageFor(u, s))!.view.canChangeOwner);
     expect(flags).toEqual([true, true, false, false, false]);
   });
+
+  it("offers Change on the Business System Owner to the owner and an Admin only, and returns the Business System Owner", async () => {
+    const flags: boolean[] = [];
+    for (const u of [owner, admin, reviewer, riskOwner, manager]) flags.push((await pageFor(u, s))!.view.canChangeBusinessSystemOwner);
+    expect(flags).toEqual([true, true, false, false, false]);
+
+    expect((await pageFor(owner, s))!.view.system).toMatchObject({ businessSystemOwnerId: null, businessSystemOwnerName: null });
+    await prisma.system.update({ where: { id: s }, data: { businessSystemOwnerId: riskOwner.id } });
+    try {
+      expect((await pageFor(owner, s))!.view.system).toMatchObject({ businessSystemOwnerId: riskOwner.id, businessSystemOwnerName: riskOwner.name });
+    } finally {
+      await prisma.system.update({ where: { id: s }, data: { businessSystemOwnerId: null } });
+    }
+  });
 });
 
 describe("the lifecycle note", () => {
