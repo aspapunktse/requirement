@@ -66,7 +66,7 @@ export type CoverageView = {
   userId: string;
   role: UserRole;
   roleLabel: string;
-  /** Compliance Manager or Admin: maps, creates Supplementary Controls and accepts gaps. */
+  /** `canCurateFramework`: a Compliance Manager, an Admin, or the owner of this non-base Framework (#320): maps, creates Supplementary Controls and accepts gaps. */
   canCurate: boolean;
   framework: CoverageFramework;
   /** A Compliance Manager or an Admin: assigns the Framework Owner. */

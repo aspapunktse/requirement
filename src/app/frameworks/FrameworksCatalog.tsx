@@ -86,7 +86,7 @@ export function FrameworksCatalog({ view }: { view: CatalogView }) {
   const totals = useMemo(() => totalsOf(rows), [rows]);
   const resolvedShare = totals.requirements === 0 ? null : (totals.covered + totals.accepted) / totals.requirements;
   const resolvedText = resolvedShare === null ? "—" : `${Math.round(resolvedShare * 100)}%`;
-  const statKeys = (Object.keys(STAT_LABEL) as ViewKey[]).filter((key) => key !== "drafts" || canCurate);
+  const statKeys = (Object.keys(STAT_LABEL) as ViewKey[]).filter((key) => key !== "drafts" || canCurate || rows.some((row) => row.status === "DRAFT"));
 
   const paletteItems: PaletteItem[] = useMemo(
     () => [
@@ -193,7 +193,7 @@ export function FrameworksCatalog({ view }: { view: CatalogView }) {
           {formatDate(row.updatedAt)}
         </td>
         <td className="acts">
-          {canCurate && row.status === "DRAFT" && (
+          {row.canCurate && row.status === "DRAFT" && (
             <button type="button" className="hc-btn sm" aria-label={`Publish ${label}`} onClick={() => setPublishing(row)}>
               Publish
             </button>

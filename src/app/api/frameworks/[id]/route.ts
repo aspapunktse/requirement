@@ -5,11 +5,13 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { authenticate, authorize } from "@/lib/api-authz";
 import { ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE } from "@/lib/catalog";
+import { authorizeFrameworkCuration } from "@/lib/framework-curation";
 import { canBeControlOwner, CONTROL_OWNER_REFUSAL } from "@/lib/system-permissions";
 import {
   BASE_FRAMEWORK_ERRORS,
   checkBaseFrameworkInvariant,
-  visibleFrameworksWhere,
+  canSeeDraftFrameworks,
+  visibleOrOwnedFrameworksWhere,
   wouldCreateSupersedesCycle,
 } from "@/lib/frameworks";
 
@@ -47,6 +49,9 @@ const updateFrameworkSchema = z
     message: "Provide at least one field to update",
   });
 
+/** The fields a Framework Owner may change through PATCH (#320); everything else is a Compliance Manager / Admin field. */
+const OWNER_EDITABLE_FIELDS = ["description", "onboardingQuestion", "onboardingHint"];
+
 /** A Framework with its Requirement count; a Draft is a 404 for anyone who can't see Drafts. */
 export async function GET(request: NextRequest, ctx: RouteContext<"/api/frameworks/[id]">) {
   const auth = await authenticate(request);
@@ -54,7 +59,7 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/framewor
 
   const { id } = await ctx.params;
   const framework = await prisma.framework.findFirst({
-    where: { id, ...visibleFrameworksWhere(auth.user) },
+    where: { id, ...visibleOrOwnedFrameworksWhere(auth.user) },
     include: { _count: { select: { requirements: true } }, owner: { select: { id: true, name: true } } },
   });
   if (!framework) {
@@ -63,12 +68,28 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/framewor
   return NextResponse.json({ framework });
 }
 
+/**
+ * Updates a Framework. A Compliance Manager or an Admin may change every field. A Framework Owner (#320) may change
+ * only the descriptive ones in `OWNER_EDITABLE_FIELDS` on their own non-base Framework; a body that names any other
+ * field (name, version, licensing, strictness, supersedes, base flag, owner, status) is refused in full with 403
+ * and nothing changes.
+ */
 export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/frameworks/[id]">) {
-  const auth = await authorize(request, ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE);
+  const { id } = await ctx.params;
+  const auth = await authorizeFrameworkCuration(request, id);
   if ("response" in auth) return auth.response;
 
-  const { id } = await ctx.params;
-  const parsed = updateFrameworkSchema.safeParse(await request.json());
+  const body = await request.json().catch(() => null);
+  if (!canSeeDraftFrameworks(auth.user) && body !== null && typeof body === "object" && !Array.isArray(body)) {
+    const forbidden = Object.keys(body).filter((key) => !OWNER_EDITABLE_FIELDS.includes(key));
+    if (forbidden.length > 0) {
+      return NextResponse.json(
+        { error: `A Framework Owner can only change the description and the onboarding question and hint; a Compliance Manager or an Admin changes ${forbidden.join(", ")}` },
+        { status: 403 },
+      );
+    }
+  }
+  const parsed = updateFrameworkSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid update" }, { status: 400 });
   }
@@ -162,11 +183,13 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/framew
   }
 }
 
+/** Retires a Framework. Compliance Manager / Admin only: a Framework Owner can't retire their own Framework (#320). */
 export async function DELETE(request: NextRequest, ctx: RouteContext<"/api/frameworks/[id]">) {
   const auth = await authorize(request, ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE);
   if ("response" in auth) return auth.response;
 
   const { id } = await ctx.params;
+
 
   const existing = await prisma.framework.findUnique({ where: { id } });
   if (!existing) {

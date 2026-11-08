@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { authenticate } from "@/lib/api-authz";
 import { ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE } from "@/lib/catalog";
-import { visibleFrameworksWhere } from "@/lib/frameworks";
+import { visibleOrOwnedFrameworksWhere } from "@/lib/frameworks";
 
 const bodySchema = z.object({ firstRound: z.boolean() });
 
@@ -23,7 +23,7 @@ export async function PUT(request: NextRequest, ctx: RouteContext<"/api/framewor
   if (!parsed.success) return NextResponse.json({ error: "Invalid update" }, { status: 400 });
 
   const framework = await prisma.framework.findFirst({
-    where: { id, ...visibleFrameworksWhere(auth.user) },
+    where: { id, ...visibleOrOwnedFrameworksWhere(auth.user) },
     select: { id: true, ownerId: true },
   });
   if (!framework) return NextResponse.json({ error: "Framework not found" }, { status: 404 });

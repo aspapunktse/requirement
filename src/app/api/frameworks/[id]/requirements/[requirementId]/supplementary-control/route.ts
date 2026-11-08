@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { authorize } from "@/lib/api-authz";
-import { ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE } from "@/lib/catalog";
+import { authorizeFrameworkCuration } from "@/lib/framework-curation";
 import { createControlSchema } from "@/lib/control-schema";
 import { isCovered } from "@/lib/coverage-state";
 import { clearGapAcceptance } from "@/lib/framework-coverage";
@@ -28,10 +27,10 @@ export async function POST(
   request: NextRequest,
   ctx: RouteContext<"/api/frameworks/[id]/requirements/[requirementId]/supplementary-control">,
 ) {
-  const auth = await authorize(request, ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE);
+  const { id, requirementId } = await ctx.params;
+  const auth = await authorizeFrameworkCuration(request, id);
   if ("response" in auth) return auth.response;
 
-  const { id, requirementId } = await ctx.params;
   const parsed = createControlSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid Control" }, { status: 400 });

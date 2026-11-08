@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { authorize } from "@/lib/api-authz";
-import { ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE } from "@/lib/catalog";
+import { authorizeFrameworkCuration } from "@/lib/framework-curation";
 import { logMappingChange, requirementInclude } from "@/lib/frameworks";
 import { finishRecompute, prepareRecompute, scopeForMappedControls } from "@/lib/applicability-recompute";
 import { frameworkLabel } from "@/lib/framework-label";
@@ -24,10 +23,10 @@ export async function PATCH(
   request: NextRequest,
   ctx: RouteContext<"/api/frameworks/[id]/requirements/[requirementId]">,
 ) {
-  const auth = await authorize(request, ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE);
+  const { id, requirementId } = await ctx.params;
+  const auth = await authorizeFrameworkCuration(request, id);
   if ("response" in auth) return auth.response;
 
-  const { id, requirementId } = await ctx.params;
   const parsed = updateRequirementSchema.safeParse(await request.json());
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid update" }, { status: 400 });
@@ -75,10 +74,10 @@ export async function DELETE(
   request: NextRequest,
   ctx: RouteContext<"/api/frameworks/[id]/requirements/[requirementId]">,
 ) {
-  const auth = await authorize(request, ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE);
+  const { id, requirementId } = await ctx.params;
+  const auth = await authorizeFrameworkCuration(request, id);
   if ("response" in auth) return auth.response;
 
-  const { id, requirementId } = await ctx.params;
 
   const existing = await prisma.requirement.findFirst({
     where: { id: requirementId, frameworkId: id },

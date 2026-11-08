@@ -13,20 +13,47 @@ export function canSeeDraftFrameworks(user: { role: UserRole }): boolean {
 /**
  * Prisma `where` for the Frameworks a user may see: everything for the
  * curator roles, Published only for everyone else (a Draft Framework is
- * invisible outside the requirement-database roles, see #73).
+ * invisible outside the requirement-database roles, see #73). Used where a Framework
+ * Owner gets no special sight of their Draft (Home, the Statement of Applicability, Systems);
+ * see `visibleOrOwnedFrameworksWhere` for the places that do.
  */
 export function visibleFrameworksWhere(user: { role: UserRole }): Prisma.FrameworkWhereInput {
   return canSeeDraftFrameworks(user) ? {} : { status: "PUBLISHED" };
 }
 
 /**
+ * Like `visibleFrameworksWhere`, but a Framework Owner also sees their own Draft Frameworks (#320: they curate
+ * them, so they must be able to open them). Used by the Framework pages and their routes (list, coverage, the
+ * Framework itself, its Requirements, first round), nowhere else.
+ */
+export function visibleOrOwnedFrameworksWhere(user: { id: string; role: UserRole }): Prisma.FrameworkWhereInput {
+  return canSeeDraftFrameworks(user) ? {} : { OR: [{ status: "PUBLISHED" }, { ownerId: user.id }] };
+}
+
+/**
+ * Who may curate a Framework (#320): a Compliance Manager or an Admin on any Framework, and the Framework's owner
+ * on a Framework that is not the base. The base Framework is curated only by a Compliance Manager or an Admin; its
+ * owner keeps just the first-round marking (#319). The one rule behind every curation route and page: Requirements,
+ * Control Mappings, Coverage Gaps, Supplementary Controls, the Framework's descriptive details, its Review Group
+ * and publishing. Creating a Framework, changing its owner or base flag and retiring it stay with the curator roles
+ * (`canSeeDraftFrameworks`).
+ */
+export function canCurateFramework(
+  user: { id: string; role: UserRole },
+  framework: { ownerId: string | null; isBase: boolean },
+): boolean {
+  if (canSeeDraftFrameworks(user)) return true;
+  return !framework.isBase && framework.ownerId !== null && framework.ownerId === user.id;
+}
+
+/**
  * The Framework with this id if the user may see it, otherwise null (a Draft is
- * "not found" for anyone who can't see Drafts). The one visibility check of the
+ * "not found" for anyone who can't see Drafts, except its owner). The one visibility check of the
  * Coverage view's JSON route and its CSV export.
  */
-export function findVisibleFramework(user: { role: UserRole }, id: string) {
+export function findVisibleFramework(user: { id: string; role: UserRole }, id: string) {
   return prisma.framework.findFirst({
-    where: { id, ...visibleFrameworksWhere(user) },
+    where: { id, ...visibleOrOwnedFrameworksWhere(user) },
     select: { id: true, name: true, version: true, status: true, isBase: true },
   });
 }

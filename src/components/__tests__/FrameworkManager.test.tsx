@@ -194,4 +194,31 @@ describe("FrameworkManager: version lineage (#146)", () => {
     render(<FrameworkManager initialFrameworks={[iso, nis2]} />);
     expect(screen.queryByText(/Version lineage:/)).not.toBeInTheDocument();
   });
+  it("gives a Framework Owner (not a catalog manager) only the descriptive fields, Publish, no Retire, and sends only those", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: string | URL | Request, init?: RequestInit) =>
+        Promise.resolve(new Response(JSON.stringify(init?.method ? { framework: {} } : { frameworks: [nis2] }), { status: 200 })),
+      ),
+    );
+    render(<FrameworkManager initialFrameworks={[nis2]} catalogManager={false} />);
+
+    expect(screen.getByRole("textbox", { name: "Name for NIS2:1" })).toBeDisabled();
+    expect(screen.getByRole("textbox", { name: "Version for NIS2:1" })).toBeDisabled();
+    expect(screen.queryByRole("combobox", { name: "Licensing for NIS2:1" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: "Supersedes for NIS2:1" })).not.toBeInTheDocument();
+    expect(screen.getByRole("checkbox")).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Retire" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Add a Framework/ })).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Publish" })).toHaveLength(1);
+
+    await userEvent.type(screen.getByRole("textbox", { name: "Description for NIS2:1" }), "Owned");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(calls("PATCH")).toHaveLength(1));
+    const [url, init] = calls("PATCH")[0];
+    expect(url).toBe("/api/frameworks/f-nis2");
+    expect(JSON.parse(init.body as string)).toEqual({ description: "Owned", onboardingQuestion: null, onboardingHint: null });
+    // The reload asks for the Frameworks this user may curate.
+    await waitFor(() => expect((fetch as ReturnType<typeof vi.fn>).mock.calls.some(([u]) => u === "/api/frameworks?curatable=true")).toBe(true));
+  });
 });

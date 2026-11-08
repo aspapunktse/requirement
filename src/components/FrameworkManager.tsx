@@ -41,7 +41,7 @@ type Draft = {
 const INPUT_CLASS = "rounded border border-rg-control p-2 text-sm";
 
 async function fetchFrameworks(): Promise<FrameworkRow[]> {
-  const response = await fetch("/api/frameworks");
+  const response = await fetch("/api/frameworks?curatable=true");
   const body = await response.json();
   return body.frameworks ?? [];
 }
@@ -62,14 +62,16 @@ async function errorMessage(response: Response, fallback: string): Promise<strin
  * percentage against them). Each row shows its status (Draft/Published) and
  * Requirement count, links to the per-Framework authoring page (Requirements
  * and Control Mappings), and has the one-way Publish action for a Draft.
+ * A Framework Owner (#320, `catalogManager` false) gets this page for their own non-base Frameworks with only the
+ * description, onboarding question and hint editable, and Publish; the rest is read-only and there is no Retire.
  * Creating a Framework is on its own page, /frameworks/new (#266). The server page passes the initial list; changes reload it from the API.
  * See #55, #72, #73.
  */
-export function FrameworkManager({ initialFrameworks }: { initialFrameworks: FrameworkRow[] }) {
+export function FrameworkManager({ initialFrameworks, catalogManager = true }: { initialFrameworks: FrameworkRow[]; catalogManager?: boolean }) {
   const [items, setItems] = useState<FrameworkRow[]>(initialFrameworks);
   const [error, setError] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
-  // Only Compliance Managers and Admins reach this component, and they see Drafts, so every Framework is in `items`.
+  // Compliance Managers and Admins see every Framework, a Framework Owner their own; the lineage is built over what is listed.
   const lineages = buildLineages(items, true);
 
   function draftFor(item: FrameworkRow): Draft {
@@ -107,7 +109,11 @@ export function FrameworkManager({ initialFrameworks }: { initialFrameworks: Fra
     const response = await fetch(`/api/frameworks/${item.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...draft, supersedesId: draft.supersedesId || null, ...onboarding }),
+      body: JSON.stringify(
+        catalogManager
+          ? { ...draft, supersedesId: draft.supersedesId || null, ...onboarding }
+          : { description: draft.description, ...onboarding },
+      ),
     });
 
     if (!response.ok) {
@@ -205,16 +211,19 @@ export function FrameworkManager({ initialFrameworks }: { initialFrameworks: Fra
                 <input
                   aria-label={`Name for ${label}`}
                   className={`${INPUT_CLASS} w-full font-medium`}
+                  disabled={!catalogManager}
                   value={draft.name}
                   onChange={(event) => updateDraft(item, { name: event.target.value })}
                 />
                 <input
                   aria-label={`Version for ${label}`}
                   className={`${INPUT_CLASS} w-32`}
+                  disabled={!catalogManager}
                   value={draft.version}
                   onChange={(event) => updateDraft(item, { version: event.target.value })}
                 />
               </div>
+              {catalogManager && (
               <div className="mt-2 flex flex-wrap gap-2">
                 <label className="flex flex-1 flex-col gap-1 text-xs text-rg-muted">
                   Supersedes
@@ -247,6 +256,7 @@ export function FrameworkManager({ initialFrameworks }: { initialFrameworks: Fra
                   </select>
                 </label>
               </div>
+              )}
               <textarea
                 aria-label={`Description for ${label}`}
                 className={`${INPUT_CLASS} mt-2 w-full`}
@@ -287,6 +297,7 @@ export function FrameworkManager({ initialFrameworks }: { initialFrameworks: Fra
               <label className="mt-2 flex items-center gap-2 text-sm">
                 <input
                   type="checkbox"
+                  disabled={!catalogManager}
                   checked={draft.strictComplianceRequired}
                   onChange={(event) => updateDraft(item, { strictComplianceRequired: event.target.checked })}
                 />
@@ -301,25 +312,29 @@ export function FrameworkManager({ initialFrameworks }: { initialFrameworks: Fra
                     Publish
                   </Button>
                 )}
-                <Button
-                  onClick={() => handleDelete(item)}
-                  disabled={item.isBase}
-                  title={item.isBase ? "The base Framework can't be retired" : undefined}
-                >
-                  Retire
-                </Button>
+                {catalogManager && (
+                  <Button
+                    onClick={() => handleDelete(item)}
+                    disabled={item.isBase}
+                    title={item.isBase ? "The base Framework can't be retired" : undefined}
+                  >
+                    Retire
+                  </Button>
+                )}
               </div>
             </li>
           );
         })}
       </ul>
 
+      {catalogManager && (
       <p className="border-t border-rg-line pt-4 text-sm">
         <Link href="/frameworks/new" className="text-ems-blue hover:underline">
           Add a Framework &rarr;
         </Link>{" "}
         <span className="text-xs text-rg-muted">New Frameworks start as a Draft, visible only to Compliance Managers and Admins.</span>
       </p>
+      )}
     </div>
   );
 }

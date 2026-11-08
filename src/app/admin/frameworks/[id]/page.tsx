@@ -1,9 +1,8 @@
 import Link from "next/link";
 import { getActingUser } from "@/lib/acting-user";
 import { prisma } from "@/lib/prisma";
-import { ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE } from "@/lib/catalog";
 import { frameworkLabel } from "@/lib/framework-label";
-import { requirementInclude } from "@/lib/frameworks";
+import { canCurateFramework, canSeeDraftFrameworks, requirementInclude } from "@/lib/frameworks";
 import { FrameworkRequirementsEditor } from "@/components/FrameworkRequirementsEditor";
 import { FrameworkReviewGroup } from "@/components/FrameworkReviewGroup";
 import { StatusChip } from "@/components/ui/StatusChip";
@@ -16,31 +15,35 @@ export default async function FrameworkDetailPage({ params }: PageProps<"/admin/
     return <p className="p-6 text-rg-muted">Pick a user to act as first.</p>;
   }
 
-  if (!ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE.includes(user.role)) {
+  // The Framework's owner (non-base), a Compliance Manager or an Admin curates it (#320); for anyone else it does not exist here.
+  const framework = await prisma.framework.findUnique({ where: { id } });
+  if (!framework || !canCurateFramework(user, framework)) {
     return (
       <p className="p-6 text-rg-muted">
-        Only Compliance Managers and Admins can author a Framework&apos;s Requirements.
+        Framework not found, or you can&apos;t author its Requirements: only its owner (not for the base Framework), a Compliance Manager or an Admin can.
       </p>
     );
   }
 
-  const [framework, requirements, controls, reviewGroups] = await Promise.all([
-    prisma.framework.findUnique({ where: { id } }),
+  const [requirements, controls, reviewGroups] = await Promise.all([
     prisma.requirement.findMany({
       where: { frameworkId: id },
       orderBy: [{ section: "asc" }, { code: "asc" }],
       include: requirementInclude,
     }),
-    prisma.control.findMany({ orderBy: { code: "asc" }, select: { id: true, code: true, title: true } }),
+    prisma.control.findMany({
+      // A Framework Owner doesn't see the Supplementary Controls of other Draft Frameworks.
+      where: canSeeDraftFrameworks(user)
+        ? {}
+        : { OR: [{ originFrameworkId: null }, { originFrameworkId: id }, { originFramework: { status: "PUBLISHED" } }] },
+      orderBy: { code: "asc" },
+      select: { id: true, code: true, title: true },
+    }),
     prisma.reviewGroup.findMany({
       orderBy: { name: "asc" },
       select: { id: true, name: true, _count: { select: { members: true } } },
     }),
   ]);
-
-  if (!framework) {
-    return <p className="p-6 text-rg-muted">Framework not found.</p>;
-  }
 
   return (
     <div className="mx-auto max-w-3xl p-6">
@@ -60,7 +63,7 @@ export default async function FrameworkDetailPage({ params }: PageProps<"/admin/
       </p>
       {framework.status === "DRAFT" && (
         <p className="mb-4 text-sm text-rg-muted">
-          This Framework is a Draft: only Compliance Managers and Admins can see it, and it can&apos;t be put in a
+          This Framework is a Draft: only its owner, Compliance Managers and Admins can see it, and it can&apos;t be put in a
           System&apos;s Framework Scope until it is published from the Frameworks page.
         </p>
       )}

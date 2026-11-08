@@ -165,14 +165,17 @@ describe("Framework Owner and first-round Controls", () => {
       expect(await marked(otherFrameworkId)).toEqual([]);
     });
 
-    it("is a 404 for an unknown Framework and for a Draft to someone who can't see Drafts", async () => {
+    it("is a 404 for an unknown Framework and for a Draft to someone who can't see Drafts (its owner sees it, #320)", async () => {
       const draft = await prisma.framework.create({ data: { name: `Test FO Draft ${SUFFIX}`, version: "1", status: "DRAFT", ownerId: users.fwowner } });
       try {
         await prisma.requirement.create({
           data: { frameworkId: draft.id, code: "FO-1", section: "T", title: "t", text: "t", mappings: { create: [{ controlId: c1, coverage: "FULL" }] } },
         });
-        expect((await mark(users.fwowner, c1, true, draft.id)).status).toBe(404);
+        expect((await mark(users.viewer, c1, true, draft.id)).status).toBe(404);
         expect(await marked(draft.id)).toEqual([]);
+        expect((await mark(users.fwowner, c1, true, draft.id)).status).toBe(200);
+        expect(await marked(draft.id)).toEqual([c1]);
+        expect((await mark(users.fwowner, c1, false, draft.id)).status).toBe(200);
         expect((await mark(users.cm, c1, true, draft.id)).status).toBe(200);
         expect(await marked(draft.id)).toEqual([c1]);
         expect((await mark(users.cm, c1, true, "no-such-framework")).status).toBe(404);
