@@ -236,3 +236,60 @@ describe("changing the owner to the Business System Owner (#321)", { timeout: 30
     expect(await ownerOf(id)).toBe(users.bsoOwner);
   });
 });
+
+describe("a concurrent owner change and Business System Owner change (#321)", { timeout: 30_000 }, () => {
+  const settle = (ms = 400) => new Promise((resolve) => setTimeout(resolve, ms));
+  const state = (promise: Promise<unknown>) => Promise.race([promise.then(() => "done"), settle().then(() => "pending")]);
+
+  it("never leaves one person as owner and Business System Owner: the BSO change loses to an owner change in flight (409)", async () => {
+    const id = await makeSystem(users.owner);
+    let release!: () => void;
+    const hold = new Promise<void>((resolve) => (release = resolve));
+    // Request B: hands the System to the would-be BSO, holding the row lock before it commits.
+    const handingOver = prisma.$transaction(
+      async (tx) => {
+        await tx.system.update({ where: { id }, data: { ownerId: users.bsoOwner } });
+        await hold;
+      },
+      { timeout: 20_000 },
+    );
+    await settle(150);
+    // Request A reads owner = the old owner, then waits on the row lock.
+    const setting = put(users.admin, id, { businessSystemOwnerId: users.bsoOwner });
+    expect(await state(setting)).toBe("pending");
+    release();
+    await handingOver;
+
+    const response = await setting;
+    expect(response.status).toBe(409);
+    const system = await prisma.system.findUniqueOrThrow({ where: { id } });
+    expect(system.ownerId).toBe(users.bsoOwner);
+    expect(system.businessSystemOwnerId).toBeNull();
+    expect(await events(id)).toEqual([]);
+  });
+
+  it("an owner change loses to a Business System Owner change in flight (409), the other way round", async () => {
+    const id = await makeSystem(users.owner);
+    let release!: () => void;
+    const hold = new Promise<void>((resolve) => (release = resolve));
+    const setting = prisma.$transaction(
+      async (tx) => {
+        await tx.system.update({ where: { id }, data: { businessSystemOwnerId: users.bsoOwner } });
+        await hold;
+      },
+      { timeout: 20_000 },
+    );
+    await settle(150);
+    const handingOver = changeOwner(requestAs("/api/systems/owner", users.admin, "POST", { systemIds: [id], ownerId: users.bsoOwner }));
+    expect(await state(handingOver)).toBe("pending");
+    release();
+    await setting;
+
+    const response = await handingOver;
+    expect(response.status).toBe(409);
+    const system = await prisma.system.findUniqueOrThrow({ where: { id } });
+    expect(system.ownerId).toBe(users.owner);
+    expect(system.businessSystemOwnerId).toBe(users.bsoOwner);
+    expect(await prisma.changeEvent.count({ where: { systemId: id, action: "SYSTEM_OWNER_CHANGED" } })).toBe(0);
+  });
+});

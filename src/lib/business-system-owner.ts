@@ -69,13 +69,14 @@ export async function changeBusinessSystemOwner(
       const current = system.businessSystemOwner;
       if ((current?.id ?? null) === (next?.id ?? null)) return { ok: true as const, changed: false, businessSystemOwner: current };
 
-      // Guarded on the value we read: a concurrent change in between aborts the request.
+      // Guarded on the BSO and the owner we read: a concurrent change of either in between (an owner change to
+      // this very user, say) matches no row and aborts the request.
       const updated = await tx.system.updateMany({
-        where: { id: system.id, businessSystemOwnerId: current?.id ?? null },
+        where: { id: system.id, businessSystemOwnerId: current?.id ?? null, ownerId: system.ownerId },
         data: { businessSystemOwnerId: next?.id ?? null },
       });
       if (updated.count !== 1) {
-        throw new Abort({ ok: false, status: 409, error: "The Business System Owner changed while saving; try again" });
+        throw new Abort({ ok: false, status: 409, error: "The System's owner or Business System Owner changed while saving; try again" });
       }
       await logChangeEvent(
         system.id,

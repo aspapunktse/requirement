@@ -76,10 +76,10 @@ export async function changeSystemOwners(actor: Actor, systemIds: string[], owne
           unchanged.push({ id, name: system.name });
           continue;
         }
-        // Guarded on the owner we read: a concurrent change in between aborts the whole request.
-        const updated = await tx.system.updateMany({ where: { id, ownerId: system.ownerId }, data: { ownerId: newOwner.id } });
+        // Guarded on the owner and Business System Owner we read: a concurrent change in between aborts the whole request.
+        const updated = await tx.system.updateMany({ where: { id, ownerId: system.ownerId, businessSystemOwnerId: system.businessSystemOwnerId }, data: { ownerId: newOwner.id } });
         if (updated.count !== 1) {
-          throw new Abort({ ok: false, status: 409, error: "A System's owner changed while saving; try again", refusedIds: [id] });
+          throw new Abort({ ok: false, status: 409, error: "A System's owner or Business System Owner changed while saving; try again", refusedIds: [id] });
         }
         await logChangeEvent(
           id,
