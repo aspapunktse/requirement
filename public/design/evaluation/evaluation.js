@@ -232,7 +232,9 @@
       ${(d.against || []).map((a) => `<div class="pair"><div class="pair-l"><span class="label">${esc(GROUPS[a.group].name)} advised against</span><p>${esc(a.rec)}</p></div><div class="pair-r"><span class="label">BSO’s justification</span><p>${esc(a.justification)}</p></div></div>`).join('')}
     </li>`;
   }
-  const decisionsOf = (sys, gate) => sys.decisions.filter((d) => !gate || d.gate === gate).slice().sort((a, b) => (a.on < b.on ? 1 : -1));
+  // The decision recorded in this prototype (ui.done) is read back as the newest history entry, so every view shows it
+  const recordedOf = (sys) => { const x = ui.done[sys.id]; return x ? [{ gate: x.gate, on: D.today, by: x.by, outcome: x.choice, backTo: x.back, comment: x.comment, against: x.against, recorded: true }] : []; };
+  const decisionsOf = (sys, gate) => sys.decisions.concat(recordedOf(sys)).filter((d) => !gate || d.gate === gate).slice().sort((a, b) => (a.on < b.on ? 1 : -1));
   function historyBody(m, gate) {
     const ds = decisionsOf(m.sys, gate);
     return ds.length ? `<ul class="decs">${ds.map((d) => decisionRecord(d, m)).join('')}</ul>` : '<p class="muted small">No gate decided yet.</p>';
@@ -249,7 +251,7 @@
     else if (v.isOwner) who = `<div class="callout">You own this System. Nobody decides a gate on a System they own, so you see the panel but can’t decide.</div>`;
     else if (!m.can) who = `<div class="callout">${esc(sys.bso)} (BSO) decides this gate. ${v.label} sees the stages and the Recommendations but can’t decide.</div>`;
     else if (v.admin) who = `<div class="callout warn">You are acting as an Admin for the BSO, ${esc(sys.bso)}. The decision is recorded under your name.</div>`;
-    const back = m.stages.filter((s) => s.i < m.idx && s.kind !== 'gate' && s.kind !== 'fork');
+    const back = m.stages.filter((s) => s.i < m.idx && s.kind !== 'fork' && s.key !== 'og1');
     const opts = [['GO', GO[gate]], ['REJECT', 'Reject'], ['BACK', 'Send back']];
     const form = m.can && live && !done ? `<form class="dform" onsubmit="return false" aria-label="Your decision">
       <div class="label">Your decision</div>
@@ -261,7 +263,7 @@
       <label class="field"><span class="label">Comment (always required)</span><textarea rows="3" data-fid="comment-${sys.id}" data-field="comment" aria-invalid="${d.tried && !d.comment.trim()}" placeholder="Why this decision">${esc(d.comment)}</textarea>${d.tried && !d.comment.trim() ? '<p class="err">Write a comment.</p>' : ''}</label>
       <div class="row-end"><button type="button" class="btn primary" data-act="decide" ${d.choice ? '' : 'aria-disabled="true"'}>${d.choice ? `Record: ${opts.find((x) => x[0] === d.choice)[1]}` : 'Pick a decision'}</button></div>
     </form>` : '';
-    const recorded = done ? `<div class="callout ok"><b>Recorded in this prototype:</b> ${esc(opts.find((x) => x[0] === done.choice)[1])}${done.choice === 'BACK' ? ' to ' + esc(ST[done.back].long) : ''}${done.against ? ', against advice, with your justification shown beside it' : ''}. Nothing is saved.<br><button class="link" type="button" data-act="undo">Undo and decide again</button></div>` : '';
+    const recorded = done ? `<div class="callout ok"><b>Recorded in this prototype:</b> ${esc(opts.find((x) => x[0] === done.choice)[1])}${done.choice === 'BACK' ? ' to ' + esc(ST[done.back].long) : ''}${done.against ? ', against advice, with your justification shown beside it' : ''}. Nothing is saved.<br><button class="link" type="button" data-act="undo">Undo and decide again</button></div><ul class="decs">${decisionRecord(recordedOf(sys)[0], m)}</ul>` : '';
     const body = [];
     if (gate === 'qual' || gate === 'og1') body.push(`<h4 class="sub">OG1 verdicts</h4>${verdictsBody(m)}`);
     if (gate === 'og2' || gate === 'og3') body.push(sys.track === 'FULL' ? `<h4 class="sub">Recommendations</h4>${recsList(m, recs, { round, flag: needsJust })}` : '<p class="muted small">The Self track has no Recommendations.</p>');
@@ -412,7 +414,8 @@
       const m = model(), d = draft(), against = recsFor(sys, m.now.key).some((r) => r.rec === 'AGAINST') && d.choice === 'GO';
       if (!d.choice) { return; }
       if (!d.comment.trim() || (against && !d.just.trim())) { d.tried = true; refresh(); return; }
-      ui.done[sys.id] = { choice: d.choice, back: d.back, against }; Kit.toast('Decision recorded in this prototype. Nothing is saved.'); refresh();
+      const advice = against ? recsFor(sys, m.now.key).filter((r) => r.rec === 'AGAINST').map((r) => ({ group: r.group, rec: r.comment, justification: d.just.trim() })) : null;
+      ui.done[sys.id] = { gate: m.now.key, choice: d.choice, back: d.back, comment: d.comment.trim(), against: advice, by: m.v.name }; Kit.toast('Decision recorded in this prototype. Nothing is saved.'); refresh();
     }
     else if (a === 'undo') { delete ui.done[sys.id]; ui.dec[sys.id] = null; refresh(); }
     else if (a === 'rec-open') { ui.rec[`${sys.id}:${el.dataset.round}:${el.dataset.g}`] = { rec: null, comment: '', conditions: '', tried: false }; refresh(); }
