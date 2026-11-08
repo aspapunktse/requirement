@@ -85,6 +85,7 @@ Staged evaluation (PRD 0002, ADR 0014, no milestone):
 2. #322 Risk Source, any User as a Risk owner, and the Risk register at `/risks`. **Done: PR #337.**
 3. #321 Business System Owner on a System (optional for now; sees the System, no write rights). **Done: PR #338.**
 4. #320 Framework Owner curates their own non-base Framework (everything a Compliance Manager does on it, publishing included). **Done: PR #339.**
+5. #327 Design proposals: staged evaluation on the System page (`/design/evaluation/`, A Stepper, B Journey, C Gate board). **Done: PR #343.** The product owner picks one, recorded on #327, before the stage tickets start.
 
 Not cut into issues: the PRD's "could" feature F-IMP.4 (UI upload of Framework files, other Frameworks as data). F-OUT.6 is #273.
 
