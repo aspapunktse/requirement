@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { authenticate, authorize } from "@/lib/api-authz";
-import { ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE } from "@/lib/catalog";
-import { requirementInclude, visibleFrameworksWhere } from "@/lib/frameworks";
+import { authenticate } from "@/lib/api-authz";
+import { authorizeFrameworkCuration } from "@/lib/framework-curation";
+import { requirementInclude, visibleOrOwnedFrameworksWhere } from "@/lib/frameworks";
 
 /**
  * A Framework's Requirements with their Control Mappings, ordered by section
@@ -15,7 +15,7 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/framewor
   if ("response" in auth) return auth.response;
 
   const { id } = await ctx.params;
-  const framework = await prisma.framework.findFirst({ where: { id, ...visibleFrameworksWhere(auth.user) } });
+  const framework = await prisma.framework.findFirst({ where: { id, ...visibleOrOwnedFrameworksWhere(auth.user) } });
   if (!framework) {
     return NextResponse.json({ error: "Framework not found" }, { status: 404 });
   }
@@ -37,23 +37,18 @@ const createRequirementSchema = z.object({
 
 /**
  * Adds a Requirement to a Framework, Draft or Published (the base Framework
- * included). For a PARAPHRASE_ONLY Framework `text` must be the author's own
+ * included, for a Compliance Manager or an Admin; a Framework Owner for their own non-base Framework, #320). For a PARAPHRASE_ONLY Framework `text` must be the author's own
  * words, never verbatim; that's a convention the UI reminds the author of,
  * not something the API can check.
  */
 export async function POST(request: NextRequest, ctx: RouteContext<"/api/frameworks/[id]/requirements">) {
-  const auth = await authorize(request, ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE);
+  const { id } = await ctx.params;
+  const auth = await authorizeFrameworkCuration(request, id);
   if ("response" in auth) return auth.response;
 
-  const { id } = await ctx.params;
   const parsed = createRequirementSchema.safeParse(await request.json());
   if (!parsed.success) {
     return NextResponse.json({ error: "code, section, title and text are required" }, { status: 400 });
-  }
-
-  const framework = await prisma.framework.findUnique({ where: { id } });
-  if (!framework) {
-    return NextResponse.json({ error: "Framework not found" }, { status: 404 });
   }
 
   try {

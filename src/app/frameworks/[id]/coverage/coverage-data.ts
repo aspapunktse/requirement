@@ -4,30 +4,31 @@ import { roleLabel } from "@/app/home/role-label";
 import { countVisibleSystemsByFramework } from "@/app/frameworks/frameworks-data";
 import { deriveCoverageState } from "@/lib/coverage-state";
 import { frameworkLabel } from "@/lib/framework-label";
-import { canSeeDraftFrameworks, visibleFrameworksWhere } from "@/lib/frameworks";
+import { canCurateFramework, canMarkFirstRound, mappableControlsWhere, canSeeDraftFrameworks, visibleOrOwnedFrameworksWhere } from "@/lib/frameworks";
 import { canBeControlOwner } from "@/lib/system-permissions";
 import type { CoverageRow, CoverageView } from "./coverage-types";
 
 /**
  * Everything the Framework coverage page shows for the acting user (design proposal A "Gap ledger", issue #269),
  * or null when the Framework does not exist or the user may not see it (a Draft is "not found" for anyone who
- * can't see Drafts, `visibleFrameworksWhere`). The Framework, its Requirements with their Control Mappings, the
+ * can't see Drafts and does not own it, `visibleOrOwnedFrameworksWhere`). The Framework, its Requirements with their Control Mappings, the
  * Frameworks for the switcher, the Control Library and the Systems count are read in one RepeatableRead
  * transaction, every query on `tx`, so the figures agree even while the data changes.
  *
- * The Control Library is only sent to Compliance Managers and Admins, who are the only ones to map Controls:
- * nobody else needs it, and a Supplementary Control of a Draft Framework stays out of other roles' hands.
+ * The Control Library is only sent to those who curate this Framework (`canCurateFramework`: a Compliance Manager,
+ * an Admin, or the owner of a non-base Framework, #320), who map Controls: nobody else needs it. For an owner it leaves
+ * out the Supplementary Controls of other Draft Frameworks, which stay out of their hands.
  */
 export async function loadCoverageView(
   user: { id: string; role: UserRole },
   frameworkId: string,
   requestedSection: string | null = null,
 ): Promise<CoverageView | null> {
-  const canCurate = canSeeDraftFrameworks(user);
+  const canAssignOwner = canSeeDraftFrameworks(user);
   return prisma.$transaction(
     async (tx) => {
       const framework = await tx.framework.findFirst({
-        where: { id: frameworkId, ...visibleFrameworksWhere(user) },
+        where: { id: frameworkId, ...visibleOrOwnedFrameworksWhere(user) },
         select: {
           id: true,
           name: true,
@@ -41,6 +42,7 @@ export async function loadCoverageView(
         },
       });
       if (!framework) return null;
+      const canCurate = canCurateFramework(user, framework);
 
       const rows = await tx.requirement.findMany({
         where: { frameworkId },
@@ -89,11 +91,14 @@ export async function loadCoverageView(
       );
 
       const switcher = await tx.framework.findMany({
-        where: visibleFrameworksWhere(user),
+        where: visibleOrOwnedFrameworksWhere(user),
         select: { id: true, name: true, version: true, status: true },
       });
       const controlRows = canCurate
-        ? await tx.control.findMany({ orderBy: { code: "asc" }, select: { id: true, code: true, title: true, originFrameworkId: true } })
+        ? await tx.control.findMany({
+            where: mappableControlsWhere(user, frameworkId),
+            orderBy: { code: "asc" },
+            select: { id: true, code: true, title: true, originFrameworkId: true } })
         : [];
       const controls = controlRows.map((c) => ({ id: c.id, code: c.code, title: c.title, supplementary: c.originFrameworkId !== null }));
       // First round (#319): the distinct mapped Controls, each marked or not. A marking counts only while the Control is mapped.
@@ -105,7 +110,7 @@ export async function loadCoverageView(
         }
       }
       const firstRound = [...mappedControls.values()].sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true }));
-      const owners = canCurate
+      const owners = canAssignOwner
         ? (await tx.user.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true, role: true } }))
             .filter((candidate) => canBeControlOwner(candidate))
             .map(({ id, name }) => ({ id, name }))
@@ -128,9 +133,9 @@ export async function loadCoverageView(
           owner: framework.owner,
           systems,
         },
-        canAssignOwner: canCurate,
+        canAssignOwner,
         owners,
-        canMarkFirstRound: canCurate || framework.ownerId === user.id,
+        canMarkFirstRound: canMarkFirstRound(user, framework),
         firstRound,
         frameworks: switcher
           .map((row) => ({ id: row.id, label: frameworkLabel(row), status: row.status }))

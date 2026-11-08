@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { authorize } from "@/lib/api-authz";
-import { ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE } from "@/lib/catalog";
+import { authorizeFrameworkCuration } from "@/lib/framework-curation";
 import { logMappingChange } from "@/lib/frameworks";
 import { finishRecompute, prepareRecompute, scopeForMappedControls } from "@/lib/applicability-recompute";
 import { frameworkLabel } from "@/lib/framework-label";
@@ -40,10 +39,10 @@ function findMapping(id: string, requirementId: string, mappingId: string) {
  * ordinary catalog edit and stays unlogged.
  */
 export async function PATCH(request: NextRequest, ctx: MappingContext) {
-  const auth = await authorize(request, ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE);
+  const { id, requirementId, mappingId } = await ctx.params;
+  const auth = await authorizeFrameworkCuration(request, id);
   if ("response" in auth) return auth.response;
 
-  const { id, requirementId, mappingId } = await ctx.params;
   const parsed = updateMappingSchema.safeParse(await request.json());
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid update" }, { status: 400 });
@@ -96,10 +95,10 @@ export async function PATCH(request: NextRequest, ctx: MappingContext) {
  * trigger: the applicability gate is "mapped at any Coverage".
  */
 export async function DELETE(request: NextRequest, ctx: MappingContext) {
-  const auth = await authorize(request, ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE);
+  const { id, requirementId, mappingId } = await ctx.params;
+  const auth = await authorizeFrameworkCuration(request, id);
   if ("response" in auth) return auth.response;
 
-  const { id, requirementId, mappingId } = await ctx.params;
 
   const existing = await findMapping(id, requirementId, mappingId);
   if (!existing) {

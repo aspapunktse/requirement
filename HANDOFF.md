@@ -84,6 +84,7 @@ Staged evaluation (PRD 0002, ADR 0014, no milestone):
 1. #319 Framework Owner and first-round Controls per Framework (stored and shown only). **Done: PR #335.**
 2. #322 Risk Source, any User as a Risk owner, and the Risk register at `/risks`. **Done: PR #337.**
 3. #321 Business System Owner on a System (optional for now; sees the System, no write rights). **Done: PR #338.**
+4. #320 Framework Owner curates their own non-base Framework (everything a Compliance Manager does on it, publishing included). **In review.**
 
 Not cut into issues: the PRD's "could" feature F-IMP.4 (UI upload of Framework files, other Frameworks as data). F-OUT.6 is #273.
 

@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { authorize } from "@/lib/api-authz";
-import { ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE } from "@/lib/catalog";
+import { authorizeFrameworkCuration } from "@/lib/framework-curation";
 import { isCovered } from "@/lib/coverage-state";
 
 const acceptGapsSchema = z.object({
@@ -27,10 +26,10 @@ const NOT_OPEN_GAP = "Only an open Coverage Gap can be accepted: one of these Re
  * is covered or already accepted is a 409. In both cases nothing is written.
  */
 export async function PUT(request: NextRequest, ctx: RouteContext<"/api/frameworks/[id]/gap-acceptances">) {
-  const auth = await authorize(request, ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE);
+  const { id } = await ctx.params;
+  const auth = await authorizeFrameworkCuration(request, id);
   if ("response" in auth) return auth.response;
 
-  const { id } = await ctx.params;
   const parsed = acceptGapsSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json(

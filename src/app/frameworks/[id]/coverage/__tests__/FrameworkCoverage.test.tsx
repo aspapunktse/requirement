@@ -171,7 +171,13 @@ describe("hero", () => {
     expect(screen.queryByText(/Read-only/)).not.toBeInTheDocument();
     cleanup();
     render(<FrameworkCoverage view={readOnlyView()} />);
-    expect(screen.getByText("Read-only: a Compliance Manager curates mappings and gaps.")).toBeInTheDocument();
+    expect(screen.getByText("Read-only: this Framework’s owner or a Compliance Manager curates mappings and gaps.")).toBeInTheDocument();
+  });
+
+  it("on the base Framework the read-only note names only the Compliance Manager and Admin (#320)", () => {
+    const view = readOnlyView();
+    render(<FrameworkCoverage view={{ ...view, framework: { ...view.framework, isBase: true } }} />);
+    expect(screen.getByText("Read-only: a Compliance Manager or an Admin curates the base Framework.")).toBeInTheDocument();
   });
 });
 
@@ -450,7 +456,7 @@ describe("the Requirement drawer", () => {
     await openDrawerOf("A.5.2");
     const dialog = drawer();
     expect(within(dialog).getByText("SEC-2")).toBeInTheDocument();
-    expect(within(dialog).getByText("Only a Compliance Manager or an Admin changes mappings and gaps.")).toBeInTheDocument();
+    expect(within(dialog).getByText("Only this Framework’s owner, a Compliance Manager or an Admin changes mappings and gaps.")).toBeInTheDocument();
     expect(within(dialog).queryByRole("combobox", { name: "Control to map" })).not.toBeInTheDocument();
     expect(within(dialog).queryByRole("group", { name: /Coverage of/ })).not.toBeInTheDocument();
     expect(within(dialog).queryByRole("button", { name: /Remove mapping/ })).not.toBeInTheDocument();
@@ -461,6 +467,39 @@ describe("the Requirement drawer", () => {
     expect(within(drawer()).getByText("Out of scope here")).toBeInTheDocument();
     expect(within(drawer()).queryByRole("button", { name: "Un-accept" })).not.toBeInTheDocument();
     expect(fetch).not.toHaveBeenCalled();
+  });
+});
+
+describe("a Framework Owner curating their own Framework (#320)", () => {
+  /** What `loadCoverageView` gives a Viewer who owns this non-base Framework: `canCurate` and first round, but not the owner picker. */
+  const ownerView = () =>
+    view({ role: "VIEWER", roleLabel: "Viewer", userId: "u-owner", canAssignOwner: false, owners: [], canMarkFirstRound: true, canCurate: true });
+
+  it("gets the curation controls of a Compliance Manager, without the owner picker", async () => {
+    render(<FrameworkCoverage view={ownerView()} />);
+    expect(screen.queryByText(/Read-only/)).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Requirements & Review Group" })).toHaveAttribute("href", "/admin/frameworks/f1");
+    expect(screen.queryByRole("button", { name: "Assign owner" })).not.toBeInTheDocument();
+    await openDrawerOf("A.5.2");
+    const dialog = drawer();
+    expect(within(dialog).getByRole("combobox", { name: "Control to map" })).toBeInTheDocument();
+    expect(within(dialog).getByText("Close the gap")).toBeInTheDocument();
+    expect(within(dialog).queryByText(/Only this Framework's owner/)).not.toBeInTheDocument();
+  });
+
+  it("maps a Control through the same route a Compliance Manager uses", async () => {
+    render(<FrameworkCoverage view={ownerView()} />);
+    await openDrawerOf("A.5.1");
+    await userEvent.click(within(drawer()).getByRole("combobox", { name: "Control to map" }));
+    await userEvent.paste("sec-6");
+    await userEvent.click(within(drawer()).getByRole("button", { name: "Map" }));
+    await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1));
+    expect(calls()).toEqual([{ url: "/api/frameworks/f1/requirements/r-A.5.1/mappings", method: "POST", body: { controlId: "c-SEC-6", coverage: "FULL" } }]);
+  });
+
+  it("offers a reader no curation link", () => {
+    render(<FrameworkCoverage view={readOnlyView()} />);
+    expect(screen.queryByRole("link", { name: "Requirements & Review Group" })).not.toBeInTheDocument();
   });
 });
 

@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { authorize } from "@/lib/api-authz";
-import { ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE } from "@/lib/catalog";
+import { authorizeFrameworkCuration } from "@/lib/framework-curation";
 import { isCovered } from "@/lib/coverage-state";
 
 type GapAcceptanceContext = RouteContext<"/api/frameworks/[id]/requirements/[requirementId]/gap-acceptance">;
@@ -26,10 +25,10 @@ function findRequirement(id: string, requirementId: string) {
  * justifications and Check-ups, not gaps. See #74, PRD 0001 F-CL.5.
  */
 export async function PUT(request: NextRequest, ctx: GapAcceptanceContext) {
-  const auth = await authorize(request, ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE);
+  const { id, requirementId } = await ctx.params;
+  const auth = await authorizeFrameworkCuration(request, id);
   if ("response" in auth) return auth.response;
 
-  const { id, requirementId } = await ctx.params;
   const parsed = acceptGapSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ error: "A justification is required to accept a gap" }, { status: 400 });
@@ -61,10 +60,10 @@ export async function PUT(request: NextRequest, ctx: GapAcceptanceContext) {
 
 /** Un-accepts a gap: clears the acceptance so the Requirement is an open Coverage Gap again. 409 if it wasn't accepted. */
 export async function DELETE(request: NextRequest, ctx: GapAcceptanceContext) {
-  const auth = await authorize(request, ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE);
+  const { id, requirementId } = await ctx.params;
+  const auth = await authorizeFrameworkCuration(request, id);
   if ("response" in auth) return auth.response;
 
-  const { id, requirementId } = await ctx.params;
   const requirement = await findRequirement(id, requirementId);
   if (!requirement) {
     return NextResponse.json({ error: "Requirement not found" }, { status: 404 });

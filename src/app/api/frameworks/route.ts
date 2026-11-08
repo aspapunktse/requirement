@@ -5,15 +5,22 @@ import { prisma } from "@/lib/prisma";
 import { authenticate, authorize } from "@/lib/api-authz";
 import { ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE } from "@/lib/catalog";
 import { loadCoverageSummaries } from "@/lib/framework-coverage";
-import { BASE_FRAMEWORK_ERRORS, checkBaseFrameworkInvariant, visibleFrameworksWhere } from "@/lib/frameworks";
+import { BASE_FRAMEWORK_ERRORS, canSeeDraftFrameworks, checkBaseFrameworkInvariant, visibleFrameworksWhere } from "@/lib/frameworks";
 
 export async function GET(request: NextRequest) {
   const auth = await authenticate(request);
   if ("response" in auth) return auth.response;
 
-  // Draft Frameworks are only visible to the requirement-database roles (#73).
+  // Draft Frameworks are only visible to the requirement-database roles (#73). `?curatable=true` lists the
+  // Frameworks the user may curate instead (#320: all for those roles, the user's own non-base ones for a Framework
+  // Owner, Drafts included), which the Framework admin page reloads after a change.
+  const curatable = request.nextUrl.searchParams.get("curatable") === "true";
   const frameworks = await prisma.framework.findMany({
-    where: visibleFrameworksWhere(auth.user),
+    where: curatable
+      ? canSeeDraftFrameworks(auth.user)
+        ? {}
+        : { ownerId: auth.user.id, isBase: false }
+      : visibleFrameworksWhere(auth.user),
     orderBy: [{ name: "asc" }, { version: "asc" }],
     include: { _count: { select: { requirements: true } } },
   });

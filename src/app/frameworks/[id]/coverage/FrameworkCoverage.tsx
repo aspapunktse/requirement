@@ -355,7 +355,18 @@ export function FrameworkCoverage({ view }: { view: CoverageView }) {
             <button type="button" className="hc-btn" onClick={exportCsv} disabled={listed.length === 0}>
               Download CSV
             </button>
-            {!canCurate && <span className="cv-note">Read-only: a Compliance Manager curates mappings and gaps.</span>}
+            {canCurate && (
+              <Link href={`/admin/frameworks/${framework.id}`} className="hc-btn">
+                Requirements &amp; Review Group
+              </Link>
+            )}
+            {!canCurate && (
+              <span className="cv-note">
+                {framework.isBase
+                  ? "Read-only: a Compliance Manager or an Admin curates the base Framework."
+                  : "Read-only: this Framework’s owner or a Compliance Manager curates mappings and gaps."}
+              </span>
+            )}
           </div>
         </div>
         <div className="hc-move">
