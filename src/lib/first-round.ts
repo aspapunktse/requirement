@@ -8,7 +8,7 @@ import { prisma } from "@/lib/prisma";
  * Stored and shown only: nothing about Assessments, submission, applicability or compliance reads this yet.
  */
 
-type Db = Pick<Prisma.TransactionClient, "frameworkFirstRoundControl" | "controlMapping" | "system" | "framework">;
+type Db = Pick<Prisma.TransactionClient, "frameworkFirstRoundControl" | "controlMapping" | "requirement" | "system" | "framework">;
 
 /**
  * Removes the markings of `controlIds` for `frameworkId` that no longer have a Control Mapping to any Requirement of
@@ -43,30 +43,42 @@ export async function effectiveScopeFrameworkIds(systemId: string, db: Pick<Db, 
 /**
  * The ids of the Controls that are first round on a System: marked by the owner of a Published Framework in its
  * effective scope, and still mapped to that Framework (a marking without a live mapping is ignored). Pass
- * `controlIds` to narrow the answer.
+ * `controlIds` to narrow the answer. Without `db` the reads (scope, markings, mappings, Requirements) run in one
+ * RepeatableRead transaction so they agree even while a mapping is deleted; a caller's transaction client is used as is.
  */
 export async function firstRoundControlIdsForSystem(systemId: string, options: { controlIds?: string[]; db?: Db } = {}) {
-  const db = options.db ?? prisma;
+  if (options.db) return readFirstRoundControlIds(options.db, systemId, options.controlIds);
+  return prisma.$transaction((tx) => readFirstRoundControlIds(tx, systemId, options.controlIds), { isolationLevel: "RepeatableRead" });
+}
+
+async function readFirstRoundControlIds(db: Db, systemId: string, controlIds: string[] | undefined) {
   const frameworkIds = await effectiveScopeFrameworkIds(systemId, db);
   if (frameworkIds.length === 0) return new Set<string>();
   const markings = await db.frameworkFirstRoundControl.findMany({
-    where: {
-      frameworkId: { in: frameworkIds },
-      ...(options.controlIds ? { controlId: { in: options.controlIds } } : {}),
-    },
+    where: { frameworkId: { in: frameworkIds }, ...(controlIds ? { controlId: { in: controlIds } } : {}) },
     select: { frameworkId: true, controlId: true },
   });
-  // A marking counts only while its Control is still mapped to a Requirement of the *same* Framework.
   if (markings.length === 0) return new Set<string>();
-  const mapped = await db.controlMapping.findMany({
-    where: { controlId: { in: [...new Set(markings.map((m) => m.controlId))] }, requirement: { frameworkId: { in: frameworkIds } } },
-    select: { controlId: true, requirement: { select: { frameworkId: true } } },
+  // A marking counts only while its Control is still mapped to a Requirement of the *same* Framework. Sequential
+  // reads (one connection on a transaction client); the Requirements are read separately, not through a nested relation.
+  const mappings = await db.controlMapping.findMany({
+    where: { controlId: { in: [...new Set(markings.map((m) => m.controlId))] } },
+    select: { controlId: true, requirementId: true },
   });
-  const live = new Set(mapped.map((m) => `${m.requirement.frameworkId}:${m.controlId}`));
+  const requirements = await db.requirement.findMany({
+    where: { id: { in: [...new Set(mappings.map((m) => m.requirementId))] }, frameworkId: { in: frameworkIds } },
+    select: { id: true, frameworkId: true },
+  });
+  const frameworkOfRequirement = new Map(requirements.map((r) => [r.id, r.frameworkId]));
+  const live = new Set<string>();
+  for (const mapping of mappings) {
+    const frameworkId = frameworkOfRequirement.get(mapping.requirementId);
+    if (frameworkId) live.add(`${frameworkId}:${mapping.controlId}`);
+  }
   return new Set(markings.filter((m) => live.has(`${m.frameworkId}:${m.controlId}`)).map((m) => m.controlId));
 }
 
 /** Is `controlId` first round on the System `systemId`? See `firstRoundControlIdsForSystem`. */
-export async function isControlFirstRound(controlId: string, systemId: string, db: Db = prisma) {
+export async function isControlFirstRound(controlId: string, systemId: string, db?: Db) {
   return (await firstRoundControlIdsForSystem(systemId, { controlIds: [controlId], db })).has(controlId);
 }

@@ -43,8 +43,18 @@ export async function PUT(request: NextRequest, ctx: RouteContext<"/api/framewor
     }
     const control = await tx.control.findUnique({ where: { id: controlId }, select: { id: true } });
     if (!control) return "no-control" as const;
-    const mapped = await tx.controlMapping.count({ where: { controlId, requirement: { frameworkId: id } } });
-    if (mapped === 0) return "unmapped" as const;
+    // Lock the Control's mappings to this Framework for the rest of this transaction (FOR SHARE), so a concurrent
+    // delete of them (mapping delete, Requirement delete cascade, loader deleteMany) waits until the marking is
+    // committed. Each of those deletes runs `dropOrphanedFirstRoundMarkings` as a LATER statement of its own
+    // transaction (READ COMMITTED), which then sees the committed marking and removes it. If the delete committed
+    // first, no rows come back here and the marking is refused. A plain count would leave a window between the
+    // check and the insert in which an orphan marking could be written.
+    const locked = await tx.$queryRaw<{ id: string }[]>`
+      SELECT cm.id FROM "ControlMapping" cm
+      JOIN "Requirement" r ON r.id = cm."requirementId"
+      WHERE cm."controlId" = ${controlId} AND r."frameworkId" = ${id}
+      FOR SHARE OF cm`;
+    if (locked.length === 0) return "unmapped" as const;
     await tx.frameworkFirstRoundControl.upsert({
       where: { frameworkId_controlId: { frameworkId: id, controlId } },
       create: { frameworkId: id, controlId },

@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { ACTING_USER_COOKIE } from "@/lib/acting-user";
 import { cleanupFixtureRequirements, createFixtureFramework, mapControlsToFramework } from "@/test/framework-fixtures";
 import { PATCH as patchFramework } from "../[id]/route";
+import { dropOrphanedFirstRoundMarkings } from "@/lib/first-round";
 import { PUT as putFirstRound } from "../[id]/first-round-controls/[controlId]/route";
 import { DELETE as deleteRequirement } from "../[id]/requirements/[requirementId]/route";
 import { DELETE as deleteMapping } from "../[id]/requirements/[requirementId]/mappings/[mappingId]/route";
@@ -209,6 +210,59 @@ describe("Framework Owner and first-round Controls", () => {
       );
       expect(res.status).toBe(204);
       expect(await marked()).toEqual([c1]); // c2 lost its only mapping, c1 is still mapped through the new one
+    });
+
+    const settle = (ms = 400) => new Promise((resolve) => setTimeout(resolve, ms));
+    const state = (promise: Promise<unknown>) => Promise.race([promise.then(() => "done"), settle().then(() => "pending")]);
+
+    it("makes marking wait for a mapping delete in flight, then refuse: no orphan marking (delete first)", async () => {
+      const control = await makeControl("RACE1");
+      const requirementId = await mapControlsToFramework(frameworkId, [control]);
+      const mapping = await mappingOf(requirementId, control);
+      let release!: () => void;
+      const hold = new Promise<void>((resolve) => (release = resolve));
+      const deleting = prisma.$transaction(
+        async (tx) => {
+          await tx.controlMapping.delete({ where: { id: mapping.id } });
+          await hold; // the delete's cleanup has not run yet
+          await dropOrphanedFirstRoundMarkings(tx, frameworkId, [control]);
+        },
+        { timeout: 20_000 },
+      );
+      await settle(150);
+      const marking = mark(users.cm, control);
+      expect(await state(marking)).toBe("pending"); // blocked on the row lock the delete holds
+      release();
+      await deleting;
+      expect((await marking).status).toBe(409);
+      expect(await marked()).not.toContain(control);
+    });
+
+    it("makes a mapping delete wait for a marking in flight, and its cleanup then removes the marking (mark first)", async () => {
+      const control = await makeControl("RACE2");
+      const requirementId = await mapControlsToFramework(frameworkId, [control]);
+      const mapping = await mappingOf(requirementId, control);
+      let release!: () => void;
+      const hold = new Promise<void>((resolve) => (release = resolve));
+      // What the marking route does: lock the mappings (FOR SHARE), insert the marking, then hold before committing.
+      const marking = prisma.$transaction(
+        async (tx) => {
+          const rows = await tx.$queryRaw<{ id: string }[]>`
+            SELECT cm.id FROM "ControlMapping" cm JOIN "Requirement" r ON r.id = cm."requirementId"
+            WHERE cm."controlId" = ${control} AND r."frameworkId" = ${frameworkId} FOR SHARE OF cm`;
+          expect(rows).toHaveLength(1);
+          await tx.frameworkFirstRoundControl.create({ data: { frameworkId, controlId: control } });
+          await hold;
+        },
+        { timeout: 20_000 },
+      );
+      await settle(150);
+      const deleting = dropMapping(frameworkId, requirementId, mapping.id);
+      expect(await state(deleting)).toBe("pending"); // blocked until the marking commits
+      release();
+      await marking;
+      expect((await deleting).status).toBe(204);
+      expect(await marked()).not.toContain(control);
     });
 
     it("does not touch another Framework's marking of the same Control", async () => {
