@@ -63,6 +63,7 @@ describe("OnboardingInterview: suggested Frameworks (#300)", () => {
         const url = String(input);
         if (url.endsWith("/api/system-onboarding")) return Promise.resolve(new Response(JSON.stringify(catalog), { status: 200 }));
         if (url.endsWith("/api/systems") && init?.method === "POST") return Promise.resolve(new Response(JSON.stringify({ system: { id: "sys1" } }), { status: 201 }));
+        if (url.endsWith("/api/systems/bso-candidates")) return Promise.resolve(new Response(JSON.stringify({ users: [] }), { status: 200 }));
         throw new Error(`Unexpected fetch: ${url}`);
       }),
     );
