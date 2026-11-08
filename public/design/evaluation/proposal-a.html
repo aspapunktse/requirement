@@ -40,7 +40,11 @@
 .evgrid { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(280px, 1fr); gap: 16px; align-items: start; }
 .evgrid > * { min-width: 0; }
 .evgrid .col { display: grid; gap: 16px; }
-@media (max-width: 1020px) { .evgrid { grid-template-columns: 1fr; } }
+@media (max-width: 1020px) { .evgrid { grid-template-columns: minmax(0, 1fr); } }
+.evgrid .col { grid-template-columns: minmax(0, 1fr); }
+.evgrid .card, .evgrid .card-h, .evgrid .card-b { min-width: 0; }
+.evgrid .card-h { flex-wrap: wrap; }
+.evgrid .card-h > * { min-width: 0; }
 .sd-h { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
 @media (max-width: 640px) { .stp li { flex-basis: 84px; } }
 @media (prefers-reduced-motion: reduce) { .nd, .stp button:hover .nd { transition: none; transform: none; } }

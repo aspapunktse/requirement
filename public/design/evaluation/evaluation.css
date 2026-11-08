@@ -45,7 +45,7 @@ h4.sub { font-size: .78rem; font-weight: 750; text-transform: uppercase; letter-
 @media (prefers-reduced-motion: reduce) { .panel { animation: none; } }
 .ovgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .ovgrid > * { min-width: 0; }
-@media (max-width: 900px) { .ovgrid { grid-template-columns: 1fr; } }
+@media (max-width: 900px) { .ovgrid { grid-template-columns: minmax(0, 1fr); } }
 .left { margin: 0; padding-left: 18px; display: grid; gap: 3px; }
 .stat .small { grid-column: 1 / -1; }
 
@@ -74,7 +74,9 @@ h4.sub { font-size: .78rem; font-weight: 750; text-transform: uppercase; letter-
 .mini.now { color: var(--ink); border-color: var(--gold); background: var(--gold-soft); } .mini.now i { background: var(--gold); }
 .mini.rejected { color: var(--bad); border-color: var(--bad); } .mini.rejected i { background: var(--bad); }
 .mini.off { opacity: .55; border-style: dashed; }
-@media (max-width: 640px) { .trow { grid-template-columns: 1fr; } }
+@media (max-width: 640px) { .trow { grid-template-columns: minmax(0, 1fr); } }
+.tname, .minis, .tracks { min-width: 0; }
+.tracks > .trow { min-width: 0; }
 
 /* ---- Risk summary ---- */
 .rsum { display: grid; gap: 8px; }
@@ -184,3 +186,9 @@ table.rt { width: 100%; border-collapse: collapse; font-size: .86rem; }
 .drawer .body { flex: 1; overflow: auto; padding: 16px 20px 28px; display: grid; gap: 16px; align-content: start; }
 @keyframes fade { from { opacity: 0; } } @keyframes slide { from { transform: translateX(24px); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .scrim, .drawer { animation: none; } }
+
+/* cards never push the page wider than the screen */
+.card, .dpanel { min-width: 0; max-width: 100%; }
+.card-h { flex-wrap: wrap; }
+.card-h > *, .rec-h, .dec-h { min-width: 0; }
+.rec, .dec, .docs li, .against-box, .pair { min-width: 0; overflow-wrap: anywhere; }
