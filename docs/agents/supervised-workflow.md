@@ -151,7 +151,7 @@ The supervisor's context stays under **250k tokens**, so one session can work th
 
 How it works (Claude Code; the settings live in the untracked `.claude/settings.local.json`):
 
-- **`autoCompactWindow: "250k"`** makes Claude Code compact the conversation automatically before it reaches 250k. Nothing has to be triggered by hand.
+- **`"autoCompactWindow": 250000`** (a number of tokens, 100000 to 1000000) makes Claude Code compact the conversation automatically before it reaches 250k. Nothing has to be triggered by hand.
 - **`.claude/supervisor-carry-over.md`** holds what compaction must not lose. It is local and untracked, and only the supervisor writes it.
 - **`scripts/claude/context-guard.mjs`** runs as a hook:
   - after each tool call and prompt it reads the context size; at about 150k it asks for the carry-over file to be refreshed at the next stage boundary, and from about 180k it asks for it before the next step (again every 15k);
