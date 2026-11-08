@@ -1,7 +1,6 @@
 import type { UserRole } from "@prisma/client";
 import type { HomeIconKey } from "@/app/home/home-types";
 import { canReadInternalAudits } from "@/lib/internal-audit-rules";
-import { canReadOrganizationRisks } from "@/lib/risk-roles";
 
 /**
  * The app header's main navigation (#256): which items there are, which of them a role may open, which one a
@@ -46,7 +45,8 @@ export const NAV_ITEMS: NavItem[] = [
   { key: "information-types", label: "Information Types", icon: "infotype", href: "/information-types", prefixes: ["/information-types"], allows: everyone },
   // The Control Library admin pages also mark Controls and Frameworks, for a role without the Admin item (decision 4a on #256).
   { key: "controls", label: "Controls", icon: "control", href: "/controls", prefixes: ["/controls", "/admin/controls"], allows: everyone },
-  { key: "risks", label: "Risks", icon: "risk", href: "/risks/organization", prefixes: ["/risks"], allows: (role) => canReadOrganizationRisks({ role }) },
+  // The Risk register (#322): every role sees the Risks on the Systems it can see. Organization Risks sit behind it for the three roles that read them.
+  { key: "risks", label: "Risks", icon: "risk", href: "/risks", prefixes: ["/risks"], allows: everyone },
   { key: "check-ups", label: "Check-ups", icon: "checkup", href: "/check-ups", prefixes: ["/check-ups"], allows: everyone },
   { key: "internal-audits", label: "Internal Audits", icon: "audit", href: "/internal-audits", prefixes: ["/internal-audits"], allows: (role) => canReadInternalAudits({ role }) },
   { key: "soa", label: "SoA", title: "Statement of Applicability", icon: "doc", href: "/statement-of-applicability", prefixes: ["/statement-of-applicability"], allows: everyone },
