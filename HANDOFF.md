@@ -80,6 +80,9 @@ Control Library (design proposal A, no milestone):
 1. #313 Control Library: apply design proposal A (Workbench) to /controls. **Done: PR #315.**
 2. #314 Control page: one Control at /controls/[code]. **Done: PR #316 (design) and PR #318.**
 
+Staged evaluation (PRD 0002, ADR 0014, no milestone):
+1. #319 Framework Owner and first-round Controls per Framework (stored and shown only). **In review.**
+
 Not cut into issues: the PRD's "could" feature F-IMP.4 (UI upload of Framework files, other Frameworks as data). F-OUT.6 is #273.
 
 **State as of 2026-10-14**
