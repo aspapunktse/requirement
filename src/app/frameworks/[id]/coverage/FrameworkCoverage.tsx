@@ -360,7 +360,13 @@ export function FrameworkCoverage({ view }: { view: CoverageView }) {
                 Requirements &amp; Review Group
               </Link>
             )}
-            {!canCurate && <span className="cv-note">Read-only: this Framework&apos;s owner or a Compliance Manager curates mappings and gaps.</span>}
+            {!canCurate && (
+              <span className="cv-note">
+                {framework.isBase
+                  ? "Read-only: a Compliance Manager or an Admin curates the base Framework."
+                  : "Read-only: this Framework’s owner or a Compliance Manager curates mappings and gaps."}
+              </span>
+            )}
           </div>
         </div>
         <div className="hc-move">

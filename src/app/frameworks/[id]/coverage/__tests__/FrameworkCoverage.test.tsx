@@ -171,7 +171,13 @@ describe("hero", () => {
     expect(screen.queryByText(/Read-only/)).not.toBeInTheDocument();
     cleanup();
     render(<FrameworkCoverage view={readOnlyView()} />);
-    expect(screen.getByText("Read-only: this Framework's owner or a Compliance Manager curates mappings and gaps.")).toBeInTheDocument();
+    expect(screen.getByText("Read-only: this Framework’s owner or a Compliance Manager curates mappings and gaps.")).toBeInTheDocument();
+  });
+
+  it("on the base Framework the read-only note names only the Compliance Manager and Admin (#320)", () => {
+    const view = readOnlyView();
+    render(<FrameworkCoverage view={{ ...view, framework: { ...view.framework, isBase: true } }} />);
+    expect(screen.getByText("Read-only: a Compliance Manager or an Admin curates the base Framework.")).toBeInTheDocument();
   });
 });
 
@@ -450,7 +456,7 @@ describe("the Requirement drawer", () => {
     await openDrawerOf("A.5.2");
     const dialog = drawer();
     expect(within(dialog).getByText("SEC-2")).toBeInTheDocument();
-    expect(within(dialog).getByText("Only this Framework's owner, a Compliance Manager or an Admin changes mappings and gaps.")).toBeInTheDocument();
+    expect(within(dialog).getByText("Only this Framework’s owner, a Compliance Manager or an Admin changes mappings and gaps.")).toBeInTheDocument();
     expect(within(dialog).queryByRole("combobox", { name: "Control to map" })).not.toBeInTheDocument();
     expect(within(dialog).queryByRole("group", { name: /Coverage of/ })).not.toBeInTheDocument();
     expect(within(dialog).queryByRole("button", { name: /Remove mapping/ })).not.toBeInTheDocument();
