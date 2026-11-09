@@ -5,6 +5,9 @@ import { prisma } from "@/lib/prisma";
 import { visibleSystemsWhere } from "@/lib/system-visibility";
 import { applicableRequirements, canEditSystemDocuments, listSystemDocuments, PROVIDED_NEEDS_EVIDENCE, systemDocumentBodySchema } from "@/lib/system-documentation";
 
+/** Thrown inside the transaction so the lock-taking upsert is rolled back with it. */
+class NeedsEvidence extends Error {}
+
 const NOT_FOUND = { error: "Document Requirement not found" };
 
 /**
@@ -35,22 +38,25 @@ export async function PUT(request: NextRequest, ctx: RouteContext<"/api/systems/
     const row = await prisma.$transaction(async (tx) => {
       const requirement = await tx.documentRequirement.findUnique({ where: { id: documentRequirementId }, select: { id: true, tracks: true } });
       if (!requirement || applicableRequirements([requirement]).length === 0) return null;
+      // Take the row's lock first (an upsert that really writes), then check the evidence under it: a file removal
+      // running at the same time waits for this transaction and sees its result, or this one sees the removal.
+      const where = { systemId_documentRequirementId: { systemId: system.id, documentRequirementId: requirement.id } };
+      await tx.systemDocument.upsert({
+        where,
+        create: { systemId: system.id, documentRequirementId: requirement.id, updatedById: auth.user.id },
+        update: { updatedById: auth.user.id },
+      });
       if (parsed.data.provided && parsed.data.link === null) {
         const files = await tx.systemDocumentFile.count({ where: { systemDocument: { systemId: system.id, documentRequirementId: requirement.id } } });
-        if (files === 0) return "needs-evidence" as const;
+        if (files === 0) throw new NeedsEvidence();
       }
-      const data = { link: parsed.data.link, provided: parsed.data.provided, updatedById: auth.user.id };
-      await tx.systemDocument.upsert({
-        where: { systemId_documentRequirementId: { systemId: system.id, documentRequirementId: requirement.id } },
-        create: { systemId: system.id, documentRequirementId: requirement.id, ...data },
-        update: data,
-      });
+      await tx.systemDocument.update({ where, data: { link: parsed.data.link, provided: parsed.data.provided, updatedById: auth.user.id } });
       return (await listSystemDocuments(tx, system.id)).find((document) => document.id === requirement.id) ?? null;
     });
-    if (row === "needs-evidence") return NextResponse.json({ error: PROVIDED_NEEDS_EVIDENCE }, { status: 400 });
     if (!row) return NextResponse.json(NOT_FOUND, { status: 404 });
     return NextResponse.json({ document: row });
   } catch (error) {
+    if (error instanceof NeedsEvidence) return NextResponse.json({ error: PROVIDED_NEEDS_EVIDENCE }, { status: 400 });
     // The catalogue entry was deleted between the check and the write.
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2003") return NextResponse.json(NOT_FOUND, { status: 404 });
     throw error;

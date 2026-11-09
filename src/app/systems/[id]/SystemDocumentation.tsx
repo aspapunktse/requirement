@@ -10,7 +10,7 @@ import { useRemote } from "./use-remote";
 type Documents = { documents: SystemDocumentRow[]; canEdit: boolean };
 
 /** One Document Requirement: read-only for everyone; for the owner or an Admin a link field, a file to upload, replace or remove, a "provided" checkbox and Save. */
-function DocumentRow({ systemId, document, canEdit, onSaved }: { systemId: string; document: SystemDocumentRow; canEdit: boolean; onSaved: (row: SystemDocumentRow) => void }) {
+function DocumentRow({ systemId, document, canEdit, onSaved }: { systemId: string; document: SystemDocumentRow; canEdit: boolean; onSaved: (row: SystemDocumentRow, kind: "save" | "file") => void }) {
   const [link, setLink] = useState(document.link ?? "");
   const [provided, setProvided] = useState(document.provided);
   const [error, setError] = useState<string | null>(null);
@@ -18,7 +18,7 @@ function DocumentRow({ systemId, document, canEdit, onSaved }: { systemId: strin
   const dirty = link.trim() !== (document.link ?? "") || provided !== document.provided;
 
   /** Sends one request; on success hands the saved row up, on failure shows the server's message. */
-  async function send(url: string, init: RequestInit, failure: string) {
+  async function send(url: string, init: RequestInit, failure: string, kind: "save" | "file") {
     setError(null);
     setSaving(true);
     try {
@@ -28,7 +28,15 @@ function DocumentRow({ systemId, document, canEdit, onSaved }: { systemId: strin
         setError(body.error ?? failure);
         return;
       }
-      onSaved(body.document as SystemDocumentRow);
+      const saved = body.document as SystemDocumentRow;
+      if (kind === "save") {
+        setLink(saved.link ?? "");
+        setProvided(saved.provided);
+      } else if (document.provided && !saved.provided) {
+        // The server put it back to not provided (the last file went and there is no link); typed text stays.
+        setProvided(false);
+      }
+      onSaved(saved, kind);
     } catch {
       setError(failure);
     } finally {
@@ -44,6 +52,7 @@ function DocumentRow({ systemId, document, canEdit, onSaved }: { systemId: strin
       documentUrl,
       { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ link: link.trim() === "" ? null : link.trim(), provided }) },
       "Couldn't save the document",
+      "save",
     );
   }
 
@@ -59,11 +68,11 @@ function DocumentRow({ systemId, document, canEdit, onSaved }: { systemId: strin
     }
     const body = new FormData();
     body.append("file", file);
-    await send(`${documentUrl}/file`, { method: "POST", body }, "Couldn't upload the file");
+    await send(`${documentUrl}/file`, { method: "POST", body }, "Couldn't upload the file", "file");
     input.value = "";
   }
 
-  const removeFile = () => send(`${documentUrl}/file`, { method: "DELETE" }, "Couldn't remove the file");
+  const removeFile = () => send(`${documentUrl}/file`, { method: "DELETE" }, "Couldn't remove the file", "file");
 
   const head = (
     <div className="sc-btnrow">
@@ -190,12 +199,27 @@ export function SystemDocumentation({ systemId }: { systemId: string }) {
                 <ul className="sc-formblock" aria-label={STAGE_LABEL[stage]}>
                   {rows.map((document) => (
                     <DocumentRow
-                      // Remounts when the saved row changes, so the fields start from what was stored.
-                      key={`${document.id}:${document.updatedAt}`}
+                      // Keyed by the Document Requirement alone, so typed text survives an upload or removal.
+                      key={document.id}
                       systemId={systemId}
                       document={document}
                       canEdit={data.canEdit}
-                      onSaved={(saved) => setData({ ...data, documents: data.documents.map((current) => (current.id === saved.id ? saved : current)) })}
+                      // Functional, so overlapping responses for different rows each merge into the latest state; a file
+                      // operation changes only the file info and what the server reset, never the stored link or the text.
+                      onSaved={(saved, kind) =>
+                        setData((previous) =>
+                          previous && {
+                            ...previous,
+                            documents: previous.documents.map((current) =>
+                              current.id !== saved.id
+                                ? current
+                                : kind === "save"
+                                  ? saved
+                                  : { ...current, file: saved.file, provided: saved.provided, updatedAt: saved.updatedAt, updatedBy: saved.updatedBy },
+                            ),
+                          },
+                        )
+                      }
                     />
                   ))}
                 </ul>

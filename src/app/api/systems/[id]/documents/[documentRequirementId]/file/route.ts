@@ -82,6 +82,7 @@ export async function POST(request: NextRequest, ctx: Ctx): Promise<NextResponse
     const row = await prisma.$transaction(async (tx) => {
       const requirement = await tx.documentRequirement.findUnique({ where: { id: documentRequirementId }, select: { id: true, tracks: true } });
       if (!requirement || applicableRequirements([requirement]).length === 0) return null;
+      // The upsert writes, so it takes the row lock before the file changes (see the DELETE and PUT).
       const document = await tx.systemDocument.upsert({
         where: { systemId_documentRequirementId: { systemId: system.id, documentRequirementId: requirement.id } },
         create: { systemId: system.id, documentRequirementId: requirement.id, provided: false, updatedById: user.id },
@@ -91,7 +92,8 @@ export async function POST(request: NextRequest, ctx: Ctx): Promise<NextResponse
       const stored = { fileName: file.name, contentType: checked.contentType, size: data.length, data, uploadedAt: new Date(), uploadedById: user.id };
       await tx.systemDocumentFile.upsert({ where: { systemDocumentId: document.id }, create: { systemDocumentId: document.id, ...stored }, update: stored });
       return (await listSystemDocuments(tx, system.id)).find((item) => item.id === requirement.id) ?? null;
-    });
+      // A 4 MB write over a remote connection can outlast Prisma's default 5 s interactive-transaction timeout.
+    }, { timeout: 20_000 });
     if (!row) return NextResponse.json(NOT_FOUND, { status: 404 });
     return NextResponse.json({ document: row });
   } catch (error) {
@@ -112,13 +114,19 @@ export async function DELETE(request: NextRequest, ctx: Ctx): Promise<NextRespon
 
   const { system, user, documentRequirementId } = resolved;
   const row = await prisma.$transaction(async (tx) => {
-    const document = await tx.systemDocument.findUnique({
-      where: { systemId_documentRequirementId: { systemId: system.id, documentRequirementId } },
-      select: { id: true, link: true, file: { select: { id: true } } },
-    });
+    const where = { systemId_documentRequirementId: { systemId: system.id, documentRequirementId } };
+    // Lock the row first (a real write), then read the link and file under the lock, so a concurrent PUT marking it
+    // provided can't leave `provided` set with neither.
+    try {
+      await tx.systemDocument.update({ where, data: { updatedById: user.id } });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") return null;
+      throw error;
+    }
+    const document = await tx.systemDocument.findUnique({ where, select: { id: true, link: true, file: { select: { id: true } } } });
     if (!document?.file) return null;
     await tx.systemDocumentFile.delete({ where: { id: document.file.id } });
-    await tx.systemDocument.update({ where: { id: document.id }, data: { updatedById: user.id, ...(document.link === null ? { provided: false } : {}) } });
+    if (document.link === null) await tx.systemDocument.update({ where: { id: document.id }, data: { provided: false } });
     return (await listSystemDocuments(tx, system.id)).find((item) => item.id === documentRequirementId) ?? null;
   });
   if (!row) return NextResponse.json({ error: "No file uploaded" }, { status: 404 });

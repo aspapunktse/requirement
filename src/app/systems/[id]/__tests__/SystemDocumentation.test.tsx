@@ -170,6 +170,50 @@ describe("the Documentation tab", () => {
     expect(fetchMock).toHaveBeenCalledWith("/api/systems/s1/documents/d2/file", { method: "DELETE" });
   });
 
+  it("keeps both rows' saved state when two saves on different rows overlap", async () => {
+    const user = userEvent.setup();
+    const pending: Record<string, (response: Response) => void> = {};
+    fetchMock.mockImplementation((input: string | URL | Request, init?: RequestInit) =>
+      init?.method === "PUT" ? new Promise<Response>((resolve) => (pending[String(input)] = resolve)) : respond({ documents: DOCUMENTS, canEdit }),
+    );
+    render(<SystemDocumentation systemId="s1" />);
+    const first = within(await screen.findByRole("form", { name: "Architecture description" }));
+    const second = within(screen.getByRole("form", { name: "DPIA" }));
+
+    await user.click(first.getByRole("checkbox", { name: "Architecture description is provided" }));
+    await user.click(first.getByRole("button", { name: "Save" }));
+    await user.type(second.getByRole("textbox", { name: "Link to DPIA" }), "https://example.com/dpia");
+    await user.click(second.getByRole("checkbox", { name: "DPIA is provided" }));
+    await user.click(second.getByRole("button", { name: "Save" }));
+
+    // The second save answers first, then the first: the first answer must not undo the second.
+    pending["/api/systems/s1/documents/d2"](new Response(JSON.stringify({ document: { ...DOCUMENTS[1], link: "https://example.com/dpia", provided: true } })));
+    await waitFor(() => expect(second.getByText("Provided")).toBeInTheDocument());
+    pending["/api/systems/s1/documents/d1"](new Response(JSON.stringify({ document: { ...DOCUMENTS[0], provided: false } })));
+    await waitFor(() => expect(first.getByText("Not provided")).toBeInTheDocument());
+    expect(second.getByText("Provided")).toBeInTheDocument();
+    expect(second.getByRole("textbox", { name: "Link to DPIA" })).toHaveValue("https://example.com/dpia");
+  });
+
+  it("keeps the typed link and the checkbox when a file is uploaded", async () => {
+    const user = userEvent.setup();
+    const file = { fileName: "dpia.pdf", contentType: "application/pdf", size: 5, uploadedAt: "2026-11-09T09:00:00.000Z" };
+    fetchMock.mockImplementation((_input: string | URL | Request, init?: RequestInit) =>
+      init?.method === "POST" ? respond({ document: { ...DOCUMENTS[1], file, updatedAt: "2026-11-09T09:00:00.000Z" } }) : respond({ documents: DOCUMENTS, canEdit }),
+    );
+    render(<SystemDocumentation systemId="s1" />);
+    const form = within(await screen.findByRole("form", { name: "DPIA" }));
+
+    await user.type(form.getByRole("textbox", { name: "Link to DPIA" }), "https://example.com/typed");
+    await user.click(form.getByRole("checkbox", { name: "DPIA is provided" }));
+    await user.upload(form.getByLabelText("Upload file for DPIA"), new File(["hello"], "dpia.pdf", { type: "application/pdf" }));
+
+    expect(await screen.findByRole("link", { name: "dpia.pdf (5 B)" })).toBeInTheDocument();
+    expect(form.getByRole("textbox", { name: "Link to DPIA" })).toHaveValue("https://example.com/typed");
+    expect(form.getByRole("checkbox", { name: "DPIA is provided" })).toBeChecked();
+    expect(form.getByRole("button", { name: "Save" })).toBeEnabled();
+  });
+
   it("says so when no Document Requirement applies", async () => {
     fetchMock.mockImplementation(() => respond({ documents: [], canEdit: true }));
     render(<SystemDocumentation systemId="s1" />);

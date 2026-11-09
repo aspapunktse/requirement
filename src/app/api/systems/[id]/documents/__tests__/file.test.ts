@@ -156,6 +156,21 @@ describe("uploading, replacing and removing a file (#324)", { timeout: 30_000 },
   });
 });
 
+describe("marking provided while the file is removed (#324)", { timeout: 30_000 }, () => {
+  it("never leaves provided set with neither a link nor a file, whichever of the two requests wins", async () => {
+    const id = onboardedId;
+    for (let round = 0; round < 8; round++) {
+      await reset(id);
+      await upload(users.owner, id, fileForm("a.pdf", "x", "application/pdf"));
+      const [marked, removed] = await Promise.all([put(users.owner, id, { link: null, provided: true }), remove(users.admin, id)]);
+      expect([200, 400]).toContain(marked.status);
+      expect([200, 404]).toContain(removed.status);
+      const { documents, files } = await snapshot(id);
+      for (const document of documents) expect(!document.provided || document.link !== null || files.length > 0, `round ${round}`).toBe(true);
+    }
+  });
+});
+
 describe("limits and refusals on the file routes (#324)", { timeout: 30_000 }, () => {
   it("refuses a file over the cap with 413, and a body over it before reading, writing nothing", async () => {
     await reset(draftId);
