@@ -148,6 +148,10 @@ A meeting of the System's stakeholders that gathers its Risks (the open ones alr
 **Documentation**:
 What a System must provide besides answering its Controls: System-level documents (such as an architecture description) and evidence on its Control Assessments. The System-level ones come from a catalogue of **Document Requirements** the Compliance Manager curates; each says at which stage and on which tracks it is needed, and a stage can't be passed until every one that applies is provided.
 
+**Document Requirement**:
+One entry in the catalogue of System-level documents the Compliance Manager or an Admin curates (for example an architecture description, a DPIA, an operations handover): a name, a description, the **stage** that needs it (**first documentation** or the **second round**) and the **Tracks** it applies to (Self, Full or both; at least one). First documentation is a Full-track stage, so a Document Requirement for it can't apply to Self. Everyone signed in reads the catalogue; curating it is not a Change Event, and deleting an entry is a hard delete. What a System has provided against each one comes with a later ticket (#324). *(New term, flagged for the product owner, #323.)*
+_Avoid_: Document (a Requirement is what must be provided, not the file provided), Requirement (that is a Framework's Requirement)
+
 **Track**:
 The way a System is evaluated, chosen at OG1: **Self** (self-assessment: second round, Risk Analysis, then OG3) or **Full** (Qualification, First documentation, OAG review, OG2, second round, Risk Analysis, OAG review, then OG3). Every System starts with the first round and its Risk Analysis. The System's owner submits each round and documentation stage (every mandatory first-round Control needs an Assessment before OG1, every mandatory Control before the second round ends); the Risk Analysis's recorder completes it, and a gate moves on when its deciders decide. Systems already in evaluation when this ships stay on today's flow until the IATO track exists.
 

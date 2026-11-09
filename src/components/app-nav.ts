@@ -12,6 +12,7 @@ export type NavKey =
   | "home"
   | "systems"
   | "information-types"
+  | "document-requirements"
   | "controls"
   | "risks"
   | "check-ups"
@@ -43,6 +44,8 @@ export const NAV_ITEMS: NavItem[] = [
   { key: "systems", label: "Systems", icon: "system", href: "/systems", prefixes: ["/systems"], allows: everyone },
   // Everyone reads the catalogue, so it sits beside Systems for every role (#302, #303).
   { key: "information-types", label: "Information Types", icon: "infotype", href: "/information-types", prefixes: ["/information-types"], allows: everyone },
+  // The Document Requirement catalogue (#323) sits beside the Information Types one: everyone reads it.
+  { key: "document-requirements", label: "Document Requirements", icon: "doc", href: "/document-requirements", prefixes: ["/document-requirements"], allows: everyone },
   // The Control Library admin pages also mark Controls and Frameworks, for a role without the Admin item (decision 4a on #256).
   { key: "controls", label: "Controls", icon: "control", href: "/controls", prefixes: ["/controls", "/admin/controls"], allows: everyone },
   // The Risk register (#322): every role sees the Risks on the Systems it can see. Organization Risks sit behind it for the three roles that read them.
