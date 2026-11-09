@@ -21,7 +21,11 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/systems/
   const { id, analysisId } = await ctx.params;
   const system = await getVisibleSystem(auth.user, id);
   if (!system) return NextResponse.json({ error: "System not found" }, { status: 404 });
-  const row = await prisma.riskAnalysis.findFirst({ where: { id: analysisId, systemId: system.id }, select: RISK_ANALYSIS_SELECT });
+  // One RepeatableRead snapshot, so a concurrent edit can't mix before and after state across the nested reads.
+  const row = await prisma.$transaction(
+    async (tx) => tx.riskAnalysis.findFirst({ where: { id: analysisId, systemId: system.id }, select: RISK_ANALYSIS_SELECT }),
+    { isolationLevel: "RepeatableRead" },
+  );
   if (!row) return NextResponse.json(NOT_FOUND, { status: 404 });
   return NextResponse.json({ riskAnalysis: toRiskAnalysisView(row) });
 }

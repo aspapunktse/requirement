@@ -20,11 +20,16 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/systems/
   const system = await getVisibleSystem(auth.user, id);
   if (!system) return NextResponse.json({ error: "System not found" }, { status: 404 });
 
-  const rows = await prisma.riskAnalysis.findMany({
-    where: { systemId: system.id },
-    select: RISK_ANALYSIS_SELECT,
-    orderBy: [{ heldOn: "desc" }, { createdAt: "desc" }],
-  });
+  // One RepeatableRead snapshot: the nested participants and Risks are separate statements, and a concurrent edit mustn't mix states.
+  const rows = await prisma.$transaction(
+    async (tx) =>
+      tx.riskAnalysis.findMany({
+        where: { systemId: system.id },
+        select: RISK_ANALYSIS_SELECT,
+        orderBy: [{ heldOn: "desc" }, { createdAt: "desc" }],
+      }),
+    { isolationLevel: "RepeatableRead" },
+  );
   return NextResponse.json({ riskAnalyses: rows.map(toRiskAnalysisView) });
 }
 
