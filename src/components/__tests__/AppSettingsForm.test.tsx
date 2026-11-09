@@ -112,3 +112,26 @@ describe("AppSettingsForm (#240)", () => {
     expect(input).toHaveValue("45");
   });
 });
+
+describe("AppSettingsForm boolean setting (#328)", () => {
+  const def: AppSettingDefinition = { key: "evaluation.stagedForNewSystems", section: "Evaluation", label: "Staged evaluation for new Systems", help: "Help four.", type: "boolean", default: false };
+
+  it("renders a checkbox, saves true when it is ticked and says the default is off", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      json({ changed: true, setting: { key: def.key, value: true, isDefault: false, updatedAt: "2026-11-09T08:00:00.000Z", updatedByName: "Test Admin" } }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    render(
+      <AppSettingsForm sections={["Evaluation"]} definitions={[def]} values={[{ key: def.key, value: false, isDefault: true, updatedAt: null, updatedByName: null }]} />,
+    );
+    const box = screen.getByRole("checkbox");
+    expect(box).not.toBeChecked();
+    expect(screen.getByText(/Default off\./)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+    await userEvent.click(box);
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(screen.getByText("Saved")).toBeInTheDocument());
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ key: def.key, value: true });
+    expect(box).toBeChecked();
+  });
+});

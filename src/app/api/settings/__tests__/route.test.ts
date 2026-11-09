@@ -129,15 +129,19 @@ describe("/api/settings", () => {
     expect((await patch(viewerId, { key: STAGED, value: true })).status).toBe(403);
     await expectNothingChanged();
 
-    // The setting is global, so it is switched back at once (and the row removed by afterEach).
-    const on = await patch(adminId, { key: STAGED, value: true });
+    // The setting is global and read by every System created, so the route test never saves true (it would stage Systems that other
+    // test files create at the same moment). Saving the default false changes nothing and writes no event; true is checked below.
     const off = await patch(adminId, { key: STAGED, value: false });
-    expect(on.status).toBe(200);
-    expect(await on.json()).toMatchObject({ changed: true, setting: { key: STAGED, value: true, isDefault: false } });
     expect(off.status).toBe(200);
-    const details = (await events()).map((event) => event.detail);
-    expect(details).toHaveLength(2);
-    expect(details.some((d) => d.includes("false to true"))).toBe(true);
+    expect(await off.json()).toMatchObject({ changed: false, setting: { key: STAGED, value: false, isDefault: true } });
+    await expectNothingChanged();
+  });
+
+  it("the Staged evaluation setting is a boolean: true and false pass, anything else fails (#328)", async () => {
+    const { schemaOf, definitionOf } = await import("@/lib/app-settings");
+    const schema = schemaOf(definitionOf(STAGED));
+    for (const ok of [true, false]) expect(schema.safeParse(ok).success).toBe(true);
+    for (const bad of [1, 0, "true", null, "on", undefined]) expect(schema.safeParse(bad).success).toBe(false);
   });
 
   it("PATCH: a body that is not JSON or lacks a key is 400", async () => {

@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { ACTING_USER_COOKIE } from "@/lib/acting-user";
@@ -22,7 +22,14 @@ import { POST as giveVerdictRoute } from "../verdicts/route";
  * and one user per role that matters. The App Setting is flipped only while a System is being created, and restored.
  */
 const SUFFIX = `${process.pid}-${Date.now()}`;
-const SETTING_KEY = "evaluation.stagedForNewSystems";
+
+// The App Setting is global, so this file never writes it (another file creating a System at the same moment would get a staged one).
+// The reader the create route uses is replaced for this file alone; each test says what it answers.
+const stagedEnabled = vi.hoisted(() => ({ value: false }));
+vi.mock("@/lib/app-settings", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/app-settings")>()),
+  readStagedEvaluationEnabled: vi.fn(async () => stagedEnabled.value),
+}));
 
 function requestAs(userId: string | null, url: string, init?: { method?: string; body?: unknown }) {
   const headers = new Headers({ "Content-Type": "application/json" });
@@ -159,25 +166,22 @@ describe("Staged evaluation up to OG1 (#328)", { timeout: 60_000 }, () => {
   }, 60_000);
 
   describe("the App Setting decides the flow of a new System", () => {
-    async function createWithSetting(value: boolean | null) {
-      const before = await prisma.appSetting.findUnique({ where: { key: SETTING_KEY } });
-      try {
-        if (value === null) await prisma.appSetting.deleteMany({ where: { key: SETTING_KEY } });
-        else await prisma.appSetting.upsert({ where: { key: SETTING_KEY }, update: { value }, create: { key: SETTING_KEY, value } });
-        const response = await createSystem(
-          requestAs(users.owner.id, "/api/systems", { method: "POST", body: { name: `Test 328 Created ${SUFFIX}-${systemIds.length}`, deploymentFacetIds: [facetId] } }),
-        );
-        const body = await response.json();
-        systemIds.push(body.system.id);
-        return { response, id: body.system.id as string };
-      } finally {
-        if (before) await prisma.appSetting.update({ where: { key: SETTING_KEY }, data: { value: before.value as never } });
-        else await prisma.appSetting.deleteMany({ where: { key: SETTING_KEY } });
-      }
+    beforeEach(() => {
+      stagedEnabled.value = false;
+    });
+
+    async function createWithSetting(value: boolean) {
+      stagedEnabled.value = value;
+      const response = await createSystem(
+        requestAs(users.owner.id, "/api/systems", { method: "POST", body: { name: `Test 328 Created ${SUFFIX}-${systemIds.length}`, deploymentFacetIds: [facetId] } }),
+      );
+      const body = await response.json();
+      systemIds.push(body.system.id);
+      return { response, id: body.system.id as string };
     }
 
-    it("starts a classic System when the setting is off or unset", async () => {
-      for (const value of [false, null]) {
+    it("starts a classic System when the setting is off", async () => {
+      for (const value of [false]) {
         const { response, id } = await createWithSetting(value);
         expect(response.status).toBe(201);
         expect(await stateOf(id)).toEqual({ evaluationStage: null, evaluationTrack: null, status: "DRAFT" });
