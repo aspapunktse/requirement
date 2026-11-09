@@ -85,11 +85,14 @@ Staged evaluation (PRD 0002, ADR 0014, no milestone):
 2. #322 Risk Source, any User as a Risk owner, and the Risk register at `/risks`. **Done: PR #337.**
 3. #321 Business System Owner on a System (optional for now; sees the System, no write rights). **Done: PR #338.**
 4. #320 Framework Owner curates their own non-base Framework (everything a Compliance Manager does on it, publishing included). **Done: PR #339.**
-5. #327 Design proposals: staged evaluation on the System page (`/design/evaluation/`, A Stepper, B Journey, C Gate board). **Done: PR #343.** The product owner picks one, recorded on #327, before the stage tickets start.
+5. #327 Design proposals: staged evaluation on the System page (`/design/evaluation/`, A Stepper, B Journey, C Gate board). **Done: PR #343.** The product owner picked **proposal A (Stepper)** on 2026-11-09 (recorded on #327); the stage tickets build to it.
 6. #323 Document Requirements catalogue at `/document-requirements` (Compliance Manager or Admin curate; first documentation is Full only). **Done: PR #344.**
 7. #324 System provides its documentation: a Documentation tab on the System page, a link or an uploaded file (Postgres, 4 MB) per Document Requirement; `documentationStatusFor` for the stage tickets. **Done: PR #345.**
 8. #325 Risk Analysis meeting. **Done: PR #346.**
 9. #326 Prefactor: Review Step participation over any set of Controls. **Done: PR #347.**
+10. #328 Staged evaluation up to OG1: the "Staged evaluation for new Systems" App Setting (off by default), stage and Track on the System, first-round submit, OG1 verdicts, and the Evaluation tab (proposal A). **Done: PR #349.**
+11. #348 Documentation and Risk Analysis in proposal A's stage cards (blocked by #328).
+12. #329 Self track: second round and Risk Analysis; #330 OG3; #331 and #332 Full track; #333 switch-over; #334 Change Review.
 
 Not cut into issues: the PRD's "could" feature F-IMP.4 (UI upload of Framework files, other Frameworks as data). F-OUT.6 is #273.
 
