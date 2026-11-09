@@ -89,7 +89,7 @@ Staged evaluation (PRD 0002, ADR 0014, no milestone):
 6. #323 Document Requirements catalogue at `/document-requirements` (Compliance Manager or Admin curate; first documentation is Full only). **Done: PR #344.**
 7. #324 System provides its documentation: a Documentation tab on the System page, a link or an uploaded file (Postgres, 4 MB) per Document Requirement; `documentationStatusFor` for the stage tickets. **Done: PR #345.**
 8. #325 Risk Analysis meeting. **Done: PR #346.**
-9. #326 Prefactor: Review Step participation over any set of Controls.
+9. #326 Prefactor: Review Step participation over any set of Controls. **Done: PR #347.**
 
 Not cut into issues: the PRD's "could" feature F-IMP.4 (UI upload of Framework files, other Frameworks as data). F-OUT.6 is #273.
 
