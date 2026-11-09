@@ -100,6 +100,8 @@ model User {
   assessments                        ControlAssessment[]                 @relation("AssessedBy")
   riskActions                        Risk[]                              @relation("RiskOwner")
   approvals                          Approval[]
+  // OG1 verdicts this User gave (#328).
+  trackVerdicts                      TrackVerdict[]
   // Business Units and Frameworks this User (as a BUSINESS_RISK_OWNER) is
   // assigned to. Independent of each other — a Business Risk Owner may own
   // Business Units, Frameworks, or both, not necessarily paired. See #55.
@@ -213,6 +215,15 @@ model System {
   businessSystemOwner         User?                        @relation("SystemBusinessOwner", fields: [businessSystemOwnerId], references: [id], onDelete: SetNull)
   documents                   SystemDocument[]
   riskAnalyses                RiskAnalysis[]
+  // Staged evaluation (PRD 0002, ADR 0014, #328). A System created while the App Setting "Staged evaluation for new
+  // Systems" is on starts at the first round; null is the classic flow (Draft, In Review, Approved, Onboarded), which
+  // is what every System created before, or while the setting is off, has. A staged System keeps its Onboarding Status
+  // (Draft) until a later issue moves it. The Track is not chosen until OG1 closes. `evaluationStageEnteredAt` is when
+  // it entered the current stage: a Risk Analysis completed since then, and the verdicts given since then, are the ones that count.
+  evaluationStage             EvaluationStage?
+  evaluationTrack             EvaluationTrack?
+  evaluationStageEnteredAt    DateTime?
+  trackVerdicts               TrackVerdict[]
   // One or more deployment facets this System spans (e.g. On-Prem, Cloud) —
   // a Hybrid System is simply one that declares more than one. See ADR 0003.
   deploymentFacets            DeploymentFacet[]
@@ -307,6 +318,8 @@ model ReviewGroup {
   members         User[]            @relation("ReviewGroupMember")
   frameworks      Framework[]
   approvals       Approval[]
+  // OG1 verdicts given for this group (#328). Restrict, as for Approvals.
+  trackVerdicts   TrackVerdict[]
   // Query Messages posted, and Assessment Queries resolved, as this group (#201). SetNull on delete: the
   // row keeps the group's name in its own snapshot column and never turns into a base-step or named one.
   queryMessages   QueryMessage[]    @relation("QueryMessageGroup")
@@ -830,6 +843,30 @@ model Approval {
   @@index([reviewRoundId])
 }
 
+// An OG1 verdict (#328, PRD 0002 F-ST.3): the base review or a Review Group (as part of the Onboarding Advisory Group) judges
+// from the first-round answers whether the System takes the Self or the Full track. Like an Approval it is the participant's,
+// not the person's: `reviewGroupId` null is the base review. Only verdicts given since the System entered OG1
+// (`System.evaluationStageEnteredAt`) count, so a later run of OG1 starts every participant open. A verdict is voided (kept in
+// the history) when its participant leaves OG1 or an owner edit in its remit reopens it.
+model TrackVerdict {
+  id            String          @id @default(cuid())
+  systemId      String
+  system        System          @relation(fields: [systemId], references: [id], onDelete: Cascade)
+  // Null is the base review, otherwise the Review Group. Restrict: deleting a group must never erase or re-attribute its verdicts.
+  reviewGroupId String?
+  reviewGroup   ReviewGroup?    @relation(fields: [reviewGroupId], references: [id], onDelete: Restrict)
+  verdictById   String
+  verdictBy     User            @relation(fields: [verdictById], references: [id])
+  verdict       EvaluationTrack
+  comment       String
+  givenAt       DateTime        @default(now())
+  voidedAt      DateTime?
+  // Why it was voided when an edit reopened it ("A.5.1 changed after the verdict"); null for a live verdict and for a dropped participant's.
+  voidReason    String?
+
+  @@index([systemId])
+}
+
 enum ChangeEventAction {
   SYSTEM_SUBMITTED
   APPROVAL_DECIDED
@@ -904,6 +941,16 @@ enum ChangeEventAction {
   // Risks it reviewed and raised. Recording and editing one write no event of their own (the Risks raised in it each
   // write RISK_LOGGED), so the timeline shows a meeting once, when it is done.
   RISK_ANALYSIS_COMPLETED
+  // A staged System moved to another evaluation stage (#328): created at the first round, submitted to OG1, or sent on by
+  // OG1 with its Track (the detail says which). System-scoped, actor the person who caused it, or "system" when OG1 closed
+  // because the last open participant left the review.
+  EVALUATION_STAGE_CHANGED
+  // The base review or a Review Group gave its OG1 verdict (#328). System-scoped, actor the person; the detail names the
+  // participant, not the person (shown as the group's), the verdict and the comment.
+  TRACK_VERDICT_GIVEN
+  // An OG1 verdict went back to open because an owner edit changed a first-round Control in its remit (#328). System-scoped,
+  // actor the person who edited; the detail names the participant and the Control.
+  TRACK_VERDICT_REOPENED
 }
 
 // A curated, System-lifecycle-relevant mutation record — feeds the landing
@@ -1243,6 +1290,22 @@ model AppSetting {
 enum EvaluationTrack {
   SELF
   FULL
+}
+
+// Where a staged System is in its evaluation (PRD 0002 section 5, #328). The whole flow is declared now so the later stage
+// issues need no enum migration; only FIRST_ROUND, OG1, QUALIFICATION and SECOND_ROUND are reached so far. Risk Analysis is
+// a step of the first round, not a stage. The Self track goes OG1 to SECOND_ROUND, the Full track OG1 to QUALIFICATION,
+// FIRST_DOCUMENTATION, OAG_REVIEW_1, OG2, SECOND_ROUND, OAG_REVIEW_2 and OG3 (the Self track reaches OG3 after its second round).
+enum EvaluationStage {
+  FIRST_ROUND
+  OG1
+  QUALIFICATION
+  FIRST_DOCUMENTATION
+  OAG_REVIEW_1
+  OG2
+  SECOND_ROUND
+  OAG_REVIEW_2
+  OG3
 }
 
 // The documentation stage that needs a Document Requirement. First documentation is a Full-track stage.

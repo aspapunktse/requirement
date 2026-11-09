@@ -5,6 +5,7 @@ import { getVisibleSystem } from "@/lib/system-visibility";
 import { canSubmit } from "@/lib/system-permissions";
 import { getUnaddressedMandatoryControls } from "@/lib/control-assessments";
 import { logChangeEvent } from "@/lib/change-events";
+import { STAGED_SYSTEM_REFUSAL } from "@/lib/evaluation-stages";
 import { isBelowInformationTypes, floorSettingTypes, informationTypeFloor } from "@/lib/information-type-floor";
 import { readSystemInformationTypes } from "@/lib/system-information-types";
 
@@ -38,6 +39,11 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems
 
   if (!canSubmit(auth.user, system)) {
     return NextResponse.json({ error: "Only the System's owner or an Admin can submit this System for review" }, { status: 403 });
+  }
+
+  // A staged System follows the staged evaluation, not the classic flow (#328).
+  if (system.evaluationStage !== null) {
+    return NextResponse.json({ error: STAGED_SYSTEM_REFUSAL }, { status: 409 });
   }
 
   if (system.status !== "DRAFT") {

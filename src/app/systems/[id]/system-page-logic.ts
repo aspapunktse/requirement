@@ -33,6 +33,11 @@ export function parseHash(hash: string): { tab: TabKey; controlCode: string | nu
   }
 }
 
+/** The tabs a System shows: the Evaluation tab only for a staged one. */
+export function visibleTabs(staged: boolean): TabKey[] {
+  return TAB_KEYS.filter((key) => key !== "evaluation" || staged);
+}
+
 /** The tab a URL hash names (`#controls`); anything else is the Overview. */
 export function tabFromHash(hash: string): TabKey {
   return parseHash(hash).tab;
@@ -83,7 +88,10 @@ export function nextStepFor(input: {
   missingSensitivityLevel?: boolean;
   /** The level is below the System's Information Types: the submit route refuses (ADR 0012). */
   belowInformationTypes?: boolean;
+  /** A staged System (#328) has its own submit on the Evaluation tab; the classic routes refuse it, so the header offers nothing. */
+  staged?: boolean;
 }): NextStep {
+  if (input.staged) return { kind: "none" };
   switch (input.status) {
     case "DRAFT":
       return input.canSubmit

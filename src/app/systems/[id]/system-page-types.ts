@@ -1,4 +1,4 @@
-import type { ControlAssessmentStatus, ImpactLevel, OnboardingStatus, RiskSeverity, UserRole } from "@prisma/client";
+import type { ControlAssessmentStatus, EvaluationStage, EvaluationTrack, ImpactLevel, OnboardingStatus, RiskSeverity, UserRole } from "@prisma/client";
 
 /**
  * The serialisable shapes the System page passes from the server (`system-page-data.ts`) to its client
@@ -7,10 +7,11 @@ import type { ControlAssessmentStatus, ImpactLevel, OnboardingStatus, RiskSeveri
  */
 
 /** The tabs, in order. The key is also the URL hash (`#controls`). */
-export const TAB_KEYS = ["overview", "controls", "requirements", "risks", "providers", "documentation", "profile", "activity"] as const;
+export const TAB_KEYS = ["overview", "evaluation", "controls", "requirements", "risks", "providers", "documentation", "profile", "activity"] as const;
 export type TabKey = (typeof TAB_KEYS)[number];
 export const TAB_LABEL: Record<TabKey, string> = {
   overview: "Overview",
+  evaluation: "Evaluation",
   controls: "Controls",
   requirements: "Requirements",
   risks: "Risks",
@@ -147,6 +148,8 @@ export type SystemPageView = {
     /** ISO timestamp. */
     createdAt: string;
     onboardedAt: string | null;
+    /** Staged evaluation (#328): where the System is and its Track; null for a classic System, which has no Evaluation tab. */
+    evaluation: { stage: EvaluationStage; track: EvaluationTrack | null } | null;
   };
   /** The lifecycle note under the stepper (see `lifecycleNote`). */
   note: string;

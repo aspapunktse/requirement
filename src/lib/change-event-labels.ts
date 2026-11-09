@@ -27,6 +27,9 @@ export const CHANGE_EVENT_ACTION_LABEL: Record<ChangeEventAction, string> = {
   SOA_JUSTIFICATION_CHANGED: "changed an exclusion justification on the Statement of Applicability",
   CHECK_UP_EVALUATED: "evaluated a Check-up",
   REVIEW_STEP_REOPENED: "reopened a Review Step",
+  EVALUATION_STAGE_CHANGED: "moved the evaluation to a new stage",
+  TRACK_VERDICT_GIVEN: "gave a verdict at OG1",
+  TRACK_VERDICT_REOPENED: "reopened a verdict at OG1",
   SYSTEM_OWNER_CHANGED: "changed a System's owner",
   APP_SETTING_CHANGED: "changed a setting",
   SYSTEM_CREATED: "created a System",
@@ -65,4 +68,7 @@ export const CHANGE_EVENT_ACTION_TONE: Record<ChangeEventAction, ChangeEventTone
   SYSTEM_DETAILS_CHANGED: "accent",
   BUSINESS_SYSTEM_OWNER_CHANGED: "accent",
   RISK_ANALYSIS_COMPLETED: "ok",
+  EVALUATION_STAGE_CHANGED: "accent",
+  TRACK_VERDICT_GIVEN: "accent",
+  TRACK_VERDICT_REOPENED: "warn",
 };

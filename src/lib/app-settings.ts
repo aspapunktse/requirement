@@ -13,7 +13,7 @@ import { logChangeEvent } from "@/lib/change-events";
  * (`APP_SETTINGS`, `SETTING_SECTIONS`) holds plain data, safe to read on the server and pass as props.
  */
 
-export type AppSettingKey = "systems.staleDraftDays" | "systems.underFulfilledPercent" | "organization.name";
+export type AppSettingKey = "systems.staleDraftDays" | "systems.underFulfilledPercent" | "organization.name" | "evaluation.stagedForNewSystems";
 
 type AppSettingBase = {
   key: AppSettingKey;
@@ -40,10 +40,16 @@ export type TextSettingDefinition = AppSettingBase & {
   default: string;
 };
 
-export type AppSettingDefinition = IntegerSettingDefinition | TextSettingDefinition;
+/** An on/off setting (#328): saved as `true` or `false`. */
+export type BooleanSettingDefinition = AppSettingBase & {
+  type: "boolean";
+  default: boolean;
+};
+
+export type AppSettingDefinition = IntegerSettingDefinition | TextSettingDefinition | BooleanSettingDefinition;
 
 /** The sections of the settings page, in order. */
-export const SETTING_SECTIONS = ["Systems list", "Organization"] as const;
+export const SETTING_SECTIONS = ["Systems list", "Organization", "Evaluation"] as const;
 
 export const APP_SETTINGS: readonly AppSettingDefinition[] = [
   {
@@ -79,6 +85,14 @@ export const APP_SETTINGS: readonly AppSettingDefinition[] = [
     maxLength: 200,
     default: "",
   },
+  {
+    key: "evaluation.stagedForNewSystems",
+    section: "Evaluation",
+    label: "Staged evaluation for new Systems",
+    help: "When on, a System created from then on is evaluated in stages (first round, then OG1) instead of being submitted for one review. Systems already created keep the flow they have.",
+    type: "boolean",
+    default: false,
+  },
 ];
 
 export const isAppSettingKey = (key: string): key is AppSettingKey => APP_SETTINGS.some((setting) => setting.key === key);
@@ -87,22 +101,26 @@ export const definitionOf = (key: AppSettingKey): AppSettingDefinition => APP_SE
 
 /**
  * The zod schema of a setting's value. An integer setting: a whole number within its range (strings and
- * decimals are refused). A text setting: a string, trimmed, at most `maxLength` characters.
+ * decimals are refused). A text setting: a string, trimmed, at most `maxLength` characters. A boolean setting: `true` or `false`.
  */
-export const schemaOf = (definition: AppSettingDefinition): z.ZodType<number | string> =>
-  definition.type === "text"
-    ? z.string().trim().max(definition.maxLength)
-    : z.number().int().min(definition.min).max(definition.max);
+export const schemaOf = (definition: AppSettingDefinition): z.ZodType<number | string | boolean> =>
+  definition.type === "boolean"
+    ? z.boolean()
+    : definition.type === "text"
+      ? z.string().trim().max(definition.maxLength)
+      : z.number().int().min(definition.min).max(definition.max);
 
 /** What a refused value is told, per type. */
 const refusalOf = (definition: AppSettingDefinition) =>
-  definition.type === "text"
-    ? `${definition.label} must be text of at most ${definition.maxLength} characters`
-    : `${definition.label} must be a whole number from ${definition.min} to ${definition.max}`;
+  definition.type === "boolean"
+    ? `${definition.label} must be true or false`
+    : definition.type === "text"
+      ? `${definition.label} must be text of at most ${definition.maxLength} characters`
+      : `${definition.label} must be a whole number from ${definition.min} to ${definition.max}`;
 
 export type AppSettingValue = {
   key: AppSettingKey;
-  value: number | string;
+  value: number | string | boolean;
   /** True when no row is saved (or the saved one no longer fits the declaration) and the default is in use. */
   isDefault: boolean;
   updatedAt: string | null;
@@ -144,14 +162,23 @@ export async function readSystemsThresholds(tx: Pick<Prisma.TransactionClient, "
   };
 }
 
+/**
+ * Is staged evaluation on for new Systems (#328)? Read on the System-creating transaction's `tx`, so the System takes the
+ * stage the setting had when it was created. Off (the default, or a saved value that no longer fits) means the classic flow.
+ */
+export async function readStagedEvaluationEnabled(tx: Pick<Prisma.TransactionClient, "appSetting">): Promise<boolean> {
+  const setting = (await readAppSettings(tx)).find((entry) => entry.key === "evaluation.stagedForNewSystems");
+  return setting?.value === true;
+}
+
 /** The Organization's name (#273), trimmed; null while unset. Reads on the caller's client (`tx` inside a transaction). */
 export async function readOrganizationName(tx: Pick<Prisma.TransactionClient, "appSetting">): Promise<string | null> {
   const setting = (await readAppSettings(tx)).find((entry) => entry.key === "organization.name");
   return typeof setting?.value === "string" && setting.value !== "" ? setting.value : null;
 }
 
-/** A value as written in a Change Event: text in quotes (so an empty one reads as ""), numbers bare. */
-const shown = (value: number | string) => (typeof value === "string" ? JSON.stringify(value) : String(value));
+/** A value as written in a Change Event: text in quotes (so an empty one reads as ""), numbers and on/off bare. */
+const shown = (value: number | string | boolean) => (typeof value === "string" ? JSON.stringify(value) : String(value));
 
 export type SaveSettingResult =
   | { ok: true; changed: boolean; setting: AppSettingValue }

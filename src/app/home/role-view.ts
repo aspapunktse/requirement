@@ -4,6 +4,7 @@ import type { TaskRow } from "@/components/ui/TaskTable";
 import type { NavTile } from "@/components/ui/TileNav";
 import { getAllOpenRisks } from "@/lib/dashboard";
 import { getOpenStepsForUser } from "@/lib/review-steps";
+import { getOpenVerdictsForUser } from "@/lib/evaluation-og1";
 import { scopedSystemsWhere, getAssignedScope } from "@/lib/business-risk-owner";
 import { getActionableQueries } from "@/lib/assessment-queries";
 import { getOwnerTasks, mergeTaskRows } from "@/lib/owner-tasks";
@@ -238,6 +239,18 @@ async function ownedInReviewRows(user: { id: string; role: UserRole }): Promise<
  * answered ones included, also gets the "Your Check-ups" tile.
  */
 export async function roleView(user: { id: string; name: string; role: UserRole }, now = new Date()): Promise<RoleView> {
+  const openVerdictRows = (await getOpenVerdictsForUser(user)).map(
+    ({ system, participant }): TaskRow => ({
+      id: `${system.id}:verdict:${participant.reviewGroupId ?? "base"}`,
+      kind: "System",
+      title: system.name,
+      subtitle: `${participant.name} · OG1 verdict`,
+      tone: "accent",
+      status: "Awaiting verdict",
+      updatedAt: system.updatedAt,
+      href: `/systems/${system.id}#evaluation`,
+    }),
+  );
   const reviewStepRows = (await getOpenStepsForUser(user)).map(
     ({ system, step }): TaskRow => ({
       // The base step keeps the System's id (a Reviewer's row since before Review Steps); a group's step has its own row.
@@ -251,6 +264,7 @@ export async function roleView(user: { id: string; name: string; role: UserRole 
       href: `/systems/${system.id}`,
     }),
   );
+  reviewStepRows.push(...openVerdictRows);
   const [view, owner, controlRows, checkUps, inReviewRows, activity] = await Promise.all([
     roleOwnView(user, reviewStepRows)
       .then((own) => withReviewStepTasks(own, user, reviewStepRows))

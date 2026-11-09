@@ -14,6 +14,7 @@ const suffix = `${process.pid}-${Date.now()}`;
 const KEY = "systems.staleDraftDays";
 const PERCENT = "systems.underFulfilledPercent";
 const ORG = "organization.name";
+const STAGED = "evaluation.stagedForNewSystems";
 
 describe("/api/settings", () => {
   let adminId: string;
@@ -27,7 +28,7 @@ describe("/api/settings", () => {
   });
 
   const cleanup = async () => {
-    await prisma.appSetting.deleteMany({ where: { key: { in: [KEY, PERCENT, ORG] } } });
+    await prisma.appSetting.deleteMany({ where: { key: { in: [KEY, PERCENT, ORG, STAGED] } } });
     await prisma.changeEvent.deleteMany({ where: { actorId: { in: [adminId, viewerId, managerId] } } });
   };
   afterEach(cleanup);
@@ -44,7 +45,7 @@ describe("/api/settings", () => {
   const patch = (userId: string | null, body: unknown) =>
     PATCH(requestAs(userId, { method: "PATCH", body: typeof body === "string" ? body : JSON.stringify(body) }));
   const events = () => prisma.changeEvent.findMany({ where: { action: "APP_SETTING_CHANGED", actorId: { in: [adminId, viewerId, managerId] } } });
-  const rows = () => prisma.appSetting.findMany({ where: { key: { in: [KEY, PERCENT, ORG] } } });
+  const rows = () => prisma.appSetting.findMany({ where: { key: { in: [KEY, PERCENT, ORG, STAGED] } } });
   const expectNothingChanged = async () => {
     expect(await rows()).toEqual([]);
     expect(await events()).toEqual([]);
@@ -57,7 +58,7 @@ describe("/api/settings", () => {
     const response = await GET(requestAs(adminId));
     expect(response.status).toBe(200);
     const { settings } = await response.json();
-    expect(settings.map((s: { key: string }) => s.key)).toEqual([KEY, PERCENT, ORG]);
+    expect(settings.map((s: { key: string }) => s.key)).toEqual([KEY, PERCENT, ORG, STAGED]);
     expect(settings.find((s: { key: string }) => s.key === PERCENT)).toMatchObject({ value: 70, isDefault: true, updatedAt: null });
   });
 
@@ -119,6 +120,24 @@ describe("/api/settings", () => {
     expect((await patch(managerId, { key: ORG, value: "Test Org AB" })).status).toBe(403);
     expect((await patch(null, { key: ORG, value: "Test Org AB" })).status).toBe(401);
     await expectNothingChanged();
+  });
+
+  it("PATCH: Staged evaluation for new Systems is off by default, takes only true or false, and writes a Change Event when it changes (#328)", async () => {
+    const before = (await (await GET(requestAs(adminId))).json()).settings.find((setting: { key: string }) => setting.key === STAGED);
+    expect(before).toMatchObject({ value: false, isDefault: true });
+    for (const value of [1, "true", null, "on"]) expect((await patch(adminId, { key: STAGED, value })).status).toBe(400);
+    expect((await patch(viewerId, { key: STAGED, value: true })).status).toBe(403);
+    await expectNothingChanged();
+
+    // The setting is global, so it is switched back at once (and the row removed by afterEach).
+    const on = await patch(adminId, { key: STAGED, value: true });
+    const off = await patch(adminId, { key: STAGED, value: false });
+    expect(on.status).toBe(200);
+    expect(await on.json()).toMatchObject({ changed: true, setting: { key: STAGED, value: true, isDefault: false } });
+    expect(off.status).toBe(200);
+    const details = (await events()).map((event) => event.detail);
+    expect(details).toHaveLength(2);
+    expect(details.some((d) => d.includes("false to true"))).toBe(true);
   });
 
   it("PATCH: a body that is not JSON or lacks a key is 400", async () => {

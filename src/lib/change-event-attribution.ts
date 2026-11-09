@@ -12,6 +12,7 @@ import { canSeeDecider, memberGroupIds, viewerAlwaysSeesPeople } from "@/lib/app
  *  - An Approval decision is tied back to its Approval (same System, same person, decided within a
  *    minute, the closest wins) and judged by the Approval history's rule (`canSeeDecider`); unseen, it
  *    reads as the step's name. With no matching Approval only the roles that always see people get a name.
+ *  - An OG1 verdict (`TRACK_VERDICT_GIVEN`) reads as the participant's name (the base review or the group), except to the roles that always see people.
  *  - A Query action carries no attribution, so it can't be tied back to its message: only those roles,
  *    and the System's owner for their own (named) action, get a name; everyone else sees "A reviewer".
  *  - Anything else: the person's name ("Someone" if unknown).
@@ -52,6 +53,8 @@ export function attributeEvent(
     const seen = approval && event.systemOwnerId !== null ? canSeeDecider(viewer, event.systemOwnerId, viewerGroupIds, approval) : viewerAlwaysSeesPeople(viewer.role);
     return seen ? named : event.detail.split(": ")[0];
   }
+  // An OG1 verdict is the participant's, not the person's (#328): the roles that always see people get the name, the rest the participant's (the detail starts with it).
+  if (event.action === "TRACK_VERDICT_GIVEN") return viewerAlwaysSeesPeople(viewer.role) ? named : event.detail.split(": ")[0];
   if (QUERY_ACTIONS.includes(event.action)) {
     return viewerAlwaysSeesPeople(viewer.role) || event.actorId === event.systemOwnerId ? named : "A reviewer";
   }

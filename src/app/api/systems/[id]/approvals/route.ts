@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { STAGED_SYSTEM_REFUSAL } from "@/lib/evaluation-stages";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { authenticate } from "@/lib/api-authz";
@@ -115,6 +116,11 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems
       },
       { status: 403 },
     );
+  }
+
+  // A staged System follows the staged evaluation, not the classic flow (#328).
+  if (system.evaluationStage !== null) {
+    return NextResponse.json({ error: STAGED_SYSTEM_REFUSAL }, { status: 409 });
   }
 
   const parsed = decisionSchema.safeParse(body);

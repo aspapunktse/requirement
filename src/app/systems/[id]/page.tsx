@@ -19,6 +19,7 @@ import { SystemCockpit } from "./SystemCockpit";
 import { SystemActivity } from "./SystemActivity";
 import { SystemControls } from "./SystemControls";
 import { SystemDocumentation } from "./SystemDocumentation";
+import { SystemEvaluation } from "./SystemEvaluation";
 import { SystemProfile } from "./SystemProfile";
 import { SystemProviders } from "./SystemProviders";
 import { SystemRequirements } from "./SystemRequirements";
@@ -83,6 +84,8 @@ export default async function SystemDetailPage({ params }: PageProps<"/systems/[
   const canChangeClassification = canChangeSystemClassification(user, system);
 
   const panels = {
+    // Only a staged System has an Evaluation tab (#328); the cockpit leaves the panel out for the rest.
+    evaluation: view.system.evaluation ? <SystemEvaluation systemId={system.id} /> : null,
     controls: (
       <SystemControls
         // Remounts (and so reloads) when a Provider dependency is declared or removed: what this System inherits changes.

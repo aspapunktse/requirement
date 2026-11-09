@@ -25,7 +25,8 @@ import { DecisionDialog } from "./DecisionDialog";
 import { RiskGrid } from "./RiskGrid";
 import { Stack } from "./Stack";
 import { currentTab, serverTab, subscribeToHash, writeHash } from "./system-hash";
-import { controlHash, formatDay, lifecycleStages } from "./system-page-logic";
+import { controlHash, formatDay, lifecycleStages, visibleTabs } from "./system-page-logic";
+import { evaluationSteps } from "@/lib/evaluation-stages";
 import {
   CONTROL_STATUS_ORDER,
   SOURCE_KEYS,
@@ -33,7 +34,6 @@ import {
   SOURCE_LABEL,
   STATUS_COLOR,
   STATUS_TEXT,
-  TAB_KEYS,
   TAB_LABEL,
   type FrameworkSummary,
   type SystemPageView,
@@ -46,6 +46,7 @@ export const ATTENTION_SHOWN = 6;
 
 const TAB_ICON: Record<TabKey, HomeIconKey> = {
   overview: "grid",
+  evaluation: "bolt",
   controls: "control",
   requirements: "layers",
   risks: "risk",
@@ -67,7 +68,7 @@ const frameworkParts = (framework: FrameworkSummary) => [
 export function SystemCockpit({ view, panels }: { view: SystemPageView; panels: Record<Exclude<TabKey, "overview">, ReactNode> }) {
   const router = useRouter();
   const { system, headline, controls, risks, classification, counts } = view;
-  const tab = useSyncExternalStore(subscribeToHash, currentTab, serverTab);
+  const hashTab = useSyncExternalStore(subscribeToHash, currentTab, serverTab);
   const [frameworkId, setFrameworkId] = useState<string | null>(null);
   const [showAllAttention, setShowAllAttention] = useState(false);
   const [deciding, setDeciding] = useState<"APPROVED" | "REJECTED" | null>(null);
@@ -82,6 +83,9 @@ export function SystemCockpit({ view, panels }: { view: SystemPageView; panels: 
   const indicatorRef = useRef<HTMLSpanElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
+  const tabKeys = useMemo(() => visibleTabs(system.evaluation !== null), [system.evaluation]);
+  // `#evaluation` on a classic System names a tab it doesn't have: show the Overview.
+  const tab = tabKeys.includes(hashTab) ? hashTab : "overview";
   const now = Date.parse(view.now);
   const mine = system.ownerId === view.userId;
   const framework = view.frameworks.find((candidate) => candidate.id === frameworkId) ?? view.frameworks[0] ?? null;
@@ -141,13 +145,13 @@ export function SystemCockpit({ view, panels }: { view: SystemPageView; panels: 
   }, [menuOpen]);
 
   function onTabKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
-    const index = TAB_KEYS.indexOf(tab);
-    const last = TAB_KEYS.length - 1;
-    const target = event.key === "ArrowRight" ? (index + 1) % TAB_KEYS.length : event.key === "ArrowLeft" ? (index + last) % TAB_KEYS.length : event.key === "Home" ? 0 : event.key === "End" ? last : -1;
+    const index = tabKeys.indexOf(tab);
+    const last = tabKeys.length - 1;
+    const target = event.key === "ArrowRight" ? (index + 1) % tabKeys.length : event.key === "ArrowLeft" ? (index + last) % tabKeys.length : event.key === "Home" ? 0 : event.key === "End" ? last : -1;
     if (target < 0) return;
     event.preventDefault();
-    goTab(TAB_KEYS[target]);
-    document.getElementById(`sc-tab-${TAB_KEYS[target]}`)?.focus();
+    goTab(tabKeys[target]);
+    document.getElementById(`sc-tab-${tabKeys[target]}`)?.focus();
   }
 
   async function post(path: "submit" | "onboard", failure: string) {
@@ -171,7 +175,7 @@ export function SystemCockpit({ view, panels }: { view: SystemPageView; panels: 
 
   const paletteItems: PaletteItem[] = useMemo(
     () => [
-      ...TAB_KEYS.map((key): PaletteItem => ({
+      ...tabKeys.map((key): PaletteItem => ({
         group: "Tabs",
         icon: TAB_ICON[key],
         label: TAB_LABEL[key],
@@ -180,11 +184,16 @@ export function SystemCockpit({ view, panels }: { view: SystemPageView; panels: 
       })),
       ...view.controlList.map((control): PaletteItem => ({ group: "Controls", icon: "control", label: control.title, meta: control.code, href: controlHash(control.code) })),
     ],
-    [counts, view.controlList],
+    [counts, view.controlList, tabKeys],
   );
   usePagePalette({ items: paletteItems, onSelect: (item) => goHash(item.href, { scroll: true }), placeholder: "Jump to a tab or a Control…" });
 
-  const stages = lifecycleStages(system.status);
+  // A staged System (#328) shows its evaluation stages here instead of the classic lifecycle; the Risk Analysis is a step of the Evaluation tab only.
+  const stages = system.evaluation
+    ? evaluationSteps({ stage: system.evaluation.stage, track: system.evaluation.track, riskAnalysisCompleted: false })
+        .filter((step) => step.kind !== "ra")
+        .map((step) => ({ key: step.key, label: step.label, state: step.state === "done" ? ("past" as const) : step.state, tone: undefined }))
+    : lifecycleStages(system.status);
   const next = view.nextStep;
   const attention = showAllAttention ? view.attention : view.attention.slice(0, ATTENTION_SHOWN);
   const hiddenAttention = view.attention.length - ATTENTION_SHOWN;
@@ -390,7 +399,7 @@ export function SystemCockpit({ view, panels }: { view: SystemPageView; panels: 
 
       <div className="sc-tabs" role="tablist" aria-label="System sections" ref={tabsRef}>
         <span className="ind" ref={indicatorRef} aria-hidden="true" />
-        {TAB_KEYS.map((key) => {
+        {tabKeys.map((key) => {
           const count = tabCount[key];
           return (
             <button
@@ -643,7 +652,7 @@ export function SystemCockpit({ view, panels }: { view: SystemPageView; panels: 
         </div>
       </section>
 
-      {(Object.keys(panels) as Exclude<TabKey, "overview">[]).map((key) => (
+      {(Object.keys(panels) as Exclude<TabKey, "overview">[]).filter((key) => tabKeys.includes(key)).map((key) => (
         <section key={key} id={`sc-panel-${key}`} role="tabpanel" aria-labelledby={`sc-tab-${key}`} hidden={tab !== key} className="sc-panel">
           <div className="sc-section">{key === "activity" ? <Fragment key={approvalVersion}>{panels[key]}</Fragment> : panels[key]}</div>
         </section>
