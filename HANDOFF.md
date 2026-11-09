@@ -87,7 +87,7 @@ Staged evaluation (PRD 0002, ADR 0014, no milestone):
 4. #320 Framework Owner curates their own non-base Framework (everything a Compliance Manager does on it, publishing included). **Done: PR #339.**
 5. #327 Design proposals: staged evaluation on the System page (`/design/evaluation/`, A Stepper, B Journey, C Gate board). **Done: PR #343.** The product owner picks one, recorded on #327, before the stage tickets start.
 6. #323 Document Requirements catalogue at `/document-requirements` (Compliance Manager or Admin curate; first documentation is Full only). **Done: PR #344.**
-7. #324 System provides its documentation: a Documentation tab on the System page, a link or an uploaded file (Postgres, 4 MB) per Document Requirement; `documentationStatusFor` for the stage tickets. **Done: PR #PRNUM.**
+7. #324 System provides its documentation: a Documentation tab on the System page, a link or an uploaded file (Postgres, 4 MB) per Document Requirement; `documentationStatusFor` for the stage tickets. **Done: PR #345.**
 8. #325 Risk Analysis meeting.
 9. #326 Prefactor: Review Step participation over any set of Controls.
 
