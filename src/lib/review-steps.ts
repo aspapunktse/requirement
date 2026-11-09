@@ -2,13 +2,22 @@ import type { OnboardingStatus, Prisma, UserRole } from "@prisma/client";
 import { userCanDecideStep } from "@/lib/approvals";
 import { prisma } from "@/lib/prisma";
 import { logChangeEvent, SYSTEM_ACTOR } from "@/lib/change-events";
-import { APPLICABILITY_SCOPING } from "@/lib/control-assessments";
 import { isSystemOwnerOrAdmin } from "@/lib/system-permissions";
+import type { SystemClassification } from "@/lib/control-applicability";
 import {
-  APPLICABLE_APPLICABILITIES,
-  meetsAllImpactThresholds,
-  type SystemClassification,
-} from "@/lib/control-applicability";
+  BASE_REVIEW_STEP_NAME,
+  isBaseControl,
+  participantList,
+  participantsContainingControl,
+  participantsOver,
+  participantsToReopen,
+  remitGroupsByControl,
+  type Participant,
+  type ParticipationScope,
+} from "@/lib/review-participation";
+
+// The participation rules moved to `review-participation.ts`; these names stay importable from here.
+export { BASE_REVIEW_STEP_NAME, isBaseControl, remitGroupsByControl };
 
 /**
  * Review Rounds and Review Steps (CONTEXT.md, ADR 0010).
@@ -17,8 +26,6 @@ import {
  * derived live from the System's Framework Scope and applicable Controls, so a scope
  * change while In Review adds or drops steps at once.
  */
-
-export const BASE_REVIEW_STEP_NAME = "Base review";
 
 export type ReviewStepStatus = "OPEN" | "APPROVED" | "REJECTED";
 
@@ -31,109 +38,22 @@ export type ReviewStep = {
   reopened?: { at: Date; reason: string };
 };
 
-/** What a Control must look like for `isBaseControl`: its mappings and the Framework of each Requirement. */
-type ControlWithFrameworks = { mappings: { requirement: { framework: { isBase: boolean } } }[] };
+/**
+ * Open question 2 on #200: a *stale* Control (no longer applicable, so in no live remit) whose
+ * mappings point at no declared Published Framework reopens the base step when this is true (the
+ * default, "2a"), and nothing when false. The one place to change it.
+ */
+const STALE_CONTROL_FALLS_BACK_TO_BASE_STEP = true;
 
 /**
- * A **Base Control**: one mapped, at any Coverage, to at least one Requirement of the base
- * Framework (`Framework.isBase`). Base Controls always stay in the base Review Step's remit,
- * even when they also satisfy a Framework with a Review Group, so an Annex A Control is
- * never judged twice. Everything else is a non-base Control (in practice a Supplementary one).
- * This is the single definition of "base" for Review Steps; change it here only.
+ * Today's Approve/Reject Review Steps are one caller of the generic participation rules in
+ * `review-participation.ts`: over all the System's Controls, base review included.
  */
-export function isBaseControl(control: ControlWithFrameworks): boolean {
-  return control.mappings.some(({ requirement }) => requirement.framework.isBase);
-}
+const ALL_CONTROLS_WITH_BASE: ParticipationScope = { includeBase: true };
 
-
-const CONTROL_FOR_REMIT = {
-  mappings: {
-    select: {
-      requirement: {
-        select: {
-          framework: {
-            select: {
-              id: true,
-              isBase: true,
-              status: true,
-              reviewGroup: { select: { id: true, name: true } },
-            },
-          },
-        },
-      },
-    },
-  },
-} satisfies Prisma.ControlInclude;
-
-type ControlForRemit = Prisma.ControlGetPayload<{ include: typeof CONTROL_FOR_REMIT }>;
-
-/**
- * Which Review Steps a Control belongs to, given the System's declared Framework Scope: the single
- * rule behind both "which groups have remit on a System" and "which steps does an edit to this
- * Control reopen". A base Control belongs to the base step only. Any other Control belongs to the
- * step of each Review Group tied to a Published, declared Framework it is mapped to, and to the base
- * step if it is also mapped to such a Framework with no group (those fall to the base step).
- * Applicability (facets, Impact Levels) is not looked at here.
- */
-function stepsOfControl(control: ControlForRemit, declaredScopeIds: Set<string>) {
-  const groups = new Map<string, string>();
-  if (isBaseControl(control)) return { base: true, groups };
-  let base = false;
-  for (const { requirement } of control.mappings) {
-    const { framework } = requirement;
-    if (framework.status !== "PUBLISHED" || !declaredScopeIds.has(framework.id)) continue;
-    if (framework.reviewGroup) groups.set(framework.reviewGroup.id, framework.reviewGroup.name);
-    else base = true;
-  }
-  return { base, groups };
-}
-
-/**
- * The Review Groups in whose remit each Control of the System sits, keyed by Control id (a Control
- * in no group's remit is absent). A Control is in a group's remit when it is a non-base Control
- * that applies to the System (same rules as `getApplicableControls`: applicability, Deployment
- * Facets, Impact Levels, a Published Framework in scope) and is mapped to a Requirement of a
- * Published Framework of the group that is in the System's *declared* Framework Scope. A Framework
- * with no group adds none; its non-base Controls fall to the base step. This is the single
- * definition of a group's remit: `groupsWithRemit` and `groupsWhoseRemitIncludes` both read it.
- *
- * Takes the transaction client so the reads see one snapshot (see `loadReviewRounds`). `controlId`
- * narrows the read to one Control.
- */
-export async function remitGroupsByControl(
-  tx: Pick<Prisma.TransactionClient, "control">,
-  system: SystemClassification,
-  controlId?: string,
-) {
-  const controls = await tx.control.findMany({
-    where: {
-      ...(controlId !== undefined && { id: controlId }),
-      applicability: { in: [...APPLICABLE_APPLICABILITIES] },
-      AND: APPLICABILITY_SCOPING(system),
-    },
-    include: CONTROL_FOR_REMIT,
-  });
-
-  const declaredScopeIds = new Set(system.frameworkScopes.map((framework) => framework.id));
-  const byControl = new Map<string, Map<string, string>>();
-  for (const control of controls) {
-    if (!meetsAllImpactThresholds(system, control)) continue;
-    const { groups } = stepsOfControl(control, declaredScopeIds);
-    if (groups.size > 0) byControl.set(control.id, groups);
-  }
-  return byControl;
-}
-
-/**
- * The Review Groups that have at least one Control in their remit on the System (id to name). Two
- * Frameworks sharing a group give one entry. See `remitGroupsByControl` for what a remit is.
- */
+/** The Review Groups that have at least one Control in their remit on the System (id to name). See `remitGroupsByControl`. */
 export async function groupsWithRemit(tx: Prisma.TransactionClient, system: SystemClassification) {
-  const groups = new Map<string, string>();
-  for (const forControl of (await remitGroupsByControl(tx, system)).values()) {
-    for (const [id, name] of forControl) groups.set(id, name);
-  }
-  return groups;
+  return (await participantsOver(tx, system, ALL_CONTROLS_WITH_BASE)).groups;
 }
 
 /** The Review Groups (id to name) whose remit on the System includes the Control; empty for a base Control or one that doesn't apply. */
@@ -146,27 +66,13 @@ export async function groupsWhoseRemitIncludes(
 }
 
 /**
- * Open question 2 on #200: a *stale* Control (no longer applicable, so in no live remit) whose
- * mappings point at no declared Published Framework reopens the base step when this is true (the
- * default, "2a"), and nothing when false. The one place to change it.
- */
-const STALE_CONTROL_FALLS_BACK_TO_BASE_STEP = true;
-
-/**
  * The ids of the Review Steps (`null` is the base step) whose remit contains `controlId` on the System,
  * by the same rule as `groupsWithRemit` but for one Control and without its applicability test: an
  * edit can be to a stale Control too (one a facet change left behind). Whether those steps are live
  * is for the caller to check against the current steps.
  */
 export async function stepsContainingControl(tx: Tx, system: SystemClassification, controlId: string) {
-  const control = await tx.control.findUnique({ where: { id: controlId }, include: CONTROL_FOR_REMIT });
-  const ids = new Set<string | null>();
-  if (!control) return ids;
-  const { base, groups } = stepsOfControl(control, new Set(system.frameworkScopes.map((framework) => framework.id)));
-  if (base) ids.add(null);
-  for (const id of groups.keys()) ids.add(id);
-  if (ids.size === 0 && STALE_CONTROL_FALLS_BACK_TO_BASE_STEP) ids.add(null);
-  return ids;
+  return participantsContainingControl(tx, system, controlId, ALL_CONTROLS_WITH_BASE, STALE_CONTROL_FALLS_BACK_TO_BASE_STEP);
 }
 
 type Tx = Prisma.TransactionClient;
@@ -199,7 +105,7 @@ export const SYSTEM_FOR_STEPS = {
 
 /** The base step plus one step per live group (sorted by name), with statuses from `approvals`. */
 function buildSteps(groups: Map<string, string>, approvals: StepApproval[]): ReviewStep[] {
-  const step = (reviewGroupId: string | null, name: string): ReviewStep => {
+  const step = ({ reviewGroupId, name }: Participant): ReviewStep => {
     const status = stepStatus(approvals, reviewGroupId);
     if (status !== "OPEN") return { reviewGroupId, name, status };
     // An Open step whose latest void was an edit's (a reason is recorded) was reopened (#200). A later
@@ -212,10 +118,7 @@ function buildSteps(groups: Map<string, string>, approvals: StepApproval[]): Rev
       ? { reviewGroupId, name, status, reopened: { at: reopening.voidedAt!, reason: reopening.voidReason } }
       : { reviewGroupId, name, status };
   };
-  return [
-    step(null, BASE_REVIEW_STEP_NAME),
-    ...[...groups].sort(([, a], [, b]) => a.localeCompare(b)).map(([reviewGroupId, name]) => step(reviewGroupId, name)),
-  ];
+  return participantList({ base: true, groups }).map(step);
 }
 
 /**
@@ -435,8 +338,7 @@ export async function reopenStepsForEdit(
   const reopened: string[] = [];
   const reason = `${control.code} changed after approval`;
   const voidedAt = new Date();
-  for (const step of current.steps) {
-    if (step.status !== "APPROVED" || !remit.has(step.reviewGroupId)) continue;
+  for (const step of participantsToReopen(current.steps, remit, (step) => step.status === "APPROVED")) {
     await tx.approval.updateMany({
       where: { reviewRoundId: current.round.id, reviewGroupId: step.reviewGroupId, voidedAt: null },
       data: { voidedAt, voidReason: reason },
