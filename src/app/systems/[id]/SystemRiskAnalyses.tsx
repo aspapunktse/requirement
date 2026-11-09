@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { StatusChip } from "@/components/ui/StatusChip";
 import type { RiskAnalysisView } from "@/lib/risk-analysis";
+import { SEVERITY_TEXT } from "./RiskGrid";
 import { formatDay } from "./system-page-logic";
 import { RISK_LEVELS } from "./system-page-types";
 import { useRemote } from "./use-remote";
@@ -148,7 +149,7 @@ function AnalysisForm({
                 <select aria-label={`New Risk ${index + 1} severity`} value={risk.severity} onChange={(event) => updateRisk(risk.key, { severity: event.target.value as Level })}>
                   {RISK_LEVELS.map((level) => (
                     <option key={level} value={level}>
-                      {level}
+                      {SEVERITY_TEXT[level]}
                     </option>
                   ))}
                 </select>
@@ -158,7 +159,7 @@ function AnalysisForm({
                 <select aria-label={`New Risk ${index + 1} likelihood`} value={risk.likelihood} onChange={(event) => updateRisk(risk.key, { likelihood: event.target.value as Level })}>
                   {RISK_LEVELS.map((level) => (
                     <option key={level} value={level}>
-                      {level}
+                      {SEVERITY_TEXT[level]}
                     </option>
                   ))}
                 </select>
