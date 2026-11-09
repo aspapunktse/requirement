@@ -368,9 +368,9 @@ describe("the Approval panel after a header action (#243)", () => {
 });
 
 describe("tabs (#243)", () => {
-  it("lists the seven tabs with their counts, the open Risks highlighted", () => {
+  it("lists the eight tabs with their counts, the open Risks highlighted", () => {
     renderCockpit();
-    expect(screen.getAllByRole("tab").map((el) => el.textContent)).toEqual(["Overview", "Controls9", "Requirements2", "Risks2", "Providers1", "Profile", "Approval and activity"]);
+    expect(screen.getAllByRole("tab").map((el) => el.textContent)).toEqual(["Overview", "Controls9", "Requirements2", "Risks2", "Providers1", "Documentation", "Profile", "Approval and activity"]);
     expect(tab(/^Risks/).querySelector(".n")).toHaveClass("hot");
     expect(tab(/^Controls/).querySelector(".n")).not.toHaveClass("hot");
   });

@@ -17,6 +17,7 @@ import "@/app/home/home.css";
 import { SystemCockpit } from "./SystemCockpit";
 import { SystemActivity } from "./SystemActivity";
 import { SystemControls } from "./SystemControls";
+import { SystemDocumentation } from "./SystemDocumentation";
 import { SystemProfile } from "./SystemProfile";
 import { SystemProviders } from "./SystemProviders";
 import { SystemRequirements } from "./SystemRequirements";
@@ -118,6 +119,7 @@ export default async function SystemDetailPage({ params }: PageProps<"/systems/[
         controlTotals={{ total: view.controls.total, organization: view.controls.bySource.organization, system: view.controls.bySource.system, byProvider: view.controls.byProvider }}
       />
     ),
+    documentation: <SystemDocumentation systemId={system.id} />,
     profile: (
       <SystemProfile
         systemId={system.id}
