@@ -260,3 +260,28 @@ describe("+ Log Risk", () => {
     expect(fetchMock.mock.calls.filter((call) => call[1]?.method === "POST")).toHaveLength(0);
   });
 });
+
+describe("the Risk Analyses card (#325)", () => {
+  it("is not shown unless the page asks for it", async () => {
+    renderRisks();
+    await screen.findByRole("table");
+    expect(screen.queryByRole("heading", { name: "Risk Analyses" })).not.toBeInTheDocument();
+  });
+
+  it("is shown below the register, offers the open Risks to review, and reads the register again after a meeting raised some", async () => {
+    const user = userEvent.setup();
+    renderRisks({ riskAnalyses: { canRecord: true }, owners: [{ id: "u1", name: "Elena Voss" }] });
+    await screen.findByRole("table");
+    await user.click(await screen.findByRole("button", { name: "+ Record Risk Analysis" }));
+    const form = within(screen.getByRole("form", { name: "Record a Risk Analysis" }));
+    // Only the open Risks (the mitigated one is left out) and the Users who may take part.
+    expect(form.getByRole("checkbox", { name: "Weak passwords" })).toBeChecked();
+    expect(form.getByRole("checkbox", { name: "From a finding" })).toBeChecked();
+    expect(form.queryByRole("checkbox", { name: "Unpatched server" })).not.toBeInTheDocument();
+    expect(form.getByRole("checkbox", { name: "Elena Voss" })).not.toBeChecked();
+    const reads = () => fetchMock.mock.calls.filter((call) => call[0] === "/api/systems/s1/risks").length;
+    const before = reads();
+    await user.click(form.getByRole("button", { name: "Record Risk Analysis" }));
+    await waitFor(() => expect(reads()).toBe(before + 1));
+  });
+});

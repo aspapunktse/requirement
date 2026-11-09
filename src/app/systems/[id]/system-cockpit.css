@@ -366,3 +366,12 @@
 .sc-suggest:focus-visible { outline: 2px solid var(--rg-accent); outline-offset: 4px; border-radius: 8px; }
 .sc-suggest-list.quiet li { overflow-wrap: anywhere; }
 .sc-suggest-list.quiet li { font-size: 0.84rem; }
+/* Risk Analyses on the Risks tab (#325) */
+.sc-analyses { grid-column: 1 / -1; list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.sc-analysis { border: 1px solid var(--rg-line); border-radius: 12px; padding: 12px 14px; display: grid; gap: 6px; }
+.sc-analysis p { margin: 0; font-size: 0.86rem; }
+.sc-notes { white-space: pre-wrap; overflow-wrap: anywhere; }
+.sc-checklist { display: grid; gap: 4px; max-height: 12rem; overflow-y: auto; font-weight: 400; }
+.sc-checklist label { display: flex; gap: 8px; align-items: center; }
+fieldset.sc-field { border: 0; padding: 0; margin: 0; min-width: 0; }
+.sc-risks > .hc-empty { grid-column: 1 / -1; }
