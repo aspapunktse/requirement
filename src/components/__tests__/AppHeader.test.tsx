@@ -74,7 +74,7 @@ describe("AppHeader", () => {
 
 const mainNav = () => screen.getByRole("navigation", { name: "Main" });
 const navLabels = () => [...mainNav().querySelectorAll("a, button")].map((el) => el.textContent?.replace("▾", "").trim());
-const SHARED = ["Home", "Systems", "Information Types", "Controls", "Risks", "Check-ups", "SoA", "Frameworks"];
+const SHARED = ["Home", "Systems", "Information Types", "Document Requirements", "Controls", "Risks", "Check-ups", "SoA", "Frameworks"];
 
 describe("AppHeader: main navigation", () => {
   beforeEach(() => {
@@ -84,14 +84,14 @@ describe("AppHeader: main navigation", () => {
   });
 
   const ITEMS_BY_ROLE: Record<UserRole, string[]> = {
-    ADMIN: ["Home", "Systems", "Information Types", "Controls", "Risks", "Check-ups", "Internal Audits", "SoA", "Frameworks", "Admin"],
-    COMPLIANCE_MANAGER: ["Home", "Systems", "Information Types", "Controls", "Risks", "Check-ups", "Internal Audits", "SoA", "Frameworks"],
+    ADMIN: ["Home", "Systems", "Information Types", "Document Requirements", "Controls", "Risks", "Check-ups", "Internal Audits", "SoA", "Frameworks", "Admin"],
+    COMPLIANCE_MANAGER: ["Home", "Systems", "Information Types", "Document Requirements", "Controls", "Risks", "Check-ups", "Internal Audits", "SoA", "Frameworks"],
     SYSTEM_OWNER: SHARED,
-    RISK_OWNER: ["Home", "Systems", "Information Types", "Controls", "Risks", "Check-ups", "Internal Audits", "SoA", "Frameworks"],
+    RISK_OWNER: ["Home", "Systems", "Information Types", "Document Requirements", "Controls", "Risks", "Check-ups", "Internal Audits", "SoA", "Frameworks"],
     REVIEWER: SHARED,
     BUSINESS_RISK_OWNER: [...SHARED, "My Business Risks"],
     VIEWER: SHARED,
-    INTERNAL_AUDITOR: ["Home", "Systems", "Information Types", "Controls", "Risks", "Check-ups", "Internal Audits", "SoA", "Frameworks"],
+    INTERNAL_AUDITOR: ["Home", "Systems", "Information Types", "Document Requirements", "Controls", "Risks", "Check-ups", "Internal Audits", "SoA", "Frameworks"],
   };
 
   it.each(Object.entries(ITEMS_BY_ROLE))("lists the pages %s may open, in order, and no others", (role, expected) => {
@@ -105,6 +105,7 @@ describe("AppHeader: main navigation", () => {
     expect(href("Home")).toBe("/home");
     expect(href("Systems")).toBe("/systems");
     expect(href("Information Types")).toBe("/information-types");
+    expect(href("Document Requirements")).toBe("/document-requirements");
     expect(href("Controls")).toBe("/controls");
     expect(href("Check-ups")).toBe("/check-ups");
     expect(href("SoA")).toBe("/statement-of-applicability");
@@ -272,6 +273,7 @@ describe("AppHeader: collapsed menu", () => {
       "Home",
       "Systems",
       "Information Types",
+      "Document Requirements",
       "Controls",
       "Risks",
       "Check-ups",
@@ -358,6 +360,7 @@ describe("AppHeader: Ctrl+K palette", () => {
       "Home",
       "Systems",
       "Information Types",
+      "Document Requirements",
       "Controls",
       "Risks",
       "Check-ups",
@@ -395,7 +398,7 @@ describe("AppHeader: Ctrl+K palette", () => {
     const dialog = screen.getByRole("dialog");
     const options = within(dialog).getAllByRole("option");
     expect(options[0]).toHaveTextContent("Review the cloud policy");
-    expect(options).toHaveLength(14);
+    expect(options).toHaveLength(15);
     expect(within(dialog).getByRole("combobox")).toHaveAttribute("placeholder", "Jump to a task…");
     const groups = within(dialog)
       .getAllByText(/^(Tasks|Go to|Theme)$/)
@@ -469,7 +472,7 @@ describe("AppHeader: Ctrl+K palette", () => {
     const labels = within(screen.getByRole("dialog"))
       .getAllByRole("option")
       .map((o) => o.querySelector("span")?.textContent);
-    expect(labels.filter((label) => !label?.startsWith("Theme: "))).toEqual(["Home", "Information Types", "Controls", "Risks", "Check-ups", "Statement of Applicability", "Frameworks"]);
+    expect(labels.filter((label) => !label?.startsWith("Theme: "))).toEqual(["Home", "Information Types", "Document Requirements", "Controls", "Risks", "Check-ups", "Statement of Applicability", "Frameworks"]);
   });
 
   it("lists the Admin pages under Go to for an Admin only", async () => {

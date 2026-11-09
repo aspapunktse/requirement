@@ -1190,3 +1190,31 @@ model AppSetting {
   updatedBy   User?    @relation("AppSettingUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   updatedAt   DateTime @updatedAt
 }
+
+// The way a System is evaluated (PRD 0002): Self (self-assessment) or Full. Chosen per System at OG1 in a later
+// issue; for now only Document Requirements name Tracks.
+enum EvaluationTrack {
+  SELF
+  FULL
+}
+
+// The documentation stage that needs a Document Requirement. First documentation is a Full-track stage.
+enum DocumentationStage {
+  FIRST_DOCUMENTATION
+  SECOND_ROUND
+}
+
+// What a System must provide besides answering its Controls (PRD 0002 F-DOC.1, #323), such as an architecture
+// description or a DPIA: a catalogue the Compliance Manager or an Admin curates. Each says at which stage it is
+// needed and on which Tracks (at least one). First documentation is a Full-track stage, so a requirement for it
+// never includes Self; the API refuses that and a CHECK constraint backs it up. Nothing references it yet: the
+// per-System records (#324) will, and will cascade on delete. Curation is not a Change Event.
+model DocumentRequirement {
+  id          String             @id @default(cuid())
+  name        String             @unique
+  description String?
+  stage       DocumentationStage
+  tracks      EvaluationTrack[]
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+}

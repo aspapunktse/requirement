@@ -1,0 +1,50 @@
+/* The Document Requirement catalogue (#323). It builds on the Home look (`src/app/home/home.css`), the Systems
+   register (`src/app/systems/systems.css`) and the drawer of `src/app/systems/[id]/system-cockpit.css`, in the same
+   way as the Information Types catalogue, and adds only what it needs. Register tokens (--rg-*). */
+
+.dr .dr-grow { flex: 1 1 0; }
+.dr .muted { color: var(--rg-muted); }
+.sy table.dr-t { min-width: 640px; }
+.dr .dr-actions { white-space: nowrap; text-align: right; }
+.dr .dr-actions .hc-btn { padding: 4px 10px; }
+.dr .dr-danger { color: var(--rg-danger); }
+.dr .dr-danger:hover { border-color: var(--rg-danger); }
+
+/* The requirement's name opens its drawer */
+.dr .dr-open { all: unset; box-sizing: border-box; cursor: pointer; color: var(--rg-ink); font-weight: 650; }
+.dr .dr-open:hover { color: var(--rg-accent); text-decoration: underline; }
+.dr .dr-open:focus-visible { outline: 2px solid var(--rg-accent); outline-offset: 2px; border-radius: 4px; }
+
+/* The stage filter: one toggle per stage, with how many requirements it holds */
+.dr .dr-stages { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 0.84rem; }
+.dr .dr-stage { all: unset; box-sizing: border-box; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border: 1px solid var(--rg-line); border-radius: 99px; }
+.dr .dr-stage:hover { border-color: var(--rg-accent); }
+.dr .dr-stage[aria-pressed="true"] { border-color: var(--rg-accent); background: var(--rg-accent-soft); }
+.dr .dr-stage:focus-visible { outline: 2px solid var(--rg-accent); outline-offset: 1px; }
+.dr .dr-stage em { font-style: normal; font-size: 0.76rem; color: var(--rg-muted); font-variant-numeric: tabular-nums; }
+
+/* A Track as a small tag: the word says it, so colour is not the only cue */
+.dr .dr-tracks { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.dr .dr-track { display: inline-block; padding: 1px 8px; border: 1px solid var(--rg-line); border-radius: 99px; font-size: 0.78rem; font-weight: 650; background: var(--rg-surface); }
+
+/* Notices above the table */
+.dr .dr-banner { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 0 16px 10px; padding: 10px 12px; border-radius: 10px; font-size: 0.86rem; border: 1px solid var(--rg-line); }
+.dr .dr-banner.ok { background: var(--rg-accent-soft); color: var(--rg-ink); border-color: color-mix(in srgb, var(--rg-accent) 25%, transparent); }
+.dr .dr-banner.info { background: var(--hc-raised, var(--rg-surface)); }
+.dr .dr-banner.warn { background: var(--rg-gold-soft, var(--rg-surface)); border-color: color-mix(in srgb, var(--rg-gold) 45%, transparent); }
+.dr .dr-acts { display: inline-flex; gap: 8px; margin-left: auto; }
+.dr .dr-link { all: unset; cursor: pointer; color: var(--rg-accent); text-decoration: underline; }
+.dr .dr-link:focus-visible { outline: 2px solid var(--rg-accent); outline-offset: 2px; }
+
+/* The drawer's stage radios and Track checkboxes */
+.dr-drawer-root .dr-group { border: 0; margin: 0; padding: 0; display: grid; gap: 8px; min-width: 0; }
+.dr-drawer-root .dr-legend { font-size: 0.84rem; font-weight: 600; color: var(--rg-muted); padding: 0; }
+.dr-drawer-root .dr-group p { margin: 0; }
+.dr-drawer-root .dr-opt { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 12px; align-items: center; padding: 8px 10px; border: 1px solid var(--rg-line); border-radius: 10px; background: var(--rg-surface); cursor: pointer; }
+.dr-drawer-root .dr-opt:hover { border-color: var(--rg-accent); }
+.dr-drawer-root .dr-opt.on { border-color: var(--rg-accent); background: var(--rg-accent-soft); }
+.dr-drawer-root .dr-opt.off { opacity: 0.6; cursor: not-allowed; }
+.dr-drawer-root .dr-opt.off:hover { border-color: var(--rg-line); }
+.dr-drawer-root .dr-opt:has(input:focus-visible) { outline: 2px solid var(--rg-accent); outline-offset: 2px; }
+.dr-drawer-root .dr-opt input { width: 16px; height: 16px; margin: 0; accent-color: var(--rg-accent); }
+.dr-drawer-root .dr-opt small { grid-column: 2; color: var(--rg-muted); font-size: 0.8rem; }
