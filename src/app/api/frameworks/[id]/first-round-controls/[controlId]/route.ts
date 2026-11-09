@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { authenticate } from "@/lib/api-authz";
+import { reconcileAllReviewSteps } from "@/lib/review-steps";
 import { canMarkFirstRound, visibleOrOwnedFrameworksWhere } from "@/lib/frameworks";
 
 const bodySchema = z.object({ firstRound: z.boolean() });
@@ -61,6 +62,8 @@ export async function PUT(request: NextRequest, ctx: RouteContext<"/api/framewor
     return "ok" as const;
   });
 
+  // The marking decides who takes part in OG1 on Systems at OG1: settle them now it has committed (#328).
+  if (result === "ok") await reconcileAllReviewSteps();
   if (result === "no-control") return NextResponse.json({ error: "Control not found" }, { status: 404 });
   if (result === "unmapped") {
     return NextResponse.json({ error: "Only a Control mapped to this Framework can be marked first round for it" }, { status: 409 });

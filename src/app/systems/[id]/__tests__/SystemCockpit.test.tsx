@@ -387,6 +387,31 @@ describe("Evaluation tab (#328)", () => {
   });
 });
 
+describe("Evaluation tab freshness (#328)", () => {
+  it("mounts the Evaluation panel afresh each time its tab is opened, so it reads the System again", async () => {
+    let mounts = 0;
+    function Probe() {
+      useEffect(() => {
+        mounts += 1;
+      }, []);
+      return <p>Evaluation probe</p>;
+    }
+    const staged = view();
+    render(
+      <SystemCockpit
+        view={{ ...staged, system: { ...staged.system, evaluation: { stage: "FIRST_ROUND", track: null } }, nextStep: { kind: "none" } }}
+        panels={{ ...PANELS, evaluation: <Probe /> }}
+      />,
+    );
+    const before = mounts;
+    await userEvent.click(tab("Evaluation"));
+    expect(mounts).toBe(before + 1);
+    await userEvent.click(tab("Overview"));
+    await userEvent.click(tab("Evaluation"));
+    expect(mounts).toBe(before + 3); // remounted on leaving as well as on opening
+  });
+});
+
 describe("tabs (#243)", () => {
   it("lists the eight tabs with their counts, the open Risks highlighted", () => {
     renderCockpit();

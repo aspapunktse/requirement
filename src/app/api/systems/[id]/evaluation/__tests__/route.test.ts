@@ -7,6 +7,8 @@ import { applyFrameworkScopeDeclared, applyFrameworkScopeRemoved } from "@/lib/f
 import { getOpenVerdictsForUser } from "@/lib/evaluation-og1";
 import { STAGED_SYSTEM_REFUSAL } from "@/lib/evaluation-stages";
 import { createFixtureFramework, mapControlsToFramework, cleanupFixtureRequirements } from "@/test/framework-fixtures";
+import { PUT as putFirstRound } from "@/app/api/frameworks/[id]/first-round-controls/[controlId]/route";
+import { attributeEvent } from "@/lib/change-event-attribution";
 import { POST as createSystem } from "@/app/api/systems/route";
 import { POST as classicSubmit } from "../../submit/route";
 import { POST as classicOnboard } from "../../onboard/route";
@@ -63,7 +65,7 @@ describe("Staged evaluation up to OG1 (#328)", { timeout: 60_000 }, () => {
       ownerKey?: string;
       bso?: boolean;
       riskAnalysis?: boolean;
-      markFirstRound?: number[];
+      level?: number | null;
     } = {},
   ) {
     const scope = options.scope ?? [0, 1];
@@ -73,6 +75,7 @@ describe("Staged evaluation up to OG1 (#328)", { timeout: 60_000 }, () => {
         name: `Test 328 System ${SUFFIX}-${systemIds.length}`,
         ownerId: users[options.ownerKey ?? "owner"].id,
         businessSystemOwnerId: options.bso === false ? null : users.bso.id,
+        sensitivityLevel: options.level === undefined ? 3 : options.level,
         evaluationStage: options.stage ?? "OG1",
         evaluationStageEnteredAt: enteredAt,
         deploymentFacets: { connect: [{ id: facetId }] },
@@ -238,6 +241,35 @@ describe("Staged evaluation up to OG1 (#328)", { timeout: 60_000 }, () => {
       expect(error).toContain("Business System Owner");
       expect(error).toContain("Risk Analysis");
       expect((await stateOf(system.id)).evaluationStage).toBe("FIRST_ROUND");
+    });
+
+    it("refuses a System without a Sensitivity Level, naming it, and changes nothing", async () => {
+      const system = await makeSystem({ stage: "FIRST_ROUND", level: null });
+      const events = (await eventsOf(system.id)).length;
+      const response = await submit(system.id);
+      expect(response.status).toBe(409);
+      expect((await response.json()).error).toContain("Sensitivity Level");
+      expect((await view(system.id)).body.evaluation.firstRound).toMatchObject({ hasSensitivityLevel: false, ready: false });
+      expect((await stateOf(system.id)).evaluationStage).toBe("FIRST_ROUND");
+      expect(await eventsOf(system.id)).toHaveLength(events);
+    });
+
+    it("refuses a System whose Sensitivity Level is below its Information Types, naming them, and changes nothing", async () => {
+      const system = await makeSystem({ stage: "FIRST_ROUND", level: 3 });
+      const type = await prisma.informationType.create({ data: { name: `Test 328 Payroll ${SUFFIX}`, sensitivityLevel: 4 } });
+      try {
+        await prisma.system.update({ where: { id: system.id }, data: { informationTypes: { connect: [{ id: type.id }] } } });
+        const events = (await eventsOf(system.id)).length;
+        const response = await submit(system.id);
+        expect(response.status).toBe(409);
+        expect((await response.json()).error).toContain(type.name);
+        expect((await view(system.id)).body.evaluation.firstRound.belowInformationTypes).toContain(type.name);
+        expect((await stateOf(system.id)).evaluationStage).toBe("FIRST_ROUND");
+        expect(await eventsOf(system.id)).toHaveLength(events);
+      } finally {
+        await prisma.system.update({ where: { id: system.id }, data: { informationTypes: { set: [] } } });
+        await prisma.informationType.deleteMany({ where: { id: type.id } });
+      }
     });
 
     it("lets only the owner or an Admin submit, and refuses a System that isn't in its first round", async () => {
@@ -438,6 +470,60 @@ describe("Staged evaluation up to OG1 (#328)", { timeout: 60_000 }, () => {
       expect(voided).toHaveLength(1);
       expect(voided[0].voidedAt).not.toBeNull();
       expect((await stateOf(system.id)).evaluationStage).toBe("OG1");
+    });
+  });
+
+  describe("first-round markings settle OG1 (#328)", () => {
+    const mark = (frameworkIndex: number, firstRound: boolean) =>
+      putFirstRound(
+        requestAs(users.admin.id, `/api/frameworks/${frameworkIds[frameworkIndex]}/first-round-controls/${controls[frameworkIndex].id}`, { method: "PUT", body: { firstRound } }),
+        { params: Promise.resolve({ id: frameworkIds[frameworkIndex], controlId: controls[frameworkIndex].id }) },
+      );
+
+    it("closes OG1 when the only open group loses its last marking", async () => {
+      const system = await makeSystem();
+      try {
+        await verdict(system.id, "reviewer", null, "SELF");
+        await verdict(system.id, "member1", groups[0].id, "SELF");
+        expect((await stateOf(system.id)).evaluationStage).toBe("OG1");
+        expect((await mark(1, false)).status).toBe(200);
+        expect(await stateOf(system.id)).toMatchObject({ evaluationStage: "SECOND_ROUND", evaluationTrack: "SELF" });
+      } finally {
+        await markFirstRound();
+      }
+    });
+
+    it("voids a dropped group's verdict, so marking again finds the group open", async () => {
+      const system = await makeSystem();
+      try {
+        await verdict(system.id, "member2", groups[1].id, "FULL");
+        expect((await mark(1, false)).status).toBe(200);
+        const rows = await prisma.trackVerdict.findMany({ where: { systemId: system.id, reviewGroupId: groups[1].id } });
+        expect(rows).toHaveLength(1);
+        expect(rows[0].voidedAt).not.toBeNull();
+        expect((await mark(1, true)).status).toBe(200);
+        const participant = (await view(system.id)).body.evaluation.og1.participants.find((p: { reviewGroupId: string | null }) => p.reviewGroupId === groups[1].id);
+        expect(participant.verdict).toBeNull();
+        expect((await stateOf(system.id)).evaluationStage).toBe("OG1");
+      } finally {
+        await markFirstRound();
+      }
+    });
+  });
+
+  describe("who decided stays hidden", () => {
+    it("attributes the automatic OG1 close to the system, so the owner's activity doesn't name the last giver", async () => {
+      const system = await makeSystem();
+      await verdict(system.id, "member1", groups[0].id, "SELF");
+      await verdict(system.id, "member2", groups[1].id, "SELF");
+      await verdict(system.id, "reviewer", null, "SELF");
+      const closing = (await eventsOf(system.id, "EVALUATION_STAGE_CHANGED")).find((e) => e.detail.startsWith("OG1 closed"))!;
+      expect(closing.actorId).toBe("system");
+      const owner = { id: users.owner.id, role: "SYSTEM_OWNER" as UserRole };
+      const label = attributeEvent(owner, { ...closing, systemOwnerId: users.owner.id } as never, undefined, new Set(), undefined);
+      expect(label).toBe("The system");
+      const given = (await eventsOf(system.id, "TRACK_VERDICT_GIVEN")).find((e) => e.actorId === users.reviewer.id)!;
+      expect(attributeEvent(owner, { ...given, systemOwnerId: users.owner.id } as never, users.reviewer.name, new Set(), undefined)).not.toContain(users.reviewer.name);
     });
   });
 

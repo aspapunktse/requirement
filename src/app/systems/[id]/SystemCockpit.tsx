@@ -654,7 +654,16 @@ export function SystemCockpit({ view, panels }: { view: SystemPageView; panels: 
 
       {(Object.keys(panels) as Exclude<TabKey, "overview">[]).filter((key) => tabKeys.includes(key)).map((key) => (
         <section key={key} id={`sc-panel-${key}`} role="tabpanel" aria-labelledby={`sc-tab-${key}`} hidden={tab !== key} className="sc-panel">
-          <div className="sc-section">{key === "activity" ? <Fragment key={approvalVersion}>{panels[key]}</Fragment> : panels[key]}</div>
+          <div className="sc-section">
+            {key === "activity" ? (
+              <Fragment key={approvalVersion}>{panels[key]}</Fragment>
+            ) : key === "evaluation" ? (
+              // Mounted afresh each time the tab is opened, so it reads the System again: the BSO, the classification, Assessments and Risk Analyses are edited on other tabs.
+              <Fragment key={tab === "evaluation" ? "open" : "closed"}>{panels[key]}</Fragment>
+            ) : (
+              panels[key]
+            )}
+          </div>
         </section>
       ))}
 

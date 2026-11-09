@@ -7,6 +7,9 @@ import { getApplicableControls, getUnaddressedMandatoryControls } from "@/lib/co
 import { hasCompletedRiskAnalysisSince } from "@/lib/risk-analysis";
 import { canSubmit } from "@/lib/system-permissions";
 import { lockSystem } from "@/lib/system-lock";
+import { isBelowInformationTypes } from "@/lib/information-type-floor";
+import { readSystemInformationTypes } from "@/lib/system-information-types";
+import { belowInformationTypesMessage } from "@/lib/submit-classification";
 import { BASE_REVIEW_STEP_NAME } from "@/lib/review-participation";
 import { readOg1, trackFromVerdicts, userCanGiveVerdict } from "@/lib/evaluation-og1";
 
@@ -22,6 +25,10 @@ export const NOT_IN_FIRST_ROUND = "This System isn't in its first round";
 
 export type FirstRoundReadiness = {
   hasBusinessSystemOwner: boolean;
+  /** The System has a Sensitivity Level (ADR 0011), which decides which Controls apply. */
+  hasSensitivityLevel: boolean;
+  /** Set when the level is below the System's Information Types (ADR 0012): the text naming the types and the level to raise to. */
+  belowInformationTypes: string | null;
   riskAnalysisCompleted: boolean;
   mandatoryTotal: number;
   /** The mandatory first-round Controls that have no Assessment yet. */
@@ -49,12 +56,17 @@ export async function readFirstRoundReadiness(tx: Tx, systemId: string): Promise
     ? await hasCompletedRiskAnalysisSince(tx, systemId, system.evaluationStageEnteredAt)
     : false;
   const hasBusinessSystemOwner = system.businessSystemOwnerId !== null;
+  const hasSensitivityLevel = system.sensitivityLevel !== null;
+  const types = await readSystemInformationTypes(tx, systemId);
+  const belowInformationTypes = hasSensitivityLevel && isBelowInformationTypes(system.sensitivityLevel, types) ? await belowInformationTypesMessage(tx, types) : null;
   return {
     hasBusinessSystemOwner,
+    hasSensitivityLevel,
+    belowInformationTypes,
     riskAnalysisCompleted,
     mandatoryTotal,
     mandatoryMissing,
-    ready: hasBusinessSystemOwner && riskAnalysisCompleted && mandatoryMissing.length === 0,
+    ready: hasBusinessSystemOwner && hasSensitivityLevel && belowInformationTypes === null && riskAnalysisCompleted && mandatoryMissing.length === 0,
   };
 }
 
@@ -62,6 +74,8 @@ export async function readFirstRoundReadiness(tx: Tx, systemId: string): Promise
 export function firstRoundRefusal(readiness: FirstRoundReadiness): string {
   const missing: string[] = [];
   if (!readiness.hasBusinessSystemOwner) missing.push("a Business System Owner");
+  if (!readiness.hasSensitivityLevel) missing.push("a Sensitivity Level (it decides which Controls apply)");
+  if (readiness.belowInformationTypes) missing.push(`a Sensitivity Level that meets its Information Types (${readiness.belowInformationTypes.replace(/^Cannot submit: /, "")})`);
   if (!readiness.riskAnalysisCompleted) missing.push("a completed Risk Analysis");
   if (readiness.mandatoryMissing.length > 0) {
     missing.push(`an Assessment on the mandatory first-round Controls ${readiness.mandatoryMissing.map((c) => `${c.code} (${c.title})`).join(", ")}`);

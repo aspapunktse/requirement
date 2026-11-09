@@ -6,23 +6,9 @@ import { canSubmit } from "@/lib/system-permissions";
 import { getUnaddressedMandatoryControls } from "@/lib/control-assessments";
 import { logChangeEvent } from "@/lib/change-events";
 import { STAGED_SYSTEM_REFUSAL } from "@/lib/evaluation-stages";
-import { isBelowInformationTypes, floorSettingTypes, informationTypeFloor } from "@/lib/information-type-floor";
+import { isBelowInformationTypes } from "@/lib/information-type-floor";
+import { NO_SENSITIVITY_LEVEL, belowInformationTypesMessage } from "@/lib/submit-classification";
 import { readSystemInformationTypes } from "@/lib/system-information-types";
-
-const NO_SENSITIVITY_LEVEL =
-  "Cannot submit: set the System's Sensitivity Level first. It decides which Controls apply, so the review needs it.";
-
-/** The 400 text when the System's level is below its Information Types (ADR 0012): names the types and the level to raise to. */
-async function belowInformationTypesMessage(
-  db: Pick<typeof prisma, "sensitivityLevel">,
-  types: Parameters<typeof floorSettingTypes>[0],
-): Promise<string> {
-  const floor = informationTypeFloor(types)!;
-  const row = await db.sensitivityLevel.findUnique({ where: { level: floor }, select: { label: true } });
-  const label = row?.label ?? String(floor);
-  const names = floorSettingTypes(types).map((type) => type.name).join(", ");
-  return `Cannot submit: the System's Sensitivity Level is below its Information Types (${names} is ${label}). Raise the level to ${label} or higher first.`;
-}
 
 /** Thrown inside the submit transaction to roll it back when the System turned out to be below its Information Types. */
 class BelowInformationTypes extends Error {}

@@ -93,7 +93,7 @@ export async function readOg1(tx: Tx, systemId: string) {
 }
 
 /** Moves the System out of OG1 on the verdicts given: Full goes to Qualification, Self to the second round. Null if it was no longer at OG1. */
-async function closeOg1(tx: Tx, systemId: string, verdicts: { verdict: EvaluationTrack }[], actorId: string) {
+async function closeOg1(tx: Tx, systemId: string, verdicts: { verdict: EvaluationTrack }[]) {
   const track = trackFromVerdicts(verdicts);
   const stage: EvaluationStage = track === "FULL" ? "QUALIFICATION" : "SECOND_ROUND";
   const moved = await tx.system.updateMany({
@@ -105,7 +105,8 @@ async function closeOg1(tx: Tx, systemId: string, verdicts: { verdict: Evaluatio
     systemId,
     "EVALUATION_STAGE_CHANGED",
     `OG1 closed: ${TRACK_LABEL[track]} track, moved to ${EVALUATION_STAGE_LABEL[stage]}`,
-    actorId,
+    // The move is automatic, and attributing it to the last giver would name the person behind a verdict that is shown as the group's.
+    SYSTEM_ACTOR,
     tx,
   );
   return { track, stage };
@@ -115,9 +116,9 @@ async function closeOg1(tx: Tx, systemId: string, verdicts: { verdict: Evaluatio
  * Brings OG1 in line with the live participants, on a System row the caller has locked: a group's verdicts whose group is no
  * longer a participant (its first-round Controls left the remit, its Framework left the scope) are voided, and when every remaining
  * participant has a verdict OG1 closes (a dropped group may have been the last one to wait for). Nothing to do unless the System is
- * at OG1. `actorId` is the person who caused the close (the verdict's giver), else the system. Returns the close, if one happened.
+ * at OG1. The close is the system's (automatic). Returns the close, if one happened.
  */
-export async function settleOg1(tx: Tx, systemId: string, actorId: string = SYSTEM_ACTOR) {
+export async function settleOg1(tx: Tx, systemId: string) {
   const og1 = await readOg1(tx, systemId);
   if (!og1) return null;
   const liveGroupIds = og1.participants.flatMap((participant) => (participant.reviewGroupId === null ? [] : [participant.reviewGroupId]));
@@ -126,7 +127,7 @@ export async function settleOg1(tx: Tx, systemId: string, actorId: string = SYST
     data: { voidedAt: new Date() },
   });
   if (og1.participants.length === 0 || og1.participants.some((participant) => participant.verdict === null)) return null;
-  return closeOg1(tx, systemId, og1.participants.map((participant) => participant.verdict!), actorId);
+  return closeOg1(tx, systemId, og1.participants.map((participant) => participant.verdict!));
 }
 
 export type GiveVerdictResult =
@@ -164,7 +165,7 @@ export async function giveVerdict(
     data: { systemId, reviewGroupId: input.reviewGroupId, verdictById: giverId, verdict: input.verdict, comment: input.comment },
   });
   await logChangeEvent(systemId, "TRACK_VERDICT_GIVEN", `${participant.name}: ${TRACK_LABEL[input.verdict]}: ${input.comment}`, giverId, tx);
-  const closed = await settleOg1(tx, systemId, giverId);
+  const closed = await settleOg1(tx, systemId);
   return {
     ok: true,
     verdict: {

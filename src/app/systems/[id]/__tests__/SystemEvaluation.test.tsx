@@ -10,9 +10,11 @@ vi.setConfig({ testTimeout: 20_000 });
 
 const respond = (body: unknown, status = 200) => Promise.resolve(new Response(JSON.stringify(body), { status }));
 
-const READY = { hasBusinessSystemOwner: true, riskAnalysisCompleted: true, mandatoryTotal: 4, mandatoryMissing: [], ready: true };
+const READY = { hasBusinessSystemOwner: true, hasSensitivityLevel: true, belowInformationTypes: null, riskAnalysisCompleted: true, mandatoryTotal: 4, mandatoryMissing: [], ready: true };
 const NOT_READY = {
   hasBusinessSystemOwner: false,
+  hasSensitivityLevel: false,
+  belowInformationTypes: null,
   riskAnalysisCompleted: false,
   mandatoryTotal: 4,
   mandatoryMissing: [{ code: "A.5.1", title: "Policies" }],
@@ -81,9 +83,18 @@ describe("Evaluation tab (#328)", () => {
     render(<SystemEvaluation systemId="s1" />);
     const list = await screen.findByRole("list", { name: "First-round checklist" });
     expect(within(list).getByText(/No Business System Owner yet/)).toBeInTheDocument();
+    expect(within(list).getByText(/No Sensitivity Level yet/)).toBeInTheDocument();
     expect(within(list).getByText(/No completed Risk Analysis yet/)).toBeInTheDocument();
     expect(within(list).getByText("3 of 4 mandatory first-round Controls have an Assessment")).toBeInTheDocument();
     expect(screen.getByText(/A\.5\.1 \(Policies\)/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Submit the first round" })).toBeDisabled();
+  });
+
+  it("names a Sensitivity Level below the Information Types in the checklist", async () => {
+    current = evaluation({ firstRound: { ...READY, ready: false, belowInformationTypes: "Cannot submit: the System's Sensitivity Level is below its Information Types (Payroll is High). Raise the level to High or higher first." } });
+    render(<SystemEvaluation systemId="s1" />);
+    const list = await screen.findByRole("list", { name: "First-round checklist" });
+    expect(within(list).getByText(/is below its Information Types \(Payroll is High\)/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Submit the first round" })).toBeDisabled();
   });
 

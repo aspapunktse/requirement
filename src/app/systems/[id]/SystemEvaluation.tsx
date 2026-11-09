@@ -70,6 +70,15 @@ function FirstRoundCard({ systemId, evaluation, onDone }: { systemId: string; ev
   }
 
   const checks: { key: string; ok: boolean; text: string }[] = [
+    {
+      key: "level",
+      ok: readiness.hasSensitivityLevel && readiness.belowInformationTypes === null,
+      text: !readiness.hasSensitivityLevel
+        ? "No Sensitivity Level yet (set it on the Profile tab)"
+        : readiness.belowInformationTypes
+          ? readiness.belowInformationTypes.replace(/^Cannot submit: /, "")
+          : "The Sensitivity Level is set",
+    },
     { key: "bso", ok: readiness.hasBusinessSystemOwner, text: readiness.hasBusinessSystemOwner ? "A Business System Owner is set" : "No Business System Owner yet (set it on the Profile tab)" },
     { key: "ra", ok: readiness.riskAnalysisCompleted, text: readiness.riskAnalysisCompleted ? "A Risk Analysis is completed" : "No completed Risk Analysis yet (record one on the Risks tab)" },
     {
