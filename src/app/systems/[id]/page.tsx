@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getActingUser } from "@/lib/acting-user";
 import { canWriteSystems } from "@/lib/system-visibility";
 import { canLogRisk, ROLES_ALLOWED_TO_MANAGE_RISK_STATUS } from "@/lib/risks";
+import { canRecordRiskAnalysis } from "@/lib/risk-analysis";
 import { canReadInternalAudits } from "@/lib/internal-audit-rules";
 import { canChangeSystemClassification } from "@/lib/system-classification-change";
 import { canManageBusinessUnits } from "@/lib/business-units";
@@ -77,6 +78,7 @@ export default async function SystemDetailPage({ params }: PageProps<"/systems/[
   ]);
   // A Risk owner can be any User, whatever their role (#322); only those who manage Risks assign one.
   const canManageRisks = ROLES_ALLOWED_TO_MANAGE_RISK_STATUS.includes(user.role);
+  // Recording a Risk Analysis is a subset of managing Risks (it also excludes the System's own owner), so `riskOwners` serves its participants too.
   const riskOwners = canManageRisks ? await prisma.user.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }) : [];
   const canChangeClassification = canChangeSystemClassification(user, system);
 
@@ -102,6 +104,7 @@ export default async function SystemDetailPage({ params }: PageProps<"/systems/[
         canManageStatus={canManageRisks}
         canOpenCheckUp={canReadInternalAudits(user)}
         owners={riskOwners}
+        riskAnalyses={{ canRecord: canRecordRiskAnalysis(user, system) }}
       />
     ),
     providers: (

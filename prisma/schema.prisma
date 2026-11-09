@@ -124,6 +124,9 @@ model User {
   organizationImplementationsUpdated OrganizationControlImplementation[] @relation("OrganizationImplementationUpdatedBy")
   systemDocumentsUpdated             SystemDocument[]                    @relation("SystemDocumentUpdatedBy")
   systemDocumentFilesUploaded        SystemDocumentFile[]                @relation("SystemDocumentFileUploadedBy")
+  riskAnalysesRecorded               RiskAnalysis[]                      @relation("RiskAnalysisRecordedBy")
+  riskAnalysesCompleted              RiskAnalysis[]                      @relation("RiskAnalysisCompletedBy")
+  riskAnalysesAttended               RiskAnalysis[]                      @relation("RiskAnalysisParticipants")
 }
 
 // One of the five fixed, ordered Sensitivity Levels (ADR 0011): 1 Public,
@@ -209,6 +212,7 @@ model System {
   businessSystemOwnerId       String?
   businessSystemOwner         User?                        @relation("SystemBusinessOwner", fields: [businessSystemOwnerId], references: [id], onDelete: SetNull)
   documents                   SystemDocument[]
+  riskAnalyses                RiskAnalysis[]
   // One or more deployment facets this System spans (e.g. On-Prem, Cloud) —
   // a Hybrid System is simply one that declares more than one. See ADR 0003.
   deploymentFacets            DeploymentFacet[]
@@ -745,6 +749,42 @@ model Risk {
   // all Restrict), so this only says that if a Check-up ever did go, it could not take a Risk with it.
   checkUpId String?  @unique
   checkUp   CheckUp? @relation(fields: [checkUpId], references: [id], onDelete: Restrict)
+
+  // The Risk Analysis meeting this Risk was raised in (#325): set when it is logged from that meeting's form.
+  // Kept (set to null) if the analysis is ever deleted; nothing deletes one today.
+  raisedInAnalysisId String?
+  raisedInAnalysis   RiskAnalysis?  @relation("RiskAnalysisRaised", fields: [raisedInAnalysisId], references: [id], onDelete: SetNull)
+  // The Risk Analyses that reviewed this Risk (#325).
+  reviewedInAnalyses RiskAnalysis[] @relation("RiskAnalysisReviewed")
+
+  @@index([raisedInAnalysisId])
+}
+
+// A Risk Analysis meeting on a System (#325, PRD 0002 F-RA.2-3; CONTEXT.md "Risk Analysis"). Recorded by a Risk Owner or an
+// Admin who isn't the System's owner: when it was held, who took part (Users, plus named outsiders such as the vendor as
+// free text), notes, the Risks it reviewed and the ones raised in it (`Risk.raisedInAnalysisId`). Editable until completed
+// (`completedAt` set), then read-only. Completion needs every open Risk on the System to have an owner. Deleted with the System.
+model RiskAnalysis {
+  id            String    @id @default(cuid())
+  systemId      String
+  system        System    @relation(fields: [systemId], references: [id], onDelete: Cascade)
+  // The day of the meeting (stored as midnight UTC).
+  heldOn        DateTime
+  notes         String    @default("")
+  participants  User[]    @relation("RiskAnalysisParticipants")
+  // Named outsiders (the vendor's people, say), free text.
+  outsiders     String[]
+  reviewedRisks Risk[]    @relation("RiskAnalysisReviewed")
+  raisedRisks   Risk[]    @relation("RiskAnalysisRaised")
+  recordedById  String?
+  recordedBy    User?     @relation("RiskAnalysisRecordedBy", fields: [recordedById], references: [id], onDelete: SetNull)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  completedAt   DateTime?
+  completedById String?
+  completedBy   User?     @relation("RiskAnalysisCompletedBy", fields: [completedById], references: [id], onDelete: SetNull)
+
+  @@index([systemId, completedAt])
 }
 
 // Formal sign-off record on a System's onboarding.
@@ -860,6 +900,10 @@ enum ChangeEventAction {
   // actor the User who changed it; the detail names the previous and the new Business System Owner. Picking one at
   // creation writes one too (old none, new the pick), but saving the value it already has writes none.
   BUSINESS_SYSTEM_OWNER_CHANGED
+  // A Risk Analysis was completed (#325): actor the User who completed it; the detail says when it was held and how many
+  // Risks it reviewed and raised. Recording and editing one write no event of their own (the Risks raised in it each
+  // write RISK_LOGGED), so the timeline shows a meeting once, when it is done.
+  RISK_ANALYSIS_COMPLETED
 }
 
 // A curated, System-lifecycle-relevant mutation record — feeds the landing

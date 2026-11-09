@@ -8,6 +8,7 @@ import { RISK_SOURCES, RISK_SOURCE_LABELS, type RiskSourceValue } from "@/lib/ri
 import { riskSeverityTone, riskStatusTone } from "@/lib/status-tones";
 import { initialsOf } from "@/app/home/home-format";
 import { RiskGrid, SEVERITY_TEXT } from "./RiskGrid";
+import { SystemRiskAnalyses } from "./SystemRiskAnalyses";
 import { riskGridOf } from "./system-page-logic";
 import { RISK_LEVELS } from "./system-page-types";
 import { useRemote } from "./use-remote";
@@ -107,6 +108,7 @@ export function SystemRisks({
   canManageStatus,
   canOpenCheckUp,
   owners,
+  riskAnalyses,
 }: {
   systemId: string;
   canLog: boolean;
@@ -114,6 +116,11 @@ export function SystemRisks({
   canOpenCheckUp: boolean;
   /** Every User, for assigning a Risk's owner (any role); passed only to those who manage Risks. */
   owners?: { id: string; name: string }[];
+  /**
+   * Shows the Risk Analyses card below the register (#325). `canRecord` is `canRecordRiskAnalysis`: those who may record, edit and
+   * complete one; `owners` (every User, passed to the same people) is who can be picked as a participant. Left out, no card.
+   */
+  riskAnalyses?: { canRecord: boolean };
 }) {
   const router = useRouter();
   const [logging, setLogging] = useState(false);
@@ -132,6 +139,7 @@ export function SystemRisks({
   const shown = (risks ?? []).filter((risk) => !sourceFilter || risk.source === sourceFilter);
 
   return (
+    <div className="sc-stackgap">
     <section className="hc-card" aria-labelledby="sc-riskreg-h">
       <div className="hc-card-h">
         <h2 id="sc-riskreg-h">Risk register</h2>
@@ -236,6 +244,16 @@ export function SystemRisks({
         )}
       </div>
     </section>
+    {riskAnalyses && (
+      <SystemRiskAnalyses
+        systemId={systemId}
+        canRecord={riskAnalyses.canRecord}
+        people={owners ?? []}
+        openRisks={(risks ?? []).filter((risk) => risk.status === "OPEN").map((risk) => ({ id: risk.id, title: risk.title }))}
+        onRisksChanged={load}
+      />
+    )}
+    </div>
   );
 }
 
