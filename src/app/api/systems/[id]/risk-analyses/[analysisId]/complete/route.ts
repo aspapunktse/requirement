@@ -6,7 +6,7 @@ import { getVisibleSystem } from "@/lib/system-visibility";
 import {
   ANALYSIS_ALREADY_COMPLETED,
   canRecordRiskAnalysis,
-  findOpenRisksWithoutOwner,
+  findRisksBlockingCompletion,
   ownerlessRisksMessage,
   RISK_ANALYSIS_REFUSED,
   RISK_ANALYSIS_SELECT,
@@ -16,7 +16,7 @@ import {
 
 /**
  * Completes a Risk Analysis (#325, PRD 0002 F-RA.3). Same people as recording one (403 otherwise, nothing changed). Refused with 409, naming
- * the Risks, while any open Risk on the System has no owner; 409 too when it is already completed. The analysis row is locked and both
+ * the Risks, while any open or accepted Risk on the System has no owner; 409 too when it is already completed. The analysis row is locked and both
  * conditions are checked under the lock, then the analysis is completed and its `RISK_ANALYSIS_COMPLETED` Change Event written in the
  * same transaction. Once completed it is read-only.
  */
@@ -35,7 +35,7 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems
     if (locked.length === 0) return { status: "missing" as const };
     if (locked[0].completedAt !== null) return { status: "completed" as const };
 
-    const ownerless = await findOpenRisksWithoutOwner(tx, system.id);
+    const ownerless = await findRisksBlockingCompletion(tx, system.id);
     if (ownerless.length > 0) return { status: "ownerless" as const, ownerless };
 
     const done = await tx.riskAnalysis.update({

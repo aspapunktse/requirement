@@ -270,7 +270,7 @@ function AnalysisEntry({
 /**
  * Risk Analyses on the Risks tab (#325, PRD 0002 F-RA.2-3): the meetings recorded on this System, newest first, read by anyone who
  * sees the System. Those who `canRecord` (a Risk Owner or an Admin who isn't the System's owner, the rule the routes enforce)
- * record one, edit it while it isn't completed and complete it. Completing is refused by the server while an open Risk has no owner;
+ * record one, edit it while it isn't completed and complete it. Completing is refused by the server while an open or accepted Risk has no owner;
  * its message names them and is shown here. `openRisks` are the System's open Risks as the register loaded them, and `onRisksChanged`
  * asks the register to read again after a meeting logged new ones.
  */

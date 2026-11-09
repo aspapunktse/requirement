@@ -74,7 +74,7 @@ const edit = (userId: string | null, id: string, analysisId: string, body: unkno
   PATCH(requestAs(`/api/systems/${id}/risk-analyses/${analysisId}`, userId, "PATCH", body), ctx(id, analysisId));
 const complete = (userId: string | null, id: string, analysisId: string) =>
   COMPLETE(requestAs(`/api/systems/${id}/risk-analyses/${analysisId}/complete`, userId, "POST"), ctx(id, analysisId));
-const makeRisk = (sid: string, data: { title: string; status?: "OPEN" | "MITIGATED"; ownerId?: string | null }) =>
+const makeRisk = (sid: string, data: { title: string; status?: "OPEN" | "MITIGATED" | "ACCEPTED" | "TRANSFERRED" | "CLOSED"; ownerId?: string | null }) =>
   prisma.risk.create({ data: { systemId: sid, description: "d", severity: "HIGH", likelihood: "LOW", status: "OPEN", ...data } });
 const analysesOf = (sid: string) => prisma.riskAnalysis.findMany({ where: { systemId: sid } });
 const risksOf = (sid: string) => prisma.risk.count({ where: { systemId: sid } });
@@ -275,6 +275,22 @@ describe("editing and completing a Risk Analysis (#325)", { timeout: 30_000 }, (
     expect(body.risks.map((risk: { id: string }) => risk.id)).toContain(ownerless.id);
     expect((await prisma.riskAnalysis.findUniqueOrThrow({ where: { id: analysisId } })).completedAt).toBeNull();
     expect(await eventsOf(sid)).toBe(events);
+  });
+
+  it("blocks on an ownerless Accepted Risk but not on an ownerless Mitigated, Transferred or Closed one", async () => {
+    const own = await prisma.system.create({ data: { name: `Test RA System ${suffix}-accepted`, ownerId: users.owner, status: "DRAFT" } });
+    systemIds.push(own.id);
+    const analysisId = (await (await record(users.riskOwner, own.id, BODY)).json()).riskAnalysis.id as string;
+    for (const status of ["MITIGATED", "TRANSFERRED", "CLOSED"] as const) await makeRisk(own.id, { title: `Test RA ${status} ${suffix}`, status });
+    const accepted = await makeRisk(own.id, { title: `Test RA accepted ${suffix}`, status: "ACCEPTED" });
+    const refused = await complete(users.riskOwner, own.id, analysisId);
+    expect(refused.status).toBe(409);
+    const body = await refused.json();
+    expect(body.risks.map((risk: { id: string }) => risk.id)).toEqual([accepted.id]);
+    expect(body.error).toContain(accepted.title);
+    expect((await prisma.riskAnalysis.findUniqueOrThrow({ where: { id: analysisId } })).completedAt).toBeNull();
+    await prisma.risk.update({ where: { id: accepted.id }, data: { ownerId: users.person } });
+    expect((await complete(users.riskOwner, own.id, analysisId)).status).toBe(200);
   });
 
   it("completes once every open Risk has an owner, writes its event, and is read-only afterwards", async () => {

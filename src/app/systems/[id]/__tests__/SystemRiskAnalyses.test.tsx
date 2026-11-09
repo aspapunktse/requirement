@@ -154,7 +154,7 @@ describe("Risk Analyses on the Risks tab (#325)", { timeout: 30_000 }, () => {
   it("completes one, and shows the refusal that names the Risks without an owner", async () => {
     const user = userEvent.setup();
     analyses = [analysis({ id: "a2" })];
-    const refusal = 'Every open Risk needs an owner before the Risk Analysis can be completed. Without an owner: "Weak passwords".';
+    const refusal = 'Every open or accepted Risk needs an owner before the Risk Analysis can be completed. Without an owner: "Weak passwords".';
     fetchMock.mockImplementation((_input: string | URL | Request, init?: RequestInit) => (init?.method ? respond({ error: refusal }, 409) : respond({ riskAnalyses: analyses })));
     renderIt();
     await user.click(await screen.findByRole("button", { name: "Complete" }));

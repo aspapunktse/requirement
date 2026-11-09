@@ -19,10 +19,15 @@ export function canRecordRiskAnalysis(user: { id: string; role: UserRole }, syst
 export const RISK_ANALYSIS_REFUSED = "Only a Risk Owner or an Admin who isn't the System's owner can record a Risk Analysis";
 
 /**
- * "Open" here is the same as everywhere else in the app (the Open Risks count, `src/lib/dashboard.ts`): status OPEN.
- * A Risk that is Mitigated, Accepted, Transferred or Closed has been dealt with and needs no owner to complete an analysis.
+ * "Open" means the same as everywhere else in the app (the Open Risks count, `src/lib/dashboard.ts`): status OPEN.
  */
 export const OPEN_RISK_STATUS = "OPEN" as const;
+
+/**
+ * The Risk statuses that must have an owner before a Risk Analysis can be completed (product-owner decision, #325): Open Risks, and
+ * Accepted ones, so the app records who accepted a Risk. Mitigated, Transferred and Closed Risks don't block completion.
+ */
+export const OWNER_REQUIRED_RISK_STATUSES = ["OPEN", "ACCEPTED"] as const;
 
 type AnalysisClient = Pick<Prisma.TransactionClient, "riskAnalysis">;
 
@@ -39,10 +44,10 @@ export async function hasCompletedRiskAnalysisSince(client: AnalysisClient, syst
   return found !== null;
 }
 
-/** The open Risks on a System that have no owner: what stops an analysis from being completed. */
-export function findOpenRisksWithoutOwner(client: Pick<Prisma.TransactionClient, "risk">, systemId: string) {
+/** The Open and Accepted Risks on a System that have no owner: what stops an analysis from being completed. */
+export function findRisksBlockingCompletion(client: Pick<Prisma.TransactionClient, "risk">, systemId: string) {
   return client.risk.findMany({
-    where: { systemId, status: OPEN_RISK_STATUS, ownerId: null },
+    where: { systemId, status: { in: [...OWNER_REQUIRED_RISK_STATUSES] }, ownerId: null },
     select: { id: true, title: true },
     orderBy: { createdAt: "asc" },
   });
@@ -51,7 +56,7 @@ export function findOpenRisksWithoutOwner(client: Pick<Prisma.TransactionClient,
 /** The 409 message for a refused completion: names every open Risk without an owner. */
 export function ownerlessRisksMessage(risks: { title: string }[]) {
   const names = risks.map((risk) => `"${risk.title}"`).join(", ");
-  return `Every open Risk needs an owner before the Risk Analysis can be completed. Without an owner: ${names}.`;
+  return `Every open or accepted Risk needs an owner before the Risk Analysis can be completed. Without an owner: ${names}.`;
 }
 
 export const ANALYSIS_ALREADY_COMPLETED = "This Risk Analysis is completed and can no longer be changed";
