@@ -86,6 +86,10 @@ Staged evaluation (PRD 0002, ADR 0014, no milestone):
 3. #321 Business System Owner on a System (optional for now; sees the System, no write rights). **Done: PR #338.**
 4. #320 Framework Owner curates their own non-base Framework (everything a Compliance Manager does on it, publishing included). **Done: PR #339.**
 5. #327 Design proposals: staged evaluation on the System page (`/design/evaluation/`, A Stepper, B Journey, C Gate board). **Done: PR #343.** The product owner picks one, recorded on #327, before the stage tickets start.
+6. #323 Document Requirements catalogue at `/document-requirements` (Compliance Manager or Admin curate; first documentation is Full only). **Done: PR #PRNUM.**
+7. #324 System provides its documentation. Blocked by #323.
+8. #325 Risk Analysis meeting.
+9. #326 Prefactor: Review Step participation over any set of Controls.
 
 Not cut into issues: the PRD's "could" feature F-IMP.4 (UI upload of Framework files, other Frameworks as data). F-OUT.6 is #273.
 
@@ -146,7 +150,7 @@ The dev DB is in its seeded state. When cleaning up after a browser check, compa
 
 - 11 Systems (one is the Provider "Entra ID SSO"), 11 Users (the seed adds the Internal Auditor; run `npx prisma db seed` after pulling #147), 118 Controls (129 once the Draft content files are loaded with `npm run frameworks:load`: each adds its Supplementary Controls), 527 Control Assessments, 2 Change Events, 4 Control Offerings, 2 Provider dependencies, and 92 Organization Control Implementations, all Not Started. No Control Owners.
 - The two Change Events are seeded state (the `"system"` events on GitHub and Microsoft 365 from the Capability migration): do not delete them.
-- 61 rows in `_prisma_migrations`. 9 Risks: 8 ad hoc and 1 requirement non-conformance (Risk Source, #322). No Framework has a Framework Owner and no Control is marked first round. No System has a Business System Owner. 5 Sensitivity Levels (from the migration). 4 example Information Types from the seed (run `npx prisma db seed` after pulling #303), declared by no System and suggesting no Framework (the seed links Customer personal data to GDPR only when it creates the type, so only on a fresh database). Systems' levels: 3 Sensitive, 5 Highly Sensitive, 2 Critical Sensitivity, 1 unset. No Framework has an onboarding question until a Compliance Manager sets one. `StatSnapshot` is empty until the cron runs. `AppSetting` is empty (every setting at its default) until an Admin saves one.
+- 62 rows in `_prisma_migrations`. No Document Requirements. 9 Risks: 8 ad hoc and 1 requirement non-conformance (Risk Source, #322). No Framework has a Framework Owner and no Control is marked first round. No System has a Business System Owner. 5 Sensitivity Levels (from the migration). 4 example Information Types from the seed (run `npx prisma db seed` after pulling #303), declared by no System and suggesting no Framework (the seed links Customer personal data to GDPR only when it creates the type, so only on a fresh database). Systems' levels: 3 Sensitive, 5 Highly Sensitive, 2 Critical Sensitivity, 1 unset. No Framework has an onboarding question until a Compliance Manager sets one. `StatSnapshot` is empty until the cron runs. `AppSetting` is empty (every setting at its default) until an Admin saves one.
 - 7 Approvals and 9 Review Rounds (one per Approval, plus an open one for each of the 2 Systems In Review).
 - Controls by applicability: 61 Organizational, 31 Both, 26 Per-System. All mandatory.
 - Frameworks: ISO/IEC 27001:2022, which is the base and Published. GDPR 1 and Export Control (EAR/ITAR) 1 are Published but have no Requirements yet. The seed doesn't load `prisma/seed-data/frameworks/`, so CSA CCM 4.1.1, CMMC Levels 1 and 2, Cyber Essentials 3.3 and DEF STAN 05-138 Levels 0–3 are absent until `npm run frameworks:load` is run.
