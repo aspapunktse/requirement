@@ -50,6 +50,7 @@ const TAB_ICON: Record<TabKey, HomeIconKey> = {
   requirements: "layers",
   risks: "risk",
   providers: "building",
+  documentation: "layers",
   profile: "system",
   activity: "bolt",
 };

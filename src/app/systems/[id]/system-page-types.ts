@@ -7,7 +7,7 @@ import type { ControlAssessmentStatus, ImpactLevel, OnboardingStatus, RiskSeveri
  */
 
 /** The tabs, in order. The key is also the URL hash (`#controls`). */
-export const TAB_KEYS = ["overview", "controls", "requirements", "risks", "providers", "profile", "activity"] as const;
+export const TAB_KEYS = ["overview", "controls", "requirements", "risks", "providers", "documentation", "profile", "activity"] as const;
 export type TabKey = (typeof TAB_KEYS)[number];
 export const TAB_LABEL: Record<TabKey, string> = {
   overview: "Overview",
@@ -15,6 +15,7 @@ export const TAB_LABEL: Record<TabKey, string> = {
   requirements: "Requirements",
   risks: "Risks",
   providers: "Providers",
+  documentation: "Documentation",
   profile: "Profile",
   activity: "Approval and activity",
 };

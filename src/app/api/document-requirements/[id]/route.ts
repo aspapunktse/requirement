@@ -57,7 +57,7 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/docume
   }
 }
 
-/** A hard delete: nothing references a Document Requirement yet (the per-System records of #324 will go with it). */
+/** A hard delete: what Systems provided against it (SystemDocument, #324) goes with it. */
 export async function DELETE(request: NextRequest, ctx: RouteContext<"/api/document-requirements/[id]">) {
   const auth = await authorize(request, ROLES_ALLOWED_TO_CURATE_DOCUMENT_REQUIREMENTS);
   if ("response" in auth) return auth.response;

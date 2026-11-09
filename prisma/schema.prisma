@@ -122,6 +122,8 @@ model User {
   checkUpsEvaluated                  CheckUpEvaluation[]                 @relation("CheckUpEvaluator")
   checkUpsWithdrawn                  CheckUpWithdrawal[]                 @relation("CheckUpWithdrawer")
   organizationImplementationsUpdated OrganizationControlImplementation[] @relation("OrganizationImplementationUpdatedBy")
+  systemDocumentsUpdated             SystemDocument[]                    @relation("SystemDocumentUpdatedBy")
+  systemDocumentFilesUploaded        SystemDocumentFile[]                @relation("SystemDocumentFileUploadedBy")
 }
 
 // One of the five fixed, ordered Sensitivity Levels (ADR 0011): 1 Public,
@@ -206,6 +208,7 @@ model System {
   // Optional for now; any User, whatever their role, but never the System's owner. Deleting the User leaves the System without one.
   businessSystemOwnerId       String?
   businessSystemOwner         User?                        @relation("SystemBusinessOwner", fields: [businessSystemOwnerId], references: [id], onDelete: SetNull)
+  documents                   SystemDocument[]
   // One or more deployment facets this System spans (e.g. On-Prem, Cloud) —
   // a Hybrid System is simply one that declares more than one. See ADR 0003.
   deploymentFacets            DeploymentFacet[]
@@ -1207,14 +1210,51 @@ enum DocumentationStage {
 // What a System must provide besides answering its Controls (PRD 0002 F-DOC.1, #323), such as an architecture
 // description or a DPIA: a catalogue the Compliance Manager or an Admin curates. Each says at which stage it is
 // needed and on which Tracks (at least one). First documentation is a Full-track stage, so a requirement for it
-// never includes Self; the API refuses that and a CHECK constraint backs it up. Nothing references it yet: the
-// per-System records (#324) will, and will cascade on delete. Curation is not a Change Event.
+// never includes Self; the API refuses that and a CHECK constraint backs it up. What a System has provided against
+// each one is a SystemDocument, which goes with the entry (#324). Curation is not a Change Event.
 model DocumentRequirement {
-  id          String             @id @default(cuid())
-  name        String             @unique
-  description String?
-  stage       DocumentationStage
-  tracks      EvaluationTrack[]
-  createdAt   DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
+  id              String             @id @default(cuid())
+  name            String             @unique
+  description     String?
+  stage           DocumentationStage
+  tracks          EvaluationTrack[]
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  systemDocuments SystemDocument[]
+}
+
+// What one System has provided against one Document Requirement (#324, PRD 0002 F-DOC.2): a link to the document and
+// whether it is marked provided (which needs a link or an uploaded file). No row means not provided. Written by the System's owner or an Admin; the row records
+// who and when, and no Change Event is written. Deleted with the System or with the catalogue entry.
+model SystemDocument {
+  id                    String              @id @default(cuid())
+  systemId              String
+  system                System              @relation(fields: [systemId], references: [id], onDelete: Cascade)
+  documentRequirementId String
+  documentRequirement   DocumentRequirement @relation(fields: [documentRequirementId], references: [id], onDelete: Cascade)
+  link                  String?
+  provided              Boolean             @default(false)
+  updatedAt             DateTime            @updatedAt
+  updatedById           String?
+  updatedBy             User?               @relation("SystemDocumentUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  file                  SystemDocumentFile?
+
+  @@unique([systemId, documentRequirementId])
+  @@index([documentRequirementId])
+}
+
+// The one file a System uploaded for a Document Requirement (#324): provided is a link or a file, or both. The bytes
+// live here, in Postgres, apart from SystemDocument so that listing never reads them. A new upload replaces the file;
+// it goes with its SystemDocument. The 4 MB cap is the app's (Vercel refuses larger request bodies).
+model SystemDocumentFile {
+  id               String         @id @default(cuid())
+  systemDocumentId String         @unique
+  systemDocument   SystemDocument @relation(fields: [systemDocumentId], references: [id], onDelete: Cascade)
+  fileName         String
+  contentType      String
+  size             Int
+  data             Bytes
+  uploadedAt       DateTime       @default(now())
+  uploadedById     String?
+  uploadedBy       User?          @relation("SystemDocumentFileUploadedBy", fields: [uploadedById], references: [id], onDelete: SetNull)
 }
