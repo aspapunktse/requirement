@@ -65,7 +65,16 @@ const frameworkParts = (framework: FrameworkSummary) => [
   { value: framework.notMet, color: "var(--rg-danger)", label: "Not met" },
 ];
 
-export function SystemCockpit({ view, panels }: { view: SystemPageView; panels: Record<Exclude<TabKey, "overview">, ReactNode> }) {
+export function SystemCockpit({
+  view,
+  panels,
+  banner,
+}: {
+  view: SystemPageView;
+  panels: Record<Exclude<TabKey, "overview">, ReactNode>;
+  /** Shown between the header card and the tabs, e.g. an open Change Review (#334). */
+  banner?: ReactNode;
+}) {
   const router = useRouter();
   const { system, headline, controls, risks, classification, counts } = view;
   const hashTab = useSyncExternalStore(subscribeToHash, currentTab, serverTab);
@@ -401,6 +410,8 @@ export function SystemCockpit({ view, panels }: { view: SystemPageView; panels: 
           </dl>
         </div>
       </section>
+
+      {banner}
 
       <div className="sc-tabs" role="tablist" aria-label="System sections" ref={tabsRef}>
         <span className="ind" ref={indicatorRef} aria-hidden="true" />

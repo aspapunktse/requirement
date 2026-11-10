@@ -155,6 +155,16 @@ describe("Change Review (#334)", { timeout: 90_000 }, () => {
       expect(recs.find((r) => r.reviewGroupId === groups[1].id)?.voidedAt).toBeNull();
     });
 
+    it("works out what a change added from the System as it is under the lock, not from the caller's earlier read", async () => {
+      const system = await makeSystem({ facets: [] });
+      const stale = await load(system.id); // read before another change committed
+      await prisma.system.update({ where: { id: system.id }, data: { deploymentFacets: { connect: [{ id: facets[0] }] } } });
+      await changeSystemClassification(stale, { deploymentFacetIds: [facets[0], facets[1]] }, users.owner.id);
+      // Controls 0 and 1 were already in the remit; only control 2 (facet G) is new.
+      const [review] = await reviews(system.id);
+      expect(review.controls.map((c) => c.controlId)).toEqual([controls[2].id]);
+    });
+
     it("starts nothing when the change adds no Controls to any remit", async () => {
       const system = await makeSystem({ facets: [0] });
       await changeFacets(system.id, [0, 2]);

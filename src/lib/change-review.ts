@@ -76,16 +76,35 @@ export type ChangeReviewStart = { changeReviewId: string; widened: boolean };
  * change added Controls to some participant's remit. Starts a Change Review, or widens the open one (returning `widened`); null when
  * nothing was started or widened. Writes its Change Event, actor the person who made the change.
  */
+/**
+ * The System's complete classification as `tx` sees it now. Read it right after `lockSystem` and before the writes (`before`);
+ * `startOrWidenChangeReview` reads the `after` itself, so the delta is of the locked state, never of the caller's earlier read
+ * or of the request (two overlapping changes could otherwise each miss a Control that needs both).
+ */
+export async function readClassification(tx: Tx, systemId: string): Promise<SystemClassification> {
+  const row = await tx.system.findUniqueOrThrow({
+    where: { id: systemId },
+    select: {
+      sensitivityLevel: true,
+      integrityImpactLevel: true,
+      availabilityImpactLevel: true,
+      deploymentFacets: { select: { id: true } },
+      frameworkScopes: { select: { id: true } },
+    },
+  });
+  return row;
+}
+
 export async function startOrWidenChangeReview(
   tx: Tx,
   systemId: string,
   before: SystemClassification,
-  after: SystemClassification,
   actorId: string,
 ): Promise<ChangeReviewStart | null> {
   const system = await tx.system.findUnique({ where: { id: systemId }, select: { status: true, evaluationClosedAt: true } });
   if (!system || system.status !== "ONBOARDED" || system.evaluationClosedAt) return null;
 
+  const after = await readClassification(tx, systemId);
   const was = await remitPairs(tx, before);
   const now = await remitParticipantsByControl(tx, after);
   const added: { controlId: string; reviewGroupId: string | null }[] = [];

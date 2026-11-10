@@ -148,13 +148,14 @@ function DecisionForm({ systemId, review, onDone }: { systemId: string; review: 
  * added to it and its Recommendation; the Business System Owner then accepts or revokes the ATO. Rendered by the System page only
  * while a review is open. Reads `GET /api/systems/[id]/change-review`; after an action it reads again and refreshes the page.
  */
-export function SystemChangeReview({ systemId }: { systemId: string }) {
+export function SystemChangeReview({ systemId, revision = "" }: { systemId: string; revision?: string }) {
   const router = useRouter();
   const read = useCallback(async () => {
-    const response = await fetch(`/api/systems/${systemId}/change-review`);
+    // `revision` changes when the server page reloads after an edit elsewhere on the page, so the panel reads again.
+    const response = await fetch(`/api/systems/${systemId}/change-review?rev=${encodeURIComponent(revision)}`);
     if (!response.ok) throw new Error("read failed");
     return ((await response.json()) as { changeReview: ChangeReviewView | null }).changeReview;
-  }, [systemId]);
+  }, [systemId, revision]);
   const { data: review, failed, reload } = useRemote(read);
   const afterAction = () => {
     reload();

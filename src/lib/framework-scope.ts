@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { diffApplicabilityOps, getApplicableControls, type SystemClassification } from "@/lib/control-assessments";
 import { logChangeEvent } from "@/lib/change-events";
 import { reconcileReviewSteps, reconcileReviewStepsIn } from "@/lib/review-steps";
-import { startOrWidenChangeReview } from "@/lib/change-review";
+import { readClassification, startOrWidenChangeReview } from "@/lib/change-review";
 import { lockSystem } from "@/lib/system-lock";
 import { recordProviderChange } from "@/lib/provider-inheritance";
 import { isSystemOwnerOrAdmin } from "@/lib/system-permissions";
@@ -77,12 +77,13 @@ async function declareFrameworkScope(system: ScopeSystem, framework: { id: strin
   // The scope row, the Assessment sync, the Change Event and any Change Review (#334) commit together; every query uses `tx`.
   const { added, removed } = await prisma.$transaction(async (tx) => {
     await lockSystem(tx, system.id);
+    const classificationBefore = await readClassification(tx, system.id); // the locked state, for the Change Review (#334)
     const { added, deleteOp, createOp } = diffApplicabilityOps(system.id, oldApplicable, newApplicable, tx);
     await tx.system.update({ where: { id: system.id }, data: { frameworkScopes: { connect: { id: framework.id } } } });
     const removed = await deleteOp;
     await createOp;
     await logChangeEvent(system.id, "CLASSIFICATION_CHANGED", describeFrameworkScopeAdded(framework.name, added, removed.count), actorId, tx);
-    await startOrWidenChangeReview(tx, system.id, system, { ...system, frameworkScopes: newScopeIds.map((id) => ({ id })) }, actorId);
+    await startOrWidenChangeReview(tx, system.id, classificationBefore, actorId);
     return { added, removed: removed.count };
   });
   await reconcileReviewSteps(system.id);
@@ -164,13 +165,14 @@ async function removeFrameworkScope(system: ScopeSystem, framework: { id: string
   // The scope row, the Assessment sync, the decline, the Change Event and any Change Review (#334) commit together; every query uses `tx`.
   const { added, removed } = await prisma.$transaction(async (tx) => {
     await lockSystem(tx, system.id);
+    const classificationBefore = await readClassification(tx, system.id); // the locked state, for the Change Review (#334)
     const { added, deleteOp, createOp } = diffApplicabilityOps(system.id, oldApplicable, newApplicable, tx);
     await tx.system.update({ where: { id: system.id }, data: { frameworkScopes: { disconnect: { id: framework.id } } } });
     const removed = await deleteOp;
     await createOp;
     await tx.frameworkSuggestionDecline.createMany({ data: declines, skipDuplicates: true });
     await logChangeEvent(system.id, "CLASSIFICATION_CHANGED", `Framework Scope "${framework.name}" removed (+${added}/-${removed.count} Control Assessment(s))`, actorId, tx);
-    await startOrWidenChangeReview(tx, system.id, system, { ...system, frameworkScopes: newScopeIds.map((id) => ({ id })) }, actorId);
+    await startOrWidenChangeReview(tx, system.id, classificationBefore, actorId);
     return { added, removed: removed.count };
   });
   await reconcileReviewSteps(system.id);

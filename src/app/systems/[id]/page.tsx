@@ -158,15 +158,16 @@ export default async function SystemDetailPage({ params }: PageProps<"/systems/[
 
   // Keyed on the System and the acting user, so switching either starts from a clean state.
   const hasOpenChangeReview = (await prisma.changeReview.count({ where: { systemId: system.id, status: "OPEN" } })) > 0;
-  return (
-    <>
-      {/* An open Change Review on an Onboarded System (#334) sits above the cockpit until the Business System Owner decides. */}
-      {hasOpenChangeReview && (
-        <div className="hc ev">
-          <SystemChangeReview systemId={system.id} />
-        </div>
-      )}
-      <SystemCockpit key={`${system.id}:${user.id}`} view={view} panels={panels} />
-    </>
-  );
+  // An open Change Review on an Onboarded System (#334) sits below the header card, above the tabs, until the Business System Owner decides.
+  // The newest Change Event is the panel's revision: a classification, Assessment or Business System Owner change, or a
+  // Recommendation, adds one, so the panel reads again after each `router.refresh()` instead of showing a stale view.
+  const latestEvent = hasOpenChangeReview
+    ? await prisma.changeEvent.findFirst({ where: { systemId: system.id }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], select: { id: true } })
+    : null;
+  const banner = hasOpenChangeReview ? (
+    <div className="ev">
+      <SystemChangeReview systemId={system.id} revision={latestEvent?.id ?? ""} />
+    </div>
+  ) : undefined;
+  return <SystemCockpit key={`${system.id}:${user.id}`} view={view} panels={panels} banner={banner} />;
 }
