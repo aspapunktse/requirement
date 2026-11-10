@@ -287,7 +287,9 @@ describe("Full track, second half (#332)", { timeout: 90_000 }, () => {
         const system = await atOg3(first, second);
         const before = await snapshot(system.id);
         expect((await view(system.id, "bso")).og3.adviseAgainst).toBe(true);
-        expect((await decideOg3("bso", system.id, { decision: "AUTHORIZE", comment: "Go" })).status).toBe(400);
+        const refused = await decideOg3("bso", system.id, { decision: "AUTHORIZE", comment: "Go" });
+        expect(refused.status).toBe(400);
+        expect((await refused.json()).error).toBe("A written justification is required to authorize against an Advise-against Recommendation");
         expect(await snapshot(system.id)).toBe(before);
         expect((await decideOg3("bso", system.id, { decision: "AUTHORIZE", comment: "Go", justification: "  " })).status).toBe(400);
         expect(await snapshot(system.id)).toBe(before);

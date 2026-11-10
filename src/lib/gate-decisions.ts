@@ -40,6 +40,7 @@ export const NOT_AT_OG3 = "This System isn't at OG3";
 export const ALREADY_AUTHORIZED = "This System already has its authorization to operate";
 export const SEND_BACK_TARGET_REFUSED = "A System can only be sent back to an earlier stage on its Track";
 export const JUSTIFICATION_REQUIRED = "A written justification is required to proceed against an Advise-against Recommendation";
+export const JUSTIFICATION_REQUIRED_AT_OG3 = "A written justification is required to authorize against an Advise-against Recommendation";
 export const JUSTIFICATION_NOT_ALLOWED = "A justification belongs only to proceeding at OG2 or authorizing at OG3";
 
 /** The OAG reviews whose live Advise-against a gate's AUTHORIZE needs a justification against: OG2 weighs review 1, OG3 both (the conservative reading). */
@@ -105,7 +106,7 @@ export async function decideAtGate(systemId: string, gate: Gate, actor: Actor, i
       const proceeding = advice !== undefined && input.decision === "AUTHORIZE";
       if (input.justification !== undefined && !proceeding) return { ok: false, status: 400, error: JUSTIFICATION_NOT_ALLOWED };
       if (proceeding && input.justification === undefined && (await hasAdviseAgainst(tx, systemId, advice))) {
-        return { ok: false, status: 400, error: JUSTIFICATION_REQUIRED };
+        return { ok: false, status: 400, error: gate === "OG3" ? JUSTIFICATION_REQUIRED_AT_OG3 : JUSTIFICATION_REQUIRED };
       }
 
       const now = new Date();
