@@ -112,9 +112,26 @@ const analysis = (over: Partial<RiskAnalysisView> = {}): RiskAnalysisView => ({
   ...over,
 });
 
+const sysRisk = (id: string, status: string, ownerId: string | null) => ({
+  id,
+  title: id,
+  description: "",
+  severity: "HIGH",
+  likelihood: "LOW",
+  status,
+  source: "AD_HOC",
+  mitigationPlan: null,
+  ownerId,
+  owner: ownerId ? { id: ownerId, name: "Owner" } : null,
+  controlAssessment: null,
+});
+
 describe("RiskAnalysisRecord", () => {
   it("shows the latest analysis read-only, with its Risks and what is not done", async () => {
-    serve({ "/risk-analyses": () => respond({ riskAnalyses: [analysis(), analysis({ id: "a0", heldOn: "2026-10-01" })] }) });
+    serve({
+      "/risk-analyses": () => respond({ riskAnalyses: [analysis(), analysis({ id: "a0", heldOn: "2026-10-01" })] }),
+      "/risks": () => respond({ risks: [sysRisk("r1", "OPEN", "u1"), sysRisk("r2", "OPEN", null)] }),
+    });
     render(<RiskAnalysisRecord systemId="s1" />);
     expect(await screen.findByText("In progress")).toBeInTheDocument();
     expect(screen.getByText("Elena Voss, Vendor rep")).toBeInTheDocument();
@@ -122,19 +139,45 @@ describe("RiskAnalysisRecord", () => {
     const risks = screen.getByRole("list", { name: "Risks in this analysis" });
     expect(within(risks).getByText("Vendor lock-in")).toBeInTheDocument();
     expect(within(risks).getByText("Raised")).toBeInTheDocument();
-    expect(screen.getByText("Not done: 1 open Risk without a Risk owner.")).toBeInTheDocument();
+    expect(screen.getByText("Not done: 1 open or accepted Risk on this System without a Risk owner.")).toBeInTheDocument();
     expect(screen.getByText(/1 earlier analysis is/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Record Risk Analysis|Complete|Edit/ })).not.toBeInTheDocument();
   });
 
-  it("marks a completed analysis done", async () => {
+  it("counts an ownerless accepted Risk, and an ownerless open Risk that isn't in the meeting, as not done", async () => {
+    serve({
+      "/risk-analyses": () => respond({ riskAnalyses: [analysis({ reviewedRisks: [], raisedRisks: [] })] }),
+      "/risks": () => respond({ risks: [sysRisk("x1", "ACCEPTED", null), sysRisk("x2", "OPEN", null), sysRisk("x3", "OPEN", "u1"), sysRisk("x4", "CLOSED", null)] }),
+    });
+    render(<RiskAnalysisRecord systemId="s1" />);
+    expect(await screen.findByText("Not done: 2 open or accepted Risks on this System without a Risk owner.")).toBeInTheDocument();
+  });
+
+  it("shows the green line only when every open or accepted Risk on the System has an owner", async () => {
+    serve({
+      "/risk-analyses": () => respond({ riskAnalyses: [analysis()] }),
+      "/risks": () => respond({ risks: [sysRisk("x1", "ACCEPTED", "u1"), sysRisk("x4", "CLOSED", null)] }),
+    });
+    render(<RiskAnalysisRecord systemId="s1" />);
+    expect(await screen.findByText("✓ Every open or accepted Risk on this System has a Risk owner.")).toBeInTheDocument();
+  });
+
+  it("shows no green line when the Risks can't be read", async () => {
+    serve({ "/risk-analyses": () => respond({ riskAnalyses: [analysis()] }), "/risks": () => respond({ error: "no" }, 500) });
+    render(<RiskAnalysisRecord systemId="s1" />);
+    expect(await screen.findByText(/Couldn't check whether every open or accepted Risk has a Risk owner/)).toBeInTheDocument();
+    expect(screen.queryByText(/^✓/)).not.toBeInTheDocument();
+  });
+
+  it("marks a completed analysis completed, without the ownership line", async () => {
     serve({
       "/risk-analyses": () =>
         respond({ riskAnalyses: [analysis({ completedAt: "2026-11-06T10:00:00.000Z", completedBy: { id: "u1", name: "Elena Voss" }, raisedRisks: [], notes: "" })] }),
+      "/risks": () => respond({ risks: [] }),
     });
     render(<RiskAnalysisRecord systemId="s1" />);
     expect(await screen.findByText("Completed")).toBeInTheDocument();
-    expect(screen.getByText("✓ Every open Risk here has a Risk owner.")).toBeInTheDocument();
+    expect(screen.queryByText(/Every open or accepted Risk|Not done/)).not.toBeInTheDocument();
   });
 
   it("has an empty state that points to the Risks tab, and an error state", async () => {

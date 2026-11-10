@@ -6,7 +6,7 @@ import { StatusChip } from "@/components/ui/StatusChip";
 import type { Risk } from "@/components/RiskList";
 import { STAGE_LABEL } from "@/lib/document-requirement";
 import { appliesToTrack, type SystemDocumentRow } from "@/lib/system-documentation";
-import type { RiskAnalysisView } from "@/lib/risk-analysis";
+import { OWNER_REQUIRED_RISK_STATUSES, type RiskAnalysisView } from "@/lib/risk-analysis";
 import { RISK_SOURCES, RISK_SOURCE_LABELS } from "@/lib/risk-source";
 import { formatFileSize } from "@/lib/system-document-file";
 import { riskSeverityTone } from "@/lib/status-tones";
@@ -133,6 +133,16 @@ export function RiskAnalysisRecord({ systemId }: { systemId: string }) {
   }, [systemId]);
   const { data, failed, reload } = useRemote(read);
   const latest = data?.[0] ?? null;
+  // What stops completing: the same System-wide rule as `findRisksBlockingCompletion` (every open or accepted Risk, linked to the meeting or not).
+  const readRisks = useCallback(async (): Promise<Risk[]> => {
+    const response = await fetch(`/api/systems/${systemId}/risks`);
+    if (!response.ok) throw new Error("Failed to load the Risks");
+    return (await response.json()).risks ?? [];
+  }, [systemId]);
+  const { data: risks, failed: risksFailed } = useRemote(readRisks);
+  const blocking = risks
+    ? risks.filter((risk) => (OWNER_REQUIRED_RISK_STATUSES as readonly string[]).includes(risk.status) && !risk.ownerId && !risk.owner).length
+    : null;
 
   return (
     <div className="ev-part" role="group" aria-label="Risk Analysis record">
@@ -160,17 +170,16 @@ export function RiskAnalysisRecord({ systemId }: { systemId: string }) {
           </p>
         </div>
       ) : (
-        <RecordBody analysis={latest} earlier={data.length - 1} />
+        <RecordBody analysis={latest} earlier={data.length - 1} blocking={blocking} risksFailed={risksFailed} />
       )}
     </div>
   );
 }
 
-function RecordBody({ analysis, earlier }: { analysis: RiskAnalysisView; earlier: number }) {
+function RecordBody({ analysis, earlier, blocking, risksFailed }: { analysis: RiskAnalysisView; earlier: number; blocking: number | null; risksFailed: boolean }) {
   const completed = analysis.completedAt !== null;
   const people = [...analysis.participants.map((person) => person.name), ...analysis.outsiders];
   const risks = [...analysis.reviewedRisks.map((risk) => ({ risk, how: "Reviewed" })), ...analysis.raisedRisks.map((risk) => ({ risk, how: "Raised" }))];
-  const withoutOwner = risks.filter(({ risk }) => risk.status === "OPEN" && risk.ownerId === null).length;
   return (
     <div className="ev-ra">
       <div className="ev-vrow">
@@ -202,9 +211,16 @@ function RecordBody({ analysis, earlier }: { analysis: RiskAnalysisView; earlier
           ))}
         </ul>
       )}
-      <p className={`ev-ra-done ${withoutOwner > 0 ? "warn" : "ok"}`}>
-        {withoutOwner > 0 ? `Not done: ${withoutOwner} open ${withoutOwner === 1 ? "Risk" : "Risks"} without a Risk owner.` : "✓ Every open Risk here has a Risk owner."}
-      </p>
+      {!completed &&
+        (blocking === null ? (
+          risksFailed && <p className="ev-hint">Couldn&apos;t check whether every open or accepted Risk has a Risk owner.</p>
+        ) : (
+          <p className={`ev-ra-done ${blocking > 0 ? "warn" : "ok"}`}>
+            {blocking > 0
+              ? `Not done: ${blocking} open or accepted ${blocking === 1 ? "Risk" : "Risks"} on this System without a Risk owner.`
+              : "✓ Every open or accepted Risk on this System has a Risk owner."}
+          </p>
+        ))}
       {earlier > 0 && (
         <p className="ev-hint">
           {earlier} earlier {earlier === 1 ? "analysis is" : "analyses are"} on the <TabLink tab="risks">Risks tab</TabLink>.
