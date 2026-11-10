@@ -18,6 +18,7 @@ import { informationTypeFloor, isBelowInformationTypes } from "@/lib/information
 import { frameworkLabel } from "@/lib/framework-label";
 import { suggestionsFor } from "@/lib/framework-suggestions";
 import { SUGGESTING_TYPE_SELECT } from "@/lib/framework-suggestions-data";
+import { EVALUATION_STAGE_LABEL, TRACK_LABEL } from "@/lib/evaluation-stages";
 import { buildAttention, controlIsDone, lifecycleNote, nextStepFor, riskGridOf, sourceKeyOf } from "./system-page-logic";
 import {
   CONTROL_STATUS_ORDER,
@@ -228,8 +229,11 @@ export async function loadSystemPage(user: User, id: string, now = new Date()): 
           availability: system.availabilityImpactLevel,
           createdAt: system.createdAt.toISOString(),
           onboardedAt: system.onboardedAt?.toISOString() ?? null,
+          evaluation: system.evaluationStage ? { stage: system.evaluationStage, track: system.evaluationTrack } : null,
         },
-        note: lifecycleNote({
+        note: system.evaluationStage
+          ? `Evaluated in stages · ${EVALUATION_STAGE_LABEL[system.evaluationStage]}${system.evaluationTrack ? ` · ${TRACK_LABEL[system.evaluationTrack]} track` : ""} · see the Evaluation tab`
+          : lifecycleNote({
           status: system.status,
           ownerName: system.owner.name,
           submittedAt: latestRound?.submittedAt.toISOString() ?? null,
@@ -248,6 +252,7 @@ export async function loadSystemPage(user: User, id: string, now = new Date()): 
           unaddressedMandatory,
           missingSensitivityLevel: system.sensitivityLevel === null,
           belowInformationTypes: isBelowInformationTypes(system.sensitivityLevel, system.informationTypes),
+          staged: system.evaluationStage !== null,
         }),
         canChangeOwner: canChangeOwner(user, system),
         canChangeBusinessSystemOwner: canChangeBusinessSystemOwner(user, system),

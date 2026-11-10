@@ -7,6 +7,7 @@ import { getVisibleSystems } from "@/lib/system-visibility";
 import { canCreateSystem } from "@/lib/system-permissions";
 import { sensitivityLevelSchema } from "@/lib/sensitivity-level";
 import { logChangeEvent } from "@/lib/change-events";
+import { readStagedEvaluationEnabled } from "@/lib/app-settings";
 import { BSO_UNKNOWN_USER_REFUSAL } from "@/lib/business-system-owner";
 import { applyFrameworkScopeDeclaredIn } from "@/lib/framework-scope";
 import { declareProviderDependencyIn } from "@/lib/provider-dependencies";
@@ -134,10 +135,14 @@ export async function POST(request: NextRequest) {
         // Provider locks first, in sorted id order, as `declareProviderDependencyIn` asks of a caller declaring several.
         for (const providerId of dependencyIds) await lockProvider(tx, providerId);
 
+        // The App Setting decides the flow for this System, once, here: on, it starts in its first round (staged evaluation, #328).
+        const staged = await readStagedEvaluationEnabled(tx);
+
         const created = await tx.system.create({
           data: {
             ...rest,
             ownerId: auth.user.id,
+            ...(staged && { evaluationStage: "FIRST_ROUND" as const, evaluationStageEnteredAt: new Date() }),
             ...(businessSystemOwner && { businessSystemOwnerId: businessSystemOwner.id }),
             deploymentFacets: { connect: deploymentFacetIds.map((id) => ({ id })) },
             ...(types.length > 0 && { informationTypes: { connect: types.map((type) => ({ id: type.id })) } }),
@@ -152,6 +157,7 @@ export async function POST(request: NextRequest) {
           tx,
         );
         // A Business System Owner picked in the interview is its own event (old none, new the pick), in the same transaction.
+        if (staged) await logChangeEvent(created.id, "EVALUATION_STAGE_CHANGED", "Staged evaluation started: first round", auth.user.id, tx);
         if (businessSystemOwner) {
           await logChangeEvent(
             created.id,

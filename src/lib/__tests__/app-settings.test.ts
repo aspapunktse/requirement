@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
-import { APP_SETTINGS, readOrganizationName, DEFAULT_SYSTEMS_THRESHOLDS, SETTING_SECTIONS, definitionOf, isAppSettingKey, schemaOf } from "../app-settings";
+import { APP_SETTINGS, readOrganizationName, readStagedEvaluationEnabled, DEFAULT_SYSTEMS_THRESHOLDS, SETTING_SECTIONS, definitionOf, isAppSettingKey, schemaOf } from "../app-settings";
 
 describe("the App Settings registry (#240)", () => {
   it("declares the two Systems list thresholds with the values that were constants before", () => {
@@ -42,5 +42,22 @@ describe("the App Settings registry (#240)", () => {
     expect(isAppSettingKey("organization.name")).toBe(true);
     expect(isAppSettingKey("systems.other")).toBe(false);
     expect(isAppSettingKey("__proto__")).toBe(false);
+  });
+});
+
+describe("readStagedEvaluationEnabled (#328)", () => {
+  // A fake client: nothing is written to the shared database, because the setting is global.
+  const clientWith = (rows: { key: string; value: unknown }[]) =>
+    ({ appSetting: { findMany: async () => rows.map((row) => ({ ...row, updatedAt: new Date(), updatedBy: null })) } }) as never;
+  const KEY = "evaluation.stagedForNewSystems";
+
+  it("is off by default, and for a saved value that is not true", async () => {
+    expect(await readStagedEvaluationEnabled(clientWith([]))).toBe(false);
+    expect(await readStagedEvaluationEnabled(clientWith([{ key: KEY, value: false }]))).toBe(false);
+    expect(await readStagedEvaluationEnabled(clientWith([{ key: KEY, value: "true" }]))).toBe(false);
+  });
+
+  it("is on only for a saved true", async () => {
+    expect(await readStagedEvaluationEnabled(clientWith([{ key: KEY, value: true }]))).toBe(true);
   });
 });

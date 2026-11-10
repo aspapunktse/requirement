@@ -13,17 +13,20 @@ const when = (iso: string) => new Date(iso).toLocaleString("sv-SE", { dateStyle:
 function SettingRow({ definition, initial }: { definition: AppSettingDefinition; initial: AppSettingValue }) {
   const [current, setCurrent] = useState(initial);
   const [draft, setDraft] = useState(String(initial.value));
+  const isBoolean = definition.type === "boolean";
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
   const inputId = `setting-${definition.key}`;
 
   // The value the draft would save, and whether it is acceptable: a whole number in range, or text within its length.
-  const parsed: number | string =
-    definition.type === "text" ? draft.trim() : /^\d+$/.test(draft.trim()) ? Number(draft.trim()) : NaN;
+  const parsed: number | string | boolean =
+    definition.type === "boolean" ? draft === "true" : definition.type === "text" ? draft.trim() : /^\d+$/.test(draft.trim()) ? Number(draft.trim()) : NaN;
   const inRange =
-    definition.type === "text"
-      ? (parsed as string).length <= definition.maxLength
-      : Number.isInteger(parsed) && (parsed as number) >= definition.min && (parsed as number) <= definition.max;
+    definition.type === "boolean"
+      ? true
+      : definition.type === "text"
+        ? (parsed as string).length <= definition.maxLength
+        : Number.isInteger(parsed) && (parsed as number) >= definition.min && (parsed as number) <= definition.max;
   const unchanged = inRange && parsed === current.value;
   const isText = definition.type === "text";
 
@@ -58,25 +61,41 @@ function SettingRow({ definition, initial }: { definition: AppSettingDefinition;
       </label>
       <p className="text-sm text-rg-muted">{definition.help}</p>
       <div className="flex flex-wrap items-center gap-2">
-        <input
-          id={inputId}
-          {...(definition.type === "text" ? { type: "text", maxLength: definition.maxLength + 50 } : { inputMode: "numeric" as const })}
-          className={`${INPUT_CLASS} ${isText ? "w-full max-w-md" : "w-24"}`}
-          value={draft}
-          onChange={(event) => {
-            setDraft(event.target.value);
-            setMessage(null);
-          }}
-          aria-invalid={!inRange}
-          aria-describedby={`${inputId}-meta`}
-        />
+        {isBoolean ? (
+          <label className="flex items-center gap-2 text-sm text-rg-ink">
+            <input
+              id={inputId}
+              type="checkbox"
+              checked={draft === "true"}
+              onChange={(event) => {
+                setDraft(String(event.target.checked));
+                setMessage(null);
+              }}
+              aria-describedby={`${inputId}-meta`}
+            />
+            On
+          </label>
+        ) : (
+          <input
+            id={inputId}
+            {...(definition.type === "text" ? { type: "text", maxLength: definition.maxLength + 50 } : { inputMode: "numeric" as const })}
+            className={`${INPUT_CLASS} ${isText ? "w-full max-w-md" : "w-24"}`}
+            value={draft}
+            onChange={(event) => {
+              setDraft(event.target.value);
+              setMessage(null);
+            }}
+            aria-invalid={!inRange}
+            aria-describedby={`${inputId}-meta`}
+          />
+        )}
         {definition.type === "integer" && <span className="text-sm text-rg-muted">{definition.unit}</span>}
         <Button variant="primary" disabled={saving || !inRange || unchanged} onClick={save}>
           {saving ? "Saving…" : "Save"}
         </Button>
         {!inRange && (
           <span role="alert" className="text-sm text-rg-danger">
-            {definition.type === "text" ? `At most ${definition.maxLength} characters` : `A whole number from ${definition.min} to ${definition.max}`}
+            {definition.type === "text" ? `At most ${definition.maxLength} characters` : definition.type === "integer" ? `A whole number from ${definition.min} to ${definition.max}` : ""}
           </span>
         )}
         {message && (
@@ -86,7 +105,11 @@ function SettingRow({ definition, initial }: { definition: AppSettingDefinition;
         )}
       </div>
       <p id={`${inputId}-meta`} className="text-xs text-rg-muted">
-        {definition.type === "text" ? "Not set by default." : `Default ${definition.default} ${definition.unit}.`}{" "}
+        {definition.type === "boolean"
+          ? `Default ${definition.default ? "on" : "off"}.`
+          : definition.type === "text"
+            ? "Not set by default."
+            : `Default ${definition.default} ${definition.unit}.`}{" "}
         {current.updatedAt
           ? `Last changed by ${current.updatedByName ?? "a removed user"} on ${when(current.updatedAt)}.`
           : "Not changed yet; the default is in use."}

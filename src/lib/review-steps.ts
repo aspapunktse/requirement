@@ -3,6 +3,8 @@ import { userCanDecideStep } from "@/lib/approvals";
 import { prisma } from "@/lib/prisma";
 import { logChangeEvent, SYSTEM_ACTOR } from "@/lib/change-events";
 import { isSystemOwnerOrAdmin } from "@/lib/system-permissions";
+import { lockSystem } from "@/lib/system-lock";
+import { reopenVerdictsForEdit, settleOg1 } from "@/lib/evaluation-og1";
 import type { SystemClassification } from "@/lib/control-applicability";
 import {
   BASE_REVIEW_STEP_NAME,
@@ -121,18 +123,8 @@ function buildSteps(groups: Map<string, string>, approvals: StepApproval[]): Rev
   return participantList({ base: true, groups }).map(step);
 }
 
-/**
- * Takes a row lock on the System, so decisions and reconciliations on it run one after another.
- * Call it first in a READ COMMITTED transaction (a REPEATABLE READ snapshot would be taken before
- * the wait and miss what the previous holder committed).
- *
- * `FOR NO KEY UPDATE`, not `FOR UPDATE`: lockers still exclude each other, but the holder doesn't
- * block other transactions' inserts that reference the System (Change Events on a dependent of a
- * Provider), which would let two Provider transactions wait on each other's System rows (#200).
- */
-export async function lockSystem(tx: Tx, systemId: string) {
-  await tx.$queryRaw`SELECT "id" FROM "System" WHERE "id" = ${systemId} FOR NO KEY UPDATE`;
-}
+// The System lock lives in `system-lock.ts` (OG1 takes it too); it stays importable from here.
+export { lockSystem };
 
 /**
  * The current Review Round and its live steps, read on `tx` and written to nothing. Null unless the
@@ -202,6 +194,7 @@ export async function settleReviewSteps(tx: Tx, systemId: string) {
 export async function reconcileReviewStepsIn(tx: Tx, systemId: string) {
   await lockSystem(tx, systemId);
   await settleReviewSteps(tx, systemId);
+  await settleOg1(tx, systemId);
 }
 
 /** `settleReviewSteps` for one System, in its own transaction. Call it right after a change to the System's remit. */
@@ -210,6 +203,7 @@ export async function reconcileReviewSteps(systemId: string) {
     await prisma.$transaction(async (tx) => {
       await lockSystem(tx, systemId);
       await settleReviewSteps(tx, systemId);
+      await settleOg1(tx, systemId);
     });
   } catch (error) {
     // The change that called us has committed; a failure here must not turn it into a 500. The next
@@ -218,9 +212,9 @@ export async function reconcileReviewSteps(systemId: string) {
   }
 }
 
-/** `reconcileReviewSteps` for every System In Review, for a change to the catalog (Frameworks, Controls, ties). */
+/** `reconcileReviewSteps` for every System In Review or at OG1, for a change to the catalog (Frameworks, Controls, ties). */
 export async function reconcileAllReviewSteps() {
-  const inReview = await prisma.system.findMany({ where: { status: "IN_REVIEW" }, select: { id: true } });
+  const inReview = await prisma.system.findMany({ where: { OR: [{ status: "IN_REVIEW" }, { evaluationStage: "OG1" }] }, select: { id: true } });
   for (const { id } of inReview) await reconcileReviewSteps(id);
 }
 
@@ -324,7 +318,7 @@ export function editReopensSteps(actor: { id: string; role: UserRole }, system: 
  * edit that really changed the Assessment (`assessmentValuesChanged`, a reset to inherited, a stale
  * removal) by a person `editReopensSteps` allows. Not edits, so never calling this: inheritance
  * moving, a Nonconformity's `"system"` set-back, an applicability recompute, a reviewer raising a Query.
- * Does nothing unless the System is In Review. Returns the names of the steps it reopened.
+ * Does nothing unless the System is In Review or at OG1 (which reopens verdicts). Returns the names of the steps and verdicts it reopened.
  */
 export async function reopenStepsForEdit(
   tx: Tx,
@@ -332,8 +326,10 @@ export async function reopenStepsForEdit(
   control: { id: string; code: string },
   actorId: string,
 ) {
+  // A System at OG1 (staged evaluation, #328) reopens verdicts the same way; it is never also In Review.
+  const reopenedVerdicts = await reopenVerdictsForEdit(tx, systemId, control, actorId);
   const current = await readCurrentSteps(tx, systemId);
-  if (!current || !current.round) return [];
+  if (!current || !current.round) return reopenedVerdicts;
   const remit = await stepsContainingControl(tx, current.system, control.id);
   const reopened: string[] = [];
   const reason = `${control.code} changed after approval`;

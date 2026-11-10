@@ -60,6 +60,7 @@ const view = (over: Partial<SystemPageView> = {}): SystemPageView => ({
     integrity: "MODERATE",
     availability: null,
     createdAt: "2026-09-01T09:00:00.000Z",
+    evaluation: null,
     onboardedAt: null,
   },
   note: "Not submitted yet · Marcus Lindqvist is still assembling the System",
@@ -367,6 +368,50 @@ describe("the Approval panel after a header action (#243)", () => {
   });
 });
 
+describe("Evaluation tab (#328)", () => {
+  it("is not there for a classic System, even when the hash names it", () => {
+    window.history.replaceState(null, "", "/systems/s1#evaluation");
+    renderCockpit();
+    expect(screen.queryByRole("tab", { name: "Evaluation" })).toBeNull();
+    expect(tab("Overview")).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("is the second tab of a staged System, and its header stepper shows the evaluation stages", () => {
+    const staged = view();
+    renderCockpit({ system: { ...staged.system, evaluation: { stage: "FIRST_ROUND", track: null } }, nextStep: { kind: "none" } });
+    expect(screen.getAllByRole("tab").map((el) => el.textContent)[1]).toBe("Evaluation");
+    const stepper = screen.getByRole("list", { name: "Lifecycle" });
+    expect(within(stepper).getByText("First round")).toBeInTheDocument();
+    expect(within(stepper).getByText("OG1")).toBeInTheDocument();
+    expect(within(stepper).queryByText("Draft")).toBeNull();
+  });
+});
+
+describe("Evaluation tab freshness (#328)", () => {
+  it("mounts the Evaluation panel afresh each time its tab is opened, so it reads the System again", async () => {
+    let mounts = 0;
+    function Probe() {
+      useEffect(() => {
+        mounts += 1;
+      }, []);
+      return <p>Evaluation probe</p>;
+    }
+    const staged = view();
+    render(
+      <SystemCockpit
+        view={{ ...staged, system: { ...staged.system, evaluation: { stage: "FIRST_ROUND", track: null } }, nextStep: { kind: "none" } }}
+        panels={{ ...PANELS, evaluation: <Probe /> }}
+      />,
+    );
+    const before = mounts;
+    await userEvent.click(tab("Evaluation"));
+    expect(mounts).toBe(before + 1);
+    await userEvent.click(tab("Overview"));
+    await userEvent.click(tab("Evaluation"));
+    expect(mounts).toBe(before + 3); // remounted on leaving as well as on opening
+  });
+});
+
 describe("tabs (#243)", () => {
   it("lists the eight tabs with their counts, the open Risks highlighted", () => {
     renderCockpit();
@@ -566,7 +611,7 @@ describe("Ctrl+K palette (#243)", () => {
     render(withHeader(<SystemCockpit view={view()} panels={PANELS} />));
     await userEvent.keyboard("{Control>}k{/Control}");
     const dialog = screen.getByRole("dialog", { name: "Jump to" });
-    expect(within(dialog).getAllByRole("option")).toHaveLength(TAB_KEYS.length + 2 + 5); // plus the five Theme commands
+    expect(within(dialog).getAllByRole("option")).toHaveLength(TAB_KEYS.length - 1 + 2 + 5); // plus the five Theme commands
     await userEvent.type(within(dialog).getByRole("combobox"), "A.8.24");
     expect(within(dialog).getAllByRole("option")).toHaveLength(1);
     await userEvent.keyboard("{Enter}");
