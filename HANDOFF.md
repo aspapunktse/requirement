@@ -93,7 +93,8 @@ Staged evaluation (PRD 0002, ADR 0014, no milestone):
 10. #328 Staged evaluation up to OG1: the "Staged evaluation for new Systems" App Setting (off by default), stage and Track on the System, first-round submit, OG1 verdicts, and the Evaluation tab (proposal A). **Done: PR #349.**
 11. #348 Documentation and Risk Analysis in proposal A's stage cards: read-only parts in `src/app/systems/[id]/StageCards.tsx` (stage documentation, Risk Analysis record, Risk summary) for later stage cards to reuse; editing stays on the Documentation and Risks tabs. **Done: PR #350.**
 12. #329 Self track: second round and Risk Analysis. New stored stage `RISK_ANALYSIS_2` (after `SECOND_ROUND`), entered on the second-round submit; completing a Risk Analysis there moves a Self System to OG3. #332 reuses the stage for the Full track. **Done: PR (this one).**
-13. #330 OG3; #331 and #332 Full track; #333 switch-over; #334 Change Review.
+13. #330 OG3: the BSO (or an Admin who isn't the owner) authorizes to operate (status Approved, then Onboarded as today), rejects (final: `System.evaluationClosedAt`, every write 409 via `refuseIfSystemClosed`) or sends back. Decisions are `GateDecision` rows, reusable for Qualification and OG2. **Done: PR (this one).**
+14. #331 and #332 Full track; #333 switch-over; #334 Change Review.
 
 Not cut into issues: the PRD's "could" feature F-IMP.4 (UI upload of Framework files, other Frameworks as data). F-OUT.6 is #273.
 
