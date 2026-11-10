@@ -7,6 +7,7 @@ import { Ring } from "@/app/home/HomeGraphics";
 import { evaluationSteps, EVALUATION_STAGE_LABEL, STEP_INFO, TRACK_LABEL, type Step, type StepKey } from "@/lib/evaluation-stages";
 import type { EvaluationParticipantView, EvaluationView } from "@/lib/evaluation";
 import { formatDay } from "./system-page-logic";
+import { RiskAnalysisRecord, RiskSummary, StageDocumentation } from "./StageCards";
 import { useRemote } from "./use-remote";
 import "./system-evaluation.css";
 
@@ -298,6 +299,10 @@ export function SystemEvaluation({ systemId }: { systemId: string }) {
   const done = steps.filter((step) => step.state === "done").length;
   const current = steps.find((step) => step.state === "now");
   const shown: StepKey = selected ?? current?.key ?? "FIRST_ROUND";
+  const shownStep = steps.find((step) => step.key === shown);
+  const laterShown = !["FIRST_ROUND", "RISK_ANALYSIS_1", "RISK_ANALYSIS_2", "OG1", "FIRST_DOCUMENTATION"].includes(shown);
+  // As in proposal A: the Risk summary sits with every stage card but a current gate other than OG1, which weighs it elsewhere.
+  const showRiskSummary = !(shownStep && shownStep.kind === "gate" && shown !== "OG1" && shownStep.state === "now");
   const afterAction = () => {
     setSelected(null);
     reload();
@@ -323,7 +328,7 @@ export function SystemEvaluation({ systemId }: { systemId: string }) {
       <Stepper steps={steps} selected={shown} onSelect={setSelected} />
       <TracksStrip track={evaluation.track} />
 
-      {(shown === "FIRST_ROUND" || shown === "RISK_ANALYSIS_1") &&
+      {shown === "FIRST_ROUND" &&
         (evaluation.stage === "FIRST_ROUND" ? (
           <FirstRoundCard systemId={systemId} evaluation={evaluation} onDone={afterAction} />
         ) : (
@@ -334,17 +339,41 @@ export function SystemEvaluation({ systemId }: { systemId: string }) {
             </div>
           </section>
         ))}
+      {(shown === "RISK_ANALYSIS_1" || shown === "RISK_ANALYSIS_2") && (
+        <section className="hc-card ev-card" aria-labelledby="ev-ra-h">
+          <div className="hc-card-h">
+            <h2 id="ev-ra-h">{STEP_INFO[shown].long}</h2>
+            <p>{STEP_INFO[shown].hint}</p>
+          </div>
+          <div className="hc-card-b">
+            <RiskAnalysisRecord systemId={systemId} />
+          </div>
+        </section>
+      )}
       {shown === "OG1" && <Og1Card systemId={systemId} evaluation={evaluation} onDone={afterAction} />}
-      {shown !== "FIRST_ROUND" && shown !== "RISK_ANALYSIS_1" && shown !== "OG1" && (
+      {shown === "FIRST_DOCUMENTATION" && (
+        <section className="hc-card ev-card" aria-labelledby="ev-docs-h">
+          <div className="hc-card-h">
+            <h2 id="ev-docs-h">{STEP_INFO[shown].long}</h2>
+            <p>{STEP_INFO[shown].hint}</p>
+          </div>
+          <div className="hc-card-b">
+            <StageDocumentation systemId={systemId} stage="FIRST_DOCUMENTATION" track={evaluation.track} />
+          </div>
+        </section>
+      )}
+      {laterShown && (
         <section className="hc-card ev-card" aria-labelledby="ev-later-h">
           <div className="hc-card-h">
             <h2 id="ev-later-h">{STEP_INFO[shown].long}</h2>
           </div>
           <div className="hc-card-b">
             <p className="hc-empty">{STEP_INFO[shown].hint} This stage isn&apos;t available yet.</p>
+            {shown === "SECOND_ROUND" && <StageDocumentation systemId={systemId} stage="SECOND_ROUND" track={evaluation.track} />}
           </div>
         </section>
       )}
+      {showRiskSummary && <RiskSummary systemId={systemId} />}
     </div>
   );
 }
