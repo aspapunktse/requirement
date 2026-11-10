@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { EvaluationStage, RecommendationKind, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { ACTING_USER_COOKIE } from "@/lib/acting-user";
+import { reconcileAllReviewSteps } from "@/lib/review-steps";
 import { getOpenRecommendationsForUser } from "@/lib/evaluation-oag";
 import { getGateTasksForUser, sendBackTargets } from "@/lib/gate-decisions";
 import { createFixtureFramework, mapControlsToFramework, cleanupFixtureRequirements } from "@/test/framework-fixtures";
@@ -405,6 +406,21 @@ describe("Full track, first half (#331)", { timeout: 90_000 }, () => {
       await recommend("member2", open.id, groups[1].id);
       expect((await edit(open.id, controls[0])).status).toBe(200);
       expect((await recs(open.id)).every((r) => r.voidedAt === null)).toBe(true);
+    });
+
+    it("closes to OG2 when a catalog change (untying the last open group's Framework) leaves every participant answered", async () => {
+      const system = await makeSystem({ stage: "OAG_REVIEW_1", scope: [0, 1] });
+      await recommend("reviewer", system.id, null);
+      await recommend("member1", system.id, groups[0].id);
+      expect((await stateOf(system.id)).evaluationStage).toBe("OAG_REVIEW_1");
+      try {
+        await prisma.framework.update({ where: { id: frameworkIds[1] }, data: { reviewGroupId: null } });
+        await reconcileAllReviewSteps();
+        expect((await stateOf(system.id)).evaluationStage).toBe("OG2");
+        expect((await events(system.id, "EVALUATION_STAGE_CHANGED")).map((e) => e.detail)).toEqual(["OAG review closed: moved to OG2"]);
+      } finally {
+        await prisma.framework.update({ where: { id: frameworkIds[1] }, data: { reviewGroupId: groups[1].id } });
+      }
     });
 
     it("lists the open Recommendations in \"My tasks\" for the participants who still owe one", async () => {
