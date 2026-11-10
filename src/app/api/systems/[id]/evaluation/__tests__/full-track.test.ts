@@ -67,8 +67,14 @@ describe("Full track, first half (#331)", { timeout: 90_000 }, () => {
     og2Decision(requestAs(users[userKey].id, base(systemId, "og2-decision"), { method: "POST", body }), ctxFor(systemId));
   const submitDocs = (userKey: string, systemId: string) =>
     submitFirstDocumentation(requestAs(users[userKey].id, base(systemId, "submit-first-documentation"), { method: "POST" }), ctxFor(systemId));
-  const recommend = (userKey: string, systemId: string, reviewGroupId: string | null, kind: RecommendationKind = "RECOMMEND", comment = "Because") =>
-    giveRecommendationRoute(requestAs(users[userKey].id, base(systemId, "recommendations"), { method: "POST", body: { reviewGroupId, kind, comment } }), ctxFor(systemId));
+  const recommend = async (userKey: string, systemId: string, reviewGroupId: string | null, kind: RecommendationKind = "RECOMMEND", comment = "Because", stage?: string) =>
+    giveRecommendationRoute(
+      requestAs(users[userKey].id, base(systemId, "recommendations"), {
+        method: "POST",
+        body: { stage: stage ?? ((await stateOf(systemId)).evaluationStage === "OAG_REVIEW_2" ? "OAG_REVIEW_2" : "OAG_REVIEW_1"), reviewGroupId, kind, comment },
+      }),
+      ctxFor(systemId),
+    );
   const view = async (systemId: string, userKey = "admin") =>
     (await (await getEvaluation(requestAs(users[userKey].id, base(systemId, ""), { method: "GET" }), ctxFor(systemId))).json()).evaluation;
 
@@ -318,9 +324,12 @@ describe("Full track, first half (#331)", { timeout: 90_000 }, () => {
       const before = await snapshot(system.id);
       const post = (body: unknown) =>
         giveRecommendationRoute(requestAs(users.admin.id, base(system.id, "recommendations"), { method: "POST", body }), ctxFor(system.id));
-      expect((await post({ reviewGroupId: null, kind: "MAYBE", comment: "x" })).status).toBe(400);
-      expect((await post({ reviewGroupId: null, kind: "RECOMMEND", comment: "  " })).status).toBe(400);
-      expect((await post({ kind: "RECOMMEND", comment: "x" })).status).toBe(400);
+      const stage = "OAG_REVIEW_1";
+      expect((await post({ stage, reviewGroupId: null, kind: "MAYBE", comment: "x" })).status).toBe(400);
+      expect((await post({ stage, reviewGroupId: null, kind: "RECOMMEND", comment: "  " })).status).toBe(400);
+      expect((await post({ stage, kind: "RECOMMEND", comment: "x" })).status).toBe(400);
+      expect((await post({ reviewGroupId: null, kind: "RECOMMEND", comment: "x" })).status).toBe(400); // no stage
+      expect((await post({ stage: "OG2", reviewGroupId: null, kind: "RECOMMEND", comment: "x" })).status).toBe(400); // not a review
       expect((await recommend("admin", system.id, groups[1].id)).status).toBe(409); // group 2 has no Control in scope
       for (const stage of ["FIRST_DOCUMENTATION", "OG2"] as const) {
         const other = await makeSystem({ stage });

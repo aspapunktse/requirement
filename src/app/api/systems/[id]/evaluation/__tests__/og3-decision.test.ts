@@ -103,7 +103,7 @@ describe("OG3: the Business System Owner decides (#330)", { timeout: 60_000 }, (
 
     it("tells the viewer whether they decide, and the stages a send-back may go to", async () => {
       const system = await makeSystem();
-      expect((await viewAs("bso", system.id)).og3).toEqual({ canDecide: true, sendBackTargets: ["FIRST_ROUND", "OG1", "SECOND_ROUND", "RISK_ANALYSIS_2"] });
+      expect((await viewAs("bso", system.id)).og3).toEqual({ canDecide: true, sendBackTargets: ["FIRST_ROUND", "OG1", "SECOND_ROUND", "RISK_ANALYSIS_2"], adviseAgainst: false });
       expect((await viewAs("reviewer", system.id)).og3.canDecide).toBe(false);
       expect((await viewAs("owner", system.id)).og3.canDecide).toBe(false);
     });

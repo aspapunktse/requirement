@@ -229,11 +229,12 @@ describe("Self track: second round and Risk Analysis (#329)", { timeout: 60_000 
       }
     });
 
-    it("does not move a Full-track System (its next stage is #332's)", async () => {
+    it("moves a Full-track System to the second OAG review instead of OG3 (#332)", async () => {
       const system = await makeSystem("RISK_ANALYSIS_2", "FULL");
       const row = await analysis(system.id);
       expect((await complete(system.id, row.id)).status).toBe(200);
-      expect((await stateOf(system.id)).evaluationStage).toBe("RISK_ANALYSIS_2");
+      expect((await stateOf(system.id)).evaluationStage).toBe("OAG_REVIEW_2");
+      expect((await stageEvents(system.id)).map((e) => e.detail)).toEqual(["Risk Analysis completed: moved to the OAG review"]);
     });
 
     it("does not move the System when the completion is refused for an ownerless Risk", async () => {

@@ -389,7 +389,7 @@ const GATE_FORM = {
 
 /**
  * The decision form of the Business System Owner (or an Admin) at a gate: yes / proceed / authorize, reject (final) or send back to an
- * earlier stage. At OG2, when a group advised against, proceeding needs a written justification.
+ * earlier stage. At OG2 and OG3, when a group advised against, proceeding or authorizing needs a written justification.
  */
 function GateDecisionForm({ systemId, gate, view, adviseAgainst = false, onDone }: { systemId: string; gate: keyof typeof GATE_FORM; view: GateView; adviseAgainst?: boolean; onDone: () => void }) {
   const text = GATE_FORM[gate];
@@ -399,7 +399,7 @@ function GateDecisionForm({ systemId, gate, view, adviseAgainst = false, onDone 
   const [justification, setJustification] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const needsJustification = gate === "OG2" && adviseAgainst && decision === "AUTHORIZE";
+  const needsJustification = (gate === "OG2" || gate === "OG3") && adviseAgainst && decision === "AUTHORIZE";
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -464,7 +464,7 @@ function GateDecisionForm({ systemId, gate, view, adviseAgainst = false, onDone 
       {decision === "REJECT" && <p className="sc-callout warn">Reject is final. The System is closed and read-only for everyone.</p>}
       {needsJustification && (
         <label className="sc-field">
-          <span>Justification for proceeding against an Advise-against</span>
+          <span>{gate === "OG3" ? "Justification for authorizing against an Advise-against" : "Justification for proceeding against an Advise-against"}</span>
           <textarea rows={2} value={justification} maxLength={2000} onChange={(event) => setJustification(event.target.value)} required />
         </label>
       )}
@@ -492,6 +492,12 @@ function GateDecisionForm({ systemId, gate, view, adviseAgainst = false, onDone 
 
 /** OG3: the Business System Owner decides whether the System may operate; open Risks never block it, they are shown (the Risk summary) beside it. */
 function Og3Card({ systemId, evaluation, atGate, onDone }: { systemId: string; evaluation: EvaluationView; atGate: boolean; onDone: () => void }) {
+  // On the Full track the BSO sees both OAG reviews' Recommendations, each labelled; on the Self track there are none.
+  const reviews = [
+    { stage: "OAG_REVIEW_1" as const, oag: evaluation.oag },
+    { stage: "OAG_REVIEW_2" as const, oag: evaluation.oag2 },
+  ].flatMap((review) => (review.oag ? [{ stage: review.stage, oag: review.oag }] : []));
+  const authorizeJustification = evaluation.decisions.findLast((decision) => decision.gate === "OG3" && decision.outcome === "AUTHORIZE")?.justification ?? null;
   return (
     <section className="hc-card ev-card" aria-labelledby="ev-og3-h">
       <div className="hc-card-h">
@@ -499,6 +505,12 @@ function Og3Card({ systemId, evaluation, atGate, onDone }: { systemId: string; e
         <p>{STEP_INFO.OG3.hint}</p>
       </div>
       <div className="hc-card-b">
+        {reviews.map(({ stage, oag }) => (
+          <div key={stage} role="group" aria-label={`Recommendations: ${STEP_INFO[stage].long}`}>
+            <h3 className="ev-sub">{STEP_INFO[stage].long}</h3>
+            <RecommendationList systemId={systemId} stage={stage} oag={oag} justification={authorizeJustification} onDone={onDone} />
+          </div>
+        ))}
         {evaluation.closed ? (
           <p className="ev-outcome" aria-live="polite">
             Rejected at {evaluation.closedAt ? EVALUATION_STAGE_LABEL[evaluation.closedAt] : "OG3"}. The System is closed and read-only.
@@ -509,7 +521,7 @@ function Og3Card({ systemId, evaluation, atGate, onDone }: { systemId: string; e
           </p>
         ) : evaluation.og3 ? (
           evaluation.og3.canDecide ? (
-            <GateDecisionForm systemId={systemId} gate="OG3" view={evaluation.og3} onDone={onDone} />
+            <GateDecisionForm systemId={systemId} gate="OG3" view={evaluation.og3} adviseAgainst={evaluation.og3.adviseAgainst} onDone={onDone} />
           ) : (
             <p className="ev-hint">The System&apos;s Business System Owner (or an Admin who doesn&apos;t own it) decides. Open Risks don&apos;t block the decision.</p>
           )
@@ -614,10 +626,11 @@ function FirstDocumentationCard({ systemId, evaluation, shownState, onDone }: { 
 
 const RECOMMENDATION_TONE = { RECOMMEND: "success", RECOMMEND_WITH_CONDITIONS: "warn", ADVISE_AGAINST: "danger" } as const;
 const RECOMMENDATION_TEXT = { RECOMMEND: "Recommend", RECOMMEND_WITH_CONDITIONS: "Recommend with conditions", ADVISE_AGAINST: "Advise against" } as const;
+type OagStageKey = "OAG_REVIEW_1" | "OAG_REVIEW_2";
 type RecommendationKindValue = keyof typeof RECOMMENDATION_TEXT;
 
 /** A Recommendation form for a group the viewer may answer for. Conditions are free text in the comment. */
-function RecommendationForm({ systemId, participant, onDone }: { systemId: string; participant: EvaluationOagParticipantView; onDone: () => void }) {
+function RecommendationForm({ systemId, stage, participant, onDone }: { systemId: string; stage: OagStageKey; participant: EvaluationOagParticipantView; onDone: () => void }) {
   const [kind, setKind] = useState<RecommendationKindValue>("RECOMMEND");
   const [comment, setComment] = useState("");
   const [busy, setBusy] = useState(false);
@@ -631,7 +644,7 @@ function RecommendationForm({ systemId, participant, onDone }: { systemId: strin
       const response = await fetch(`/api/systems/${systemId}/evaluation/recommendations`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reviewGroupId: participant.reviewGroupId, kind, comment }),
+        body: JSON.stringify({ stage, reviewGroupId: participant.reviewGroupId, kind, comment }),
       });
       if (!response.ok) {
         const body = await response.json().catch(() => ({}));
@@ -679,7 +692,7 @@ function RecommendationForm({ systemId, participant, onDone }: { systemId: strin
 }
 
 /** Each group's Recommendation, shown as the group's, with the BSO's justification next to an Advise-against once it exists. */
-function RecommendationList({ systemId, oag, justification, onDone }: { systemId: string; oag: NonNullable<EvaluationView["oag"]>; justification: string | null; onDone: () => void }) {
+function RecommendationList({ systemId, stage, oag, justification, onDone }: { systemId: string; stage: OagStageKey; oag: NonNullable<EvaluationView["oag"]>; justification: string | null; onDone: () => void }) {
   if (oag.participants.length === 0) return <p className="hc-empty">No Recommendations were given.</p>;
   return (
     <ul className="ev-verdicts" aria-label="Recommendations">
@@ -709,33 +722,34 @@ function RecommendationList({ systemId, oag, justification, onDone }: { systemId
               Reopened {formatDay(participant.reopened.at)}: {participant.reopened.reason}
             </p>
           )}
-          {participant.canGive && <RecommendationForm systemId={systemId} participant={participant} onDone={onDone} />}
+          {participant.canGive && <RecommendationForm systemId={systemId} stage={stage} participant={participant} onDone={onDone} />}
         </li>
       ))}
     </ul>
   );
 }
 
-/** The OAG review (before OG2): each group gives a Recommendation; once every group has, the System moves to OG2. */
-function OagReviewCard({ systemId, evaluation, onDone }: { systemId: string; evaluation: EvaluationView; onDone: () => void }) {
-  const oag = evaluation.oag;
+/** An OAG review (before OG2 or before OG3): each group gives a Recommendation; once every group has, the System moves to the gate. */
+function OagReviewCard({ systemId, stage, evaluation, onDone }: { systemId: string; stage: "OAG_REVIEW_1" | "OAG_REVIEW_2"; evaluation: EvaluationView; onDone: () => void }) {
+  const oag = stage === "OAG_REVIEW_1" ? evaluation.oag : evaluation.oag2;
+  const gate = stage === "OAG_REVIEW_1" ? "OG2" : "OG3";
   const given = oag ? oag.participants.filter((participant) => participant.recommendation !== null).length : 0;
   return (
     <section className="hc-card ev-card" aria-labelledby="ev-oag-h">
       <div className="hc-card-h">
-        <h2 id="ev-oag-h">{STEP_INFO.OAG_REVIEW_1.long}</h2>
-        <p>{oag ? (oag.open ? `${given} of ${oag.participants.length} Recommendations given` : "Closed") : STEP_INFO.OAG_REVIEW_1.hint}</p>
+        <h2 id="ev-oag-h">{STEP_INFO[stage].long}</h2>
+        <p>{oag ? (oag.open ? `${given} of ${oag.participants.length} Recommendations given` : "Closed") : STEP_INFO[stage].hint}</p>
       </div>
       <div className="hc-card-b">
         {oag ? (
           <>
-            <RecommendationList systemId={systemId} oag={oag} justification={evaluation.og2Justification} onDone={onDone} />
+            <RecommendationList systemId={systemId} stage={stage} oag={oag} justification={stage === "OAG_REVIEW_1" ? evaluation.og2Justification : null} onDone={onDone} />
             <p className="ev-outcome" aria-live="polite">
-              {oag.open ? `The System moves to OG2 once every group has recommended. ${oag.participants.length - given} still to answer.` : "The OAG review is closed."}
+              {oag.open ? `The System moves to ${gate} once every group has recommended. ${oag.participants.length - given} still to answer.` : "The OAG review is closed."}
             </p>
           </>
         ) : (
-          <p className="hc-empty">{STEP_INFO.OAG_REVIEW_1.hint} It opens once the first documentation is submitted.</p>
+          <p className="hc-empty">{STEP_INFO[stage].hint} It opens once {stage === "OAG_REVIEW_1" ? "the first documentation is submitted" : "the Risk Analysis is completed"}.</p>
         )}
       </div>
     </section>
@@ -751,7 +765,7 @@ function Og2Card({ systemId, evaluation, atGate, onDone }: { systemId: string; e
         <p>{STEP_INFO.OG2.hint}</p>
       </div>
       <div className="hc-card-b">
-        {evaluation.oag && <RecommendationList systemId={systemId} oag={evaluation.oag} justification={evaluation.og2Justification} onDone={onDone} />}
+        {evaluation.oag && <RecommendationList systemId={systemId} stage="OAG_REVIEW_1" oag={evaluation.oag} justification={evaluation.og2Justification} onDone={onDone} />}
         {evaluation.og2 ? (
           evaluation.og2.canDecide ? (
             <GateDecisionForm systemId={systemId} gate="OG2" view={evaluation.og2} adviseAgainst={evaluation.og2.adviseAgainst} onDone={onDone} />
@@ -825,7 +839,7 @@ export function SystemEvaluation({ systemId }: { systemId: string }) {
   const current = steps.find((step) => step.state === "now");
   const shown: StepKey = selected ?? current?.key ?? "FIRST_ROUND";
   const shownStep = steps.find((step) => step.key === shown);
-  const laterShown = !["FIRST_ROUND", "RISK_ANALYSIS_1", "RISK_ANALYSIS_2", "SECOND_ROUND", "OG1", "OG3", "FIRST_DOCUMENTATION", "QUALIFICATION", "OAG_REVIEW_1", "OG2"].includes(shown);
+  const laterShown = !["FIRST_ROUND", "RISK_ANALYSIS_1", "RISK_ANALYSIS_2", "SECOND_ROUND", "OG1", "OG3", "FIRST_DOCUMENTATION", "QUALIFICATION", "OAG_REVIEW_1", "OAG_REVIEW_2", "OG2"].includes(shown);
   // As in proposal A: the Risk summary sits with every stage card but a current gate other than OG1, which weighs it elsewhere.
   const showRiskSummary = !(shownStep && shownStep.kind === "gate" && shown !== "OG1" && shown !== "OG2" && shown !== "OG3" && shownStep.state === "now");
   const afterAction = () => {
@@ -889,7 +903,7 @@ export function SystemEvaluation({ systemId }: { systemId: string }) {
       {shown === "OG3" && <Og3Card systemId={systemId} evaluation={evaluation} atGate={shownStep?.state === "now"} onDone={afterAction} />}
       {shown === "QUALIFICATION" && <QualificationCard systemId={systemId} evaluation={evaluation} atGate={shownStep?.state === "now"} onDone={afterAction} />}
       {shown === "FIRST_DOCUMENTATION" && <FirstDocumentationCard systemId={systemId} evaluation={evaluation} shownState={shownStep?.state ?? "todo"} onDone={afterAction} />}
-      {shown === "OAG_REVIEW_1" && <OagReviewCard systemId={systemId} evaluation={evaluation} onDone={afterAction} />}
+      {(shown === "OAG_REVIEW_1" || shown === "OAG_REVIEW_2") && <OagReviewCard systemId={systemId} stage={shown} evaluation={evaluation} onDone={afterAction} />}
       {shown === "OG2" && <Og2Card systemId={systemId} evaluation={evaluation} atGate={shownStep?.state === "now"} onDone={afterAction} />}
       {laterShown && (
         <section className="hc-card ev-card" aria-labelledby="ev-later-h">

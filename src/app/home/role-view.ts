@@ -269,11 +269,11 @@ export async function roleView(user: { id: string; name: string; role: UserRole 
   );
   // A group's open Recommendation at the OAG review, like an OG1 verdict (#331).
   const openRecommendationRows = (await getOpenRecommendationsForUser(user)).map(
-    ({ system, participant }): TaskRow => ({
+    ({ system, stage, participant }): TaskRow => ({
       id: `${system.id}:recommendation:${participant.reviewGroupId ?? "base"}`,
       kind: "System",
       title: system.name,
-      subtitle: `${participant.name} · OAG review Recommendation`,
+      subtitle: `${participant.name} · OAG review Recommendation${stage === "OAG_REVIEW_2" ? " (before OG3)" : ""}`,
       tone: "accent",
       status: "Awaiting Recommendation",
       updatedAt: system.updatedAt,
