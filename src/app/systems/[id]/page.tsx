@@ -15,6 +15,7 @@ import { listSensitivityLevels } from "@/lib/sensitivity-level-data";
 import { canManageProviderDependencies } from "@/lib/provider-dependency-rules";
 import { listDependents, listProviderChoices, listProviderDependencies } from "@/lib/provider-dependencies";
 import "@/app/home/home.css";
+import { SystemChangeReview } from "./SystemChangeReview";
 import { SystemCockpit } from "./SystemCockpit";
 import { SystemActivity } from "./SystemActivity";
 import { SystemControls } from "./SystemControls";
@@ -156,5 +157,16 @@ export default async function SystemDetailPage({ params }: PageProps<"/systems/[
   };
 
   // Keyed on the System and the acting user, so switching either starts from a clean state.
-  return <SystemCockpit key={`${system.id}:${user.id}`} view={view} panels={panels} />;
+  const hasOpenChangeReview = (await prisma.changeReview.count({ where: { systemId: system.id, status: "OPEN" } })) > 0;
+  return (
+    <>
+      {/* An open Change Review on an Onboarded System (#334) sits above the cockpit until the Business System Owner decides. */}
+      {hasOpenChangeReview && (
+        <div className="hc ev">
+          <SystemChangeReview systemId={system.id} />
+        </div>
+      )}
+      <SystemCockpit key={`${system.id}:${user.id}`} view={view} panels={panels} />
+    </>
+  );
 }

@@ -6,6 +6,7 @@ import { isSystemOwnerOrAdmin } from "@/lib/system-permissions";
 import { lockSystem } from "@/lib/system-lock";
 import { reopenVerdictsForEdit, settleOg1 } from "@/lib/evaluation-og1";
 import { reopenRecommendationsForEdit, settleOagReview } from "@/lib/evaluation-oag";
+import { reopenChangeReviewRecommendationsForEdit } from "@/lib/change-review";
 import type { SystemClassification } from "@/lib/control-applicability";
 import {
   BASE_REVIEW_STEP_NAME,
@@ -330,7 +331,12 @@ export async function reopenStepsForEdit(
   actorId: string,
 ) {
   // A System at OG1 or the OAG review (staged evaluation, #328, #331) reopens verdicts and Recommendations the same way; it is never also In Review.
-  const reopenedVerdicts = [...(await reopenVerdictsForEdit(tx, systemId, control, actorId)), ...(await reopenRecommendationsForEdit(tx, systemId, control, actorId))];
+  const reopenedVerdicts = [
+    ...(await reopenVerdictsForEdit(tx, systemId, control, actorId)),
+    ...(await reopenRecommendationsForEdit(tx, systemId, control, actorId)),
+    // An open Change Review on an Onboarded System (#334): the same for its Recommendations.
+    ...(await reopenChangeReviewRecommendationsForEdit(tx, systemId, control, actorId)),
+  ];
   const current = await readCurrentSteps(tx, systemId);
   if (!current || !current.round) return reopenedVerdicts;
   const remit = await stepsContainingControl(tx, current.system, control.id);

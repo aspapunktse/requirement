@@ -5,6 +5,7 @@ import { getSystemsNeedingAttention } from "@/lib/dashboard";
 import { getActionableQueries } from "@/lib/assessment-queries";
 import { attentionReasonTone } from "@/lib/status-tones";
 import { isReadOnlySystemRole } from "@/lib/system-permissions";
+import { getChangeReviewsNeedingBsoForOwner } from "@/lib/change-review";
 
 export type OwnerTasks = {
   /** How many Systems the user owns (`ownerId === user.id`). 0 means there is nothing owner-side to show. */
@@ -44,9 +45,10 @@ export async function getOwnerTasks(user: { id: string; role: UserRole }): Promi
   ).map((s) => s.id);
   if (ownedSystemIds.length === 0) return NO_OWNER_TASKS;
 
-  const [attention, openQueries] = await Promise.all([
+  const [attention, openQueries, needingBso] = await Promise.all([
     getSystemsNeedingAttention(user.id),
     getActionableQueries(user, ownedSystemIds),
+    getChangeReviewsNeedingBsoForOwner(user),
   ]);
 
   const rows: TaskRow[] = [
@@ -66,6 +68,19 @@ export async function getOwnerTasks(user: { id: string; role: UserRole }): Promi
             : "Stale assessment",
       href: `/systems/${system.id}`,
     })),
+    // An open Change Review can't be decided until the System has a Business System Owner (#334, F-CR.3).
+    ...needingBso.map(
+      (system): TaskRow => ({
+        id: `${system.id}:change-review-needs-bso`,
+        kind: "System",
+        title: system.name,
+        subtitle: "Change Review: set a Business System Owner",
+        tone: "warn",
+        status: "Needs a Business System Owner",
+        updatedAt: system.updatedAt,
+        href: `/systems/${system.id}`,
+      }),
+    ),
     ...openQueries.map((query): TaskRow => ({
       id: query.id,
       kind: "Query",

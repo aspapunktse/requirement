@@ -144,6 +144,32 @@ export async function remitGroupsByControl(
 }
 
 /**
+ * Every participant whose remit contains each applicable Control of the System, base review included (`null` in the set), keyed by
+ * Control id: `remitGroupsByControl`'s question with the base review answered too. A Control is in the base review's remit when it is
+ * a base Control, or a non-base Control of a declared Published Framework with no Review Group. A Control in nobody's remit is absent.
+ * Used to tell what a change added to a participant's remit (a Change Review, #334).
+ */
+export async function remitParticipantsByControl(
+  tx: Pick<Prisma.TransactionClient, "control">,
+  system: SystemClassification,
+): Promise<Map<string, Set<string | null>>> {
+  const byControl = new Map<string, Set<string | null>>();
+  const controls = await tx.control.findMany({
+    where: { applicability: { in: [...APPLICABLE_APPLICABILITIES] }, AND: APPLICABILITY_SCOPING(system) },
+    include: CONTROL_FOR_REMIT,
+  });
+  const declaredScopeIds = new Set(system.frameworkScopes.map((framework) => framework.id));
+  for (const control of controls) {
+    if (!meetsAllImpactThresholds(system, control)) continue;
+    const { base, groups } = stepsOfControl(control, declaredScopeIds);
+    const participants = new Set<string | null>(groups.keys());
+    if (base) participants.add(null);
+    if (participants.size > 0) byControl.set(control.id, participants);
+  }
+  return byControl;
+}
+
+/**
  * Who takes part in a review of the System over `scope`: the Review Groups with at least one Control
  * of the subset in their remit (id to name; Frameworks sharing a group give one entry), and whether
  * the base review is in (`scope.includeBase`, regardless of the subset).

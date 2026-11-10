@@ -124,7 +124,7 @@ export async function decideAtGate(systemId: string, gate: Gate, actor: Actor, i
       } else {
         const target = input.sendBackTo!;
         if (!sendBackTargets(system.evaluationTrack, gate).includes(target)) return { ok: false, status: 409, error: SEND_BACK_TARGET_REFUSED };
-        await sendBackTo(tx, systemId, system.evaluationTrack, target, gate, now);
+        await sendBackTo(tx, systemId, system.evaluationTrack, target, `The System was sent back at ${EVALUATION_STAGE_LABEL[gate]}`, now);
         stage = target;
         detail += ` to ${EVALUATION_STAGE_LABEL[target]}`;
       }
@@ -157,11 +157,10 @@ export const decideAtOg3 = (systemId: string, actor: Actor, input: GateDecisionI
  * Moves the System to `target` with a fresh entry time. To the first round or OG1 the Track goes and the live OG1 verdicts are voided,
  * so OG1 runs again; for each OAG review the Track has, a target at or before it voids its live Recommendations, so it runs again (a
  * send-back to or before the first review voids both, one to the second round or later only the second; the first review's, which
- * informed OG2, stay live). Voided Recommendations stay as history.
+ * informed OG2, stay live). Voided Recommendations stay as history. `reason` is the text the voided rows carry (a gate's send-back, or a revoked ATO, #334).
  */
-async function sendBackTo(tx: Prisma.TransactionClient, systemId: string, track: EvaluationTrack | null, target: EvaluationStage, gate: Gate, now: Date) {
+export async function sendBackTo(tx: Prisma.TransactionClient, systemId: string, track: EvaluationTrack | null, target: EvaluationStage, reason: string, now: Date) {
   const reopensOg1 = target === "FIRST_ROUND" || target === "OG1";
-  const reason = `The System was sent back at ${EVALUATION_STAGE_LABEL[gate]}`;
   if (reopensOg1) {
     await tx.trackVerdict.updateMany({ where: { systemId, voidedAt: null }, data: { voidedAt: now, voidReason: reason } });
   }

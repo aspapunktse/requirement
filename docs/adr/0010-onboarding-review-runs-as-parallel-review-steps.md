@@ -17,6 +17,6 @@ Because nothing freezes a System In Review, steps are derived live: a scope chan
 
 A step decides **as its group**. The owner sees "GDPR Review Group: Rejected", along with the comment, and not the person. Who decided is still recorded and shown only to Admins, Internal Auditors, Compliance Managers and that step's own deciders. The same applies to Query Messages a Review Group member posts.
 
-Review Steps exist only for onboarding. Per [ADR 0006](0006-continuous-compliance-replaces-draft-lock.md), a Framework added to an Onboarded System doesn't reopen its Approval, so that Framework's group never reviews it. We accepted this gap for now. A standalone Framework review of an Onboarded System is future work.
+Review Steps exist only for onboarding. Per [ADR 0006](0006-continuous-compliance-replaces-draft-lock.md), a Framework added to an Onboarded System doesn't reopen its Approval, so that Framework's group never reviews it. We accepted this gap for now. It is closed by the Change Review of [ADR 0014](0014-staged-evaluation-oag-recommends-bso-decides.md) (#334).
 
 Approvals recorded before this change become base-step decisions, each in a Review Round of its own. A System In Review when this ships keeps its base step and gains open group steps.
