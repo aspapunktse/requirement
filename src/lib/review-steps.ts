@@ -217,7 +217,7 @@ export async function reconcileReviewSteps(systemId: string) {
 
 /** `reconcileReviewSteps` for every System In Review, at OG1 or at the OAG review, for a change to the catalog (Frameworks, Controls, ties). */
 export async function reconcileAllReviewSteps() {
-  const inReview = await prisma.system.findMany({ where: { OR: [{ status: "IN_REVIEW" }, { evaluationStage: { in: ["OG1", "OAG_REVIEW_1"] } }] }, select: { id: true } });
+  const inReview = await prisma.system.findMany({ where: { OR: [{ status: "IN_REVIEW" }, { evaluationStage: { in: ["OG1", "OAG_REVIEW_1", "OAG_REVIEW_2"] } }] }, select: { id: true } });
   for (const { id } of inReview) await reconcileReviewSteps(id);
 }
 

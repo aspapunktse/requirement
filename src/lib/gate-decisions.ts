@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { logChangeEvent } from "@/lib/change-events";
 import { lockSystem } from "@/lib/system-lock";
 import { EVALUATION_STAGE_LABEL, stepKeysFor } from "@/lib/evaluation-stages";
-import { hasAdviseAgainst, voidRecommendations } from "@/lib/evaluation-oag";
+import { hasAdviseAgainst, OAG_STAGES, voidRecommendations, type OagStage } from "@/lib/evaluation-oag";
 
 /**
  * The Business System Owner's decision at a gate (#330, #331, PRD 0002 F-ST.4-7, F-BSO.3) at Qualification, OG2 and OG3. Each decision is a `GateDecision` row
@@ -12,7 +12,8 @@ import { hasAdviseAgainst, voidRecommendations } from "@/lib/evaluation-oag";
  * Qualification's "Yes", OG2's "Proceed" and OG3's "Authorize to operate", so the API and the model have one vocabulary.
  *
  * - Qualification AUTHORIZE: the System moves to First documentation. OG2 AUTHORIZE: it moves to the second round. Proceeding against an
- *   Advise-against Recommendation needs a written `justification` (400 without), stored on the decision and shown next to it.
+ *   Advise-against Recommendation needs a written `justification` (400 without), stored on the decision and shown next to it. The same at OG3 on the Full track, against an
+ *   Advise-against from either OAG review (#332).
  * - AUTHORIZE: the System gets its ATO, which is `OnboardingStatus` APPROVED on a System still at OG3 (the migration rule "Approved
  *   Systems count as ATO"). Its owner or an Admin then marks it Onboarded as today.
  * - REJECT: final. `evaluationClosedAt` is set and the status is REJECTED; every write on the System is refused (409, `system-closed.ts`).
@@ -39,7 +40,10 @@ export const NOT_AT_OG3 = "This System isn't at OG3";
 export const ALREADY_AUTHORIZED = "This System already has its authorization to operate";
 export const SEND_BACK_TARGET_REFUSED = "A System can only be sent back to an earlier stage on its Track";
 export const JUSTIFICATION_REQUIRED = "A written justification is required to proceed against an Advise-against Recommendation";
-export const JUSTIFICATION_NOT_ALLOWED = "A justification belongs only to proceeding at OG2";
+export const JUSTIFICATION_NOT_ALLOWED = "A justification belongs only to proceeding at OG2 or authorizing at OG3";
+
+/** The OAG reviews whose live Advise-against a gate's AUTHORIZE needs a justification against: OG2 weighs review 1, OG3 both (the conservative reading). */
+const ADVICE_AT: Partial<Record<Gate, readonly OagStage[]>> = { OG2: ["OAG_REVIEW_1"], OG3: OAG_STAGES };
 
 /** The text the 409 gives, and what each gate's AUTHORIZE is called in Change Events. */
 const GATE_TEXT: Record<Gate, { notAt: string; authorize: string }> = {
@@ -97,9 +101,10 @@ export async function decideAtGate(systemId: string, gate: Gate, actor: Actor, i
       if (system.evaluationClosedAt) return { ok: false, status: 409, error: "This System is closed" };
       if (system.evaluationStage !== gate) return { ok: false, status: 409, error: GATE_TEXT[gate].notAt };
       if (system.status !== "DRAFT") return { ok: false, status: 409, error: ALREADY_AUTHORIZED };
-      const proceeding = gate === "OG2" && input.decision === "AUTHORIZE";
+      const advice = ADVICE_AT[gate];
+      const proceeding = advice !== undefined && input.decision === "AUTHORIZE";
       if (input.justification !== undefined && !proceeding) return { ok: false, status: 400, error: JUSTIFICATION_NOT_ALLOWED };
-      if (proceeding && input.justification === undefined && (await hasAdviseAgainst(tx, systemId))) {
+      if (proceeding && input.justification === undefined && (await hasAdviseAgainst(tx, systemId, advice))) {
         return { ok: false, status: 400, error: JUSTIFICATION_REQUIRED };
       }
 
@@ -149,7 +154,9 @@ export const decideAtOg3 = (systemId: string, actor: Actor, input: GateDecisionI
 
 /**
  * Moves the System to `target` with a fresh entry time. To the first round or OG1 the Track goes and the live OG1 verdicts are voided,
- * so OG1 runs again; to or before the OAG review the live Recommendations are voided, so the review runs again.
+ * so OG1 runs again; for each OAG review the Track has, a target at or before it voids its live Recommendations, so it runs again (a
+ * send-back to or before the first review voids both, one to the second round or later only the second; the first review's, which
+ * informed OG2, stay live). Voided Recommendations stay as history.
  */
 async function sendBackTo(tx: Prisma.TransactionClient, systemId: string, track: EvaluationTrack | null, target: EvaluationStage, gate: Gate, now: Date) {
   const reopensOg1 = target === "FIRST_ROUND" || target === "OG1";
@@ -158,9 +165,8 @@ async function sendBackTo(tx: Prisma.TransactionClient, systemId: string, track:
     await tx.trackVerdict.updateMany({ where: { systemId, voidedAt: null }, data: { voidedAt: now, voidReason: reason } });
   }
   const keys = stepKeysFor(track);
-  if (keys.includes("OAG_REVIEW_1") && keys.indexOf(target) <= keys.indexOf("OAG_REVIEW_1")) {
-    await voidRecommendations(tx, systemId, reason, now);
-  }
+  const rerun = OAG_STAGES.filter((review) => keys.includes(review) && keys.indexOf(target) <= keys.indexOf(review));
+  await voidRecommendations(tx, systemId, rerun, reason, now);
   await tx.system.update({
     where: { id: systemId },
     data: { evaluationStage: target, evaluationStageEnteredAt: now, ...(reopensOg1 ? { evaluationTrack: null } : {}) },
@@ -172,7 +178,7 @@ export type GateDecisionView = {
   outcome: GateOutcome;
   sentBackTo: EvaluationStage | null;
   comment: string;
-  /** The written justification for proceeding against an Advise-against (OG2), else null. */
+  /** The written justification for proceeding (OG2) or authorizing (OG3) against an Advise-against, else null. */
   justification: string | null;
   decidedAt: string;
   by: string;

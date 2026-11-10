@@ -33,6 +33,7 @@ const evaluation = (over: Partial<EvaluationView> = {}): EvaluationView => ({
   og1: null,
   firstDocumentation: null,
   oag: null,
+  oag2: null,
   og2Justification: null,
   decisions: [],
   closed: false,
@@ -212,10 +213,10 @@ describe("Evaluation tab (#328)", () => {
     expect(screen.getByText("Chosen at OG1")).toBeInTheDocument();
   });
 
-  it("says a later stage isn't available yet", async () => {
-    current = evaluation({ stage: "OAG_REVIEW_2", track: "FULL", firstRound: null, og1: { open: false, track: "FULL", participants: [] } });
+  it("shows the second OAG review as its own card (#332)", async () => {
+    current = evaluation({ stage: "OAG_REVIEW_2", track: "FULL", firstRound: null, og1: { open: false, track: "FULL", participants: [] }, oag2: { open: true, participants: [] } });
     render(<SystemEvaluation systemId="s1" />);
-    expect(await screen.findByText(/isn't available yet/)).toBeInTheDocument();
+    expect(await screen.findByText("0 of 0 Recommendations given")).toBeInTheDocument();
   });
 });
 
@@ -346,7 +347,7 @@ describe("Evaluation tab: OG3 (#330)", () => {
       track: "SELF",
       firstRound: null,
       og1: { open: false, track: "SELF", participants: [] },
-      og3: { canDecide: true, sendBackTargets: ["FIRST_ROUND", "OG1", "SECOND_ROUND", "RISK_ANALYSIS_2"] },
+      og3: { canDecide: true, sendBackTargets: ["FIRST_ROUND", "OG1", "SECOND_ROUND", "RISK_ANALYSIS_2"], adviseAgainst: false },
       ...over,
     });
 
@@ -391,7 +392,7 @@ describe("Evaluation tab: OG3 (#330)", () => {
   });
 
   it("offers no form to someone who doesn't decide", async () => {
-    current = at({ og3: { canDecide: false, sendBackTargets: [] } });
+    current = at({ og3: { canDecide: false, sendBackTargets: [], adviseAgainst: false } });
     render(<SystemEvaluation systemId="s1" />);
     expect(await screen.findByText(/Business System Owner \(or an Admin/)).toBeInTheDocument();
     expect(screen.queryByRole("form", { name: "OG3 decision" })).not.toBeInTheDocument();
@@ -542,5 +543,99 @@ describe("Evaluation tab: the Full track's first half (#331)", () => {
     render(<SystemEvaluation systemId="s1" />);
     await user.click(await screen.findByRole("button", { name: /^OG2/ }));
     expect(await screen.findByText(/Mitigated by the gateway/)).toBeInTheDocument();
+  });
+});
+
+describe("Evaluation tab: the Full track's second half (#332)", () => {
+  const full = (over: Partial<EvaluationView>) => evaluation({ track: "FULL", firstRound: null, og1: { open: false, track: "FULL", participants: [] }, ...over });
+  const oagParticipant = (over: Partial<EvaluationOagParticipantView> = {}): EvaluationOagParticipantView => ({
+    reviewGroupId: "g1",
+    name: "Security group",
+    recommendation: null,
+    reopened: null,
+    canGive: false,
+    ...over,
+  });
+  const given = (kind: RecommendationKind, comment: string) => ({ kind, comment, givenAt: "2026-11-10T10:00:00.000Z", by: null });
+  const TARGETS = ["FIRST_ROUND", "OG1", "QUALIFICATION", "FIRST_DOCUMENTATION", "OAG_REVIEW_1", "OG2", "SECOND_ROUND", "RISK_ANALYSIS_2", "OAG_REVIEW_2"] as const;
+
+  beforeEach(() => {
+    fetchMock.mockImplementation((input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input);
+      if (init?.method === "POST") return respond(writeBody, writeStatus);
+      if (url.endsWith("/documents")) return respond({ documents: [], canEdit: false });
+      if (url.endsWith("/risk-analyses")) return respond({ riskAnalyses: [] });
+      if (url.endsWith("/risks")) return respond({ risks: [] });
+      return respond({ evaluation: current });
+    });
+  });
+
+  it("posts a second-review Recommendation to the same route and says the System moves to OG3", async () => {
+    current = full({
+      stage: "OAG_REVIEW_2",
+      oag: { open: false, participants: [oagParticipant({ recommendation: given("RECOMMEND", "First review fine") })] },
+      oag2: { open: true, participants: [oagParticipant({ canGive: true })] },
+    });
+    const user = userEvent.setup();
+    render(<SystemEvaluation systemId="s1" />);
+    expect(await screen.findByText(/moves to OG3 once every group has recommended/)).toBeInTheDocument();
+    const form = screen.getByRole("form", { name: "Recommendation for Security group" });
+    await user.click(within(form).getByRole("radio", { name: "Advise against" }));
+    await user.type(within(form).getByLabelText(/Comment/), "Still exposed");
+    await user.click(within(form).getByRole("button", { name: "Give Recommendation" }));
+    await waitFor(() => expect(posts()).toHaveLength(1));
+    expect(posts()[0][0]).toBe("/api/systems/s1/evaluation/recommendations");
+    expect(JSON.parse(posts()[0][1].body)).toEqual({ reviewGroupId: "g1", kind: "ADVISE_AGAINST", comment: "Still exposed" });
+  });
+
+  it("shows both OAG reviews' Recommendations at OG3 and asks for a justification to authorize against an Advise-against", async () => {
+    current = full({
+      stage: "OG3",
+      oag: { open: false, participants: [oagParticipant({ recommendation: given("ADVISE_AGAINST", "Too exposed in review one") })] },
+      oag2: { open: false, participants: [oagParticipant({ recommendation: given("RECOMMEND", "Fine now") })] },
+      og3: { canDecide: true, sendBackTargets: [...TARGETS], adviseAgainst: true },
+    });
+    const user = userEvent.setup();
+    render(<SystemEvaluation systemId="s1" />);
+    const form = await screen.findByRole("form", { name: "OG3 decision" });
+    expect(screen.getByText("Too exposed in review one")).toBeInTheDocument();
+    expect(screen.getByText("Fine now")).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Recommendations: OAG review (before OG2)" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Recommendations: OAG review (before OG3)" })).toBeInTheDocument();
+    await user.type(within(form).getByLabelText("Comment"), "Authorize");
+    const button = within(form).getByRole("button", { name: "Authorize to operate" });
+    expect(button).toBeDisabled();
+    await user.type(within(form).getByLabelText(/Justification/), "Mitigated since");
+    await user.click(button);
+    await waitFor(() => expect(posts()).toHaveLength(1));
+    expect(posts()[0][0]).toBe("/api/systems/s1/evaluation/og3-decision");
+    expect(JSON.parse(posts()[0][1].body)).toEqual({ decision: "AUTHORIZE", comment: "Authorize", justification: "Mitigated since" });
+  });
+
+  it("asks for no justification at OG3 when nobody advised against", async () => {
+    current = full({
+      stage: "OG3",
+      oag: { open: false, participants: [oagParticipant({ recommendation: given("RECOMMEND", "Fine") })] },
+      oag2: { open: false, participants: [oagParticipant({ recommendation: given("RECOMMEND", "Fine again") })] },
+      og3: { canDecide: true, sendBackTargets: [...TARGETS], adviseAgainst: false },
+    });
+    const user = userEvent.setup();
+    render(<SystemEvaluation systemId="s1" />);
+    const form = await screen.findByRole("form", { name: "OG3 decision" });
+    expect(within(form).queryByLabelText(/Justification/)).not.toBeInTheDocument();
+    await user.type(within(form).getByLabelText("Comment"), "Go");
+    expect(within(form).getByRole("button", { name: "Authorize to operate" })).toBeEnabled();
+  });
+
+  it("shows the OG3 justification next to the Advise-against once the System is authorized", async () => {
+    current = full({
+      stage: "OG3",
+      authorized: true,
+      oag: { open: false, participants: [] },
+      oag2: { open: false, participants: [oagParticipant({ recommendation: given("ADVISE_AGAINST", "Too exposed") })] },
+      decisions: [{ gate: "OG3", outcome: "AUTHORIZE", sentBackTo: null, comment: "Go", justification: "Accepted by the board", decidedAt: "2026-11-10T10:00:00.000Z", by: "Bea" }],
+    });
+    render(<SystemEvaluation systemId="s1" />);
+    expect(await screen.findByText(/Justification for proceeding against this advice: Accepted by the board/)).toBeInTheDocument();
   });
 });

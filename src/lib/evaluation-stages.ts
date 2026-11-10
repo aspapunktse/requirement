@@ -4,8 +4,7 @@ import type { EvaluationStage, EvaluationTrack } from "@prisma/client";
  * The stages of staged evaluation (PRD 0002 section 5, CONTEXT.md "Evaluation") and what the stepper on the System's Evaluation tab shows
  * of them. Pure and free of server code, so the page, the routes and the client component share it.
  *
- * The enum holds the whole flow, but the first round, OG1, the move out of OG1 (to Qualification on the Full track, to the second
- * round on the Self track) and the Self track's second round and Risk Analysis are built (#328, #329); later stages are shown and have no actions yet.
+ * The enum holds the whole flow and every stage is built (#328 to #332): both tracks run from the first round to OG3.
  */
 
 export const EVALUATION_STAGE_LABEL: Record<EvaluationStage, string> = {

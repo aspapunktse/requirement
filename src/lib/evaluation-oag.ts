@@ -6,7 +6,7 @@ import { EVALUATION_STAGE_LABEL } from "@/lib/evaluation-stages";
 import { participantList, participantsContainingControl, participantsOver, participantsToReopen, type Participant } from "@/lib/review-participation";
 
 /**
- * The OAG review before OG2 on the Full track (#331, PRD 0002 F-OAG.1-2, ADR 0014): every group with a remit on the System, plus the
+ * The OAG reviews on the Full track, before OG2 and before OG3 (#331, #332, PRD 0002 F-OAG.1-2, ADR 0014): every group with a remit on the System, plus the
  * base review (always), gives a Recommendation (Recommend, Recommend with conditions or Advise against) with a comment. The BSO decides
  * at OG2; a group only advises.
  *
@@ -22,8 +22,12 @@ import { participantList, participantsContainingControl, participantsOver, parti
 
 type Tx = Prisma.TransactionClient;
 
-/** The OAG review this module runs. OAG_REVIEW_2 (before OG3) is #332; the stage is stored on each row so it can share the table. */
-export const OAG_STAGE: EvaluationStage = "OAG_REVIEW_1";
+/** The two OAG reviews (#331 before OG2, #332 before OG3): one module runs both, the System's current stage says which. The stage is stored on each row. */
+export const OAG_STAGES = ["OAG_REVIEW_1", "OAG_REVIEW_2"] as const satisfies readonly EvaluationStage[];
+export type OagStage = (typeof OAG_STAGES)[number];
+export const isOagStage = (stage: EvaluationStage | null | undefined): stage is OagStage => stage === "OAG_REVIEW_1" || stage === "OAG_REVIEW_2";
+/** Where each review closes to. */
+const CLOSES_TO = { OAG_REVIEW_1: "OG2", OAG_REVIEW_2: "OG3" } as const satisfies Record<OagStage, EvaluationStage>;
 export const NOT_AT_OAG_REVIEW = "This System isn't at the OAG review";
 
 export const RECOMMENDATION_LABEL: Record<RecommendationKind, string> = {
@@ -52,14 +56,15 @@ export type OagParticipant = Participant & {
 /** Who may give a participant's Recommendation: the Review Step rule (an Admin any, a Reviewer the base, a group's member its own, nobody on a System they own). */
 export const userCanRecommend = userCanDecideStep;
 
-/** The state of the OAG review on a System, read on `tx`; null unless the System exists and is at it. */
+/** The state of the OAG review the System is at (`stage` says which), read on `tx`; null unless the System exists and is at one. */
 export async function readOagReview(tx: Tx, systemId: string) {
   const system = await tx.system.findUnique({ where: { id: systemId }, include: CLASSIFICATION_INCLUDE });
-  if (!system || system.evaluationStage !== OAG_STAGE || !system.evaluationStageEnteredAt) return null;
+  if (!system || !isOagStage(system.evaluationStage) || !system.evaluationStageEnteredAt) return null;
+  const stage = system.evaluationStage;
   const since = system.evaluationStageEnteredAt;
   const participation = await participantsOver(tx, system, { includeBase: true });
   const rows = await tx.recommendation.findMany({
-    where: { systemId, stage: OAG_STAGE, givenAt: { gte: since } },
+    where: { systemId, stage, givenAt: { gte: since } },
     orderBy: [{ givenAt: "asc" }, { id: "asc" }],
   });
   const live = new Map<string | null, LiveRecommendation>();
@@ -74,11 +79,11 @@ export async function readOagReview(tx: Tx, systemId: string) {
     const reopened = reopenedBy.get(participant.reviewGroupId);
     return reopened ? { ...participant, recommendation: null, reopened } : { ...participant, recommendation: null };
   });
-  return { system, participants, since };
+  return { system, participants, since, stage };
 }
 
 /** The live Recommendations of an OAG review, as the groups', base review first then by group name: what the BSO sees at OG2. */
-export async function readLiveRecommendations(tx: Tx, systemId: string, stage: EvaluationStage = OAG_STAGE) {
+export async function readLiveRecommendations(tx: Tx, systemId: string, stage: OagStage = "OAG_REVIEW_1") {
   const rows = await tx.recommendation.findMany({
     where: { systemId, stage, voidedAt: null },
     include: { reviewGroup: { select: { name: true } } },
@@ -87,25 +92,27 @@ export async function readLiveRecommendations(tx: Tx, systemId: string, stage: E
   return rows.sort((a, b) => (a.reviewGroupId === null ? -1 : b.reviewGroupId === null ? 1 : (a.reviewGroup?.name ?? "").localeCompare(b.reviewGroup?.name ?? "")));
 }
 
-/** Whether any live Recommendation of the OAG review advises against: Proceed at OG2 then needs a written justification. */
-export async function hasAdviseAgainst(tx: Tx, systemId: string, stage: EvaluationStage = OAG_STAGE) {
-  return (await tx.recommendation.count({ where: { systemId, stage, voidedAt: null, kind: "ADVISE_AGAINST" } })) > 0;
+/** Whether any live Recommendation of the given reviews advises against: Proceed at OG2 (review 1) or Authorize at OG3 (both) then needs a written justification. */
+export async function hasAdviseAgainst(tx: Tx, systemId: string, stages: readonly OagStage[] = ["OAG_REVIEW_1"]) {
+  return (await tx.recommendation.count({ where: { systemId, stage: { in: [...stages] }, voidedAt: null, kind: "ADVISE_AGAINST" } })) > 0;
 }
 
-/** Voids the live Recommendations of the OAG review (a send-back to or before it starts the review again). */
-export async function voidRecommendations(tx: Tx, systemId: string, reason: string, now: Date) {
-  await tx.recommendation.updateMany({ where: { systemId, stage: OAG_STAGE, voidedAt: null }, data: { voidedAt: now, voidReason: reason } });
+/** Voids the live Recommendations of the given OAG reviews (a send-back to or before a review starts it again). */
+export async function voidRecommendations(tx: Tx, systemId: string, stages: readonly OagStage[], reason: string, now: Date) {
+  if (stages.length === 0) return;
+  await tx.recommendation.updateMany({ where: { systemId, stage: { in: [...stages] }, voidedAt: null }, data: { voidedAt: now, voidReason: reason } });
 }
 
-/** Moves the System from the OAG review to OG2. Null if it was no longer at the review. The move is automatic, so its actor is the system. */
-async function closeOagReview(tx: Tx, systemId: string) {
+/** Moves the System from the OAG review `stage` to OG2 (review 1) or OG3 (review 2). Null if it was no longer at it. The move is automatic, so its actor is the system. */
+async function closeOagReview(tx: Tx, systemId: string, stage: OagStage) {
+  const next = CLOSES_TO[stage];
   const moved = await tx.system.updateMany({
-    where: { id: systemId, evaluationStage: OAG_STAGE },
-    data: { evaluationStage: "OG2", evaluationStageEnteredAt: new Date() },
+    where: { id: systemId, evaluationStage: stage },
+    data: { evaluationStage: next, evaluationStageEnteredAt: new Date() },
   });
   if (moved.count === 0) return null;
-  await logChangeEvent(systemId, "EVALUATION_STAGE_CHANGED", `OAG review closed: moved to ${EVALUATION_STAGE_LABEL.OG2}`, SYSTEM_ACTOR, tx);
-  return { stage: "OG2" as const };
+  await logChangeEvent(systemId, "EVALUATION_STAGE_CHANGED", `OAG review closed: moved to ${EVALUATION_STAGE_LABEL[next]}`, SYSTEM_ACTOR, tx);
+  return { stage: next };
 }
 
 /**
@@ -118,18 +125,18 @@ export async function settleOagReview(tx: Tx, systemId: string) {
   if (!review) return null;
   const liveGroupIds = review.participants.flatMap((participant) => (participant.reviewGroupId === null ? [] : [participant.reviewGroupId]));
   await tx.recommendation.updateMany({
-    where: { systemId, stage: OAG_STAGE, givenAt: { gte: review.since }, voidedAt: null, reviewGroupId: { not: null, notIn: liveGroupIds } },
+    where: { systemId, stage: review.stage, givenAt: { gte: review.since }, voidedAt: null, reviewGroupId: { not: null, notIn: liveGroupIds } },
     data: { voidedAt: new Date() },
   });
   if (review.participants.some((participant) => participant.recommendation === null)) return null;
-  return closeOagReview(tx, systemId);
+  return closeOagReview(tx, systemId, review.stage);
 }
 
 export type GiveRecommendationResult =
   | {
       ok: true;
       recommendation: { id: string; kind: RecommendationKind; comment: string; givenAt: Date; reviewGroupId: string | null; participantName: string };
-      closed: { stage: "OG2" } | null;
+      closed: { stage: "OG2" | "OG3" } | null;
     }
   | { ok: false; status: 409; error: string };
 
@@ -155,7 +162,7 @@ export async function giveRecommendation(
   if (participant.recommendation) return { ok: false, status: 409, error: `${participant.name} has already given its Recommendation` };
 
   const created = await tx.recommendation.create({
-    data: { systemId, stage: OAG_STAGE, reviewGroupId: input.reviewGroupId, givenById: giverId, kind: input.kind, comment: input.comment },
+    data: { systemId, stage: review.stage, reviewGroupId: input.reviewGroupId, givenById: giverId, kind: input.kind, comment: input.comment },
   });
   await logChangeEvent(systemId, "RECOMMENDATION_GIVEN", `${participant.name}: ${RECOMMENDATION_LABEL[input.kind]}: ${input.comment}`, giverId, tx);
   const closed = await settleOagReview(tx, systemId);
@@ -181,7 +188,7 @@ export async function reopenRecommendationsForEdit(tx: Tx, systemId: string, con
   const reopened: string[] = [];
   for (const participant of participantsToReopen(review.participants, remit, (candidate) => candidate.recommendation !== null)) {
     await tx.recommendation.updateMany({
-      where: { systemId, stage: OAG_STAGE, reviewGroupId: participant.reviewGroupId, givenAt: { gte: review.since }, voidedAt: null },
+      where: { systemId, stage: review.stage, reviewGroupId: participant.reviewGroupId, givenAt: { gte: review.since }, voidedAt: null },
       data: { voidedAt, voidReason: reason },
     });
     await logChangeEvent(systemId, "RECOMMENDATION_REOPENED", `${participant.name} Recommendation reopened: ${reason}`, actorId, tx);
@@ -201,16 +208,16 @@ export async function getOpenRecommendationsForUser(user: { id: string; role: Us
   return prisma.$transaction(
     async (tx) => {
       const systems = await tx.system.findMany({
-        where: { evaluationStage: OAG_STAGE, evaluationClosedAt: null, ownerId: { not: user.id } },
+        where: { evaluationStage: { in: [...OAG_STAGES] }, evaluationClosedAt: null, ownerId: { not: user.id } },
         orderBy: { updatedAt: "asc" },
         select: { id: true, name: true, ownerId: true, updatedAt: true },
       });
-      const tasks: { system: (typeof systems)[number]; participant: OagParticipant }[] = [];
+      const tasks: { system: (typeof systems)[number]; stage: OagStage; participant: OagParticipant }[] = [];
       for (const system of systems) {
         const review = await readOagReview(tx, system.id);
         if (!review) continue;
         for (const participant of review.participants) {
-          if (participant.recommendation === null && userCanRecommend(user, system.ownerId, groupIds, participant.reviewGroupId)) tasks.push({ system, participant });
+          if (participant.recommendation === null && userCanRecommend(user, system.ownerId, groupIds, participant.reviewGroupId)) tasks.push({ system, stage: review.stage, participant });
         }
       }
       return tasks;

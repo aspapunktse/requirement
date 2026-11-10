@@ -14,7 +14,7 @@ import { BASE_REVIEW_STEP_NAME } from "@/lib/review-participation";
 import { documentationStatusFor } from "@/lib/system-documentation";
 import { readOg1, trackFromVerdicts, userCanGiveVerdict } from "@/lib/evaluation-og1";
 import { canDecideAtGate, readGateDecisions, sendBackTargets, type GateDecisionView } from "@/lib/gate-decisions";
-import { hasAdviseAgainst, readLiveRecommendations, readOagReview, userCanRecommend } from "@/lib/evaluation-oag";
+import { hasAdviseAgainst, OAG_STAGES, readLiveRecommendations, readOagReview, userCanRecommend } from "@/lib/evaluation-oag";
 
 /**
  * Staged evaluation, up to OG1 (#328, PRD 0002, ADR 0014): the first-round readiness checklist, the submit that moves a System from
@@ -227,17 +227,18 @@ export async function submitSecondRound(systemId: string, actorId: string): Prom
 }
 
 /**
- * Called in the transaction that completes a Risk Analysis: a Self-track System waiting at the Risk Analysis stage moves on to OG3
- * when the analysis was completed after the stage began. Locks the System itself. Returns whether it moved. The Full track goes
- * to the OAG review instead (#332), which isn't built: it is left where it is.
+ * Called in the transaction that completes a Risk Analysis: a System waiting at the Risk Analysis stage moves on when the analysis was
+ * completed after the stage began: a Self-track System to OG3, a Full-track one to the second OAG review (#332). Locks the System
+ * itself. Returns whether it moved.
  */
 export async function advanceAfterRiskAnalysis(tx: Tx, systemId: string, actorId: string): Promise<boolean> {
   await lockSystem(tx, systemId);
   const system = await tx.system.findUnique({ where: { id: systemId }, select: { evaluationStage: true, evaluationTrack: true, evaluationStageEnteredAt: true } });
-  if (system?.evaluationStage !== "RISK_ANALYSIS_2" || system.evaluationTrack !== "SELF" || !system.evaluationStageEnteredAt) return false;
+  if (system?.evaluationStage !== "RISK_ANALYSIS_2" || !system.evaluationTrack || !system.evaluationStageEnteredAt) return false;
   if (!(await hasCompletedRiskAnalysisSince(tx, systemId, system.evaluationStageEnteredAt))) return false;
-  await tx.system.update({ where: { id: systemId }, data: { evaluationStage: "OG3", evaluationStageEnteredAt: new Date() } });
-  await logChangeEvent(systemId, "EVALUATION_STAGE_CHANGED", "Risk Analysis completed: moved to OG3", actorId, tx);
+  const next = system.evaluationTrack === "FULL" ? "OAG_REVIEW_2" : "OG3";
+  await tx.system.update({ where: { id: systemId }, data: { evaluationStage: next, evaluationStageEnteredAt: new Date() } });
+  await logChangeEvent(systemId, "EVALUATION_STAGE_CHANGED", `Risk Analysis completed: moved to ${next === "OG3" ? "OG3" : "the OAG review"}`, actorId, tx);
   return true;
 }
 
@@ -275,6 +276,8 @@ export type EvaluationOagParticipantView = {
   canGive: boolean;
 };
 
+export type OagReviewView = { open: boolean; participants: EvaluationOagParticipantView[] };
+
 /** A gate the Business System Owner decides: whether the viewer decides, and the stages the System can be sent back to. */
 export type GateView = { canDecide: boolean; sendBackTargets: EvaluationStage[] };
 
@@ -294,8 +297,10 @@ export type EvaluationView = {
   og1: { open: boolean; participants: EvaluationParticipantView[]; track: EvaluationTrack | null } | null;
   /** Present while the System is at First documentation (#331). */
   firstDocumentation: FirstDocumentationReadiness | null;
-  /** The OAG review's groups: live while at the review, the Recommendations that decided it after (Full track, from OG2 on). */
-  oag: { open: boolean; participants: EvaluationOagParticipantView[] } | null;
+  /** The first OAG review's groups (before OG2): live while at it, the Recommendations that decided it after (Full track, from OG2 on). */
+  oag: OagReviewView | null;
+  /** The second OAG review's groups (before OG3, #332): live while at it, the Recommendations that decided it from OG3 on (Full track); else null. */
+  oag2: OagReviewView | null;
   /** The written justification for proceeding at OG2 against an Advise-against, once the System has proceeded. */
   og2Justification: string | null;
   /** The decisions made at gates so far (#330), oldest first. */
@@ -306,8 +311,8 @@ export type EvaluationView = {
   closedAt: EvaluationStage | null;
   /** Authorized to operate at OG3 (ATO): the System is Approved and waits to be marked Onboarded (or already is). */
   authorized: boolean;
-  /** Present while the System waits at OG3 for a decision: whether the viewer decides, and the stages it can be sent back to. */
-  og3: GateView | null;
+  /** Present while the System waits at OG3 for a decision: whether the viewer decides, the stages it can be sent back to, and whether either OAG review advises against (a justification is then needed to authorize). */
+  og3: (GateView & { adviseAgainst: boolean }) | null;
   /** Present while the System waits at Qualification (#331). */
   qualification: GateView | null;
   /** Present while the System waits at OG2 (#331); `adviseAgainst` tells the form to ask for a justification when it proceeds. */
@@ -378,7 +383,7 @@ export async function loadEvaluationView(viewer: { id: string; role: UserRole },
         };
       }
 
-      // The OAG review: live while at it; from OG2 on (Full track) the Recommendations that decided it, as the groups'.
+      // The OAG reviews: live while at one; after it (Full track) the Recommendations that decided it, as the groups'.
       let oag: EvaluationView["oag"] = null;
       let og2Justification: string | null = null;
       const toView = (recommendation: { kind: RecommendationKind; comment: string; givenAt: Date }, by: string | null): EvaluationRecommendationView => ({
@@ -387,23 +392,25 @@ export async function loadEvaluationView(viewer: { id: string; role: UserRole },
         givenAt: recommendation.givenAt.toISOString(),
         by,
       });
-      if (stage === "OAG_REVIEW_1") {
+      const reviewOf = (review: NonNullable<Awaited<ReturnType<typeof readOagReview>>>, canSeeBy: Map<string, string>): OagReviewView => ({
+        open: true,
+        participants: review.participants.map((p) => ({
+          reviewGroupId: p.reviewGroupId,
+          name: p.name,
+          recommendation: p.recommendation ? toView(p.recommendation, canSeeDecider(viewer, system.ownerId, groups, p) ? (canSeeBy.get(p.recommendation.givenById) ?? null) : null) : null,
+          reopened: p.reopened ? { at: p.reopened.at.toISOString(), reason: p.reopened.reason } : null,
+          canGive: p.recommendation === null && userCanRecommend(viewer, system.ownerId, groups, p.reviewGroupId),
+        })),
+      });
+      const liveReview = async (): Promise<OagReviewView> => {
         const review = await readOagReview(tx, systemId);
-        const people = await nameOfPerson(review?.participants.flatMap((p) => (p.recommendation ? [p.recommendation.givenById] : [])) ?? []);
-        oag = {
-          open: true,
-          participants: (review?.participants ?? []).map((p) => ({
-            reviewGroupId: p.reviewGroupId,
-            name: p.name,
-            recommendation: p.recommendation ? toView(p.recommendation, canSeeDecider(viewer, system.ownerId, groups, p) ? (people.get(p.recommendation.givenById) ?? null) : null) : null,
-            reopened: p.reopened ? { at: p.reopened.at.toISOString(), reason: p.reopened.reason } : null,
-            canGive: p.recommendation === null && userCanRecommend(viewer, system.ownerId, groups, p.reviewGroupId),
-          })),
-        };
-      } else if (system.evaluationTrack === "FULL" && ["OG2", "SECOND_ROUND", "RISK_ANALYSIS_2", "OAG_REVIEW_2", "OG3"].includes(stage)) {
-        const rows = await readLiveRecommendations(tx, systemId);
+        if (!review) return { open: true, participants: [] };
+        return reviewOf(review, await nameOfPerson(review.participants.flatMap((p) => (p.recommendation ? [p.recommendation.givenById] : []))));
+      };
+      const closedReview = async (reviewStage: "OAG_REVIEW_1" | "OAG_REVIEW_2"): Promise<OagReviewView> => {
+        const rows = await readLiveRecommendations(tx, systemId, reviewStage);
         const people = await nameOfPerson(rows.map((row) => row.givenById));
-        oag = {
+        return {
           open: false,
           participants: rows.map((row) => ({
             reviewGroupId: row.reviewGroupId,
@@ -413,16 +420,23 @@ export async function loadEvaluationView(viewer: { id: string; role: UserRole },
             canGive: false,
           })),
         };
-        if (stage !== "OG2") {
-          const proceeded = await tx.gateDecision.findFirst({ where: { systemId, gate: "OG2", outcome: "AUTHORIZE" }, orderBy: [{ decidedAt: "desc" }, { id: "desc" }], select: { justification: true } });
-          og2Justification = proceeded?.justification ?? null;
-        }
+      };
+      const full = system.evaluationTrack === "FULL";
+      let oag2: EvaluationView["oag2"] = null;
+      if (stage === "OAG_REVIEW_1") oag = await liveReview();
+      else if (full && ["OG2", "SECOND_ROUND", "RISK_ANALYSIS_2", "OAG_REVIEW_2", "OG3"].includes(stage)) oag = await closedReview("OAG_REVIEW_1");
+      if (stage === "OAG_REVIEW_2") oag2 = await liveReview();
+      else if (full && stage === "OG3") oag2 = await closedReview("OAG_REVIEW_2");
+      if (full && !["FIRST_ROUND", "OG1", "QUALIFICATION", "FIRST_DOCUMENTATION", "OAG_REVIEW_1", "OG2"].includes(stage)) {
+        const proceeded = await tx.gateDecision.findFirst({ where: { systemId, gate: "OG2", outcome: "AUTHORIZE" }, orderBy: [{ decidedAt: "desc" }, { id: "desc" }], select: { justification: true } });
+        og2Justification = proceeded?.justification ?? null;
       }
       const gateView = (gate: "QUALIFICATION" | "OG2" | "OG3"): GateView | null =>
         stage === gate && system.evaluationClosedAt === null && system.status === "DRAFT"
           ? { canDecide: canDecideAtGate(viewer, system), sendBackTargets: sendBackTargets(system.evaluationTrack, gate) }
           : null;
       const og2Gate = gateView("OG2");
+      const og3Gate = gateView("OG3");
       const decisions = await readGateDecisions(tx, systemId);
 
       return {
@@ -436,12 +450,13 @@ export async function loadEvaluationView(viewer: { id: string; role: UserRole },
         og1,
         firstDocumentation: stage === "FIRST_DOCUMENTATION" ? await readFirstDocumentationReadiness(tx, systemId) : null,
         oag,
+        oag2,
         og2Justification,
         decisions,
         closed: system.evaluationClosedAt !== null,
         closedAt: system.evaluationClosedAt !== null ? ([...decisions].reverse().find((decision) => decision.outcome === "REJECT")?.gate ?? stage) : null,
         authorized: stage === "OG3" && system.evaluationClosedAt === null && system.status !== "DRAFT",
-        og3: gateView("OG3"),
+        og3: og3Gate ? { ...og3Gate, adviseAgainst: await hasAdviseAgainst(tx, systemId, OAG_STAGES) } : null,
         qualification: gateView("QUALIFICATION"),
         og2: og2Gate ? { ...og2Gate, adviseAgainst: await hasAdviseAgainst(tx, systemId) } : null,
       };
