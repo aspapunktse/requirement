@@ -1304,6 +1304,7 @@ enum EvaluationStage {
   OAG_REVIEW_1
   OG2
   SECOND_ROUND
+  RISK_ANALYSIS_2
   OAG_REVIEW_2
   OG3
 }

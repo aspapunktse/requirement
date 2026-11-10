@@ -23,4 +23,19 @@ describe("evaluation stages (#328)", () => {
     expect(qualification.find((s) => s.key === "QUALIFICATION")?.state).toBe("now");
     expect(qualification.find((s) => s.key === "OG1")?.state).toBe("done");
   });
+
+  it("makes the Self track's Risk Analysis a stage: current while waiting, done once OG3 is reached", () => {
+    const waiting = evaluationSteps({ stage: "RISK_ANALYSIS_2", track: "SELF", riskAnalysisCompleted: true });
+    expect(waiting.map((s) => [s.key, s.state])).toEqual([
+      ["FIRST_ROUND", "done"],
+      ["RISK_ANALYSIS_1", "done"],
+      ["OG1", "done"],
+      ["SECOND_ROUND", "done"],
+      ["RISK_ANALYSIS_2", "now"],
+      ["OG3", "todo"],
+    ]);
+    const og3 = evaluationSteps({ stage: "OG3", track: "SELF", riskAnalysisCompleted: true });
+    expect(og3.find((s) => s.key === "RISK_ANALYSIS_2")?.state).toBe("done");
+    expect(og3.find((s) => s.key === "OG3")?.state).toBe("now");
+  });
 });

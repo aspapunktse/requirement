@@ -27,6 +27,8 @@ const evaluation = (over: Partial<EvaluationView> = {}): EvaluationView => ({
   stageEnteredAt: "2026-11-09T10:00:00.000Z",
   canSubmit: true,
   firstRound: NOT_READY,
+  secondRound: null,
+  canRecordRiskAnalysis: false,
   og1: null,
   ...over,
 });
@@ -252,6 +254,76 @@ describe("Evaluation tab stage cards: documentation and Risk Analysis (#348)", (
     await userEvent.click(screen.getByRole("button", { name: /^Second round/ }));
     const list = await screen.findByRole("list", { name: "Second round Document Requirements" });
     expect(within(list).getByText("DPIA")).toBeInTheDocument();
-    expect(screen.getByText(/isn't available yet/)).toBeInTheDocument();
+    expect(screen.getAllByText(/isn't available yet/).length).toBeGreaterThan(0);
+  });
+});
+
+describe("Evaluation tab: second round and Risk Analysis (#329)", () => {
+  const SECOND_READY = { mandatoryTotal: 5, mandatoryMissing: [], documentsMissing: [], ready: true };
+  const SECOND_NOT_READY = { mandatoryTotal: 5, mandatoryMissing: [{ code: "A.8.1", title: "Devices" }], documentsMissing: [{ id: "d2", name: "DPIA" }], ready: false };
+  const second = (secondRound: EvaluationView["secondRound"], over: Partial<EvaluationView> = {}) =>
+    evaluation({ stage: "SECOND_ROUND", track: "SELF", firstRound: null, secondRound, og1: { open: false, track: "SELF", participants: [] }, ...over });
+
+  beforeEach(() => {
+    fetchMock.mockImplementation((input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input);
+      if (init?.method === "POST") return respond(writeBody, writeStatus);
+      if (url.endsWith("/documents")) return respond({ documents: [], canEdit: false });
+      if (url.endsWith("/risk-analyses")) return respond({ riskAnalyses: [] });
+      if (url.endsWith("/risks")) return respond({ risks: [] });
+      return respond({ evaluation: current });
+    });
+  });
+
+  it("lists what is left in the second round and keeps Submit disabled", async () => {
+    current = second(SECOND_NOT_READY);
+    render(<SystemEvaluation systemId="s1" />);
+    const list = await screen.findByRole("list", { name: "Second-round checklist" });
+    expect(within(list).getByText("4 of 5 mandatory Controls have an Assessment")).toBeInTheDocument();
+    expect(screen.getByText(/A\.8\.1 \(Devices\)/)).toBeInTheDocument();
+    expect(screen.getByText(/Not yet provided: DPIA/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Submit the second round" })).toBeDisabled();
+  });
+
+  it("posts the second-round submit and refreshes", async () => {
+    current = second(SECOND_READY);
+    render(<SystemEvaluation systemId="s1" />);
+    await userEvent.click(await screen.findByRole("button", { name: "Submit the second round" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/systems/s1/evaluation/submit-second-round", { method: "POST" }));
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+  });
+
+  it("shows the server's reason when the second-round submit is refused", async () => {
+    current = second(SECOND_READY);
+    writeStatus = 409;
+    writeBody = { error: "Cannot submit the second round: it needs something" };
+    render(<SystemEvaluation systemId="s1" />);
+    await userEvent.click(await screen.findByRole("button", { name: "Submit the second round" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Cannot submit the second round: it needs something");
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it("has no second-round Submit for someone who may not submit", async () => {
+    current = second(SECOND_READY, { canSubmit: false });
+    render(<SystemEvaluation systemId="s1" />);
+    await screen.findByRole("list", { name: "Second-round checklist" });
+    expect(screen.queryByRole("button", { name: "Submit the second round" })).toBeNull();
+  });
+
+  it("makes the Risk Analysis the current step once the second round is submitted, waiting for the analysis", async () => {
+    current = second(null, { stage: "RISK_ANALYSIS_2", canRecordRiskAnalysis: true });
+    render(<SystemEvaluation systemId="s1" />);
+    expect(await screen.findByText(/The second round is submitted\. Record a Risk Analysis/)).toBeInTheDocument();
+    const steps = screen.getByRole("list", { name: "Evaluation stages" });
+    expect(within(steps).getByRole("button", { name: /^Second round/ })).toHaveTextContent("done");
+    expect(within(steps).getAllByRole("button", { name: /^Risk Analysis/ }).at(-1)).toHaveAttribute("aria-current", "step");
+  });
+
+  it("shows OG3 as the current step, with the Risk Analysis done", async () => {
+    current = second(null, { stage: "OG3" });
+    render(<SystemEvaluation systemId="s1" />);
+    const steps = await screen.findByRole("list", { name: "Evaluation stages" });
+    expect(within(steps).getByRole("button", { name: /^OG3/ })).toHaveAttribute("aria-current", "step");
+    expect(within(steps).getAllByRole("button", { name: /^Risk Analysis/ }).at(-1)).toHaveTextContent("done");
   });
 });

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { authenticate } from "@/lib/api-authz";
 import { prisma } from "@/lib/prisma";
 import { logChangeEvent } from "@/lib/change-events";
+import { advanceAfterRiskAnalysis } from "@/lib/evaluation";
 import { getVisibleSystem } from "@/lib/system-visibility";
 import {
   ANALYSIS_ALREADY_COMPLETED,
@@ -50,6 +51,8 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems
       auth.user.id,
       tx,
     );
+    // A System waiting for this analysis at the Risk Analysis stage moves on, in the same transaction.
+    await advanceAfterRiskAnalysis(tx, system.id, auth.user.id);
     return { status: "done" as const, row: await tx.riskAnalysis.findUniqueOrThrow({ where: { id: analysisId }, select: RISK_ANALYSIS_SELECT }) };
   });
 
