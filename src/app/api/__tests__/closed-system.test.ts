@@ -145,6 +145,20 @@ describe("A System rejected at OG3 is closed (#330)", { timeout: 120_000 }, () =
     expect(await fingerprint(closedId)).toBe(before);
   });
 
+  it("answers a bulk owner change by a user who can't see the closed System like any other inaccessible id (403), and changes nothing", async () => {
+    const before = await fingerprint(closedId);
+    const post = async (id: string) => {
+      const response = await changeOwners(requestAs(stranger, "/api/systems/owner", "POST", { systemIds: [id], ownerId: stranger }));
+      return { status: response.status, body: await response.json() };
+    };
+    const closedAnswer = await post(closedId);
+    const unknownAnswer = await post("missing-system");
+    expect(closedAnswer.status).toBe(403);
+    expect(closedAnswer.status).toBe(unknownAnswer.status);
+    expect(closedAnswer.body.error).toBe(unknownAnswer.body.error);
+    expect(await fingerprint(closedId)).toBe(before);
+  });
+
   it("still lets everyone read it", async () => {
     for (const who of [admin, owner, bso]) {
       const evaluation = await getEvaluation(requestAs(who, `/api/systems/${closedId}/evaluation`, "GET"), { params: Promise.resolve({ id: closedId }) });
