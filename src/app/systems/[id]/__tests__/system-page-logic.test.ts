@@ -62,18 +62,18 @@ describe("lifecycleStages", () => {
   const states = (status: OnboardingStatus) => lifecycleStages(status).map((stage) => `${stage.label}:${stage.state}`);
 
   it("marks the steps before the current one as past", () => {
-    expect(states("DRAFT")).toEqual(["Draft:now", "In review:todo", "Approved:todo", "Onboarded:todo"]);
-    expect(states("IN_REVIEW")).toEqual(["Draft:past", "In review:now", "Approved:todo", "Onboarded:todo"]);
-    expect(states("APPROVED")).toEqual(["Draft:past", "In review:past", "Approved:now", "Onboarded:todo"]);
+    expect(states("DRAFT")).toEqual(["Draft:now", "In review:todo", "ATO:todo", "Onboarded:todo"]);
+    expect(states("IN_REVIEW")).toEqual(["Draft:past", "In review:now", "ATO:todo", "Onboarded:todo"]);
+    expect(states("APPROVED")).toEqual(["Draft:past", "In review:past", "ATO:now", "Onboarded:todo"]);
   });
 
   it("shows a Rejected System as Rejected on the In review step", () => {
-    expect(states("REJECTED")).toEqual(["Draft:past", "Rejected:now", "Approved:todo", "Onboarded:todo"]);
+    expect(states("REJECTED")).toEqual(["Draft:past", "Rejected:now", "ATO:todo", "Onboarded:todo"]);
     expect(lifecycleStages("REJECTED")[1].tone).toBe("danger");
   });
 
   it("has finished all four steps once Onboarded", () => {
-    expect(states("ONBOARDED")).toEqual(["Draft:past", "In review:past", "Approved:past", "Onboarded:past"]);
+    expect(states("ONBOARDED")).toEqual(["Draft:past", "In review:past", "ATO:past", "Onboarded:past"]);
   });
 });
 
@@ -92,7 +92,7 @@ describe("lifecycleNote", () => {
   });
 
   it("names marking Onboarded for an Approved System, and the day for an Onboarded one", () => {
-    expect(lifecycleNote({ ...base, status: "APPROVED", approvedAt: "2026-10-22T08:00:00.000Z" })).toBe("Approved 22 Oct 2026 · waiting for Ola Owner or an Admin to mark it Onboarded");
+    expect(lifecycleNote({ ...base, status: "APPROVED", approvedAt: "2026-10-22T08:00:00.000Z" })).toBe("ATO 22 Oct 2026 · waiting for Ola Owner or an Admin to mark it Onboarded");
     expect(lifecycleNote({ ...base, status: "ONBOARDED", onboardedAt: "2026-10-25T08:00:00.000Z" })).toBe("Onboarded 25 Oct 2026");
   });
 

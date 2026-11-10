@@ -74,7 +74,7 @@ export function DecisionDialog({
         </h2>
         <p className="text-rg-muted">
           {approving
-            ? "Record your approval. The System becomes Approved once every Review Step has approved."
+            ? "Record your approval. The System gets its ATO once every Review Step has approved."
             : "Rejecting returns the System to Draft at once and cancels the other open Review Steps."}
         </p>
         {error && (

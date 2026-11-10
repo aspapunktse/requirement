@@ -73,7 +73,7 @@ export function sourceKeyOf(source: EffectiveSource): SourceKey {
  *   (`blockedBy` > 0) while mandatory Controls are not addressed or the System has no Sensitivity Level, as the route refuses then (decision 6a on #243, #290);
  * - Approve… / Reject: an In Review System with an open Review Step the user may decide
  *   (`userCanDecideStep`, which `GET /api/systems/[id]/approvals` reports as `canDecide`);
- * - Mark Onboarded: an Approved System, for whoever `canMarkOnboarded` (`POST .../onboard`).
+ * - Mark Onboarded: an ATO System, for whoever `canMarkOnboarded` (`POST .../onboard`).
  * Nothing for a Rejected or Onboarded System, whose APIs refuse every one of them.
  */
 export function nextStepFor(input: {
@@ -111,12 +111,12 @@ export function nextStepFor(input: {
 export type LifecycleStage = { key: "DRAFT" | "IN_REVIEW" | "APPROVED" | "ONBOARDED"; label: string; state: "past" | "now" | "todo"; tone?: "danger" };
 
 /**
- * Draft → In review → Approved → Onboarded, with the steps before the current one marked past. A Rejected
+ * Draft → In review → ATO → Onboarded, with the steps before the current one marked past. A Rejected
  * System stands on the In review step, labelled Rejected. An Onboarded System has finished all four.
  */
 export function lifecycleStages(status: OnboardingStatus): LifecycleStage[] {
   const order = ["DRAFT", "IN_REVIEW", "APPROVED", "ONBOARDED"] as const;
-  const labels = { DRAFT: "Draft", IN_REVIEW: "In review", APPROVED: "Approved", ONBOARDED: "Onboarded" };
+  const labels = { DRAFT: "Draft", IN_REVIEW: "In review", APPROVED: "ATO", ONBOARDED: "Onboarded" };
   const at = status === "REJECTED" ? 1 : order.indexOf(status);
   return order.map((key, index): LifecycleStage => {
     if (status === "REJECTED" && key === "IN_REVIEW") return { key, label: "Rejected", state: "now", tone: "danger" };
@@ -163,7 +163,7 @@ export function lifecycleNote(input: {
     case "REJECTED":
       return `Rejected${input.submittedAt ? ` after the review submitted ${formatDay(input.submittedAt)}` : ""} · waiting for ${input.ownerName}'s resubmission`;
     case "APPROVED":
-      return `Approved${input.approvedAt ? ` ${formatDay(input.approvedAt)}` : ""} · waiting for ${input.ownerName} or an Admin to mark it Onboarded`;
+      return `ATO${input.approvedAt ? ` ${formatDay(input.approvedAt)}` : ""} · waiting for ${input.ownerName} or an Admin to mark it Onboarded`;
     case "ONBOARDED":
       return input.onboardedAt ? `Onboarded ${formatDay(input.onboardedAt)}` : "Onboarded";
   }

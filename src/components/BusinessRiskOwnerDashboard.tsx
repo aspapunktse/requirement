@@ -7,6 +7,8 @@ import { frameworkLabel } from "@/lib/framework-label";
 import { formatCompliancePercentage } from "@/lib/requirement-status-rules";
 import { RISK_SOURCES, RISK_SOURCE_LABELS, type RiskSourceValue } from "@/lib/risk-source";
 import { onboardingStatusTone, riskStatusTone } from "@/lib/status-tones";
+import { ONBOARDING_STATUS_LABEL } from "@/lib/internal-audit-system-filter";
+import type { OnboardingStatus } from "@prisma/client";
 
 type CatalogItem = { id: string; name: string; version?: string };
 
@@ -24,6 +26,9 @@ type PortfolioSystem = {
 
 /** Display order for grouping the System Portfolio by onboarding status. */
 const PORTFOLIO_STATUS_ORDER = ["DRAFT", "IN_REVIEW", "APPROVED", "REJECTED", "ONBOARDED"];
+
+/** The lifecycle label of a status (Approved shows as ATO); an unknown value is shown as it is. */
+const statusText = (status: string) => ONBOARDING_STATUS_LABEL[status as OnboardingStatus] ?? status;
 
 type Risk = {
   id: string;
@@ -235,7 +240,7 @@ export function BusinessRiskOwnerDashboard({
             {portfolioByStatus.map((group) => (
               <div key={group.status}>
                 <h3 className="mb-2 text-sm text-rg-muted">
-                  {group.status} ({group.systems.length})
+                  {statusText(group.status)} ({group.systems.length})
                 </h3>
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
                   {group.systems.map((system) => (
@@ -244,7 +249,7 @@ export function BusinessRiskOwnerDashboard({
                       href={`/systems/${system.id}`}
                       className="flex flex-col gap-1 rounded border border-rg-line p-2 text-sm hover:border-rg-muted"
                     >
-                      <StatusChip tone={onboardingStatusTone(system.status)}>{system.status}</StatusChip>
+                      <StatusChip tone={onboardingStatusTone(system.status)}>{statusText(system.status)}</StatusChip>
                       <span className="font-medium">{system.name}</span>
                       {system.vendor && <span className="text-xs text-rg-muted">{system.vendor}</span>}
                       <span className="text-xs text-rg-muted">

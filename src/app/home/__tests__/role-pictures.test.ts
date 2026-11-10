@@ -108,7 +108,7 @@ describe("each role's picture on /home (#226)", () => {
         expect(stageOf(before, rejected.id)).toBe(0);
         expect(stageOf(before, inReview.id)).toBe(1);
         expect(stageOf(before, onboarded.id)).toBe(3);
-        expect(before.stages).toEqual(["Draft", "In review", "Approved", "Onboarded"]);
+        expect(before.stages).toEqual(["Draft", "In review", "ATO", "Onboarded"]);
         expect(before.items.find((item) => item.id === rejected.id)?.flag).toBe("Rejected");
         expect(before.items.find((item) => item.id === draft.id)?.href).toBe(`/systems/${draft.id}`);
         expect(before.items).toHaveLength(4);

@@ -36,7 +36,7 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems
 
   if (system.status !== "APPROVED") {
     return NextResponse.json(
-      { error: "Only an Approved System can be marked Onboarded" },
+      { error: "Only a System with an ATO can be marked Onboarded" },
       { status: 400 },
     );
   }
