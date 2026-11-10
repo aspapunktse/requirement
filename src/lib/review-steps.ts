@@ -5,6 +5,7 @@ import { logChangeEvent, SYSTEM_ACTOR } from "@/lib/change-events";
 import { isSystemOwnerOrAdmin } from "@/lib/system-permissions";
 import { lockSystem } from "@/lib/system-lock";
 import { reopenVerdictsForEdit, settleOg1 } from "@/lib/evaluation-og1";
+import { reopenRecommendationsForEdit, settleOagReview } from "@/lib/evaluation-oag";
 import type { SystemClassification } from "@/lib/control-applicability";
 import {
   BASE_REVIEW_STEP_NAME,
@@ -195,6 +196,7 @@ export async function reconcileReviewStepsIn(tx: Tx, systemId: string) {
   await lockSystem(tx, systemId);
   await settleReviewSteps(tx, systemId);
   await settleOg1(tx, systemId);
+  await settleOagReview(tx, systemId);
 }
 
 /** `settleReviewSteps` for one System, in its own transaction. Call it right after a change to the System's remit. */
@@ -204,6 +206,7 @@ export async function reconcileReviewSteps(systemId: string) {
       await lockSystem(tx, systemId);
       await settleReviewSteps(tx, systemId);
       await settleOg1(tx, systemId);
+      await settleOagReview(tx, systemId);
     });
   } catch (error) {
     // The change that called us has committed; a failure here must not turn it into a 500. The next
@@ -326,8 +329,8 @@ export async function reopenStepsForEdit(
   control: { id: string; code: string },
   actorId: string,
 ) {
-  // A System at OG1 (staged evaluation, #328) reopens verdicts the same way; it is never also In Review.
-  const reopenedVerdicts = await reopenVerdictsForEdit(tx, systemId, control, actorId);
+  // A System at OG1 or the OAG review (staged evaluation, #328, #331) reopens verdicts and Recommendations the same way; it is never also In Review.
+  const reopenedVerdicts = [...(await reopenVerdictsForEdit(tx, systemId, control, actorId)), ...(await reopenRecommendationsForEdit(tx, systemId, control, actorId))];
   const current = await readCurrentSteps(tx, systemId);
   if (!current || !current.round) return reopenedVerdicts;
   const remit = await stepsContainingControl(tx, current.system, control.id);
