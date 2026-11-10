@@ -96,7 +96,8 @@ Staged evaluation (PRD 0002, ADR 0014, no milestone):
 13. #330 OG3: the BSO (or an Admin who isn't the owner) authorizes to operate (status Approved, then Onboarded as today), rejects (final: `System.evaluationClosedAt`, every write 409 via `refuseIfSystemClosed`) or sends back. Decisions are `GateDecision` rows, reusable for Qualification and OG2. **Done: PR (this one).**
 14. #331 Full track first half: Qualification (BSO Yes/Reject/Send back), first documentation submit, the OAG review (a `Recommendation` per participant, stage-keyed so #332 reuses it for `OAG_REVIEW_2`; reopened by an owner edit in the remit) and OG2 (Proceed against an Advise-against needs a `GateDecision.justification`). Qualification, OG2 and OG3 share `decideAtGate`. **Done: PR (this one).**
 15. #332 Full track second half: after OG2, the second round, a Risk Analysis (Full moves `RISK_ANALYSIS_2` → `OAG_REVIEW_2`), a second OAG review (same `Recommendation` table, stage-keyed; review 1 stays as history) and OG3 showing both reviews; authorizing against a live Advise-against from either review needs a justification. A send-back to or before `OAG_REVIEW_1` voids both reviews, later targets only review 2. The Full track works end to end. **Done: PR (this one).**
-16. #333 switch-over; #334 Change Review.
+16. #333 Switch-over: Approved Systems show as ATO in every lifecycle view (label only; the stored `APPROVED` value, counts and the legacy flow are unchanged). The Admin turns on "Staged evaluation for new Systems" in production. **Done: PR (this one).**
+17. #334 Change Review.
 
 Not cut into issues: the PRD's "could" feature F-IMP.4 (UI upload of Framework files, other Frameworks as data). F-OUT.6 is #273.
 
