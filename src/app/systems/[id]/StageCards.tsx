@@ -56,7 +56,7 @@ export function StageDocumentation({ systemId, stage, track }: { systemId: strin
   return (
     <div className="ev-part" aria-label={`${STAGE_LABEL[stage]} documentation`} role="group">
       <div className="ev-part-h">
-        <h3>{STAGE_LABEL[stage]} documentation</h3>
+        <h3>{stage === "SECOND_ROUND" ? "Second-round documentation" : "Document Requirements"}</h3>
         {rows.length > 0 && (
           <span className="ev-hint">
             {provided} of {rows.length} provided
