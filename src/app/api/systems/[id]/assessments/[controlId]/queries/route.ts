@@ -3,6 +3,7 @@ import { z } from "zod";
 import { authenticate } from "@/lib/api-authz";
 import { getVisibleSystem } from "@/lib/system-visibility";
 import { getControlForAssessmentEdit } from "@/lib/control-assessments";
+import { refuseIfSystemClosed } from "@/lib/system-closed";
 import {
   ROLES_ALLOWED_TO_MANAGE_QUERIES,
   mayActThroughMembership,
@@ -34,6 +35,9 @@ export async function POST(
   if (!system) {
     return NextResponse.json({ error: "System not found" }, { status: 404 });
   }
+
+  const closed = await refuseIfSystemClosed(id);
+  if (closed) return closed;
 
   const control = await getControlForAssessmentEdit(system, controlId);
   if (!control) {

@@ -6,6 +6,7 @@ import { authorize } from "@/lib/api-authz";
 import { getVisibleSystem } from "@/lib/system-visibility";
 import { ROLES_ALLOWED_TO_MANAGE_RISK_STATUS, RISK_INCLUDE } from "@/lib/risks";
 import { logChangeEvent } from "@/lib/change-events";
+import { refuseIfSystemClosed } from "@/lib/system-closed";
 
 const updateRiskSchema = z.object({
   status: z.enum(RiskStatus),
@@ -26,6 +27,9 @@ export async function PATCH(
   if (!system) {
     return NextResponse.json({ error: "System not found" }, { status: 404 });
   }
+
+  const closed = await refuseIfSystemClosed(id);
+  if (closed) return closed;
 
   const parsed = updateRiskSchema.safeParse(await request.json());
   if (!parsed.success) {

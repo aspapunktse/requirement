@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { logChangeEvent } from "@/lib/change-events";
 import { advanceAfterRiskAnalysis } from "@/lib/evaluation";
 import { getVisibleSystem } from "@/lib/system-visibility";
+import { refuseIfSystemClosed } from "@/lib/system-closed";
 import {
   ANALYSIS_ALREADY_COMPLETED,
   canRecordRiskAnalysis,
@@ -28,6 +29,9 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems
   const { id, analysisId } = await ctx.params;
   const system = await getVisibleSystem(auth.user, id);
   if (!system) return NextResponse.json({ error: "System not found" }, { status: 404 });
+
+  const closed = await refuseIfSystemClosed(id);
+  if (closed) return closed;
   if (!canRecordRiskAnalysis(auth.user, system)) return NextResponse.json({ error: RISK_ANALYSIS_REFUSED }, { status: 403 });
 
   const outcome = await prisma.$transaction(async (tx) => {

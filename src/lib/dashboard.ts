@@ -31,7 +31,7 @@ export type AttentionSystem =
  */
 export async function getSystemsNeedingAttention(ownerId: string): Promise<AttentionSystem[]> {
   const systems = await prisma.system.findMany({
-    where: { ownerId },
+    where: { ownerId, evaluationClosedAt: null },
     orderBy: { createdAt: "asc" },
     include: {
       deploymentFacets: true,

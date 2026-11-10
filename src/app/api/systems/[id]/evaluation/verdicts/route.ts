@@ -7,6 +7,7 @@ import { getVisibleSystem } from "@/lib/system-visibility";
 import { canDecideStep } from "@/lib/approvals";
 import { lockSystem } from "@/lib/system-lock";
 import { giveVerdict } from "@/lib/evaluation-og1";
+import { refuseIfSystemClosed } from "@/lib/system-closed";
 
 const verdictSchema = z.object({
   /** The participant the verdict is for: a Review Group id, or null for the base review. */
@@ -28,6 +29,9 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems
   const { id } = await ctx.params;
   const system = await getVisibleSystem(auth.user, id);
   if (!system) return NextResponse.json({ error: "System not found" }, { status: 404 });
+
+  const closed = await refuseIfSystemClosed(id);
+  if (closed) return closed;
 
   const body = await request.json().catch(() => null);
   const participant = verdictSchema.pick({ reviewGroupId: true }).safeParse(body ?? {});

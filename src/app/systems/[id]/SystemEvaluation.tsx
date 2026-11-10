@@ -345,6 +345,148 @@ function SecondRoundCard({ systemId, evaluation, onDone }: { systemId: string; e
   );
 }
 
+/** The decisions made at gates, newest last: who, what and why (the System's history also has each as a Change Event). */
+function DecisionLog({ decisions }: { decisions: EvaluationView["decisions"] }) {
+  if (decisions.length === 0) return null;
+  return (
+    <ul className="ev-verdicts" aria-label="Decisions at OG3">
+      {decisions.map((decision) => (
+        <li key={`${decision.decidedAt}-${decision.outcome}`}>
+          <div className="ev-vrow">
+            <b>{OUTCOME_LABEL[decision.outcome]}</b>
+            <StatusChip tone={decision.outcome === "AUTHORIZE" ? "success" : decision.outcome === "REJECT" ? "danger" : "warn"}>
+              {decision.outcome === "SEND_BACK" && decision.sentBackTo ? `Back to ${EVALUATION_STAGE_LABEL[decision.sentBackTo]}` : OUTCOME_LABEL[decision.outcome]}
+            </StatusChip>
+          </div>
+          <p className="ev-comment">
+            {decision.comment}
+            <span className="ev-when">
+              {" "}
+              {formatDay(decision.decidedAt)} · {decision.by}
+            </span>
+          </p>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+const OUTCOME_LABEL = { AUTHORIZE: "Authorized to operate", REJECT: "Rejected", SEND_BACK: "Sent back" } as const;
+
+/** The decision form of the Business System Owner (or an Admin): authorize, reject (final) or send back to an earlier stage. */
+function Og3DecisionForm({ systemId, og3, onDone }: { systemId: string; og3: NonNullable<EvaluationView["og3"]>; onDone: () => void }) {
+  const [decision, setDecision] = useState<"AUTHORIZE" | "REJECT" | "SEND_BACK">("AUTHORIZE");
+  const [sendBackTo, setSendBackTo] = useState<string>(og3.sendBackTargets[og3.sendBackTargets.length - 1] ?? "FIRST_ROUND");
+  const [comment, setComment] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
+    setError(null);
+    setBusy(true);
+    try {
+      const response = await fetch(`/api/systems/${systemId}/evaluation/og3-decision`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ decision, comment, ...(decision === "SEND_BACK" ? { sendBackTo } : {}) }),
+      });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        setError(body.error ?? "Couldn't record the decision");
+        return;
+      }
+      onDone();
+    } catch {
+      setError("Couldn't record the decision");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form className="sc-form ev-form" onSubmit={submit} aria-label="OG3 decision">
+      <fieldset className="sc-field">
+        <legend>Your decision</legend>
+        <div className="ev-radios">
+          {(
+            [
+              ["AUTHORIZE", "Authorize to operate"],
+              ["REJECT", "Reject"],
+              ["SEND_BACK", "Send back"],
+            ] as const
+          ).map(([key, label]) => (
+            <label key={key}>
+              <input type="radio" name="ev-og3-decision" value={key} checked={decision === key} onChange={() => setDecision(key)} />
+              {label}
+            </label>
+          ))}
+        </div>
+      </fieldset>
+      {decision === "SEND_BACK" && (
+        <label className="sc-field">
+          <span>Send back to</span>
+          <select value={sendBackTo} onChange={(event) => setSendBackTo(event.target.value)}>
+            {og3.sendBackTargets.map((stage) => (
+              <option key={stage} value={stage}>
+                {EVALUATION_STAGE_LABEL[stage]}
+                {stage === "FIRST_ROUND" ? ": OG1 runs again" : ""}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      {decision === "REJECT" && <p className="sc-callout warn">Reject is final. The System is closed and read-only for everyone.</p>}
+      <label className="sc-field">
+        <span>Comment</span>
+        <textarea rows={2} value={comment} maxLength={2000} onChange={(event) => setComment(event.target.value)} required />
+      </label>
+      {error && (
+        <p role="alert" className="sc-err">
+          {error}
+        </p>
+      )}
+      <div className="sc-btnrow">
+        <button type="submit" className={`hc-btn ${decision === "REJECT" ? "reject" : "primary"}`} disabled={busy || comment.trim() === ""}>
+          {decision === "AUTHORIZE" ? "Authorize to operate" : decision === "REJECT" ? "Reject the System" : "Send back"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+/** OG3: the Business System Owner decides whether the System may operate; open Risks never block it, they are shown (the Risk summary) beside it. */
+function Og3Card({ systemId, evaluation, atGate, onDone }: { systemId: string; evaluation: EvaluationView; atGate: boolean; onDone: () => void }) {
+  return (
+    <section className="hc-card ev-card" aria-labelledby="ev-og3-h">
+      <div className="hc-card-h">
+        <h2 id="ev-og3-h">{STEP_INFO.OG3.long}</h2>
+        <p>{STEP_INFO.OG3.hint}</p>
+      </div>
+      <div className="hc-card-b">
+        {evaluation.closed ? (
+          <p className="ev-outcome" aria-live="polite">
+            Rejected at OG3. The System is closed and read-only.
+          </p>
+        ) : evaluation.authorized ? (
+          <p className="ev-outcome" aria-live="polite">
+            Authorized to operate (ATO). The System&apos;s owner or an Admin marks it Onboarded when the cutover has happened.
+          </p>
+        ) : evaluation.og3 ? (
+          evaluation.og3.canDecide ? (
+            <Og3DecisionForm systemId={systemId} og3={evaluation.og3} onDone={onDone} />
+          ) : (
+            <p className="ev-hint">The System&apos;s Business System Owner (or an Admin who doesn&apos;t own it) decides. Open Risks don&apos;t block the decision.</p>
+          )
+        ) : (
+          !atGate && <p className="hc-empty">{STEP_INFO.OG3.hint} It opens once the earlier stages are done.</p>
+        )}
+        <DecisionLog decisions={evaluation.decisions} />
+      </div>
+    </section>
+  );
+}
+
 /** The Risk Analysis stage: waiting for a Risk Owner or an Admin who isn't the System's owner to complete one, then done. */
 function RiskAnalysisStageCard({ systemId, evaluation, shown }: { systemId: string; evaluation: EvaluationView; shown: "RISK_ANALYSIS_1" | "RISK_ANALYSIS_2" }) {
   const waiting = shown === "RISK_ANALYSIS_2" && evaluation.stage === "RISK_ANALYSIS_2";
@@ -403,9 +545,9 @@ export function SystemEvaluation({ systemId }: { systemId: string }) {
   const current = steps.find((step) => step.state === "now");
   const shown: StepKey = selected ?? current?.key ?? "FIRST_ROUND";
   const shownStep = steps.find((step) => step.key === shown);
-  const laterShown = !["FIRST_ROUND", "RISK_ANALYSIS_1", "RISK_ANALYSIS_2", "SECOND_ROUND", "OG1", "FIRST_DOCUMENTATION"].includes(shown);
+  const laterShown = !["FIRST_ROUND", "RISK_ANALYSIS_1", "RISK_ANALYSIS_2", "SECOND_ROUND", "OG1", "OG3", "FIRST_DOCUMENTATION"].includes(shown);
   // As in proposal A: the Risk summary sits with every stage card but a current gate other than OG1, which weighs it elsewhere.
-  const showRiskSummary = !(shownStep && shownStep.kind === "gate" && shown !== "OG1" && shownStep.state === "now");
+  const showRiskSummary = !(shownStep && shownStep.kind === "gate" && shown !== "OG1" && shown !== "OG3" && shownStep.state === "now");
   const afterAction = () => {
     setSelected(null);
     reload();
@@ -419,10 +561,15 @@ export function SystemEvaluation({ systemId }: { systemId: string }) {
           Couldn&apos;t refresh the evaluation; what follows may be out of date.
         </p>
       )}
+      {evaluation.closed && (
+        <p role="status" className="sc-callout warn">
+          <b>Closed.</b> The Business System Owner rejected this System at OG3. It is read-only for everyone.
+        </p>
+      )}
       <section className="hc-card ev-head" aria-label="Evaluation progress">
         <Ring segments={[[done / steps.length, "var(--rg-success)"]]} size={88} stroke={10} center={`${done}/${steps.length}`} label={`${done} of ${steps.length} steps done`} />
         <div className="ev-head-text">
-          <h2>{current ? STEP_INFO[current.key].long : EVALUATION_STAGE_LABEL[evaluation.stage]}</h2>
+          <h2>{evaluation.closed ? "Rejected at OG3" : evaluation.authorized ? "Authorized to operate (ATO)" : current ? STEP_INFO[current.key].long : EVALUATION_STAGE_LABEL[evaluation.stage]}</h2>
           <p>
             {evaluation.track ? `${TRACK_LABEL[evaluation.track]} track` : "Track not chosen yet"} · in this stage since {formatDay(evaluation.stageEnteredAt)}
           </p>
@@ -459,6 +606,7 @@ export function SystemEvaluation({ systemId }: { systemId: string }) {
         ))}
       {(shown === "RISK_ANALYSIS_1" || shown === "RISK_ANALYSIS_2") && <RiskAnalysisStageCard systemId={systemId} evaluation={evaluation} shown={shown} />}
       {shown === "OG1" && <Og1Card systemId={systemId} evaluation={evaluation} onDone={afterAction} />}
+      {shown === "OG3" && <Og3Card systemId={systemId} evaluation={evaluation} atGate={shownStep?.state === "now"} onDone={afterAction} />}
       {shown === "FIRST_DOCUMENTATION" && (
         <section className="hc-card ev-card" aria-labelledby="ev-docs-h">
           <div className="hc-card-h">

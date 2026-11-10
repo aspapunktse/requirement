@@ -149,7 +149,7 @@ export type SystemPageView = {
     createdAt: string;
     onboardedAt: string | null;
     /** Staged evaluation (#328): where the System is and its Track; null for a classic System, which has no Evaluation tab. */
-    evaluation: { stage: EvaluationStage; track: EvaluationTrack | null } | null;
+    evaluation: { stage: EvaluationStage; track: EvaluationTrack | null; /** Rejected at OG3 (#330): closed and read-only. */ closed?: boolean } | null;
   };
   /** The lifecycle note under the stepper (see `lifecycleNote`). */
   note: string;

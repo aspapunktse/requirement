@@ -9,6 +9,7 @@ import { STAGED_SYSTEM_REFUSAL } from "@/lib/evaluation-stages";
 import { isBelowInformationTypes } from "@/lib/information-type-floor";
 import { NO_SENSITIVITY_LEVEL, belowInformationTypesMessage } from "@/lib/submit-classification";
 import { readSystemInformationTypes } from "@/lib/system-information-types";
+import { refuseIfSystemClosed } from "@/lib/system-closed";
 
 /** Thrown inside the submit transaction to roll it back when the System turned out to be below its Information Types. */
 class BelowInformationTypes extends Error {}
@@ -26,6 +27,9 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems
   if (!canSubmit(auth.user, system)) {
     return NextResponse.json({ error: "Only the System's owner or an Admin can submit this System for review" }, { status: 403 });
   }
+
+  const closed = await refuseIfSystemClosed(id);
+  if (closed) return closed;
 
   // A staged System follows the staged evaluation, not the classic flow (#328).
   if (system.evaluationStage !== null) {

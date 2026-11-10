@@ -7,6 +7,7 @@ import { getVisibleSystem } from "@/lib/system-visibility";
 import { canLogRisk, getSystemRisks, RISK_INCLUDE } from "@/lib/risks";
 import { logChangeEvent } from "@/lib/change-events";
 import { riskLoggedDetail } from "@/lib/risk-logged-event";
+import { refuseIfSystemClosed } from "@/lib/system-closed";
 
 export async function GET(request: NextRequest, ctx: RouteContext<"/api/systems/[id]/risks">) {
   const auth = await authenticate(request);
@@ -45,6 +46,9 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems
       { status: 403 },
     );
   }
+
+  const closed = await refuseIfSystemClosed(id);
+  if (closed) return closed;
 
   const parsed = createRiskSchema.safeParse(await request.json());
   if (!parsed.success) {

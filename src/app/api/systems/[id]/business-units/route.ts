@@ -5,6 +5,7 @@ import { authenticate } from "@/lib/api-authz";
 import { getVisibleSystem } from "@/lib/system-visibility";
 import { canManageBusinessUnits, getSystemBusinessUnits } from "@/lib/business-units";
 import { logChangeEvent } from "@/lib/change-events";
+import { refuseIfSystemClosed } from "@/lib/system-closed";
 
 export async function GET(request: NextRequest, ctx: RouteContext<"/api/systems/[id]/business-units">) {
   const auth = await authenticate(request);
@@ -38,6 +39,9 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems
       { status: 403 },
     );
   }
+
+  const closed = await refuseIfSystemClosed(id);
+  if (closed) return closed;
 
   const parsed = declareBusinessUnitSchema.safeParse(await request.json());
   if (!parsed.success) {

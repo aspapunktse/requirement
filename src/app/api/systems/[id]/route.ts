@@ -7,6 +7,7 @@ import { getVisibleSystem } from "@/lib/system-visibility";
 import { canChangeSystemClassification, changeSystemClassification } from "@/lib/system-classification-change";
 import { sensitivityLevelSchema } from "@/lib/sensitivity-level";
 import { ClassificationRefused } from "@/lib/system-information-types";
+import { refuseIfSystemClosed } from "@/lib/system-closed";
 
 const impactLevelSchema = z.nativeEnum(ImpactLevel).nullable();
 
@@ -67,6 +68,9 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/system
       { status: 403 },
     );
   }
+
+  const closed = await refuseIfSystemClosed(id);
+  if (closed) return closed;
 
   const parsed = updateSystemSchema.safeParse(await request.json());
   if (!parsed.success) {

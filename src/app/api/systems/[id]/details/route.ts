@@ -3,6 +3,7 @@ import { authenticate } from "@/lib/api-authz";
 import { getVisibleSystem } from "@/lib/system-visibility";
 import { canChangeSystemClassification } from "@/lib/system-classification-change";
 import { saveSystemDetails, systemDetailsSchema } from "@/lib/system-details";
+import { refuseIfSystemClosed } from "@/lib/system-closed";
 
 /**
  * Edits a System's name, vendor and description (#246), at any Onboarding Status; it never touches the
@@ -23,6 +24,9 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/system
   if (!canChangeSystemClassification(auth.user, visible)) {
     return NextResponse.json({ error: "Only the System's owner or an Admin can edit its details" }, { status: 403 });
   }
+
+  const closed = await refuseIfSystemClosed(id);
+  if (closed) return closed;
 
   const body = await request.json().catch(() => null);
   const parsed = systemDetailsSchema.safeParse(body);

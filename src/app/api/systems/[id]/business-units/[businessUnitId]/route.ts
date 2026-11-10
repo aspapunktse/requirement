@@ -4,6 +4,7 @@ import { authenticate } from "@/lib/api-authz";
 import { getVisibleSystem } from "@/lib/system-visibility";
 import { canManageBusinessUnits, getSystemBusinessUnits } from "@/lib/business-units";
 import { logChangeEvent } from "@/lib/change-events";
+import { refuseIfSystemClosed } from "@/lib/system-closed";
 
 export async function DELETE(
   request: NextRequest,
@@ -24,6 +25,9 @@ export async function DELETE(
       { status: 403 },
     );
   }
+
+  const closed = await refuseIfSystemClosed(id);
+  if (closed) return closed;
 
   const businessUnit = await prisma.businessUnit.findUnique({ where: { id: businessUnitId } });
 

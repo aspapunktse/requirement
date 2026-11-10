@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authenticate } from "@/lib/api-authz";
 import { getVisibleSystem } from "@/lib/system-visibility";
+import { refuseIfSystemClosed } from "@/lib/system-closed";
 import {
   applyFrameworkScopeRemoved,
   canManageFrameworkScopes,
@@ -27,6 +28,9 @@ export async function DELETE(
       { status: 403 },
     );
   }
+
+  const closed = await refuseIfSystemClosed(id);
+  if (closed) return closed;
 
   const framework = await prisma.framework.findUnique({ where: { id: frameworkId } });
   // The base Framework is always in every System's Framework Scope (F-FW.3): whether or not a

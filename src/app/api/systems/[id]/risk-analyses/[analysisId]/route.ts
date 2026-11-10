@@ -11,6 +11,7 @@ import {
   updateRiskAnalysisSchema,
 } from "@/lib/risk-analysis";
 import { RiskAnalysisInputError, raiseRisks, resolveLinks } from "@/lib/risk-analysis-write";
+import { refuseIfSystemClosed } from "@/lib/system-closed";
 
 const NOT_FOUND = { error: "Risk Analysis not found" };
 
@@ -43,6 +44,9 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/system
   const { id, analysisId } = await ctx.params;
   const system = await getVisibleSystem(auth.user, id);
   if (!system) return NextResponse.json({ error: "System not found" }, { status: 404 });
+
+  const closed = await refuseIfSystemClosed(id);
+  if (closed) return closed;
   if (!canRecordRiskAnalysis(auth.user, system)) return NextResponse.json({ error: RISK_ANALYSIS_REFUSED }, { status: 403 });
 
   const parsed = updateRiskAnalysisSchema.safeParse(await request.json().catch(() => null));

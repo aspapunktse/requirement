@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { authenticate } from "@/lib/api-authz";
 import { canWriteSystems, getVisibleSystem } from "@/lib/system-visibility";
 import { addQueryMessage, mayActThroughMembership, queryRightsFor, redactQueries } from "@/lib/assessment-queries";
+import { refuseIfSystemClosed } from "@/lib/system-closed";
 
 const addMessageSchema = z.object({ body: z.string().min(1) });
 
@@ -35,6 +36,9 @@ export async function POST(
       { status: 403 },
     );
   }
+
+  const closed = await refuseIfSystemClosed(id);
+  if (closed) return closed;
 
   const existing = await prisma.assessmentQuery.findFirst({
     where: { id: queryId, controlAssessment: { systemId: system.id, controlId } },

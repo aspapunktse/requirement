@@ -9,6 +9,7 @@ import {
   getSystemFrameworkScopes,
 } from "@/lib/framework-scope";
 import { canSeeDraftFrameworks } from "@/lib/frameworks";
+import { refuseIfSystemClosed } from "@/lib/system-closed";
 
 export async function GET(request: NextRequest, ctx: RouteContext<"/api/systems/[id]/framework-scopes">) {
   const auth = await authenticate(request);
@@ -42,6 +43,9 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems
       { status: 403 },
     );
   }
+
+  const closed = await refuseIfSystemClosed(id);
+  if (closed) return closed;
 
   const parsed = declareFrameworkScopeSchema.safeParse(await request.json());
   if (!parsed.success) {

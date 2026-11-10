@@ -30,6 +30,10 @@ const evaluation = (over: Partial<EvaluationView> = {}): EvaluationView => ({
   secondRound: null,
   canRecordRiskAnalysis: false,
   og1: null,
+  decisions: [],
+  closed: false,
+  authorized: false,
+  og3: null,
   ...over,
 });
 
@@ -325,5 +329,84 @@ describe("Evaluation tab: second round and Risk Analysis (#329)", () => {
     const steps = await screen.findByRole("list", { name: "Evaluation stages" });
     expect(within(steps).getByRole("button", { name: /^OG3/ })).toHaveAttribute("aria-current", "step");
     expect(within(steps).getAllByRole("button", { name: /^Risk Analysis/ }).at(-1)).toHaveTextContent("done");
+  });
+});
+
+describe("Evaluation tab: OG3 (#330)", () => {
+  const at = (over: Partial<EvaluationView> = {}) =>
+    evaluation({
+      stage: "OG3",
+      track: "SELF",
+      firstRound: null,
+      og1: { open: false, track: "SELF", participants: [] },
+      og3: { canDecide: true, sendBackTargets: ["FIRST_ROUND", "OG1", "SECOND_ROUND", "RISK_ANALYSIS_2"] },
+      ...over,
+    });
+
+  beforeEach(() => {
+    fetchMock.mockImplementation((input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input);
+      if (init?.method === "POST") return respond(writeBody, writeStatus);
+      if (url.endsWith("/documents")) return respond({ documents: [], canEdit: false });
+      if (url.endsWith("/risk-analyses")) return respond({ riskAnalyses: [] });
+      if (url.endsWith("/risks")) return respond({ risks: [] });
+      return respond({ evaluation: current });
+    });
+  });
+
+  it("posts an authorization with its comment, and keeps the button off without one", async () => {
+    current = at();
+    const user = userEvent.setup();
+    render(<SystemEvaluation systemId="s1" />);
+    const form = await screen.findByRole("form", { name: "OG3 decision" });
+    const button = within(form).getByRole("button", { name: "Authorize to operate" });
+    expect(button).toBeDisabled();
+    await user.type(within(form).getByLabelText("Comment"), "Risks are accepted");
+    await user.click(button);
+    await waitFor(() => expect(posts()).toHaveLength(1));
+    expect(JSON.parse(posts()[0][1].body)).toEqual({ decision: "AUTHORIZE", comment: "Risks are accepted" });
+    expect(posts()[0][0]).toBe("/api/systems/s1/evaluation/og3-decision");
+  });
+
+  it("warns that Reject is final and sends the chosen stage when sending back", async () => {
+    current = at();
+    const user = userEvent.setup();
+    render(<SystemEvaluation systemId="s1" />);
+    const form = await screen.findByRole("form", { name: "OG3 decision" });
+    await user.click(within(form).getByRole("radio", { name: "Reject" }));
+    expect(within(form).getByText(/Reject is final/)).toBeInTheDocument();
+    await user.click(within(form).getByRole("radio", { name: "Send back" }));
+    await user.selectOptions(within(form).getByLabelText("Send back to"), "FIRST_ROUND");
+    await user.type(within(form).getByLabelText("Comment"), "Start over");
+    await user.click(within(form).getByRole("button", { name: "Send back" }));
+    await waitFor(() => expect(posts()).toHaveLength(1));
+    expect(JSON.parse(posts()[0][1].body)).toEqual({ decision: "SEND_BACK", sendBackTo: "FIRST_ROUND", comment: "Start over" });
+  });
+
+  it("offers no form to someone who doesn't decide", async () => {
+    current = at({ og3: { canDecide: false, sendBackTargets: [] } });
+    render(<SystemEvaluation systemId="s1" />);
+    expect(await screen.findByText(/Business System Owner \(or an Admin/)).toBeInTheDocument();
+    expect(screen.queryByRole("form", { name: "OG3 decision" })).not.toBeInTheDocument();
+  });
+
+  it("shows a rejected System as closed, with the decision and no form", async () => {
+    current = at({
+      og3: null,
+      closed: true,
+      decisions: [{ gate: "OG3", outcome: "REJECT", sentBackTo: null, comment: "Too risky", decidedAt: "2026-11-10T10:00:00.000Z", by: "Bea" }],
+    });
+    render(<SystemEvaluation systemId="s1" />);
+    expect((await screen.findAllByText(/read-only/)).length).toBeGreaterThan(0);
+    expect(screen.getByText("Rejected at OG3")).toBeInTheDocument();
+    expect(screen.getByText(/Too risky/)).toBeInTheDocument();
+    expect(screen.queryByRole("form", { name: "OG3 decision" })).not.toBeInTheDocument();
+  });
+
+  it("shows an authorized System as ATO", async () => {
+    current = at({ og3: null, authorized: true });
+    render(<SystemEvaluation systemId="s1" />);
+    expect(await screen.findByText("Authorized to operate (ATO)")).toBeInTheDocument();
+    expect(screen.queryByRole("form", { name: "OG3 decision" })).not.toBeInTheDocument();
   });
 });

@@ -13,6 +13,7 @@ import { belowInformationTypesMessage } from "@/lib/submit-classification";
 import { BASE_REVIEW_STEP_NAME } from "@/lib/review-participation";
 import { documentationStatusFor } from "@/lib/system-documentation";
 import { readOg1, trackFromVerdicts, userCanGiveVerdict } from "@/lib/evaluation-og1";
+import { canDecideAtGate, readGateDecisions, sendBackTargets, type GateDecisionView } from "@/lib/gate-decisions";
 
 /**
  * Staged evaluation, up to OG1 (#328, PRD 0002, ADR 0014): the first-round readiness checklist, the submit that moves a System from
@@ -223,6 +224,14 @@ export type EvaluationView = {
   canRecordRiskAnalysis: boolean;
   /** The OG1 participants: live while at OG1, the closed verdicts after. */
   og1: { open: boolean; participants: EvaluationParticipantView[]; track: EvaluationTrack | null } | null;
+  /** The decisions made at gates so far (#330), oldest first. */
+  decisions: GateDecisionView[];
+  /** Rejected at OG3: the System is closed and read-only for every role. */
+  closed: boolean;
+  /** Authorized to operate at OG3 (ATO): the System is Approved and waits to be marked Onboarded (or already is). */
+  authorized: boolean;
+  /** Present while the System waits at OG3 for a decision: whether the viewer decides, and the stages it can be sent back to. */
+  og3: { canDecide: boolean; sendBackTargets: EvaluationStage[] } | null;
 };
 
 /**
@@ -233,7 +242,7 @@ export async function loadEvaluationView(viewer: { id: string; role: UserRole },
   const groupIds = await memberGroupIds(viewer.id);
   return prisma.$transaction(
     async (tx) => {
-      const system = await tx.system.findUnique({ where: { id: systemId }, select: { id: true, ownerId: true, evaluationStage: true, evaluationTrack: true, evaluationStageEnteredAt: true } });
+      const system = await tx.system.findUnique({ where: { id: systemId }, select: { id: true, ownerId: true, businessSystemOwnerId: true, status: true, evaluationStage: true, evaluationTrack: true, evaluationStageEnteredAt: true, evaluationClosedAt: true } });
       if (!system || !system.evaluationStage || !system.evaluationStageEnteredAt) return null;
       const stage = system.evaluationStage;
       const groups = new Set(groupIds);
@@ -298,6 +307,13 @@ export async function loadEvaluationView(viewer: { id: string; role: UserRole },
         secondRound: stage === "SECOND_ROUND" ? await readSecondRoundReadiness(tx, systemId) : null,
         canRecordRiskAnalysis: canRecordRiskAnalysis(viewer, system),
         og1,
+        decisions: await readGateDecisions(tx, systemId),
+        closed: system.evaluationClosedAt !== null,
+        authorized: stage === "OG3" && system.evaluationClosedAt === null && system.status !== "DRAFT",
+        og3:
+          stage === "OG3" && system.evaluationClosedAt === null && system.status === "DRAFT"
+            ? { canDecide: canDecideAtGate(viewer, system), sendBackTargets: sendBackTargets(system.evaluationTrack) }
+            : null,
       };
     },
     { isolationLevel: "RepeatableRead" },

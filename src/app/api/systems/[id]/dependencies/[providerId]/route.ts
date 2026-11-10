@@ -3,6 +3,7 @@ import { authenticate } from "@/lib/api-authz";
 import { getVisibleSystem } from "@/lib/system-visibility";
 import { canManageProviderDependencies } from "@/lib/provider-dependency-rules";
 import { removeProviderDependency } from "@/lib/provider-dependencies";
+import { refuseIfSystemClosed } from "@/lib/system-closed";
 
 /**
  * Remove a dependency on a Provider (#124). Order: 401, 404 (System not
@@ -30,6 +31,9 @@ export async function DELETE(
       { status: 403 },
     );
   }
+
+  const closed = await refuseIfSystemClosed(id);
+  if (closed) return closed;
 
   const result = await removeProviderDependency(system, providerId, auth.user.id);
   if (!result.ok) {

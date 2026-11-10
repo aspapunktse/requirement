@@ -4,6 +4,7 @@ import { getVisibleSystem } from "@/lib/system-visibility";
 import { isSystemOwnerOrAdmin } from "@/lib/system-permissions";
 import { getSystemAssessmentRow, resetAssessmentToInherited } from "@/lib/control-assessments";
 import { presentAssessmentRows } from "@/lib/assessment-queries";
+import { refuseIfSystemClosed } from "@/lib/system-closed";
 
 /**
  * Reset the System's own Control Assessment to inherited (#129, F-IN.5): the
@@ -35,6 +36,9 @@ export async function POST(
       { status: 403 },
     );
   }
+
+  const closed = await refuseIfSystemClosed(id);
+  if (closed) return closed;
 
   const result = await resetAssessmentToInherited(system, controlId, auth.user);
   if (!result.ok) {

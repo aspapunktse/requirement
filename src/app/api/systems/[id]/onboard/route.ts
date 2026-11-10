@@ -6,6 +6,7 @@ import { canMarkOnboarded } from "@/lib/onboarding";
 import { logChangeEvent } from "@/lib/change-events";
 import { STAGED_SYSTEM_REFUSAL } from "@/lib/evaluation-stages";
 import { PROVIDER_TRANSACTION_TIMEOUT_MS, withProviderInheritanceEvents } from "@/lib/provider-inheritance";
+import { refuseIfSystemClosed } from "@/lib/system-closed";
 
 export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems/[id]/onboard">) {
   const auth = await authenticate(request);
@@ -24,8 +25,12 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems
     );
   }
 
-  // A staged System follows the staged evaluation, not the classic flow (#328).
-  if (system.evaluationStage !== null) {
+  const closed = await refuseIfSystemClosed(id);
+  if (closed) return closed;
+
+  // A staged System follows the staged evaluation, not the classic flow (#328): it can be marked Onboarded only once the Business
+  // System Owner has authorized it to operate at OG3 (#330), which leaves it Approved (that is what ATO is).
+  if (system.evaluationStage !== null && system.evaluationStage !== "OG3") {
     return NextResponse.json({ error: STAGED_SYSTEM_REFUSAL }, { status: 409 });
   }
 

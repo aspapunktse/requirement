@@ -3,6 +3,7 @@ import { authenticate } from "@/lib/api-authz";
 import { getVisibleSystem } from "@/lib/system-visibility";
 import { canSubmit } from "@/lib/system-permissions";
 import { submitSecondRound } from "@/lib/evaluation";
+import { refuseIfSystemClosed } from "@/lib/system-closed";
 
 /**
  * Submits a staged System's second round, moving it to the Risk Analysis stage (#329, PRD 0002 F-ST.2). The System's owner or an Admin
@@ -16,6 +17,9 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems
   const { id } = await ctx.params;
   const system = await getVisibleSystem(auth.user, id);
   if (!system) return NextResponse.json({ error: "System not found" }, { status: 404 });
+
+  const closed = await refuseIfSystemClosed(id);
+  if (closed) return closed;
   if (!canSubmit(auth.user, system)) {
     return NextResponse.json({ error: "Only the System's owner or an Admin can submit its second round" }, { status: 403 });
   }

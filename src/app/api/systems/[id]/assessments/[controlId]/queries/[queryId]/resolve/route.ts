@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authenticate } from "@/lib/api-authz";
 import { getVisibleSystem } from "@/lib/system-visibility";
+import { refuseIfSystemClosed } from "@/lib/system-closed";
 import {
   ROLES_ALLOWED_TO_MANAGE_QUERIES,
   mayActThroughMembership,
@@ -36,6 +37,9 @@ export async function POST(
   if (!rights.allowed) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
+
+  const closed = await refuseIfSystemClosed(id);
+  if (closed) return closed;
 
   const existing = await prisma.assessmentQuery.findFirst({
     where: { id: queryId, controlAssessment: { systemId: system.id, controlId } },

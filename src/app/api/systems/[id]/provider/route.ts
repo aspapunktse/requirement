@@ -4,6 +4,7 @@ import { authenticate } from "@/lib/api-authz";
 import { getVisibleSystem } from "@/lib/system-visibility";
 import { canManageProvider } from "@/lib/control-offering-rules";
 import { setSystemProvider } from "@/lib/control-offerings";
+import { refuseIfSystemClosed } from "@/lib/system-closed";
 
 const providerSchema = z.object({ isProvider: z.boolean() });
 
@@ -31,6 +32,9 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/system
       { status: 403 },
     );
   }
+
+  const closed = await refuseIfSystemClosed(id);
+  if (closed) return closed;
 
   const parsed = providerSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {

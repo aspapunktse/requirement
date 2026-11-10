@@ -4,6 +4,7 @@ import { authenticate } from "@/lib/api-authz";
 import { getVisibleSystem } from "@/lib/system-visibility";
 import { canManageProvider, CONTROL_OFFERING_TYPES } from "@/lib/control-offering-rules";
 import { getControlOfferingRow, removeControlOffering, updateControlOffering } from "@/lib/control-offerings";
+import { refuseIfSystemClosed } from "@/lib/system-closed";
 
 const updateOfferingSchema = z
   .object({
@@ -39,6 +40,9 @@ export async function PATCH(
       { status: 403 },
     );
   }
+
+  const closed = await refuseIfSystemClosed(id);
+  if (closed) return closed;
 
   const parsed = updateOfferingSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
@@ -77,6 +81,9 @@ export async function DELETE(
       { status: 403 },
     );
   }
+
+  const closed = await refuseIfSystemClosed(id);
+  if (closed) return closed;
 
   const result = await removeControlOffering(system, offeringId, auth.user.id);
   if (!result.ok) {

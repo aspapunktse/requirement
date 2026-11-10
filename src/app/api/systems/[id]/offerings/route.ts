@@ -4,6 +4,7 @@ import { authenticate } from "@/lib/api-authz";
 import { getVisibleSystem } from "@/lib/system-visibility";
 import { canManageProvider, CONTROL_OFFERING_TYPES } from "@/lib/control-offering-rules";
 import { createControlOffering, getControlOfferingRow, listControlOfferings } from "@/lib/control-offerings";
+import { refuseIfSystemClosed } from "@/lib/system-closed";
 
 /**
  * A Provider's Control Offerings (PRD 0001 F-IN.2, #123), for everyone who can
@@ -54,6 +55,9 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems
       { status: 403 },
     );
   }
+
+  const closed = await refuseIfSystemClosed(id);
+  if (closed) return closed;
 
   const parsed = createOfferingSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {

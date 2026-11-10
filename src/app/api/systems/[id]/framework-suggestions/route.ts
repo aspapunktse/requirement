@@ -6,6 +6,7 @@ import { getVisibleSystem } from "@/lib/system-visibility";
 import { canManageFrameworkScopes } from "@/lib/framework-scope";
 import { NOT_SUGGESTED_FRAMEWORK, leaveSuggestionOut, readSuggestions } from "@/lib/framework-suggestions-data";
 import type { Suggestion } from "@/lib/framework-suggestions";
+import { refuseIfSystemClosed } from "@/lib/system-closed";
 
 /**
  * The Frameworks the System's Information Types suggest (#300, ADR 0013), and the owner's decision to leave one out.
@@ -49,6 +50,9 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems
   if (!canManageFrameworkScopes(auth.user, system)) {
     return NextResponse.json({ error: "Only the System's owner or an Admin can leave out a suggested Framework" }, { status: 403 });
   }
+
+  const closed = await refuseIfSystemClosed(id);
+  if (closed) return closed;
 
   const parsed = leaveOutSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "A frameworkId is required" }, { status: 400 });

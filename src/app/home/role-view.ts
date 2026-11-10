@@ -5,6 +5,7 @@ import type { NavTile } from "@/components/ui/TileNav";
 import { getAllOpenRisks } from "@/lib/dashboard";
 import { getOpenStepsForUser } from "@/lib/review-steps";
 import { getOpenVerdictsForUser } from "@/lib/evaluation-og1";
+import { getOg3TasksForUser } from "@/lib/gate-decisions";
 import { scopedSystemsWhere, getAssignedScope } from "@/lib/business-risk-owner";
 import { getActionableQueries } from "@/lib/assessment-queries";
 import { getOwnerTasks, mergeTaskRows } from "@/lib/owner-tasks";
@@ -144,6 +145,7 @@ export function taskAction(row: { kind: string; status: string }, role: UserRole
     case "System":
       if (row.status === "Rejected") return "Fix and resubmit";
       if (row.status === "Needs assessment") return "Assess";
+      if (row.status === "Awaiting your decision") return "Decide";
       if (row.status === "In review") return "View";
       return "Review";
     case "Query":
@@ -265,9 +267,23 @@ export async function roleView(user: { id: string; name: string; role: UserRole 
     }),
   );
   reviewStepRows.push(...openVerdictRows);
+  // A System waiting at OG3 is a task for its Business System Owner (#330).
+  const og3Rows = (await getOg3TasksForUser(user)).map(
+    (system): TaskRow => ({
+      id: `${system.id}:og3`,
+      kind: "System",
+      title: system.name,
+      subtitle: "OG3: authorize to operate?",
+      tone: "accent",
+      status: "Awaiting your decision",
+      updatedAt: system.updatedAt,
+      href: `/systems/${system.id}#evaluation`,
+    }),
+  );
   const [view, owner, controlRows, checkUps, inReviewRows, activity] = await Promise.all([
     roleOwnView(user, reviewStepRows)
       .then((own) => withReviewStepTasks(own, user, reviewStepRows))
+      .then((own) => (og3Rows.length === 0 ? own : { ...own, tasks: [...(own.tasks ?? []), ...og3Rows] }))
       .then((own) => withMemberQueryTasks(own, user))
       .then((own) => withControlLibraryTile(own, user))
       .then(withStatementOfApplicabilityTile)
