@@ -10,6 +10,8 @@ import { giveRecommendation } from "@/lib/evaluation-oag";
 import { refuseIfSystemClosed } from "@/lib/system-closed";
 
 const recommendationSchema = z.object({
+  /** The OAG review the form was shown for; a Recommendation is refused (409) if the System has moved on to the other one. */
+  stage: z.enum(["OAG_REVIEW_1", "OAG_REVIEW_2"]),
   /** The participant the Recommendation is for: a Review Group id, or null for the base review. */
   reviewGroupId: z.string().min(1).nullable(),
   kind: z.nativeEnum(RecommendationKind),
@@ -17,11 +19,11 @@ const recommendationSchema = z.object({
 });
 
 /**
- * Gives a group's Recommendation at the OAG review (#331, PRD 0002 F-OAG.1): `{ reviewGroupId | null, kind: RECOMMEND |
+ * Gives a group's Recommendation at the OAG review (#331, PRD 0002 F-OAG.1): `{ stage: OAG_REVIEW_1 | OAG_REVIEW_2, reviewGroupId | null, kind: RECOMMEND |
  * RECOMMEND_WITH_CONDITIONS | ADVISE_AGAINST, comment }`; conditions are free text in the comment. Who may (the Review Step rule: an Admin
  * any, a Reviewer the base review, a group's member its own, nobody on a System they own) is checked first, 403 before the rest of the
  * body or the System's stage is looked at. 409, nothing written, when the System isn't at the OAG review, the group isn't part of it or
- * already has a Recommendation. Moves the System to OG2 when this was the last open group.
+ * already has a Recommendation, or when the System is at the other review than `stage`. Moves the System to OG2 when this was the last open group.
  */
 export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems/[id]/evaluation/recommendations">) {
   const auth = await authenticate(request);
@@ -47,7 +49,7 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems
   }
 
   const parsed = recommendationSchema.safeParse(body);
-  if (!parsed.success) return NextResponse.json({ error: "A Recommendation (Recommend, Recommend with conditions or Advise against) and a comment are required" }, { status: 400 });
+  if (!parsed.success) return NextResponse.json({ error: "The OAG review (stage), a Recommendation (Recommend, Recommend with conditions or Advise against) and a comment are required" }, { status: 400 });
 
   const result = await prisma.$transaction(
     async (tx) => {

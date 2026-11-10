@@ -496,7 +496,7 @@ describe("Evaluation tab: the Full track's first half (#331)", () => {
     await user.click(within(form).getByRole("button", { name: "Give Recommendation" }));
     await waitFor(() => expect(posts()).toHaveLength(1));
     expect(posts()[0][0]).toBe("/api/systems/s1/evaluation/recommendations");
-    expect(JSON.parse(posts()[0][1].body)).toEqual({ reviewGroupId: "g1", kind: "RECOMMEND_WITH_CONDITIONS", comment: "Patch first" });
+    expect(JSON.parse(posts()[0][1].body)).toEqual({ stage: "OAG_REVIEW_1", reviewGroupId: "g1", kind: "RECOMMEND_WITH_CONDITIONS", comment: "Patch first" });
   });
 
   it("asks for a justification to proceed at OG2 when a group advised against", async () => {
@@ -585,7 +585,7 @@ describe("Evaluation tab: the Full track's second half (#332)", () => {
     await user.click(within(form).getByRole("button", { name: "Give Recommendation" }));
     await waitFor(() => expect(posts()).toHaveLength(1));
     expect(posts()[0][0]).toBe("/api/systems/s1/evaluation/recommendations");
-    expect(JSON.parse(posts()[0][1].body)).toEqual({ reviewGroupId: "g1", kind: "ADVISE_AGAINST", comment: "Still exposed" });
+    expect(JSON.parse(posts()[0][1].body)).toEqual({ stage: "OAG_REVIEW_2", reviewGroupId: "g1", kind: "ADVISE_AGAINST", comment: "Still exposed" });
   });
 
   it("shows both OAG reviews' Recommendations at OG3 and asks for a justification to authorize against an Advise-against", async () => {

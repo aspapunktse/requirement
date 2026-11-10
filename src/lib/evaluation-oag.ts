@@ -150,12 +150,15 @@ export async function giveRecommendation(
   tx: Tx,
   systemId: string,
   giverId: string,
-  input: { reviewGroupId: string | null; kind: RecommendationKind; comment: string },
+  input: { stage: OagStage; reviewGroupId: string | null; kind: RecommendationKind; comment: string },
 ): Promise<GiveRecommendationResult> {
   const closedBySettle = await settleOagReview(tx, systemId);
   const review = await readOagReview(tx, systemId);
   if (!review) {
     return { ok: false, status: 409, error: closedBySettle ? "The OAG review has just closed: every remaining group had recommended" : NOT_AT_OAG_REVIEW };
+  }
+  if (review.stage !== input.stage) {
+    return { ok: false, status: 409, error: "The OAG review has moved on since you opened this form: reload the page" };
   }
   const participant = review.participants.find((candidate) => candidate.reviewGroupId === input.reviewGroupId);
   if (!participant) return { ok: false, status: 409, error: "That group isn't part of the OAG review on this System" };

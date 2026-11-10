@@ -508,7 +508,7 @@ function Og3Card({ systemId, evaluation, atGate, onDone }: { systemId: string; e
         {reviews.map(({ stage, oag }) => (
           <div key={stage} role="group" aria-label={`Recommendations: ${STEP_INFO[stage].long}`}>
             <h3 className="ev-sub">{STEP_INFO[stage].long}</h3>
-            <RecommendationList systemId={systemId} oag={oag} justification={authorizeJustification} onDone={onDone} />
+            <RecommendationList systemId={systemId} stage={stage} oag={oag} justification={authorizeJustification} onDone={onDone} />
           </div>
         ))}
         {evaluation.closed ? (
@@ -626,10 +626,11 @@ function FirstDocumentationCard({ systemId, evaluation, shownState, onDone }: { 
 
 const RECOMMENDATION_TONE = { RECOMMEND: "success", RECOMMEND_WITH_CONDITIONS: "warn", ADVISE_AGAINST: "danger" } as const;
 const RECOMMENDATION_TEXT = { RECOMMEND: "Recommend", RECOMMEND_WITH_CONDITIONS: "Recommend with conditions", ADVISE_AGAINST: "Advise against" } as const;
+type OagStageKey = "OAG_REVIEW_1" | "OAG_REVIEW_2";
 type RecommendationKindValue = keyof typeof RECOMMENDATION_TEXT;
 
 /** A Recommendation form for a group the viewer may answer for. Conditions are free text in the comment. */
-function RecommendationForm({ systemId, participant, onDone }: { systemId: string; participant: EvaluationOagParticipantView; onDone: () => void }) {
+function RecommendationForm({ systemId, stage, participant, onDone }: { systemId: string; stage: OagStageKey; participant: EvaluationOagParticipantView; onDone: () => void }) {
   const [kind, setKind] = useState<RecommendationKindValue>("RECOMMEND");
   const [comment, setComment] = useState("");
   const [busy, setBusy] = useState(false);
@@ -643,7 +644,7 @@ function RecommendationForm({ systemId, participant, onDone }: { systemId: strin
       const response = await fetch(`/api/systems/${systemId}/evaluation/recommendations`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reviewGroupId: participant.reviewGroupId, kind, comment }),
+        body: JSON.stringify({ stage, reviewGroupId: participant.reviewGroupId, kind, comment }),
       });
       if (!response.ok) {
         const body = await response.json().catch(() => ({}));
@@ -691,7 +692,7 @@ function RecommendationForm({ systemId, participant, onDone }: { systemId: strin
 }
 
 /** Each group's Recommendation, shown as the group's, with the BSO's justification next to an Advise-against once it exists. */
-function RecommendationList({ systemId, oag, justification, onDone }: { systemId: string; oag: NonNullable<EvaluationView["oag"]>; justification: string | null; onDone: () => void }) {
+function RecommendationList({ systemId, stage, oag, justification, onDone }: { systemId: string; stage: OagStageKey; oag: NonNullable<EvaluationView["oag"]>; justification: string | null; onDone: () => void }) {
   if (oag.participants.length === 0) return <p className="hc-empty">No Recommendations were given.</p>;
   return (
     <ul className="ev-verdicts" aria-label="Recommendations">
@@ -721,7 +722,7 @@ function RecommendationList({ systemId, oag, justification, onDone }: { systemId
               Reopened {formatDay(participant.reopened.at)}: {participant.reopened.reason}
             </p>
           )}
-          {participant.canGive && <RecommendationForm systemId={systemId} participant={participant} onDone={onDone} />}
+          {participant.canGive && <RecommendationForm systemId={systemId} stage={stage} participant={participant} onDone={onDone} />}
         </li>
       ))}
     </ul>
@@ -742,7 +743,7 @@ function OagReviewCard({ systemId, stage, evaluation, onDone }: { systemId: stri
       <div className="hc-card-b">
         {oag ? (
           <>
-            <RecommendationList systemId={systemId} oag={oag} justification={stage === "OAG_REVIEW_1" ? evaluation.og2Justification : null} onDone={onDone} />
+            <RecommendationList systemId={systemId} stage={stage} oag={oag} justification={stage === "OAG_REVIEW_1" ? evaluation.og2Justification : null} onDone={onDone} />
             <p className="ev-outcome" aria-live="polite">
               {oag.open ? `The System moves to ${gate} once every group has recommended. ${oag.participants.length - given} still to answer.` : "The OAG review is closed."}
             </p>
@@ -764,7 +765,7 @@ function Og2Card({ systemId, evaluation, atGate, onDone }: { systemId: string; e
         <p>{STEP_INFO.OG2.hint}</p>
       </div>
       <div className="hc-card-b">
-        {evaluation.oag && <RecommendationList systemId={systemId} oag={evaluation.oag} justification={evaluation.og2Justification} onDone={onDone} />}
+        {evaluation.oag && <RecommendationList systemId={systemId} stage="OAG_REVIEW_1" oag={evaluation.oag} justification={evaluation.og2Justification} onDone={onDone} />}
         {evaluation.og2 ? (
           evaluation.og2.canDecide ? (
             <GateDecisionForm systemId={systemId} gate="OG2" view={evaluation.og2} adviseAgainst={evaluation.og2.adviseAgainst} onDone={onDone} />

@@ -82,8 +82,14 @@ describe("Full track, second half (#332)", { timeout: 90_000 }, () => {
   const base = (systemId: string, slug: string) => `/api/systems/${systemId}/evaluation/${slug}`;
   const decideOg3 = (userKey: string, systemId: string, body: unknown) =>
     og3Decision(requestAs(users[userKey].id, base(systemId, "og3-decision"), { method: "POST", body }), ctxFor(systemId));
-  const recommend = (userKey: string, systemId: string, reviewGroupId: string | null, kind: RecommendationKind = "RECOMMEND", comment = "Because") =>
-    giveRecommendationRoute(requestAs(users[userKey].id, base(systemId, "recommendations"), { method: "POST", body: { reviewGroupId, kind, comment } }), ctxFor(systemId));
+  const recommend = async (userKey: string, systemId: string, reviewGroupId: string | null, kind: RecommendationKind = "RECOMMEND", comment = "Because", stage?: string) =>
+    giveRecommendationRoute(
+      requestAs(users[userKey].id, base(systemId, "recommendations"), {
+        method: "POST",
+        body: { stage: stage ?? ((await stateOf(systemId)).evaluationStage === "OAG_REVIEW_2" ? "OAG_REVIEW_2" : "OAG_REVIEW_1"), reviewGroupId, kind, comment },
+      }),
+      ctxFor(systemId),
+    );
   const view = async (systemId: string, userKey = "admin") =>
     (await (await getEvaluation(requestAs(users[userKey].id, base(systemId, ""), { method: "GET" }), ctxFor(systemId))).json()).evaluation;
   const submit = (userKey: string, systemId: string) =>
@@ -266,6 +272,32 @@ describe("Full track, second half (#332)", { timeout: 90_000 }, () => {
       expect((await recommend("owner", system.id, null)).status).toBe(403);
       expect((await recommend("admin", done.id, null)).status).toBe(409);
       expect([await snapshot(system.id), await snapshot(done.id)]).toEqual(before);
+    });
+
+    it("refuses a form left open from review 1 once the System is at review 2 (409), writing nothing", async () => {
+      const system = await makeSystem({ stage: "OAG_REVIEW_2" });
+      const before = await snapshot(system.id);
+      const stale = await recommend("reviewer", system.id, null, "RECOMMEND", "Stale", "OAG_REVIEW_1");
+      expect(stale.status).toBe(409);
+      expect((await stale.json()).error).toContain("moved on");
+      expect(await snapshot(system.id)).toBe(before);
+      const atFirst = await makeSystem({ stage: "OAG_REVIEW_1" });
+      const firstBefore = await snapshot(atFirst.id);
+      expect((await recommend("reviewer", atFirst.id, null, "RECOMMEND", "Early", "OAG_REVIEW_2")).status).toBe(409);
+      expect(await snapshot(atFirst.id)).toBe(firstBefore);
+    });
+
+    it("refuses a missing or invalid stage (400), writing nothing", async () => {
+      const system = await makeSystem({ stage: "OAG_REVIEW_2" });
+      const before = await snapshot(system.id);
+      for (const stage of [undefined, "OG3", "", 2]) {
+        const response = await giveRecommendationRoute(
+          requestAs(users.reviewer.id, base(system.id, "recommendations"), { method: "POST", body: { ...(stage === undefined ? {} : { stage }), reviewGroupId: null, kind: "RECOMMEND", comment: "x" } }),
+          ctxFor(system.id),
+        );
+        expect(response.status, String(stage)).toBe(400);
+      }
+      expect(await snapshot(system.id)).toBe(before);
     });
 
     it("lists the open Recommendations in My tasks, with the review's stage", async () => {
