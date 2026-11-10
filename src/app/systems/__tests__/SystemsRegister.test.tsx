@@ -235,19 +235,19 @@ describe("status tabs", () => {
     renderRegister();
     const tabs = screen.getByRole("tablist", { name: "Onboarding Status" });
     const counts = () => within(tabs).getAllByRole("tab").map((tab) => `${tab.firstChild?.textContent}:${tab.querySelector(".n")?.textContent}`);
-    expect(counts()).toEqual(["All:5", "Draft:1", "In Review:1", "Approved:1", "Onboarded:1", "Rejected:1"]);
+    expect(counts()).toEqual(["All:5", "Draft:1", "In Review:1", "ATO:1", "Onboarded:1", "Rejected:1"]);
     await userEvent.type(screen.getByRole("searchbox", { name: "Search Systems" }), "elena");
-    expect(counts()).toEqual(["All:2", "Draft:1", "In Review:1", "Approved:0", "Onboarded:0", "Rejected:0"]);
+    expect(counts()).toEqual(["All:2", "Draft:1", "In Review:1", "ATO:0", "Onboarded:0", "Rejected:0"]);
   });
 
   it("selects with a click and with the arrow keys, and the panel follows", async () => {
     renderRegister();
     const all = screen.getByRole("tab", { name: /^All/ });
     expect(all).toHaveAttribute("aria-selected", "true");
-    await userEvent.click(screen.getByRole("tab", { name: /^Approved/ }));
+    await userEvent.click(screen.getByRole("tab", { name: /^ATO/ }));
     expect(names()).toEqual(["Okta"]);
     expect(screen.getByRole("tabpanel")).toHaveAttribute("aria-labelledby", "sy-tab-APPROVED");
-    screen.getByRole("tab", { name: /^Approved/ }).focus();
+    screen.getByRole("tab", { name: /^ATO/ }).focus();
     await userEvent.keyboard("{ArrowRight}");
     expect(screen.getByRole("tab", { name: /^Onboarded/ })).toHaveAttribute("aria-selected", "true");
     expect(names()).toEqual(["Jira"]);

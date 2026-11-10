@@ -130,7 +130,7 @@ describe("header (#243)", () => {
     expect(screen.getByText("IT service management.")).toBeInTheDocument();
 
     const stepper = screen.getByRole("list", { name: "Lifecycle" });
-    expect(within(stepper).getAllByRole("listitem").map((li) => li.textContent)).toEqual(["Draft", "In review", "Approved", "Onboarded"]);
+    expect(within(stepper).getAllByRole("listitem").map((li) => li.textContent)).toEqual(["Draft", "In review", "ATO", "Onboarded"]);
     expect(within(stepper).getByText("Draft")).toHaveAttribute("aria-current", "step");
     expect(screen.getByText(/Not submitted yet/)).toBeInTheDocument();
 

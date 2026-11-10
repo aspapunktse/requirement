@@ -104,3 +104,29 @@ describe("BusinessRiskOwnerDashboard compliance copy (#90)", () => {
     expect(screen.getByText(/Percentages are the share of applicable ISO\/IEC 27001:2022 Requirements met/)).toBeInTheDocument();
   });
 });
+
+describe("BusinessRiskOwnerDashboard portfolio status labels (#333)", () => {
+  it("shows an Approved System as ATO, under its own group, and the other statuses by their label", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((url: string) => {
+        if (url.includes("/compliance")) return json({ compliance: complianceFor(iso, true) });
+        if (url.includes("/portfolio")) {
+          return json({
+            portfolio: [
+              { id: "s1", name: "Okta", vendor: null, status: "APPROVED", compliancePercentage: null, requirementsMet: 0, requirementsApplicable: 0, openRiskCount: 0 },
+              { id: "s2", name: "Jira", vendor: null, status: "IN_REVIEW", compliancePercentage: null, requirementsMet: 0, requirementsApplicable: 0, openRiskCount: 0 },
+            ],
+          });
+        }
+        return json({ risks: [] });
+      }),
+    );
+    render(<BusinessRiskOwnerDashboard businessUnits={[]} frameworks={[iso, nis2]} />);
+    expect(await screen.findByRole("heading", { name: "ATO (1)" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "In Review (1)" })).toBeInTheDocument();
+    expect(screen.queryByText("APPROVED")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Approved/)).not.toBeInTheDocument();
+    vi.unstubAllGlobals();
+  });
+});

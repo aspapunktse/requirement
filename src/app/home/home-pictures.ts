@@ -15,7 +15,7 @@ import type { HomePicture } from "./home-types";
  * Pure builders are separate from the loaders so the shaping rules are testable without a database.
  */
 
-const STAGES = ["Draft", "In review", "Approved", "Onboarded"];
+const STAGES = ["Draft", "In review", "ATO", "Onboarded"];
 /** A Rejected System goes back to Draft for revision; the enum value is mapped there as a safety net. */
 function stageOf(status: string): number {
   switch (status) {

@@ -35,7 +35,7 @@ export type FilterableSystem = {
 export const ONBOARDING_STATUS_LABEL: Record<OnboardingStatus, string> = {
   DRAFT: "Draft",
   IN_REVIEW: "In Review",
-  APPROVED: "Approved",
+  APPROVED: "ATO",
   REJECTED: "Rejected",
   ONBOARDED: "Onboarded",
 };
