@@ -15,7 +15,7 @@ export const STATUS_ORDER: OnboardingStatus[] = ["DRAFT", "IN_REVIEW", "APPROVED
 export const STATUS_LABEL: Record<OnboardingStatus, string> = {
   DRAFT: "Draft",
   IN_REVIEW: "In Review",
-  APPROVED: "Approved",
+  APPROVED: "ATO",
   ONBOARDED: "Onboarded",
   REJECTED: "Rejected",
 };
