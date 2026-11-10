@@ -4,8 +4,8 @@ import type { EvaluationStage, EvaluationTrack } from "@prisma/client";
  * The stages of staged evaluation (PRD 0002 section 5, CONTEXT.md "Evaluation") and what the stepper on the System's Evaluation tab shows
  * of them. Pure and free of server code, so the page, the routes and the client component share it.
  *
- * The enum holds the whole flow, but only the first round, OG1 and the move out of OG1 (to Qualification on the Full track, to the second
- * round on the Self track) are built (#328); later stages are shown and have no actions yet.
+ * The enum holds the whole flow, but the first round, OG1, the move out of OG1 (to Qualification on the Full track, to the second
+ * round on the Self track) and the Self track's second round and Risk Analysis are built (#328, #329); later stages are shown and have no actions yet.
  */
 
 export const EVALUATION_STAGE_LABEL: Record<EvaluationStage, string> = {
@@ -16,6 +16,7 @@ export const EVALUATION_STAGE_LABEL: Record<EvaluationStage, string> = {
   OAG_REVIEW_1: "OAG review",
   OG2: "OG2",
   SECOND_ROUND: "Second round",
+  RISK_ANALYSIS_2: "Risk Analysis",
   OAG_REVIEW_2: "OAG review",
   OG3: "OG3",
 };
@@ -23,7 +24,7 @@ export const EVALUATION_STAGE_LABEL: Record<EvaluationStage, string> = {
 export const TRACK_LABEL: Record<EvaluationTrack, string> = { SELF: "Self", FULL: "Full" };
 
 /** A step of the stepper: a stage, or the Risk Analysis (a step of the flow that is not a stored stage). */
-export type StepKey = EvaluationStage | "RISK_ANALYSIS_1" | "RISK_ANALYSIS_2" | "TRACK";
+export type StepKey = EvaluationStage | "RISK_ANALYSIS_1" | "TRACK";
 export type StepKind = "round" | "ra" | "gate" | "doc" | "oag" | "fork";
 
 export const STEP_INFO: Record<StepKey, { label: string; long: string; kind: StepKind; hint: string }> = {
@@ -53,9 +54,8 @@ export function stepKeysFor(track: EvaluationTrack | null): StepKey[] {
 export type Step = { key: StepKey; label: string; long: string; kind: StepKind; state: "done" | "now" | "todo"; hint: string };
 
 /**
- * The stepper for a System: its Track's steps with each one done, current or later. The Risk Analysis is
- * done once one has been completed since the first round began (`riskAnalysisCompleted`); it is never the current step.
- * A Risk Analysis before OG3 counts as later until a later issue builds that stage.
+ * The stepper for a System: its Track's steps with each one done, current or later. The first-round Risk Analysis
+ * is done once one has been completed since the first round began (`riskAnalysisCompleted`); it is never the current step. The one before OG3 is a stored stage.
  */
 export function evaluationSteps(input: { stage: EvaluationStage; track: EvaluationTrack | null; riskAnalysisCompleted: boolean }): Step[] {
   const keys = stepKeysFor(input.track);

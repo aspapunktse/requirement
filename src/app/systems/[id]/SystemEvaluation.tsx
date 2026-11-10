@@ -265,10 +265,113 @@ function Og1Card({ systemId, evaluation, onDone }: { systemId: string; evaluatio
   );
 }
 
+/** The second-round checklist and its Submit (F-ST.2): every mandatory Control assessed, every second-round Document Requirement provided. */
+function SecondRoundCard({ systemId, evaluation, onDone }: { systemId: string; evaluation: EvaluationView; onDone: () => void }) {
+  const readiness = evaluation.secondRound;
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  if (!readiness) return null;
+
+  async function submit() {
+    setError(null);
+    setBusy(true);
+    try {
+      const response = await fetch(`/api/systems/${systemId}/evaluation/submit-second-round`, { method: "POST" });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        setError(body.error ?? "Couldn't submit the second round");
+        return;
+      }
+      onDone();
+    } catch {
+      setError("Couldn't submit the second round");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const checks: { key: string; ok: boolean; text: string }[] = [
+    {
+      key: "controls",
+      ok: readiness.mandatoryMissing.length === 0,
+      text: `${readiness.mandatoryTotal - readiness.mandatoryMissing.length} of ${readiness.mandatoryTotal} mandatory Controls have an Assessment`,
+    },
+    {
+      key: "docs",
+      ok: readiness.documentsMissing.length === 0,
+      text: readiness.documentsMissing.length === 0 ? "Every second-round Document Requirement is provided" : "Second-round documentation is not all provided (see the Documentation tab)",
+    },
+  ];
+
+  return (
+    <section className="hc-card ev-card" aria-labelledby="ev-second-h">
+      <div className="hc-card-h">
+        <h2 id="ev-second-h">Second round</h2>
+        <p>{STEP_INFO.SECOND_ROUND.hint}</p>
+      </div>
+      <div className="hc-card-b">
+        <ul className="ev-checks" aria-label="Second-round checklist">
+          {checks.map((check) => (
+            <li key={check.key} className={check.ok ? "ok" : "todo"}>
+              <span className="mark" aria-hidden="true">
+                {check.ok ? "✓" : "○"}
+              </span>
+              <span>{check.text}</span>
+            </li>
+          ))}
+        </ul>
+        {readiness.mandatoryMissing.length > 0 && (
+          <p className="ev-missing">Still without an Assessment: {readiness.mandatoryMissing.map((control) => `${control.code} (${control.title})`).join(", ")}</p>
+        )}
+        {readiness.documentsMissing.length > 0 && <p className="ev-missing">Not yet provided: {readiness.documentsMissing.map((document) => document.name).join(", ")}</p>}
+        {error && (
+          <p role="alert" className="sc-err">
+            {error}
+          </p>
+        )}
+        {evaluation.canSubmit ? (
+          <div className="sc-btnrow ev-actions">
+            <button type="button" className="hc-btn primary" disabled={busy || !readiness.ready} onClick={submit}>
+              Submit the second round
+            </button>
+            {!readiness.ready && <span className="ev-hint">Complete the checklist first</span>}
+          </div>
+        ) : (
+          <p className="ev-hint">The System&apos;s owner or an Admin submits the second round.</p>
+        )}
+        <StageDocumentation systemId={systemId} stage="SECOND_ROUND" track={evaluation.track} />
+      </div>
+    </section>
+  );
+}
+
+/** The Risk Analysis stage: waiting for a Risk Owner or an Admin who isn't the System's owner to complete one, then done. */
+function RiskAnalysisStageCard({ systemId, evaluation, shown }: { systemId: string; evaluation: EvaluationView; shown: "RISK_ANALYSIS_1" | "RISK_ANALYSIS_2" }) {
+  const waiting = shown === "RISK_ANALYSIS_2" && evaluation.stage === "RISK_ANALYSIS_2";
+  return (
+    <section className="hc-card ev-card" aria-labelledby="ev-ra-h">
+      <div className="hc-card-h">
+        <h2 id="ev-ra-h">{STEP_INFO[shown].long}</h2>
+        <p>{STEP_INFO[shown].hint}</p>
+      </div>
+      <div className="hc-card-b">
+        {waiting && (
+          <p className="ev-hint" aria-live="polite">
+            {evaluation.canRecordRiskAnalysis
+              ? "The second round is submitted. Record a Risk Analysis on the Risks tab and complete it: the System then moves on to OG3."
+              : "The second round is submitted. A Risk Owner or an Admin who isn't the System's owner completes a Risk Analysis, and the System then moves on to OG3."}
+          </p>
+        )}
+        <RiskAnalysisRecord systemId={systemId} />
+      </div>
+    </section>
+  );
+}
+
 /**
  * The Evaluation tab of a staged System (#328, design proposal A "Stepper", PRD 0002): where the System is in its flow, the Tracks,
- * and the card of the selected stage (the current one to start with): the first-round checklist with its Submit, then the OG1
- * verdicts. Later stages are shown in the stepper and have no actions yet. Reads `GET /api/systems/[id]/evaluation`; after an
+ * and the card of the selected stage (the current one to start with): the first-round checklist with its Submit, the OG1
+ * verdicts, then the second round (Self track) and its Risk Analysis. Later stages are shown in the stepper and have no actions yet. Reads `GET /api/systems/[id]/evaluation`; after an
  * action it reads again and refreshes the page, so the header follows.
  */
 export function SystemEvaluation({ systemId }: { systemId: string }) {
@@ -300,7 +403,7 @@ export function SystemEvaluation({ systemId }: { systemId: string }) {
   const current = steps.find((step) => step.state === "now");
   const shown: StepKey = selected ?? current?.key ?? "FIRST_ROUND";
   const shownStep = steps.find((step) => step.key === shown);
-  const laterShown = !["FIRST_ROUND", "RISK_ANALYSIS_1", "RISK_ANALYSIS_2", "OG1", "FIRST_DOCUMENTATION"].includes(shown);
+  const laterShown = !["FIRST_ROUND", "RISK_ANALYSIS_1", "RISK_ANALYSIS_2", "SECOND_ROUND", "OG1", "FIRST_DOCUMENTATION"].includes(shown);
   // As in proposal A: the Risk summary sits with every stage card but a current gate other than OG1, which weighs it elsewhere.
   const showRiskSummary = !(shownStep && shownStep.kind === "gate" && shown !== "OG1" && shownStep.state === "now");
   const afterAction = () => {
@@ -339,17 +442,22 @@ export function SystemEvaluation({ systemId }: { systemId: string }) {
             </div>
           </section>
         ))}
-      {(shown === "RISK_ANALYSIS_1" || shown === "RISK_ANALYSIS_2") && (
-        <section className="hc-card ev-card" aria-labelledby="ev-ra-h">
-          <div className="hc-card-h">
-            <h2 id="ev-ra-h">{STEP_INFO[shown].long}</h2>
-            <p>{STEP_INFO[shown].hint}</p>
-          </div>
-          <div className="hc-card-b">
-            <RiskAnalysisRecord systemId={systemId} />
-          </div>
-        </section>
-      )}
+      {shown === "SECOND_ROUND" &&
+        (shownStep?.state === "now" ? (
+          <SecondRoundCard systemId={systemId} evaluation={evaluation} onDone={afterAction} />
+        ) : (
+          <section className="hc-card ev-card" aria-labelledby="ev-second-done-h">
+            <div className="hc-card-h">
+              <h2 id="ev-second-done-h">Second round</h2>
+              <p>{shownStep?.state === "done" ? "Submitted" : "Not available yet"}</p>
+            </div>
+            <div className="hc-card-b">
+              {shownStep?.state !== "done" && <p className="hc-empty">{STEP_INFO.SECOND_ROUND.hint} This stage isn&apos;t available yet.</p>}
+              <StageDocumentation systemId={systemId} stage="SECOND_ROUND" track={evaluation.track} />
+            </div>
+          </section>
+        ))}
+      {(shown === "RISK_ANALYSIS_1" || shown === "RISK_ANALYSIS_2") && <RiskAnalysisStageCard systemId={systemId} evaluation={evaluation} shown={shown} />}
       {shown === "OG1" && <Og1Card systemId={systemId} evaluation={evaluation} onDone={afterAction} />}
       {shown === "FIRST_DOCUMENTATION" && (
         <section className="hc-card ev-card" aria-labelledby="ev-docs-h">
@@ -369,7 +477,6 @@ export function SystemEvaluation({ systemId }: { systemId: string }) {
           </div>
           <div className="hc-card-b">
             <p className="hc-empty">{STEP_INFO[shown].hint} This stage isn&apos;t available yet.</p>
-            {shown === "SECOND_ROUND" && <StageDocumentation systemId={systemId} stage="SECOND_ROUND" track={evaluation.track} />}
           </div>
         </section>
       )}
