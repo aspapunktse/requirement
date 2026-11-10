@@ -19,7 +19,7 @@ import { frameworkLabel } from "@/lib/framework-label";
 import { suggestionsFor } from "@/lib/framework-suggestions";
 import { SUGGESTING_TYPE_SELECT } from "@/lib/framework-suggestions-data";
 import { EVALUATION_STAGE_LABEL, TRACK_LABEL } from "@/lib/evaluation-stages";
-import { buildAttention, controlIsDone, lifecycleNote, nextStepFor, riskGridOf, sourceKeyOf } from "./system-page-logic";
+import { buildAttention, controlIsDone, formatDay, lifecycleNote, nextStepFor, riskGridOf, sourceKeyOf } from "./system-page-logic";
 import {
   CONTROL_STATUS_ORDER,
   SOURCE_KEYS,
@@ -229,9 +229,11 @@ export async function loadSystemPage(user: User, id: string, now = new Date()): 
           availability: system.availabilityImpactLevel,
           createdAt: system.createdAt.toISOString(),
           onboardedAt: system.onboardedAt?.toISOString() ?? null,
-          evaluation: system.evaluationStage ? { stage: system.evaluationStage, track: system.evaluationTrack } : null,
+          evaluation: system.evaluationStage ? { stage: system.evaluationStage, track: system.evaluationTrack, closed: system.evaluationClosedAt !== null } : null,
         },
-        note: system.evaluationStage
+        note: system.evaluationClosedAt
+          ? `Closed: rejected at ${EVALUATION_STAGE_LABEL[system.evaluationStage ?? "OG3"]} on ${formatDay(system.evaluationClosedAt.toISOString())} · read-only for everyone`
+          : system.evaluationStage
           ? `Evaluated in stages · ${EVALUATION_STAGE_LABEL[system.evaluationStage]}${system.evaluationTrack ? ` · ${TRACK_LABEL[system.evaluationTrack]} track` : ""} · see the Evaluation tab`
           : lifecycleNote({
           status: system.status,
@@ -254,8 +256,9 @@ export async function loadSystemPage(user: User, id: string, now = new Date()): 
           belowInformationTypes: isBelowInformationTypes(system.sensitivityLevel, system.informationTypes),
           staged: system.evaluationStage !== null,
         }),
-        canChangeOwner: canChangeOwner(user, system),
-        canChangeBusinessSystemOwner: canChangeBusinessSystemOwner(user, system),
+        // A closed System (#330) is changed by no one.
+        canChangeOwner: system.evaluationClosedAt === null && canChangeOwner(user, system),
+        canChangeBusinessSystemOwner: system.evaluationClosedAt === null && canChangeBusinessSystemOwner(user, system),
         headline: {
           baseFramework: base?.label ?? null,
           met: base?.met ?? 0,

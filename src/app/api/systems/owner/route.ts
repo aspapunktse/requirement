@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { authenticate } from "@/lib/api-authz";
+import { prisma } from "@/lib/prisma";
+import { SYSTEM_CLOSED_REFUSAL } from "@/lib/system-closed";
 import { changeSystemOwners } from "@/lib/system-owner";
 
 const bodySchema = z.object({
@@ -24,6 +26,10 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Invalid request" }, { status: 400 });
   }
+
+  // A closed System (rejected at OG3, #330) can't change owner, so one in the list refuses the whole batch, like any other refusal.
+  const closed = await prisma.system.count({ where: { id: { in: parsed.data.systemIds }, evaluationClosedAt: { not: null } } });
+  if (closed > 0) return NextResponse.json({ error: SYSTEM_CLOSED_REFUSAL }, { status: 409 });
 
   const result = await changeSystemOwners(auth.user, parsed.data.systemIds, parsed.data.ownerId);
   if (!result.ok) {

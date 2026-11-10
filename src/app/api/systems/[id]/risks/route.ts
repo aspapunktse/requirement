@@ -7,6 +7,7 @@ import { getVisibleSystem } from "@/lib/system-visibility";
 import { canLogRisk, getSystemRisks, RISK_INCLUDE } from "@/lib/risks";
 import { logChangeEvent } from "@/lib/change-events";
 import { riskLoggedDetail } from "@/lib/risk-logged-event";
+import { refuseIfSystemClosed } from "@/lib/system-closed";
 
 export async function GET(request: NextRequest, ctx: RouteContext<"/api/systems/[id]/risks">) {
   const auth = await authenticate(request);
@@ -34,6 +35,8 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems
   if ("response" in auth) return auth.response;
 
   const { id } = await ctx.params;
+  const closed = await refuseIfSystemClosed(id);
+  if (closed) return closed;
   const system = await getVisibleSystem(auth.user, id);
   if (!system) {
     return NextResponse.json({ error: "System not found" }, { status: 404 });

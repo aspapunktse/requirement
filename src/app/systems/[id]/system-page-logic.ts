@@ -91,7 +91,8 @@ export function nextStepFor(input: {
   /** A staged System (#328) has its own submit on the Evaluation tab; the classic routes refuse it, so the header offers nothing. */
   staged?: boolean;
 }): NextStep {
-  if (input.staged) return { kind: "none" };
+  // A staged System has its own steps on the Evaluation tab; the one classic action left is Mark Onboarded, once OG3 authorized it (#330).
+  if (input.staged) return input.status === "APPROVED" && input.canMarkOnboarded ? { kind: "onboard" } : { kind: "none" };
   switch (input.status) {
     case "DRAFT":
       return input.canSubmit

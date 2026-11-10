@@ -9,6 +9,7 @@ import { STAGED_SYSTEM_REFUSAL } from "@/lib/evaluation-stages";
 import { isBelowInformationTypes } from "@/lib/information-type-floor";
 import { NO_SENSITIVITY_LEVEL, belowInformationTypesMessage } from "@/lib/submit-classification";
 import { readSystemInformationTypes } from "@/lib/system-information-types";
+import { refuseIfSystemClosed } from "@/lib/system-closed";
 
 /** Thrown inside the submit transaction to roll it back when the System turned out to be below its Information Types. */
 class BelowInformationTypes extends Error {}
@@ -18,6 +19,8 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems
   if ("response" in auth) return auth.response;
 
   const { id } = await ctx.params;
+  const closed = await refuseIfSystemClosed(id);
+  if (closed) return closed;
   const system = await getVisibleSystem(auth.user, id);
   if (!system) {
     return NextResponse.json({ error: "System not found" }, { status: 404 });

@@ -3,6 +3,7 @@ import { authenticate } from "@/lib/api-authz";
 import { getVisibleSystem } from "@/lib/system-visibility";
 import { canChangeSystemClassification } from "@/lib/system-classification-change";
 import { saveSystemDetails, systemDetailsSchema } from "@/lib/system-details";
+import { refuseIfSystemClosed } from "@/lib/system-closed";
 
 /**
  * Edits a System's name, vendor and description (#246), at any Onboarding Status; it never touches the
@@ -15,6 +16,8 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/system
   if ("response" in auth) return auth.response;
 
   const { id } = await ctx.params;
+  const closed = await refuseIfSystemClosed(id);
+  if (closed) return closed;
   const visible = await getVisibleSystem(auth.user, id);
   if (!visible) {
     return NextResponse.json({ error: "System not found" }, { status: 404 });

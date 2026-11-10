@@ -6,6 +6,7 @@ import { getVisibleSystem } from "@/lib/system-visibility";
 import { canManageFrameworkScopes } from "@/lib/framework-scope";
 import { NOT_SUGGESTED_FRAMEWORK, leaveSuggestionOut, readSuggestions } from "@/lib/framework-suggestions-data";
 import type { Suggestion } from "@/lib/framework-suggestions";
+import { refuseIfSystemClosed } from "@/lib/system-closed";
 
 /**
  * The Frameworks the System's Information Types suggest (#300, ADR 0013), and the owner's decision to leave one out.
@@ -43,6 +44,8 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems
   if ("response" in auth) return auth.response;
 
   const { id } = await ctx.params;
+  const closed = await refuseIfSystemClosed(id);
+  if (closed) return closed;
   const system = await getVisibleSystem(auth.user, id);
   if (!system) return NextResponse.json({ error: "System not found" }, { status: 404 });
 

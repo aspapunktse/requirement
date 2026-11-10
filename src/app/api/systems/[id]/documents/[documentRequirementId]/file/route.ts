@@ -4,6 +4,7 @@ import { authenticate } from "@/lib/api-authz";
 import { prisma } from "@/lib/prisma";
 import { visibleSystemsWhere } from "@/lib/system-visibility";
 import { applicableRequirements, canEditSystemDocuments, listSystemDocuments } from "@/lib/system-documentation";
+import { refuseIfSystemClosed } from "@/lib/system-closed";
 import { checkDocumentFile, DOCUMENT_FILE_TOO_LARGE, MAX_DOCUMENT_FILE_BYTES } from "@/lib/system-document-file";
 
 type Ctx = RouteContext<"/api/systems/[id]/documents/[documentRequirementId]/file">;
@@ -62,6 +63,8 @@ export async function POST(request: NextRequest, ctx: Ctx): Promise<NextResponse
   const resolved = await resolveSystem(request, ctx);
   if (resolved.response) return resolved.response;
   if (!resolved.canEdit) return refuseWrite();
+  const closed = await refuseIfSystemClosed(resolved.system.id);
+  if (closed) return closed;
 
   const declared = Number(request.headers.get("content-length"));
   if (Number.isFinite(declared) && declared > MAX_DOCUMENT_FILE_BYTES + ENVELOPE_ALLOWANCE) {
@@ -111,6 +114,8 @@ export async function DELETE(request: NextRequest, ctx: Ctx): Promise<NextRespon
   const resolved = await resolveSystem(request, ctx);
   if (resolved.response) return resolved.response;
   if (!resolved.canEdit) return refuseWrite();
+  const closed = await refuseIfSystemClosed(resolved.system.id);
+  if (closed) return closed;
 
   const { system, user, documentRequirementId } = resolved;
   const row = await prisma.$transaction(async (tx) => {

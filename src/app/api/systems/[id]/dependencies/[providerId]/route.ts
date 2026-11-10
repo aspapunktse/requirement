@@ -3,6 +3,7 @@ import { authenticate } from "@/lib/api-authz";
 import { getVisibleSystem } from "@/lib/system-visibility";
 import { canManageProviderDependencies } from "@/lib/provider-dependency-rules";
 import { removeProviderDependency } from "@/lib/provider-dependencies";
+import { refuseIfSystemClosed } from "@/lib/system-closed";
 
 /**
  * Remove a dependency on a Provider (#124). Order: 401, 404 (System not
@@ -19,6 +20,8 @@ export async function DELETE(
   if ("response" in auth) return auth.response;
 
   const { id, providerId } = await ctx.params;
+  const closed = await refuseIfSystemClosed(id);
+  if (closed) return closed;
   const system = await getVisibleSystem(auth.user, id);
   if (!system) {
     return NextResponse.json({ error: "System not found" }, { status: 404 });

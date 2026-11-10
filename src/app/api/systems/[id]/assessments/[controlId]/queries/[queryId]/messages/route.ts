@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { authenticate } from "@/lib/api-authz";
 import { canWriteSystems, getVisibleSystem } from "@/lib/system-visibility";
 import { addQueryMessage, mayActThroughMembership, queryRightsFor, redactQueries } from "@/lib/assessment-queries";
+import { refuseIfSystemClosed } from "@/lib/system-closed";
 
 const addMessageSchema = z.object({ body: z.string().min(1) });
 
@@ -23,6 +24,8 @@ export async function POST(
   }
 
   const { id, controlId, queryId } = await ctx.params;
+  const closed = await refuseIfSystemClosed(id);
+  if (closed) return closed;
   const system = await getVisibleSystem(auth.user, id);
   if (!system) {
     return NextResponse.json({ error: "System not found" }, { status: 404 });

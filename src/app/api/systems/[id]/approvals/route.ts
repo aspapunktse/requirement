@@ -12,6 +12,7 @@ import {
   settleReviewSteps,
 } from "@/lib/review-steps";
 import { logChangeEvent } from "@/lib/change-events";
+import { refuseIfSystemClosed } from "@/lib/system-closed";
 
 /**
  * An Approval as a client sees it: attributed to its step (the group, or "Base review"). The deciding
@@ -92,6 +93,8 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems
   if ("response" in auth) return auth.response;
 
   const { id } = await ctx.params;
+  const closed = await refuseIfSystemClosed(id);
+  if (closed) return closed;
   const system = await getVisibleSystem(auth.user, id);
   if (!system) {
     return NextResponse.json({ error: "System not found" }, { status: 404 });

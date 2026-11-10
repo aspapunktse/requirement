@@ -4,6 +4,7 @@ import { authenticate } from "@/lib/api-authz";
 import { prisma } from "@/lib/prisma";
 import { visibleSystemsWhere } from "@/lib/system-visibility";
 import { applicableRequirements, canEditSystemDocuments, listSystemDocuments, PROVIDED_NEEDS_EVIDENCE, systemDocumentBodySchema } from "@/lib/system-documentation";
+import { refuseIfSystemClosed } from "@/lib/system-closed";
 
 /** Thrown inside the transaction so the lock-taking upsert is rolled back with it. */
 class NeedsEvidence extends Error {}
@@ -22,6 +23,8 @@ export async function PUT(request: NextRequest, ctx: RouteContext<"/api/systems/
   const auth = await authenticate(request);
   if ("response" in auth) return auth.response;
   const { id, documentRequirementId } = await ctx.params;
+  const closed = await refuseIfSystemClosed(id);
+  if (closed) return closed;
 
   const system = await prisma.system.findFirst({ where: { AND: [{ id }, await visibleSystemsWhere(auth.user)] }, select: { id: true, ownerId: true } });
   if (!system) return NextResponse.json({ error: "System not found" }, { status: 404 });

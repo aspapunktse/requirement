@@ -7,6 +7,7 @@ import { getVisibleSystem } from "@/lib/system-visibility";
 import { canChangeSystemClassification, changeSystemClassification } from "@/lib/system-classification-change";
 import { sensitivityLevelSchema } from "@/lib/sensitivity-level";
 import { ClassificationRefused } from "@/lib/system-information-types";
+import { refuseIfSystemClosed } from "@/lib/system-closed";
 
 const impactLevelSchema = z.nativeEnum(ImpactLevel).nullable();
 
@@ -56,6 +57,8 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/system
   if ("response" in auth) return auth.response;
 
   const { id } = await ctx.params;
+  const closed = await refuseIfSystemClosed(id);
+  if (closed) return closed;
   const system = await getVisibleSystem(auth.user, id);
   if (!system) {
     return NextResponse.json({ error: "System not found" }, { status: 404 });

@@ -4,6 +4,7 @@ import { getVisibleSystem } from "@/lib/system-visibility";
 import { isSystemOwnerOrAdmin } from "@/lib/system-permissions";
 import { getSystemAssessmentRow, resetAssessmentToInherited } from "@/lib/control-assessments";
 import { presentAssessmentRows } from "@/lib/assessment-queries";
+import { refuseIfSystemClosed } from "@/lib/system-closed";
 
 /**
  * Reset the System's own Control Assessment to inherited (#129, F-IN.5): the
@@ -24,6 +25,8 @@ export async function POST(
   if ("response" in auth) return auth.response;
 
   const { id, controlId } = await ctx.params;
+  const closed = await refuseIfSystemClosed(id);
+  if (closed) return closed;
   const system = await getVisibleSystem(auth.user, id);
   if (!system) {
     return NextResponse.json({ error: "System not found" }, { status: 404 });

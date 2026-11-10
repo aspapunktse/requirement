@@ -10,6 +10,7 @@ import {
   toRiskAnalysisView,
 } from "@/lib/risk-analysis";
 import { RiskAnalysisInputError, raiseRisks, resolveLinks } from "@/lib/risk-analysis-write";
+import { refuseIfSystemClosed } from "@/lib/system-closed";
 
 /** A System's Risk Analyses, newest meeting first. Anyone who can see the System reads them. */
 export async function GET(request: NextRequest, ctx: RouteContext<"/api/systems/[id]/risk-analyses">) {
@@ -45,6 +46,8 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems
   if ("response" in auth) return auth.response;
 
   const { id } = await ctx.params;
+  const closed = await refuseIfSystemClosed(id);
+  if (closed) return closed;
   const system = await getVisibleSystem(auth.user, id);
   if (!system) return NextResponse.json({ error: "System not found" }, { status: 404 });
   if (!canRecordRiskAnalysis(auth.user, system)) return NextResponse.json({ error: RISK_ANALYSIS_REFUSED }, { status: 403 });

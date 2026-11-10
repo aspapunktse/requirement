@@ -86,11 +86,12 @@ enum UserRole {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String
-  role      UserRole @default(VIEWER)
-  createdAt DateTime @default(now())
+  id            String         @id @default(cuid())
+  email         String         @unique
+  name          String
+  gateDecisions GateDecision[] @relation("GateDecisionDecider")
+  role          UserRole       @default(VIEWER)
+  createdAt     DateTime       @default(now())
 
   statSnapshots                      StatSnapshot[]
   appSettingsChanged                 AppSetting[]                        @relation("AppSettingUpdatedBy")
@@ -224,6 +225,11 @@ model System {
   evaluationTrack             EvaluationTrack?
   evaluationStageEnteredAt    DateTime?
   trackVerdicts               TrackVerdict[]
+  // Set when the Business System Owner rejects the System at OG3 (#330): the evaluation is closed for good, and every write on the
+  // System is refused (409). The Onboarding Status is REJECTED too, but a classic Rejected System returns to Draft; this marker is what
+  // tells the two apart. Null for every other System.
+  evaluationClosedAt          DateTime?
+  gateDecisions               GateDecision[]
   // One or more deployment facets this System spans (e.g. On-Prem, Cloud) —
   // a Hybrid System is simply one that declares more than one. See ADR 0003.
   deploymentFacets            DeploymentFacet[]
@@ -867,6 +873,30 @@ model TrackVerdict {
   @@index([systemId])
 }
 
+// What the Business System Owner decides at a gate (#330): OG3 is built; Qualification and OG2 (#331) reuse the model.
+enum GateOutcome {
+  AUTHORIZE
+  REJECT
+  SEND_BACK
+}
+
+// One decision at a gate of a staged System (#330, PRD 0002 F-ST.5-7): who decided, what, and the comment (required). Kept for good
+// (a send-back lets the System reach the gate again, so a System can have several). `sentBackTo` is the stage a SEND_BACK returned to.
+model GateDecision {
+  id          String           @id @default(cuid())
+  systemId    String
+  system      System           @relation(fields: [systemId], references: [id], onDelete: Cascade)
+  gate        EvaluationStage
+  outcome     GateOutcome
+  sentBackTo  EvaluationStage?
+  comment     String
+  decidedById String
+  decidedBy   User             @relation("GateDecisionDecider", fields: [decidedById], references: [id])
+  decidedAt   DateTime         @default(now())
+
+  @@index([systemId])
+}
+
 enum ChangeEventAction {
   SYSTEM_SUBMITTED
   APPROVAL_DECIDED
@@ -951,6 +981,9 @@ enum ChangeEventAction {
   // An OG1 verdict went back to open because an owner edit changed a first-round Control in its remit (#328). System-scoped,
   // actor the person who edited; the detail names the participant and the Control.
   TRACK_VERDICT_REOPENED
+  // The Business System Owner (or an Admin) decided a staged System at a gate (#330, OG3): authorized it to operate, rejected it
+  // or sent it back. System-scoped, actor the person; the detail names the gate, the decision and the comment.
+  GATE_DECIDED
 }
 
 // A curated, System-lifecycle-relevant mutation record — feeds the landing

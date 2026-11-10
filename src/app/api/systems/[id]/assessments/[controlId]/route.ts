@@ -11,6 +11,7 @@ import { runAssessmentEdit, reopenStepsAfterEdit } from "@/lib/assessment-edit";
 import { assessmentValuesChanged } from "@/lib/review-steps";
 import { loadEffectiveStatus, toOwnAssessment } from "@/lib/effective-status-data";
 import { describeOwnEditEffect } from "@/lib/effective-status";
+import { refuseIfSystemClosed } from "@/lib/system-closed";
 
 const updateAssessmentSchema = z.object({
   status: z.enum(ControlAssessmentStatus),
@@ -26,6 +27,8 @@ export async function PATCH(
   if ("response" in auth) return auth.response;
 
   const { id, controlId } = await ctx.params;
+  const closed = await refuseIfSystemClosed(id);
+  if (closed) return closed;
   const system = await getVisibleSystem(auth.user, id);
   if (!system) {
     return NextResponse.json({ error: "System not found" }, { status: 404 });
@@ -149,6 +152,8 @@ export async function DELETE(
   if ("response" in auth) return auth.response;
 
   const { id, controlId } = await ctx.params;
+  const closed = await refuseIfSystemClosed(id);
+  if (closed) return closed;
   const system = await getVisibleSystem(auth.user, id);
   if (!system) {
     return NextResponse.json({ error: "System not found" }, { status: 404 });

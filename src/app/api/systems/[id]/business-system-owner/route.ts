@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { authenticate } from "@/lib/api-authz";
 import { changeBusinessSystemOwner } from "@/lib/business-system-owner";
+import { refuseIfSystemClosed } from "@/lib/system-closed";
 
 const bodySchema = z.object({ businessSystemOwnerId: z.string().min(1).nullable() });
 
@@ -17,6 +18,8 @@ export async function PUT(request: NextRequest, ctx: RouteContext<"/api/systems/
   const auth = await authenticate(request);
   if ("response" in auth) return auth.response;
   const { id } = await ctx.params;
+  const closed = await refuseIfSystemClosed(id);
+  if (closed) return closed;
 
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {

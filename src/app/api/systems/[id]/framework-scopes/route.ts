@@ -9,6 +9,7 @@ import {
   getSystemFrameworkScopes,
 } from "@/lib/framework-scope";
 import { canSeeDraftFrameworks } from "@/lib/frameworks";
+import { refuseIfSystemClosed } from "@/lib/system-closed";
 
 export async function GET(request: NextRequest, ctx: RouteContext<"/api/systems/[id]/framework-scopes">) {
   const auth = await authenticate(request);
@@ -31,6 +32,8 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems
   if ("response" in auth) return auth.response;
 
   const { id } = await ctx.params;
+  const closed = await refuseIfSystemClosed(id);
+  if (closed) return closed;
   const system = await getVisibleSystem(auth.user, id);
   if (!system) {
     return NextResponse.json({ error: "System not found" }, { status: 404 });

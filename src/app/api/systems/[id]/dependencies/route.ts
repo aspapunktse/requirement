@@ -4,6 +4,7 @@ import { authenticate } from "@/lib/api-authz";
 import { getVisibleSystem } from "@/lib/system-visibility";
 import { canManageProviderDependencies } from "@/lib/provider-dependency-rules";
 import { declareProviderDependency, getProviderDependencyRow, listProviderDependencies } from "@/lib/provider-dependencies";
+import { refuseIfSystemClosed } from "@/lib/system-closed";
 
 /**
  * The Providers a System depends on (PRD 0001 F-IN.3, #124), for everyone who
@@ -42,6 +43,8 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems
   if ("response" in auth) return auth.response;
 
   const { id } = await ctx.params;
+  const closed = await refuseIfSystemClosed(id);
+  if (closed) return closed;
   const system = await getVisibleSystem(auth.user, id);
   if (!system) {
     return NextResponse.json({ error: "System not found" }, { status: 404 });
