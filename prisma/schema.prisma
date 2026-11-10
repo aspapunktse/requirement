@@ -103,6 +103,8 @@ model User {
   approvals                          Approval[]
   // OG1 verdicts this User gave (#328).
   trackVerdicts                      TrackVerdict[]
+  // OAG review Recommendations this User gave (#331).
+  recommendations                    Recommendation[]
   // Business Units and Frameworks this User (as a BUSINESS_RISK_OWNER) is
   // assigned to. Independent of each other — a Business Risk Owner may own
   // Business Units, Frameworks, or both, not necessarily paired. See #55.
@@ -225,6 +227,7 @@ model System {
   evaluationTrack             EvaluationTrack?
   evaluationStageEnteredAt    DateTime?
   trackVerdicts               TrackVerdict[]
+  recommendations             Recommendation[]
   // Set when the Business System Owner rejects the System at OG3 (#330): the evaluation is closed for good, and every write on the
   // System is refused (409). The Onboarding Status is REJECTED too, but a classic Rejected System returns to Draft; this marker is what
   // tells the two apart. Null for every other System.
@@ -326,6 +329,8 @@ model ReviewGroup {
   approvals       Approval[]
   // OG1 verdicts given for this group (#328). Restrict, as for Approvals.
   trackVerdicts   TrackVerdict[]
+  // OAG review Recommendations given for this group (#331). Restrict, as for verdicts.
+  recommendations Recommendation[]
   // Query Messages posted, and Assessment Queries resolved, as this group (#201). SetNull on delete: the
   // row keeps the group's name in its own snapshot column and never turns into a base-step or named one.
   queryMessages   QueryMessage[]    @relation("QueryMessageGroup")
@@ -883,16 +888,48 @@ enum GateOutcome {
 // One decision at a gate of a staged System (#330, PRD 0002 F-ST.5-7): who decided, what, and the comment (required). Kept for good
 // (a send-back lets the System reach the gate again, so a System can have several). `sentBackTo` is the stage a SEND_BACK returned to.
 model GateDecision {
-  id          String           @id @default(cuid())
-  systemId    String
-  system      System           @relation(fields: [systemId], references: [id], onDelete: Cascade)
-  gate        EvaluationStage
-  outcome     GateOutcome
-  sentBackTo  EvaluationStage?
-  comment     String
-  decidedById String
-  decidedBy   User             @relation("GateDecisionDecider", fields: [decidedById], references: [id])
-  decidedAt   DateTime         @default(now())
+  id            String           @id @default(cuid())
+  systemId      String
+  system        System           @relation(fields: [systemId], references: [id], onDelete: Cascade)
+  gate          EvaluationStage
+  outcome       GateOutcome
+  sentBackTo    EvaluationStage?
+  comment       String
+  // The written justification for proceeding at OG2 against an Advise-against Recommendation (#331); null otherwise.
+  justification String?
+  decidedById   String
+  decidedBy     User             @relation("GateDecisionDecider", fields: [decidedById], references: [id])
+  decidedAt     DateTime         @default(now())
+
+  @@index([systemId])
+}
+
+// What an OAG group recommends (PRD 0002 F-OAG.1, #331).
+enum RecommendationKind {
+  RECOMMEND
+  RECOMMEND_WITH_CONDITIONS
+  ADVISE_AGAINST
+}
+
+// One OAG review Recommendation (#331, ADR 0014), as a `TrackVerdict` is for OG1: for the base review (`reviewGroupId` null) or a Review
+// Group, shown as the group's, voided when an owner edit in the group's remit reopens it. `stage` is the OAG review it belongs to
+// (OAG_REVIEW_1 before OG2; OAG_REVIEW_2 before OG3 is #332). Conditions are free text in the comment.
+model Recommendation {
+  id            String             @id @default(cuid())
+  systemId      String
+  system        System             @relation(fields: [systemId], references: [id], onDelete: Cascade)
+  stage         EvaluationStage
+  // Null is the base review, otherwise the Review Group. Restrict: deleting a group must never erase or re-attribute its Recommendations.
+  reviewGroupId String?
+  reviewGroup   ReviewGroup?       @relation(fields: [reviewGroupId], references: [id], onDelete: Restrict)
+  givenById     String
+  givenBy       User               @relation(fields: [givenById], references: [id])
+  kind          RecommendationKind
+  comment       String
+  givenAt       DateTime           @default(now())
+  voidedAt      DateTime?
+  // Why it was voided when an edit reopened it; null for a live one and for a dropped participant's.
+  voidReason    String?
 
   @@index([systemId])
 }
@@ -984,6 +1021,10 @@ enum ChangeEventAction {
   // The Business System Owner (or an Admin) decided a staged System at a gate (#330, OG3): authorized it to operate, rejected it
   // or sent it back. System-scoped, actor the person; the detail names the gate, the decision and the comment.
   GATE_DECIDED
+  // An OAG group gave its Recommendation at an OAG review (#331). System-scoped, actor the person; the detail names the group, not the person.
+  RECOMMENDATION_GIVEN
+  // A Recommendation went back to open because an owner edit changed a Control in its remit (#331).
+  RECOMMENDATION_REOPENED
 }
 
 // A curated, System-lifecycle-relevant mutation record — feeds the landing

@@ -30,7 +30,9 @@ export const CHANGE_EVENT_ACTION_LABEL: Record<ChangeEventAction, string> = {
   EVALUATION_STAGE_CHANGED: "moved the evaluation to a new stage",
   TRACK_VERDICT_GIVEN: "gave a verdict at OG1",
   TRACK_VERDICT_REOPENED: "reopened a verdict at OG1",
-  GATE_DECIDED: "decided at OG3",
+  RECOMMENDATION_GIVEN: "gave a Recommendation at the OAG review",
+  RECOMMENDATION_REOPENED: "reopened a Recommendation at the OAG review",
+  GATE_DECIDED: "decided at a gate",
   SYSTEM_OWNER_CHANGED: "changed a System's owner",
   APP_SETTING_CHANGED: "changed a setting",
   SYSTEM_CREATED: "created a System",
@@ -72,5 +74,7 @@ export const CHANGE_EVENT_ACTION_TONE: Record<ChangeEventAction, ChangeEventTone
   EVALUATION_STAGE_CHANGED: "accent",
   TRACK_VERDICT_GIVEN: "accent",
   TRACK_VERDICT_REOPENED: "warn",
+  RECOMMENDATION_GIVEN: "accent",
+  RECOMMENDATION_REOPENED: "warn",
   GATE_DECIDED: "accent",
 };

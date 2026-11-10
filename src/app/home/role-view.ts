@@ -5,7 +5,8 @@ import type { NavTile } from "@/components/ui/TileNav";
 import { getAllOpenRisks } from "@/lib/dashboard";
 import { getOpenStepsForUser } from "@/lib/review-steps";
 import { getOpenVerdictsForUser } from "@/lib/evaluation-og1";
-import { getOg3TasksForUser } from "@/lib/gate-decisions";
+import { getGateTasksForUser } from "@/lib/gate-decisions";
+import { getOpenRecommendationsForUser } from "@/lib/evaluation-oag";
 import { scopedSystemsWhere, getAssignedScope } from "@/lib/business-risk-owner";
 import { getActionableQueries } from "@/lib/assessment-queries";
 import { getOwnerTasks, mergeTaskRows } from "@/lib/owner-tasks";
@@ -266,24 +267,42 @@ export async function roleView(user: { id: string; name: string; role: UserRole 
       href: `/systems/${system.id}`,
     }),
   );
-  reviewStepRows.push(...openVerdictRows);
-  // A System waiting at OG3 is a task for its Business System Owner (#330).
-  const og3Rows = (await getOg3TasksForUser(user)).map(
-    (system): TaskRow => ({
-      id: `${system.id}:og3`,
+  // A group's open Recommendation at the OAG review, like an OG1 verdict (#331).
+  const openRecommendationRows = (await getOpenRecommendationsForUser(user)).map(
+    ({ system, participant }): TaskRow => ({
+      id: `${system.id}:recommendation:${participant.reviewGroupId ?? "base"}`,
       kind: "System",
       title: system.name,
-      subtitle: "OG3: authorize to operate?",
+      subtitle: `${participant.name} · OAG review Recommendation`,
       tone: "accent",
-      status: "Awaiting your decision",
+      status: "Awaiting Recommendation",
       updatedAt: system.updatedAt,
       href: `/systems/${system.id}#evaluation`,
     }),
   );
+  reviewStepRows.push(...openVerdictRows, ...openRecommendationRows);
+  // A System waiting at Qualification, OG2 or OG3 is a task for its Business System Owner (#330, #331).
+  const GATE_TASK_SUBTITLE = { QUALIFICATION: "Qualification: worth a full evaluation?", OG2: "OG2: proceed?", OG3: "OG3: authorize to operate?" } as const;
+  const gateRows = (
+    await Promise.all((["QUALIFICATION", "OG2", "OG3"] as const).map(async (gate) => (await getGateTasksForUser(user, gate)).map((system) => ({ system, gate }))))
+  )
+    .flat()
+    .map(
+      ({ system, gate }): TaskRow => ({
+        id: `${system.id}:${gate.toLowerCase()}`,
+        kind: "System",
+        title: system.name,
+        subtitle: GATE_TASK_SUBTITLE[gate],
+        tone: "accent",
+        status: "Awaiting your decision",
+        updatedAt: system.updatedAt,
+        href: `/systems/${system.id}#evaluation`,
+      }),
+    );
   const [view, owner, controlRows, checkUps, inReviewRows, activity] = await Promise.all([
     roleOwnView(user, reviewStepRows)
       .then((own) => withReviewStepTasks(own, user, reviewStepRows))
-      .then((own) => (og3Rows.length === 0 ? own : { ...own, tasks: [...(own.tasks ?? []), ...og3Rows] }))
+      .then((own) => (gateRows.length === 0 ? own : { ...own, tasks: [...(own.tasks ?? []), ...gateRows] }))
       .then((own) => withMemberQueryTasks(own, user))
       .then((own) => withControlLibraryTile(own, user))
       .then(withStatementOfApplicabilityTile)

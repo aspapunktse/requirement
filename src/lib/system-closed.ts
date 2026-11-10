@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-/** The 409 text for any write on a System the Business System Owner rejected at OG3 (#330). */
-export const SYSTEM_CLOSED_REFUSAL = "This System was rejected at OG3 and is closed: it can no longer be changed";
+/** The 409 text for any write on a System the Business System Owner rejected at a gate (#330, #331). */
+export const SYSTEM_CLOSED_REFUSAL = "This System was rejected and is closed: it can no longer be changed";
 
 /**
  * The one check behind "a Rejected System is closed and read-only for every role" (#330). Every route that writes on a System, or on a row

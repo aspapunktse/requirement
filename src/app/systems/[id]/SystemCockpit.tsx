@@ -368,7 +368,7 @@ export function SystemCockpit({ view, panels }: { view: SystemPageView; panels: 
             <p className="sc-note">{view.note}</p>
             {system.evaluation?.closed && (
               <p role="status" className="sc-callout warn">
-                <b>Closed.</b> This System was rejected at OG3. Nothing on it can be changed, by anyone.
+                <b>Closed.</b> This System was rejected. Nothing on it can be changed, by anyone.
               </p>
             )}
           </div>

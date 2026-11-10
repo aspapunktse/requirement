@@ -4,22 +4,29 @@ import { prisma } from "@/lib/prisma";
 import { logChangeEvent } from "@/lib/change-events";
 import { lockSystem } from "@/lib/system-lock";
 import { EVALUATION_STAGE_LABEL, stepKeysFor } from "@/lib/evaluation-stages";
+import { hasAdviseAgainst, voidRecommendations } from "@/lib/evaluation-oag";
 
 /**
- * The Business System Owner's decision at a gate (#330, PRD 0002 F-ST.5-7, F-BSO.3), built for OG3. Each decision is a `GateDecision` row
- * plus a GATE_DECIDED Change Event, written in the one transaction that applies it, so Qualification and OG2 (#331) can reuse the model.
+ * The Business System Owner's decision at a gate (#330, #331, PRD 0002 F-ST.4-7, F-BSO.3) at Qualification, OG2 and OG3. Each decision is a `GateDecision` row
+ * plus a GATE_DECIDED Change Event, written in the one transaction that applies it. The outcome enum is shared: AUTHORIZE stands for
+ * Qualification's "Yes", OG2's "Proceed" and OG3's "Authorize to operate", so the API and the model have one vocabulary.
  *
+ * - Qualification AUTHORIZE: the System moves to First documentation. OG2 AUTHORIZE: it moves to the second round. Proceeding against an
+ *   Advise-against Recommendation needs a written `justification` (400 without), stored on the decision and shown next to it.
  * - AUTHORIZE: the System gets its ATO, which is `OnboardingStatus` APPROVED on a System still at OG3 (the migration rule "Approved
  *   Systems count as ATO"). Its owner or an Admin then marks it Onboarded as today.
  * - REJECT: final. `evaluationClosedAt` is set and the status is REJECTED; every write on the System is refused (409, `system-closed.ts`).
  * - SEND_BACK: to the first round (clears the Track and voids the OG1 verdicts, so OG1 runs again), to OG1, or to a later stage on the
  *   Track; the System re-enters that stage now, so the Risk Analysis and the verdicts that count are the ones given after it.
- *   Assessments, Risks, Documents and Risk Analyses are kept.
+ *   Assessments, Risks, Documents and Risk Analyses are kept; a target at or before the OAG review also voids its Recommendations.
  * Open Risks never block a decision.
  */
 
 type Actor = { id: string; role: UserRole };
 type DecidableSystem = { ownerId: string; businessSystemOwnerId: string | null };
+
+/** The gates the Business System Owner decides at (OG1 is the groups' verdicts, not a decision). */
+export type Gate = "QUALIFICATION" | "OG2" | "OG3";
 
 /** Only the System's Business System Owner or an Admin decides, and never on a System they own. */
 export function canDecideAtGate(user: Actor, system: DecidableSystem): boolean {
@@ -27,43 +34,60 @@ export function canDecideAtGate(user: Actor, system: DecidableSystem): boolean {
   return user.role === "ADMIN" || (system.businessSystemOwnerId !== null && system.businessSystemOwnerId === user.id);
 }
 
-export const GATE_DECISION_REFUSED = "Only the System's Business System Owner or an Admin who isn't its owner can decide at OG3";
+export const GATE_DECISION_REFUSED = "Only the System's Business System Owner or an Admin who isn't its owner can decide at a gate";
 export const NOT_AT_OG3 = "This System isn't at OG3";
 export const ALREADY_AUTHORIZED = "This System already has its authorization to operate";
 export const SEND_BACK_TARGET_REFUSED = "A System can only be sent back to an earlier stage on its Track";
+export const JUSTIFICATION_REQUIRED = "A written justification is required to proceed against an Advise-against Recommendation";
+export const JUSTIFICATION_NOT_ALLOWED = "A justification belongs only to proceeding at OG2";
 
-/** The stages a System at OG3 on `track` can be sent back to: every stored stage of the Track before OG3 (the derived Risk Analysis step is not one). */
-export function sendBackTargets(track: EvaluationTrack | null): EvaluationStage[] {
+/** The text the 409 gives, and what each gate's AUTHORIZE is called in Change Events. */
+const GATE_TEXT: Record<Gate, { notAt: string; authorize: string }> = {
+  QUALIFICATION: { notAt: "This System isn't at Qualification", authorize: "yes" },
+  OG2: { notAt: "This System isn't at OG2", authorize: "proceed" },
+  OG3: { notAt: NOT_AT_OG3, authorize: "authorized to operate" },
+};
+
+/** Where AUTHORIZE leads from a gate that isn't the last. */
+const NEXT_STAGE: Record<"QUALIFICATION" | "OG2", EvaluationStage> = { QUALIFICATION: "FIRST_DOCUMENTATION", OG2: "SECOND_ROUND" };
+
+/** The stages a System at `gate` on `track` can be sent back to: every stored stage of the Track before the gate (the derived Risk Analysis step is not one). */
+export function sendBackTargets(track: EvaluationTrack | null, gate: Gate = "OG3"): EvaluationStage[] {
   const keys = stepKeysFor(track);
-  return keys.slice(0, keys.indexOf("OG3")).filter((key): key is EvaluationStage => key !== "RISK_ANALYSIS_1" && key !== "TRACK");
+  return keys.slice(0, keys.indexOf(gate)).filter((key): key is EvaluationStage => key !== "RISK_ANALYSIS_1" && key !== "TRACK");
 }
 
-export const og3DecisionSchema = z
+export const gateDecisionSchema = z
   .object({
     decision: z.enum(["AUTHORIZE", "REJECT", "SEND_BACK"]),
     comment: z.string().trim().min(1, "A comment is required").max(2000),
     sendBackTo: z
       .enum(["FIRST_ROUND", "OG1", "QUALIFICATION", "FIRST_DOCUMENTATION", "OAG_REVIEW_1", "OG2", "SECOND_ROUND", "RISK_ANALYSIS_2", "OAG_REVIEW_2", "OG3"])
       .optional(),
+    justification: z.string().trim().min(1, "A justification can't be empty").max(2000).optional(),
   })
   .strict()
   .refine((value) => (value.decision === "SEND_BACK") === (value.sendBackTo !== undefined), {
     message: "Say which stage to send the System back to, and only when sending it back",
     path: ["sendBackTo"],
   });
-export type Og3DecisionInput = z.infer<typeof og3DecisionSchema>;
+export type GateDecisionInput = z.infer<typeof gateDecisionSchema>;
+export const og3DecisionSchema = gateDecisionSchema;
+export type Og3DecisionInput = GateDecisionInput;
 
-export type Og3DecisionResult = { ok: true; outcome: GateOutcome; stage: EvaluationStage } | { ok: false; status: 403 | 409; error: string };
+export type GateDecisionResult = { ok: true; outcome: GateOutcome; stage: EvaluationStage } | { ok: false; status: 400 | 403 | 409; error: string };
+export type Og3DecisionResult = GateDecisionResult;
 
 const OUTCOME_TEXT: Record<GateOutcome, string> = { AUTHORIZE: "authorized to operate", REJECT: "rejected", SEND_BACK: "sent back" };
 
 /**
- * Applies the decision at OG3. Locks the System first, then refuses (nothing written) unless the actor may decide (checked on the
- * locked row, so a concurrent change of Business System Owner counts), the System is open, at OG3, and not yet authorized.
+ * Applies the decision at a gate. Locks the System first, then refuses (nothing written) unless the actor may decide (checked on the
+ * locked row, so a concurrent change of Business System Owner counts), the System is open and at the gate (and, at OG3, not yet
+ * authorized), and, to proceed at OG2 against an Advise-against, a justification came with it (400).
  */
-export async function decideAtOg3(systemId: string, actor: Actor, input: Og3DecisionInput): Promise<Og3DecisionResult> {
+export async function decideAtGate(systemId: string, gate: Gate, actor: Actor, input: GateDecisionInput): Promise<GateDecisionResult> {
   return prisma.$transaction(
-    async (tx): Promise<Og3DecisionResult> => {
+    async (tx): Promise<GateDecisionResult> => {
       await lockSystem(tx, systemId);
       const system = await tx.system.findUnique({
         where: { id: systemId },
@@ -71,38 +95,71 @@ export async function decideAtOg3(systemId: string, actor: Actor, input: Og3Deci
       });
       if (!system || !canDecideAtGate(actor, system)) return { ok: false, status: 403, error: GATE_DECISION_REFUSED };
       if (system.evaluationClosedAt) return { ok: false, status: 409, error: "This System is closed" };
-      if (system.evaluationStage !== "OG3") return { ok: false, status: 409, error: NOT_AT_OG3 };
+      if (system.evaluationStage !== gate) return { ok: false, status: 409, error: GATE_TEXT[gate].notAt };
       if (system.status !== "DRAFT") return { ok: false, status: 409, error: ALREADY_AUTHORIZED };
+      const proceeding = gate === "OG2" && input.decision === "AUTHORIZE";
+      if (input.justification !== undefined && !proceeding) return { ok: false, status: 400, error: JUSTIFICATION_NOT_ALLOWED };
+      if (proceeding && input.justification === undefined && (await hasAdviseAgainst(tx, systemId))) {
+        return { ok: false, status: 400, error: JUSTIFICATION_REQUIRED };
+      }
 
       const now = new Date();
-      let stage: EvaluationStage = "OG3";
-      let detail = `OG3: ${OUTCOME_TEXT[input.decision]}`;
+      let stage: EvaluationStage = gate;
+      let detail = `${EVALUATION_STAGE_LABEL[gate]}: ${input.decision === "AUTHORIZE" ? GATE_TEXT[gate].authorize : OUTCOME_TEXT[input.decision]}`;
       if (input.decision === "AUTHORIZE") {
-        await tx.system.update({ where: { id: systemId }, data: { status: "APPROVED" } });
+        if (gate === "OG3") {
+          await tx.system.update({ where: { id: systemId }, data: { status: "APPROVED" } });
+        } else {
+          stage = NEXT_STAGE[gate];
+          await tx.system.update({ where: { id: systemId }, data: { evaluationStage: stage, evaluationStageEnteredAt: now } });
+        }
       } else if (input.decision === "REJECT") {
         await tx.system.update({ where: { id: systemId }, data: { status: "REJECTED", evaluationClosedAt: now } });
       } else {
         const target = input.sendBackTo!;
-        if (!sendBackTargets(system.evaluationTrack).includes(target)) return { ok: false, status: 409, error: SEND_BACK_TARGET_REFUSED };
-        await sendBackTo(tx, systemId, target, now);
+        if (!sendBackTargets(system.evaluationTrack, gate).includes(target)) return { ok: false, status: 409, error: SEND_BACK_TARGET_REFUSED };
+        await sendBackTo(tx, systemId, system.evaluationTrack, target, gate, now);
         stage = target;
         detail += ` to ${EVALUATION_STAGE_LABEL[target]}`;
       }
       await tx.gateDecision.create({
-        data: { systemId, gate: "OG3", outcome: input.decision, sentBackTo: input.decision === "SEND_BACK" ? stage : null, comment: input.comment, decidedById: actor.id, decidedAt: now },
+        data: {
+          systemId,
+          gate,
+          outcome: input.decision,
+          sentBackTo: input.decision === "SEND_BACK" ? stage : null,
+          comment: input.comment,
+          justification: proceeding ? (input.justification ?? null) : null,
+          decidedById: actor.id,
+          decidedAt: now,
+        },
       });
       await logChangeEvent(systemId, "GATE_DECIDED", `${detail}: ${input.comment}`, actor.id, tx);
+      if (input.decision === "AUTHORIZE" && gate !== "OG3") {
+        await logChangeEvent(systemId, "EVALUATION_STAGE_CHANGED", `${EVALUATION_STAGE_LABEL[gate]} passed: moved to ${EVALUATION_STAGE_LABEL[stage]}`, actor.id, tx);
+      }
       return { ok: true, outcome: input.decision, stage };
     },
     { timeout: 15_000 },
   );
 }
 
-/** Moves the System to `target` with a fresh entry time; to the first round or OG1 the Track goes and the live OG1 verdicts are voided, so OG1 runs again. */
-async function sendBackTo(tx: Prisma.TransactionClient, systemId: string, target: EvaluationStage, now: Date) {
+/** The decision at OG3 (#330). */
+export const decideAtOg3 = (systemId: string, actor: Actor, input: GateDecisionInput) => decideAtGate(systemId, "OG3", actor, input);
+
+/**
+ * Moves the System to `target` with a fresh entry time. To the first round or OG1 the Track goes and the live OG1 verdicts are voided,
+ * so OG1 runs again; to or before the OAG review the live Recommendations are voided, so the review runs again.
+ */
+async function sendBackTo(tx: Prisma.TransactionClient, systemId: string, track: EvaluationTrack | null, target: EvaluationStage, gate: Gate, now: Date) {
   const reopensOg1 = target === "FIRST_ROUND" || target === "OG1";
+  const reason = `The System was sent back at ${EVALUATION_STAGE_LABEL[gate]}`;
   if (reopensOg1) {
-    await tx.trackVerdict.updateMany({ where: { systemId, voidedAt: null }, data: { voidedAt: now, voidReason: "The System was sent back at OG3" } });
+    await tx.trackVerdict.updateMany({ where: { systemId, voidedAt: null }, data: { voidedAt: now, voidReason: reason } });
+  }
+  const keys = stepKeysFor(track);
+  if (keys.includes("OAG_REVIEW_1") && keys.indexOf(target) <= keys.indexOf("OAG_REVIEW_1")) {
+    await voidRecommendations(tx, systemId, reason, now);
   }
   await tx.system.update({
     where: { id: systemId },
@@ -115,6 +172,8 @@ export type GateDecisionView = {
   outcome: GateOutcome;
   sentBackTo: EvaluationStage | null;
   comment: string;
+  /** The written justification for proceeding against an Advise-against (OG2), else null. */
+  justification: string | null;
   decidedAt: string;
   by: string;
 };
@@ -126,14 +185,16 @@ export async function readGateDecisions(tx: Prisma.TransactionClient, systemId: 
     include: { decidedBy: { select: { name: true } } },
     orderBy: [{ decidedAt: "asc" }, { id: "asc" }],
   });
-  return rows.map((row) => ({ gate: row.gate, outcome: row.outcome, sentBackTo: row.sentBackTo, comment: row.comment, decidedAt: row.decidedAt.toISOString(), by: row.decidedBy.name }));
+  return rows.map((row) => ({ gate: row.gate, outcome: row.outcome, sentBackTo: row.sentBackTo, comment: row.comment, justification: row.justification, decidedAt: row.decidedAt.toISOString(), by: row.decidedBy.name }));
 }
 
-/** The Systems waiting at OG3 for `user` as their Business System Owner, for "My tasks". The System's owner never decides, so is left out. */
-export async function getOg3TasksForUser(user: { id: string }) {
+/** The Systems waiting at `gate` for `user` as their Business System Owner, for "My tasks". The System's owner never decides, so is left out. */
+export async function getGateTasksForUser(user: { id: string }, gate: Gate) {
   return prisma.system.findMany({
-    where: { evaluationStage: "OG3", evaluationClosedAt: null, status: "DRAFT", businessSystemOwnerId: user.id, ownerId: { not: user.id } },
+    where: { evaluationStage: gate, evaluationClosedAt: null, status: "DRAFT", businessSystemOwnerId: user.id, ownerId: { not: user.id } },
     orderBy: { updatedAt: "asc" },
     select: { id: true, name: true, updatedAt: true },
   });
 }
+
+export const getOg3TasksForUser = (user: { id: string }) => getGateTasksForUser(user, "OG3");

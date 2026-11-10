@@ -40,6 +40,15 @@ describe("attributeEvent (#251)", () => {
     expect(attributeEvent({ id: "a", role: "ADMIN" }, orphan, "Ann", none, { reviewGroupId: null })).toBe("Ann");
   });
 
+  it("reads an OAG Recommendation as the participant's, except to the always-seeing roles; a reopening stays named", () => {
+    const given = event({ action: "RECOMMENDATION_GIVEN", detail: "Security group: Advise against: Too exposed" });
+    expect(attributeEvent({ id: "owner", role: "SYSTEM_OWNER" }, given, "Ann", none, undefined)).toBe("Security group");
+    expect(attributeEvent({ id: "x", role: "VIEWER" }, given, "Ann", none, undefined)).toBe("Security group");
+    expect(attributeEvent({ id: "a", role: "ADMIN" }, given, "Ann", none, undefined)).toBe("Ann");
+    expect(attributeEvent({ id: "m", role: "COMPLIANCE_MANAGER" }, given, "Ann", none, undefined)).toBe("Ann");
+    expect(attributeEvent({ id: "owner", role: "SYSTEM_OWNER" }, event({ action: "RECOMMENDATION_REOPENED", detail: "Security group Recommendation reopened: C1 changed" }), "Olle", none, undefined)).toBe("Olle");
+  });
+
   it("names a Query's actor only for the always-seeing roles and the System's owner", () => {
     const query = event({ action: "QUERY_REPLIED" });
     expect(attributeEvent({ id: "r", role: "REVIEWER" }, query, "Ann", none, undefined)).toBe("A reviewer");
