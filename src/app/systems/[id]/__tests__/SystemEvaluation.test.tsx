@@ -205,3 +205,53 @@ describe("Evaluation tab (#328)", () => {
     expect(await screen.findByText(/isn't available yet/)).toBeInTheDocument();
   });
 });
+
+describe("Evaluation tab stage cards: documentation and Risk Analysis (#348)", () => {
+  const fullTrack = () => evaluation({ stage: "QUALIFICATION", track: "FULL", firstRound: null, og1: { open: false, track: "FULL", participants: [] } });
+  const docRow = (id: string, name: string, stage: string, tracks: string[], provided = false) => ({ id, name, description: null, stage, tracks, link: provided ? "https://example.com/x" : null, provided, file: null, updatedAt: null, updatedBy: null });
+
+  beforeEach(() => {
+    fetchMock.mockImplementation((input: string | URL | Request) => {
+      const url = String(input);
+      if (url.endsWith("/documents"))
+        return respond({
+          documents: [docRow("d1", "Architecture description", "FIRST_DOCUMENTATION", ["FULL"], true), docRow("d2", "DPIA", "SECOND_ROUND", ["SELF", "FULL"])],
+          canEdit: false,
+        });
+      if (url.endsWith("/risk-analyses")) return respond({ riskAnalyses: [] });
+      if (url.endsWith("/risks")) return respond({ risks: [] });
+      return respond({ evaluation: current });
+    });
+  });
+
+  it("shows the Risk Analysis record, empty to begin with, when the Risk Analysis step is picked", async () => {
+    current = evaluation();
+    render(<SystemEvaluation systemId="s1" />);
+    await screen.findByRole("list", { name: "First-round checklist" });
+    await userEvent.click(screen.getByRole("button", { name: /^Risk Analysis/ }));
+    expect(await screen.findByText("No Risk Analysis recorded yet.")).toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: "First-round checklist" })).toBeNull();
+    expect(await screen.findByText("No open Risks.")).toBeInTheDocument();
+  });
+
+  it("shows first documentation in its stage card, and the Risk summary with it", async () => {
+    current = fullTrack();
+    render(<SystemEvaluation systemId="s1" />);
+    await screen.findByRole("list", { name: "Tracks" });
+    await userEvent.click(screen.getByRole("button", { name: /^First documentation/ }));
+    const list = await screen.findByRole("list", { name: "First documentation Document Requirements" });
+    expect(within(list).getByText("Architecture description")).toBeInTheDocument();
+    expect(screen.queryByText("DPIA")).toBeNull();
+    expect(screen.getByRole("heading", { name: "Risk summary" })).toBeInTheDocument();
+  });
+
+  it("shows second-round documentation in the second round's card", async () => {
+    current = fullTrack();
+    render(<SystemEvaluation systemId="s1" />);
+    await screen.findByRole("list", { name: "Tracks" });
+    await userEvent.click(screen.getByRole("button", { name: /^Second round/ }));
+    const list = await screen.findByRole("list", { name: "Second round Document Requirements" });
+    expect(within(list).getByText("DPIA")).toBeInTheDocument();
+    expect(screen.getByText(/isn't available yet/)).toBeInTheDocument();
+  });
+});
