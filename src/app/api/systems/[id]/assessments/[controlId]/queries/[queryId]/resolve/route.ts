@@ -28,8 +28,6 @@ export async function POST(
   }
 
   const { id, controlId, queryId } = await ctx.params;
-  const closed = await refuseIfSystemClosed(id);
-  if (closed) return closed;
   const system = await getVisibleSystem(auth.user, id);
   if (!system) {
     return NextResponse.json({ error: "System not found" }, { status: 404 });
@@ -39,6 +37,9 @@ export async function POST(
   if (!rights.allowed) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
+
+  const closed = await refuseIfSystemClosed(id);
+  if (closed) return closed;
 
   const existing = await prisma.assessmentQuery.findFirst({
     where: { id: queryId, controlAssessment: { systemId: system.id, controlId } },

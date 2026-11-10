@@ -44,14 +44,15 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems
   if ("response" in auth) return auth.response;
 
   const { id } = await ctx.params;
-  const closed = await refuseIfSystemClosed(id);
-  if (closed) return closed;
   const system = await getVisibleSystem(auth.user, id);
   if (!system) return NextResponse.json({ error: "System not found" }, { status: 404 });
 
   if (!canManageFrameworkScopes(auth.user, system)) {
     return NextResponse.json({ error: "Only the System's owner or an Admin can leave out a suggested Framework" }, { status: 403 });
   }
+
+  const closed = await refuseIfSystemClosed(id);
+  if (closed) return closed;
 
   const parsed = leaveOutSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "A frameworkId is required" }, { status: 400 });

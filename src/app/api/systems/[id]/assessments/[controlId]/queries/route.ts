@@ -31,12 +31,13 @@ export async function POST(
   }
 
   const { id, controlId } = await ctx.params;
-  const closed = await refuseIfSystemClosed(id);
-  if (closed) return closed;
   const system = await getVisibleSystem(auth.user, id);
   if (!system) {
     return NextResponse.json({ error: "System not found" }, { status: 404 });
   }
+
+  const closed = await refuseIfSystemClosed(id);
+  if (closed) return closed;
 
   const control = await getControlForAssessmentEdit(system, controlId);
   if (!control) {

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { logChangeEvent } from "@/lib/change-events";
 import { visibleSystemsWhere } from "@/lib/system-visibility";
 import { canChangeBusinessSystemOwner } from "@/lib/system-permissions";
+import { SYSTEM_CLOSED_REFUSAL } from "@/lib/system-closed";
 
 /**
  * The Business System Owner (BSO) of a System (#321, PRD 0002 F-BSO, ADR 0014): the person who will decide its
@@ -51,11 +52,12 @@ export async function changeBusinessSystemOwner(
     return await prisma.$transaction(async (tx) => {
       const system = await tx.system.findFirst({
         where: { AND: [{ id: systemId }, await visibleSystemsWhere(actor, tx)] },
-        select: { id: true, ownerId: true, businessSystemOwner: { select: { id: true, name: true } } },
+        select: { id: true, ownerId: true, evaluationClosedAt: true, businessSystemOwner: { select: { id: true, name: true } } },
       });
       if (!system || !canChangeBusinessSystemOwner(actor, system)) {
         throw new Abort({ ok: false, status: 403, error: "Only a System's owner or an Admin can change its Business System Owner" });
       }
+      if (system.evaluationClosedAt) throw new Abort({ ok: false, status: 409, error: SYSTEM_CLOSED_REFUSAL });
 
       let next: { id: string; name: string } | null = null;
       if (businessSystemOwnerId === null) {

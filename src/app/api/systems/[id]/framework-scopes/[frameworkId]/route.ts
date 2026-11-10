@@ -17,8 +17,6 @@ export async function DELETE(
   if ("response" in auth) return auth.response;
 
   const { id, frameworkId } = await ctx.params;
-  const closed = await refuseIfSystemClosed(id);
-  if (closed) return closed;
   const system = await getVisibleSystem(auth.user, id);
   if (!system) {
     return NextResponse.json({ error: "System not found" }, { status: 404 });
@@ -30,6 +28,9 @@ export async function DELETE(
       { status: 403 },
     );
   }
+
+  const closed = await refuseIfSystemClosed(id);
+  if (closed) return closed;
 
   const framework = await prisma.framework.findUnique({ where: { id: frameworkId } });
   // The base Framework is always in every System's Framework Scope (F-FW.3): whether or not a

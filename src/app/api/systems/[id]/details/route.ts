@@ -16,8 +16,6 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/system
   if ("response" in auth) return auth.response;
 
   const { id } = await ctx.params;
-  const closed = await refuseIfSystemClosed(id);
-  if (closed) return closed;
   const visible = await getVisibleSystem(auth.user, id);
   if (!visible) {
     return NextResponse.json({ error: "System not found" }, { status: 404 });
@@ -26,6 +24,9 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/system
   if (!canChangeSystemClassification(auth.user, visible)) {
     return NextResponse.json({ error: "Only the System's owner or an Admin can edit its details" }, { status: 403 });
   }
+
+  const closed = await refuseIfSystemClosed(id);
+  if (closed) return closed;
 
   const body = await request.json().catch(() => null);
   const parsed = systemDetailsSchema.safeParse(body);

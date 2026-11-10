@@ -43,8 +43,6 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems
   if ("response" in auth) return auth.response;
 
   const { id } = await ctx.params;
-  const closed = await refuseIfSystemClosed(id);
-  if (closed) return closed;
   const system = await getVisibleSystem(auth.user, id);
   if (!system) {
     return NextResponse.json({ error: "System not found" }, { status: 404 });
@@ -56,6 +54,9 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems
       { status: 403 },
     );
   }
+
+  const closed = await refuseIfSystemClosed(id);
+  if (closed) return closed;
 
   const parsed = declareDependencySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {

@@ -57,8 +57,6 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/system
   if ("response" in auth) return auth.response;
 
   const { id } = await ctx.params;
-  const closed = await refuseIfSystemClosed(id);
-  if (closed) return closed;
   const system = await getVisibleSystem(auth.user, id);
   if (!system) {
     return NextResponse.json({ error: "System not found" }, { status: 404 });
@@ -70,6 +68,9 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/system
       { status: 403 },
     );
   }
+
+  const closed = await refuseIfSystemClosed(id);
+  if (closed) return closed;
 
   const parsed = updateSystemSchema.safeParse(await request.json());
   if (!parsed.success) {

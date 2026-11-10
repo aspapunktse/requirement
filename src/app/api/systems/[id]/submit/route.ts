@@ -19,8 +19,6 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems
   if ("response" in auth) return auth.response;
 
   const { id } = await ctx.params;
-  const closed = await refuseIfSystemClosed(id);
-  if (closed) return closed;
   const system = await getVisibleSystem(auth.user, id);
   if (!system) {
     return NextResponse.json({ error: "System not found" }, { status: 404 });
@@ -29,6 +27,9 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems
   if (!canSubmit(auth.user, system)) {
     return NextResponse.json({ error: "Only the System's owner or an Admin can submit this System for review" }, { status: 403 });
   }
+
+  const closed = await refuseIfSystemClosed(id);
+  if (closed) return closed;
 
   // A staged System follows the staged evaluation, not the classic flow (#328).
   if (system.evaluationStage !== null) {

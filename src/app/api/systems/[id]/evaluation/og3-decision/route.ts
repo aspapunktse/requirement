@@ -18,9 +18,10 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems
   const { id } = await ctx.params;
   const system = await getVisibleSystem(auth.user, id);
   if (!system) return NextResponse.json({ error: "System not found" }, { status: 404 });
-  if (!canDecideAtGate(auth.user, system)) return NextResponse.json({ error: GATE_DECISION_REFUSED }, { status: 403 });
+
   const closed = await refuseIfSystemClosed(id);
   if (closed) return closed;
+  if (!canDecideAtGate(auth.user, system)) return NextResponse.json({ error: GATE_DECISION_REFUSED }, { status: 403 });
 
   const parsed = og3DecisionSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Invalid decision" }, { status: 400 });

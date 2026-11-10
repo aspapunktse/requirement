@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { ACTING_USER_COOKIE } from "@/lib/acting-user";
 import { SYSTEM_CLOSED_REFUSAL } from "@/lib/system-closed";
 import { POST as changeOwners } from "../systems/owner/route";
+import { PATCH as patchDetails } from "../systems/[id]/details/route";
 import { GET as getEvaluation } from "../systems/[id]/evaluation/route";
 import { GET as getRisks } from "../systems/[id]/risks/route";
 
@@ -28,6 +29,9 @@ const writeRoutes = Object.entries(modules).flatMap(([file, mod]) =>
   })),
 );
 
+/** A body that gets past each route's own body check, so the closed rule is what answers. */
+const bodyFor = (path: string) => (path.endsWith("business-system-owner") ? { businessSystemOwnerId: null } : {});
+
 function requestAs(userId: string, url: string, method: string, body?: unknown) {
   const headers = new Headers({ "Content-Type": "application/json", cookie: `${ACTING_USER_COOKIE}=${userId}` });
   return new NextRequest(`http://localhost${url}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
@@ -39,6 +43,7 @@ describe("A System rejected at OG3 is closed (#330)", { timeout: 120_000 }, () =
   let admin: string;
   let owner: string;
   let bso: string;
+  let stranger: string;
   let closedId: string;
 
   /** What a write could change on the System, as one comparable value. */
@@ -61,12 +66,13 @@ describe("A System rejected at OG3 is closed (#330)", { timeout: 120_000 }, () =
   }
 
   beforeAll(async () => {
-    for (const [key, role] of [["admin", "ADMIN"], ["owner", "SYSTEM_OWNER"], ["bso", "VIEWER"]] as const) {
+    for (const [key, role] of [["admin", "ADMIN"], ["owner", "SYSTEM_OWNER"], ["bso", "VIEWER"], ["stranger", "SYSTEM_OWNER"]] as const) {
       const user = await prisma.user.create({ data: { email: `test-330-closed-${key}-${SUFFIX}@example.com`, name: `Test 330 closed ${key} ${SUFFIX}`, role } });
       userIds.push(user.id);
       if (key === "admin") admin = user.id;
       if (key === "owner") owner = user.id;
       if (key === "bso") bso = user.id;
+      if (key === "stranger") stranger = user.id;
     }
     const system = await prisma.system.create({
       data: {
@@ -104,13 +110,27 @@ describe("A System rejected at OG3 is closed (#330)", { timeout: 120_000 }, () =
     for (const route of writeRoutes) {
       const params = Object.fromEntries(route.segments.map((name) => [name, name === "id" ? closedId : `missing-${name}`]));
       const url = `/api/systems/${closedId}/${route.path.replace("[id]/", "").replace(/\[(\w+)\]/g, (_match, name: string) => params[name])}`;
-      const response = await route.handler(requestAs(actor, url, route.method, {}), { params: Promise.resolve(params) });
+      const response = await route.handler(requestAs(actor, url, route.method, bodyFor(route.path)), { params: Promise.resolve(params) });
       // An Admin may do everything on a System, so only the closed rule can refuse them. For the others a route may refuse earlier, on their role.
       if (response.status !== 409 && !(who !== "admin" && response.status === 403)) {
         wrong.push(`${route.method} ${route.path}: ${response.status}`);
       }
     }
     expect(wrong).toEqual([]);
+    expect(await fingerprint(closedId)).toBe(before);
+  });
+
+  it("answers 404, not 409, to a user who can't see the closed System (the visibility check comes first)", async () => {
+    const before = await fingerprint(closedId);
+    const details = await patchDetails(requestAs(stranger, `/api/systems/${closedId}/details`, "PATCH", {}), { params: Promise.resolve({ id: closedId }) });
+    expect(details.status).toBe(404);
+    // Every write route: never the 409 of the closed rule (a role check may refuse earlier with 403).
+    for (const route of writeRoutes) {
+      const params = Object.fromEntries(route.segments.map((name) => [name, name === "id" ? closedId : `missing-${name}`]));
+      const url = `/api/systems/${closedId}/${route.path.replace("[id]/", "").replace(/\[(\w+)\]/g, (_match, name: string) => params[name])}`;
+      const response = await route.handler(requestAs(stranger, url, route.method, bodyFor(route.path)), { params: Promise.resolve(params) });
+      expect([403, 404], `${route.method} ${route.path}`).toContain(response.status);
+    }
     expect(await fingerprint(closedId)).toBe(before);
   });
 

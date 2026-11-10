@@ -1,3 +1,4 @@
+import { SYSTEM_CLOSED_REFUSAL } from "@/lib/system-closed";
 import { Prisma, type CheckUpAnswer, type CheckUpOutcome, type InternalAuditStatus, type RiskStatus, type UserRole } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -232,7 +233,7 @@ export async function submitCheckUpResponse(
       select: {
         internalAudit: { select: { status: true } },
         control: { select: { ownerId: true } },
-        system: { select: { ownerId: true } },
+        system: { select: { ownerId: true, evaluationClosedAt: true } },
         questions: { select: { id: true, position: true } },
         response: { select: { id: true } },
         evaluation: { select: { id: true } },
@@ -245,6 +246,8 @@ export async function submitCheckUpResponse(
     if (!canAnswerCheckUp(user, recipientId)) {
       throw new CheckUpResponseError(403, "Only the recipient of a Check-up can answer it");
     }
+    // A System the BSO rejected at OG3 is closed (#330): its recipient can no longer answer. Withdrawal and the auditor's evaluation stay allowed, so the audit can still be closed.
+    if (checkUp.system?.evaluationClosedAt) throw new CheckUpResponseError(409, SYSTEM_CLOSED_REFUSAL);
     const refusal = checkUpResponseRefusal({
       auditStatus: checkUp.internalAudit.status,
       evaluated: checkUp.evaluation !== null,

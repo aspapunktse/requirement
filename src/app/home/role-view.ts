@@ -269,16 +269,16 @@ export async function roleView(user: { id: string; name: string; role: UserRole 
   reviewStepRows.push(...openVerdictRows);
   // A System waiting at OG3 is a task for its Business System Owner (#330).
   const og3Rows = (await getOg3TasksForUser(user)).map(
-      (system): TaskRow => ({
-        id: `${system.id}:og3`,
-        kind: "System",
-        title: system.name,
-        subtitle: "OG3: authorize to operate?",
-        tone: "accent",
-        status: "Awaiting your decision",
-        updatedAt: system.updatedAt,
-        href: `/systems/${system.id}#evaluation`,
-      }),
+    (system): TaskRow => ({
+      id: `${system.id}:og3`,
+      kind: "System",
+      title: system.name,
+      subtitle: "OG3: authorize to operate?",
+      tone: "accent",
+      status: "Awaiting your decision",
+      updatedAt: system.updatedAt,
+      href: `/systems/${system.id}#evaluation`,
+    }),
   );
   const [view, owner, controlRows, checkUps, inReviewRows, activity] = await Promise.all([
     roleOwnView(user, reviewStepRows)

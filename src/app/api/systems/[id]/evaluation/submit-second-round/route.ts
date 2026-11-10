@@ -15,10 +15,11 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems
   if ("response" in auth) return auth.response;
 
   const { id } = await ctx.params;
-  const closed = await refuseIfSystemClosed(id);
-  if (closed) return closed;
   const system = await getVisibleSystem(auth.user, id);
   if (!system) return NextResponse.json({ error: "System not found" }, { status: 404 });
+
+  const closed = await refuseIfSystemClosed(id);
+  if (closed) return closed;
   if (!canSubmit(auth.user, system)) {
     return NextResponse.json({ error: "Only the System's owner or an Admin can submit its second round" }, { status: 403 });
   }

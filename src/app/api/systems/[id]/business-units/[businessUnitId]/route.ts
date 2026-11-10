@@ -14,8 +14,6 @@ export async function DELETE(
   if ("response" in auth) return auth.response;
 
   const { id, businessUnitId } = await ctx.params;
-  const closed = await refuseIfSystemClosed(id);
-  if (closed) return closed;
   const system = await getVisibleSystem(auth.user, id);
   if (!system) {
     return NextResponse.json({ error: "System not found" }, { status: 404 });
@@ -27,6 +25,9 @@ export async function DELETE(
       { status: 403 },
     );
   }
+
+  const closed = await refuseIfSystemClosed(id);
+  if (closed) return closed;
 
   const businessUnit = await prisma.businessUnit.findUnique({ where: { id: businessUnitId } });
 

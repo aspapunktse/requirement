@@ -93,12 +93,13 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems
   if ("response" in auth) return auth.response;
 
   const { id } = await ctx.params;
-  const closed = await refuseIfSystemClosed(id);
-  if (closed) return closed;
   const system = await getVisibleSystem(auth.user, id);
   if (!system) {
     return NextResponse.json({ error: "System not found" }, { status: 404 });
   }
+
+  const closed = await refuseIfSystemClosed(id);
+  if (closed) return closed;
 
   // Which step is read first so that a refusal for who is asking (403) comes before one for the rest of the body.
   const body = await request.json().catch(() => null);

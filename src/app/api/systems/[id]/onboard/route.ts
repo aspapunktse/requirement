@@ -13,8 +13,6 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems
   if ("response" in auth) return auth.response;
 
   const { id } = await ctx.params;
-  const closed = await refuseIfSystemClosed(id);
-  if (closed) return closed;
   const system = await getVisibleSystem(auth.user, id);
   if (!system) {
     return NextResponse.json({ error: "System not found" }, { status: 404 });
@@ -26,6 +24,9 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems
       { status: 403 },
     );
   }
+
+  const closed = await refuseIfSystemClosed(id);
+  if (closed) return closed;
 
   // A staged System follows the staged evaluation, not the classic flow (#328): it can be marked Onboarded only once the Business
   // System Owner has authorized it to operate at OG3 (#330), which leaves it Approved (that is what ATO is).

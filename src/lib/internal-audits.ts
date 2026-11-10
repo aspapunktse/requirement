@@ -206,6 +206,8 @@ export async function resolveSystemFilter(filter: SystemFilter): Promise<SystemF
   if (filter.frameworkId && !framework) throw new InternalAuditError(400, "That Framework doesn't exist");
 
   const systems = await prisma.system.findMany({
+    // Closed Systems (rejected at OG3, #330) are left out: no Check-up is launched for them.
+    where: { evaluationClosedAt: null },
     orderBy: [{ name: "asc" }, { id: "asc" }],
     select: {
       id: true,

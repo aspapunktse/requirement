@@ -23,14 +23,13 @@ export async function PUT(request: NextRequest, ctx: RouteContext<"/api/systems/
   const auth = await authenticate(request);
   if ("response" in auth) return auth.response;
   const { id, documentRequirementId } = await ctx.params;
-  const closed = await refuseIfSystemClosed(id);
-  if (closed) return closed;
-
   const system = await prisma.system.findFirst({ where: { AND: [{ id }, await visibleSystemsWhere(auth.user)] }, select: { id: true, ownerId: true } });
   if (!system) return NextResponse.json({ error: "System not found" }, { status: 404 });
   if (!canEditSystemDocuments(auth.user, system)) {
     return NextResponse.json({ error: "Only a System's owner or an Admin can change its documentation" }, { status: 403 });
   }
+  const closed = await refuseIfSystemClosed(id);
+  if (closed) return closed;
 
   const parsed = systemDocumentBodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {

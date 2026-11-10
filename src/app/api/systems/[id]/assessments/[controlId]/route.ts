@@ -27,8 +27,6 @@ export async function PATCH(
   if ("response" in auth) return auth.response;
 
   const { id, controlId } = await ctx.params;
-  const closed = await refuseIfSystemClosed(id);
-  if (closed) return closed;
   const system = await getVisibleSystem(auth.user, id);
   if (!system) {
     return NextResponse.json({ error: "System not found" }, { status: 404 });
@@ -41,6 +39,9 @@ export async function PATCH(
       { status: 403 },
     );
   }
+
+  const closed = await refuseIfSystemClosed(id);
+  if (closed) return closed;
 
   const parsed = updateAssessmentSchema.safeParse(await request.json());
   if (!parsed.success) {
@@ -152,8 +153,6 @@ export async function DELETE(
   if ("response" in auth) return auth.response;
 
   const { id, controlId } = await ctx.params;
-  const closed = await refuseIfSystemClosed(id);
-  if (closed) return closed;
   const system = await getVisibleSystem(auth.user, id);
   if (!system) {
     return NextResponse.json({ error: "System not found" }, { status: 404 });
@@ -165,6 +164,9 @@ export async function DELETE(
       { status: 403 },
     );
   }
+
+  const closed = await refuseIfSystemClosed(id);
+  if (closed) return closed;
 
   const result = await removeStaleAssessment(system, controlId, auth.user);
   if (!result.ok) {

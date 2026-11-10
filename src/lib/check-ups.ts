@@ -93,8 +93,9 @@ async function loadLaunchInputs(tx: Prisma.TransactionClient, internalAuditId: s
       },
     },
   });
+  // A System the BSO rejected at OG3 is closed (#330): no Check-up is launched for it, however it came into the audit's list.
   const systems = await tx.system.findMany({
-    where: { id: { in: systemRows.map((row) => row.systemId) } },
+    where: { id: { in: systemRows.map((row) => row.systemId) }, evaluationClosedAt: null },
     select: {
       id: true,
       name: true,
