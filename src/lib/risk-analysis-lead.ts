@@ -40,8 +40,7 @@ export type RiskAnalysisLeadResult =
 
 /**
  * Names, changes or clears (null) the lead of `systemId`. One transaction, every query on `tx`. 404 for a System the actor cannot see,
- * 403 for one who may not record a Risk Analysis on it (the System's owner, any role but Risk Owner, Risk Facilitator and Admin), 409 for a
- * closed System, 400 for a System without a stage, an unknown User or an ineligible one. Nothing is written when refused. The write is guarded
+ * 409 for a closed System, 403 for one who may not record a Risk Analysis on it (the System's owner, any role but Risk Owner, Risk Facilitator and Admin), 400 for a System without a stage, an unknown User or an ineligible one. Nothing is written when refused. The write is guarded
  * on the lead read (409 on a concurrent change). Exactly one RISK_ANALYSIS_LEAD_CHANGED Change Event, in the same transaction; saving the
  * value it already has writes nothing.
  */
@@ -58,8 +57,9 @@ export async function changeRiskAnalysisLead(actor: { id: string; role: UserRole
         select: { id: true, ownerId: true, evaluationStage: true, evaluationClosedAt: true, riskAnalysisLead: { select: { id: true, name: true } } },
       });
       if (!system) throw new Abort({ ok: false, status: 404, error: "System not found" });
-      if (!canRecordRiskAnalysis(actor, system)) throw new Abort({ ok: false, status: 403, error: RISK_ANALYSIS_REFUSED });
+      // The closed rule answers before the role rule, as on every System write (#330).
       if (system.evaluationClosedAt) throw new Abort({ ok: false, status: 409, error: SYSTEM_CLOSED_REFUSAL });
+      if (!canRecordRiskAnalysis(actor, system)) throw new Abort({ ok: false, status: 403, error: RISK_ANALYSIS_REFUSED });
       if (system.evaluationStage === null) throw new Abort({ ok: false, status: 400, error: RISK_ANALYSIS_LEAD_NOT_STAGED });
 
       let next: { id: string; name: string } | null = null;
