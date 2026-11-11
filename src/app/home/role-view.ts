@@ -628,7 +628,7 @@ async function roleOwnView(user: { id: string; name: string; role: UserRole }, r
     case "RISK_FACILITATOR": {
       // Reads every System and Risk; its tasks are the Risks it owns, added by `roleView` for every role (#362).
       const [openRisks, withoutOwner] = await Promise.all([
-        getAllOpenRisks(),
+        getAllOpenRisks({ systemOnly: true }),
         prisma.risk.count({ where: { ...SYSTEM_RISK_WHERE, status: { in: [...OWNER_REQUIRED_RISK_STATUSES] }, ownerId: null } }),
       ]);
 

@@ -164,6 +164,15 @@ describe("Risks with no System (#157)", () => {
       expect(risks[0].checkUp).toMatchObject({ id: expect.any(String) });
     });
 
+    it("leaves it out of the Risk Facilitator's heat map, which may not read Organization Risks (#362)", async () => {
+      const ids = (await getAllOpenRisks({ systemOnly: true })).map((r) => r.id);
+      expect(ids).toContain(systemRiskId);
+      expect(ids).not.toContain(organizationRiskId);
+      expect((await getAllOpenRisks()).map((r) => r.id)).toContain(organizationRiskId);
+      const view = await roleView({ id: s.roleUser.RISK_FACILITATOR, name: "Risk Facilitator", role: "RISK_FACILITATOR" });
+      expect(view.picture?.type).toBe("heat");
+    });
+
     it("shows it to a Risk Owner on /home as an Organization task, and counts it", async () => {
       const view = await roleView({ id: s.roleUser.RISK_OWNER, name: "Risk Owner", role: "RISK_OWNER" });
       const row = view.tasks!.find((t) => t.id === organizationRiskId);

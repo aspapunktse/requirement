@@ -167,6 +167,20 @@ describe("Risk Analyses on the Risks tab (#325)", { timeout: 30_000 }, () => {
     expect(body.riskOwners).toHaveLength(2);
   });
 
+  it("doesn't send an owner it didn't change when the Risk's owner is saved elsewhere while the form is open (#360)", async () => {
+    const user = userEvent.setup();
+    const { rerender } = renderIt({ openRisks: [{ id: "r1", title: "Weak passwords", ownerId: "u1" }] });
+    await user.click(await screen.findByRole("button", { name: "+ Record Risk Analysis" }));
+    const form = within(screen.getByRole("form", { name: "Record a Risk Analysis" }));
+    expect(form.getByLabelText("Owner for Weak passwords")).toHaveValue("u1");
+    // Someone saves another owner on the opened Risk above: the page passes the new owner down without remounting the form.
+    rerender(<SystemRiskAnalyses systemId="s1" canRecord people={PEOPLE} openRisks={[{ id: "r1", title: "Weak passwords", ownerId: "u2" }]} onRisksChanged={onRisksChanged} />);
+    await user.click(screen.getByRole("form", { name: "Record a Risk Analysis" }).querySelector("button[type=submit]") ?? screen.getByRole("button", { name: "Record Risk Analysis" }));
+    await waitFor(() => expect(fetchMock.mock.calls.some(([, init]) => init?.method === "POST")).toBe(true));
+    const body = JSON.parse(fetchMock.mock.calls.find(([, init]) => init?.method === "POST")![1].body);
+    expect(body.riskOwners).toEqual([]);
+  });
+
   it("shows the server's message when saving fails, and keeps the form", async () => {
     const user = userEvent.setup();
     fetchMock.mockImplementation((_input: string | URL | Request, init?: RequestInit) => (init?.method ? respond({ error: "A reviewed Risk does not belong to this System" }, 400) : respond({ riskAnalyses: [] })));

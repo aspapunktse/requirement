@@ -60,10 +60,14 @@ function AnalysisForm({
   // A new analysis starts with every open Risk ticked as reviewed; the meeting un-ticks what it didn't cover.
   const [reviewedIds, setReviewedIds] = useState<string[]>(existing ? existing.reviewedRisks.map((risk) => risk.id) : openRisks.map((risk) => risk.id));
   // The owner picked for each Risk already on the System (reviewed here, or raised earlier in this analysis); "" is none. Sent only when changed.
-  const initialOwners = new Map<string, string>([
-    ...openRisks.map((risk): [string, string] => [risk.id, risk.ownerId ?? ""]),
-    ...(existing ? [...existing.reviewedRisks, ...existing.raisedRisks].map((risk): [string, string] => [risk.id, risk.ownerId ?? ""]) : []),
-  ]);
+  // Captured once, when the form opens: an owner saved on the opened Risk above while the form is open must not count as a change here.
+  const [initialOwners] = useState(
+    () =>
+      new Map<string, string>([
+        ...openRisks.map((risk): [string, string] => [risk.id, risk.ownerId ?? ""]),
+        ...(existing ? [...existing.reviewedRisks, ...existing.raisedRisks].map((risk): [string, string] => [risk.id, risk.ownerId ?? ""]) : []),
+      ]),
+  );
   const [owners, setOwners] = useState<Record<string, string>>(() => Object.fromEntries(initialOwners));
   const [newRisks, setNewRisks] = useState<NewRisk[]>([]);
   const [nextKey, setNextKey] = useState(1);
