@@ -1098,6 +1098,14 @@ enum ChangeEventAction {
   // Risks it reviewed and raised. Recording and editing one write no event of their own (the Risks raised in it each
   // write RISK_LOGGED), so the timeline shows a meeting once, when it is done.
   RISK_ANALYSIS_COMPLETED
+  // An Admin created a User (#364). System-less, actor the Admin; the detail names the User, their email and role.
+  USER_CREATED
+  // An Admin changed a User's name or email (#364). System-less, actor the Admin; the detail has each changed field's old and
+  // new value. A change of both name and email is one event.
+  USER_RENAMED
+  // An Admin changed a User's role (#364). System-less, actor the Admin; the detail names the old and the new role. A change
+  // of name and role in one save writes both events.
+  USER_ROLE_CHANGED
   // A staged System moved to another evaluation stage (#328): created at the first round, submitted to OG1, or sent on by
   // OG1 with its Track (the detail says which). System-scoped, actor the person who caused it, or "system" when OG1 closed
   // because the last open participant left the review.

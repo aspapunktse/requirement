@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import type { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { isDevAuthStubEnabled, type PublicUser } from "@/lib/acting-user";
-import { authenticate } from "@/lib/api-authz";
+import { authenticate, authorize } from "@/lib/api-authz";
+import { createUser, createUserSchema } from "@/lib/user-admin";
 import { ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE } from "@/lib/catalog";
 
 /**
@@ -38,4 +39,17 @@ export async function GET(request: NextRequest) {
     orderBy: { name: "asc" },
   });
   return NextResponse.json({ users });
+}
+
+/** Admin -> Users (#364): an Admin creates a User. Name, email (unique, case-insensitively) and role are required. */
+export async function POST(request: NextRequest) {
+  const auth = await authorize(request, ["ADMIN"]);
+  if ("response" in auth) return auth.response;
+
+  const parsed = createUserSchema.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Invalid request" }, { status: 400 });
+
+  const result = await createUser(auth.user.id, parsed.data);
+  if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status });
+  return NextResponse.json({ user: result.user }, { status: 201 });
 }

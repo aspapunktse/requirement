@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { PublicUser } from "@/lib/acting-user";
 import { useExclusivePopover } from "@/components/useExclusivePopover";
+import { USERS_CHANGED_EVENT } from "@/lib/user-admin-shared";
 
 function roleLabel(role: string) {
   return role.replace(/_/g, " ");
@@ -73,8 +74,14 @@ export function RoleSwitcher() {
     }
 
     load();
+    // Admin -> Users created, renamed or re-roled someone: fetch the list again so names and roles aren't stale.
+    const reload = () => {
+      load().catch(() => {});
+    };
+    window.addEventListener(USERS_CHANGED_EVENT, reload);
     return () => {
       cancelled = true;
+      window.removeEventListener(USERS_CHANGED_EVENT, reload);
     };
   }, []);
 

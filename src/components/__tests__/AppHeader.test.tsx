@@ -195,6 +195,7 @@ describe("AppHeader: Admin menu", () => {
     ["Deployment Facets", "/admin/deployment-facets"],
     ["Review Groups", "/admin/review-groups"],
     ["Business Units", "/admin/business-units"],
+    ["Users", "/admin/users"],
     ["Business Risk Owners", "/admin/business-risk-owners"],
     ["Settings", "/admin/settings"],
   ];
@@ -285,7 +286,7 @@ describe("AppHeader: collapsed menu", () => {
     expect(within(goTo).getByRole("link", { name: "Systems" })).toHaveAttribute("aria-current", "page");
     const admin = screen.getAllByRole("navigation", { name: "Admin pages" })[0];
     expect(within(admin).getByText("Admin")).toBeInTheDocument();
-    expect(within(admin).getAllByRole("link")).toHaveLength(7);
+    expect(within(admin).getAllByRole("link")).toHaveLength(8);
   });
 
   it("has no Admin group for other roles", async () => {
