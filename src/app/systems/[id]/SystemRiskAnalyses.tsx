@@ -323,6 +323,80 @@ function AnalysisEntry({
   );
 }
 
+type LeadView = { staged: boolean; lead: { id: string; name: string; eligible: boolean } | null; canChange: boolean; candidates: { id: string; name: string }[] };
+
+/**
+ * The Risk Analysis lead (#361) of a staged System: who is given the "Conduct the Risk Analysis" task on Home. Everyone who sees the System
+ * reads it; a Risk Owner, a Risk Facilitator or an Admin who is not the System's owner picks one from the eligible Users or clears it.
+ * A stored lead who no longer qualifies is shown as such: the task then goes to every eligible person until a new one is named.
+ */
+function RiskAnalysisLead({ systemId }: { systemId: string }) {
+  const router = useRouter();
+  const read = useCallback(async (): Promise<LeadView> => {
+    const response = await fetch(`/api/systems/${systemId}/risk-analysis-lead`);
+    if (!response.ok) throw new Error("Failed to load the Risk Analysis lead");
+    return response.json();
+  }, [systemId]);
+  const { data, reload } = useRemote(read);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  async function save(leadId: string | null) {
+    setSaving(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/systems/${systemId}/risk-analysis-lead`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ leadId }),
+      });
+      if (!response.ok) {
+        setError((await response.json().catch(() => null))?.error ?? "Couldn't save the Risk Analysis lead");
+        return;
+      }
+      reload();
+      // The System's activity is read on the server.
+      router.refresh();
+    } catch {
+      setError("Couldn't save the Risk Analysis lead");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // A failed read shows nothing here: the card's own list reports a connection problem, and the lead is an extra on it.
+  if (data === null || !data.staged) return null;
+  const note = data.lead && !data.lead.eligible ? " (no longer able to lead: not a Risk Owner or Risk Facilitator, or now the System's owner)" : "";
+  return (
+    <div className="sc-risks-form">
+      {data.canChange ? (
+        <label className="sc-field">
+          <span>Risk Analysis lead</span>
+          <select aria-label="Risk Analysis lead" value={data.lead?.id ?? ""} disabled={saving} onChange={(event) => save(event.target.value === "" ? null : event.target.value)}>
+            <option value="">None named</option>
+            {data.lead && !data.candidates.some((person) => person.id === data.lead?.id) && <option value={data.lead.id}>{data.lead.name}</option>}
+            {data.candidates.map((person) => (
+              <option key={person.id} value={person.id}>
+                {person.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : (
+        <p>
+          Risk Analysis lead: <b>{data.lead?.name ?? "none named"}</b>
+        </p>
+      )}
+      {note && <p className="hc-empty">{data.lead?.name}{note}</p>}
+      {error && (
+        <p role="alert" className="sc-err">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
 /**
  * Risk Analyses on the Risks tab (#325, PRD 0002 F-RA.2-3): the meetings recorded on this System, newest first, read by anyone who
  * sees the System. Those who `canRecord` (a Risk Owner, a Risk Facilitator or an Admin who isn't the System's owner, the rule the routes enforce)
@@ -374,6 +448,7 @@ export function SystemRiskAnalyses({
         )}
       </div>
       <div className="hc-card-b sc-risks">
+        <RiskAnalysisLead systemId={systemId} />
         {editing !== null && (editing === "new" || beingEdited) && (
           <div className="sc-risks-form">
             <AnalysisForm

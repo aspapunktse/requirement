@@ -124,6 +124,24 @@ describe("HomeCommandCenter: stat cards", () => {
   });
 });
 
+describe("HomeCommandCenter: Risk Analysis tasks (#361)", () => {
+  const raTasks = [
+    task({ id: "s1:risk-analysis:FIRST_ROUND", kind: "Risk Analysis", title: "Conduct the Risk Analysis for Payroll Portal", subtitle: "First round · no analysis recorded yet", status: "Due", action: "Conduct", href: "/systems/s1#risks" }),
+    task({ id: "s2:risk-analysis:BEFORE_OG3", kind: "Risk Analysis", title: "Conduct the Risk Analysis for HR Archive", subtitle: "Before OG3 · analysis in progress, 2 Open Risks without an owner", status: "In progress", tone: "accent", action: "Conduct", href: "/systems/s2#risks" }),
+  ];
+
+  it("lists each Risk Analysis task with its progress, a Conduct action and a link to the Risks tab, under its own tab", async () => {
+    const user = userEvent.setup();
+    render(<HomeCommandCenter view={view({ tasks: raTasks })} />);
+    expect(screen.getByRole("link", { name: "Conduct: Conduct the Risk Analysis for Payroll Portal" })).toHaveAttribute("href", "/systems/s1#risks");
+    expect(screen.getByText(/2 Open Risks without an owner/)).toBeInTheDocument();
+    const tabs = within(screen.getByRole("tablist")).getAllByRole("tab");
+    expect(tabs.map((tab) => tab.textContent)).toEqual(["All2", "Risk Analyses2"]);
+    await user.click(tabs[1]);
+    expect(rowTitles()).toHaveLength(2);
+  });
+});
+
 describe("HomeCommandCenter: My tasks", () => {
   it("groups by urgency with a heading per lane, the most urgent first, and a link per row", () => {
     render(<HomeCommandCenter view={view()} />);

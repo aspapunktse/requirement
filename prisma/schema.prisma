@@ -104,6 +104,8 @@ model User {
   ownedSystems                       System[]                            @relation("SystemOwner")
   // Systems this User is the Business System Owner of (#321). Deleting the User leaves them without one.
   businessOwnedSystems               System[]                            @relation("SystemBusinessOwner")
+  // Systems this User is the Risk Analysis lead of (#361). Deleting the User leaves them without one.
+  riskAnalysisLeadSystems            System[]                            @relation("SystemRiskAnalysisLead")
   assessments                        ControlAssessment[]                 @relation("AssessedBy")
   riskActions                        Risk[]                              @relation("RiskOwner")
   approvals                          Approval[]
@@ -251,6 +253,10 @@ model System {
   // Optional for now; any User, whatever their role, but never the System's owner. Deleting the User leaves the System without one.
   businessSystemOwnerId       String?
   businessSystemOwner         User?                          @relation("SystemBusinessOwner", fields: [businessSystemOwnerId], references: [id], onDelete: SetNull)
+  // The Risk Analysis lead (#361): the one person given the "Conduct the Risk Analysis" task on Home. A Risk Owner or Risk Facilitator who
+  // isn't the System's owner, named on the Risk Analyses card; kept across both Risk Analysis steps. Deleting the User leaves the System without one.
+  riskAnalysisLeadId          String?
+  riskAnalysisLead            User?                          @relation("SystemRiskAnalysisLead", fields: [riskAnalysisLeadId], references: [id], onDelete: SetNull)
   documents                   SystemDocument[]
   riskAnalyses                RiskAnalysis[]
   // Staged evaluation (PRD 0002, ADR 0014, #328). A System created while the App Setting "Staged evaluation for new
@@ -313,6 +319,7 @@ model System {
   changeEvents         ChangeEvent[]
 
   @@index([businessSystemOwnerId])
+  @@index([riskAnalysisLeadId])
 }
 
 // An admin-curated deployment classification (e.g. On-Premises Datacenter,
@@ -1098,6 +1105,9 @@ enum ChangeEventAction {
   // Risks it reviewed and raised. Recording and editing one write no event of their own (the Risks raised in it each
   // write RISK_LOGGED), so the timeline shows a meeting once, when it is done.
   RISK_ANALYSIS_COMPLETED
+  // A Risk Analysis lead was named, changed or cleared on a System (#361). System-scoped, actor the person who changed it; the detail
+  // names the previous and the new lead.
+  RISK_ANALYSIS_LEAD_CHANGED
   // An Admin created a User (#364). System-less, actor the Admin; the detail names the User, their email and role.
   USER_CREATED
   // An Admin changed a User's name or email (#364). System-less, actor the Admin; the detail has each changed field's old and

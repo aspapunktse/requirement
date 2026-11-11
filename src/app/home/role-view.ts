@@ -13,6 +13,7 @@ import { getActionableQueries } from "@/lib/assessment-queries";
 import { getOwnerTasks, mergeTaskRows } from "@/lib/owner-tasks";
 import { getControlOwnerTasks } from "@/lib/control-owner-tasks";
 import { getRiskOwnerTasks } from "@/lib/risk-owner-tasks";
+import { getRiskAnalysisTasks } from "@/lib/risk-analysis-tasks";
 import { getCheckUpTasks, MY_CHECK_UPS_HREF } from "@/lib/check-up-tasks";
 import { countAwaitingEvaluation } from "@/lib/check-up-evaluations";
 import { riskSeverityTone } from "@/lib/status-tones";
@@ -160,6 +161,8 @@ export function taskAction(row: { kind: string; status: string }, role: UserRole
       return ROLES_ALLOWED_TO_ASSIGN_RISK_OWNER.includes(role) ? "Update" : "View";
     case "Check-up":
       return "Answer";
+    case "Risk Analysis":
+      return "Conduct";
     case "Control":
       return row.status === "Not started" ? "Start" : "Continue";
     case "Audit":
@@ -334,7 +337,7 @@ export async function roleView(user: { id: string; name: string; role: UserRole 
     }),
   );
   gateRows.push(...changeReviewDecisionRows);
-  const [view, owner, controlRows, riskOwnerRows, checkUps, inReviewRows, activity] = await Promise.all([
+  const [view, owner, controlRows, riskOwnerRows, riskAnalysisRows, checkUps, inReviewRows, activity] = await Promise.all([
     roleOwnView(user, reviewStepRows)
       .then((own) => withReviewStepTasks(own, user, reviewStepRows))
       .then((own) => (gateRows.length === 0 ? own : { ...own, tasks: [...(own.tasks ?? []), ...gateRows] }))
@@ -346,6 +349,7 @@ export async function roleView(user: { id: string; name: string; role: UserRole 
     getOwnerTasks(user),
     getControlOwnerTasks(user),
     getRiskOwnerTasks(user),
+    getRiskAnalysisTasks(user),
     getCheckUpTasks(user),
     ownedInReviewRows(user),
     loadRecentActivity(user, now),
@@ -355,7 +359,7 @@ export async function roleView(user: { id: string; name: string; role: UserRole 
 
   let stats = [...view.stats];
   let tasks = view.tasks ?? [];
-  if (isSystemOwnerRole || owner.ownedCount > 0 || controlRows.length > 0 || riskOwnerRows.length > 0 || checkUps.rows.length > 0) {
+  if (isSystemOwnerRole || owner.ownedCount > 0 || controlRows.length > 0 || riskOwnerRows.length > 0 || riskAnalysisRows.length > 0 || checkUps.rows.length > 0) {
     if (isSystemOwnerRole) {
       stats.push({ label: "Needing attention", value: owner.needingAttentionCount });
       stats.push({ label: "Open questions", value: owner.openQuestionCount });
@@ -370,7 +374,7 @@ export async function roleView(user: { id: string; name: string; role: UserRole 
         stats.push({ label: "Open questions", value: owner.openQuestionCount });
       }
     }
-    tasks = mergeTaskRows([...owner.rows, ...controlRows, ...riskOwnerRows, ...checkUps.rows], tasks);
+    tasks = mergeTaskRows([...owner.rows, ...controlRows, ...riskOwnerRows, ...riskAnalysisRows, ...checkUps.rows], tasks);
   }
   tasks = [...tasks, ...inReviewRows];
   stats = stats.map(decorateStat);

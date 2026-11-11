@@ -48,6 +48,7 @@ export const KIND: Record<string, { icon: HomeIconKey; hue: string }> = {
   System: { icon: "system", hue: "var(--rg-accent)" },
   Query: { icon: "query", hue: "var(--rg-info)" },
   Risk: { icon: "risk", hue: "var(--rg-danger)" },
+  "Risk Analysis": { icon: "risk", hue: "var(--rg-caution)" },
   Control: { icon: "control", hue: "var(--rg-success)" },
   "Check-up": { icon: "checkup", hue: "var(--rg-caution)" },
   Audit: { icon: "audit", hue: "var(--rg-audit)" },
