@@ -16,6 +16,14 @@ import {
   IMPACT_STEPS,
   INTERVIEW_STEPS,
 } from "@/app/systems/new/interview-steps";
+import {
+  DATA_LOCATIONS,
+  DATA_LOCATION_LABELS,
+  DATA_PROCESSING_AGREEMENTS,
+  DATA_PROCESSING_AGREEMENT_LABELS,
+  missingVendorDetails,
+  validateAboutTexts,
+} from "@/lib/vendor-detail-labels";
 import { suggestionSentence, type Suggestion } from "@/lib/framework-suggestions";
 import {
   compareEvaluations,
@@ -139,6 +147,36 @@ function OptionCard({
   );
 }
 
+/** The "About the system" answers as the text of their inputs; an empty string is "not set". */
+type AboutAnswers = {
+  vendor: string;
+  vendorWebsiteUrl: string;
+  serviceUrl: string;
+  productPlan: string;
+  vendorTrustUrl: string;
+  dataLocation: string;
+  dataProcessingAgreement: string;
+  contractReference: string;
+  contractRenewalDate: string;
+  noticePeriodMonths: string;
+};
+
+const EMPTY_ABOUT: AboutAnswers = {
+  vendor: "",
+  vendorWebsiteUrl: "",
+  serviceUrl: "",
+  productPlan: "",
+  vendorTrustUrl: "",
+  dataLocation: "",
+  dataProcessingAgreement: "",
+  contractReference: "",
+  contractRenewalDate: "",
+  noticePeriodMonths: "",
+};
+
+/** The number of a step on the stepper, for the pointers in the hints. */
+const stepNumber = (key: (typeof INTERVIEW_STEPS)[number]["key"]) => INTERVIEW_STEPS.findIndex((item) => item.key === key) + 1;
+
 function plural(count: number, one: string, many: string) {
   return `${count} ${count === 1 ? one : many}`;
 }
@@ -157,7 +195,7 @@ export function OnboardingInterview({ userId }: { /** The acting user, who becom
   const [answers, setAnswers] = useState<OnboardingAnswers>(EMPTY_ANSWERS);
   const [questionsAnswered, setQuestionsAnswered] = useState<string[]>([]);
   const [name, setName] = useState("");
-  const [vendor, setVendor] = useState("");
+  const [about, setAbout] = useState<AboutAnswers>(EMPTY_ABOUT);
   const [description, setDescription] = useState("");
   const [businessSystemOwnerId, setBusinessSystemOwnerId] = useState("");
   const [step, setStep] = useState(0);
@@ -265,7 +303,16 @@ export function OnboardingInterview({ userId }: { /** The acting user, who becom
 
   const hasFacet = answers.deploymentFacetIds.length > 0;
   const stepKey = INTERVIEW_STEPS[step].key;
-  const canCreate = hasFacet && name.trim().length > 0 && !levelShort && !creating;
+  // A System delivered in a way an Admin marked "needs vendor details" (e.g. SaaS) can't be created without
+  // its vendor name and service URL, whichever step the owner was on when picking it (#357).
+  const needsVendorDetails = answers.deploymentFacetIds.some((id) => data.deploymentFacets.find((facet) => facet.id === id)?.requiresVendorDetails);
+  // The service URL is only asked, kept and sent while it is required.
+  const aboutTexts = { ...about, serviceUrl: needsVendorDetails ? about.serviceUrl : "" };
+  const aboutError = validateAboutTexts(aboutTexts, needsVendorDetails);
+  const vendorMissing = needsVendorDetails && missingVendorDetails(aboutTexts).length > 0;
+  const canCreate = hasFacet && name.trim().length > 0 && !levelShort && aboutError === null && !creating;
+  const setAboutField = (key: keyof AboutAnswers) => (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+    setAbout((previous) => ({ ...previous, [key]: event.target.value }));
 
   async function create() {
     setError(null);
@@ -276,8 +323,17 @@ export function OnboardingInterview({ userId }: { /** The acting user, who becom
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: name.trim(),
-          vendor: vendor.trim() || undefined,
+          vendor: aboutTexts.vendor.trim() || undefined,
           description: description.trim() || undefined,
+          vendorWebsiteUrl: aboutTexts.vendorWebsiteUrl.trim() || undefined,
+          serviceUrl: aboutTexts.serviceUrl.trim() || undefined,
+          productPlan: aboutTexts.productPlan.trim() || undefined,
+          vendorTrustUrl: aboutTexts.vendorTrustUrl.trim() || undefined,
+          dataLocation: aboutTexts.dataLocation || undefined,
+          dataProcessingAgreement: aboutTexts.dataProcessingAgreement || undefined,
+          contractReference: aboutTexts.contractReference.trim() || undefined,
+          contractRenewalDate: aboutTexts.contractRenewalDate || undefined,
+          noticePeriodMonths: aboutTexts.noticePeriodMonths.trim() === "" ? undefined : Number(aboutTexts.noticePeriodMonths),
           sensitivityLevel: answers.sensitivityLevel ?? undefined,
           informationTypeIds: answers.informationTypeIds.length > 0 ? answers.informationTypeIds : undefined,
           integrityImpactLevel: answers.integrityImpactLevel ?? undefined,
@@ -480,12 +536,98 @@ export function OnboardingInterview({ userId }: { /** The acting user, who becom
     );
   }
 
+  function renderAboutStep() {
+    return (
+      <div className="ob-extra ob-about">
+        <label>
+          System name
+          <input className="ob-input" value={name} required placeholder="For example Payroll" onChange={(event) => setName(event.target.value)} />
+        </label>
+        <label>
+          Description (optional)
+          <textarea className="ob-input" rows={3} value={description} onChange={(event) => setDescription(event.target.value)} />
+        </label>
+        <label>
+          {needsVendorDetails ? "Vendor (required)" : "Vendor (optional)"}
+          <input className="ob-input" value={about.vendor} onChange={setAboutField("vendor")} />
+        </label>
+        <label>
+          Vendor website (optional)
+          <input className="ob-input" type="url" placeholder="https://" value={about.vendorWebsiteUrl} onChange={setAboutField("vendorWebsiteUrl")} />
+        </label>
+        {needsVendorDetails && (
+          <label>
+            Service URL (required)
+            <input className="ob-input" type="url" placeholder="https://" value={about.serviceUrl} onChange={setAboutField("serviceUrl")} />
+          </label>
+        )}
+        <label>
+          Product and plan (optional)
+          <input className="ob-input" placeholder="For example Microsoft 365 E5" value={about.productPlan} onChange={setAboutField("productPlan")} />
+        </label>
+        <label>
+          Vendor trust or security page (optional)
+          <input className="ob-input" type="url" placeholder="https://" value={about.vendorTrustUrl} onChange={setAboutField("vendorTrustUrl")} />
+        </label>
+        <label>
+          Data location (optional)
+          <select className="ob-input" value={about.dataLocation} onChange={setAboutField("dataLocation")}>
+            <option value="">Not set</option>
+            {DATA_LOCATIONS.map((value) => (
+              <option key={value} value={value}>
+                {DATA_LOCATION_LABELS[value]}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Data processing agreement (optional)
+          <select className="ob-input" value={about.dataProcessingAgreement} onChange={setAboutField("dataProcessingAgreement")}>
+            <option value="">Not set</option>
+            {DATA_PROCESSING_AGREEMENTS.map((value) => (
+              <option key={value} value={value}>
+                {DATA_PROCESSING_AGREEMENT_LABELS[value]}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Contract reference (optional)
+          <input className="ob-input" value={about.contractReference} onChange={setAboutField("contractReference")} />
+        </label>
+        <label>
+          Contract renewal date (optional)
+          <input className="ob-input" type="date" value={about.contractRenewalDate} onChange={setAboutField("contractRenewalDate")} />
+        </label>
+        <label>
+          Notice period in months (optional)
+          <input className="ob-input" type="number" min={0} max={120} step={1} value={about.noticePeriodMonths} onChange={setAboutField("noticePeriodMonths")} />
+        </label>
+        {aboutError && (
+          <p className="ob-fail" role="status">
+            {aboutError}
+          </p>
+        )}
+      </div>
+    );
+  }
+
   function renderStep() {
     switch (stepKey) {
+      case "about":
+        return renderAboutStep();
       case "delivery":
         return (
           <div className="ob-opts" role="group" aria-labelledby="ob-q-title">
             {data.deploymentFacets.length === 0 && <p className="hc-empty">No Deployment Facets exist yet. An Admin adds them in the catalog.</p>}
+            {vendorMissing && (
+              <p className="ob-fine" role="status">
+                A system delivered this way needs its vendor name and service URL.{" "}
+                <button type="button" className="ob-link" onClick={() => goTo(0)}>
+                  Add them in About the system
+                </button>
+              </p>
+            )}
             {data.deploymentFacets.map((facet) => {
               const on = answers.deploymentFacetIds.includes(facet.id);
               const next = { ...answers, deploymentFacetIds: toggled(answers.deploymentFacetIds, facet.id, !on) };
@@ -594,10 +736,37 @@ export function OnboardingInterview({ userId }: { /** The acting user, who becom
     const facets = answers.deploymentFacetIds.map((id) => data.deploymentFacets.find((f) => f.id === id)?.name).filter(Boolean) as string[];
     const laws = answers.frameworkScopeIds.map((id) => framework(id)).filter(Boolean) as OnboardingFramework[];
     const providers = answers.providerIds.map((id) => data.providers.find((p) => p.id === id)?.name).filter(Boolean) as string[];
+    const notSet = "Not set";
+    const text = (value: string) => value.trim() || notSet;
+    const aboutRows: { key: string; label: string; value: React.ReactNode }[] = [
+      { key: "name", label: "Name", value: name.trim() || "Not named yet" },
+      { key: "description", label: "Description", value: text(description) },
+      { key: "vendor", label: "Vendor", value: text(aboutTexts.vendor) },
+      { key: "vendor-website", label: "Vendor website", value: text(aboutTexts.vendorWebsiteUrl) },
+      ...(needsVendorDetails ? [{ key: "service-url", label: "Service URL", value: text(aboutTexts.serviceUrl) }] : []),
+      { key: "product-plan", label: "Product and plan", value: text(aboutTexts.productPlan) },
+      { key: "vendor-trust", label: "Vendor trust page", value: text(aboutTexts.vendorTrustUrl) },
+      { key: "data-location", label: "Data location", value: DATA_LOCATIONS.includes(about.dataLocation as never) ? DATA_LOCATION_LABELS[about.dataLocation as keyof typeof DATA_LOCATION_LABELS] : notSet },
+      {
+        key: "dpa",
+        label: "Data processing agreement",
+        value: DATA_PROCESSING_AGREEMENTS.includes(about.dataProcessingAgreement as never)
+          ? DATA_PROCESSING_AGREEMENT_LABELS[about.dataProcessingAgreement as keyof typeof DATA_PROCESSING_AGREEMENT_LABELS]
+          : notSet,
+      },
+      { key: "contract-reference", label: "Contract reference", value: text(aboutTexts.contractReference) },
+      { key: "renewal", label: "Contract renewal date", value: text(aboutTexts.contractRenewalDate) },
+      {
+        key: "notice",
+        label: "Notice period",
+        value: aboutTexts.noticePeriodMonths.trim() === "" ? notSet : `${Number(aboutTexts.noticePeriodMonths)} ${Number(aboutTexts.noticePeriodMonths) === 1 ? "month" : "months"}`,
+      },
+    ];
     const rows: { key: string; stepIndex: number; label: string; value: React.ReactNode }[] = [
+      ...aboutRows.map((row) => ({ ...row, stepIndex: 0 })),
       {
         key: "delivery",
-        stepIndex: 0,
+        stepIndex: 1,
         label: "Delivery",
         value: facets.length ? (
           <span className="facets">
@@ -611,22 +780,22 @@ export function OnboardingInterview({ userId }: { /** The acting user, who becom
           "Not answered"
         ),
       },
-      { key: "sensitivity", stepIndex: 1, label: "Sensitivity", value: sensitivityAnswer() },
+      { key: "sensitivity", stepIndex: 2, label: "Sensitivity", value: sensitivityAnswer() },
       {
         key: "information-types",
-        stepIndex: 1,
+        stepIndex: 2,
         label: "Information Types",
         value: tickedTypes.length ? tickedTypes.map((type) => type.name).join(", ") : "None",
       },
-      { key: "integrity", stepIndex: 2, label: "Integrity", value: levelAnswer("integrity") },
-      { key: "downtime", stepIndex: 3, label: "Downtime", value: levelAnswer("downtime") },
+      { key: "integrity", stepIndex: 3, label: "Integrity", value: levelAnswer("integrity") },
+      { key: "downtime", stepIndex: 4, label: "Downtime", value: levelAnswer("downtime") },
       {
         key: "laws",
-        stepIndex: 4,
+        stepIndex: 5,
         label: "Laws and standards",
         value: laws.length ? laws.map((f) => `${f.name} ${f.version}`).join(", ") : "None besides the base Framework",
       },
-      { key: "relies", stepIndex: 5, label: "Relies on", value: providers.length ? providers.join(", ") : "None" },
+      { key: "relies", stepIndex: 6, label: "Relies on", value: providers.length ? providers.join(", ") : "None" },
     ];
     const yours = current.counts.YOU;
     return (
@@ -660,14 +829,6 @@ export function OnboardingInterview({ userId }: { /** The acting user, who becom
           </dl>
         </div>
         <div className="ob-extra">
-          <label>
-            Vendor (optional)
-            <input className="ob-input" value={vendor} onChange={(event) => setVendor(event.target.value)} />
-          </label>
-          <label>
-            Description (optional)
-            <textarea className="ob-input" rows={3} value={description} onChange={(event) => setDescription(event.target.value)} />
-          </label>
           <BusinessSystemOwnerPicker value={businessSystemOwnerId} onChange={setBusinessSystemOwnerId} excludeUserId={userId} />
           <p className="ob-fine">The person who will decide this System&apos;s evaluation gates. You become its owner, so you can&apos;t be it. Optional for now; you or an Admin can set it later.</p>
         </div>
@@ -692,16 +853,6 @@ export function OnboardingInterview({ userId }: { /** The acting user, who becom
           <p className="hc-eyebrow">NEW SYSTEM</p>
           <h1 id="ob-title">Onboard a new System</h1>
           <p className="hc-lede">Answer a few plain questions. The list of Controls that apply grows and shrinks beside you, and nothing is locked in.</p>
-          <label className="ob-name">
-            System name
-            <input
-              className="ob-input"
-              value={name}
-              required
-              placeholder="For example Payroll"
-              onChange={(event) => setName(event.target.value)}
-            />
-          </label>
         </div>
       </section>
 
@@ -710,7 +861,7 @@ export function OnboardingInterview({ userId }: { /** The acting user, who becom
           <ol className="ob-stepper" aria-label="Steps">
             {INTERVIEW_STEPS.map((item, index) => {
               const state = index === step ? "now" : index <= furthest ? "past" : "next";
-              const blocked = index > 0 && !hasFacet;
+              const blocked = index > stepNumber("delivery") - 1 && !hasFacet;
               return (
                 <li key={item.key} className={`step ${state}`}>
                   <button
@@ -751,10 +902,14 @@ export function OnboardingInterview({ userId }: { /** The acting user, who becom
               {stepKey === "review" && !canCreate && !creating && (
                 <p className="ob-fine">
                   {!hasFacet
-                    ? "Pick how you get the system (step 1) before creating it."
+                    ? `Pick how you get the system (step ${stepNumber("delivery")}) before creating it.`
                     : levelShort
-                      ? "Raise the Sensitivity Level to match its Information Types (step 2) before creating it."
-                      : "Name the System at the top of the page before creating it."}
+                      ? `Raise the Sensitivity Level to match its Information Types (step ${stepNumber("sensitivity")}) before creating it.`
+                      : name.trim().length === 0
+                        ? `Name the System (step ${stepNumber("about")}) before creating it.`
+                        : vendorMissing
+                          ? `A system delivered as a service needs its vendor name and service URL (step ${stepNumber("about")}) before creating it.`
+                          : `${aboutError} (step ${stepNumber("about")})`}
                 </p>
               )}
               <div className="ob-nav">
@@ -766,7 +921,7 @@ export function OnboardingInterview({ userId }: { /** The acting user, who becom
                     {creating ? "Creating..." : "Create System"}
                   </Button>
                 ) : (
-                  <Button variant="primary" disabled={step === 0 && !hasFacet} onClick={() => goTo(step + 1)}>
+                  <Button variant="primary" disabled={stepKey === "delivery" && !hasFacet} onClick={() => goTo(step + 1)}>
                     Next
                   </Button>
                 )}

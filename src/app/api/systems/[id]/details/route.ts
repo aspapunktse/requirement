@@ -6,7 +6,7 @@ import { saveSystemDetails, systemDetailsSchema } from "@/lib/system-details";
 import { refuseIfSystemClosed } from "@/lib/system-closed";
 
 /**
- * Edits a System's name, vendor and description (#246), at any Onboarding Status; it never touches the
+ * Edits a System's name, description and "About the system" details (#246, #357), at any Onboarding Status; it never touches the
  * status or the Approval history. The System's owner or an Admin may (the classification rule); a System the
  * user can't see is a 404, a visible one they may not edit a 403. Each save that changes something writes
  * exactly one SYSTEM_DETAILS_CHANGED Change Event in the same transaction; a save that changes nothing writes none.
@@ -36,6 +36,7 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/system
 
   // The checks above are a fast refusal; the permission is checked again under the System's row lock.
   const result = await saveSystemDetails(auth.user, visible.id, parsed.data);
+  if (result.status === 400) return NextResponse.json({ error: result.error }, { status: 400 });
   if (result.status !== 200) {
     return result.status === 404
       ? NextResponse.json({ error: "System not found" }, { status: 404 })

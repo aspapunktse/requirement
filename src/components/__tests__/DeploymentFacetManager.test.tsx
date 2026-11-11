@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DeploymentFacetManager } from "../DeploymentFacetManager";
 
-const deploymentFacets = [{ id: "st1", name: "On-Premises Datacenter", description: "Our own DC" }];
+const deploymentFacets = [{ id: "st1", name: "On-Premises Datacenter", description: "Our own DC", requiresVendorDetails: false }];
 
 function mockFetch() {
   return vi.fn((input: string | URL | Request, init?: RequestInit) => {
@@ -72,6 +72,7 @@ describe("DeploymentFacetManager", () => {
       expect(JSON.parse(patchCall![1].body)).toEqual({
         name: "On-Premises Datacenter",
         description: "Updated description",
+        requiresVendorDetails: false,
       });
     });
   });
@@ -94,7 +95,38 @@ describe("DeploymentFacetManager", () => {
       expect(JSON.parse(patchCall![1].body)).toEqual({
         name: "Renamed Facet",
         description: "Our own DC",
+        requiresVendorDetails: false,
       });
+    });
+  });
+
+  it("shows the Needs vendor details flag and saves a toggled one", async () => {
+    const user = userEvent.setup();
+    render(<DeploymentFacetManager />);
+    const flag = await screen.findByRole("checkbox", { name: "Needs vendor details for On-Premises Datacenter" });
+    expect(flag).not.toBeChecked();
+    await user.click(flag);
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => {
+      const patchCall = (fetch as ReturnType<typeof vi.fn>).mock.calls.find(([, init]) => init?.method === "PATCH");
+      expect(patchCall).toBeTruthy();
+      expect(JSON.parse(patchCall![1].body)).toMatchObject({ requiresVendorDetails: true });
+    });
+  });
+
+  it("sends the flag when creating a Facet", async () => {
+    const user = userEvent.setup();
+    render(<DeploymentFacetManager />);
+    await screen.findByDisplayValue("On-Premises Datacenter");
+    await user.type(screen.getByLabelText("Name"), "Managed service");
+    await user.click(screen.getByRole("checkbox", { name: /^New .*: Needs vendor details$/ }));
+    await user.click(screen.getByRole("button", { name: "Create" }));
+
+    await waitFor(() => {
+      const postCall = (fetch as ReturnType<typeof vi.fn>).mock.calls.find(([, init]) => init?.method === "POST");
+      expect(postCall).toBeTruthy();
+      expect(JSON.parse(postCall![1].body)).toMatchObject({ name: "Managed service", requiresVendorDetails: true });
     });
   });
 });

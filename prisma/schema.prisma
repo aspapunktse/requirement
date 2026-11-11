@@ -194,13 +194,42 @@ model FrameworkSuggestionDecline {
   @@index([frameworkId])
 }
 
+// Where a System's data is stored (#357).
+enum DataLocation {
+  SWEDEN
+  EU_EEA
+  OUTSIDE_EU_EEA
+  UNKNOWN
+}
+
+// The state of the Data Processing Agreement with a System's vendor (#357).
+enum DataProcessingAgreementStatus {
+  SIGNED
+  IN_PROGRESS
+  NOT_SIGNED
+  NOT_NEEDED
+}
+
 // A system or cloud solution being onboarded into the enterprise.
 model System {
-  id                          String                       @id @default(cuid())
+  id                          String                         @id @default(cuid())
   name                        String
   vendor                      String?
   description                 String?
-  status                      OnboardingStatus             @default(DRAFT)
+  // About the system (#357): where to find the vendor and the service, where the data lives and the
+  // contract. All optional here; vendor and service URL are required for a System that declares a
+  // Deployment Facet with requiresVendorDetails (enforced by the create and details routes).
+  vendorWebsiteUrl            String?
+  serviceUrl                  String?
+  productPlan                 String?
+  vendorTrustUrl              String?
+  dataLocation                DataLocation?
+  dataProcessingAgreement     DataProcessingAgreementStatus?
+  contractReference           String?
+  contractRenewalDate         DateTime?                      @db.Date
+  // Whole months before the renewal date that the contract must be cancelled (0-120).
+  noticePeriodMonths          Int?
+  status                      OnboardingStatus               @default(DRAFT)
   // Self-declared Impact Level on the Integrity and Availability axes,
   // independently — null means "not yet classified" on that axis, distinct
   // from LOW. See ADR 0003.
@@ -210,13 +239,13 @@ model System {
   // System handles; null until the owner sets it. Replaces the Confidentiality
   // Impact Level (ADR 0011). A Control's minimum is compared by this number.
   sensitivityLevel            Int?
-  sensitivity                 SensitivityLevel?            @relation("SystemSensitivityLevel", fields: [sensitivityLevel], references: [level], onDelete: Restrict)
+  sensitivity                 SensitivityLevel?              @relation("SystemSensitivityLevel", fields: [sensitivityLevel], references: [level], onDelete: Restrict)
   ownerId                     String
-  owner                       User                         @relation("SystemOwner", fields: [ownerId], references: [id])
+  owner                       User                           @relation("SystemOwner", fields: [ownerId], references: [id])
   // The Business System Owner (PRD 0002 F-BSO, ADR 0014, #321): the person who will decide the System's evaluation gates.
   // Optional for now; any User, whatever their role, but never the System's owner. Deleting the User leaves the System without one.
   businessSystemOwnerId       String?
-  businessSystemOwner         User?                        @relation("SystemBusinessOwner", fields: [businessSystemOwnerId], references: [id], onDelete: SetNull)
+  businessSystemOwner         User?                          @relation("SystemBusinessOwner", fields: [businessSystemOwnerId], references: [id], onDelete: SetNull)
   documents                   SystemDocument[]
   riskAnalyses                RiskAnalysis[]
   // Staged evaluation (PRD 0002, ADR 0014, #328). A System created while the App Setting "Staged evaluation for new
@@ -242,8 +271,8 @@ model System {
   informationTypes            InformationType[]
   // Suggested Frameworks the owner left out (ADR 0013).
   frameworkSuggestionDeclines FrameworkSuggestionDecline[]
-  createdAt                   DateTime                     @default(now())
-  updatedAt                   DateTime                     @updatedAt
+  createdAt                   DateTime                       @default(now())
+  updatedAt                   DateTime                       @updatedAt
   // When the System was actually marked Onboarded — distinct from Approval
   // (a judgment call) and from updatedAt (touched by unrelated edits). See
   // ADR 0001.
@@ -287,10 +316,13 @@ model System {
 // with more than one declared, not its own catalog entry. See ADR 0003
 // (which supersedes ADR 0002's single-select-only design).
 model DeploymentFacet {
-  id          String   @id @default(cuid())
-  name        String   @unique
-  description String?
-  createdAt   DateTime @default(now())
+  id                    String   @id @default(cuid())
+  name                  String   @unique
+  description           String?
+  // A System declaring this facet must give its vendor name and service URL (#357). An Admin turns it
+  // on or off in the catalog; the migration sets it on the facet named SaaS.
+  requiresVendorDetails Boolean  @default(false)
+  createdAt             DateTime @default(now())
 
   // Controls scoped to this facet. A Control with no rows here at
   // all applies regardless of facet (see Control.deploymentFacets).

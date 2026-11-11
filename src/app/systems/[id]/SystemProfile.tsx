@@ -12,6 +12,16 @@ import type { InformationTypeRow } from "@/lib/information-type";
 import { floorCulprit, informationTypeFloor, type FloorType } from "@/lib/information-type-floor";
 import { joinNames } from "@/lib/framework-suggestions";
 import type { SensitivityLevelInfo } from "@/lib/sensitivity-level";
+import type { SystemDetails } from "@/lib/system-details";
+import {
+  DATA_LOCATIONS,
+  DATA_LOCATION_LABELS,
+  DATA_PROCESSING_AGREEMENTS,
+  DATA_PROCESSING_AGREEMENT_LABELS,
+  NOTICE_PERIOD_MAX_MONTHS,
+  isHttpUrl,
+  validateAboutTexts,
+} from "@/lib/vendor-detail-labels";
 import { formatDay } from "./system-page-logic";
 import { useRemote } from "./use-remote";
 
@@ -36,53 +46,107 @@ async function errorOf(response: Response, fallback: string) {
   return typeof body.error === "string" ? body.error : fallback;
 }
 
-export type SystemAbout = {
-  name: string;
-  vendor: string | null;
+export type SystemAbout = SystemDetails & {
   ownerName: string;
   /** ISO timestamps. */
   createdAt: string;
   onboardedAt: string | null;
-  description: string | null;
+  /** True when a declared Deployment Facet needs vendor details: vendor name and service URL can't be cleared (#357). */
+  needsVendorDetails: boolean;
 };
 
 const NAME_MAX = 200;
-const VENDOR_MAX = 200;
 const DESCRIPTION_MAX = 2000;
 
+/** The edit form's fields, all as the text of their inputs. */
+type AboutForm = Record<keyof SystemDetails, string>;
+
+function formOf(about: SystemDetails): AboutForm {
+  return {
+    name: about.name,
+    description: about.description ?? "",
+    vendor: about.vendor ?? "",
+    vendorWebsiteUrl: about.vendorWebsiteUrl ?? "",
+    serviceUrl: about.serviceUrl ?? "",
+    productPlan: about.productPlan ?? "",
+    vendorTrustUrl: about.vendorTrustUrl ?? "",
+    dataLocation: about.dataLocation ?? "",
+    dataProcessingAgreement: about.dataProcessingAgreement ?? "",
+    contractReference: about.contractReference ?? "",
+    contractRenewalDate: about.contractRenewalDate ?? "",
+    noticePeriodMonths: about.noticePeriodMonths === null ? "" : String(about.noticePeriodMonths),
+  };
+}
+
 /** The same rules the API enforces (`src/lib/system-details.ts`), so most mistakes are caught before the request. */
-function validateDetails({ name, vendor, description }: { name: string; vendor: string; description: string }) {
-  if (name.trim() === "") return "Name is required";
-  if (name.trim().length > NAME_MAX) return `Name can be at most ${NAME_MAX} characters`;
-  if (vendor.trim().length > VENDOR_MAX) return `Vendor can be at most ${VENDOR_MAX} characters`;
-  if (description.trim().length > DESCRIPTION_MAX) return `Description can be at most ${DESCRIPTION_MAX} characters`;
-  return null;
+function validateDetails(form: AboutForm, needsVendorDetails: boolean) {
+  const name = form.name.trim();
+  if (name === "") return "Name is required";
+  if (name.length > NAME_MAX) return `Name can be at most ${NAME_MAX} characters`;
+  if (form.description.trim().length > DESCRIPTION_MAX) return `Description can be at most ${DESCRIPTION_MAX} characters`;
+  return validateAboutTexts(form, needsVendorDetails);
+}
+
+/** The PATCH body: name, vendor and description as ever, and each "About the system" detail only when it changed. */
+function bodyOf(form: AboutForm, about: SystemDetails) {
+  const text = (value: string) => value.trim() || null;
+  const next: Omit<SystemDetails, "name" | "vendor" | "description"> = {
+    vendorWebsiteUrl: text(form.vendorWebsiteUrl),
+    serviceUrl: text(form.serviceUrl),
+    productPlan: text(form.productPlan),
+    vendorTrustUrl: text(form.vendorTrustUrl),
+    dataLocation: (form.dataLocation || null) as SystemDetails["dataLocation"],
+    dataProcessingAgreement: (form.dataProcessingAgreement || null) as SystemDetails["dataProcessingAgreement"],
+    contractReference: text(form.contractReference),
+    contractRenewalDate: form.contractRenewalDate || null,
+    noticePeriodMonths: form.noticePeriodMonths.trim() === "" ? null : Number(form.noticePeriodMonths),
+  };
+  const changed = (Object.keys(next) as (keyof typeof next)[]).filter((key) => next[key] !== about[key]);
+  return {
+    name: form.name.trim(),
+    vendor: form.vendor.trim() || null,
+    description: form.description.trim() || null,
+    ...Object.fromEntries(changed.map((key) => [key, next[key]])),
+  };
+}
+
+/** A web address as a link that opens in a new tab; anything that isn't http(s) is shown as plain text. */
+function ExternalLink({ url }: { url: string }) {
+  return isHttpUrl(url) ? (
+    <a href={url} target="_blank" rel="noopener noreferrer">
+      {url}
+    </a>
+  ) : (
+    <>{url}</>
+  );
 }
 
 /**
- * About: the System's vendor, owner, dates and description. Its owner or an Admin gets an Edit button (#246)
- * that turns the card into a form for the name, vendor and description; the rest are not editable here.
+ * About: the System's vendor, service, data location and contract details, owner, dates and description.
+ * Its owner or an Admin gets an Edit button (#246, #357) that turns the card into a form for the name,
+ * description and those details; the owner and the dates are not editable here. Vendor name and service URL
+ * can't be cleared on a System delivered as a service.
  */
 function About({ systemId, about, canEdit }: { systemId: string; about: SystemAbout; canEdit: boolean }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
-  const [name, setName] = useState(about.name);
-  const [vendor, setVendor] = useState(about.vendor ?? "");
-  const [description, setDescription] = useState(about.description ?? "");
+  const [form, setForm] = useState<AboutForm>(() => formOf(about));
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  const set = (key: keyof AboutForm) => (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
+    setForm((previous) => ({ ...previous, [key]: event.target.value }));
+  const required = about.needsVendorDetails;
+
   function startEditing() {
-    setName(about.name);
-    setVendor(about.vendor ?? "");
-    setDescription(about.description ?? "");
+    setForm(formOf(about));
     setError(null);
     setEditing(true);
   }
 
   async function handleSave(event: React.FormEvent) {
     event.preventDefault();
-    const invalid = validateDetails({ name, vendor, description });
+    const invalid = validateDetails(form, required);
     if (invalid) {
       setError(invalid);
       return;
@@ -93,7 +157,7 @@ function About({ systemId, about, canEdit }: { systemId: string; about: SystemAb
       const response = await fetch(`/api/systems/${systemId}/details`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), vendor: vendor.trim() || null, description: description.trim() || null }),
+        body: JSON.stringify(bodyOf(form, about)),
       });
       if (!response.ok) {
         setError(await errorOf(response, "Failed to save the details"));
@@ -108,6 +172,9 @@ function About({ systemId, about, canEdit }: { systemId: string; about: SystemAb
       setSaving(false);
     }
   }
+
+  const notSet = <span className="muted">Not set</span>;
+  const link = (url: string | null) => (url ? <ExternalLink url={url} /> : notSet);
 
   return (
     <section className="hc-card" aria-labelledby="sc-about-h">
@@ -128,15 +195,65 @@ function About({ systemId, about, canEdit }: { systemId: string; about: SystemAb
           )}
           <label className="sc-field">
             <span>Name</span>
-            <input value={name} onChange={(event) => setName(event.target.value)} required disabled={saving} />
-          </label>
-          <label className="sc-field">
-            <span>Vendor</span>
-            <input value={vendor} onChange={(event) => setVendor(event.target.value)} placeholder="Leave empty if built in-house" disabled={saving} />
+            <input value={form.name} onChange={set("name")} required disabled={saving} />
           </label>
           <label className="sc-field">
             <span>Description</span>
-            <textarea rows={4} value={description} onChange={(event) => setDescription(event.target.value)} disabled={saving} />
+            <textarea rows={4} value={form.description} onChange={set("description")} disabled={saving} />
+          </label>
+          <label className="sc-field">
+            <span>{required ? "Vendor (required)" : "Vendor"}</span>
+            <input value={form.vendor} onChange={set("vendor")} placeholder="Leave empty if built in-house" disabled={saving} />
+          </label>
+          <label className="sc-field">
+            <span>Vendor website</span>
+            <input type="url" value={form.vendorWebsiteUrl} onChange={set("vendorWebsiteUrl")} placeholder="https://" disabled={saving} />
+          </label>
+          <label className="sc-field">
+            <span>{required ? "Service URL (required)" : "Service URL"}</span>
+            <input type="url" value={form.serviceUrl} onChange={set("serviceUrl")} placeholder="https://" disabled={saving} />
+          </label>
+          <label className="sc-field">
+            <span>Product and plan</span>
+            <input value={form.productPlan} onChange={set("productPlan")} placeholder="For example Microsoft 365 E5" disabled={saving} />
+          </label>
+          <label className="sc-field">
+            <span>Vendor trust or security page</span>
+            <input type="url" value={form.vendorTrustUrl} onChange={set("vendorTrustUrl")} placeholder="https://" disabled={saving} />
+          </label>
+          <label className="sc-field">
+            <span>Data location</span>
+            <select value={form.dataLocation} onChange={set("dataLocation")} disabled={saving}>
+              <option value="">Not set</option>
+              {DATA_LOCATIONS.map((value) => (
+                <option key={value} value={value}>
+                  {DATA_LOCATION_LABELS[value]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="sc-field">
+            <span>Data processing agreement</span>
+            <select value={form.dataProcessingAgreement} onChange={set("dataProcessingAgreement")} disabled={saving}>
+              <option value="">Not set</option>
+              {DATA_PROCESSING_AGREEMENTS.map((value) => (
+                <option key={value} value={value}>
+                  {DATA_PROCESSING_AGREEMENT_LABELS[value]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="sc-field">
+            <span>Contract reference</span>
+            <input value={form.contractReference} onChange={set("contractReference")} disabled={saving} />
+          </label>
+          <label className="sc-field">
+            <span>Contract renewal date</span>
+            <input type="date" value={form.contractRenewalDate} onChange={set("contractRenewalDate")} disabled={saving} />
+          </label>
+          <label className="sc-field">
+            <span>Notice period (months)</span>
+            <input type="number" min={0} max={NOTICE_PERIOD_MAX_MONTHS} step={1} value={form.noticePeriodMonths} onChange={set("noticePeriodMonths")} disabled={saving} />
           </label>
           <div className="sc-btnrow">
             <button type="submit" className="hc-btn primary" disabled={saving}>
@@ -151,7 +268,43 @@ function About({ systemId, about, canEdit }: { systemId: string; about: SystemAb
         <dl className="hc-card-b sc-about">
           <div>
             <dt>Vendor</dt>
-            <dd>{about.vendor || <span className="muted">Not set</span>}</dd>
+            <dd>{about.vendor || notSet}</dd>
+          </div>
+          <div>
+            <dt>Vendor website</dt>
+            <dd>{link(about.vendorWebsiteUrl)}</dd>
+          </div>
+          <div>
+            <dt>Service URL</dt>
+            <dd>{link(about.serviceUrl)}</dd>
+          </div>
+          <div>
+            <dt>Product and plan</dt>
+            <dd>{about.productPlan || notSet}</dd>
+          </div>
+          <div>
+            <dt>Vendor trust or security page</dt>
+            <dd>{link(about.vendorTrustUrl)}</dd>
+          </div>
+          <div>
+            <dt>Data location</dt>
+            <dd>{about.dataLocation ? DATA_LOCATION_LABELS[about.dataLocation] : notSet}</dd>
+          </div>
+          <div>
+            <dt>Data processing agreement</dt>
+            <dd>{about.dataProcessingAgreement ? DATA_PROCESSING_AGREEMENT_LABELS[about.dataProcessingAgreement] : notSet}</dd>
+          </div>
+          <div>
+            <dt>Contract reference</dt>
+            <dd>{about.contractReference || notSet}</dd>
+          </div>
+          <div>
+            <dt>Contract renewal date</dt>
+            <dd>{about.contractRenewalDate ? formatDay(about.contractRenewalDate) : notSet}</dd>
+          </div>
+          <div>
+            <dt>Notice period</dt>
+            <dd>{about.noticePeriodMonths === null ? notSet : `${about.noticePeriodMonths} ${about.noticePeriodMonths === 1 ? "month" : "months"}`}</dd>
           </div>
           <div>
             <dt>Owner</dt>

@@ -16,6 +16,8 @@ export async function GET(request: NextRequest) {
 const createDeploymentFacetSchema = z.object({
   name: z.string().min(1),
   description: z.string().optional(),
+  // A System declaring this Facet must give its vendor name and service URL (#357).
+  requiresVendorDetails: z.boolean().optional(),
 });
 
 export async function POST(request: NextRequest) {

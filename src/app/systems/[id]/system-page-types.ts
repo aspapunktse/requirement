@@ -1,4 +1,5 @@
 import type { ControlAssessmentStatus, EvaluationStage, EvaluationTrack, ImpactLevel, OnboardingStatus, RiskSeverity, UserRole } from "@prisma/client";
+import type { SystemDetails } from "@/lib/system-details";
 
 /**
  * The serialisable shapes the System page passes from the server (`system-page-data.ts`) to its client
@@ -118,6 +119,10 @@ export type SystemPageView = {
     name: string;
     vendor: string | null;
     description: string | null;
+    /** The "About the system" details (#357), with the renewal date as `YYYY-MM-DD`. */
+    about: SystemDetails;
+    /** True when a declared Deployment Facet needs vendor details: vendor name and service URL are then required. */
+    needsVendorDetails: boolean;
     status: OnboardingStatus;
     isProvider: boolean;
     ownerId: string;

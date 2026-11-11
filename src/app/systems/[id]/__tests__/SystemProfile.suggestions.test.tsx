@@ -31,11 +31,23 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+const NO_DETAILS = {
+  vendorWebsiteUrl: null,
+  serviceUrl: null,
+  productPlan: null,
+  vendorTrustUrl: null,
+  dataLocation: null,
+  dataProcessingAgreement: null,
+  contractReference: null,
+  contractRenewalDate: null,
+  noticePeriodMonths: null,
+};
+
 function renderProfile(props: Partial<React.ComponentProps<typeof SystemProfile>> = {}) {
   return render(
     <SystemProfile
       systemId="s1"
-      about={{ name: "ServiceNow", vendor: null, ownerName: "Marcus", createdAt: "2026-09-01T09:00:00.000Z", onboardedAt: null, description: null }}
+      about={{ ...NO_DETAILS, name: "ServiceNow", vendor: null, ownerName: "Marcus", createdAt: "2026-09-01T09:00:00.000Z", onboardedAt: null, description: null, needsVendorDetails: false }}
       canChangeClassification
       canManageBusinessUnits
       canManageFrameworkScopes

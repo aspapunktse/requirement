@@ -9,9 +9,10 @@ const updateDeploymentFacetSchema = z
   .object({
     name: z.string().min(1).optional(),
     description: z.string().nullable().optional(),
+    requiresVendorDetails: z.boolean().optional(),
   })
-  .refine((data) => data.name !== undefined || data.description !== undefined, {
-    message: "Provide at least one of name or description to update",
+  .refine((data) => data.name !== undefined || data.description !== undefined || data.requiresVendorDetails !== undefined, {
+    message: "Provide at least one of name, description or requiresVendorDetails to update",
   });
 
 export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/deployment-facets/[id]">) {
