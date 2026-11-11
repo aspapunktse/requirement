@@ -1,4 +1,5 @@
 import type { UserRole } from "@prisma/client";
+import { READ_ONLY_SYSTEM_ROLES, ROLES_ALLOWED_TO_CREATE_SYSTEM } from "@/lib/system-permissions";
 
 /** Admin -> Users (#364): the parts the page and the server share. No server imports, so a client component can use them. */
 
@@ -13,6 +14,9 @@ export const ALL_ROLES: UserRole[] = [
   "INTERNAL_AUDITOR",
   "RISK_FACILITATOR",
 ];
+
+/** Dispatched on `window` after Admin -> Users saves a User, so the header's acting-user switcher refetches. */
+export const USERS_CHANGED_EVENT = "users-changed";
 
 export type AdminUser = { id: string; name: string; email: string; role: UserRole; createdAt: string };
 
@@ -37,10 +41,16 @@ const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? o
  */
 export function describeHoldings(holdings: UserHoldings, newRole: UserRole): string[] {
   const lines: string[] = [];
-  // A System's owner must have a System-creating role (system-permissions.ts); other roles keep the Systems but can't act on them as owner.
-  const canOwn = newRole === "ADMIN" || newRole === "SYSTEM_OWNER" || newRole === "RISK_OWNER";
-  if (!canOwn && holdings.ownedSystems > 0) {
-    lines.push(`Still the owner of ${plural(holdings.ownedSystems, "System")}; the role can't create or own Systems, so they stay with this User until an Admin hands them over.`);
+  // Ownership is `ownerId` alone, whatever the role (isSystemOwnerOrAdmin), except the read-only System roles, which can't act as owner.
+  // The System-creating roles only matter when someone is newly assigned as owner (canBeSystemOwner).
+  if (holdings.ownedSystems > 0 && newRole !== "ADMIN") {
+    const systems = plural(holdings.ownedSystems, "System");
+    const noNewOwnership = ROLES_ALLOWED_TO_CREATE_SYSTEM.includes(newRole) ? "" : " Can't be chosen as the new owner of other Systems.";
+    lines.push(
+      READ_ONLY_SYSTEM_ROLES.includes(newRole)
+        ? `Stays the recorded owner of ${systems} but can no longer act on them as owner; an Admin can hand them over.${noNewOwnership}`
+        : `Keeps owner rights on ${systems} (can still edit and submit them).${noNewOwnership}`,
+    );
   }
   if (holdings.businessOwnedSystems > 0 && newRole !== "ADMIN") {
     lines.push(`Still the Business System Owner of ${plural(holdings.businessOwnedSystems, "System")}; that assignment stays.`);
