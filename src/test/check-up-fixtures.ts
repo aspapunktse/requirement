@@ -32,6 +32,7 @@ export const ALL_ROLES: UserRole[] = [
   "BUSINESS_RISK_OWNER",
   "VIEWER",
   "INTERNAL_AUDITOR",
+  "RISK_FACILITATOR",
 ];
 
 export async function createCheckUpScenario(

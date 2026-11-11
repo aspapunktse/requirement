@@ -10,16 +10,34 @@ import { RISK_LEVELS } from "./system-page-types";
 import { useRemote } from "./use-remote";
 
 type Level = (typeof RISK_LEVELS)[number];
-type OpenRisk = { id: string; title: string };
-type NewRisk = { key: number; title: string; description: string; severity: Level; likelihood: Level };
+type OpenRisk = { id: string; title: string; ownerId?: string | null };
+type NewRisk = { key: number; title: string; description: string; severity: Level; likelihood: Level; ownerId: string };
 
 const today = () => new Date().toISOString().slice(0, 10);
 
 /**
  * The form to record a Risk Analysis, or to edit one that isn't completed: date, participants (Users), named outsiders (one per
- * line), notes, which open Risks were reviewed and new Risks raised in the meeting. New Risks are logged by the server with the
- * analysis, in one transaction. When editing, the Risks already raised stay and only new ones are added.
+ * line), notes, which open Risks were reviewed and new Risks raised in the meeting, each with an owner picker (any User, #360). New
+ * Risks are logged by the server with the analysis, and the owners saved, in one transaction. When editing, the Risks already raised
+ * stay (their owners can still change) and only new ones are added.
  */
+
+/** A Select of every User for one Risk's owner; "" is no owner. */
+function OwnerSelect({ label, value, people, onChange }: { label: string; value: string; people: { id: string; name: string }[]; onChange: (ownerId: string) => void }) {
+  return (
+    <label className="sc-field">
+      <span>Owner</span>
+      <select aria-label={label} value={value} onChange={(event) => onChange(event.target.value)}>
+        <option value="">Unassigned</option>
+        {people.map((person) => (
+          <option key={person.id} value={person.id}>
+            {person.name}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
 function AnalysisForm({
   systemId,
   existing,
@@ -41,6 +59,16 @@ function AnalysisForm({
   const [outsiders, setOutsiders] = useState((existing?.outsiders ?? []).join("\n"));
   // A new analysis starts with every open Risk ticked as reviewed; the meeting un-ticks what it didn't cover.
   const [reviewedIds, setReviewedIds] = useState<string[]>(existing ? existing.reviewedRisks.map((risk) => risk.id) : openRisks.map((risk) => risk.id));
+  // The owner picked for each Risk already on the System (reviewed here, or raised earlier in this analysis); "" is none. Sent only when changed.
+  // Captured once, when the form opens: an owner saved on the opened Risk above while the form is open must not count as a change here.
+  const [initialOwners] = useState(
+    () =>
+      new Map<string, string>([
+        ...openRisks.map((risk): [string, string] => [risk.id, risk.ownerId ?? ""]),
+        ...(existing ? [...existing.reviewedRisks, ...existing.raisedRisks].map((risk): [string, string] => [risk.id, risk.ownerId ?? ""]) : []),
+      ]),
+  );
+  const [owners, setOwners] = useState<Record<string, string>>(() => Object.fromEntries(initialOwners));
   const [newRisks, setNewRisks] = useState<NewRisk[]>([]);
   const [nextKey, setNextKey] = useState(1);
   const [error, setError] = useState<string | null>(null);
@@ -50,6 +78,9 @@ function AnalysisForm({
     setter((previous) => (previous.includes(id) ? previous.filter((candidate) => candidate !== id) : [...previous, id]));
   const updateRisk = (key: number, patch: Partial<NewRisk>) =>
     setNewRisks((previous) => previous.map((risk) => (risk.key === key ? { ...risk, ...patch } : risk)));
+
+  // The Risks the server accepts an owner for: those ticked as reviewed, and those already raised in this analysis.
+  const ownedRiskIds = [...new Set([...reviewedIds, ...(existing?.raisedRisks.map((risk) => risk.id) ?? [])])].filter((riskId) => initialOwners.has(riskId));
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -65,7 +96,16 @@ function AnalysisForm({
           participantIds,
           outsiders: outsiders.split("\n").map((name) => name.trim()).filter((name) => name !== ""),
           reviewedRiskIds: reviewedIds,
-          newRisks: newRisks.map((risk) => ({ title: risk.title, description: risk.description, severity: risk.severity, likelihood: risk.likelihood })),
+          riskOwners: ownedRiskIds
+            .filter((riskId) => (owners[riskId] ?? "") !== (initialOwners.get(riskId) ?? ""))
+            .map((riskId) => ({ riskId, ownerId: owners[riskId] === "" ? null : owners[riskId] })),
+          newRisks: newRisks.map((risk) => ({
+            title: risk.title,
+            description: risk.description,
+            severity: risk.severity,
+            likelihood: risk.likelihood,
+            ...(risk.ownerId !== "" && { ownerId: risk.ownerId }),
+          })),
         }),
       });
       const body = await response.json().catch(() => ({}));
@@ -121,15 +161,29 @@ function AnalysisForm({
         ) : (
           <div className="sc-checklist">
             {openRisks.map((risk) => (
-              <label key={risk.id}>
-                <input type="checkbox" checked={reviewedIds.includes(risk.id)} onChange={() => toggle(setReviewedIds, risk.id)} /> {risk.title}
-              </label>
+              <div key={risk.id} className="sc-risk-owner">
+                <label>
+                  <input type="checkbox" checked={reviewedIds.includes(risk.id)} onChange={() => toggle(setReviewedIds, risk.id)} /> {risk.title}
+                </label>
+                {reviewedIds.includes(risk.id) && (
+                  <OwnerSelect label={`Owner for ${risk.title}`} value={owners[risk.id] ?? ""} people={people} onChange={(ownerId) => setOwners((previous) => ({ ...previous, [risk.id]: ownerId }))} />
+                )}
+              </div>
             ))}
           </div>
         )}
+        <p className="muted">Every open or accepted Risk needs an owner before the Risk Analysis can be completed.</p>
       </fieldset>
       {existing && existing.raisedRisks.length > 0 && (
-        <p className="muted">Already raised in this meeting: {existing.raisedRisks.map((risk) => risk.title).join(", ")}</p>
+        <fieldset className="sc-field">
+          <span>Already raised in this meeting</span>
+          {existing.raisedRisks.map((risk) => (
+            <div key={risk.id} className="sc-risk-owner">
+              <b>{risk.title}</b>
+              <OwnerSelect label={`Owner for ${risk.title}`} value={owners[risk.id] ?? ""} people={people} onChange={(ownerId) => setOwners((previous) => ({ ...previous, [risk.id]: ownerId }))} />
+            </div>
+          ))}
+        </fieldset>
       )}
       <fieldset className="sc-field">
         <span>Risks raised in the meeting</span>
@@ -165,6 +219,7 @@ function AnalysisForm({
                 </select>
               </label>
             </div>
+            <OwnerSelect label={`New Risk ${index + 1} owner`} value={risk.ownerId} people={people} onChange={(ownerId) => updateRisk(risk.key, { ownerId })} />
             <div className="sc-btnrow">
               <button type="button" className="hc-btn" onClick={() => setNewRisks((previous) => previous.filter((candidate) => candidate.key !== risk.key))}>
                 Remove this Risk
@@ -177,7 +232,7 @@ function AnalysisForm({
             type="button"
             className="hc-btn"
             onClick={() => {
-              setNewRisks((previous) => [...previous, { key: nextKey, title: "", description: "", severity: "MEDIUM", likelihood: "MEDIUM" }]);
+              setNewRisks((previous) => [...previous, { key: nextKey, title: "", description: "", severity: "MEDIUM", likelihood: "MEDIUM", ownerId: "" }]);
               setNextKey((previous) => previous + 1);
             }}
           >
@@ -270,7 +325,7 @@ function AnalysisEntry({
 
 /**
  * Risk Analyses on the Risks tab (#325, PRD 0002 F-RA.2-3): the meetings recorded on this System, newest first, read by anyone who
- * sees the System. Those who `canRecord` (a Risk Owner or an Admin who isn't the System's owner, the rule the routes enforce)
+ * sees the System. Those who `canRecord` (a Risk Owner, a Risk Facilitator or an Admin who isn't the System's owner, the rule the routes enforce)
  * record one, edit it while it isn't completed and complete it. Completing is refused by the server while an open or accepted Risk has no owner;
  * its message names them and is shown here. `openRisks` are the System's open Risks as the register loaded them, and `onRisksChanged`
  * asks the register to read again after a meeting logged new ones.

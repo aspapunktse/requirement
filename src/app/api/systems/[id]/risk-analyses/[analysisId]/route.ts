@@ -10,7 +10,7 @@ import {
   toRiskAnalysisView,
   updateRiskAnalysisSchema,
 } from "@/lib/risk-analysis";
-import { RiskAnalysisInputError, raiseRisks, resolveLinks } from "@/lib/risk-analysis-write";
+import { applyRiskOwners, RiskAnalysisInputError, raiseRisks, resolveLinks } from "@/lib/risk-analysis-write";
 import { refuseIfSystemClosed } from "@/lib/system-closed";
 
 const NOT_FOUND = { error: "Risk Analysis not found" };
@@ -33,7 +33,7 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/systems/
 
 /**
  * Edits a Risk Analysis that isn't completed (#325): any of `heldOn`, `notes`, `participantIds`, `outsiders`, `reviewedRiskIds` (each replaces
- * what was there) and `newRisks` (logged now, in addition to those already raised). Same people as recording one: 403 for anyone else, checked
+ * what was there) and `newRisks` (logged now, in addition to those already raised), plus `riskOwners` and each new Risk's `ownerId` (#360). Same people as recording one: 403 for anyone else, checked
  * before the body is read, and nothing changes. The analysis row is locked and "not completed" is checked again under the lock, so an edit and
  * a completion can't both win: the loser gets 409.
  */
@@ -51,7 +51,7 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/system
 
   const parsed = updateRiskAnalysisSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Invalid Risk Analysis" }, { status: 400 });
-  const { heldOn, notes, outsiders, newRisks } = parsed.data;
+  const { heldOn, notes, outsiders, newRisks, riskOwners } = parsed.data;
 
   try {
     const outcome = await prisma.$transaction(async (tx) => {
@@ -70,6 +70,17 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/system
           ...(links.participantIds && { participants: { set: links.participantIds.map((userId) => ({ id: userId })) } }),
           ...(links.reviewedRiskIds && { reviewedRisks: { set: links.reviewedRiskIds.map((riskId) => ({ id: riskId })) } }),
         },
+      });
+      // Owners go to the Risks the analysis reviews (as edited) and those it already raised.
+      const current = await tx.riskAnalysis.findUniqueOrThrow({
+        where: { id: analysisId },
+        select: { reviewedRisks: { select: { id: true } }, raisedRisks: { select: { id: true } } },
+      });
+      await applyRiskOwners(tx, {
+        systemId: system.id,
+        owners: riskOwners ?? [],
+        newRiskOwnerIds: (newRisks ?? []).map((risk) => risk.ownerId),
+        allowedRiskIds: [...current.reviewedRisks, ...current.raisedRisks].map((risk) => risk.id),
       });
       await raiseRisks(tx, { systemId: system.id, analysisId, actorId: auth.user.id, risks: newRisks ?? [] });
       return { status: "updated" as const, row: await tx.riskAnalysis.findUniqueOrThrow({ where: { id: analysisId }, select: RISK_ANALYSIS_SELECT }) };

@@ -2,10 +2,18 @@ import type { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { isSystemOwnerOrAdmin } from "@/lib/system-permissions";
 
-import { ORGANIZATION_RISKS_HREF, ROLES_ALLOWED_TO_MANAGE_RISK_STATUS } from "@/lib/risk-roles";
+import { ORGANIZATION_RISKS_HREF, ROLES_ALLOWED_TO_MANAGE_RISK_STATUS, systemRiskHref } from "@/lib/risk-roles";
 
 // The role lists live in `risk-roles.ts`, which is free of server code so the app header can use them too.
-export { ROLES_ALLOWED_TO_MANAGE_RISK_STATUS, ROLES_ALLOWED_TO_READ_ORGANIZATION_RISKS, canReadOrganizationRisks } from "@/lib/risk-roles";
+export {
+  ROLES_ALLOWED_TO_MANAGE_RISK_STATUS,
+  ROLES_ALLOWED_TO_ASSIGN_RISK_OWNER,
+  ROLES_ALLOWED_TO_RECORD_RISK_ANALYSIS,
+  ROLES_ALLOWED_TO_READ_ORGANIZATION_RISKS,
+  canAssignRiskOwner,
+  canReadOrganizationRisks,
+  systemRiskHref,
+} from "@/lib/risk-roles";
 
 /**
  * Who may log an ad-hoc Risk on a System: ADMIN/RISK_OWNER on any System, or
@@ -14,6 +22,8 @@ export { ROLES_ALLOWED_TO_MANAGE_RISK_STATUS, ROLES_ALLOWED_TO_READ_ORGANIZATION
  */
 export function canLogRisk(user: { id: string; role: UserRole }, system: { ownerId: string }) {
   if (ROLES_ALLOWED_TO_MANAGE_RISK_STATUS.includes(user.role)) return true;
+  // The Risk Facilitator raises Risks inside a Risk Analysis only (#362), never ad hoc, even on a System it is recorded as owning.
+  if (user.role === "RISK_FACILITATOR") return false;
   return isSystemOwnerOrAdmin(user, system);
 }
 
@@ -28,9 +38,10 @@ export const SYSTEM_RISK_WHERE = { systemId: { not: null } } as const;
 // `ORGANIZATION_RISK_LABEL` and `ORGANIZATION_RISKS_HREF` live in `risk-roles.ts` (client components use them).
 export { ORGANIZATION_RISK_LABEL, ORGANIZATION_RISKS_HREF } from "@/lib/risk-roles";
 
-/** Where a Risk's link goes: its System, or the Organization Risks page for one with none. */
-export function riskHref(risk: { system: { id: string } | null }) {
-  return risk.system ? `/systems/${risk.system.id}` : ORGANIZATION_RISKS_HREF;
+/** Where a Risk's link goes: the Risk on its System's page (its tab and row, #360), or the Organization Risks page for one with none. */
+export function riskHref(risk: { id?: string; system: { id: string } | null }) {
+  if (!risk.system) return ORGANIZATION_RISKS_HREF;
+  return risk.id ? systemRiskHref(risk.system.id, risk.id) : `/systems/${risk.system.id}`;
 }
 
 const RISK_INCLUDE = {

@@ -12,11 +12,14 @@ import { scopedSystemsWhere, getAssignedScope } from "@/lib/business-risk-owner"
 import { getActionableQueries } from "@/lib/assessment-queries";
 import { getOwnerTasks, mergeTaskRows } from "@/lib/owner-tasks";
 import { getControlOwnerTasks } from "@/lib/control-owner-tasks";
+import { getRiskOwnerTasks } from "@/lib/risk-owner-tasks";
 import { getCheckUpTasks, MY_CHECK_UPS_HREF } from "@/lib/check-up-tasks";
 import { countAwaitingEvaluation } from "@/lib/check-up-evaluations";
 import { riskSeverityTone } from "@/lib/status-tones";
+import { OWNER_REQUIRED_RISK_STATUSES } from "@/lib/risk-analysis";
 import {
   canReadOrganizationRisks,
+  ROLES_ALLOWED_TO_ASSIGN_RISK_OWNER,
   ORGANIZATION_RISK_LABEL,
   ORGANIZATION_RISKS_HREF,
   riskHref,
@@ -153,7 +156,8 @@ export function taskAction(row: { kind: string; status: string }, role: UserRole
     case "Query":
       return row.status === "Awaiting your reply" ? "Reply" : "Open";
     case "Risk":
-      return role === "BUSINESS_RISK_OWNER" || isReadOnlySystemRole({ role }) ? "View" : "Update";
+      // Only roles that may act on a Risk (change its status or assign its owner) get "Update".
+      return ROLES_ALLOWED_TO_ASSIGN_RISK_OWNER.includes(role) ? "Update" : "View";
     case "Check-up":
       return "Answer";
     case "Control":
@@ -236,6 +240,9 @@ async function ownedInReviewRows(user: { id: string; role: UserRole }): Promise<
  * any role but the strictly read-only INTERNAL_AUDITOR (who may not edit the
  * implementation), a COMPLIANCE_MANAGER included (owning a Control is not owning a
  * System). They follow the System owner rows and come before the role's own.
+ *
+ * Open Risks the user is the Risk owner of (#360) are rows too, for any role but the Internal Auditor, linking to the opened Risk,
+ * after the Control Owner rows.
  *
  * Open Check-ups (#155) addressed to the user, as the owner of the System or the Control Owner
  * of an Organization-level target, are rows too, for any role but the Internal Auditor (who may
@@ -327,7 +334,7 @@ export async function roleView(user: { id: string; name: string; role: UserRole 
     }),
   );
   gateRows.push(...changeReviewDecisionRows);
-  const [view, owner, controlRows, checkUps, inReviewRows, activity] = await Promise.all([
+  const [view, owner, controlRows, riskOwnerRows, checkUps, inReviewRows, activity] = await Promise.all([
     roleOwnView(user, reviewStepRows)
       .then((own) => withReviewStepTasks(own, user, reviewStepRows))
       .then((own) => (gateRows.length === 0 ? own : { ...own, tasks: [...(own.tasks ?? []), ...gateRows] }))
@@ -338,6 +345,7 @@ export async function roleView(user: { id: string; name: string; role: UserRole 
       .then((view) => withInternalAuditsReadTile(user, view)),
     getOwnerTasks(user),
     getControlOwnerTasks(user),
+    getRiskOwnerTasks(user),
     getCheckUpTasks(user),
     ownedInReviewRows(user),
     loadRecentActivity(user, now),
@@ -347,7 +355,7 @@ export async function roleView(user: { id: string; name: string; role: UserRole 
 
   let stats = [...view.stats];
   let tasks = view.tasks ?? [];
-  if (isSystemOwnerRole || owner.ownedCount > 0 || controlRows.length > 0 || checkUps.rows.length > 0) {
+  if (isSystemOwnerRole || owner.ownedCount > 0 || controlRows.length > 0 || riskOwnerRows.length > 0 || checkUps.rows.length > 0) {
     if (isSystemOwnerRole) {
       stats.push({ label: "Needing attention", value: owner.needingAttentionCount });
       stats.push({ label: "Open questions", value: owner.openQuestionCount });
@@ -362,7 +370,7 @@ export async function roleView(user: { id: string; name: string; role: UserRole 
         stats.push({ label: "Open questions", value: owner.openQuestionCount });
       }
     }
-    tasks = mergeTaskRows([...owner.rows, ...controlRows, ...checkUps.rows], tasks);
+    tasks = mergeTaskRows([...owner.rows, ...controlRows, ...riskOwnerRows, ...checkUps.rows], tasks);
   }
   tasks = [...tasks, ...inReviewRows];
   stats = stats.map(decorateStat);
@@ -614,6 +622,24 @@ async function roleOwnView(user: { id: string; name: string; role: UserRole }, r
         picture: riskHeatPicture(openRisks),
         tasks: riskAndQueryTasks(openRisks, openQueries),
         tiles: [{ title: "Browse Systems", description: "Every System across every status.", href: "/systems" }],
+      };
+    }
+
+    case "RISK_FACILITATOR": {
+      // Reads every System and Risk; its tasks are the Risks it owns, added by `roleView` for every role (#362).
+      const [openRisks, withoutOwner] = await Promise.all([
+        getAllOpenRisks({ systemOnly: true }),
+        prisma.risk.count({ where: { ...SYSTEM_RISK_WHERE, status: { in: [...OWNER_REQUIRED_RISK_STATUSES] }, ownerId: null } }),
+      ]);
+
+      return {
+        lede: "Run the Risk Analysis meeting: record it on a System's Risks tab, raise Risks and give each open Risk an owner.",
+        stats: [{ label: "Risks without an owner", value: withoutOwner, ...(withoutOwner > 0 && { tone: "warn" as const }) }],
+        picture: riskHeatPicture(openRisks),
+        tiles: [
+          { title: "Risk register", description: "Every Risk on every System, with its owner.", href: "/risks" },
+          { title: "Browse Systems", description: "Every System across every status.", href: "/systems" },
+        ],
       };
     }
 

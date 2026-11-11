@@ -53,8 +53,8 @@ describe("the Risk register (#322)", () => {
 
   it("links each row to where the Risk is managed", () => {
     renderRegister();
-    expect(screen.getByRole("link", { name: "Weak passwords" })).toHaveAttribute("href", "/systems/s1#risks");
-    expect(screen.getByRole("link", { name: "Unpatched server" })).toHaveAttribute("href", "/systems/s2#risks");
+    expect(screen.getByRole("link", { name: "Weak passwords" })).toHaveAttribute("href", "/systems/s1#risk-r1");
+    expect(screen.getByRole("link", { name: "Unpatched server" })).toHaveAttribute("href", "/systems/s2#risk-r2");
     expect(screen.getByRole("link", { name: "Audit gap" })).toHaveAttribute("href", "/risks/organization");
   });
 

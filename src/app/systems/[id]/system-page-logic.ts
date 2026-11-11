@@ -22,6 +22,8 @@ import {
  */
 export function parseHash(hash: string): { tab: TabKey; controlCode: string | null } {
   const [key, ...rest] = hash.replace(/^#/, "").split("/");
+  // A Risk's deep link (`#risk-<id>`, #360) is on the Risks tab.
+  if (riskIdFromHash(hash) !== null) return { tab: "risks", controlCode: null };
   if (!(TAB_KEYS as readonly string[]).includes(key)) return { tab: "overview", controlCode: null };
   const tab = key as TabKey;
   if (tab !== "controls" || rest.length === 0) return { tab, controlCode: null };
@@ -30,6 +32,17 @@ export function parseHash(hash: string): { tab: TabKey; controlCode: string | nu
     return { tab, controlCode: code === "" ? null : code };
   } catch {
     return { tab, controlCode: null };
+  }
+}
+
+/** The Risk a deep link names (`#risk-<id>`, #360), or null. Opens the Risks tab with that Risk's row expanded. */
+export function riskIdFromHash(hash: string): string | null {
+  const match = /^#?risk-(.+)$/.exec(hash);
+  if (!match) return null;
+  try {
+    return decodeURIComponent(match[1]);
+  } catch {
+    return null;
   }
 }
 

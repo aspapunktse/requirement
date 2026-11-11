@@ -118,10 +118,67 @@ describe("Risk Analyses on the Risks tab (#325)", { timeout: 30_000 }, () => {
       participantIds: ["u1"],
       outsiders: ["Vendor architect", "Vendor CISO"],
       reviewedRiskIds: ["r1"],
+      riskOwners: [],
       newRisks: [{ title: "Vendor lock-in", description: "No export path", severity: "HIGH", likelihood: "MEDIUM" }],
     });
     // The form closes and the list is read again.
     expect(screen.queryByRole("form")).not.toBeInTheDocument();
+  });
+
+  it("assigns owners in the form: to a reviewed Risk, to a Risk raised in the meeting, and sends only what changed (#360)", async () => {
+    const user = userEvent.setup();
+    renderIt({ openRisks: [{ id: "r1", title: "Weak passwords", ownerId: "u1" }, { id: "r2", title: "Unpatched server", ownerId: null }] });
+    await user.click(await screen.findByRole("button", { name: "+ Record Risk Analysis" }));
+    const form = within(screen.getByRole("form", { name: "Record a Risk Analysis" }));
+    // The current owner is preselected, so leaving it sends nothing for that Risk.
+    expect(form.getByLabelText("Owner for Weak passwords")).toHaveValue("u1");
+    expect(form.getByLabelText("Owner for Unpatched server")).toHaveValue("");
+    await user.selectOptions(form.getByLabelText("Owner for Unpatched server"), "u2");
+    await user.click(form.getByRole("button", { name: "+ Raise a Risk" }));
+    fireEvent.change(form.getByLabelText("New Risk 1 title"), { target: { value: "Vendor lock-in" } });
+    fireEvent.change(form.getByLabelText("New Risk 1 description"), { target: { value: "No export path" } });
+    await user.selectOptions(form.getByLabelText("New Risk 1 owner"), "u1");
+    await user.click(form.getByRole("button", { name: "Record Risk Analysis" }));
+
+    await waitFor(() => expect(onRisksChanged).toHaveBeenCalled());
+    const body = JSON.parse(fetchMock.mock.calls.find(([, init]) => init?.method === "POST")![1].body);
+    expect(body.riskOwners).toEqual([{ riskId: "r2", ownerId: "u2" }]);
+    expect(body.newRisks[0]).toMatchObject({ title: "Vendor lock-in", ownerId: "u1" });
+  });
+
+  it("clears an owner with Unassigned, and sets one on a Risk raised earlier when editing (#360)", async () => {
+    const user = userEvent.setup();
+    analyses = [
+      analysis({
+        id: "a2",
+        reviewedRisks: [{ id: "r1", title: "Weak passwords", severity: "HIGH", status: "OPEN", ownerId: "u1" }],
+        raisedRisks: [{ id: "r5", title: "Raised earlier", severity: "LOW", status: "OPEN", ownerId: null }],
+      }),
+    ];
+    renderIt({ openRisks: [{ id: "r1", title: "Weak passwords", ownerId: "u1" }] });
+    await user.click(await screen.findByRole("button", { name: "Edit" }));
+    const form = within(screen.getByRole("form", { name: "Edit Risk Analysis" }));
+    await user.selectOptions(form.getByLabelText("Owner for Weak passwords"), "");
+    await user.selectOptions(form.getByLabelText("Owner for Raised earlier"), "u2");
+    await user.click(form.getByRole("button", { name: "Save changes" }));
+    await waitFor(() => expect(fetchMock.mock.calls.some(([, init]) => init?.method === "PATCH")).toBe(true));
+    const body = JSON.parse(fetchMock.mock.calls.find(([, init]) => init?.method === "PATCH")![1].body);
+    expect(body.riskOwners).toEqual(expect.arrayContaining([{ riskId: "r1", ownerId: null }, { riskId: "r5", ownerId: "u2" }]));
+    expect(body.riskOwners).toHaveLength(2);
+  });
+
+  it("doesn't send an owner it didn't change when the Risk's owner is saved elsewhere while the form is open (#360)", async () => {
+    const user = userEvent.setup();
+    const { rerender } = renderIt({ openRisks: [{ id: "r1", title: "Weak passwords", ownerId: "u1" }] });
+    await user.click(await screen.findByRole("button", { name: "+ Record Risk Analysis" }));
+    const form = within(screen.getByRole("form", { name: "Record a Risk Analysis" }));
+    expect(form.getByLabelText("Owner for Weak passwords")).toHaveValue("u1");
+    // Someone saves another owner on the opened Risk above: the page passes the new owner down without remounting the form.
+    rerender(<SystemRiskAnalyses systemId="s1" canRecord people={PEOPLE} openRisks={[{ id: "r1", title: "Weak passwords", ownerId: "u2" }]} onRisksChanged={onRisksChanged} />);
+    await user.click(screen.getByRole("form", { name: "Record a Risk Analysis" }).querySelector("button[type=submit]") ?? screen.getByRole("button", { name: "Record Risk Analysis" }));
+    await waitFor(() => expect(fetchMock.mock.calls.some(([, init]) => init?.method === "POST")).toBe(true));
+    const body = JSON.parse(fetchMock.mock.calls.find(([, init]) => init?.method === "POST")![1].body);
+    expect(body.riskOwners).toEqual([]);
   });
 
   it("shows the server's message when saving fails, and keeps the form", async () => {

@@ -1,4 +1,4 @@
-import { parseHash } from "./system-page-logic";
+import { parseHash, riskIdFromHash } from "./system-page-logic";
 
 /**
  * The System page keeps its place in the URL hash: the tab (`#controls`) and, on the Controls tab, the
@@ -20,6 +20,7 @@ export function subscribeToHash(onChange: () => void) {
 
 export const currentTab = () => parseHash(window.location.hash).tab;
 export const currentControlCode = () => parseHash(window.location.hash).controlCode;
+export const currentRiskId = () => riskIdFromHash(window.location.hash);
 export const serverTab = () => "overview" as const;
 
 /** Go to a hash (`#controls`, `#controls/A.5.13`) as a new history entry, so Back returns to where the user was. */

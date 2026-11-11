@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getActingUser } from "@/lib/acting-user";
 import { canWriteSystems } from "@/lib/system-visibility";
-import { canLogRisk, ROLES_ALLOWED_TO_MANAGE_RISK_STATUS } from "@/lib/risks";
+import { canAssignRiskOwner, canLogRisk, ROLES_ALLOWED_TO_MANAGE_RISK_STATUS } from "@/lib/risks";
 import { canRecordRiskAnalysis } from "@/lib/risk-analysis";
 import { canReadInternalAudits } from "@/lib/internal-audit-rules";
 import { canChangeSystemClassification } from "@/lib/system-classification-change";
@@ -78,10 +78,13 @@ export default async function SystemDetailPage({ params }: PageProps<"/systems/[
     system.isProvider && canManageThisProvider ? listDependents(system.id, user) : Promise.resolve([]),
     listSensitivityLevels(),
   ]);
-  // A Risk owner can be any User, whatever their role (#322); only those who manage Risks assign one.
+  // A Risk owner can be any User, whatever their role (#322); an Admin, a Risk Owner or a Risk Facilitator assigns one (#360, #362),
+  // and only an Admin or a Risk Owner manages a Risk's status.
   const canManageRisks = ROLES_ALLOWED_TO_MANAGE_RISK_STATUS.includes(user.role);
-  // Recording a Risk Analysis is a subset of managing Risks (it also excludes the System's own owner), so `riskOwners` serves its participants too.
-  const riskOwners = canManageRisks ? await prisma.user.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }) : [];
+  const canAssignOwner = canAssignRiskOwner(user, system);
+  const canRecordAnalysis = canRecordRiskAnalysis(user, system);
+  // Recording a Risk Analysis is a subset of assigning owners, so `riskOwners` serves its participants too.
+  const riskOwners = canAssignOwner || canRecordAnalysis ? await prisma.user.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }) : [];
   const canChangeClassification = canChangeSystemClassification(user, system);
 
   const panels = {
@@ -106,9 +109,10 @@ export default async function SystemDetailPage({ params }: PageProps<"/systems/[
         systemId={system.id}
         canLog={canLogRisk(user, system)}
         canManageStatus={canManageRisks}
+        canAssignOwner={canAssignOwner}
         canOpenCheckUp={canReadInternalAudits(user)}
         owners={riskOwners}
-        riskAnalyses={{ canRecord: canRecordRiskAnalysis(user, system) }}
+        riskAnalyses={{ canRecord: canRecordAnalysis }}
       />
     ),
     providers: (

@@ -27,10 +27,13 @@ afterEach(() => {
 
 describe("OrganizationRiskList (#157)", () => {
   it("saves status, mitigation plan and owner to /api/risks/[id] and shows the saved Risk", async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ risk: { ...risk, status: "MITIGATED", mitigationPlan: "Rewrite", ownerId: "u1", owner: { id: "u1", name: "Rita Risk" } } }),
-    });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ risk: { ...risk, status: "MITIGATED", mitigationPlan: "Rewrite" } }) })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ risk: { ...risk, status: "MITIGATED", mitigationPlan: "Rewrite", ownerId: "u1", owner: { id: "u1", name: "Rita Risk" } } }),
+      });
     vi.stubGlobal("fetch", fetchMock);
     const user = userEvent.setup();
     render(<OrganizationRiskList initialRisks={[risk]} canManage canOpenCheckUp owners={owners} />);
@@ -38,15 +41,23 @@ describe("OrganizationRiskList (#157)", () => {
     expect(screen.getByRole("link", { name: "see the finding" })).toHaveAttribute("href", "/check-ups/c1");
     await user.selectOptions(screen.getByLabelText(`Status for ${risk.title}`), "MITIGATED");
     await user.type(screen.getByLabelText(`Mitigation plan for ${risk.title}`), "Rewrite");
-    await user.selectOptions(screen.getByLabelText(`Owner for ${risk.title}`), "u1");
     await user.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(url).toBe("/api/risks/r1");
     expect(init.method).toBe("PATCH");
-    expect(JSON.parse(init.body as string)).toEqual({ status: "MITIGATED", mitigationPlan: "Rewrite", ownerId: "u1" });
-    expect(await screen.findByText("Owner: Rita Risk")).toBeInTheDocument();
+    expect(JSON.parse(init.body as string)).toEqual({ status: "MITIGATED", mitigationPlan: "Rewrite" });
+
+    // The owner is saved on its own (#360).
+    await user.selectOptions(await screen.findByLabelText(`Owner for ${risk.title}`), "u1");
+    await user.click(screen.getByRole("button", { name: "Save owner" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    const [ownerUrl, ownerInit] = fetchMock.mock.calls[1] as [string, RequestInit];
+    expect(ownerUrl).toBe("/api/risks/r1");
+    expect(JSON.parse(ownerInit.body as string)).toEqual({ ownerId: "u1" });
+    await waitFor(() => expect(screen.getByLabelText(`Owner for ${risk.title}`)).toHaveValue("u1"));
+    expect(screen.getByRole("button", { name: "Save owner" })).toBeDisabled();
   });
 
   it("shows the Risk Source (#322)", () => {

@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getStaleAssessments, getUnaddressedMandatoryControls } from "@/lib/control-assessments";
-import { RISK_INCLUDE } from "@/lib/risks";
+import { RISK_INCLUDE, SYSTEM_RISK_WHERE } from "@/lib/risks";
 
 export type AttentionSystem =
   | { id: string; name: string; reason: "stale" | "rejected" }
@@ -59,10 +59,13 @@ export async function getSystemsNeedingAttention(ownerId: string): Promise<Atten
   return results;
 }
 
-/** Every open Risk across every System, newest first, with its System's name. */
-export function getAllOpenRisks() {
+/**
+ * Every open Risk across every System, newest first, with its System's name. `systemOnly` leaves out Organization Risks (no System),
+ * for a role that may not read them (the Risk Facilitator, #362).
+ */
+export function getAllOpenRisks({ systemOnly = false }: { systemOnly?: boolean } = {}) {
   return prisma.risk.findMany({
-    where: { status: "OPEN" },
+    where: { status: "OPEN", ...(systemOnly && SYSTEM_RISK_WHERE) },
     include: { ...RISK_INCLUDE, system: { select: { id: true, name: true } } },
     orderBy: { createdAt: "desc" },
   });

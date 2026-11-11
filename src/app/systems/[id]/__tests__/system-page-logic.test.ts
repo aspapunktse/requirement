@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { OnboardingStatus } from "@prisma/client";
 import { canMarkOnboarded } from "@/lib/onboarding";
 import { canSubmit } from "@/lib/system-permissions";
-import { buildAttention, controlHash, controlIsDone, formatDay, lifecycleNote, lifecycleStages, nextStepFor, parseHash, riskGridOf, sourceKeyOf, tabFromHash } from "../system-page-logic";
+import { buildAttention, controlHash, controlIsDone, formatDay, lifecycleNote, lifecycleStages, nextStepFor, parseHash, riskGridOf, riskIdFromHash, sourceKeyOf, tabFromHash } from "../system-page-logic";
 import type { DecisionStep } from "../system-page-types";
 
 const STATUSES: OnboardingStatus[] = ["DRAFT", "IN_REVIEW", "APPROVED", "REJECTED", "ONBOARDED"];
@@ -169,6 +169,16 @@ describe("the small rules", () => {
     expect(tabFromHash("activity")).toBe("activity");
     expect(tabFromHash("#nonsense")).toBe("overview");
     expect(tabFromHash("")).toBe("overview");
+  });
+
+  it("reads a Risk's deep link as the Risks tab (#360)", () => {
+    expect(riskIdFromHash("#risk-abc123")).toBe("abc123");
+    expect(riskIdFromHash("risk-abc123")).toBe("abc123");
+    expect(riskIdFromHash("#risk-")).toBeNull();
+    expect(riskIdFromHash("#risks")).toBeNull();
+    expect(riskIdFromHash("#controls/A.5.13")).toBeNull();
+    expect(parseHash("#risk-abc123")).toEqual({ tab: "risks", controlCode: null });
+    expect(tabFromHash("#risk-abc123")).toBe("risks");
   });
 
   it("parseHash reads a Control's drawer off the Controls tab (#244)", () => {

@@ -6,7 +6,7 @@ import { useMemo, useState } from "react";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { riskSeverityTone, riskStatusTone } from "@/lib/status-tones";
 import { RISK_SOURCES, RISK_SOURCE_LABELS, type RiskSourceValue } from "@/lib/risk-source";
-import { ORGANIZATION_RISK_LABEL, ORGANIZATION_RISKS_HREF } from "@/lib/risk-roles";
+import { ORGANIZATION_RISK_LABEL, ORGANIZATION_RISKS_HREF, systemRiskHref } from "@/lib/risk-roles";
 import type { RiskRegisterRow } from "@/lib/risk-register";
 import "@/app/home/home.css";
 import "./risk-register.css";
@@ -22,9 +22,9 @@ function known(value: string, allowed: readonly string[]) {
   return allowed.includes(value) ? value : "";
 }
 
-/** Where the Risk is managed: its System's Risks tab, or the Organization Risks page. */
+/** Where the Risk is managed: the Risk itself on its System's page (#360), or the Organization Risks page. */
 function whereManaged(risk: RiskRegisterRow) {
-  return risk.system ? `/systems/${risk.system.id}#risks` : ORGANIZATION_RISKS_HREF;
+  return risk.system ? systemRiskHref(risk.system.id, risk.id) : ORGANIZATION_RISKS_HREF;
 }
 
 /**
