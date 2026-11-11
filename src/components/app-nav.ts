@@ -69,6 +69,7 @@ export const ADMIN_PAGES: { label: string; href: string }[] = [
   { label: "Deployment Facets", href: "/admin/deployment-facets" },
   { label: "Review Groups", href: "/admin/review-groups" },
   { label: "Business Units", href: "/admin/business-units" },
+  { label: "Users", href: "/admin/users" },
   { label: "Business Risk Owners", href: "/admin/business-risk-owners" },
   { label: "Settings", href: "/admin/settings" },
 ];

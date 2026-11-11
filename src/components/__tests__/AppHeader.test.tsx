@@ -195,6 +195,7 @@ describe("AppHeader: Admin menu", () => {
     ["Deployment Facets", "/admin/deployment-facets"],
     ["Review Groups", "/admin/review-groups"],
     ["Business Units", "/admin/business-units"],
+    ["Users", "/admin/users"],
     ["Business Risk Owners", "/admin/business-risk-owners"],
     ["Settings", "/admin/settings"],
   ];

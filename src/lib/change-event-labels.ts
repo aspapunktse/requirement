@@ -43,6 +43,9 @@ export const CHANGE_EVENT_ACTION_LABEL: Record<ChangeEventAction, string> = {
   SYSTEM_DETAILS_CHANGED: "edited a System's details",
   BUSINESS_SYSTEM_OWNER_CHANGED: "changed a System's Business System Owner",
   RISK_ANALYSIS_COMPLETED: "completed a Risk Analysis",
+  USER_CREATED: "created a User",
+  USER_RENAMED: "changed a User's name or email",
+  USER_ROLE_CHANGED: "changed a User's role",
 };
 
 export type ChangeEventTone = "ok" | "warn" | "danger" | "accent";
@@ -74,6 +77,9 @@ export const CHANGE_EVENT_ACTION_TONE: Record<ChangeEventAction, ChangeEventTone
   SYSTEM_DETAILS_CHANGED: "accent",
   BUSINESS_SYSTEM_OWNER_CHANGED: "accent",
   RISK_ANALYSIS_COMPLETED: "ok",
+  USER_CREATED: "ok",
+  USER_RENAMED: "accent",
+  USER_ROLE_CHANGED: "accent",
   EVALUATION_STAGE_CHANGED: "accent",
   TRACK_VERDICT_GIVEN: "accent",
   TRACK_VERDICT_REOPENED: "warn",

@@ -34,3 +34,11 @@ describe("Change Event labels for the Home page's Recent activity (#226)", () =>
     expect(Object.keys(CHANGE_EVENT_ACTION_LABEL).sort()).toEqual([...Object.values(ChangeEventAction)].sort());
   });
 });
+
+describe("Change Event labels for Admin -> Users (#364)", () => {
+  it("labels the User events", () => {
+    expect(CHANGE_EVENT_ACTION_LABEL.USER_CREATED).toBe("created a User");
+    expect(CHANGE_EVENT_ACTION_LABEL.USER_RENAMED).toBe("changed a User's name or email");
+    expect(CHANGE_EVENT_ACTION_LABEL.USER_ROLE_CHANGED).toBe("changed a User's role");
+  });
+});

@@ -1,0 +1,24 @@
+/* Admin -> Users (#364). Builds on the Home look (`src/app/home/home.css`) and the Systems register (`src/app/systems/systems.css`). */
+
+.us .muted { color: var(--rg-muted); }
+.sy table.us-t { min-width: 640px; }
+.us .us-grow { flex: 1 1 0; }
+.us .us-actions { white-space: nowrap; text-align: right; }
+.us .us-actions .hc-btn { padding: 4px 10px; }
+.us .us-link { color: var(--rg-accent); font-size: 0.82rem; font-weight: 650; }
+.us .us-link:hover { text-decoration: underline; }
+.us .us-you { margin-left: 6px; font-size: 0.74rem; color: var(--rg-muted); font-weight: 600; }
+.us .us-banner { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 0 16px 10px; padding: 10px 12px; border-radius: 10px; font-size: 0.86rem; border: 1px solid var(--rg-line); }
+.us .us-banner.ok { background: var(--rg-accent-soft); border-color: color-mix(in srgb, var(--rg-accent) 25%, transparent); }
+.us .us-banner.warn { background: var(--rg-gold-soft, var(--rg-surface)); border-color: color-mix(in srgb, var(--rg-gold) 45%, transparent); }
+.us .us-banner ul { margin: 4px 0 0; padding-left: 18px; }
+.us .us-link-btn { all: unset; cursor: pointer; color: var(--rg-accent); text-decoration: underline; }
+
+/* The create / edit form */
+.us .us-form { display: grid; gap: 12px; padding: 14px 18px 18px; }
+.us .us-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.us .us-field { display: grid; gap: 4px; font-size: 0.84rem; font-weight: 650; color: var(--rg-muted); }
+.us .us-field input, .us .us-field select { border: 1px solid var(--rg-line); background: var(--rg-surface); color: var(--rg-ink); border-radius: 10px; padding: 7px 10px; font: inherit; font-size: 0.9rem; font-weight: 400; }
+.us .us-field input:focus-visible, .us .us-field select:focus-visible { outline: 2px solid var(--rg-accent); outline-offset: 1px; }
+.us .us-error { color: var(--rg-danger); font-size: 0.86rem; }
+.us .us-formacts { display: flex; gap: 8px; flex-wrap: wrap; }

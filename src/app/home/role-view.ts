@@ -494,6 +494,7 @@ async function roleOwnView(user: { id: string; name: string; role: UserRole }, r
           { title: "Controls", description: "Manage the Control Library.", href: "/admin/controls" },
           { title: "Deployment Facets", description: "Manage deployment classifications.", href: "/admin/deployment-facets" },
           { title: "Review Groups", description: "Manage who reviews each Framework.", href: "/admin/review-groups" },
+          { title: "Users", description: "Create Users, rename them and assign roles.", href: "/admin/users" },
           ORGANIZATION_CONTROLS_TILE,
           { title: "Settings", description: "Change how the Systems list flags what needs attention.", href: "/admin/settings" },
         ],
