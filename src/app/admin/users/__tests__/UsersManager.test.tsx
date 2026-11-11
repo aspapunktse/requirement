@@ -1,7 +1,7 @@
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { describeHoldings } from "@/lib/user-admin-shared";
+import { USERS_CHANGED_EVENT, describeHoldings } from "@/lib/user-admin-shared";
 
 const refresh = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh, push: vi.fn() }) }));
@@ -126,6 +126,30 @@ describe("UsersManager: creating a User (#364)", () => {
 });
 
 describe("UsersManager: editing a User (#364)", () => {
+  it("tells the header's acting-user switcher to refetch after a save, and not after a failed one", async () => {
+    const changed = vi.fn();
+    window.addEventListener(USERS_CHANGED_EVENT, changed);
+    try {
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(new Response(JSON.stringify({ error: "No" }), { status: 400 }))
+        .mockResolvedValue(saved({ id: "u4", name: "Test Di Renamed", email: "di@example.com", role: "SYSTEM_OWNER", createdAt: "2026-04-05T10:00:00.000Z" }));
+      vi.stubGlobal("fetch", fetchMock);
+      renderManager();
+      await userEvent.click(screen.getByRole("button", { name: "Edit Test Di Owner" }));
+      await userEvent.clear(screen.getByLabelText("Name"));
+      await userEvent.type(screen.getByLabelText("Name"), "Test Di Renamed");
+      await userEvent.click(screen.getByRole("button", { name: "Save" }));
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+      expect(changed).not.toHaveBeenCalled();
+      await userEvent.click(screen.getByRole("button", { name: "Save" }));
+      expect(await screen.findByText("Saved Test Di Renamed.")).toBeInTheDocument();
+      expect(changed).toHaveBeenCalledTimes(1);
+    } finally {
+      window.removeEventListener(USERS_CHANGED_EVENT, changed);
+    }
+  });
+
   it("opens the form with the User's values and saves a rename", async () => {
     const fetchMock = vi.fn().mockResolvedValue(saved({ id: "u4", name: "Test Di Renamed", email: "di@example.com", role: "SYSTEM_OWNER", createdAt: "2026-04-05T10:00:00.000Z" }));
     vi.stubGlobal("fetch", fetchMock);
@@ -155,7 +179,7 @@ describe("UsersManager: editing a User (#364)", () => {
     await userEvent.selectOptions(screen.getByLabelText("Role"), "VIEWER");
     const warning = screen.getByRole("alert");
     expect(warning).toHaveTextContent("Nothing is removed or moved");
-    expect(warning).toHaveTextContent("Still the owner of 3 Systems");
+    expect(warning).toHaveTextContent("Keeps owner rights on 3 Systems");
     expect(warning).toHaveTextContent("Business System Owner of 1 System");
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(await screen.findByText("Saved Test Bo Owner.")).toBeInTheDocument();
@@ -213,16 +237,27 @@ describe("UsersManager: editing a User (#364)", () => {
 });
 
 describe("describeHoldings", () => {
+  const owns = { ...none, ownedSystems: 2 };
+  it("keeps owner rights for a role that can act on Systems, read-only roles can't", () => {
+    expect(describeHoldings(owns, "SYSTEM_OWNER")).toEqual(["Keeps owner rights on 2 Systems (can still edit and submit them)."]);
+    expect(describeHoldings(owns, "ADMIN")).toEqual([]);
+    expect(describeHoldings(owns, "REVIEWER")).toEqual([expect.stringContaining("Keeps owner rights on 2 Systems")]);
+    for (const role of ["COMPLIANCE_MANAGER", "INTERNAL_AUDITOR"] as const) {
+      const [line] = describeHoldings(owns, role);
+      expect(line).toContain("Stays the recorded owner of 2 Systems but can no longer act on them as owner");
+      expect(line).not.toContain("Keeps owner rights");
+    }
+  });
   const held = { ownedSystems: 2, businessOwnedSystems: 1, businessUnitScopes: 1, frameworkScopes: 0 };
   it("says nothing when the User holds nothing, or the role uses it", () => {
     expect(describeHoldings(none, "VIEWER")).toEqual([]);
-    expect(describeHoldings({ ...held, businessUnitScopes: 0 }, "SYSTEM_OWNER")).toEqual([expect.stringContaining("Business System Owner of 1 System;")]);
+    expect(describeHoldings({ ...held, businessUnitScopes: 0 }, "SYSTEM_OWNER")).toEqual([expect.stringContaining("Keeps owner rights on 2 Systems"), expect.stringContaining("Business System Owner of 1 System;")]);
     expect(describeHoldings({ ...none, businessUnitScopes: 2 }, "BUSINESS_RISK_OWNER")).toEqual([]);
   });
   it("lists owned Systems, Business System Owner Systems and scopes the new role doesn't use", () => {
     const lines = describeHoldings(held, "VIEWER");
     expect(lines).toHaveLength(3);
-    expect(lines[0]).toContain("2 Systems");
+    expect(lines[0]).toContain("Keeps owner rights on 2 Systems (can still edit and submit them). Can't be chosen as the new owner");
     expect(lines[1]).toContain("1 System;");
     expect(lines[2]).toContain("1 Business Unit as a Business Risk Owner");
   });

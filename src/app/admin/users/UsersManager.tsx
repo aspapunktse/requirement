@@ -8,7 +8,7 @@ import { Icon } from "@/app/home/HomeGraphics";
 import { useSearchHotkey } from "@/app/home/JumpPalette";
 import { usePagePalette } from "@/components/PaletteProvider";
 import { StatusChip } from "@/components/ui/StatusChip";
-import { ALL_ROLES, describeHoldings, roleName, type AdminUser, type UserHoldings } from "@/lib/user-admin-shared";
+import { ALL_ROLES, USERS_CHANGED_EVENT, describeHoldings, roleName, type AdminUser, type UserHoldings } from "@/lib/user-admin-shared";
 import "@/app/home/home.css";
 import "@/app/systems/systems.css";
 import "./users.css";
@@ -65,6 +65,8 @@ export function UsersManager({ initialUsers, actingUserId }: { initialUsers: Man
     setUsers((current) => (created ? [...current, user] : current.map((item) => (item.id === user.id ? user : item))));
     setNotice(created ? `Created ${user.name}.` : `Saved ${user.name}.`);
     setForm(null);
+    // The header's acting-user switcher lists every User with their role: tell it to refetch.
+    window.dispatchEvent(new Event(USERS_CHANGED_EVENT));
     // An Admin who gave themself another role is no longer allowed on this page: reload it, which shows that.
     if (user.id === actingUserId && user.role !== "ADMIN") router.refresh();
   }

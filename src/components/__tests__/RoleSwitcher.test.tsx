@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { USERS_CHANGED_EVENT } from "@/lib/user-admin-shared";
 import { RoleSwitcher } from "../RoleSwitcher";
 
 const refresh = vi.fn();
@@ -42,6 +43,25 @@ describe("RoleSwitcher", () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+  });
+
+  it("refetches the users when Admin -> Users reports a change, so a new name or role shows up", async () => {
+    const user = userEvent.setup();
+    render(<RoleSwitcher />);
+    await screen.findByRole("button", { name: "Acting as Ada Admin" });
+
+    users[0] = { id: "u1", name: "Ada Renamed", email: "ada@example.com", role: "VIEWER" };
+    users.push({ id: "u4", name: "New Newton", email: "new@example.com", role: "REVIEWER" });
+    try {
+      window.dispatchEvent(new Event(USERS_CHANGED_EVENT));
+      const button = await screen.findByRole("button", { name: "Acting as Ada Renamed" });
+      expect(button).toHaveTextContent("VIEWER");
+      await user.click(button);
+      expect(screen.getByRole("option", { name: /New Newton/ })).toBeInTheDocument();
+    } finally {
+      users[0] = { id: "u1", name: "Ada Admin", email: "ada@example.com", role: "ADMIN" };
+      users.pop();
+    }
   });
 
   it("shows the acting user on the chip button", async () => {
