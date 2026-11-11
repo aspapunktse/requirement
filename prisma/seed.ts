@@ -58,6 +58,11 @@ async function main() {
       name: "Default Internal Auditor",
       role: "INTERNAL_AUDITOR" as const,
     },
+    {
+      email: "risk-facilitator@example.com",
+      name: "Default Risk Facilitator",
+      role: "RISK_FACILITATOR" as const,
+    },
   ];
 
   for (const user of users) {

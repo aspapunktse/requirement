@@ -83,6 +83,11 @@ enum UserRole {
   // Check-ups (which come later). Strictly read-only elsewhere, even as the
   // recorded owner of a System or Control. See #147 and PRD 0001 §5.
   INTERNAL_AUDITOR
+  // Facilitates the Risk Analysis meeting (#362, product-owner decision of 2026-11-11 on #360): records,
+  // edits and completes a Risk Analysis (never on a System it owns), raises Risks in it and assigns Risk
+  // owners, here and on an opened System Risk. Reads every System and the Risk register. Nothing else:
+  // no Risk status changes, no ad hoc Risk logging, no waiving, no Organization Risks, no creating Systems.
+  RISK_FACILITATOR
 }
 
 model User {

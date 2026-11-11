@@ -91,6 +91,7 @@ describe("AppHeader: main navigation", () => {
     REVIEWER: SHARED,
     BUSINESS_RISK_OWNER: [...SHARED, "My Business Risks"],
     VIEWER: SHARED,
+    RISK_FACILITATOR: SHARED,
     INTERNAL_AUDITOR: ["Home", "Systems", "Information Types", "Document Requirements", "Controls", "Risks", "Check-ups", "Internal Audits", "SoA", "Frameworks"],
   };
 

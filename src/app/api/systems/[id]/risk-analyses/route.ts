@@ -9,7 +9,7 @@ import {
   RISK_ANALYSIS_SELECT,
   toRiskAnalysisView,
 } from "@/lib/risk-analysis";
-import { RiskAnalysisInputError, raiseRisks, resolveLinks } from "@/lib/risk-analysis-write";
+import { applyRiskOwners, RiskAnalysisInputError, raiseRisks, resolveLinks } from "@/lib/risk-analysis-write";
 import { refuseIfSystemClosed } from "@/lib/system-closed";
 
 /** A System's Risk Analyses, newest meeting first. Anyone who can see the System reads them. */
@@ -36,8 +36,8 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/systems/
 
 /**
  * Records a Risk Analysis meeting (#325, PRD 0002 F-RA.2): `{ heldOn, notes?, participantIds?, outsiders?, reviewedRiskIds?, newRisks? }`.
- * A Risk Owner or an Admin who isn't the System's owner (403 otherwise, checked before the body is read and before any write; 404 for a
- * System they can't see). `newRisks` are logged on the System from the same form, ad hoc by the server's choice, each with its RISK_LOGGED
+ * A Risk Owner, a Risk Facilitator or an Admin who isn't the System's owner (403 otherwise, checked before the body is read and before any write; 404 for a
+ * System they can't see). `riskOwners` (`{ riskId, ownerId | null }`, for reviewed Risks) and each new Risk's `ownerId` are saved in the same transaction (#360); an owner that isn't a User, or a Risk that isn't reviewed here, is 400. `newRisks` are logged on the System from the same form, ad hoc by the server's choice, each with its RISK_LOGGED
  * Change Event, in the one transaction with the analysis: a failure anywhere leaves nothing behind. A participant that isn't a User, or a
  * reviewed Risk that isn't on this System, is 400.
  */
@@ -55,7 +55,7 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems
 
   const parsed = createRiskAnalysisSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Invalid Risk Analysis" }, { status: 400 });
-  const { heldOn, notes, outsiders, newRisks } = parsed.data;
+  const { heldOn, notes, outsiders, newRisks, riskOwners } = parsed.data;
 
   try {
     const row = await prisma.$transaction(async (tx) => {
@@ -71,6 +71,12 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems
           reviewedRisks: { connect: (links.reviewedRiskIds ?? []).map((riskId) => ({ id: riskId })) },
         },
         select: { id: true },
+      });
+      await applyRiskOwners(tx, {
+        systemId: system.id,
+        owners: riskOwners,
+        newRiskOwnerIds: newRisks.map((risk) => risk.ownerId),
+        allowedRiskIds: links.reviewedRiskIds ?? [],
       });
       await raiseRisks(tx, { systemId: system.id, analysisId: created.id, actorId: auth.user.id, risks: newRisks });
       return tx.riskAnalysis.findUniqueOrThrow({ where: { id: created.id }, select: RISK_ANALYSIS_SELECT });

@@ -34,8 +34,10 @@ const STATUSES: RiskStatus[] = ["OPEN", "MITIGATED", "ACCEPTED", "TRANSFERRED", 
 
 /**
  * One Risk with, for those who may manage it, the status / mitigation plan form. `patchUrl` is where
- * the form saves (a System's Risk route, or `/api/risks/[id]` for an Organization Risk, #157); with
- * `owners` the form also assigns the Risk's owner. The link to the Check-up that opened it is shown
+ * the form saves (a System's Risk route, or `/api/risks/[id]` for an Organization Risk, #157). Given
+ * `owners` (every User, passed only to those who may assign an owner), the row also has its own owner
+ * control, apart from the status form, that sets, changes or clears the owner and sends nothing else
+ * (#360); everyone else reads the owner. A Risk Facilitator gets that control without the status form. The link to the Check-up that opened it is shown
  * only when `canOpenCheckUp`: not everyone who sees a Risk may read the audit (#157).
  */
 export function RiskRow({
@@ -55,14 +57,16 @@ export function RiskRow({
 }) {
   const [status, setStatus] = useState<RiskStatus>(risk.status);
   const [mitigationPlan, setMitigationPlan] = useState(risk.mitigationPlan ?? "");
-  const [ownerId, setOwnerId] = useState(risk.ownerId ?? "");
+  const [ownerId, setOwnerId] = useState(risk.ownerId ?? risk.owner?.id ?? "");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [ownerError, setOwnerError] = useState<string | null>(null);
+  const [savingOwner, setSavingOwner] = useState(false);
 
   useEffect(() => {
     setStatus(risk.status);
     setMitigationPlan(risk.mitigationPlan ?? "");
-    setOwnerId(risk.ownerId ?? "");
+    setOwnerId(risk.ownerId ?? risk.owner?.id ?? "");
   }, [risk]);
 
   async function handleSave() {
@@ -72,7 +76,7 @@ export function RiskRow({
       const response = await fetch(patchUrl, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status, mitigationPlan: mitigationPlan || null, ...(owners && { ownerId: ownerId || null }) }),
+        body: JSON.stringify({ status, mitigationPlan: mitigationPlan || null }),
       });
 
       if (!response.ok) {
@@ -85,6 +89,28 @@ export function RiskRow({
       onUpdated(body.risk);
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleSaveOwner() {
+    setOwnerError(null);
+    setSavingOwner(true);
+    try {
+      const response = await fetch(patchUrl, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ownerId: ownerId || null }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setOwnerError(body.error ?? "Failed to update the owner");
+        return;
+      }
+      onUpdated(body.risk);
+    } catch {
+      setOwnerError("Failed to update the owner");
+    } finally {
+      setSavingOwner(false);
     }
   }
 
@@ -118,9 +144,34 @@ export function RiskRow({
           )}
         </p>
       )}
-      {risk.owner && <p className="text-xs text-rg-muted">Owner: {risk.owner.name}</p>}
+      {!owners && <p className="text-xs text-rg-muted">Owner: {risk.owner ? risk.owner.name : "Unassigned"}</p>}
       {risk.mitigationPlan && (
         <p className="text-xs text-rg-muted">Mitigation plan: {risk.mitigationPlan}</p>
+      )}
+
+      {owners && (
+        <div role="group" aria-label={`Owner of ${risk.title}`} className="mt-2 flex flex-col gap-2 border-t border-rg-line pt-2">
+          {ownerError && <p className="text-sm text-rg-danger">{ownerError}</p>}
+          <label className="flex flex-col gap-1 text-sm">
+            Owner
+            <select
+              aria-label={`Owner for ${risk.title}`}
+              className="rounded border border-rg-control p-2"
+              value={ownerId}
+              onChange={(event) => setOwnerId(event.target.value)}
+            >
+              <option value="">Unassigned</option>
+              {owners.map((owner) => (
+                <option key={owner.id} value={owner.id}>
+                  {owner.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <Button variant="secondary" onClick={handleSaveOwner} disabled={savingOwner || ownerId === (risk.ownerId ?? risk.owner?.id ?? "")}>
+            Save owner
+          </Button>
+        </div>
       )}
 
       {canManageStatus && (
@@ -142,25 +193,6 @@ export function RiskRow({
               ))}
             </select>
           </label>
-
-          {owners && (
-            <label className="flex flex-col gap-1 text-sm">
-              Owner
-              <select
-                aria-label={`Owner for ${risk.title}`}
-                className="rounded border border-rg-control p-2"
-                value={ownerId}
-                onChange={(event) => setOwnerId(event.target.value)}
-              >
-                <option value="">Unassigned</option>
-                {owners.map((owner) => (
-                  <option key={owner.id} value={owner.id}>
-                    {owner.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
 
           <label className="flex flex-col gap-1 text-sm">
             {status === "MITIGATED" ? "Mitigation Plan (required)" : "Mitigation Plan (optional)"}

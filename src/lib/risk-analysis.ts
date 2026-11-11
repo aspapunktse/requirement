@@ -1,6 +1,6 @@
 import { RiskSeverity, type Prisma, type UserRole } from "@prisma/client";
 import { z } from "zod";
-import { ROLES_ALLOWED_TO_MANAGE_RISK_STATUS } from "@/lib/risk-roles";
+import { ROLES_ALLOWED_TO_RECORD_RISK_ANALYSIS } from "@/lib/risk-roles";
 
 /**
  * Risk Analysis meetings (#325, PRD 0002 F-RA.2-3; CONTEXT.md "Risk Analysis"). Holds the rules and shapes the routes and
@@ -9,14 +9,14 @@ import { ROLES_ALLOWED_TO_MANAGE_RISK_STATUS } from "@/lib/risk-roles";
  */
 
 /**
- * Who may record, edit and complete a Risk Analysis on a System: a Risk Owner or an Admin who isn't the System's owner.
- * An Admin who owns the System is refused too ("who isn't the System's owner"), and so is a Risk Owner who owns it.
+ * Who may record, edit and complete a Risk Analysis on a System: a Risk Owner, a Risk Facilitator (#362) or an Admin who isn't the
+ * System's owner. An Admin who owns the System is refused too ("who isn't the System's owner"), and so is a Risk Owner or Risk Facilitator who owns it.
  */
 export function canRecordRiskAnalysis(user: { id: string; role: UserRole }, system: { ownerId: string }) {
-  return ROLES_ALLOWED_TO_MANAGE_RISK_STATUS.includes(user.role) && user.id !== system.ownerId;
+  return ROLES_ALLOWED_TO_RECORD_RISK_ANALYSIS.includes(user.role) && user.id !== system.ownerId;
 }
 
-export const RISK_ANALYSIS_REFUSED = "Only a Risk Owner or an Admin who isn't the System's owner can record a Risk Analysis";
+export const RISK_ANALYSIS_REFUSED = "Only a Risk Owner, a Risk Facilitator or an Admin who isn't the System's owner can record a Risk Analysis";
 
 /**
  * "Open" means the same as everywhere else in the app (the Open Risks count, `src/lib/dashboard.ts`): status OPEN.
@@ -68,7 +68,12 @@ const newRiskSchema = z.object({
   description: z.string().trim().min(1).max(5000),
   severity: z.enum(RiskSeverity),
   likelihood: z.enum(RiskSeverity),
+  /** Who acts on the Risk: any User (#360). Absent or null leaves it without an owner. */
+  ownerId: z.string().min(1).nullable().optional(),
 });
+
+/** An owner for a Risk already on the System: a reviewed Risk, or one raised earlier in this analysis. `ownerId: null` clears it. */
+const riskOwnerSchema = z.object({ riskId: z.string().min(1), ownerId: z.string().min(1).nullable() });
 
 const fields = {
   // A calendar day, `YYYY-MM-DD`.
@@ -80,6 +85,8 @@ const fields = {
   reviewedRiskIds: z.array(z.string().min(1)).max(500),
   // Risks raised in the meeting, logged from the same form. Their `source` is the server's to set (ad hoc), never the body's.
   newRisks: z.array(newRiskSchema).max(50),
+  // Owners saved with the analysis, in the same transaction (#360). Only for Risks reviewed in, or raised in, this analysis.
+  riskOwners: z.array(riskOwnerSchema).max(500),
 };
 
 export const createRiskAnalysisSchema = z.object({
@@ -89,6 +96,7 @@ export const createRiskAnalysisSchema = z.object({
   outsiders: fields.outsiders.default([]),
   reviewedRiskIds: fields.reviewedRiskIds.default([]),
   newRisks: fields.newRisks.default([]),
+  riskOwners: fields.riskOwners.default([]),
 });
 
 /** An edit replaces the fields it names; `newRisks` are added to those already raised (a raised Risk is a Risk, and stays). */
@@ -100,6 +108,7 @@ export const updateRiskAnalysisSchema = z
     outsiders: fields.outsiders,
     reviewedRiskIds: fields.reviewedRiskIds,
     newRisks: fields.newRisks,
+    riskOwners: fields.riskOwners,
   })
   .partial()
   .refine((value) => Object.keys(value).length > 0, { message: "Nothing to change" });

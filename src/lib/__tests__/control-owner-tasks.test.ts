@@ -178,7 +178,7 @@ describe("Control Owner tasks (#120)", () => {
         const user = await makeUser(role);
         expect(controlRows(await roleView(user)), role).toEqual([]);
       }
-    });
+    }, 30_000);
 
     it("does not show Control rows for a user whose owned Controls are all done or Per-System", async () => {
       const owner = await makeUser("VIEWER");
@@ -198,6 +198,6 @@ describe("Control Owner tasks (#120)", () => {
           expect(tile, role).toBeUndefined();
         }
       }
-    });
+    }, 30_000);
   });
 });

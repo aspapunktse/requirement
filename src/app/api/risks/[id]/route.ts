@@ -7,7 +7,8 @@ import { logChangeEvent } from "@/lib/change-events";
 import { ROLES_ALLOWED_TO_MANAGE_RISK_STATUS, RISK_INCLUDE } from "@/lib/risks";
 
 const updateRiskSchema = z.object({
-  status: z.enum(RiskStatus),
+  /** Absent in an owner-only change (#360). */
+  status: z.enum(RiskStatus).optional(),
   mitigationPlan: z.string().nullable().optional(),
   /** Who acts on the Risk; absent leaves it, null unassigns. */
   ownerId: z.string().min(1).nullable().optional(),
@@ -31,6 +32,9 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/risks/
     return NextResponse.json({ error: "Invalid update" }, { status: 400 });
   }
   const { status, mitigationPlan, ownerId } = parsed.data;
+  if (status === undefined && (ownerId === undefined || mitigationPlan !== undefined)) {
+    return NextResponse.json({ error: "Invalid update" }, { status: 400 });
+  }
 
   if (status === "MITIGATED" && !mitigationPlan?.trim()) {
     return NextResponse.json({ error: "A mitigation plan is required to mark a Risk Mitigated" }, { status: 400 });
@@ -53,10 +57,10 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/risks/
 
   const risk = await prisma.risk.update({
     where: { id },
-    data: { status, mitigationPlan, ...(ownerId !== undefined && { ownerId }) },
+    data: { ...(status !== undefined && { status, mitigationPlan }), ...(ownerId !== undefined && { ownerId }) },
     include: RISK_INCLUDE,
   });
-  if (existing.status !== status) {
+  if (status !== undefined && existing.status !== status) {
     await logChangeEvent(
       null,
       "RISK_STATUS_CHANGED",

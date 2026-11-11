@@ -4,7 +4,7 @@ import { getAssignedScope, scopedSystemsWhere } from "@/lib/business-risk-owner"
 import { isReadOnlySystemRole } from "@/lib/system-permissions";
 import { reviewGroupScopeWhere } from "@/lib/review-group-visibility";
 
-const FULL_VISIBILITY_ROLES: UserRole[] = ["ADMIN", "RISK_OWNER", "REVIEWER", "COMPLIANCE_MANAGER", "INTERNAL_AUDITOR"];
+const FULL_VISIBILITY_ROLES: UserRole[] = ["ADMIN", "RISK_OWNER", "REVIEWER", "COMPLIANCE_MANAGER", "INTERNAL_AUDITOR", "RISK_FACILITATOR"];
 
 /**
  * False for a role that may only read Systems (`READ_ONLY_SYSTEM_ROLES` in
@@ -19,8 +19,9 @@ export function canWriteSystems(user: { role: UserRole }) {
 
 /**
  * The Prisma `where` clause for Systems a given user is allowed to see:
- * ADMIN/RISK_OWNER/REVIEWER/COMPLIANCE_MANAGER/INTERNAL_AUDITOR see every
- * System in every status (the last two read-only, see `canWriteSystems`); a
+ * ADMIN/RISK_OWNER/REVIEWER/COMPLIANCE_MANAGER/INTERNAL_AUDITOR/RISK_FACILITATOR see every
+ * System in every status (the compliance manager and auditor read-only, see `canWriteSystems`; the Risk Facilitator, #362,
+ * writes only inside a Risk Analysis and to a Risk's owner); a
  * BUSINESS_RISK_OWNER additionally sees every System within their assigned
  * Business Unit(s)/Framework(s), any status — they already see these
  * Systems' Risks/compliance data via the Business Risk Owner dashboard, so

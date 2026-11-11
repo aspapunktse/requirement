@@ -373,5 +373,7 @@
 .sc-notes { white-space: pre-wrap; overflow-wrap: anywhere; }
 .sc-checklist { display: grid; gap: 4px; max-height: 12rem; overflow-y: auto; font-weight: 400; }
 .sc-checklist label { display: flex; gap: 8px; align-items: center; }
+.sc-risk-owner { display: grid; gap: 4px; margin-bottom: 8px; }
+.sc-risk-owner .sc-field { margin-left: 24px; }
 fieldset.sc-field { border: 0; padding: 0; margin: 0; min-width: 0; }
 .sc-risks > .hc-empty { grid-column: 1 / -1; }

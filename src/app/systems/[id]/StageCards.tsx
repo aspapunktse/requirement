@@ -166,7 +166,7 @@ export function RiskAnalysisRecord({ systemId }: { systemId: string }) {
             <b>No Risk Analysis recorded yet.</b>
           </p>
           <p>
-            A Risk Owner, or an Admin who isn&apos;t the System&apos;s owner, records the meeting on the <TabLink tab="risks">Risks tab</TabLink>.
+            A Risk Owner, a Risk Facilitator or an Admin who isn&apos;t the System&apos;s owner records the meeting on the <TabLink tab="risks">Risks tab</TabLink>.
           </p>
         </div>
       ) : (

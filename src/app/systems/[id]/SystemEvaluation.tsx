@@ -795,7 +795,7 @@ function RiskAnalysisStageCard({ systemId, evaluation, shown }: { systemId: stri
           <p className="ev-hint" aria-live="polite">
             {evaluation.canRecordRiskAnalysis
               ? "The second round is submitted. Record a Risk Analysis on the Risks tab and complete it: the System then moves on to OG3."
-              : "The second round is submitted. A Risk Owner or an Admin who isn't the System's owner completes a Risk Analysis, and the System then moves on to OG3."}
+              : "The second round is submitted. A Risk Owner, a Risk Facilitator or an Admin who isn't the System's owner completes a Risk Analysis, and the System then moves on to OG3."}
           </p>
         )}
         <RiskAnalysisRecord systemId={systemId} />

@@ -105,16 +105,75 @@ describe("the Risk register", () => {
     expect(screen.getAllByRole("button", { name: /Weak passwords|Unpatched server|From a finding/ })).toHaveLength(3);
   });
 
-  it("offers every User as a Risk's owner to those who manage Risks and sends the choice (#322)", async () => {
+  it("offers every User as a Risk's owner to those who assign owners and sends just the owner (#322, #360)", async () => {
     const user = userEvent.setup();
     renderRisks({ owners: [{ id: "u9", name: "Vera Viewer" }] });
     await user.click(await screen.findByRole("button", { name: /Unpatched server/ }));
     fetchMock.mockImplementation(() => respond({ risk: { ...RISKS[1], ownerId: "u9", owner: { id: "u9", name: "Vera Viewer" } } }));
 
-    await user.selectOptions(screen.getByLabelText("Owner for Unpatched server"), "u9");
-    await user.click(screen.getByRole("button", { name: "Save" }));
+    const group = within(screen.getByRole("group", { name: "Owner of Unpatched server" }));
+    expect(group.getByRole("button", { name: "Save owner" })).toBeDisabled();
+    await user.selectOptions(group.getByLabelText("Owner for Unpatched server"), "u9");
+    await user.click(group.getByRole("button", { name: "Save owner" }));
 
-    expect(fetchMock).toHaveBeenCalledWith("/api/systems/s1/risks/r2", expect.objectContaining({ method: "PATCH", body: JSON.stringify({ status: "MITIGATED", mitigationPlan: "Patch monthly", ownerId: "u9" }) }));
+    expect(fetchMock).toHaveBeenCalledWith("/api/systems/s1/risks/r2", expect.objectContaining({ method: "PATCH", body: JSON.stringify({ ownerId: "u9" }) }));
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+  });
+
+  it("clears the owner with Unassigned", async () => {
+    const user = userEvent.setup();
+    renderRisks({ owners: [{ id: "u1", name: "Elena Voss" }] });
+    await user.click(await screen.findByRole("button", { name: /Weak passwords/ }));
+    fetchMock.mockImplementation(() => respond({ risk: { ...RISKS[0], ownerId: null, owner: null } }));
+    await user.selectOptions(screen.getByLabelText("Owner for Weak passwords"), "");
+    await user.click(screen.getByRole("button", { name: "Save owner" }));
+    expect(fetchMock).toHaveBeenCalledWith("/api/systems/s1/risks/r1", expect.objectContaining({ method: "PATCH", body: JSON.stringify({ ownerId: null }) }));
+  });
+
+  it("shows a Risk Facilitator the owner control but no status form (#362)", async () => {
+    const user = userEvent.setup();
+    renderRisks({ canLog: false, canManageStatus: false, canAssignOwner: true, owners: [{ id: "u9", name: "Vera Viewer" }] });
+    await user.click(await screen.findByRole("button", { name: /Unpatched server/ }));
+    expect(screen.getByLabelText("Owner for Unpatched server")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Status")).not.toBeInTheDocument();
+  });
+
+  it("shows the owner as text to those who may not assign one", async () => {
+    const user = userEvent.setup();
+    renderRisks({ canManageStatus: false, canAssignOwner: false, owners: [{ id: "u9", name: "Vera Viewer" }] });
+    await user.click(await screen.findByRole("button", { name: /Weak passwords/ }));
+    expect(screen.queryByLabelText("Owner for Weak passwords")).not.toBeInTheDocument();
+    expect(screen.getByText(/Owner: Elena Voss/)).toBeInTheDocument();
+  });
+
+  it("opens the Risk a #risk-<id> link points at, with its row in view (#360)", async () => {
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    window.location.hash = "#risk-r2";
+    try {
+      renderRisks({ owners: [{ id: "u9", name: "Vera Viewer" }] });
+      expect(await screen.findByLabelText("Owner for Unpatched server")).toBeInTheDocument();
+      expect(screen.queryByLabelText("Owner for Weak passwords")).not.toBeInTheDocument();
+      expect(document.getElementById("risk-r2")).not.toBeNull();
+      await waitFor(() => expect(scrollIntoView).toHaveBeenCalled());
+    } finally {
+      window.location.hash = "";
+    }
+  });
+
+  it("offers an owner on an ad hoc Risk to those who assign owners, and sends it (#360)", async () => {
+    const user = userEvent.setup();
+    renderRisks({ owners: [{ id: "u9", name: "Vera Viewer" }] });
+    await screen.findByRole("table");
+    await user.click(screen.getByRole("button", { name: "+ Log Risk" }));
+    const form = within(screen.getByRole("form", { name: "Log a Risk" }));
+    await user.type(form.getByLabelText("Title"), "New one");
+    await user.type(form.getByLabelText("Description"), "Because");
+    await user.selectOptions(form.getByLabelText("Owner"), "u9");
+    await user.click(form.getByRole("button", { name: "Log Risk" }));
+    const call = fetchMock.mock.calls.find((c) => c[1]?.method === "POST");
+    expect(JSON.parse(call![1].body as string)).toMatchObject({ title: "New one", ownerId: "u9" });
   });
 
   it("offers no owner choice without owners", async () => {

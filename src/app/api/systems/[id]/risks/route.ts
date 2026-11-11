@@ -4,7 +4,7 @@ import { RiskSeverity } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { authenticate } from "@/lib/api-authz";
 import { getVisibleSystem } from "@/lib/system-visibility";
-import { canLogRisk, getSystemRisks, RISK_INCLUDE } from "@/lib/risks";
+import { canAssignRiskOwner, canLogRisk, getSystemRisks, RISK_INCLUDE } from "@/lib/risks";
 import { logChangeEvent } from "@/lib/change-events";
 import { riskLoggedDetail } from "@/lib/risk-logged-event";
 import { refuseIfSystemClosed } from "@/lib/system-closed";
@@ -28,6 +28,8 @@ const createRiskSchema = z.object({
   description: z.string().min(1),
   severity: z.enum(RiskSeverity),
   likelihood: z.enum(RiskSeverity),
+  /** Who acts on the Risk: any User (#360). Only those who may assign an owner may name one. */
+  ownerId: z.string().min(1).nullable().optional(),
 });
 
 export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems/[id]/risks">) {
@@ -55,11 +57,18 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems
     return NextResponse.json({ error: "Invalid Risk" }, { status: 400 });
   }
 
+  const { ownerId, ...riskFields } = parsed.data;
+  // The System's owner may log a Risk but may not pick its owner (#360), unless they also hold a role that may.
+  if (ownerId && !canAssignRiskOwner(auth.user, system)) {
+    return NextResponse.json({ error: "Only a Risk Owner, a Risk Facilitator or an Admin can assign a Risk's owner" }, { status: 403 });
+  }
+
   // The Risk and the Change Event that records it commit together (#245).
   const risk = await prisma.$transaction(async (tx) => {
+    if (ownerId && !(await tx.user.findUnique({ where: { id: ownerId }, select: { id: true } }))) return null;
     const created = await tx.risk.create({
       // The source is the server's to set: an ad hoc Risk, whatever the body says (the schema has no such field).
-      data: { ...parsed.data, systemId: system.id, source: "AD_HOC" },
+      data: { ...riskFields, ...(ownerId ? { ownerId } : {}), systemId: system.id, source: "AD_HOC" },
       include: RISK_INCLUDE,
     });
     await logChangeEvent(
@@ -71,5 +80,6 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems
     );
     return created;
   });
+  if (!risk) return NextResponse.json({ error: "The owner must be an existing User" }, { status: 400 });
   return NextResponse.json({ risk }, { status: 201 });
 }

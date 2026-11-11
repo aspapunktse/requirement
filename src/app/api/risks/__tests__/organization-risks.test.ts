@@ -101,6 +101,20 @@ describe("Risks with no System (#157)", () => {
       await manage(s.roleUser.RISK_OWNER, organizationRiskId, { status: "OPEN", ownerId: null });
     });
 
+    it("lets an Admin or a Risk Owner change just the owner, writing no Change Event (#360)", async () => {
+      const before = await prisma.changeEvent.count({ where: { systemId: null, action: "RISK_STATUS_CHANGED", detail: { contains: s.suffix } } });
+      for (const role of ["ADMIN", "RISK_OWNER"] as const) {
+        const response = await manage(s.roleUser[role], organizationRiskId, { ownerId: s.roleUser.VIEWER });
+        expect(response.status, role).toBe(200);
+        expect((await prisma.risk.findUniqueOrThrow({ where: { id: organizationRiskId } })).ownerId).toBe(s.roleUser.VIEWER);
+      }
+      expect(await prisma.changeEvent.count({ where: { systemId: null, action: "RISK_STATUS_CHANGED", detail: { contains: s.suffix } } })).toBe(before);
+      await manage(s.roleUser.RISK_OWNER, organizationRiskId, { ownerId: null });
+      // A Risk Facilitator may assign owners on System Risks only, so an owner-only change here is refused too (#362).
+      expect((await manage(s.roleUser.RISK_FACILITATOR, organizationRiskId, { ownerId: s.roleUser.VIEWER })).status).toBe(403);
+      expect((await prisma.risk.findUniqueOrThrow({ where: { id: organizationRiskId } })).ownerId).toBeNull();
+    });
+
     it("refuses the Internal Auditor and every other role", async () => {
       for (const role of ALL_ROLES.filter((r) => r !== "RISK_OWNER" && r !== "ADMIN")) {
         expect((await manage(s.roleUser[role], organizationRiskId, { status: "CLOSED" })).status, role).toBe(403);
@@ -154,8 +168,8 @@ describe("Risks with no System (#157)", () => {
       const view = await roleView({ id: s.roleUser.RISK_OWNER, name: "Risk Owner", role: "RISK_OWNER" });
       const row = view.tasks!.find((t) => t.id === organizationRiskId);
       expect(row).toMatchObject({ kind: "Risk", subtitle: "Organization", href: "/risks/organization" });
-      // The System Risk keeps linking to its System.
-      expect(view.tasks!.find((t) => t.id === systemRiskId)).toMatchObject({ subtitle: s.systemName, href: `/systems/${s.systemId}` });
+      // The System Risk links to it on its System.
+      expect(view.tasks!.find((t) => t.id === systemRiskId)).toMatchObject({ subtitle: s.systemName, href: `/systems/${s.systemId}#risk-${systemRiskId}` });
       expect(view.stats.find((stat) => stat.label === "Open risks")!.value).toBeGreaterThanOrEqual(2);
       expect(view.tiles.map((t) => t.href)).toContain("/risks/organization");
     });

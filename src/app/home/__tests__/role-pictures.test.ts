@@ -57,6 +57,7 @@ describe("each role's picture on /home (#226)", () => {
     BUSINESS_RISK_OWNER: "portfolio",
     COMPLIANCE_MANAGER: "rings",
     INTERNAL_AUDITOR: "audits",
+    RISK_FACILITATOR: "heat",
     ADMIN: "bars",
     VIEWER: "mosaic",
   };
