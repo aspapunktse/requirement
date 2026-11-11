@@ -304,6 +304,29 @@ describe("About, vendor and contract details (#357)", () => {
     expect(fetchMock).not.toHaveBeenCalledWith("/api/systems/s1/details", expect.anything());
   });
 
+  it("lets a flagged System that never had a service URL save other edits", async () => {
+    const user = userEvent.setup();
+    renderProfile({ about: { ...ABOUT, needsVendorDetails: true, serviceUrl: null } });
+    await user.click(aboutRegion().getByRole("button", { name: "Edit" }));
+    fireEvent.change(aboutRegion().getByLabelText("Description"), { target: { value: "New text" } });
+    await user.click(aboutRegion().getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/systems/s1/details",
+      expect.objectContaining({ method: "PATCH", body: JSON.stringify({ name: "ServiceNow", vendor: "ServiceNow Inc", description: "New text" }) }),
+    );
+  });
+
+  it("refuses clearing a populated vendor on a flagged System, without sending", async () => {
+    const user = userEvent.setup();
+    renderProfile({ about: { ...ABOUT, needsVendorDetails: true, serviceUrl: null } });
+    await user.click(aboutRegion().getByRole("button", { name: "Edit" }));
+    await user.clear(aboutRegion().getByLabelText("Vendor (required)"));
+    await user.click(aboutRegion().getByRole("button", { name: "Save" }));
+    expect(await aboutRegion().findByRole("alert")).toHaveTextContent("needs its vendor name and service URL");
+    expect(fetchMock).not.toHaveBeenCalledWith("/api/systems/s1/details", expect.anything());
+  });
+
   it("does not mark them required on a System that does not need them", async () => {
     const user = userEvent.setup();
     renderProfile({ about: FILLED });

@@ -20,6 +20,7 @@ import {
   DATA_PROCESSING_AGREEMENT_LABELS,
   NOTICE_PERIOD_MAX_MONTHS,
   isHttpUrl,
+  VENDOR_DETAILS_REQUIRED_MESSAGE,
   validateAboutTexts,
 } from "@/lib/vendor-detail-labels";
 import { formatDay } from "./system-page-logic";
@@ -79,12 +80,18 @@ function formOf(about: SystemDetails): AboutForm {
 }
 
 /** The same rules the API enforces (`src/lib/system-details.ts`), so most mistakes are caught before the request. */
-function validateDetails(form: AboutForm, needsVendorDetails: boolean) {
+function validateDetails(form: AboutForm, about: SystemDetails, needsVendorDetails: boolean) {
   const name = form.name.trim();
   if (name === "") return "Name is required";
   if (name.length > NAME_MAX) return `Name can be at most ${NAME_MAX} characters`;
   if (form.description.trim().length > DESCRIPTION_MAX) return `Description can be at most ${DESCRIPTION_MAX} characters`;
-  return validateAboutTexts(form, needsVendorDetails);
+  // Format rules only: the vendor rule is checked below against what was stored, like the server does.
+  const invalid = validateAboutTexts(form, false);
+  if (invalid) return invalid;
+  // Only an actual clearing is refused, so a legacy System that never had them can still save other edits.
+  const cleared = (before: string | null, now: string) => before !== null && before.trim() !== "" && now.trim() === "";
+  if (needsVendorDetails && (cleared(about.vendor, form.vendor) || cleared(about.serviceUrl, form.serviceUrl))) return VENDOR_DETAILS_REQUIRED_MESSAGE;
+  return null;
 }
 
 /** The PATCH body: name, vendor and description as ever, and each "About the system" detail only when it changed. */
@@ -146,7 +153,7 @@ function About({ systemId, about, canEdit }: { systemId: string; about: SystemAb
 
   async function handleSave(event: React.FormEvent) {
     event.preventDefault();
-    const invalid = validateDetails(form, required);
+    const invalid = validateDetails(form, about, required);
     if (invalid) {
       setError(invalid);
       return;
