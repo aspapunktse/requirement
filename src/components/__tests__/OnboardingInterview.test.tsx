@@ -38,8 +38,9 @@ const catalog: OnboardingCatalog = {
     { id: "it-pay", name: "Payroll", description: "Salaries and bank details", sensitivityLevel: 4, suggestedFrameworkIds: [] },
   ],
   deploymentFacets: [
-    { id: "f-saas", name: "Software as a service", description: "We subscribe to it and log in" },
-    { id: "f-prem", name: "On-premises", description: "We run it in our own data centre" },
+    { id: "f-saas", name: "Software as a service", description: "We subscribe to it and log in", requiresVendorDetails: false },
+    { id: "f-prem", name: "On-premises", description: "We run it in our own data centre", requiresVendorDetails: false },
+    { id: "f-vendor", name: "Bought as a service", description: "A vendor runs it for us", requiresVendorDetails: true },
   ],
   frameworks: [
     { id: "base", name: "ISO/IEC 27001", version: "2022", description: null, isBase: true, onboardingQuestion: null, onboardingHint: null },
@@ -99,9 +100,18 @@ const questionTitle = () => document.getElementById("ob-q-title")!;
 /** The long walkthroughs click through ~10 controls; each click re-renders the whole interview, which takes ~3-4 s on a loaded CI runner, so they get more than the default 5 s. */
 const LONG_WALKTHROUGH = 15000;
 
-async function setup(userId?: string) {
+/** Opens the interview on its first step, "About the system". */
+async function setupAtAbout(userId?: string) {
   const user = userEvent.setup();
   render(<OnboardingInterview userId={userId} />);
+  await screen.findByRole("heading", { name: "What is the system?" });
+  return user;
+}
+
+/** Opens the interview and moves past "About the system" to the Delivery step. */
+async function setup(userId?: string) {
+  const user = await setupAtAbout(userId);
+  await user.click(screen.getByRole("button", { name: "Next" }));
   await screen.findByRole("heading", { name: "How do you get the system?" });
   return user;
 }
@@ -110,6 +120,13 @@ async function setup(userId?: string) {
 async function fill(user: ReturnType<typeof userEvent.setup>, field: HTMLElement, text: string) {
   await user.click(field);
   await user.paste(text);
+}
+
+/** Names the System on the About step, then returns to the step the test was on. */
+async function nameIt(user: ReturnType<typeof userEvent.setup>, text: string, backTo = "Delivery") {
+  await user.click(screen.getByRole("button", { name: "About the system" }));
+  await fill(user, screen.getByLabelText("System name"), text);
+  await user.click(screen.getByRole("button", { name: backTo }));
 }
 
 const next = (user: ReturnType<typeof userEvent.setup>) => user.click(screen.getByRole("button", { name: "Next" }));
@@ -124,14 +141,14 @@ describe("OnboardingInterview", () => {
     vi.unstubAllGlobals();
   });
 
-  it("shows the hero, the seven steps, the first question and the live list", async () => {
+  it("shows the hero, the eight steps, the first question and the live list", async () => {
     await setup();
 
     expect(screen.getByRole("heading", { level: 1, name: "Onboard a new System" })).toBeInTheDocument();
     expect(screen.getByRole("navigation", { name: "Breadcrumb" })).toHaveTextContent("Systems / New System");
     const steps = within(screen.getByRole("list", { name: "Steps" })).getAllByRole("button");
-    expect(steps.map((b) => b.textContent)).toEqual(["1Delivery", "2Sensitivity", "3Integrity", "4Downtime", "5Laws and standards", "6Relies on", "7Review"]);
-    expect(screen.getByText("Step 1 of 7")).toBeInTheDocument();
+    expect(steps.map((b) => b.textContent)).toEqual(["1About the system", "2Delivery", "3Sensitivity", "4Integrity", "5Downtime", "6Laws and standards", "7Relies on", "8Review"]);
+    expect(screen.getByText("Step 2 of 8")).toBeInTheDocument();
     expect(screen.getByText("Pick every option that fits. A system that is partly bought as a service and partly run by you takes both.")).toBeInTheDocument();
     expect(screen.getByRole("checkbox", { name: "Software as a service" })).toHaveAccessibleDescription(/We subscribe to it and log in/);
     // Before any answer: the Controls with no scoping apply, of all seven in the library.
@@ -167,7 +184,7 @@ describe("OnboardingInterview", () => {
 
     await next(user);
     expect(questionTitle()).toHaveTextContent("What is the most sensitive information in it?");
-    expect(screen.getByText("Step 2 of 7")).toBeInTheDocument();
+    expect(screen.getByText("Step 3 of 8")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Sensitivity" })).toHaveAttribute("aria-current", "step");
     await next(user);
     expect(questionTitle()).toHaveTextContent("What happens if its data is wrong or tampered with?");
@@ -259,7 +276,7 @@ describe("OnboardingInterview", () => {
 
   it("summarises the answers on the last step, with Edit links back", async () => {
     const user = await setup();
-    await fill(user, screen.getByLabelText("System name"), "  Payroll  ");
+    await nameIt(user, "  Payroll  ");
     await user.click(screen.getByRole("checkbox", { name: "On-premises" }));
     await user.click(screen.getByRole("button", { name: "Sensitivity" }));
     await user.click(screen.getByRole("radio", { name: "Sensitivity Level: Highly Sensitive" }));
@@ -270,7 +287,7 @@ describe("OnboardingInterview", () => {
     await next(user);
 
     expect(questionTitle()).toHaveTextContent("Review and create");
-    expect(screen.getByText("Step 7 of 7")).toBeInTheDocument();
+    expect(screen.getByText("Step 8 of 8")).toBeInTheDocument();
     const rows = screen.getByText("Your answers").closest(".ob-sum") as HTMLElement;
     expect(within(rows).getByText("Delivery").nextElementSibling).toHaveTextContent("On-premises");
     expect(within(rows).getByText("Sensitivity").nextElementSibling).toHaveTextContent("Highly Sensitive");
@@ -293,7 +310,7 @@ describe("OnboardingInterview", () => {
 
   it("creates the System with one request carrying every answer", async () => {
     const user = await setup();
-    await fill(user, screen.getByLabelText("System name"), "  Payroll  ");
+    await nameIt(user, "  Payroll  ");
     await user.click(screen.getByRole("checkbox", { name: "On-premises" }));
     await user.click(screen.getByRole("button", { name: "Sensitivity" }));
     await user.click(screen.getByRole("radio", { name: "Sensitivity Level: Highly Sensitive" }));
@@ -303,8 +320,10 @@ describe("OnboardingInterview", () => {
     await user.click(screen.getByRole("checkbox", { name: "Landing Zone" }));
     await user.click(screen.getByRole("button", { name: "Review" }));
 
+    await user.click(screen.getByRole("button", { name: "About the system" }));
     await fill(user, screen.getByLabelText("Vendor (optional)"), "Acme");
     await fill(user, screen.getByLabelText("Description (optional)"), "Pays people");
+    await user.click(screen.getByRole("button", { name: "Review" }));
     await user.click(screen.getByRole("button", { name: "Create System" }));
 
     await waitFor(() => expect(push).toHaveBeenCalledWith("/systems/sys1"));
@@ -321,7 +340,7 @@ describe("OnboardingInterview", () => {
 
   it("lets the creator pick an optional Business System Owner on the review step, never themself, and sends the pick", async () => {
     const user = await setup("u-me");
-    await fill(user, screen.getByLabelText("System name"), "Payroll");
+    await nameIt(user, "Payroll");
     await user.click(screen.getByRole("checkbox", { name: "On-premises" }));
     await user.click(screen.getByRole("button", { name: "Review" }));
 
@@ -342,8 +361,8 @@ describe("OnboardingInterview", () => {
     await user.click(screen.getByRole("button", { name: "Review" }));
 
     expect(screen.getByRole("button", { name: "Create System" })).toBeDisabled();
-    expect(screen.getByText(/Name the System at the top of the page/)).toBeInTheDocument();
-    await fill(user, screen.getByLabelText("System name"), "Payroll");
+    expect(screen.getByText(/Name the System \(step 1\) before creating it/)).toBeInTheDocument();
+    await nameIt(user, "Payroll", "Review");
     await user.click(screen.getByRole("button", { name: "Create System" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Only a System Owner, Risk Owner or Admin can create a System");
@@ -448,7 +467,7 @@ describe("OnboardingInterview", () => {
 
       const rows = screen.getByText("Your answers").closest(".ob-sum") as HTMLElement;
       expect(within(rows).getByText("Information Types").nextElementSibling).toHaveTextContent("Payroll, Source code");
-      await fill(user, screen.getByLabelText("System name"), "Payroll system");
+      await nameIt(user, "Payroll system", "Review");
       await user.click(screen.getByRole("button", { name: "Create System" }));
 
       await waitFor(() => expect(push).toHaveBeenCalledWith("/systems/sys1"));
@@ -459,7 +478,7 @@ describe("OnboardingInterview", () => {
       const user = await toSensitivity();
       await user.click(screen.getByRole("checkbox", { name: "Payroll" }));
       await user.click(screen.getByRole("button", { name: "Review" }));
-      await fill(user, screen.getByLabelText("System name"), "Payroll system");
+      await nameIt(user, "Payroll system", "Review");
 
       expect(screen.getByRole("button", { name: "Create System" })).toBeDisabled();
       expect(screen.getByText(/Raise the Sensitivity Level to match its Information Types/)).toBeInTheDocument();
@@ -468,10 +487,109 @@ describe("OnboardingInterview", () => {
     it("sends no types when none are ticked", async () => {
       const user = await toSensitivity();
       await user.click(screen.getByRole("button", { name: "Review" }));
-      await fill(user, screen.getByLabelText("System name"), "Plain");
+      await nameIt(user, "Plain", "Review");
       await user.click(screen.getByRole("button", { name: "Create System" }));
       await waitFor(() => expect(push).toHaveBeenCalled());
       expect(postedBody()).not.toHaveProperty("informationTypeIds");
     });
+  });
+
+  describe("About the system (#357)", () => {
+    it("asks for the vendor, service and contract details on the first step, and hides the service URL until a Facet needs it", async () => {
+      await setupAtAbout();
+      for (const label of [
+        "System name",
+        "Description (optional)",
+        "Vendor (optional)",
+        "Vendor website (optional)",
+        "Product and plan (optional)",
+        "Vendor trust or security page (optional)",
+        "Data location (optional)",
+        "Data processing agreement (optional)",
+        "Contract reference (optional)",
+        "Contract renewal date (optional)",
+        "Notice period in months (optional)",
+      ]) {
+        expect(screen.getByLabelText(label)).toBeInTheDocument();
+      }
+      expect(screen.queryByLabelText(/Service URL/)).not.toBeInTheDocument();
+    });
+
+    it("asks for vendor name and service URL once a flagged Facet is picked, and holds Create until they are given", async () => {
+      const user = await setup();
+      await nameIt(user, "Payroll");
+      await user.click(screen.getByRole("checkbox", { name: "Bought as a service" }));
+      expect(screen.getByText(/needs its vendor name and service URL/)).toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: "Review" }));
+      expect(screen.getByRole("button", { name: "Create System" })).toBeDisabled();
+
+      await user.click(screen.getByRole("button", { name: "About the system" }));
+      await fill(user, screen.getByLabelText("Vendor (required)"), "Acme");
+      await fill(user, screen.getByLabelText("Service URL (required)"), "https://app.acme.example");
+      await user.click(screen.getByRole("button", { name: "Review" }));
+      expect(screen.getByRole("button", { name: "Create System" })).toBeEnabled();
+    }, LONG_WALKTHROUGH);
+
+    it("links from the Delivery note back to the About step", async () => {
+      const user = await setup();
+      await user.click(screen.getByRole("checkbox", { name: "Bought as a service" }));
+      await user.click(screen.getByRole("button", { name: "Add them in About the system" }));
+      expect(await screen.findByLabelText("Service URL (required)")).toBeInTheDocument();
+    });
+
+    it("blocks Create on an address that is not http or https", async () => {
+      const user = await setup();
+      await user.click(screen.getByRole("checkbox", { name: "On-premises" }));
+      await nameIt(user, "Payroll");
+      await user.click(screen.getByRole("button", { name: "About the system" }));
+      await fill(user, screen.getByLabelText("Vendor website (optional)"), "javascript:alert(1)");
+      expect(screen.getByRole("status")).toHaveTextContent("Vendor website must be a web address");
+      await user.click(screen.getByRole("button", { name: "Review" }));
+      expect(screen.getByRole("button", { name: "Create System" })).toBeDisabled();
+    }, LONG_WALKTHROUGH);
+
+    it("lists the details on the Review step and sends them in the request", async () => {
+      const user = await setup();
+      await user.click(screen.getByRole("checkbox", { name: "Bought as a service" }));
+      await user.click(screen.getByRole("button", { name: "About the system" }));
+      await fill(user, screen.getByLabelText("System name"), "Payroll");
+      await fill(user, screen.getByLabelText("Vendor (required)"), "Acme");
+      await fill(user, screen.getByLabelText("Service URL (required)"), "https://app.acme.example");
+      await fill(user, screen.getByLabelText("Product and plan (optional)"), "Premium");
+      await user.selectOptions(screen.getByLabelText("Data location (optional)"), "EU_EEA");
+      await user.selectOptions(screen.getByLabelText("Data processing agreement (optional)"), "SIGNED");
+      await fill(user, screen.getByLabelText("Notice period in months (optional)"), "3");
+      await user.click(screen.getByRole("button", { name: "Review" }));
+
+      expect(screen.getByText("https://app.acme.example")).toBeInTheDocument();
+      expect(screen.getByText("Premium")).toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: "Create System" }));
+      await waitFor(() => expect(push).toHaveBeenCalledWith("/systems/sys1"));
+      expect(postedBody()).toMatchObject({
+        name: "Payroll",
+        vendor: "Acme",
+        serviceUrl: "https://app.acme.example",
+        productPlan: "Premium",
+        dataLocation: "EU_EEA",
+        dataProcessingAgreement: "SIGNED",
+        noticePeriodMonths: 3,
+        deploymentFacetIds: ["f-vendor"],
+      });
+    }, LONG_WALKTHROUGH);
+
+    it("does not send a service URL typed before the flagged Facet was dropped", async () => {
+      const user = await setup();
+      await user.click(screen.getByRole("checkbox", { name: "Bought as a service" }));
+      await user.click(screen.getByRole("button", { name: "About the system" }));
+      await fill(user, screen.getByLabelText("System name"), "Payroll");
+      await fill(user, screen.getByLabelText("Service URL (required)"), "https://app.acme.example");
+      await user.click(screen.getByRole("button", { name: "Delivery" }));
+      await user.click(screen.getByRole("checkbox", { name: "Bought as a service" }));
+      await user.click(screen.getByRole("checkbox", { name: "On-premises" }));
+      await user.click(screen.getByRole("button", { name: "Review" }));
+      await user.click(screen.getByRole("button", { name: "Create System" }));
+      await waitFor(() => expect(push).toHaveBeenCalled());
+      expect(postedBody()).not.toHaveProperty("serviceUrl");
+    }, LONG_WALKTHROUGH);
   });
 });

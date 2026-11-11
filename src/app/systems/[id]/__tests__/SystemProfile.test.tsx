@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { SystemProfile } from "../SystemProfile";
+import { SystemProfile, type SystemAbout } from "../SystemProfile";
 
 const refresh = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh, push: vi.fn() }) }));
@@ -61,11 +61,34 @@ const LEVELS = [
   { level: 5, label: "Critical Sensitivity", description: "Would threaten the organisation.", textColor: "#991B1B", backgroundColor: "#FEE2E2" },
 ];
 
+const NO_DETAILS = {
+  vendorWebsiteUrl: null,
+  serviceUrl: null,
+  productPlan: null,
+  vendorTrustUrl: null,
+  dataLocation: null,
+  dataProcessingAgreement: null,
+  contractReference: null,
+  contractRenewalDate: null,
+  noticePeriodMonths: null,
+};
+
+const ABOUT: SystemAbout = {
+  ...NO_DETAILS,
+  name: "ServiceNow",
+  vendor: "ServiceNow Inc",
+  ownerName: "Marcus Lindqvist",
+  createdAt: "2026-09-01T09:00:00.000Z",
+  onboardedAt: null,
+  description: "IT service management.",
+  needsVendorDetails: false,
+};
+
 function renderProfile(props: Partial<React.ComponentProps<typeof SystemProfile>> = {}) {
   return render(
     <SystemProfile
       systemId="s1"
-      about={{ name: "ServiceNow", vendor: "ServiceNow Inc", ownerName: "Marcus Lindqvist", createdAt: "2026-09-01T09:00:00.000Z", onboardedAt: null, description: "IT service management." }}
+      about={ABOUT}
       canChangeClassification
       canManageBusinessUnits
       canManageFrameworkScopes
@@ -93,9 +116,9 @@ describe("About", () => {
   });
 
   it("says so for what is not set", () => {
-    renderProfile({ about: { name: "ServiceNow", vendor: null, ownerName: "Ola", createdAt: "2026-09-01T09:00:00.000Z", onboardedAt: "2026-10-01T09:00:00.000Z", description: null } });
+    renderProfile({ about: { ...ABOUT, vendor: null, ownerName: "Ola", onboardedAt: "2026-10-01T09:00:00.000Z", description: null } });
     const about = within(screen.getByRole("region", { name: "About" }));
-    expect(about.getByText("Not set")).toBeInTheDocument();
+    expect(about.getAllByText("Not set").length).toBeGreaterThan(0);
     expect(about.getByText("No description")).toBeInTheDocument();
     expect(about.getByText("1 Oct 2026")).toBeInTheDocument();
   });
@@ -202,6 +225,114 @@ describe("About, editing (#246)", () => {
 
     await user.click(aboutRegion().getByRole("button", { name: "Edit" }));
     expect(aboutRegion().getByLabelText("Vendor")).toHaveValue("ServiceNow Inc");
+  });
+});
+
+describe("About, vendor and contract details (#357)", () => {
+  const aboutRegion = () => within(screen.getByRole("region", { name: "About" }));
+  const FILLED: SystemAbout = {
+    ...ABOUT,
+    vendorWebsiteUrl: "https://www.acme.example",
+    serviceUrl: "https://app.acme.example",
+    productPlan: "Premium",
+    vendorTrustUrl: "https://trust.acme.example",
+    dataLocation: "EU_EEA",
+    dataProcessingAgreement: "IN_PROGRESS",
+    contractReference: "C-2026-14",
+    contractRenewalDate: "2027-03-31",
+    noticePeriodMonths: 3,
+  };
+
+  it("shows the details, with the addresses as links that open in a new tab", () => {
+    renderProfile({ about: FILLED });
+    for (const url of ["https://www.acme.example", "https://app.acme.example", "https://trust.acme.example"]) {
+      const link = aboutRegion().getByRole("link", { name: url });
+      expect(link).toHaveAttribute("href", url);
+      expect(link).toHaveAttribute("target", "_blank");
+      expect(link).toHaveAttribute("rel", "noopener noreferrer");
+    }
+    expect(aboutRegion().getByText("Premium")).toBeInTheDocument();
+    expect(aboutRegion().getByText("C-2026-14")).toBeInTheDocument();
+    expect(aboutRegion().getByText(/3 months/)).toBeInTheDocument();
+  });
+
+  it("shows an address that is not http or https as plain text, never as a link", () => {
+    renderProfile({ about: { ...FILLED, serviceUrl: "javascript:alert(1)" } });
+    expect(aboutRegion().queryByRole("link", { name: "javascript:alert(1)" })).not.toBeInTheDocument();
+    expect(aboutRegion().getByText("javascript:alert(1)")).toBeInTheDocument();
+  });
+
+  it("saves only the details that changed, next to name, vendor and description", async () => {
+    const user = userEvent.setup();
+    renderProfile({ about: FILLED });
+    await user.click(aboutRegion().getByRole("button", { name: "Edit" }));
+    await user.selectOptions(aboutRegion().getByLabelText("Data location"), "SWEDEN");
+    await user.click(aboutRegion().getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/systems/s1/details",
+      expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({ name: "ServiceNow", vendor: "ServiceNow Inc", description: "IT service management.", dataLocation: "SWEDEN" }),
+      }),
+    );
+  });
+
+  it("refuses an address that is not http or https, and a notice period out of range, without sending", async () => {
+    const user = userEvent.setup();
+    renderProfile({ about: FILLED });
+    await user.click(aboutRegion().getByRole("button", { name: "Edit" }));
+    fireEvent.change(aboutRegion().getByLabelText("Vendor website"), { target: { value: "ftp://x.example" } });
+    await user.click(aboutRegion().getByRole("button", { name: "Save" }));
+    expect(await aboutRegion().findByRole("alert")).toHaveTextContent("Vendor website must be a web address");
+
+    fireEvent.change(aboutRegion().getByLabelText("Vendor website"), { target: { value: "https://www.acme.example" } });
+    fireEvent.change(aboutRegion().getByLabelText("Notice period (months)"), { target: { value: "121" } });
+    await user.click(aboutRegion().getByRole("button", { name: "Save" }));
+    expect(await aboutRegion().findByRole("alert")).toHaveTextContent("Notice period must be a whole number of months");
+    expect(fetchMock).not.toHaveBeenCalledWith("/api/systems/s1/details", expect.anything());
+  });
+
+  it("marks vendor and service URL required on a System that needs them, and refuses clearing them", async () => {
+    const user = userEvent.setup();
+    renderProfile({ about: { ...FILLED, needsVendorDetails: true } });
+    await user.click(aboutRegion().getByRole("button", { name: "Edit" }));
+    expect(aboutRegion().getByLabelText("Vendor (required)")).toBeInTheDocument();
+    await user.clear(aboutRegion().getByLabelText("Service URL (required)"));
+    await user.click(aboutRegion().getByRole("button", { name: "Save" }));
+    expect(await aboutRegion().findByRole("alert")).toHaveTextContent("needs its vendor name and service URL");
+    expect(fetchMock).not.toHaveBeenCalledWith("/api/systems/s1/details", expect.anything());
+  });
+
+  it("lets a flagged System that never had a service URL save other edits", async () => {
+    const user = userEvent.setup();
+    renderProfile({ about: { ...ABOUT, needsVendorDetails: true, serviceUrl: null } });
+    await user.click(aboutRegion().getByRole("button", { name: "Edit" }));
+    fireEvent.change(aboutRegion().getByLabelText("Description"), { target: { value: "New text" } });
+    await user.click(aboutRegion().getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/systems/s1/details",
+      expect.objectContaining({ method: "PATCH", body: JSON.stringify({ name: "ServiceNow", vendor: "ServiceNow Inc", description: "New text" }) }),
+    );
+  });
+
+  it("refuses clearing a populated vendor on a flagged System, without sending", async () => {
+    const user = userEvent.setup();
+    renderProfile({ about: { ...ABOUT, needsVendorDetails: true, serviceUrl: null } });
+    await user.click(aboutRegion().getByRole("button", { name: "Edit" }));
+    await user.clear(aboutRegion().getByLabelText("Vendor (required)"));
+    await user.click(aboutRegion().getByRole("button", { name: "Save" }));
+    expect(await aboutRegion().findByRole("alert")).toHaveTextContent("needs its vendor name and service URL");
+    expect(fetchMock).not.toHaveBeenCalledWith("/api/systems/s1/details", expect.anything());
+  });
+
+  it("does not mark them required on a System that does not need them", async () => {
+    const user = userEvent.setup();
+    renderProfile({ about: FILLED });
+    await user.click(aboutRegion().getByRole("button", { name: "Edit" }));
+    expect(aboutRegion().getByLabelText("Vendor")).toBeInTheDocument();
+    expect(aboutRegion().getByLabelText("Service URL")).toBeInTheDocument();
   });
 });
 

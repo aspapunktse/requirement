@@ -54,7 +54,8 @@ export type OnboardingControl = {
   offerings: OnboardingOffering[];
 };
 
-export type OnboardingFacet = { id: string; name: string; description: string | null };
+/** `requiresVendorDetails`: a System declaring it must give its vendor name and service URL (#357). */
+export type OnboardingFacet = { id: string; name: string; description: string | null; requiresVendorDetails: boolean };
 
 export type OnboardingFramework = {
   id: string;

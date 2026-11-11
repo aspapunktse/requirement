@@ -19,6 +19,8 @@ import {
 } from "@/lib/system-information-types";
 import { lockProvider, PROVIDER_TRANSACTION_TIMEOUT_MS } from "@/lib/provider-inheritance";
 import { SUGGESTING_TYPE_SELECT, declinesForCreate } from "@/lib/framework-suggestions-data";
+import { VENDOR_DETAILS_REQUIRED_MESSAGE, missingVendorDetails } from "@/lib/vendor-detail-labels";
+import { VENDOR_DETAIL_KEYS, dayDate, vendorDetailFields } from "@/lib/vendor-details";
 
 const impactLevelSchema = z.nativeEnum(ImpactLevel).optional();
 
@@ -33,8 +35,10 @@ export async function GET(request: NextRequest) {
 
 const createSystemSchema = z.object({
   name: z.string().min(1),
-  vendor: z.string().optional(),
   description: z.string().optional(),
+  // The "About the system" details (#357): vendor name, URLs, data location, contract. All optional here;
+  // vendor and service URL are required once a declared Deployment Facet needs vendor details (below).
+  ...vendorDetailFields,
   sensitivityLevel: sensitivityLevelSchema.optional(),
   // The Information Types the new System declares (#304); the level must meet their floor.
   informationTypeIds: z.array(z.string().min(1)).max(500).optional(),
@@ -77,8 +81,10 @@ export async function POST(request: NextRequest) {
 
   const parsed = createSystemSchema.safeParse(await request.json());
   if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    const aboutDetail = typeof issue?.path[0] === "string" && (VENDOR_DETAIL_KEYS as string[]).includes(issue.path[0]);
     return NextResponse.json(
-      { error: "name and at least one deploymentFacetId are required" },
+      { error: aboutDetail ? issue.message : "name and at least one deploymentFacetId are required" },
       { status: 400 },
     );
   }
@@ -87,11 +93,16 @@ export async function POST(request: NextRequest) {
   const scopeIds = [...new Set(frameworkScopeIds)];
   const dependencyIds = [...new Set(providerIds)].sort();
 
-  const matchingFacets = await prisma.deploymentFacet.count({
+  const facets = await prisma.deploymentFacet.findMany({
     where: { id: { in: deploymentFacetIds } },
+    select: { requiresVendorDetails: true },
   });
-  if (matchingFacets !== deploymentFacetIds.length) {
+  if (facets.length !== deploymentFacetIds.length) {
     return NextResponse.json({ error: "One or more Deployment Facet ids do not exist" }, { status: 400 });
+  }
+  // A System declaring a Facet that needs vendor details can't be created without its vendor name and service URL.
+  if (facets.some((facet) => facet.requiresVendorDetails) && missingVendorDetails(rest).length > 0) {
+    return NextResponse.json({ error: VENDOR_DETAILS_REQUIRED_MESSAGE }, { status: 400 });
   }
 
   // The System, its Framework Scope, its Provider dependencies and all their Change Events commit
@@ -141,6 +152,7 @@ export async function POST(request: NextRequest) {
         const created = await tx.system.create({
           data: {
             ...rest,
+            ...(rest.contractRenewalDate ? { contractRenewalDate: dayDate(rest.contractRenewalDate) } : { contractRenewalDate: null }),
             ownerId: auth.user.id,
             ...(staged && { evaluationStage: "FIRST_ROUND" as const, evaluationStageEnteredAt: new Date() }),
             ...(businessSystemOwner && { businessSystemOwnerId: businessSystemOwner.id }),

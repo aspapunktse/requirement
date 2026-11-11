@@ -131,12 +131,11 @@ export default async function SystemDetailPage({ params }: PageProps<"/systems/[
       <SystemProfile
         systemId={system.id}
         about={{
-          name: view.system.name,
-          vendor: view.system.vendor,
+          ...view.system.about,
+          needsVendorDetails: view.system.needsVendorDetails,
           ownerName: view.system.ownerName,
           createdAt: view.system.createdAt,
           onboardedAt: view.system.onboardedAt,
-          description: view.system.description,
         }}
         canChangeClassification={canChangeClassification}
         canManageBusinessUnits={canManageBusinessUnits(user, system)}

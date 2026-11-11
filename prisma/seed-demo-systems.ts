@@ -66,7 +66,12 @@ async function main() {
     await Promise.all(
       facetNames.map(async (name) => [
         name,
-        await prisma.deploymentFacet.upsert({ where: { name }, update: {}, create: { name } }),
+        // SaaS needs vendor details (#357), as the migration sets it on an existing facet of that name.
+        await prisma.deploymentFacet.upsert({
+          where: { name },
+          update: name === "SaaS" ? { requiresVendorDetails: true } : {},
+          create: { name, requiresVendorDetails: name === "SaaS" },
+        }),
       ]),
     ),
   ) as Record<(typeof facetNames)[number], { id: string }>;

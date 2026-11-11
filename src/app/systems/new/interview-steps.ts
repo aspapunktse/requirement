@@ -1,7 +1,7 @@
 import type { ImpactLevel } from "@prisma/client";
 
 /**
- * The wording of the System onboarding interview (design proposal A, issue #258): the seven steps, the
+ * The wording of the System onboarding interview (design proposal A, issue #258): the eight steps, the
  * plain-language questions and the options of the two Impact Level steps. The Sensitivity step lists the
  * Sensitivity Levels from the catalog (ADR 0011), so it has no options here. The Deployment Facets,
  * Frameworks and Providers are not here: they come from the catalogs.
@@ -9,7 +9,7 @@ import type { ImpactLevel } from "@prisma/client";
 
 export type ImpactAxisKey = "integrityImpactLevel" | "availabilityImpactLevel";
 
-export type InterviewStepKey = "delivery" | "sensitivity" | "integrity" | "downtime" | "laws" | "relies" | "review";
+export type InterviewStepKey = "about" | "delivery" | "sensitivity" | "integrity" | "downtime" | "laws" | "relies" | "review";
 
 export type InterviewStep = {
   key: InterviewStepKey;
@@ -21,6 +21,12 @@ export type InterviewStep = {
 };
 
 export const INTERVIEW_STEPS: InterviewStep[] = [
+  {
+    key: "about",
+    label: "About the system",
+    title: "What is the system?",
+    help: "Name it and say where to find the vendor and the service. Only the name is needed now. A system bought as a service also needs its vendor name and service URL.",
+  },
   {
     key: "delivery",
     label: "Delivery",

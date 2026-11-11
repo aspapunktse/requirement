@@ -17,7 +17,7 @@ const catalog: OnboardingCatalog = {
     { id: "it-cust", name: "Customer personal data", description: null, sensitivityLevel: 3, suggestedFrameworkIds: ["gdpr"] },
     { id: "it-code", name: "Source code", description: null, sensitivityLevel: 3, suggestedFrameworkIds: [] },
   ],
-  deploymentFacets: [{ id: "f-saas", name: "Software as a service", description: null }],
+  deploymentFacets: [{ id: "f-saas", name: "Software as a service", description: null, requiresVendorDetails: false }],
   frameworks: [
     { id: "base", name: "ISO/IEC 27001", version: "2022", description: null, isBase: true, onboardingQuestion: null, onboardingHint: null },
     { id: "gdpr", name: "GDPR", version: "1", description: null, isBase: false, onboardingQuestion: "Does it hold personal data about people?", onboardingHint: null },
@@ -35,6 +35,8 @@ const posted = () => {
 async function toLaws(declareType: boolean) {
   const user = userEvent.setup();
   render(<OnboardingInterview />);
+  await screen.findByRole("heading", { name: "What is the system?" });
+  await user.click(screen.getByRole("button", { name: "Next" }));
   await screen.findByRole("heading", { name: "How do you get the system?" });
   await user.click(screen.getByRole("checkbox", { name: "Software as a service" }));
   await user.click(screen.getByRole("button", { name: "Sensitivity" }));
@@ -47,9 +49,10 @@ async function toLaws(declareType: boolean) {
 const suggestionRadios = () => screen.getByText(/usually falls under GDPR/).closest("fieldset")!.querySelectorAll<HTMLInputElement>('input[type="radio"]');
 
 async function create(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole("button", { name: "Review" }));
+  await user.click(screen.getByRole("button", { name: "About the system" }));
   await user.click(screen.getByLabelText("System name"));
   await user.paste("Test System");
+  await user.click(screen.getByRole("button", { name: "Review" }));
   await user.click(screen.getByRole("button", { name: "Create System" }));
   await waitFor(() => expect(push).toHaveBeenCalledWith("/systems/sys1"));
 }

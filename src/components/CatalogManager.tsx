@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 
-type CatalogItem = { id: string; name: string; description: string | null };
-type Draft = { name: string; description: string };
+type CatalogItem = { id: string; name: string; description: string | null; [flag: string]: unknown };
+type Draft = { name: string; description: string; flag: boolean };
 
 type CatalogManagerProps = {
   /** Base API path for this catalog, e.g. "/api/deployment-facets". */
@@ -15,6 +15,8 @@ type CatalogManagerProps = {
   itemLabel: string;
   /** Plural form, e.g. "Categories". Defaults to `${itemLabel}s`. */
   itemLabelPlural?: string;
+  /** An optional on/off setting on each entry (e.g. a Deployment Facet's "Needs vendor details"): the field's key in the API, its label and a one-line hint. */
+  flag?: { key: string; label: string; hint?: string };
 };
 
 async function fetchItems(resourcePath: string, resourceKey: string): Promise<CatalogItem[]> {
@@ -32,16 +34,18 @@ export function CatalogManager({
   resourceKey,
   itemLabel,
   itemLabelPlural = `${itemLabel}s`,
+  flag,
 }: CatalogManagerProps) {
   const [items, setItems] = useState<CatalogItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [newName, setNewName] = useState("");
   const [newDescription, setNewDescription] = useState("");
+  const [newFlag, setNewFlag] = useState(false);
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
 
   function draftFor(item: CatalogItem): Draft {
-    return drafts[item.id] ?? { name: item.name, description: item.description ?? "" };
+    return drafts[item.id] ?? { name: item.name, description: item.description ?? "", flag: flag ? item[flag.key] === true : false };
   }
 
   function updateDraft(item: CatalogItem, patch: Partial<Draft>) {
@@ -73,7 +77,7 @@ export function CatalogManager({
     const response = await fetch(resourcePath, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: newName, description: newDescription || undefined }),
+      body: JSON.stringify({ name: newName, description: newDescription || undefined, ...(flag && { [flag.key]: newFlag }) }),
     });
 
     if (!response.ok) {
@@ -84,6 +88,7 @@ export function CatalogManager({
 
     setNewName("");
     setNewDescription("");
+    setNewFlag(false);
     await refresh();
   }
 
@@ -94,7 +99,7 @@ export function CatalogManager({
     const response = await fetch(`${resourcePath}/${item.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: draft.name, description: draft.description }),
+      body: JSON.stringify({ name: draft.name, description: draft.description, ...(flag && { [flag.key]: draft.flag }) }),
     });
 
     if (!response.ok) {
@@ -145,6 +150,20 @@ export function CatalogManager({
                 value={draft.description}
                 onChange={(event) => updateDraft(item, { description: event.target.value })}
               />
+              {flag && (
+                <label className="mt-2 flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    aria-label={`${flag.label} for ${item.name}`}
+                    checked={draft.flag}
+                    onChange={(event) => updateDraft(item, { flag: event.target.checked })}
+                  />
+                  <span>
+                    {flag.label}
+                    {flag.hint && <span className="text-rg-muted"> {flag.hint}</span>}
+                  </span>
+                </label>
+              )}
               <div className="mt-2 flex gap-2">
                 <Button variant="secondary" onClick={() => handleSave(item)}>
                   Save
@@ -176,6 +195,12 @@ export function CatalogManager({
           value={newDescription}
           onChange={(event) => setNewDescription(event.target.value)}
         />
+        {flag && (
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" aria-label={`New ${itemLabel}: ${flag.label}`} checked={newFlag} onChange={(event) => setNewFlag(event.target.checked)} />
+            <span>{flag.label}</span>
+          </label>
+        )}
         <Button type="submit" variant="primary">
           Create
         </Button>

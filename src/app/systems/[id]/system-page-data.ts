@@ -1,6 +1,7 @@
 import type { ControlAssessmentStatus, Prisma, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { visibleSystemsWhere } from "@/lib/system-visibility";
+import { toSystemDetails } from "@/lib/system-details";
 import { getApplicableControls, getUnaddressedMandatoryControls } from "@/lib/control-assessments";
 import { inheritanceSourcesFor, resolveEffectiveStatus } from "@/lib/effective-status";
 import { loadOrganizationStatuses, loadProviderSources, toOwnAssessment } from "@/lib/effective-status-data";
@@ -205,6 +206,8 @@ export async function loadSystemPage(user: User, id: string, now = new Date()): 
           name: system.name,
           vendor: system.vendor,
           description: system.description,
+          about: toSystemDetails(system),
+          needsVendorDetails: system.deploymentFacets.some((facet) => facet.requiresVendorDetails),
           status: system.status,
           isProvider: system.isProvider,
           ownerId: system.ownerId,

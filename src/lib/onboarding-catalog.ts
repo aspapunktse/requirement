@@ -47,7 +47,7 @@ export async function loadOnboardingCatalog(): Promise<OnboardingCatalog> {
       }));
       const deploymentFacets = await tx.deploymentFacet.findMany({
         orderBy: { name: "asc" },
-        select: { id: true, name: true, description: true },
+        select: { id: true, name: true, description: true, requiresVendorDetails: true },
       });
       const frameworks = await tx.framework.findMany({
         where: { status: "PUBLISHED" },
