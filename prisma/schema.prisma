@@ -86,12 +86,13 @@ enum UserRole {
 }
 
 model User {
-  id            String         @id @default(cuid())
-  email         String         @unique
-  name          String
-  gateDecisions GateDecision[] @relation("GateDecisionDecider")
-  role          UserRole       @default(VIEWER)
-  createdAt     DateTime       @default(now())
+  id                   String         @id @default(cuid())
+  email                String         @unique
+  name                 String
+  gateDecisions        GateDecision[] @relation("GateDecisionDecider")
+  changeReviewsDecided ChangeReview[] @relation("ChangeReviewDecider")
+  role                 UserRole       @default(VIEWER)
+  createdAt            DateTime       @default(now())
 
   statSnapshots                      StatSnapshot[]
   appSettingsChanged                 AppSetting[]                        @relation("AppSettingUpdatedBy")
@@ -233,6 +234,7 @@ model System {
   // tells the two apart. Null for every other System.
   evaluationClosedAt          DateTime?
   gateDecisions               GateDecision[]
+  changeReviews               ChangeReview[]
   // One or more deployment facets this System spans (e.g. On-Prem, Cloud) —
   // a Hybrid System is simply one that declares more than one. See ADR 0003.
   deploymentFacets            DeploymentFacet[]
@@ -324,17 +326,19 @@ model ReviewGroup {
   description String?
   createdAt   DateTime @default(now())
 
-  members         User[]            @relation("ReviewGroupMember")
-  frameworks      Framework[]
-  approvals       Approval[]
+  members              User[]                @relation("ReviewGroupMember")
+  frameworks           Framework[]
+  approvals            Approval[]
   // OG1 verdicts given for this group (#328). Restrict, as for Approvals.
-  trackVerdicts   TrackVerdict[]
+  trackVerdicts        TrackVerdict[]
   // OAG review Recommendations given for this group (#331). Restrict, as for verdicts.
-  recommendations Recommendation[]
+  recommendations      Recommendation[]
+  // The Controls added to this group's remit by a Change Review (#334). Restrict, as for Recommendations.
+  changeReviewControls ChangeReviewControl[]
   // Query Messages posted, and Assessment Queries resolved, as this group (#201). SetNull on delete: the
   // row keeps the group's name in its own snapshot column and never turns into a base-step or named one.
-  queryMessages   QueryMessage[]    @relation("QueryMessageGroup")
-  resolvedQueries AssessmentQuery[] @relation("QueryResolvedByGroup")
+  queryMessages        QueryMessage[]        @relation("QueryMessageGroup")
+  resolvedQueries      AssessmentQuery[]     @relation("QueryResolvedByGroup")
 }
 
 // A curated compliance standard, law or regulation (e.g. ISO/IEC 27001:2022,
@@ -521,10 +525,12 @@ model Control {
   // again if it is excluded again. Each change is a SOA_JUSTIFICATION_CHANGED Change Event.
   soaExclusionJustification String?
 
-  assessments    ControlAssessment[]
-  internalAudits InternalAuditControl[]
+  assessments          ControlAssessment[]
+  // Where a Change Review added this Control to a group's remit (#334). Cascade: deleting a Control never blocks on it.
+  changeReviewControls ChangeReviewControl[]
+  internalAudits       InternalAuditControl[]
   // Check-ups generated for this Control (#154). Restrict: a Control with Check-ups can't be deleted.
-  checkUps       CheckUp[]
+  checkUps             CheckUp[]
 
   // Deployment Facets this Control is scoped to. Empty means "applies
   // regardless of facet" (how the Annex A seed ships). Must stay empty for
@@ -915,23 +921,70 @@ enum RecommendationKind {
 // Group, shown as the group's, voided when an owner edit in the group's remit reopens it. `stage` is the OAG review it belongs to
 // (OAG_REVIEW_1 before OG2; OAG_REVIEW_2 before OG3 is #332). Conditions are free text in the comment.
 model Recommendation {
-  id            String             @id @default(cuid())
-  systemId      String
-  system        System             @relation(fields: [systemId], references: [id], onDelete: Cascade)
-  stage         EvaluationStage
+  id             String             @id @default(cuid())
+  systemId       String
+  system         System             @relation(fields: [systemId], references: [id], onDelete: Cascade)
+  // Null for a Recommendation given on a Change Review (#334), which belongs to no stage.
+  stage          EvaluationStage?
+  // The Change Review it was given on (#334); null for an OAG review Recommendation.
+  changeReviewId String?
+  changeReview   ChangeReview?      @relation(fields: [changeReviewId], references: [id], onDelete: Cascade)
   // Null is the base review, otherwise the Review Group. Restrict: deleting a group must never erase or re-attribute its Recommendations.
-  reviewGroupId String?
-  reviewGroup   ReviewGroup?       @relation(fields: [reviewGroupId], references: [id], onDelete: Restrict)
-  givenById     String
-  givenBy       User               @relation(fields: [givenById], references: [id])
-  kind          RecommendationKind
-  comment       String
-  givenAt       DateTime           @default(now())
-  voidedAt      DateTime?
+  reviewGroupId  String?
+  reviewGroup    ReviewGroup?       @relation(fields: [reviewGroupId], references: [id], onDelete: Restrict)
+  givenById      String
+  givenBy        User               @relation(fields: [givenById], references: [id])
+  kind           RecommendationKind
+  comment        String
+  givenAt        DateTime           @default(now())
+  voidedAt       DateTime?
   // Why it was voided when an edit reopened it; null for a live one and for a dropped participant's.
-  voidReason    String?
+  voidReason     String?
 
   @@index([systemId])
+  @@index([changeReviewId])
+}
+
+// What a Change Review on an Onboarded System is in (#334, PRD 0002 F-CR, ADR 0014).
+enum ChangeReviewStatus {
+  OPEN
+  ACCEPTED
+  REVOKED
+}
+
+// A review of an Onboarded System when a change to its Framework Scope or classification added Controls to an OAG group's remit.
+// One is open at a time per System (a later change widens it, in the System's lock). The BSO closes it: ACCEPTED, or REVOKED (the
+// ATO is revoked and the System sent back to `sentBackTo`, null for a System on the classic flow, which returns to Draft).
+model ChangeReview {
+  id              String                @id @default(cuid())
+  systemId        String
+  system          System                @relation(fields: [systemId], references: [id], onDelete: Cascade)
+  status          ChangeReviewStatus    @default(OPEN)
+  startedAt       DateTime              @default(now())
+  decidedAt       DateTime?
+  decidedById     String?
+  decidedBy       User?                 @relation("ChangeReviewDecider", fields: [decidedById], references: [id])
+  decisionComment String?
+  sentBackTo      EvaluationStage?
+  controls        ChangeReviewControl[]
+  recommendations Recommendation[]
+
+  @@index([systemId])
+}
+
+// A Control a Change Review added to one participant's remit (`reviewGroupId` null is the base review): the groups that take
+// part are the distinct ones here, and each recommends on just its Controls.
+model ChangeReviewControl {
+  id             String       @id @default(cuid())
+  changeReviewId String
+  changeReview   ChangeReview @relation(fields: [changeReviewId], references: [id], onDelete: Cascade)
+  controlId      String
+  control        Control      @relation(fields: [controlId], references: [id], onDelete: Cascade)
+  reviewGroupId  String?
+  reviewGroup    ReviewGroup? @relation(fields: [reviewGroupId], references: [id], onDelete: Restrict)
+  addedAt        DateTime     @default(now())
+
+  @@index([changeReviewId])
 }
 
 enum ChangeEventAction {
@@ -1025,6 +1078,12 @@ enum ChangeEventAction {
   RECOMMENDATION_GIVEN
   // A Recommendation went back to open because an owner edit changed a Control in its remit (#331).
   RECOMMENDATION_REOPENED
+  // A Change Review started on an Onboarded System (#334) because a change added Controls to a group's remit, or was widened by a
+  // later change. System-scoped, actor the person who made the change; the detail names the groups and how many Controls.
+  CHANGE_REVIEW_STARTED
+  CHANGE_REVIEW_WIDENED
+  // The Business System Owner (or an Admin) accepted a Change Review or revoked the ATO (#334). Actor the person; the detail has the comment.
+  CHANGE_REVIEW_DECIDED
 }
 
 // A curated, System-lifecycle-relevant mutation record — feeds the landing

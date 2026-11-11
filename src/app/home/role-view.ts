@@ -7,6 +7,7 @@ import { getOpenStepsForUser } from "@/lib/review-steps";
 import { getOpenVerdictsForUser } from "@/lib/evaluation-og1";
 import { getGateTasksForUser } from "@/lib/gate-decisions";
 import { getOpenRecommendationsForUser } from "@/lib/evaluation-oag";
+import { getChangeReviewDecisionTasksForUser, getOpenChangeReviewRecommendationsForUser } from "@/lib/change-review";
 import { scopedSystemsWhere, getAssignedScope } from "@/lib/business-risk-owner";
 import { getActionableQueries } from "@/lib/assessment-queries";
 import { getOwnerTasks, mergeTaskRows } from "@/lib/owner-tasks";
@@ -280,7 +281,20 @@ export async function roleView(user: { id: string; name: string; role: UserRole 
       href: `/systems/${system.id}#evaluation`,
     }),
   );
-  reviewStepRows.push(...openVerdictRows, ...openRecommendationRows);
+  // A group's open Recommendation on a Change Review of an Onboarded System (#334).
+  const changeReviewRecommendationRows = (await getOpenChangeReviewRecommendationsForUser(user)).map(
+    ({ system, participant }): TaskRow => ({
+      id: `${system.id}:change-review:${participant.reviewGroupId ?? "base"}`,
+      kind: "System",
+      title: system.name,
+      subtitle: `${participant.name} · Change Review Recommendation`,
+      tone: "accent",
+      status: "Awaiting Recommendation",
+      updatedAt: system.updatedAt,
+      href: `/systems/${system.id}#change-review`,
+    }),
+  );
+  reviewStepRows.push(...openVerdictRows, ...openRecommendationRows, ...changeReviewRecommendationRows);
   // A System waiting at Qualification, OG2 or OG3 is a task for its Business System Owner (#330, #331).
   const GATE_TASK_SUBTITLE = { QUALIFICATION: "Qualification: worth a full evaluation?", OG2: "OG2: proceed?", OG3: "OG3: authorize to operate?" } as const;
   const gateRows = (
@@ -299,6 +313,20 @@ export async function roleView(user: { id: string; name: string; role: UserRole 
         href: `/systems/${system.id}#evaluation`,
       }),
     );
+  // A Change Review whose groups have all recommended waits for its Business System Owner (#334).
+  const changeReviewDecisionRows = (await getChangeReviewDecisionTasksForUser(user)).map(
+    (system): TaskRow => ({
+      id: `${system.id}:change-review-decision`,
+      kind: "System",
+      title: system.name,
+      subtitle: "Change Review: accept, or revoke the ATO?",
+      tone: "accent",
+      status: "Awaiting your decision",
+      updatedAt: system.updatedAt,
+      href: `/systems/${system.id}#change-review`,
+    }),
+  );
+  gateRows.push(...changeReviewDecisionRows);
   const [view, owner, controlRows, checkUps, inReviewRows, activity] = await Promise.all([
     roleOwnView(user, reviewStepRows)
       .then((own) => withReviewStepTasks(own, user, reviewStepRows))
