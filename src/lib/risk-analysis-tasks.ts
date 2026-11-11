@@ -57,31 +57,44 @@ export const systemRiskAnalysesHref = (systemId: string) => `/systems/${systemId
 export const riskAnalysisTaskId = (systemId: string, step: RiskAnalysisStep) => `${systemId}:risk-analysis:${step}`;
 
 /**
- * The rows for `user`: due Systems they can see and do not own, and are the lead of (or have no lead, see above), three reads whatever the number of Systems (the Systems, their Risk
+ * The rows for `user`: due Systems they can see and do not own, and are the lead of (or have no lead, see above), three reads in one RepeatableRead transaction whatever the number of Systems (the Systems, their Risk
  * Analyses, the Open Risks without an owner). A role outside `ROLES_ELIGIBLE_AS_RISK_ANALYSIS_LEAD` gets none.
  */
 export async function getRiskAnalysisTasks(user: { id: string; role: UserRole }): Promise<TaskRow[]> {
   if (!riskAnalysisTaskRoleApplies(user)) return [];
-  const visible = await visibleSystemsWhere(user);
-  const systems = await prisma.system.findMany({
-    where: {
-      AND: [visible, { evaluationStage: { in: RISK_ANALYSIS_DUE_STAGES }, evaluationClosedAt: null, ownerId: { not: user.id } }],
+  // One RepeatableRead snapshot, every query on `tx` (as `loadStatementOfApplicability`): a System deleted meanwhile can't give a row.
+  const read = await prisma.$transaction(
+    async (tx) => {
+      const visible = await visibleSystemsWhere(user, tx);
+      const systems = await tx.system.findMany({
+        where: {
+          AND: [visible, { evaluationStage: { in: RISK_ANALYSIS_DUE_STAGES }, evaluationClosedAt: null, ownerId: { not: user.id } }],
+        },
+        select: {
+          id: true,
+          name: true,
+          ownerId: true,
+          evaluationStage: true,
+          evaluationTrack: true,
+          evaluationClosedAt: true,
+          evaluationStageEnteredAt: true,
+          riskAnalysisLead: { select: { id: true, role: true } },
+        },
+        orderBy: { evaluationStageEnteredAt: "asc" },
+      });
+      if (systems.length === 0) return null;
+      const analyses = await tx.riskAnalysis.findMany({ where: { systemId: { in: systems.map((system) => system.id) } }, select: { systemId: true, completedAt: true } });
+      const inProgress = new Set(analyses.filter((a) => a.completedAt === null).map((a) => a.systemId));
+      const unowned =
+        inProgress.size === 0
+          ? []
+          : await tx.risk.groupBy({ by: ["systemId"], where: { systemId: { in: [...inProgress] }, status: OPEN_RISK_STATUS, ownerId: null }, _count: { _all: true } });
+      return { systems, analyses, unowned };
     },
-    select: {
-      id: true,
-      name: true,
-      ownerId: true,
-      evaluationStage: true,
-      evaluationTrack: true,
-      evaluationClosedAt: true,
-      evaluationStageEnteredAt: true,
-      riskAnalysisLead: { select: { id: true, role: true } },
-    },
-    orderBy: { evaluationStageEnteredAt: "asc" },
-  });
-  if (systems.length === 0) return [];
-  const ids = systems.map((system) => system.id);
-  const analyses = await prisma.riskAnalysis.findMany({ where: { systemId: { in: ids } }, select: { systemId: true, completedAt: true } });
+    { isolationLevel: "RepeatableRead" },
+  );
+  if (read === null) return [];
+  const { systems, analyses, unowned } = read;
 
   const due = systems.flatMap((system) => {
     const since = system.evaluationStageEnteredAt;
@@ -93,11 +106,6 @@ export async function getRiskAnalysisTasks(user: { id: string; role: UserRole })
   });
   if (due.length === 0) return [];
 
-  const inProgressIds = due.filter((entry) => entry.inProgress).map((entry) => entry.system.id);
-  const unowned =
-    inProgressIds.length === 0
-      ? []
-      : await prisma.risk.groupBy({ by: ["systemId"], where: { systemId: { in: inProgressIds }, status: OPEN_RISK_STATUS, ownerId: null }, _count: { _all: true } });
   const unownedBySystem = new Map(unowned.map((group) => [group.systemId, group._count._all]));
 
   return due.map(({ system, step, relation, inProgress }): TaskRow => {

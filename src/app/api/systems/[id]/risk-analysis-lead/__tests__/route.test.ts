@@ -117,6 +117,7 @@ describe("PUT /api/systems/[id]/risk-analysis-lead (#361)", { timeout: 30_000 },
     const closed = await makeSystem({ evaluationClosedAt: new Date(), status: "REJECTED" });
     expect((await put(users.admin, closed, { leadId: users.riskOwner })).status).toBe(409);
     expect((await put(users.admin, "no-such-system", { leadId: users.riskOwner })).status).toBe(404);
+    expect((await get(users.admin, "no-such-system")).status).toBe(404);
     for (const system of [id, legacy, closed]) {
       expect(await leadOf(system)).toBeNull();
       expect(await events(system)).toHaveLength(0);

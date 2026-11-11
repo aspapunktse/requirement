@@ -1,4 +1,4 @@
-import type { UserRole } from "@prisma/client";
+import type { Prisma, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { logChangeEvent } from "@/lib/change-events";
 import { canRecordRiskAnalysis, RISK_ANALYSIS_REFUSED } from "@/lib/risk-analysis";
@@ -92,8 +92,8 @@ export async function changeRiskAnalysisLead(actor: { id: string; role: UserRole
 }
 
 /** Every User who may be picked as a lead on a System: the eligible roles, minus the System's owner. */
-export function listRiskAnalysisLeadCandidates(system: { ownerId: string }) {
-  return prisma.user.findMany({
+export function listRiskAnalysisLeadCandidates(system: { ownerId: string }, db: Pick<Prisma.TransactionClient, "user"> = prisma) {
+  return db.user.findMany({
     where: { role: { in: ROLES_ELIGIBLE_AS_RISK_ANALYSIS_LEAD }, id: { not: system.ownerId } },
     select: { id: true, name: true },
     orderBy: { name: "asc" },

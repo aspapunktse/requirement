@@ -337,7 +337,7 @@ function RiskAnalysisLead({ systemId }: { systemId: string }) {
     if (!response.ok) throw new Error("Failed to load the Risk Analysis lead");
     return response.json();
   }, [systemId]);
-  const { data, reload } = useRemote(read);
+  const { data, failed, reload } = useRemote(read);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -364,8 +364,19 @@ function RiskAnalysisLead({ systemId }: { systemId: string }) {
     }
   }
 
-  // A failed read shows nothing here: the card's own list reports a connection problem, and the lead is an extra on it.
-  if (data === null || !data.staged) return null;
+  if (data === null) {
+    return failed ? (
+      <p role="alert" className="sc-err sc-risks-form">
+        Couldn&apos;t load the Risk Analysis lead.{" "}
+        <button type="button" className="sc-link" onClick={reload}>
+          Retry
+        </button>
+      </p>
+    ) : (
+      <p className="hc-empty sc-risks-form">Loading the Risk Analysis lead…</p>
+    );
+  }
+  if (!data.staged) return null;
   const note = data.lead && !data.lead.eligible ? " (no longer able to lead: not a Risk Owner or Risk Facilitator, or now the System's owner)" : "";
   return (
     <div className="sc-risks-form">

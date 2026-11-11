@@ -86,7 +86,8 @@ describe("Risk Analyses on the Risks tab (#325)", { timeout: 30_000 }, () => {
     cleanup();
     fetchMock.mockImplementation(() => respond({}, 500));
     renderIt();
-    expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't load the Risk Analyses");
+    // The lead's own failure (#361) is a second alert; this one is the list's.
+    expect(await screen.findByText(/Couldn't load the Risk Analyses/)).toBeInTheDocument();
   });
 
   it("records one: date, participants, outsiders, notes, reviewed Risks and a Risk raised in the meeting", async () => {
@@ -276,5 +277,33 @@ describe("Risk Analysis lead on the Risk Analyses card (#361)", { timeout: 30_00
     renderIt();
     await user.selectOptions(await screen.findByLabelText("Risk Analysis lead"), "u1");
     expect(await screen.findByRole("alert")).toHaveTextContent("Nope");
+  });
+
+  it("says it is loading until the lead has been read", async () => {
+    let release: (value: Response) => void = () => {};
+    fetchMock.mockImplementation((input: string | URL | Request) =>
+      String(input) === LEAD_URL ? new Promise<Response>((resolve) => (release = resolve)) : respond({ riskAnalyses: [] }),
+    );
+    renderIt();
+    expect(await screen.findByText(/Loading the Risk Analysis lead/)).toBeInTheDocument();
+    release(new Response(JSON.stringify(lead()), { status: 200 }));
+    expect(await screen.findByLabelText("Risk Analysis lead")).toBeInTheDocument();
+    expect(screen.queryByText(/Loading the Risk Analysis lead/)).not.toBeInTheDocument();
+  });
+
+  it("reports a failed read of the lead and reads again on Retry", async () => {
+    const user = userEvent.setup();
+    let failing = true;
+    fetchMock.mockImplementation((input: string | URL | Request) => {
+      if (String(input) === LEAD_URL) return failing ? respond({ error: "boom" }, 500) : respond(lead());
+      return respond({ riskAnalyses: [] });
+    });
+    renderIt();
+    expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't load the Risk Analysis lead");
+    expect(screen.queryByLabelText("Risk Analysis lead")).not.toBeInTheDocument();
+    failing = false;
+    await user.click(screen.getByRole("button", { name: "Retry" }));
+    expect(await screen.findByLabelText("Risk Analysis lead")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 });

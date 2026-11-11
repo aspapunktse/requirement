@@ -4,7 +4,7 @@ import { authenticate } from "@/lib/api-authz";
 import { canRecordRiskAnalysis } from "@/lib/risk-analysis";
 import { changeRiskAnalysisLead, effectiveRiskAnalysisLead, listRiskAnalysisLeadCandidates } from "@/lib/risk-analysis-lead";
 import { prisma } from "@/lib/prisma";
-import { getVisibleSystem } from "@/lib/system-visibility";
+import { visibleSystemsWhere } from "@/lib/system-visibility";
 
 const bodySchema = z.object({ leadId: z.string().min(1).nullable() });
 
@@ -17,20 +17,28 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/systems/
   const auth = await authenticate(request);
   if ("response" in auth) return auth.response;
   const { id } = await ctx.params;
-  const visible = await getVisibleSystem(auth.user, id);
-  if (!visible) return NextResponse.json({ error: "System not found" }, { status: 404 });
-  const system = await prisma.system.findUniqueOrThrow({
-    where: { id },
-    select: { ownerId: true, evaluationStage: true, riskAnalysisLead: { select: { id: true, name: true, role: true } } },
-  });
-  const canChange = system.evaluationStage !== null && canRecordRiskAnalysis(auth.user, system);
+  // One RepeatableRead snapshot: visibility, the System and the candidates agree, and a System deleted meanwhile is a 404.
+  const read = await prisma.$transaction(
+    async (tx) => {
+      const system = await tx.system.findFirst({
+        where: { AND: [{ id }, await visibleSystemsWhere(auth.user, tx)] },
+        select: { ownerId: true, evaluationStage: true, riskAnalysisLead: { select: { id: true, name: true, role: true } } },
+      });
+      if (!system) return null;
+      const canChange = system.evaluationStage !== null && canRecordRiskAnalysis(auth.user, system);
+      return { system, canChange, candidates: canChange ? await listRiskAnalysisLeadCandidates(system, tx) : [] };
+    },
+    { isolationLevel: "RepeatableRead" },
+  );
+  if (!read) return NextResponse.json({ error: "System not found" }, { status: 404 });
+  const { system, canChange, candidates } = read;
   return NextResponse.json({
     staged: system.evaluationStage !== null,
     lead: system.riskAnalysisLead
       ? { id: system.riskAnalysisLead.id, name: system.riskAnalysisLead.name, eligible: effectiveRiskAnalysisLead(system) !== null }
       : null,
     canChange,
-    candidates: canChange ? await listRiskAnalysisLeadCandidates(system) : [],
+    candidates,
   });
 }
 
