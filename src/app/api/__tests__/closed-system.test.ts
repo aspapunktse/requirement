@@ -30,7 +30,7 @@ const writeRoutes = Object.entries(modules).flatMap(([file, mod]) =>
 );
 
 /** A body that gets past each route's own body check, so the closed rule is what answers. */
-const bodyFor = (path: string) => (path.endsWith("business-system-owner") ? { businessSystemOwnerId: null } : {});
+const bodyFor = (path: string) => (path.endsWith("business-system-owner") ? { businessSystemOwnerId: null } : path.endsWith("risk-analysis-lead") ? { leadId: null } : {});
 
 function requestAs(userId: string, url: string, method: string, body?: unknown) {
   const headers = new Headers({ "Content-Type": "application/json", cookie: `${ACTING_USER_COOKIE}=${userId}` });

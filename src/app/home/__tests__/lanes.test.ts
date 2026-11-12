@@ -45,6 +45,8 @@ describe("taskAction: the one verb of a task row", () => {
     ["Query", "Awaiting your reply", "Reply"],
     ["Query", "Your turn", "Open"],
     ["Check-up", "Open", "Answer"],
+    ["Risk Analysis", "Due", "Conduct"],
+    ["Risk Analysis", "In progress", "Conduct"],
     ["Control", "Not started", "Start"],
     ["Control", "In progress", "Continue"],
     ["Audit", "Draft", "Continue draft"],

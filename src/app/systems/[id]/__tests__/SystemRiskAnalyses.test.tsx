@@ -86,7 +86,8 @@ describe("Risk Analyses on the Risks tab (#325)", { timeout: 30_000 }, () => {
     cleanup();
     fetchMock.mockImplementation(() => respond({}, 500));
     renderIt();
-    expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't load the Risk Analyses");
+    // The lead's own failure (#361) is a second alert; this one is the list's.
+    expect(await screen.findByText(/Couldn't load the Risk Analyses/)).toBeInTheDocument();
   });
 
   it("records one: date, participants, outsiders, notes, reviewed Risks and a Risk raised in the meeting", async () => {
@@ -223,5 +224,86 @@ describe("Risk Analyses on the Risks tab (#325)", { timeout: 30_000 }, () => {
     await user.click(screen.getByRole("button", { name: "Complete" }));
     await waitFor(() => expect(refresh).toHaveBeenCalled());
     expect(onRisksChanged).toHaveBeenCalled();
+  });
+});
+
+describe("Risk Analysis lead on the Risk Analyses card (#361)", { timeout: 30_000 }, () => {
+  const LEAD_URL = "/api/systems/s1/risk-analysis-lead";
+  const lead = (over: Record<string, unknown> = {}) => ({ staged: true, lead: null, canChange: true, candidates: [{ id: "u1", name: "Anna Ek" }, { id: "u2", name: "Bo Lind" }], ...over });
+  const serve = (state: () => unknown) => {
+    fetchMock.mockImplementation((input: string | URL | Request, init?: RequestInit) => {
+      if (String(input) === LEAD_URL) return init?.method === "PUT" ? respond({ changed: true, lead: { id: "u2", name: "Bo Lind" } }) : respond(state());
+      return respond({ riskAnalyses: [] });
+    });
+  };
+
+  it("lets someone who may change it name a lead and clear it again", async () => {
+    const user = userEvent.setup();
+    let current = lead();
+    serve(() => current);
+    renderIt();
+    const picker = await screen.findByLabelText("Risk Analysis lead");
+    expect(picker).toHaveValue("");
+    current = lead({ lead: { id: "u2", name: "Bo Lind", eligible: true } });
+    await user.selectOptions(picker, "u2");
+    await waitFor(() => expect(fetchMock.mock.calls.some(([, init]) => init?.method === "PUT")).toBe(true));
+    const put = fetchMock.mock.calls.find(([, init]) => init?.method === "PUT")!;
+    expect(JSON.parse(put[1].body)).toEqual({ leadId: "u2" });
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+    await waitFor(() => expect(screen.getByLabelText("Risk Analysis lead")).toHaveValue("u2"));
+    await user.selectOptions(screen.getByLabelText("Risk Analysis lead"), "");
+    await waitFor(() => expect(fetchMock.mock.calls.filter(([, init]) => init?.method === "PUT")).toHaveLength(2));
+    expect(JSON.parse(fetchMock.mock.calls.filter(([, init]) => init?.method === "PUT")[1][1].body)).toEqual({ leadId: null });
+  });
+
+  it("shows the lead read-only to someone who cannot change it, and nothing for a System without stages", async () => {
+    serve(() => lead({ canChange: false, candidates: [], lead: { id: "u2", name: "Bo Lind", eligible: true } }));
+    renderIt({ canRecord: false });
+    expect(await screen.findByText("Bo Lind")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Risk Analysis lead")).not.toBeInTheDocument();
+    cleanup();
+    serve(() => lead({ staged: false }));
+    renderIt();
+    await screen.findByText("No Risk Analysis has been recorded for this System.");
+    expect(screen.queryByLabelText("Risk Analysis lead")).not.toBeInTheDocument();
+  });
+
+  it("shows the server's message when saving is refused", async () => {
+    const user = userEvent.setup();
+    fetchMock.mockImplementation((input: string | URL | Request, init?: RequestInit) => {
+      if (String(input) === LEAD_URL) return init?.method === "PUT" ? respond({ error: "Nope" }, 400) : respond(lead());
+      return respond({ riskAnalyses: [] });
+    });
+    renderIt();
+    await user.selectOptions(await screen.findByLabelText("Risk Analysis lead"), "u1");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Nope");
+  });
+
+  it("says it is loading until the lead has been read", async () => {
+    let release: (value: Response) => void = () => {};
+    fetchMock.mockImplementation((input: string | URL | Request) =>
+      String(input) === LEAD_URL ? new Promise<Response>((resolve) => (release = resolve)) : respond({ riskAnalyses: [] }),
+    );
+    renderIt();
+    expect(await screen.findByText(/Loading the Risk Analysis lead/)).toBeInTheDocument();
+    release(new Response(JSON.stringify(lead()), { status: 200 }));
+    expect(await screen.findByLabelText("Risk Analysis lead")).toBeInTheDocument();
+    expect(screen.queryByText(/Loading the Risk Analysis lead/)).not.toBeInTheDocument();
+  });
+
+  it("reports a failed read of the lead and reads again on Retry", async () => {
+    const user = userEvent.setup();
+    let failing = true;
+    fetchMock.mockImplementation((input: string | URL | Request) => {
+      if (String(input) === LEAD_URL) return failing ? respond({ error: "boom" }, 500) : respond(lead());
+      return respond({ riskAnalyses: [] });
+    });
+    renderIt();
+    expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't load the Risk Analysis lead");
+    expect(screen.queryByLabelText("Risk Analysis lead")).not.toBeInTheDocument();
+    failing = false;
+    await user.click(screen.getByRole("button", { name: "Retry" }));
+    expect(await screen.findByLabelText("Risk Analysis lead")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 });

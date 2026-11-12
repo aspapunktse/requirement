@@ -90,7 +90,7 @@ export function HomeCommandCenter({ view }: { view: HomeView }) {
   }
 
   const tabKeys = ["", ...tabKinds];
-  const tabLabel = (key: string) => (key === "" ? "All" : key === "Query" ? "Queries" : `${key}s`);
+  const tabLabel = (key: string) => (key === "" ? "All" : key === "Query" ? "Queries" : key === "Risk Analysis" ? "Risk Analyses" : `${key}s`);
   const tabCount = (key: string) => (key === "" ? tasks.length : tasks.filter((task) => task.kind === key).length);
 
   function renderTask(task: HomeTask, index: number) {
