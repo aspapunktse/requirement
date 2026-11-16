@@ -53,12 +53,64 @@ export async function firstRoundControlIdsForSystem(systemId: string, options: {
 
 async function readFirstRoundControlIds(db: Db, systemId: string, controlIds: string[] | undefined) {
   const frameworkIds = await effectiveScopeFrameworkIds(systemId, db);
-  if (frameworkIds.length === 0) return new Set<string>();
+  const liveByFramework = await readLiveMarkingsByFramework(db, frameworkIds, controlIds);
+  return unionOfFrameworks(frameworkIds, liveByFramework);
+}
+
+/**
+ * The effective Framework Scope of many Systems in one query, by System id: the same definition as
+ * `effectiveScopeFrameworkIds` (the base Framework plus the System's declared scope, Published only), in a constant
+ * number of queries however many Systems. Every id in `systemIds` has an entry, even if it matches no System.
+ */
+export async function effectiveScopeFrameworkIdsForSystems(systemIds: string[], db: Pick<Db, "framework"> = prisma) {
+  const result = new Map<string, string[]>(systemIds.map((id) => [id, []]));
+  if (systemIds.length === 0) return result;
+  const frameworks = await db.framework.findMany({
+    where: { status: "PUBLISHED", OR: [{ isBase: true }, { scopedSystems: { some: { id: { in: systemIds } } } }] },
+    select: { id: true, isBase: true, scopedSystems: { where: { id: { in: systemIds } }, select: { id: true } } },
+  });
+  for (const framework of frameworks) {
+    for (const systemId of systemIds) {
+      if (framework.isBase || framework.scopedSystems.some((system) => system.id === systemId)) result.get(systemId)!.push(framework.id);
+    }
+  }
+  return result;
+}
+
+/**
+ * `firstRoundControlIdsForSystem` for many Systems in a constant number of queries (the same rule: it shares
+ * `readLiveMarkingsByFramework`), by System id. `scopeBySystem` is the answer of `effectiveScopeFrameworkIdsForSystems`
+ * when the caller already has it. Use a transaction client for a snapshot; the reads are sequential.
+ */
+export async function firstRoundControlIdsForSystems(
+  systemIds: string[],
+  options: { db?: Db; scopeBySystem?: Map<string, string[]> } = {},
+) {
+  const db = options.db ?? prisma;
+  const scopeBySystem = options.scopeBySystem ?? (await effectiveScopeFrameworkIdsForSystems(systemIds, db));
+  const allFrameworkIds = [...new Set([...scopeBySystem.values()].flat())];
+  const liveByFramework = await readLiveMarkingsByFramework(db, allFrameworkIds, undefined);
+  return new Map(systemIds.map((id) => [id, unionOfFrameworks(scopeBySystem.get(id) ?? [], liveByFramework)]));
+}
+
+function unionOfFrameworks(frameworkIds: string[], liveByFramework: Map<string, Set<string>>) {
+  const result = new Set<string>();
+  for (const frameworkId of frameworkIds) for (const controlId of liveByFramework.get(frameworkId) ?? []) result.add(controlId);
+  return result;
+}
+
+/**
+ * For each of `frameworkIds`, the Controls its owner marked first round that are still mapped to a Requirement of that
+ * same Framework (a marking without a live mapping is ignored). Three reads, however many Frameworks or Controls.
+ */
+async function readLiveMarkingsByFramework(db: Db, frameworkIds: string[], controlIds: string[] | undefined) {
+  const live = new Map<string, Set<string>>();
+  if (frameworkIds.length === 0) return live;
   const markings = await db.frameworkFirstRoundControl.findMany({
     where: { frameworkId: { in: frameworkIds }, ...(controlIds ? { controlId: { in: controlIds } } : {}) },
     select: { frameworkId: true, controlId: true },
   });
-  if (markings.length === 0) return new Set<string>();
+  if (markings.length === 0) return live;
   // A marking counts only while its Control is still mapped to a Requirement of the *same* Framework. Sequential
   // reads (one connection on a transaction client); the Requirements are read separately, not through a nested relation.
   const mappings = await db.controlMapping.findMany({
@@ -70,12 +122,18 @@ async function readFirstRoundControlIds(db: Db, systemId: string, controlIds: st
     select: { id: true, frameworkId: true },
   });
   const frameworkOfRequirement = new Map(requirements.map((r) => [r.id, r.frameworkId]));
-  const live = new Set<string>();
+  const mapped = new Set<string>();
   for (const mapping of mappings) {
     const frameworkId = frameworkOfRequirement.get(mapping.requirementId);
-    if (frameworkId) live.add(`${frameworkId}:${mapping.controlId}`);
+    if (frameworkId) mapped.add(`${frameworkId}:${mapping.controlId}`);
   }
-  return new Set(markings.filter((m) => live.has(`${m.frameworkId}:${m.controlId}`)).map((m) => m.controlId));
+  for (const marking of markings) {
+    if (!mapped.has(`${marking.frameworkId}:${marking.controlId}`)) continue;
+    const set = live.get(marking.frameworkId) ?? new Set<string>();
+    set.add(marking.controlId);
+    live.set(marking.frameworkId, set);
+  }
+  return live;
 }
 
 /** Is `controlId` first round on the System `systemId`? See `firstRoundControlIdsForSystem`. */
