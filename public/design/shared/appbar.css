@@ -143,11 +143,9 @@
   .appbar.ab-many .ab-nav { display: none; }
   .appbar.ab-many .ab-menu { display: block; }
 }
-/* With Comparisons and the Admin item the row has eleven items, so it collapses sooner still */
-@media (max-width: 1560px) {
-  .appbar.ab-lots .ab-nav { display: none; }
-  .appbar.ab-lots .ab-menu { display: block; }
-}
+/* The nav pills collapse to the menu when they don't fit; appbar.js measures and sets ab-collapsed */
+.appbar.ab-collapsed .ab-nav { display: none; }
+.appbar.ab-collapsed .ab-menu { display: block; }
 /* A page that adds an item to the bar (mount({ barExtra })) has less room, so the nav is always the compact menu */
 .appbar.ab-extra .ab-nav { display: none; }
 .appbar.ab-extra .ab-menu { display: block; }

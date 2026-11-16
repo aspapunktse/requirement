@@ -219,7 +219,7 @@
   function render() {
     const r = role();
     const cur = NAV.find((n) => n.key === opts.current) || NAV[0];
-    $('appbar').className = 'appbar' + (visibleNav().length > 8 ? ' ab-many' : '') + (visibleNav().length > 10 ? ' ab-lots' : '') + (opts.barExtra ? ' ab-extra' : '');
+    $('appbar').className = 'appbar' + (visibleNav().length > 8 ? ' ab-many' : '') + (opts.barExtra ? ' ab-extra' : '');
     $('appbar').innerHTML = `
       <a class="ab-brand" href="${withRole(NAV[0].href)}" data-keep-role aria-label="ISMS - system onboarding, Home">
         <span class="ab-mark" aria-hidden="true"><span></span></span>
@@ -243,7 +243,20 @@
           `<button type="button" role="menuitemradio" aria-label="${esc(x.person)}, ${esc(x.label)}" aria-checked="${x.key === r.key}" data-role="${x.key}"><span class="ab-av">${esc(initials(x.person))}</span><span>${esc(x.person)}<br><small>${esc(x.label)}</small></span></button>`).join('')}</div>
       </div>`;
     document.querySelectorAll('[data-keep-role]').forEach((a) => { a.href = withRole(a.getAttribute('href')); });
+    fit();
     dispatchEvent(new CustomEvent('appbar:render'));
+  }
+
+  // Collapse the row of nav pills into the compact menu whenever it does not fit, decided by measuring: show the full
+  // nav, and if its content is wider than the room it was given, add ab-collapsed (same effect as ab-many). Run after
+  // each render, on window resize and once the fonts have loaded. The class is removed before measuring, in one pass.
+  function fit() {
+    const bar = $('appbar');
+    if (!bar) return;
+    bar.classList.remove('ab-collapsed');
+    const nav = bar.querySelector('.ab-nav');
+    if (!nav || getComputedStyle(nav).display === 'none') return;   // already hidden by a width rule
+    if (nav.scrollWidth > nav.clientWidth + 1) bar.classList.add('ab-collapsed');
   }
 
   function renderProto() {
@@ -323,6 +336,8 @@
   function mount(o) {
     opts = o || {};
     render(); renderProto(); mountPal(); bindTheme(); mounted = true;
+    addEventListener('resize', fit);
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
     document.addEventListener('click', (e) => {
       if (e.target.closest('#abMenuBtn')) return toggle('abMenuBtn', 'abMenu');
       if (e.target.closest('#abUserBtn')) return toggle('abUserBtn', 'abUser');
