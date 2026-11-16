@@ -72,6 +72,7 @@
     grid: 'M4 4h5v5H4zM11 4h5v5h-5zM4 11h5v5H4zM11 11h5v5h-5z',
     admin: 'M3 6l7-3 7 3-7 3zM3 10l7 3 7-3M3 14l7 3 7-3',
     infotype: 'M3 3h7l7 7-7 7-7-7zM6.5 6.5h.01',
+    columns: 'M3 4h4v12H3zM8 4h4v12H8zM13 4h4v12h-4z',
   };
   const icon = (k, size = 16) => `<svg class="ab-ico" width="${size}" height="${size}" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${P[k] || P.grid}"/></svg>`;
 
@@ -80,6 +81,8 @@
   const NAV = [
     { key: 'home', label: 'Home', icon: 'home', href: '/design/home/proposal-a.html' },
     { key: 'systems', label: 'Systems', icon: 'system', href: '/design/systems/proposal-a.html' },
+    // Comparisons sets two to five Candidate Systems side by side to choose one (#370), so it sits beside Systems.
+    { key: 'comparisons', label: 'Comparisons', icon: 'columns', href: '/design/comparison/proposal-a.html' },
     // Everyone reads the catalogue and uses "Where can I put this information?", so it sits in the main navigation beside Systems (#302).
     { key: 'information-types', label: 'Information Types', icon: 'infotype', href: '/design/information-types/proposal-a.html' },
     { key: 'controls', label: 'Controls', icon: 'control', href: '/design/controls/proposal-a.html' },
@@ -216,7 +219,7 @@
   function render() {
     const r = role();
     const cur = NAV.find((n) => n.key === opts.current) || NAV[0];
-    $('appbar').className = 'appbar' + (visibleNav().length > 8 ? ' ab-many' : '') + (opts.barExtra ? ' ab-extra' : '');
+    $('appbar').className = 'appbar' + (visibleNav().length > 8 ? ' ab-many' : '') + (visibleNav().length > 10 ? ' ab-lots' : '') + (opts.barExtra ? ' ab-extra' : '');
     $('appbar').innerHTML = `
       <a class="ab-brand" href="${withRole(NAV[0].href)}" data-keep-role aria-label="ISMS - system onboarding, Home">
         <span class="ab-mark" aria-hidden="true"><span></span></span>

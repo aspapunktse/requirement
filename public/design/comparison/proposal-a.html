@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Comparisons: Score cards and matrix</title>
+<link rel="stylesheet" href="../systems/systems.css">
+<link rel="stylesheet" href="../shared/appbar.css">
+<link rel="stylesheet" href="../shared/kit.css">
+<link rel="stylesheet" href="../shared/themes.css">
+<link rel="stylesheet" href="comparison.css">
+<script src="../shared/themes.js"></script>
+<style>
+/* Proposal A: score cards over a matrix. The idea: read the answer first, the evidence second. Each Candidate gets
+   a card across the top (a ring with its Comparison Score, the incomplete marker, mandatory Controls not fulfilled,
+   open Risks, classification), complete Candidates first and highest score first; below, one card holds the
+   Control-by-Control matrix with tabs (All, Mandatory, Where they differ). The list is the Home look: a hero, stat
+   cards that filter, and a card per Comparison in an Open lane and a Closed lane. */
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 218px), 1fr)); gap: 12px; }
+.cc { display: grid; gap: 10px; padding: 14px 16px 16px; align-content: start; }
+.cc.rejected { border-style: dashed; }
+.cc-top { display: flex; align-items: center; gap: 10px; }
+.cc-n { width: 24px; height: 24px; border-radius: 8px; display: grid; place-items: center; font-weight: 800; font-size: .78rem; background: var(--raised); color: var(--muted); flex: none; }
+.cc-name { display: grid; gap: 1px; min-width: 0; flex: 1; }
+.cc-name small { color: var(--muted); font-size: .76rem; }
+.cc-score { display: flex; align-items: center; gap: 12px; }
+.cc-fig { display: grid; gap: 4px; min-width: 0; }
+.cc dl { margin: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 3px 10px; font-size: .8rem; }
+.cc dt { color: var(--faint); } .cc dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.cc-foot { display: flex; justify-content: flex-end; min-height: 4px; }
+.sec-h { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; margin-bottom: 10px; }
+.sec-h h2 { font-size: 1.05rem; } .sec-h p { color: var(--muted); font-size: .82rem; }
+.mxtop { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 6px 14px; padding: 10px 18px; border-bottom: 1px solid var(--line-soft); }
+/* the list */
+.lanes { display: grid; gap: 18px; }
+.lane { display: grid; gap: 10px; }
+.lane > h2 { font-size: .74rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+.lane > h2 i { width: 8px; height: 8px; border-radius: 50%; }
+.cgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: 14px; }
+.cmpc { display: grid; gap: 10px; padding: 16px 18px; align-content: start; }
+.cmpc h3 { font-size: 1.02rem; }
+.cmpc h3 a { color: var(--ink); text-decoration: none; } .cmpc h3 a:hover { color: var(--accent); text-decoration: underline; }
+.cmpc .need { color: var(--muted); font-size: .86rem; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.cmpc .meta { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: .8rem; color: var(--muted); align-items: center; }
+.cmpc .res { font-size: .86rem; display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; border-top: 1px solid var(--line-soft); padding-top: 10px; }
+.hero .lede.small { font-size: .9rem; }
+</style>
+</head>
+<body>
+<header id="appbar"></header>
+<main class="app">
+  <div id="page"></div>
+</main>
+
+<script src="../shared/kit.js"></script>
+<script src="data.js"></script>
+<script src="comparison.js"></script>
+<script src="../shared/appbar.js"></script>
+<script>
+(function () {
+  const { esc, plural, fmt, chip, person, Kit } = Object.assign({ Kit: window.Kit }, window.CMP);
+  const C = window.CMP;
+  const ui = { filter: 'all', tab: 'all' };
+
+  /* ---------- the list ---------- */
+  function listHero(lm) {
+    const n = lm.items.length;
+    return `<section class="hero" aria-labelledby="pageH"><div>
+      <div class="eyebrow">Evaluation</div><h1 id="pageH">Comparisons</h1>
+      <p class="lede">Set two to five Candidate Systems side by side to choose one of them for the same need. The score informs the choice; you make it.</p>
+      <div class="actions">${lm.v.canCreate ? '<button type="button" class="btn primary" data-act="new">+ New Comparison</button>' : `<span class="hint">${esc(lm.v.label)} can’t create a Comparison. A System Owner, a Risk Owner or an Admin can.</span>`}</div>
+    </div>
+    <div class="move">${Kit.ring(n ? [[lm.open.length / n, 'var(--ok)'], [lm.closed.length / n, 'var(--done)']] : [], 76, 9, `${lm.open.length}`, 'open')}
+      <ul><li><i style="background:var(--ok)"></i><b>${lm.open.length}</b> open</li><li><i style="background:var(--done)"></i><b>${lm.closed.length}</b> closed</li></ul></div></section>`;
+  }
+  function stat(key, label, n, tone) {
+    return `<button type="button" class="card stat ${tone || ''}" data-filter="${key}" aria-pressed="${ui.filter === key}"><span class="k">${label}<em>Filter</em></span><span class="v">${n}</span></button>`;
+  }
+  function cmpCard(m) {
+    const c = m.cmp, o = m.closed ? `<div class="res">${m.cmp.outcome.pick ? chip('success', 'Chosen') : chip('', 'None chosen')}<b>${esc(C.outcomeText(m).replace('Chosen: ', ''))}</b><span class="muted small">${esc(fmt(c.outcome.on))}</span></div>` : '';
+    return `<article class="card cmpc spot"><div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start"><h3><a href="${C.cmpHref(c.id)}" data-act="open" data-id="${esc(c.id)}">${esc(c.name)}</a></h3>${m.closed ? chip('done', 'Closed') : chip('success', 'Open')}</div>
+      <p class="need">${esc(c.need)}</p>
+      <div class="meta"><span>Owner ${person(c.owner)}</span><span><b>${m.rows.length}</b> ${m.rows.length === 1 ? 'Candidate' : 'Candidates'}</span>${m.diff.length ? `<span style="color:var(--gold-ink);font-weight:650" title="Candidates differ in ${esc(C.joinList(m.diff.map((d) => d.label)))}">Differ in classification</span>` : ''}</div>${o}</article>`;
+  }
+  function list(lm) {
+    const mine = lm.items.filter((m) => m.cmp.owner === lm.v.person || m.cmp.participants.includes(lm.v.person));
+    const pass = (m) => ui.filter === 'all' || (ui.filter === 'open' && !m.closed) || (ui.filter === 'closed' && m.closed) || (ui.filter === 'mine' && mine.includes(m));
+    const open = lm.open.filter(pass), closed = lm.closed.filter(pass);
+    const lane = (title, tone, arr) => (arr.length ? `<section class="lane" aria-label="${title}"><h2><i style="background:${tone}"></i>${title} <span class="num">${arr.length}</span></h2><div class="cgrid">${arr.map(cmpCard).join('')}</div></section>` : '');
+    const empty = !lm.items.length
+      ? `<section class="card"><div class="done-state"><h3>No Comparison to show</h3><p>${esc(lm.v.label)} sees a Comparison only as its owner or participant, as the owner or Business System Owner of a Candidate, or with a role that sees every System. ${lm.hidden} ${lm.hidden === 1 ? 'Comparison exists' : 'Comparisons exist'} that you don’t see.</p></div></section>`
+      : (!open.length && !closed.length ? '<section class="card"><div class="done-state"><h3>Nothing matches this filter</h3></div></section>' : '');
+    return `${listHero(lm)}
+      <section class="stats" aria-label="Filter the list">${stat('all', 'All Comparisons', lm.items.length)}${stat('open', 'Open', lm.open.length, 'ok')}${stat('closed', 'Closed', lm.closed.length)}${stat('mine', 'Mine', mine.length)}</section>
+      <div class="lanes">${lane('Open', 'var(--ok)', open)}${lane('Closed', 'var(--done)', closed)}${empty}</div>`;
+  }
+
+  /* ---------- the page ---------- */
+  function candCard(r, m, i) {
+    const c = r.c, f = r.f;
+    return `<article class="card cc ${c.state === 'rejected' ? 'rejected' : ''} ${c.state === 'notselected' ? 'dim' : ''}" aria-label="${esc(c.name)}">
+      <div class="cc-top"><span class="cc-n" title="Position in the order">${i + 1}</span><span class="cc-name">${C.candName(r)}<small>${esc(c.vendor)}</small></span>${C.stateChip(r, m.cmp)}</div>
+      <div class="cc-score">${Kit.ring(f.ratio === null ? [] : [[f.ratio, c.state === 'rejected' ? 'var(--faint)' : 'var(--accent)']], 78, 9, C.scoreText(f), 'score')}
+        <div class="cc-fig">${C.answered(f)}${C.mandNF(f)}${C.frozenTag(m)}</div></div>
+      <dl><dt>Risks</dt><dd>${C.riskPills(c)}</dd><dt>Owner</dt><dd>${esc(c.owner)}</dd><dt>Stage</dt><dd>${esc(c.stage)}</dd></dl>
+      ${C.classChips(c)}
+      <div class="cc-foot">${C.removeBtn(r, m)}</div></article>`;
+  }
+  const TABS = [
+    ['all', 'All Controls', () => true],
+    ['mand', 'Mandatory', (c) => c.mand],
+    ['diff', 'Where they differ', null],
+  ];
+  function matrixCard(m) {
+    const diffKeys = new Set(m.ctl.filter((c, i) => new Set(m.rows.map((r) => r.c.st[i])).size > 1).map((c) => c.key));
+    const test = { all: () => true, mand: (c) => c.mand, diff: (c) => diffKeys.has(c.key) }[ui.tab];
+    const count = { all: m.ctl.length, mand: m.ctl.filter((c) => c.mand).length, diff: diffKeys.size };
+    return `<section class="card" aria-labelledby="mxH"><div class="card-h"><h2 id="mxH">Control by Control</h2><p>${plural(m.ctl.length, 'first-round Control')}, ${plural(m.rows.length, 'Candidate')}</p></div>
+      <div class="tabs" role="tablist" aria-label="Which Controls to show">${TABS.map(([k, l]) => `<button type="button" role="tab" data-tab="${k}" aria-selected="${ui.tab === k}">${l}<span class="n">${count[k]}</span></button>`).join('')}</div>
+      <div class="mxtop">${C.legend()}${m.closed ? C.frozenTag(m) : ''}</div>
+      ${C.matrix(m, { filter: test })}</section>`;
+  }
+  function page(m) {
+    return `${C.hero(m)}${C.outcome(m)}${C.roleNote(m)}${C.diffNotice(m)}
+      <section aria-labelledby="candH"><div class="sec-h"><h2 id="candH">Candidates</h2><p>Complete Candidates first, highest score first; then incomplete ones. A Rejected Candidate can’t be chosen.</p></div>
+        <div class="cards">${m.rows.map((r, i) => candCard(r, m, i)).join('')}</div></section>
+      ${matrixCard(m)}`;
+  }
+
+  document.addEventListener('click', (e) => {
+    const f = e.target.closest('[data-filter]'); if (f) { ui.filter = ui.filter === f.dataset.filter ? 'all' : f.dataset.filter; C.render(); }
+    const t = e.target.closest('[data-tab]'); if (t) { ui.tab = t.dataset.tab; C.render(); const n = document.querySelector(`[data-tab="${ui.tab}"]`); if (n) n.focus(); }
+  });
+
+  C.mount({ list, page });
+  Appbar.mount({ current: 'comparisons', proposal: { label: 'A', siblings: [['B', 'proposal-b.html'], ['C', 'proposal-c.html']] }, items: C.paletteItems });
+})();
+</script>
+</body>
+</html>

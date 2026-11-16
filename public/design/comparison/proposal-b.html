@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Comparisons: Shortlist and differences</title>
+<link rel="stylesheet" href="../systems/systems.css">
+<link rel="stylesheet" href="../shared/appbar.css">
+<link rel="stylesheet" href="../shared/kit.css">
+<link rel="stylesheet" href="../shared/themes.css">
+<link rel="stylesheet" href="comparison.css">
+<script src="../shared/themes.js"></script>
+<style>
+/* Proposal B: a shortlist and the differences. The idea: most first-round Controls are fulfilled by everyone, so
+   they don't help you choose. The page leads with a shortlist, one row per Candidate (score bar, incomplete marker,
+   mandatory Controls not fulfilled, open Risks), highest score first. A row opens a drawer with everything about that
+   Candidate, including its status on every Control. Below, the Control-by-Control table starts with only the
+   Controls where the Candidates differ; one switch shows all of them. The list is a register table with tabs
+   (All, Open, Closed), search, and a row per Comparison. */
+.sl { list-style: none; margin: 0; padding: 0; }
+.sl-row { display: grid; grid-template-columns: 28px minmax(0, 1.5fr) minmax(150px, 1fr) minmax(0, 1.3fr) auto; gap: 8px 16px; align-items: center; padding: 12px 18px; border-top: 1px solid var(--line-soft); }
+.sl-row.rejected { opacity: .8; }
+.sl-main { display: grid; gap: 2px; min-width: 0; }
+.sl-main .top { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.sl-main small { color: var(--muted); font-size: .78rem; }
+.sl-score { display: grid; gap: 4px; }
+.sl-score .score { font-size: 1.35rem; line-height: 1; }
+.sl-facts { display: grid; gap: 3px; justify-items: start; }
+.sl-act { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
+.cc-n { width: 24px; height: 24px; border-radius: 8px; display: grid; place-items: center; font-weight: 800; font-size: .78rem; background: var(--raised); color: var(--muted); }
+@media (max-width: 900px) {
+  .sl-row { grid-template-columns: 28px minmax(0, 1fr) auto; }
+  .sl-score, .sl-facts { grid-column: 2 / -1; }
+  .sl-act { grid-column: 3; grid-row: 1; }
+}
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.seg button { border: 0; background: var(--surface); padding: 6px 12px; cursor: pointer; font-size: .82rem; font-weight: 650; color: var(--muted); }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
+.mxtop { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px 14px; padding: 10px 18px; border-bottom: 1px solid var(--line-soft); }
+.same { padding: 22px 18px; color: var(--muted); }
+/* drawer */
+.dr-h { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+.dr-h h2 { font-size: 1.2rem; }
+.dr dl { margin: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 14px; font-size: .86rem; }
+.dr dt { color: var(--faint); } .dr dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.dr-big { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; }
+.dr-big .score { font-size: 2.2rem; line-height: 1; }
+.dr ul.ctl { list-style: none; margin: 0; padding: 0; display: grid; }
+.dr ul.ctl li { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 7px 0; border-top: 1px solid var(--line-soft); font-size: .84rem; }
+.dr ul.ctl li > span:first-child { min-width: 0; overflow-wrap: anywhere; }
+.dr h3 { font-size: .74rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+/* list */
+.reg { width: 100%; border-collapse: collapse; }
+.reg th, .reg td { padding: 11px 14px; text-align: left; border-bottom: 1px solid var(--line-soft); vertical-align: top; font-size: .86rem; }
+.reg thead th { font-size: .74rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); background: var(--raised); }
+.reg td.nm a { font-weight: 700; color: var(--ink); text-decoration: none; } .reg td.nm a:hover { color: var(--accent); text-decoration: underline; }
+.reg td.nm .need { color: var(--muted); font-size: .8rem; margin-top: 2px; max-width: 58ch; }
+.reg tbody tr:hover td { background: var(--raised); }
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--line-soft); }
+.toolbar .search { flex: 1 1 240px; max-width: 380px; }
+@media (max-width: 720px) {
+  .reg, .reg tbody { display: block; } .reg thead { display: none; }
+  .reg tbody tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; padding: 12px 16px; border-bottom: 1px solid var(--line-soft); }
+  .reg td { display: block; padding: 0; border: 0; background: none !important; }
+  .reg td.nm { grid-column: 1 / -1; } .reg td.own, .reg td.oc { grid-column: 1 / -1; } .reg td.n { grid-column: 1; } .reg td.stt { grid-column: 2; }
+  .reg td.dt { display: none; }
+}
+</style>
+</head>
+<body>
+<header id="appbar"></header>
+<main class="app">
+  <div id="page"></div>
+</main>
+
+<script src="../shared/kit.js"></script>
+<script src="data.js"></script>
+<script src="comparison.js"></script>
+<script src="../shared/appbar.js"></script>
+<script>
+(function () {
+  const C = window.CMP, Kit = window.Kit;
+  const { esc, plural, fmt, chip, person } = C;
+  const ui = { tab: 'all', q: '', only: true };
+  let M = null;
+
+  /* ---------- the list ---------- */
+  function list(lm) {
+    const q = ui.q.trim().toLowerCase();
+    const shown = lm.items.filter((m) => (ui.tab === 'all' || (ui.tab === 'open') === !m.closed) && (!q || (m.cmp.name + ' ' + m.cmp.need + ' ' + m.cmp.owner + ' ' + m.rows.map((r) => r.c.name).join(' ')).toLowerCase().includes(q)));
+    const tab = (k, l, n) => `<button type="button" role="tab" data-tab="${k}" aria-selected="${ui.tab === k}">${l}<span class="n">${n}</span></button>`;
+    const rows = shown.map((m) => `<tr><td class="nm"><a href="${C.cmpHref(m.cmp.id)}" data-act="open" data-id="${esc(m.cmp.id)}">${esc(m.cmp.name)}</a><div class="need">${esc(m.cmp.need)}</div></td>
+      <td class="own">${person(m.cmp.owner)}</td><td class="n num">${plural(m.rows.length, 'Candidate')}</td>
+      <td class="stt">${m.closed ? chip('done', 'Closed') : chip('success', 'Open')}</td>
+      <td class="oc">${m.closed ? `${esc(C.outcomeText(m))}` : '<span class="muted">Not decided</span>'}</td>
+      <td class="dt num">${m.closed ? esc(fmt(m.cmp.outcome.on)) : '<span class="muted">since ' + esc(fmt(m.cmp.created)) + '</span>'}</td></tr>`).join('');
+    const empty = !lm.items.length
+      ? `<div class="done-state"><h3>No Comparison to show</h3><p>${esc(lm.v.label)} sees a Comparison only as its owner or participant, as the owner or Business System Owner of a Candidate, or with a role that sees every System. ${lm.hidden} ${lm.hidden === 1 ? 'Comparison exists' : 'Comparisons exist'} that you don’t see.</p></div>`
+      : (!shown.length ? '<div class="done-state"><h3>Nothing matches</h3></div>' : '');
+    return `<section class="hero" aria-labelledby="pageH"><div><div class="eyebrow">Evaluation</div><h1 id="pageH">Comparisons</h1>
+      <p class="lede">Set two to five Candidate Systems side by side to choose one of them for the same need.</p>
+      <div class="actions">${lm.v.canCreate ? '<button type="button" class="btn primary" data-act="new">+ New Comparison</button>' : `<span class="hint">${esc(lm.v.label)} can’t create a Comparison. A System Owner, a Risk Owner or an Admin can.</span>`}</div></div>
+      <div class="move">${Kit.ring(lm.items.length ? [[lm.open.length / lm.items.length, 'var(--ok)'], [lm.closed.length / lm.items.length, 'var(--done)']] : [], 76, 9, `${lm.open.length}`, 'open')}<ul><li><i style="background:var(--ok)"></i><b>${lm.open.length}</b> open</li><li><i style="background:var(--done)"></i><b>${lm.closed.length}</b> closed</li></ul></div></section>
+      <section class="card" aria-labelledby="regH"><div class="card-h"><h2 id="regH">All Comparisons you can see</h2><p>${lm.items.length} of ${lm.items.length + lm.hidden}</p></div>
+        <div class="tabs" role="tablist" aria-label="Status">${tab('all', 'All', lm.items.length)}${tab('open', 'Open', lm.open.length)}${tab('closed', 'Closed', lm.closed.length)}</div>
+        <div class="toolbar"><label class="search"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="9" cy="9" r="6"/><path d="m14 14 4 4"/></svg><input id="q" type="search" value="${esc(ui.q)}" placeholder="Search name, need, owner or Candidate" aria-label="Search Comparisons" autocomplete="off"></label></div>
+        ${shown.length ? `<table class="reg"><thead><tr><th scope="col">Comparison</th><th scope="col">Owner</th><th scope="col">Candidates</th><th scope="col">Status</th><th scope="col">Outcome</th><th scope="col">Date</th></tr></thead><tbody>${rows}</tbody></table>` : ''}${empty}</section>`;
+  }
+
+  /* ---------- the page ---------- */
+  function row(r, m) {
+    const c = r.c, f = r.f, pct = f.ratio === null ? 0 : Math.round(f.ratio * 100);
+    return `<li class="sl-row ${c.state === 'rejected' ? 'rejected' : ''}"><span class="cc-n" title="Position in the order">${r.rank}</span>
+      <div class="sl-main"><span class="top">${C.candName(r)}${C.stateChip(r, m.cmp)}</span><small>${esc(c.vendor)} · owner ${esc(c.owner)}</small></div>
+      <div class="sl-score"><span class="score ${f.score === null ? 'none' : ''}">${C.scoreText(f)} ${C.frozenTag(m)}</span><div class="prog" role="img" aria-label="Comparison Score ${C.scoreText(f)}"><div class="track"><div class="fill" style="width:${pct}%"></div></div></div></div>
+      <div class="sl-facts">${C.answered(f)}${C.mandNF(f)}${C.riskPills(c)}</div>
+      <div class="sl-act"><button type="button" class="btn sm" data-detail="${esc(c.id)}" aria-haspopup="dialog">Details</button>${C.removeBtn(r, m)}</div></li>`;
+  }
+  function differsCard(m) {
+    const only = ui.only;
+    const diffKeys = new Set(m.ctl.filter((c, i) => new Set(m.rows.map((r) => r.c.st[i])).size > 1).map((c) => c.key));
+    const nothing = only && !diffKeys.size;
+    return `<section class="card" aria-labelledby="mxH"><div class="card-h"><h2 id="mxH">Control by Control</h2><p>${only ? `${diffKeys.size} of ${m.ctl.length} Controls differ between the Candidates` : plural(m.ctl.length, 'first-round Control')}</p></div>
+      <div class="mxtop"><div class="seg" role="group" aria-label="Which Controls to show"><button type="button" data-only="1" aria-pressed="${only}">Differences only</button><button type="button" data-only="0" aria-pressed="${!only}">All Controls</button></div>${C.legend()}</div>
+      ${nothing ? '<p class="same">Every Candidate has the same status on every first-round Control.</p>' : C.matrix(m, { filter: only ? (c) => diffKeys.has(c.key) : null })}</section>`;
+  }
+  function page(m) {
+    return `${C.hero(m)}${C.outcome(m)}${C.roleNote(m)}${C.diffNotice(m)}
+      <section class="card" aria-labelledby="slH"><div class="card-h"><h2 id="slH">Shortlist</h2><p>Complete Candidates first, highest score first; then incomplete ones. Open a row for everything about it.</p></div>
+        <ol class="sl" style="margin-top:12px">${m.rows.map((r) => row(r, m)).join('')}</ol></section>
+      ${differsCard(m)}`;
+  }
+
+  /* ---------- the drawer ---------- */
+  function drawer(r, m) {
+    const c = r.c, f = r.f;
+    return `<div class="dlg-in dr" role="document">
+      <div class="dr-h"><div><h2 id="drH">${C.candName(r)}</h2><p class="muted small" style="margin-top:2px">${esc(c.vendor)}</p></div><button type="button" class="btn sm" data-act="close" aria-label="Close the details of ${esc(c.name)}">Close</button></div>
+      <div class="chips" style="display:flex;gap:6px;flex-wrap:wrap">${C.stateChip(r, m.cmp)}${C.frozenTag(m)}</div>
+      ${r.open ? '' : '<aside class="note warn" role="note"><span class="ico" aria-hidden="true">!</span><div><p><b>Limited summary.</b> You can’t open this System, so you see its name, vendor, owner, classification, score, counts and status per Control. There is no evidence, notes or Risk detail.</p></div></aside>'}
+      <div class="dr-big"><span class="score ${f.score === null ? 'none' : ''}" title="Comparison Score">${C.scoreText(f)}</span><div style="display:grid;gap:4px">${C.answered(f)}${C.mandNF(f)}</div></div>
+      <dl><dt>Owner</dt><dd>${esc(c.owner)}</dd>${r.open ? `<dt>Business System Owner</dt><dd>${esc(c.bso || 'Not named')}</dd>` : ''}<dt>Stage</dt><dd>${esc(c.stage)}</dd><dt>Open Risks</dt><dd>${C.riskPills(c)}</dd></dl>
+      <div><h3>Classification</h3>${C.classChips(c, true)}</div>
+      <div><h3>Status per first-round Control</h3><ul class="ctl">${m.ctl.map((ctl, i) => `<li><span>${esc(ctl.name)}${ctl.mand ? ' <span class="mand" style="font-size:.66rem;font-weight:750;text-transform:uppercase;color:var(--gold-ink);background:var(--gold-soft);border-radius:4px;padding:0 5px">Mandatory</span>' : ''}</span>${C.stChip(c.st[i])}</li>`).join('')}</ul></div>
+      <footer>${C.removeBtn(r, m)}${r.open ? `<a class="btn primary" href="${C.SYSTEM_PAGE}#role=${Appbar.roleKey()}">Open the System</a>` : ''}</footer></div>`;
+  }
+
+  document.addEventListener('click', (e) => {
+    const t = e.target.closest('[data-tab]'); if (t) { ui.tab = t.dataset.tab; C.render(); const n = document.querySelector(`[data-tab="${ui.tab}"]`); if (n) n.focus(); return; }
+    const o = e.target.closest('[data-only]'); if (o) { ui.only = o.dataset.only === '1'; C.render(); const n = document.querySelector(`[data-only="${o.dataset.only}"]`); if (n) n.focus(); return; }
+    const d = e.target.closest('[data-detail]');
+    if (d && M) { const r = M.rows.find((x) => x.c.id === d.dataset.detail); if (r) C.dialog(drawer(r, M), 'drawer'); }
+  });
+  document.addEventListener('input', (e) => {
+    if (e.target.id !== 'q') return;
+    ui.q = e.target.value; C.render();
+    const q = document.getElementById('q'); if (q) { q.focus(); q.setSelectionRange(q.value.length, q.value.length); }
+  });
+
+  C.mount({ list, page, after(root, m) { M = m; } });
+  Appbar.mount({ current: 'comparisons', proposal: { label: 'B', siblings: [['A', 'proposal-a.html'], ['C', 'proposal-c.html']] }, items: C.paletteItems });
+})();
+</script>
+</body>
+</html>
