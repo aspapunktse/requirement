@@ -181,6 +181,22 @@ A review of a System already Onboarded when a change to its Framework Scope or c
 **Risk Source**:
 Where a Risk came from: requirement non-conformance (a "No" Self-Assessment answer), an audit finding (a Nonconformity), or ad hoc. A Risk Analysis groups Risks by it; other kinds of risk will be added as new sources.
 
+**Comparison**:
+A saved, named record that sets two to five Systems side by side to help choose one of them for the same need (for example "New HR system 2027"). States the need it answers and holds its **Candidates**. Anyone who may create a System creates one and becomes its owner; an Admin can change the owner. It is **open** until its owner or an Admin records the **outcome**: one Candidate chosen, or none, always with a comment. That closes it: read-only, showing each Candidate's Comparison Score and counts as they were when the outcome was recorded. Its owner or an Admin can reopen it, which returns it to live figures. An open Comparison can be deleted by its owner or an Admin, which leaves its Systems untouched; a closed one is kept. Its owner or an Admin can name **participants**: Users who see the Comparison and can add Systems they own. The Comparison is seen by its owner, its participants, each Candidate's owner and Business System Owner, and the roles that see every System. **What someone who can't see a Candidate as a System may learn about it:** its name, vendor, owner, classification, Comparison Score, counts and status per first-round Control, nothing else (no evidence, notes, Risk details or System page). A Comparison is informational: no gate, verdict or submission waits for it. Adding or removing a Candidate, recording the outcome and reopening are Change Events on the Systems concerned. *(New term, agreed with the product owner 2026-11-16; not built.)*
+_Avoid_: Vendor comparison, vendor selection (a Candidate is a System), pin (the temporary selection in a design proposal)
+
+**Candidate**:
+A System that takes part in a Comparison. Always a real System, created through the normal onboarding interview, never an entry that exists only in the Comparison; a new one can be created from inside the Comparison, starting from another Candidate's classification. Only a staged System that is not closed can be added, at any stage. It is compared on its first Requirement Round, by its **Comparison Score**. A System can be a Candidate in several Comparisons, and being one changes nothing about its evaluation. Candidates may have different owners and different classifications. The Comparison's owner adds a System they can see, a participant one they own, an Admin any; the Comparison's owner or an Admin removes Candidates, and a System's owner can remove their own System while the Comparison is open. *(New term, agreed with the product owner 2026-11-16; not built.)*
+_Avoid_: Vendor, option, alternative
+
+**Comparison Score**:
+The share of a Candidate's applicable first-round Controls that are effectively Fulfilled, so inherited Controls count. A Control that is effectively Not Applicable is left out of the count, and a Waived one counts as not fulfilled. Unweighted. Shown for an unfinished Candidate too, marked incomplete with how many first-round Controls are answered; complete Candidates rank before incomplete ones. Candidates may differ in classification, so two scores can rest on different sets of Controls; the Comparison says when they do and shows, Control by Control, where a Control does not apply to a Candidate. The score informs the choice and never makes it. *(New term, agreed with the product owner 2026-11-16; not built.)*
+_Avoid_: Compliance Percentage (that is per Framework, over Requirements), rating, ranking
+
+**Not selected**:
+A way for a System to be closed after it lost a Comparison: read-only and kept for the record, like a Rejected System. Offered per Candidate when the outcome is recorded, never automatic, and only for a Candidate still in evaluation (never one with an ATO or Onboarded). The Comparison's owner can close the Candidates they own, an Admin any. Unlike Rejected it is not final: an Admin can reopen the System, with a comment, back to the stage it was in. Closing and reopening are Change Events. See [ADR 0015](docs/adr/0015-not-selected-closes-a-system-and-can-be-reopened.md). *(New term, agreed with the product owner 2026-11-16; not built.)*
+_Avoid_: Rejected (the Business System Owner's final decision at a gate), withdrawn, archived
+
 ### Risk, approval, and people
 
 **Risk**:
