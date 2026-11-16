@@ -72,6 +72,7 @@
     grid: 'M4 4h5v5H4zM11 4h5v5h-5zM4 11h5v5H4zM11 11h5v5h-5z',
     admin: 'M3 6l7-3 7 3-7 3zM3 10l7 3 7-3M3 14l7 3 7-3',
     infotype: 'M3 3h7l7 7-7 7-7-7zM6.5 6.5h.01',
+    columns: 'M3 4h4v12H3zM8 4h4v12H8zM13 4h4v12h-4z',
   };
   const icon = (k, size = 16) => `<svg class="ab-ico" width="${size}" height="${size}" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${P[k] || P.grid}"/></svg>`;
 
@@ -80,6 +81,8 @@
   const NAV = [
     { key: 'home', label: 'Home', icon: 'home', href: '/design/home/proposal-a.html' },
     { key: 'systems', label: 'Systems', icon: 'system', href: '/design/systems/proposal-a.html' },
+    // Comparisons sets two to five Candidate Systems side by side to choose one (#370), so it sits beside Systems.
+    { key: 'comparisons', label: 'Comparisons', icon: 'columns', href: '/design/comparison/proposal-a.html' },
     // Everyone reads the catalogue and uses "Where can I put this information?", so it sits in the main navigation beside Systems (#302).
     { key: 'information-types', label: 'Information Types', icon: 'infotype', href: '/design/information-types/proposal-a.html' },
     { key: 'controls', label: 'Controls', icon: 'control', href: '/design/controls/proposal-a.html' },
@@ -240,7 +243,20 @@
           `<button type="button" role="menuitemradio" aria-label="${esc(x.person)}, ${esc(x.label)}" aria-checked="${x.key === r.key}" data-role="${x.key}"><span class="ab-av">${esc(initials(x.person))}</span><span>${esc(x.person)}<br><small>${esc(x.label)}</small></span></button>`).join('')}</div>
       </div>`;
     document.querySelectorAll('[data-keep-role]').forEach((a) => { a.href = withRole(a.getAttribute('href')); });
+    fit();
     dispatchEvent(new CustomEvent('appbar:render'));
+  }
+
+  // Collapse the row of nav pills into the compact menu whenever it does not fit, decided by measuring: show the full
+  // nav, and if its content is wider than the room it was given, add ab-collapsed (same effect as ab-many). Run after
+  // each render, on window resize and once the fonts have loaded. The class is removed before measuring, in one pass.
+  function fit() {
+    const bar = $('appbar');
+    if (!bar) return;
+    bar.classList.remove('ab-collapsed');
+    const nav = bar.querySelector('.ab-nav');
+    if (!nav || getComputedStyle(nav).display === 'none') return;   // already hidden by a width rule
+    if (nav.scrollWidth > nav.clientWidth + 1) bar.classList.add('ab-collapsed');
   }
 
   function renderProto() {
@@ -320,6 +336,8 @@
   function mount(o) {
     opts = o || {};
     render(); renderProto(); mountPal(); bindTheme(); mounted = true;
+    addEventListener('resize', fit);
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
     document.addEventListener('click', (e) => {
       if (e.target.closest('#abMenuBtn')) return toggle('abMenuBtn', 'abMenu');
       if (e.target.closest('#abUserBtn')) return toggle('abUserBtn', 'abUser');

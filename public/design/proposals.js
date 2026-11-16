@@ -3,6 +3,35 @@
 // `id` is the vote key: keep it stable once people have voted, or the votes are orphaned.
 window.DESIGN_PARTS = [
   {
+    id: "comparison",
+    name: "Comparison",
+    added: "2026-11-16",
+    question: "How should several Candidate Systems be compared?",
+    proposals: [
+      {
+        id: "comparison-a",
+        label: "A",
+        title: "Score cards and matrix",
+        href: "/design/comparison/proposal-a.html",
+        summary: "A card per Candidate across the top, with a ring for its Comparison Score, the incomplete marker, mandatory Controls not fulfilled, open Risks and classification, then one Control-by-Control matrix with tabs (All, Mandatory, Where they differ). The list is the Home look: stat cards that filter and an Open and a Closed lane.",
+      },
+      {
+        id: "comparison-b",
+        label: "B",
+        title: "Shortlist and differences",
+        href: "/design/comparison/proposal-b.html",
+        summary: "A shortlist with one row per Candidate (score bar, counts, Risks) that opens a drawer with everything about it, then a Control-by-Control table that starts with only the Controls where the Candidates differ. The list is a register table with tabs and search.",
+      },
+      {
+        id: "comparison-c",
+        label: "C",
+        title: "Column board",
+        href: "/design/comparison/proposal-c.html",
+        summary: "The Candidates are columns with sticky headers that hold the score and counts, and the Controls run down in Framework groups that fold shut. A Show control picks which columns to compare, so five Candidates read two or three at a time and a phone starts with two. The list shows a strip of each Comparison's scores.",
+      },
+    ],
+  },
+  {
     id: "evaluation",
     name: "Staged evaluation",
     added: "2026-11-08",

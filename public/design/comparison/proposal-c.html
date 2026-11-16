@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Comparisons: Column board</title>
+<link rel="stylesheet" href="../systems/systems.css">
+<link rel="stylesheet" href="../shared/appbar.css">
+<link rel="stylesheet" href="../shared/kit.css">
+<link rel="stylesheet" href="../shared/themes.css">
+<link rel="stylesheet" href="comparison.css">
+<script src="../shared/themes.js"></script>
+<style>
+/* Proposal C: a column board. The idea: the Candidates are the columns and stay in view. Each column has a sticky
+   header with the Candidate's score, incomplete marker, mandatory Controls not fulfilled, open Risks and state; the
+   Controls run down the page in groups by Framework that fold shut, with the Framework's count of Controls every
+   Candidate fulfils. "Show" chooses which columns to compare, so five Candidates can be read two or three at a
+   time; on a phone it starts with the first two. There is no separate summary: the column headers are the summary.
+   The list shows each Comparison as a row with a strip of its Candidates' scores. */
+.show { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; padding: 12px 18px; border-bottom: 1px solid var(--line-soft); }
+.show > b { font-size: .8rem; color: var(--muted); }
+.pill { display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--line); background: var(--surface); border-radius: 99px; padding: 3px 11px 3px 9px; font-size: .82rem; font-weight: 650; color: var(--muted); cursor: pointer; }
+.pill:hover { border-color: var(--accent); }
+.pill:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); color: var(--ink); }
+.pill:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+.pill input { accent-color: var(--accent); margin: 0; }
+.pill .s { font-variant-numeric: tabular-nums; color: var(--faint); font-weight: 600; }
+.bt { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; justify-content: space-between; padding: 10px 18px; border-bottom: 1px solid var(--line-soft); }
+.hc { display: grid; gap: 4px; justify-items: start; min-width: 0; font-weight: 400; }
+.hc .nm { font-size: .9rem; font-weight: 700; }
+.hc .big { font-size: 1.7rem; line-height: 1; }
+.hc .row1 { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.hc .more { display: grid; gap: 3px; justify-items: start; }
+.hc .qbadge { font-size: .68rem; }
+.mx th.cand { min-width: 150px; vertical-align: top; padding-block: 10px; }
+.mx th.cand .ans, .mx th.cand .mnf { font-size: .74rem; }
+@media (max-width: 720px) {
+  .mx th.cand { min-width: 0; text-align: left; }
+  .hc .more { display: none; }
+  .hc .big { font-size: 1.25rem; }
+  .hc .nm { font-size: .78rem; }
+}
+.pnote { color: var(--muted); font-size: .8rem; }
+/* list */
+.rw { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto minmax(0, 1fr); gap: 8px 18px; align-items: center; padding: 14px 18px; border-top: 1px solid var(--line-soft); }
+.rw h3 { font-size: 1rem; }
+.rw h3 a { color: var(--ink); text-decoration: none; } .rw h3 a:hover { color: var(--accent); text-decoration: underline; }
+.rw .need { color: var(--muted); font-size: .82rem; margin-top: 2px; }
+.rw .sub { color: var(--muted); font-size: .8rem; display: grid; gap: 2px; }
+.strip { display: inline-flex; align-items: end; gap: 4px; height: 38px; padding: 0 2px; border-bottom: 1px solid var(--line); }
+.strip i { display: block; width: 14px; border-radius: 3px 3px 0 0; background: var(--accent); min-height: 3px; }
+.strip i.inc { background: repeating-linear-gradient(135deg, var(--accent) 0 3px, color-mix(in srgb, var(--accent) 45%, transparent) 3px 6px); }
+.strip i.rej { background: var(--faint); } .strip i.pk { background: var(--ok); }
+.strip i.none { background: var(--line); }
+.rw .out { font-size: .86rem; display: grid; gap: 2px; justify-items: start; }
+@media (max-width: 860px) { .rw { grid-template-columns: minmax(0, 1fr) auto; } .rw > :nth-child(2), .rw > :nth-child(4) { grid-column: 1 / -1; } }
+</style>
+</head>
+<body>
+<header id="appbar"></header>
+<main class="app">
+  <div id="page"></div>
+</main>
+
+<script src="../shared/kit.js"></script>
+<script src="data.js"></script>
+<script src="comparison.js"></script>
+<script src="../shared/appbar.js"></script>
+<script>
+(function () {
+  const C = window.CMP, Kit = window.Kit;
+  const { esc, plural, fmt, chip, person } = C;
+  const hidden = {};   // per Comparison: the ids of the Candidates whose columns are hidden (on a phone it starts with all but two)
+  let M = null;
+
+  /* ---------- the list ---------- */
+  function strip(m) {
+    const pk = m.cmp.outcome && m.cmp.outcome.pick;
+    const label = 'Comparison Scores: ' + m.rows.map((r) => `${r.c.name} ${C.scoreText(r.f)}`).join(', ');
+    return `<span class="strip" role="img" aria-label="${esc(label)}">${m.rows.map((r) => `<i class="${r.f.score === null ? 'none' : r.c.state === 'rejected' ? 'rej' : r.c.id === pk ? 'pk' : r.f.complete ? '' : 'inc'}" style="height:${Math.max(8, r.f.ratio === null ? 8 : Math.round(r.f.ratio * 100))}%" title="${esc(r.c.name)}: ${C.scoreText(r.f)}"></i>`).join('')}</span>`;
+  }
+  function rw(m) {
+    const c = m.cmp;
+    return `<div class="rw"><div><h3><a href="${C.cmpHref(c.id)}" data-act="open" data-id="${esc(c.id)}">${esc(c.name)}</a></h3><p class="need">${esc(c.need)}</p></div>
+      <div class="sub"><span>Owner ${person(c.owner)}</span><span>${plural(m.rows.length, 'Candidate')}: ${esc(m.rows.map((r) => r.c.name).join(', '))}</span></div>
+      ${strip(m)}
+      <div class="out">${m.closed ? `<span>${esc(C.outcomeText(m))}</span><span class="muted small">${esc(fmt(c.outcome.on))}</span>` : '<span class="muted">Not decided</span>'}</div></div>`;
+  }
+  function list(lm) {
+    const empty = !lm.items.length
+      ? `<div class="done-state"><h3>No Comparison to show</h3><p>${esc(lm.v.label)} sees a Comparison only as its owner or participant, as the owner or Business System Owner of a Candidate, or with a role that sees every System. ${lm.hidden} ${lm.hidden === 1 ? 'Comparison exists' : 'Comparisons exist'} that you don’t see.</p></div>` : '';
+    return `<section class="hero" aria-labelledby="pageH"><div><div class="eyebrow">Evaluation</div><h1 id="pageH">Comparisons</h1>
+      <p class="lede">Set two to five Candidate Systems side by side to choose one of them for the same need. Each bar is a Candidate’s Comparison Score; a striped bar is incomplete.</p>
+      <div class="actions">${lm.v.canCreate ? '<button type="button" class="btn primary" data-act="new">+ New Comparison</button>' : `<span class="hint">${esc(lm.v.label)} can’t create a Comparison. A System Owner, a Risk Owner or an Admin can.</span>`}</div></div>
+      <div class="move">${Kit.ring(lm.items.length ? [[lm.open.length / lm.items.length, 'var(--ok)'], [lm.closed.length / lm.items.length, 'var(--done)']] : [], 76, 9, `${lm.open.length}`, 'open')}<ul><li><i style="background:var(--ok)"></i><b>${lm.open.length}</b> open</li><li><i style="background:var(--done)"></i><b>${lm.closed.length}</b> closed</li></ul></div></section>
+      <section class="card" aria-label="Comparisons" style="overflow:clip">${empty}
+        ${lm.open.length ? `<div class="lane-h" style="border-top:0"><i style="background:var(--ok)"></i>Open<small>${lm.open.length}</small></div>${lm.open.map(rw).join('')}` : ''}
+        ${lm.closed.length ? `<div class="lane-h"><i style="background:var(--done)"></i>Closed<small>${lm.closed.length}</small></div>${lm.closed.map(rw).join('')}` : ''}</section>`;
+  }
+
+  /* ---------- the page ---------- */
+  function shown(m) {
+    if (!hidden[m.cmp.id]) hidden[m.cmp.id] = new Set(matchMedia('(max-width: 720px)').matches ? m.rows.slice(2).map((r) => r.c.id) : []);
+    return m.rows.filter((r) => !hidden[m.cmp.id].has(r.c.id));
+  }
+  function headCell(m) {
+    return (r) => {
+      const c = r.c, f = r.f;
+      return `<div class="hc"><span class="row1">${C.stateChip(r, m.cmp)}</span><span class="nm">${C.candName(r)}</span>
+        <span class="score big ${f.score === null ? 'none' : ''}" title="Comparison Score">${C.scoreText(f)}</span>
+        ${f.complete ? '' : `<span class="qbadge">incomplete: ${f.answered} of ${f.total}</span>`}
+        <span class="more">${f.complete ? C.answered(f) : ''}${C.mandNF(f)}${C.riskPills(c)}<span class="ans">${esc(c.vendor)}</span>${C.classChips(c)}${C.removeBtn(r, m)}</span></div>`;
+    };
+  }
+  function page(m) {
+    const cols = shown(m), hid = hidden[m.cmp.id];
+    const fws = [...new Set(m.ctl.map((c) => c.fw))];
+    const allShut = fws.every((fw) => C.ui.collapsed[fw]);
+    return `${C.hero(m)}${C.outcome(m)}${C.roleNote(m)}${C.diffNotice(m)}
+      <section class="card" aria-labelledby="mxH"><div class="card-h"><h2 id="mxH">Compare column by column</h2><p>${plural(m.ctl.length, 'first-round Control')} in ${plural(fws.length, 'Framework')}${m.closed ? ' · frozen as of ' + esc(fmt(m.asOf)) : ''}</p></div>
+        <div class="show" role="group" aria-label="Columns to show"><b>Show</b>${m.rows.map((r) => `<label class="pill"><input type="checkbox" data-col="${esc(r.c.id)}" ${hid.has(r.c.id) ? '' : 'checked'}>${esc(r.c.name)} <span class="s">${C.scoreText(r.f)}</span></label>`).join('')}</div>
+        <div class="bt">${C.legend()}<button type="button" class="link" data-fold="${allShut ? 'open' : 'shut'}">${allShut ? 'Expand all Frameworks' : 'Fold all Frameworks'}</button></div>
+        ${cols.length ? C.matrix(m, { cols, group: true, headCell: headCell(m) }) : '<p class="pnote" style="padding:18px">Show at least one Candidate.</p>'}
+        <p class="pnote" style="padding:10px 18px 14px">Complete Candidates are first, highest score first; then incomplete ones. A Rejected Candidate can’t be chosen. Gold underline: the Candidates differ on that Control.</p></section>`;
+  }
+
+  document.addEventListener('change', (e) => {
+    const b = e.target.closest && e.target.closest('[data-col]'); if (!b || !M) return;
+    const s = hidden[M.cmp.id]; if (b.checked) s.delete(b.dataset.col); else s.add(b.dataset.col);
+    const id = b.dataset.col; C.render();
+    const n = document.querySelector(`[data-col="${CSS.escape(id)}"]`); if (n) n.focus();
+  });
+  document.addEventListener('click', (e) => {
+    const f = e.target.closest('[data-fold]'); if (!f || !M) return;
+    [...new Set(M.ctl.map((c) => c.fw))].forEach((fw) => { C.ui.collapsed[fw] = f.dataset.fold === 'shut'; });
+    C.render(); const n = document.querySelector('[data-fold]'); if (n) n.focus();
+  });
+
+  C.mount({ list, page, after(root, m) { M = m; } });
+  Appbar.mount({ current: 'comparisons', proposal: { label: 'C', siblings: [['A', 'proposal-a.html'], ['B', 'proposal-b.html']] }, items: C.paletteItems });
+})();
+</script>
+</body>
+</html>

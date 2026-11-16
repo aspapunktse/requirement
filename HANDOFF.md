@@ -157,7 +157,7 @@ Before M2: #91, unify the owner rule and restrict System creation (PR #96). Foll
 **Before PRD 0001:** the original 16-issue backlog, ADR 0003 (#47–#53), #54–#59, #62, #64, #65, #68 and the extension-points catalog (#31–#45). Most of these had no PR; each issue's comments hold its resolved design and what was checked.
 
 Comparison (#369, ADR 0015, no milestone): grilled with the product owner on 2026-11-16; the design is in `CONTEXT.md` (Comparison, Candidate, Comparison Score, Not selected), [ADR 0015](docs/adr/0015-not-selected-closes-a-system-and-can-be-reopened.md) and [`docs/how-it-works/comparison.md`](docs/how-it-works/comparison.md), which is the source for the user manual and is updated with each issue.
-1. #370 Design proposals for the Comparison list and page. No blockers. The product owner picks one before #373 starts.
+1. #370 Design proposals for the Comparison list and page (`public/design/comparison/proposal-a|b|c.html`). **Done: PR #379.** The product owner picks one before #373 starts; record the pick on #370.
 2. #371 Comparison Score: the calculation and counts for one System (`loadComparisonScores` in `src/lib/comparison-score-data.ts`). **Done: PR #378.**
 3. #372 Data model and API (Candidates, participants, visibility). Blocked by #371 for the figures only.
 4. #373 The list and the Comparison page. Blocked by #370 (and the pick), #371, #372.
