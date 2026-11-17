@@ -232,8 +232,17 @@ describe("Comparisons (#372)", { timeout: 60_000 }, () => {
       expect(body.match(/\bprisma\./g)).toEqual(["prisma."]);
       expect(body).toContain("prisma.$transaction(");
       expect(body).toContain('isolationLevel: "RepeatableRead"');
-      expect(body).toContain("loadComparisonScores(systemIds, tx)");
+      expect(body).toContain("readLiveFigures(tx, systemIds)");
       expect(body).toContain("visibleSystemsWhere(actor, tx)");
+      // The figures themselves (the Comparison Score loader and the rest of what the page shows) are read on the same `tx`, and so is the freeze (#375).
+      const figures = source.slice(source.indexOf("async function readLiveFigures"), start);
+      expect(figures).toContain("loadComparisonScores(systemIds, tx)");
+      expect(figures.match(/\bprisma\./g)).toBeNull();
+      const record = source.slice(source.indexOf("export function recordOutcome"), source.indexOf("export function reopenComparison"));
+      expect(record).toContain("readLiveFigures(tx, ");
+      expect(record).toContain('isolationLevel: "RepeatableRead"');
+      expect(record.match(/\bprisma\./g)).toBeNull();
+      expect(record).not.toMatch(/logChangeEvent\([^)]*actor\.id\)/);
     });
 
     it("gives a Business System Owner the summary and lets them open the System", async () => {
@@ -264,7 +273,7 @@ describe("Comparisons (#372)", { timeout: 60_000 }, () => {
         const { comparison } = JSON.parse(text);
         expect(comparison.candidates[0].openRisks).toEqual({ LOW: 0, MEDIUM: 0, HIGH: 1, CRITICAL: 1 });
         expect(Object.keys(comparison.candidates[0]).sort()).toEqual(
-          ["addedAt", "addedBy", "canOpen", "classification", "name", "openRisks", "owner", "rejected", "score", "stage", "systemId", "vendor"].sort(),
+          ["addedAt", "addedBy", "canOpen", "chosen", "classification", "name", "openRisks", "owner", "rejected", "score", "stage", "systemId", "vendor"].sort(),
         );
         expect(Object.keys(comparison.candidates[0].score).sort()).toEqual(
           ["answeredCount", "complete", "controls", "countedCount", "firstRoundCount", "fulfilledCount", "mandatoryNotFulfilledCount", "score"].sort(),

@@ -13,6 +13,7 @@ import "@/app/home/home.css";
 import "@/app/systems/systems.css";
 import "./comparisons.css";
 import { AddCandidateDialog } from "./AddCandidateDialog";
+import { RecordOutcomeDialog, ReopenComparisonDialog } from "./RecordOutcomeDialog";
 import { ChangeComparisonOwnerDialog, ComparisonFormDialog, DeleteComparisonDialog, ParticipantsDialog } from "./ComparisonDialogs";
 import {
   CONTROL_FILTERS,
@@ -22,6 +23,7 @@ import {
   canRemoveCandidate,
   controlCounts,
   filterGroups,
+  formatOutcomeDate,
   incompleteText,
   noScoreReason,
   orderedCandidates,
@@ -107,7 +109,7 @@ export function ComparisonPage({ id, userId, role }: { id: string; userId: strin
 
 function ComparisonBody({ detail, candidates, userId, isAdmin, reload }: { detail: ComparisonDetail; candidates: CandidateRow[]; userId: string; isAdmin: boolean; reload: () => void }) {
   const router = useRouter();
-  const [dialog, setDialog] = useState<null | "edit" | "participants" | "owner" | "delete" | "add">(null);
+  const [dialog, setDialog] = useState<null | "edit" | "participants" | "owner" | "delete" | "add" | "record" | "reopen">(null);
   const [removing, setRemoving] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -150,6 +152,11 @@ function ComparisonBody({ detail, candidates, userId, isAdmin, reload }: { detai
           <div className="hc-who">
             <span className="hc-eyebrow">Comparison</span>
             <span className={`cmp-state ${detail.closed ? "closed" : "open"}`}>{detail.closed ? "Closed" : "Open"}</span>
+            {detail.outcome && (
+              <span className="cmp-frozen" title="The figures were frozen when the outcome was recorded">
+                as of {formatOutcomeDate(detail.outcome.recordedAt)}
+              </span>
+            )}
           </div>
           <h1 id="cmp-title">{detail.name}</h1>
           <p className="hc-lede">{detail.need ?? "No need described yet."}</p>
@@ -167,6 +174,13 @@ function ComparisonBody({ detail, candidates, userId, isAdmin, reload }: { detai
               <dd>{plural(candidates.length, "Candidate")}</dd>
             </div>
           </dl>
+          {detail.canManage && readOnly && (
+            <div className="actions">
+              <button type="button" className="hc-btn" onClick={() => setDialog("reopen")}>
+                Reopen
+              </button>
+            </div>
+          )}
           {(detail.canManage || detail.canAddCandidate) && !readOnly && (
             <div className="actions">
               {detail.canAddCandidate && (
@@ -176,6 +190,9 @@ function ComparisonBody({ detail, candidates, userId, isAdmin, reload }: { detai
               )}
               {detail.canManage && (
                 <>
+                  <button type="button" className="hc-btn primary" disabled={candidates.length < 2} aria-describedby={candidates.length < 2 ? "cmp-record-hint" : undefined} onClick={() => setDialog("record")}>
+                    Record outcome
+                  </button>
                   <button type="button" className="hc-btn" onClick={() => setDialog("edit")}>
                     Edit name and need
                   </button>
@@ -194,6 +211,11 @@ function ComparisonBody({ detail, candidates, userId, isAdmin, reload }: { detai
               )}
             </div>
           )}
+          {detail.canManage && !readOnly && candidates.length < 2 && (
+            <p id="cmp-record-hint" className="cmp-hint">
+              Add at least two Candidates to record an outcome.
+            </p>
+          )}
         </div>
         {candidates.length > 0 && (
           <div className="hc-move">
@@ -208,6 +230,8 @@ function ComparisonBody({ detail, candidates, userId, isAdmin, reload }: { detai
           </div>
         )}
       </section>
+
+      {detail.outcome && <OutcomeCard outcome={detail.outcome} candidates={candidates} />}
 
       {error && (
         <p className="cmp-note warn" role="alert">
@@ -330,6 +354,28 @@ function ComparisonBody({ detail, candidates, userId, isAdmin, reload }: { detai
           }}
         />
       )}
+      {dialog === "record" && (
+        <RecordOutcomeDialog
+          id={detail.id}
+          candidates={candidates}
+          onClose={() => setDialog(null)}
+          onDone={() => {
+            setDialog(null);
+            reload();
+          }}
+        />
+      )}
+      {dialog === "reopen" && (
+        <ReopenComparisonDialog
+          id={detail.id}
+          name={detail.name}
+          onClose={() => setDialog(null)}
+          onDone={() => {
+            setDialog(null);
+            reload();
+          }}
+        />
+      )}
       {dialog === "edit" && (
         <ComparisonFormDialog
           comparison={detail}
@@ -354,6 +400,44 @@ function ComparisonBody({ detail, candidates, userId, isAdmin, reload }: { detai
       )}
       {dialog === "delete" && <DeleteComparisonDialog id={detail.id} name={detail.name} onClose={() => setDialog(null)} onDone={() => router.push("/comparisons")} />}
     </div>
+  );
+}
+
+/** The recorded outcome of a closed Comparison (design proposal B): the chosen Candidate or None chosen, the comment, who recorded it and when, and a note when the chosen Candidate was not the top scorer. */
+function OutcomeCard({ outcome, candidates }: { outcome: NonNullable<ComparisonDetail["outcome"]>; candidates: CandidateRow[] }) {
+  const date = formatOutcomeDate(outcome.recordedAt);
+  const chosenCandidate = outcome.chosen ? candidates.find((candidate) => candidate.systemId === outcome.chosen?.id) : undefined;
+  return (
+    <section className="hc-card cmp-outcome" aria-labelledby="cmp-out-h">
+      <div className="hc-card-h">
+        <h2 id="cmp-out-h">Outcome</h2>
+        <p>
+          Recorded {date}
+          {outcome.recordedBy ? ` by ${outcome.recordedBy.name}` : ""}
+        </p>
+      </div>
+      <div className="cmp-outcome-b">
+        <p className="pick">
+          {outcome.chosen ? (
+            <>
+              <span className="cmp-chosen">Chosen</span> {chosenCandidate?.canOpen ? <Link href={`/systems/${outcome.chosen.id}`}>{outcome.chosen.name}</Link> : outcome.chosen.name}
+              {!chosenCandidate && <small> (this System has since been deleted)</small>}
+            </>
+          ) : (
+            <>
+              <span className="cmp-chosen none">None chosen</span> <small>No Candidate was picked.</small>
+            </>
+          )}
+        </p>
+        <blockquote>{outcome.comment}</blockquote>
+        {outcome.chosenNotTopScorer && (
+          <p className="cmp-note warn" role="note">
+            <b>The chosen Candidate was not the top scorer.</b> That is allowed: price, fit and contract terms are outside the Comparison Score.
+          </p>
+        )}
+        <p className="cmp-hint">This Comparison is read-only. The scores, counts and Control statuses below are frozen as of {date}. Reopen it to make changes and see live figures.</p>
+      </div>
+    </section>
   );
 }
 
@@ -390,7 +474,7 @@ function CandidateRowView({
   const percent = score.score === null ? 0 : Math.round(score.score * 100);
 
   return (
-    <li className={`cmp-row${candidate.rejected ? " rejected" : ""}`}>
+    <li className={`cmp-row${candidate.rejected ? " rejected" : ""}${candidate.chosen ? " chosen" : ""}`}>
       <span className="rank" title="Position in the order">
         {rank}
       </span>
@@ -408,6 +492,7 @@ function CandidateRowView({
               </span>
             </>
           )}
+          {candidate.chosen && <span className="cmp-chosen">Chosen</span>}
         </span>
         <small>
           {candidate.vendor ? `${candidate.vendor} · ` : ""}owner {candidate.owner.name} · {candidate.rejected ? <span className="cmp-rejected">Rejected</span> : stageLabel(candidate.stage)}

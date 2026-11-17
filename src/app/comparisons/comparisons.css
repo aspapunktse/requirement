@@ -127,3 +127,13 @@
   .cmp-mx thead th.cand { font-size: 0.7rem; }
   .cmp-row { padding-inline: 14px; gap: 8px 10px; }
 }
+
+/* The outcome of a closed Comparison (#375) */
+.cmp-frozen { display: inline-flex; align-items: center; font-size: 0.74rem; font-weight: 700; color: var(--rg-waived); background: color-mix(in srgb, var(--rg-waived) 14%, var(--rg-surface)); border-radius: 99px; padding: 1px 9px; white-space: nowrap; }
+.cmp-chosen { display: inline-flex; align-items: center; font-size: 0.74rem; font-weight: 700; color: var(--rg-success); background: var(--rg-success-soft); border-radius: 99px; padding: 1px 10px; }
+.cmp-chosen.none { color: var(--rg-muted); background: color-mix(in srgb, var(--rg-muted) 14%, var(--rg-surface)); }
+.cmp-outcome-b { padding: 4px 18px 16px; display: flex; flex-direction: column; gap: 10px; }
+.cmp-outcome .pick { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; font-size: 1.05rem; font-weight: 700; margin: 0; }
+.cmp-outcome blockquote { margin: 0; padding: 8px 14px; border-left: 3px solid var(--rg-line); color: var(--rg-muted); font-size: 0.9rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+.cmp-hint { margin: 6px 0 0; font-size: 0.82rem; color: var(--rg-muted); }
+.cmp-row.chosen { border-left: 3px solid var(--rg-success); }

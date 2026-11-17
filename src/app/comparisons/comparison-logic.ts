@@ -110,6 +110,14 @@ export function filterGroups(groups: readonly TableGroup[], filter: ControlFilte
   return groups.map((group) => ({ ...group, rows: group.rows.filter(keep) })).filter((group) => group.rows.length > 0);
 }
 
+/** The Candidates the Record outcome dialog offers as the chosen one: a Candidate rejected at a gate can't be chosen (it is listed, with the reason). */
+export function chooseable(candidate: Pick<CandidateRow, "rejected">): boolean {
+  return !candidate.rejected;
+}
+
+/** The date of a recorded outcome, "16 Nov 2026". */
+export const formatOutcomeDate = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+
 /** The Candidates' owner may remove their own System; the Comparison's owner or an Admin any (`canManage`). */
 export function canRemoveCandidate(detail: Pick<ComparisonDetail, "canManage">, candidate: CandidateRow, userId: string): boolean {
   return detail.canManage || candidate.owner.id === userId;

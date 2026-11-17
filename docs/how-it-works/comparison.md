@@ -1,6 +1,6 @@
 # How a Comparison works
 
-> **Status: designed; the data model, the API (#372) and the list and Comparison pages (#373) and adding Candidates (#374) are built; recording the outcome is not.** This describes the behaviour agreed with the product owner on 2026-11-16. It is the source for the user manual. The terms are defined in [`CONTEXT.md`](../../CONTEXT.md) under "Evaluation"; the one architectural decision is [ADR 0015](../adr/0015-not-selected-closes-a-system-and-can-be-reopened.md).
+> **Status: designed; the data model, the API (#372), the list and Comparison pages (#373), adding Candidates (#374) and recording the outcome, freezing the figures and reopening (#375) are built; closing the Candidates not chosen as Not selected (#376) is not.** This describes the behaviour agreed with the product owner on 2026-11-16. It is the source for the user manual. The terms are defined in [`CONTEXT.md`](../../CONTEXT.md) under "Evaluation"; the one architectural decision is [ADR 0015](../adr/0015-not-selected-closes-a-system-and-can-be-reopened.md).
 
 ## What it is for
 
@@ -60,7 +60,13 @@ Recording the outcome:
 
 - closes the Comparison, which becomes read-only;
 - freezes each Candidate's score and counts as they were at that moment, shown with the date;
-- writes an entry in each Candidate's history.
+- writes an entry in each Candidate's history, saying which Candidate was chosen, or that none was.
+
+A Candidate rejected at a gate stays in the Comparison, is shown as Rejected and can't be chosen; "None chosen" is always allowed. An outcome can't be recorded with fewer than two Candidates. The dialog warns when the pick is not the top scorer, and the closed page says so; it never blocks the pick.
+
+**A closed Comparison** shows the outcome (the chosen Candidate or None chosen, the comment, who recorded it and when) and the figures as they were then, marked "as of" that date: Comparison Score, counts, open Risks, classification and the status of every first-round Control. Changing a Candidate's answers afterwards does not move them. Nothing in it can be changed: no rename, no Candidates added or removed (from the Comparison, the Systems list or the interview), no participants changed, no delete.
+
+**Reopen.** The owner or an Admin can reopen it. The outcome, its comment and the frozen figures are cleared, the page shows live figures again, and each Candidate gets an entry in its history. It can be closed again later.
 
 ### 6. Deal with the Candidates not chosen
 

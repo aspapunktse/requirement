@@ -108,6 +108,8 @@ model User {
   comparisonParticipations           ComparisonParticipant[]
   // Candidates this User added (#372); deleting the User keeps the Candidate and clears who added it.
   comparisonCandidatesAdded          ComparisonCandidate[]               @relation("ComparisonCandidateAddedBy")
+  // Comparisons whose outcome this User recorded (#375); deleting the User keeps them closed and clears who recorded it.
+  comparisonOutcomesRecorded         Comparison[]                        @relation("ComparisonOutcomeRecordedBy")
   // Systems this User is the Business System Owner of (#321). Deleting the User leaves them without one.
   businessOwnedSystems               System[]                            @relation("SystemBusinessOwner")
   // Systems this User is the Risk Analysis lead of (#361). Deleting the User leaves them without one.
@@ -1150,6 +1152,9 @@ enum ChangeEventAction {
   // A System added to or removed from a Comparison as a Candidate (#372).
   COMPARISON_CANDIDATE_ADDED
   COMPARISON_CANDIDATE_REMOVED
+  // A Comparison's outcome was recorded, or it was reopened (#375): one event on every Candidate.
+  COMPARISON_OUTCOME_RECORDED
+  COMPARISON_REOPENED
 }
 
 // A curated, System-lifecycle-relevant mutation record — feeds the landing
@@ -1567,20 +1572,29 @@ model SystemDocumentFile {
 }
 
 // A Comparison (#372; CONTEXT.md "Evaluation"): a named record that sets two to five Systems side by side to help choose
-// one for the same need. The outcome fields (Selected / Not selected) come in a later issue. The owner is a User who may
+// one for the same need. The outcome (#375) closes it. The owner is a User who may
 // create a System; the owner relation is Restrict, so a User who owns a Comparison can't be deleted until it is handed over.
 model Comparison {
-  id           String                  @id @default(cuid())
-  name         String
-  need         String?
-  ownerId      String
-  owner        User                    @relation("ComparisonOwner", fields: [ownerId], references: [id], onDelete: Restrict)
-  candidates   ComparisonCandidate[]
-  participants ComparisonParticipant[]
-  createdAt    DateTime                @default(now())
-  updatedAt    DateTime                @updatedAt
+  id                  String                  @id @default(cuid())
+  name                String
+  need                String?
+  ownerId             String
+  owner               User                    @relation("ComparisonOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  candidates          ComparisonCandidate[]
+  participants        ComparisonParticipant[]
+  // The outcome (#375). A Comparison is closed when `outcomeRecordedAt` is set, and then read-only; reopening clears all four.
+  // `outcomeSnapshot` holds the chosen Candidate (or none) and each Candidate's figures as they were then, validated with zod
+  // when read (`src/lib/comparison-outcome.ts`).
+  outcomeRecordedAt   DateTime?
+  outcomeRecordedById String?
+  outcomeRecordedBy   User?                   @relation("ComparisonOutcomeRecordedBy", fields: [outcomeRecordedById], references: [id], onDelete: SetNull)
+  outcomeComment      String?
+  outcomeSnapshot     Json?
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
 
   @@index([ownerId])
+  @@index([outcomeRecordedById])
 }
 
 // A System that takes part in a Comparison: once per Comparison, with when and by whom it was added. Deleting the Comparison
