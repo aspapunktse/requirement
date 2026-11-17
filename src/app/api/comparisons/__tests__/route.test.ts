@@ -529,6 +529,25 @@ describe("Comparisons (#372)", { timeout: 60_000 }, () => {
     });
   });
 
+  describe("a read-only System role is never a System's owner here", () => {
+    it.each(["COMPLIANCE_MANAGER", "INTERNAL_AUDITOR"] as const)("refuses a %s who still holds ownerId (403), adding or removing, changing nothing", async (role) => {
+      const mine = await makeSystem("participant");
+      const other = await makeSystem("participant");
+      const id = await makeComparison("owner", { participants: ["participant"], candidates: [{ systemId: other }] });
+      await prisma.user.update({ where: { id: users.participant }, data: { role } });
+      try {
+        const before = await fingerprint(id, mine, other);
+        expect((await addC("participant", id, mine)).status).toBe(403);
+        expect((await removeC("participant", id, other)).status).toBe(403);
+        expect(await fingerprint(id, mine, other)).toBe(before);
+        // Reading stays allowed.
+        expect((await read("participant", id)).status).toBe(200);
+      } finally {
+        await prisma.user.update({ where: { id: users.participant }, data: { role: "SYSTEM_OWNER" } });
+      }
+    });
+  });
+
   describe("deleting a System or a User", () => {
     it("removes the Candidate row of a deleted System and leaves the Comparison and its other Candidates", async () => {
       const doomed = await makeSystem("owner");

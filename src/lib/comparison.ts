@@ -381,7 +381,7 @@ export function addCandidate(actor: Actor, id: string, systemId: string) {
       // The owner adds a System they can see; one they can't is not found, as everywhere.
       const visible = system ? await tx.system.findFirst({ where: { AND: [{ id: systemId }, await visibleSystemsWhere(actor, tx)] }, select: { id: true } }) : null;
       if (!system || !visible) throw refuse(404, "System not found");
-    } else if (!system || system.ownerId !== actor.id) {
+    } else if (!system || !isSystemOwnerOrAdmin(actor, system)) {
       throw refuse(403, "A participant can add only a System they own");
     }
 
@@ -407,7 +407,7 @@ export function removeCandidate(actor: Actor, id: string, systemId: string) {
       select: { system: { select: { ownerId: true } } },
     });
     if (!candidate) throw refuse(404, "This System is not a Candidate in this Comparison");
-    if (!canManage(actor, comparison) && candidate.system.ownerId !== actor.id) {
+    if (!canManage(actor, comparison) && !isSystemOwnerOrAdmin(actor, candidate.system)) {
       throw refuse(403, "Only the Comparison's owner, an Admin or the System's owner can remove a Candidate");
     }
     await tx.comparisonCandidate.delete({ where: { comparisonId_systemId: { comparisonId: id, systemId } } });
