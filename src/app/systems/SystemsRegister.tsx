@@ -498,6 +498,9 @@ export function SystemsRegister({ view, initialQuery }: { view: SystemsView; ini
             <button type="button" className="hc-btn" onClick={exportRegister} disabled={sorted.length === 0}>
               Export CSV
             </button>
+            <Link href="/comparisons" className="hc-btn">
+              Comparisons →
+            </Link>
           </div>
         </div>
         {rows.length > 0 && (
