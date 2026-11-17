@@ -21,6 +21,7 @@ export function candidate(name: string, over: Partial<Omit<CandidateRow, "score"
     rejected: false,
     addedAt: "2026-11-01T10:00:00.000Z",
     addedBy: null,
+    chosen: false,
     classification: { deploymentFacets: [{ id: "f-saas", name: "SaaS" }], sensitivityLevel: 2, integrityImpactLevel: "MODERATE", availabilityImpactLevel: "HIGH", frameworkScope: [{ id: "fw-1", name: "ISO 27001" }] },
     score: {
       score: counted.length === 0 ? null : fulfilled / counted.length,
@@ -49,6 +50,7 @@ export function detail(candidates: CandidateRow[], over: Partial<ComparisonDetai
     classificationDifferences: [],
     controlGroups: [],
     closed: false,
+    outcome: null,
     canManage: false,
     canAddCandidate: false,
     createdAt: "2026-11-01T10:00:00.000Z",

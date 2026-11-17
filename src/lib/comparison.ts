@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { logChangeEvent } from "@/lib/change-events";
 import { classificationDifferences, orderCandidates } from "@/lib/comparison-score";
 import { loadComparisonScores } from "@/lib/comparison-score-data";
+import { isNotTopScorer, outcomeSnapshotSchema, type CandidateFigures, type ControlGroups, type OutcomeSnapshot } from "@/lib/comparison-outcome";
 import { readLiveMarkingsByFramework } from "@/lib/first-round";
 import { readStagedEvaluationEnabled } from "@/lib/app-settings";
 import { listOwnerCandidates } from "@/lib/system-owner";
@@ -13,7 +14,8 @@ import { canBeSystemOwner, canCreateSystem, isSystemOwnerOrAdmin, NEW_OWNER_REFU
 /**
  * A Comparison (#372; CONTEXT.md "Evaluation"; docs/how-it-works/comparison.md): its model rules and API logic. The routes
  * under `api/comparisons` resolve the acting user and call these. Terms: Comparison, Candidate (a System in a Comparison),
- * Comparison Score (`comparison-score.ts`). The outcome (Selected / Not selected) is a later issue.
+ * Comparison Score (`comparison-score.ts`). Recording the outcome closes it (#375; `comparison-outcome.ts`); closing the Candidates not
+ * chosen as Not selected is a later issue (#376).
  *
  * - Create: a role that may create a System (`canCreateSystem`); the creator is the owner.
  * - Rename, edit the need, name and remove participants, delete: the owner or an Admin (`isSystemOwnerOrAdmin`, so a
@@ -21,6 +23,10 @@ import { canBeSystemOwner, canCreateSystem, isSystemOwnerOrAdmin, NEW_OWNER_REFU
  * - Add a Candidate: the owner adds a System they can see (`visibleSystemsWhere`), a participant a System they own, an
  *   Admin any. Refused (409) when the System is not staged, is closed, is already a Candidate or the Comparison has
  *   five. Remove: the owner, an Admin, or the System's owner for their own System.
+ * - Record the outcome, reopen: the owner or an Admin. Recording needs two to five Candidates, a comment, and either one Candidate that
+ *   was not rejected at a gate or "none chosen"; it closes the Comparison, freezes the figures and writes one Change Event on every
+ *   Candidate, in one RepeatableRead transaction. A closed Comparison refuses every write (409, `CLOSED_COMPARISON_REFUSAL`): rename,
+ *   need, owner, participants, adding and removing a Candidate (by any route, `planCandidates` included), delete. Reopening clears the outcome and frozen figures.
  * - Who sees a Comparison: see `comparisonsVisibleWhere`. A hidden one is 404.
  * - A reader gets only the limited summary of a Candidate (`CandidateSummary`), built field by field; being a Candidate,
  *   owner or participant gives no right on a System and never widens `visibleSystemsWhere`.
@@ -40,6 +46,7 @@ export const NOT_STAGED_REFUSAL = "Only a staged System can be a Candidate";
 export const CLOSED_REFUSAL = "A closed System can't be added to a Comparison";
 export const DUPLICATE_REFUSAL = "This System is already a Candidate in this Comparison";
 export const FULL_REFUSAL = `A Comparison holds at most ${MAX_CANDIDATES} Candidates`;
+export const CLOSED_COMPARISON_REFUSAL = "This Comparison is closed. Reopen it to change it.";
 export const STAGING_OFF_REFUSAL = "Staged evaluation for new Systems is off, so a new System would not be staged and can't be a Candidate. An Admin can switch it on in Settings.";
 
 type Actor = { id: string; role: UserRole };
@@ -78,11 +85,13 @@ class Abort extends Error {
 const refuse = (status: 400 | 403 | 404 | 409, error: string) => new Abort({ ok: false, status, error });
 const NOT_FOUND = "Comparison not found";
 
-async function run<T>(work: (tx: Tx) => Promise<T>): Promise<ComparisonResult<{ value: T }>> {
+async function run<T>(work: (tx: Tx) => Promise<T>, options?: Parameters<typeof prisma.$transaction>[1]): Promise<ComparisonResult<{ value: T }>> {
   try {
-    return { ok: true, value: await prisma.$transaction(work) };
+    return { ok: true, value: await prisma.$transaction(work, options) };
   } catch (error) {
     if (error instanceof Abort) return error.result;
+    // A RepeatableRead transaction that met a concurrent change to the Comparison row: nothing was written; ask the caller to retry.
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2034") return { ok: false, status: 409, error: "The Comparison was changed at the same time. Try again." };
     throw error;
   }
 }
@@ -98,13 +107,17 @@ async function loadVisibleLocked(tx: Tx, actor: Actor, id: string) {
   if (!(await lockComparison(tx, id))) throw refuse(404, NOT_FOUND);
   const comparison = await tx.comparison.findFirst({
     where: { AND: [{ id }, comparisonsVisibleWhere(actor)] },
-    select: { id: true, name: true, ownerId: true, participants: { select: { userId: true } } },
+    select: { id: true, name: true, ownerId: true, outcomeRecordedAt: true, participants: { select: { userId: true } } },
   });
   if (!comparison) throw refuse(404, NOT_FOUND);
   return comparison;
 }
 
 const canManage = (actor: Actor, comparison: { ownerId: string }) => isSystemOwnerOrAdmin(actor, comparison);
+/** A closed Comparison is read-only: refused (409), after the permission check, so a reader who may not change it still gets 403. */
+const requireOpen = (comparison: { outcomeRecordedAt: Date | null }) => {
+  if (comparison.outcomeRecordedAt) throw refuse(409, CLOSED_COMPARISON_REFUSAL);
+};
 const isParticipant = (actor: { id: string }, comparison: { participants: { userId: string }[] }) =>
   comparison.participants.some((participant) => participant.userId === actor.id);
 
@@ -118,10 +131,7 @@ export type ComparisonListItem = {
   owner: { id: string; name: string };
   candidateCount: number;
   participantCount: number;
-  /**
-   * Closed by a recorded outcome. A Comparison has no outcome yet (that is a later issue, #375), so this is always false; the
-   * pages already show an Open and a Closed section.
-   */
+  /** Closed by a recorded outcome (#375): read-only. The list shows an Open and a Closed section. */
   closed: boolean;
   canManage: boolean;
   /** `actor` may add a Candidate to it now (the owner, an Admin or a participant, while it is open and has room): for "Add to Comparison". */
@@ -144,6 +154,7 @@ export async function listComparisons(actor: Actor): Promise<ComparisonListItem[
           owner: { select: { id: true, name: true } },
           createdAt: true,
           updatedAt: true,
+          outcomeRecordedAt: true,
           participants: { where: { userId: actor.id }, select: { userId: true } },
           _count: { select: { candidates: true, participants: true } },
         },
@@ -158,9 +169,9 @@ export async function listComparisons(actor: Actor): Promise<ComparisonListItem[
     owner: row.owner,
     candidateCount: row._count.candidates,
     participantCount: row._count.participants,
-    closed: false,
+    closed: row.outcomeRecordedAt !== null,
     canManage: canManage(actor, row),
-    canAddCandidate: (canManage(actor, row) || row.participants.length > 0) && row._count.candidates < MAX_CANDIDATES,
+    canAddCandidate: row.outcomeRecordedAt === null && (canManage(actor, row) || row.participants.length > 0) && row._count.candidates < MAX_CANDIDATES,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   }));
@@ -184,25 +195,9 @@ export type CandidateSummary = {
   rejected: boolean;
   addedAt: Date;
   addedBy: { id: string; name: string } | null;
-  classification: {
-    deploymentFacets: { id: string; name: string }[];
-    sensitivityLevel: number | null;
-    integrityImpactLevel: string | null;
-    availabilityImpactLevel: string | null;
-    frameworkScope: { id: string; name: string }[];
-  };
-  score: {
-    score: number | null;
-    firstRoundCount: number;
-    countedCount: number;
-    fulfilledCount: number;
-    answeredCount: number;
-    complete: boolean;
-    mandatoryNotFulfilledCount: number;
-    controls: { controlId: string; code: string; title: string; mandatory: boolean; status: string }[];
-  };
-  openRisks: { LOW: number; MEDIUM: number; HIGH: number; CRITICAL: number };
-};
+  /** The chosen Candidate of the recorded outcome (#375). */
+  chosen: boolean;
+} & CandidateFigures;
 
 const byControlCode = (a: { code: string; controlId: string }, b: { code: string; controlId: string }) =>
   a.code.localeCompare(b.code, "en", { numeric: true }) || (a.controlId < b.controlId ? -1 : 1);
@@ -223,8 +218,18 @@ export type ComparisonView = {
    * Groups follow that order; a Control with no live marking (not expected) is listed under a group with `framework: null`.
    * Controls within a group are in code order. Each Candidate's `score.controls` holds its own status per Control.
    */
-  controlGroups: { framework: { id: string; name: string } | null; controls: { controlId: string; code: string; title: string; mandatory: boolean }[] }[];
+  controlGroups: ControlGroups;
   closed: boolean;
+  /** The recorded outcome of a closed Comparison (#375); null while it is open. The figures above are then the ones frozen with it. */
+  outcome: {
+    /** The chosen Candidate when it was recorded; null is "None chosen". */
+    chosen: { id: string; name: string } | null;
+    comment: string;
+    recordedBy: { id: string; name: string } | null;
+    recordedAt: Date;
+    /** The chosen Candidate did not have the highest Comparison Score. Said on the page, never blocks. */
+    chosenNotTopScorer: boolean;
+  } | null;
   canManage: boolean;
   /** The reader may add some System as a Candidate (the owner, an Admin, a participant), while there is room. */
   canAddCandidate: boolean;
@@ -233,8 +238,77 @@ export type ComparisonView = {
 };
 
 /**
+ * What the page shows for each System of `systemIds` as it is now, and for the set: the Candidate figures (`CandidateFigures`) with the
+ * System's name, the Control-by-Control table's grouping and the classification differences. Reads on `tx` (the Comparison Score
+ * loader included). It is the live view of an open Comparison and what recording the outcome freezes, so the two can't drift.
+ */
+async function readLiveFigures(tx: Tx, systemIds: string[]) {
+  const figures = await loadComparisonScores(systemIds, tx);
+  const facetIds = new Set<string>();
+  const frameworkIds = new Set<string>();
+  for (const figure of figures.values()) {
+    figure.classification.deploymentFacetIds.forEach((facetId) => facetIds.add(facetId));
+    figure.classification.frameworkScopeIds.forEach((frameworkId) => frameworkIds.add(frameworkId));
+  }
+  const facets = facetIds.size === 0 ? [] : await tx.deploymentFacet.findMany({ where: { id: { in: [...facetIds] } }, select: { id: true, name: true } });
+  const frameworks = frameworkIds.size === 0 ? [] : await tx.framework.findMany({ where: { id: { in: [...frameworkIds] } }, select: { id: true, name: true, isBase: true } });
+  const facetName = new Map(facets.map((facet) => [facet.id, facet.name]));
+  const frameworkName = new Map(frameworks.map((framework) => [framework.id, framework.name]));
+  const named = (ids: readonly string[], names: Map<string, string>) =>
+    ids.flatMap((entryId) => (names.has(entryId) ? [{ id: entryId, name: names.get(entryId)! }] : [])).sort((a, b) => a.name.localeCompare(b.name, "en", { numeric: true }));
+
+  const candidates = new Map<string, CandidateFigures & { name: string }>();
+  for (const [systemId, figure] of figures) {
+    candidates.set(systemId, {
+      name: figure.name,
+      classification: {
+        deploymentFacets: named(figure.classification.deploymentFacetIds, facetName),
+        sensitivityLevel: figure.classification.sensitivityLevel,
+        integrityImpactLevel: figure.classification.integrityImpactLevel,
+        availabilityImpactLevel: figure.classification.availabilityImpactLevel,
+        frameworkScope: named(figure.classification.frameworkScopeIds, frameworkName),
+      },
+      score: {
+        score: figure.score,
+        firstRoundCount: figure.firstRoundCount,
+        countedCount: figure.countedCount,
+        fulfilledCount: figure.fulfilledCount,
+        answeredCount: figure.answeredCount,
+        complete: figure.complete,
+        mandatoryNotFulfilledCount: figure.mandatoryNotFulfilledCount,
+        controls: figure.controls.map((control) => ({ controlId: control.controlId, code: control.code, title: control.title, mandatory: control.mandatory, status: control.status })),
+      },
+      openRisks: { ...figure.openRisks },
+    });
+  }
+
+  // The Control-by-Control table's rows, grouped by the Framework whose owner marked each Control first round.
+  const controlsById = new Map<string, { controlId: string; code: string; title: string; mandatory: boolean }>();
+  for (const candidate of candidates.values()) {
+    for (const control of candidate.score.controls) {
+      controlsById.set(control.controlId, { controlId: control.controlId, code: control.code, title: control.title, mandatory: control.mandatory });
+    }
+  }
+  const markings = controlsById.size === 0 || frameworkIds.size === 0 ? new Map<string, Set<string>>() : await readLiveMarkingsByFramework(tx, [...frameworkIds], [...controlsById.keys()]);
+  const orderedFrameworks = [...frameworks].sort((a, b) => Number(b.isBase) - Number(a.isBase) || a.name.localeCompare(b.name, "en", { numeric: true }) || (a.id < b.id ? -1 : 1));
+  const grouped = new Set<string>();
+  const controlGroups: ControlGroups = [];
+  for (const framework of orderedFrameworks) {
+    const marked = markings.get(framework.id);
+    const entries = [...controlsById.values()].filter((control) => marked?.has(control.controlId) && !grouped.has(control.controlId));
+    entries.forEach((control) => grouped.add(control.controlId));
+    if (entries.length > 0) controlGroups.push({ framework: { id: framework.id, name: framework.name }, controls: entries.sort(byControlCode) });
+  }
+  const ungrouped = [...controlsById.values()].filter((control) => !grouped.has(control.controlId));
+  if (ungrouped.length > 0) controlGroups.push({ framework: null, controls: ungrouped.sort(byControlCode) });
+
+  return { candidates, controlGroups, classificationDifferences: classificationDifferences([...figures.values()].map((figure) => figure.classification)) };
+}
+
+/**
  * One Comparison as `actor` sees it, or null when it doesn't exist or they can't see it. Every read is in one
- * RepeatableRead transaction on `tx`, the Comparison Score loader included.
+ * RepeatableRead transaction on `tx`. An open Comparison shows live figures; a closed one shows the figures frozen when its outcome was recorded
+ * (`outcomeSnapshotSchema`; a snapshot that doesn't validate throws rather than show wrong figures).
  */
 export async function readComparison(actor: Actor, id: string): Promise<ComparisonView | null> {
   return prisma.$transaction(
@@ -249,13 +323,17 @@ export async function readComparison(actor: Actor, id: string): Promise<Comparis
           owner: { select: { id: true, name: true } },
           createdAt: true,
           updatedAt: true,
+          outcomeRecordedAt: true,
+          outcomeComment: true,
+          outcomeSnapshot: true,
+          outcomeRecordedBy: { select: { id: true, name: true } },
           participants: { select: { user: { select: { id: true, name: true } } }, orderBy: [{ addedAt: "asc" }, { userId: "asc" }] },
           candidates: {
             select: {
               systemId: true,
               addedAt: true,
               addedBy: { select: { id: true, name: true } },
-              system: { select: { vendor: true, evaluationStage: true, status: true, owner: { select: { id: true, name: true } } } },
+              system: { select: { name: true, vendor: true, evaluationStage: true, status: true, owner: { select: { id: true, name: true } } } },
             },
             orderBy: [{ addedAt: "asc" }, { systemId: "asc" }],
           },
@@ -264,33 +342,24 @@ export async function readComparison(actor: Actor, id: string): Promise<Comparis
       if (!comparison) return null;
 
       const systemIds = comparison.candidates.map((candidate) => candidate.systemId);
-      const figures = await loadComparisonScores(systemIds, tx);
+      const closed = comparison.outcomeRecordedAt !== null;
+      const snapshot = closed ? outcomeSnapshotSchema.parse(comparison.outcomeSnapshot) : null;
+      const live = snapshot ? null : await readLiveFigures(tx, systemIds);
       const openable =
         systemIds.length === 0
           ? []
           : await tx.system.findMany({ where: { AND: [{ id: { in: systemIds } }, await visibleSystemsWhere(actor, tx)] }, select: { id: true } });
       const openableIds = new Set(openable.map((system) => system.id));
 
-      const facetIds = new Set<string>();
-      const frameworkIds = new Set<string>();
-      for (const figure of figures.values()) {
-        figure.classification.deploymentFacetIds.forEach((facetId) => facetIds.add(facetId));
-        figure.classification.frameworkScopeIds.forEach((frameworkId) => frameworkIds.add(frameworkId));
-      }
-      const facets = facetIds.size === 0 ? [] : await tx.deploymentFacet.findMany({ where: { id: { in: [...facetIds] } }, select: { id: true, name: true } });
-      const frameworks = frameworkIds.size === 0 ? [] : await tx.framework.findMany({ where: { id: { in: [...frameworkIds] } }, select: { id: true, name: true, isBase: true } });
-      const facetName = new Map(facets.map((facet) => [facet.id, facet.name]));
-      const frameworkName = new Map(frameworks.map((framework) => [framework.id, framework.name]));
-      const named = (ids: readonly string[], names: Map<string, string>) =>
-        ids.flatMap((entryId) => (names.has(entryId) ? [{ id: entryId, name: names.get(entryId)! }] : [])).sort((a, b) => a.name.localeCompare(b.name, "en", { numeric: true }));
-
       const summaries: CandidateSummary[] = [];
       for (const candidate of comparison.candidates) {
-        const figure = figures.get(candidate.systemId);
-        if (!figure) continue; // The System was deleted after the Comparison was read: the snapshot makes this unreachable, kept as a guard.
+        // A Candidate missing from the figures was deleted after the read began (the snapshot makes that unreachable) or, on a closed
+        // Comparison, is not part of the frozen set (not expected: a closed Comparison takes no new Candidate); skipped either way.
+        const figures = snapshot ? snapshot.candidates[candidate.systemId] : live!.candidates.get(candidate.systemId);
+        if (!figures) continue;
         summaries.push({
           systemId: candidate.systemId,
-          name: figure.name,
+          name: candidate.system.name,
           vendor: candidate.system.vendor,
           owner: candidate.system.owner,
           canOpen: openableIds.has(candidate.systemId),
@@ -298,55 +367,13 @@ export async function readComparison(actor: Actor, id: string): Promise<Comparis
           rejected: candidate.system.status === "REJECTED",
           addedAt: candidate.addedAt,
           addedBy: candidate.addedBy,
-          classification: {
-            deploymentFacets: named(figure.classification.deploymentFacetIds, facetName),
-            sensitivityLevel: figure.classification.sensitivityLevel,
-            integrityImpactLevel: figure.classification.integrityImpactLevel,
-            availabilityImpactLevel: figure.classification.availabilityImpactLevel,
-            frameworkScope: named(figure.classification.frameworkScopeIds, frameworkName),
-          },
-          score: {
-            score: figure.score,
-            firstRoundCount: figure.firstRoundCount,
-            countedCount: figure.countedCount,
-            fulfilledCount: figure.fulfilledCount,
-            answeredCount: figure.answeredCount,
-            complete: figure.complete,
-            mandatoryNotFulfilledCount: figure.mandatoryNotFulfilledCount,
-            controls: figure.controls.map((control) => ({
-              controlId: control.controlId,
-              code: control.code,
-              title: control.title,
-              mandatory: control.mandatory,
-              status: control.status,
-            })),
-          },
-          openRisks: { ...figure.openRisks },
+          chosen: snapshot?.chosen?.id === candidate.systemId,
+          classification: figures.classification,
+          score: figures.score,
+          openRisks: figures.openRisks,
         });
       }
-      const ordered = orderCandidates(
-        summaries.map((summary) => ({ ...summary, ...summary.score })),
-      ).map((entry) => summaries.find((summary) => summary.systemId === entry.systemId)!);
-
-      // The Control-by-Control table's rows, grouped by the Framework whose owner marked each Control first round.
-      const controlsById = new Map<string, { controlId: string; code: string; title: string; mandatory: boolean }>();
-      for (const summary of summaries) {
-        for (const control of summary.score.controls) {
-          controlsById.set(control.controlId, { controlId: control.controlId, code: control.code, title: control.title, mandatory: control.mandatory });
-        }
-      }
-      const markings = controlsById.size === 0 || frameworkIds.size === 0 ? new Map<string, Set<string>>() : await readLiveMarkingsByFramework(tx, [...frameworkIds], [...controlsById.keys()]);
-      const orderedFrameworks = [...frameworks].sort((a, b) => Number(b.isBase) - Number(a.isBase) || a.name.localeCompare(b.name, "en", { numeric: true }) || (a.id < b.id ? -1 : 1));
-      const grouped = new Set<string>();
-      const controlGroups: ComparisonView["controlGroups"] = [];
-      for (const framework of orderedFrameworks) {
-        const marked = markings.get(framework.id);
-        const entries = [...controlsById.values()].filter((control) => marked?.has(control.controlId) && !grouped.has(control.controlId));
-        entries.forEach((control) => grouped.add(control.controlId));
-        if (entries.length > 0) controlGroups.push({ framework: { id: framework.id, name: framework.name }, controls: entries.sort(byControlCode) });
-      }
-      const ungrouped = [...controlsById.values()].filter((control) => !grouped.has(control.controlId));
-      if (ungrouped.length > 0) controlGroups.push({ framework: null, controls: ungrouped.sort(byControlCode) });
+      const ordered = orderCandidates(summaries.map((summary) => ({ ...summary, ...summary.score }))).map((entry) => summaries.find((summary) => summary.systemId === entry.systemId)!);
 
       const manager = canManage(actor, comparison);
       const participant = comparison.participants.some((entry) => entry.user.id === actor.id);
@@ -357,16 +384,21 @@ export async function readComparison(actor: Actor, id: string): Promise<Comparis
         owner: comparison.owner,
         participants: comparison.participants.map((entry) => entry.user),
         candidates: ordered,
-        classificationDifferences: classificationDifferences(
-          ordered.map((candidate) => {
-            const figure = figures.get(candidate.systemId)!;
-            return figure.classification;
-          }),
-        ),
-        controlGroups,
-        closed: false,
+        classificationDifferences: snapshot ? snapshot.classificationDifferences : live!.classificationDifferences,
+        controlGroups: snapshot ? snapshot.controlGroups : live!.controlGroups,
+        closed,
+        outcome:
+          snapshot && comparison.outcomeRecordedAt
+            ? {
+                chosen: snapshot.chosen,
+                comment: comparison.outcomeComment ?? "",
+                recordedBy: comparison.outcomeRecordedBy,
+                recordedAt: comparison.outcomeRecordedAt,
+                chosenNotTopScorer: isNotTopScorer(snapshot.chosen?.id ?? null, ordered),
+              }
+            : null,
         canManage: manager,
-        canAddCandidate: (manager || participant) && ordered.length < MAX_CANDIDATES,
+        canAddCandidate: !closed && (manager || participant) && ordered.length < MAX_CANDIDATES,
         createdAt: comparison.createdAt,
         updatedAt: comparison.updatedAt,
       };
@@ -392,6 +424,7 @@ export function updateComparison(actor: Actor, id: string, update: ComparisonUpd
   return run(async (tx) => {
     const comparison = await loadVisibleLocked(tx, actor, id);
     if (!canManage(actor, comparison)) throw refuse(403, "Only the Comparison's owner or an Admin can change it");
+    requireOpen(comparison);
     const handsOver = update.ownerId !== undefined && update.ownerId !== comparison.ownerId;
     if (handsOver && actor.role !== "ADMIN") throw refuse(403, "Only an Admin can change a Comparison's owner");
     if (handsOver) {
@@ -417,12 +450,13 @@ export function deleteComparison(actor: Actor, id: string) {
   return run(async (tx) => {
     const comparison = await loadVisibleLocked(tx, actor, id);
     if (!canManage(actor, comparison)) throw refuse(403, "Only the Comparison's owner or an Admin can delete it");
+    requireOpen(comparison);
     await tx.comparison.delete({ where: { id } });
     return { id };
   });
 }
 
-type LoadedComparison = { id: string; name: string; ownerId: string; participants: { userId: string }[] };
+type LoadedComparison = { id: string; name: string; ownerId: string; outcomeRecordedAt: Date | null; participants: { userId: string }[] };
 
 /**
  * The one place the rules for adding a System as a Candidate live (see the top of the file); the single add, the bulk add, creating
@@ -433,6 +467,7 @@ type LoadedComparison = { id: string; name: string; ownerId: string; participant
 async function planCandidates(tx: Tx, actor: Actor, comparison: LoadedComparison, systemIds: string[]) {
   const manager = canManage(actor, comparison);
   if (!manager && !isParticipant(actor, comparison)) throw refuse(403, "Only the Comparison's owner, a participant or an Admin can add a Candidate");
+  requireOpen(comparison);
 
   const ids = [...new Set(systemIds)];
   const systems = await tx.system.findMany({ where: { id: { in: ids } }, select: { id: true, ownerId: true, evaluationStage: true, evaluationClosedAt: true } });
@@ -511,7 +546,7 @@ export function addCandidates(actor: Actor, id: string, systemIds: string[]) {
 export function createComparisonWithCandidates(actor: Actor, input: { name: string; need: string | null }, systemIds: string[]) {
   return run(async (tx) => {
     const comparison = await tx.comparison.create({ data: { name: input.name, need: input.need, ownerId: actor.id } });
-    await addAll(tx, actor, { id: comparison.id, name: comparison.name, ownerId: actor.id, participants: [] }, systemIds);
+    await addAll(tx, actor, { id: comparison.id, name: comparison.name, ownerId: actor.id, outcomeRecordedAt: null, participants: [] }, systemIds);
     return comparison;
   });
 }
@@ -554,11 +589,12 @@ export async function listAddableSystems(
     async (tx) => {
       const comparison = await tx.comparison.findFirst({
         where: { AND: [{ id }, comparisonsVisibleWhere(actor)] },
-        select: { id: true, ownerId: true, participants: { select: { userId: true } }, candidates: { select: { systemId: true } } },
+        select: { id: true, ownerId: true, outcomeRecordedAt: true, participants: { select: { userId: true } }, candidates: { select: { systemId: true } } },
       });
       if (!comparison) return { ok: false as const, status: 404 as const, error: NOT_FOUND };
       const manager = canManage(actor, comparison);
       if (!manager && !isParticipant(actor, comparison)) return { ok: false as const, status: 403 as const, error: "Only the Comparison's owner, a participant or an Admin can add a Candidate" };
+      if (comparison.outcomeRecordedAt) return { ok: false as const, status: 409 as const, error: CLOSED_COMPARISON_REFUSAL };
       const scope: Prisma.SystemWhereInput = actor.role === "ADMIN" ? {} : manager ? await visibleSystemsWhere(actor, tx) : { ownerId: actor.id };
       const rows = await tx.system.findMany({
         where: scope,
@@ -590,12 +626,13 @@ export async function readInterviewContext(actor: Actor, id: string): Promise<Co
     async (tx) => {
       const comparison = await tx.comparison.findFirst({
         where: { AND: [{ id }, comparisonsVisibleWhere(actor)] },
-        select: { id: true, name: true, ownerId: true, participants: { select: { userId: true } }, candidates: { select: { systemId: true } } },
+        select: { id: true, name: true, ownerId: true, outcomeRecordedAt: true, participants: { select: { userId: true } }, candidates: { select: { systemId: true } } },
       });
       if (!comparison) return { ok: false as const, status: 404 as const, error: NOT_FOUND };
       if (!canManage(actor, comparison) && !isParticipant(actor, comparison)) {
         return { ok: false as const, status: 403 as const, error: "Only the Comparison's owner, a participant or an Admin can add a Candidate" };
       }
+      if (comparison.outcomeRecordedAt) return { ok: false as const, status: 409 as const, error: CLOSED_COMPARISON_REFUSAL };
       if (!(await readStagedEvaluationEnabled(tx))) return { ok: false as const, status: 409 as const, error: STAGING_OFF_REFUSAL };
       if (comparison.candidates.length >= MAX_CANDIDATES) return { ok: false as const, status: 409 as const, error: FULL_REFUSAL };
       // Only the Candidates `actor` can open as Systems are offered: the rest stay hidden, as everywhere.
@@ -678,10 +715,86 @@ export function removeCandidate(actor: Actor, id: string, systemId: string) {
     if (!canManage(actor, comparison) && !isSystemOwnerOrAdmin(actor, candidate.system)) {
       throw refuse(403, "Only the Comparison's owner, an Admin or the System's owner can remove a Candidate");
     }
+    requireOpen(comparison);
     await tx.comparisonCandidate.delete({ where: { comparisonId_systemId: { comparisonId: id, systemId } } });
     await logChangeEvent(systemId, "COMPARISON_CANDIDATE_REMOVED", `Removed as a Candidate from the Comparison "${comparison.name}"`, actor.id, tx);
     return { systemId };
   });
+}
+
+const POSITION_SELECT = { systemId: true, system: { select: { id: true, name: true, evaluationClosedAt: true } } } as const;
+
+/**
+ * Records the outcome and closes the Comparison (#375): `chosenSystemId` is one Candidate, or null for "None chosen"; `comment` is
+ * required. The owner or an Admin. Refused: 403 for anyone else, 409 when it is already closed, has fewer than two Candidates, or
+ * the chosen Candidate was rejected at a gate (`evaluationClosedAt`); 400 when the chosen System is not a Candidate. In one
+ * RepeatableRead transaction, every query on `tx`: the figures are read through the Comparison Score loader and frozen into
+ * `outcomeSnapshot`, and one Change Event is written on every Candidate saying which was chosen.
+ */
+export function recordOutcome(actor: Actor, id: string, input: { chosenSystemId: string | null; comment: string }) {
+  return run(
+    async (tx) => {
+      const comparison = await loadVisibleLocked(tx, actor, id);
+      if (!canManage(actor, comparison)) throw refuse(403, "Only the Comparison's owner or an Admin can record the outcome");
+      requireOpen(comparison);
+      const candidates = await tx.comparisonCandidate.findMany({ where: { comparisonId: id }, select: POSITION_SELECT, orderBy: [{ addedAt: "asc" }, { systemId: "asc" }] });
+      if (candidates.length < 2) throw refuse(409, "A Comparison needs at least two Candidates before an outcome can be recorded");
+      const chosen = input.chosenSystemId === null ? null : candidates.find((candidate) => candidate.systemId === input.chosenSystemId);
+      if (chosen === undefined) throw refuse(400, "The chosen System is not a Candidate in this Comparison");
+      if (chosen?.system.evaluationClosedAt) throw refuse(409, "A Candidate that was rejected at a gate can't be chosen");
+
+      const live = await readLiveFigures(tx, candidates.map((candidate) => candidate.systemId));
+      const frozen: OutcomeSnapshot["candidates"] = {};
+      for (const candidate of candidates) {
+        const figures = live.candidates.get(candidate.systemId);
+        if (!figures) throw refuse(409, "A Candidate was deleted while the outcome was being recorded. Try again.");
+        const { name: _name, ...rest } = figures; // eslint-disable-line @typescript-eslint/no-unused-vars
+        frozen[candidate.systemId] = rest;
+      }
+      const snapshot: OutcomeSnapshot = {
+        version: 1,
+        chosen: chosen ? { id: chosen.systemId, name: chosen.system.name } : null,
+        candidates: frozen,
+        controlGroups: live.controlGroups,
+        classificationDifferences: live.classificationDifferences,
+      };
+      await tx.comparison.update({
+        where: { id },
+        data: { outcomeRecordedAt: new Date(), outcomeRecordedById: actor.id, outcomeComment: input.comment, outcomeSnapshot: snapshot },
+      });
+      for (const candidate of candidates) {
+        const detail = !chosen
+          ? `Outcome recorded for the Comparison "${comparison.name}": no Candidate was chosen`
+          : chosen.systemId === candidate.systemId
+            ? `Outcome recorded for the Comparison "${comparison.name}": this System was chosen`
+            : `Outcome recorded for the Comparison "${comparison.name}": "${chosen.system.name}" was chosen`;
+        await logChangeEvent(candidate.systemId, "COMPARISON_OUTCOME_RECORDED", detail, actor.id, tx);
+      }
+      return { id };
+    },
+    { isolationLevel: "RepeatableRead", timeout: 30_000 },
+  );
+}
+
+/**
+ * Reopens a closed Comparison (#375): the outcome and the frozen figures are cleared, so the page shows live figures again, and every
+ * Candidate gets a Change Event. The owner or an Admin; 409 when it is not closed. Systems closed as Not selected (#376) stay closed.
+ */
+export function reopenComparison(actor: Actor, id: string) {
+  return run(
+    async (tx) => {
+      const comparison = await loadVisibleLocked(tx, actor, id);
+      if (!canManage(actor, comparison)) throw refuse(403, "Only the Comparison's owner or an Admin can reopen it");
+      if (!comparison.outcomeRecordedAt) throw refuse(409, "This Comparison is not closed");
+      const candidates = await tx.comparisonCandidate.findMany({ where: { comparisonId: id }, select: { systemId: true }, orderBy: [{ addedAt: "asc" }, { systemId: "asc" }] });
+      await tx.comparison.update({ where: { id }, data: { outcomeRecordedAt: null, outcomeRecordedById: null, outcomeComment: null, outcomeSnapshot: Prisma.DbNull } });
+      for (const candidate of candidates) {
+        await logChangeEvent(candidate.systemId, "COMPARISON_REOPENED", `The Comparison "${comparison.name}" was reopened; its outcome is cleared`, actor.id, tx);
+      }
+      return { id };
+    },
+    { isolationLevel: "RepeatableRead", timeout: 30_000 },
+  );
 }
 
 /** Names `userId` a participant. The owner or an Admin; the owner can't also be a participant. */
@@ -689,6 +802,7 @@ export function addParticipant(actor: Actor, id: string, userId: string) {
   return run(async (tx) => {
     const comparison = await loadVisibleLocked(tx, actor, id);
     if (!canManage(actor, comparison)) throw refuse(403, "Only the Comparison's owner or an Admin can name participants");
+    requireOpen(comparison);
     if (userId === comparison.ownerId) throw refuse(400, "The owner is already part of the Comparison");
     if (!(await tx.user.findUnique({ where: { id: userId }, select: { id: true } }))) throw refuse(400, "That user doesn't exist");
     if (isParticipant({ id: userId }, comparison)) throw refuse(409, "This user is already a participant");
@@ -701,6 +815,7 @@ export function removeParticipant(actor: Actor, id: string, userId: string) {
   return run(async (tx) => {
     const comparison = await loadVisibleLocked(tx, actor, id);
     if (!canManage(actor, comparison)) throw refuse(403, "Only the Comparison's owner or an Admin can remove participants");
+    requireOpen(comparison);
     if (!isParticipant({ id: userId }, comparison)) throw refuse(404, "This user is not a participant");
     await tx.comparisonParticipant.delete({ where: { comparisonId_userId: { comparisonId: id, userId } } });
     return { userId };

@@ -35,6 +35,8 @@ export type CandidateRow = {
   rejected: boolean;
   addedAt: string;
   addedBy: Person | null;
+  /** The chosen Candidate of the recorded outcome (#375). */
+  chosen: boolean;
   classification: {
     deploymentFacets: Named[];
     sensitivityLevel: number | null;
@@ -70,6 +72,15 @@ export type ComparisonDetail = {
   classificationDifferences: string[];
   controlGroups: ControlGroup[];
   closed: boolean;
+  /** The recorded outcome of a closed Comparison (#375); null while it is open. The figures are then the frozen ones. */
+  outcome: {
+    /** null is "None chosen". */
+    chosen: Named | null;
+    comment: string;
+    recordedBy: Person | null;
+    recordedAt: string;
+    chosenNotTopScorer: boolean;
+  } | null;
   canManage: boolean;
   canAddCandidate: boolean;
   createdAt: string;

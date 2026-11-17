@@ -3,7 +3,7 @@ import type { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requestAs } from "@/test/provider-fixtures";
 import { POST } from "../route";
-import { FULL_REFUSAL, STAGING_OFF_REFUSAL } from "@/lib/comparison";
+import { CLOSED_COMPARISON_REFUSAL, FULL_REFUSAL, STAGING_OFF_REFUSAL } from "@/lib/comparison";
 
 /**
  * Creating a System into a Comparison (#374): the onboarding interview's request carries `comparisonId`, and the new System
@@ -130,6 +130,17 @@ describe("POST /api/systems with comparisonId (#374)", { timeout: 30_000 }, () =
     expect(refused.status).toBe(403);
     expect(await systemsNamed()).toBe(0);
     expect(await candidatesOf(id)).toHaveLength(0);
+  });
+
+  it("creates nothing when the Comparison is closed (#375)", async () => {
+    staged.value = true;
+    const id = await makeComparison("owner", { candidates: 2 });
+    await prisma.comparison.update({ where: { id }, data: { outcomeRecordedAt: new Date(), outcomeRecordedById: users.owner, outcomeComment: "Decided", outcomeSnapshot: {} } });
+    const response = await create("owner", id);
+    expect(response.status).toBe(409);
+    expect(((await response.json()) as { error: string }).error).toBe(CLOSED_COMPARISON_REFUSAL);
+    expect(await systemsNamed()).toBe(0);
+    expect(await candidatesOf(id)).toHaveLength(2);
   });
 
   it("rejects a malformed comparisonId and creates nothing", async () => {
