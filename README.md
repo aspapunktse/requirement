@@ -94,6 +94,8 @@ npm run dev
 
 App runs at http://localhost:3000, health check at `/api/health`.
 
+For a production-sized demo estate (about 100 more Systems with assessments, Risks, approvals, Providers and history), run `npx tsx prisma/seed-production-like.ts [--dry-run] [--production]`. It refuses a non-local database without `--production`, only ever replaces rows it created itself, and gives the same result on every run.
+
 ## Scripts
 
 | Command | Purpose |
