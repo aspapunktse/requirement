@@ -33,6 +33,10 @@ export type CandidateRow = {
   canOpen: boolean;
   stage: string | null;
   rejected: boolean;
+  /** Closed as Not selected after a Comparison (#376): shown as Not selected, can't be chosen or closed again. */
+  notSelected: boolean;
+  /** May the acting user close this Candidate as Not selected now (#376)? Still in evaluation, and theirs or they are an Admin. */
+  canCloseAsNotSelected: boolean;
   addedAt: string;
   addedBy: Person | null;
   /** The chosen Candidate of the recorded outcome (#375). */

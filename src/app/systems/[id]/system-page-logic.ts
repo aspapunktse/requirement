@@ -87,7 +87,7 @@ export function sourceKeyOf(source: EffectiveSource): SourceKey {
  * - Approve… / Reject: an In Review System with an open Review Step the user may decide
  *   (`userCanDecideStep`, which `GET /api/systems/[id]/approvals` reports as `canDecide`);
  * - Mark Onboarded: an ATO System, for whoever `canMarkOnboarded` (`POST .../onboard`).
- * Nothing for a Rejected or Onboarded System, whose APIs refuse every one of them.
+ * Nothing for a Rejected, Not selected or Onboarded System, whose APIs refuse every one of them.
  */
 export function nextStepFor(input: {
   status: OnboardingStatus;
@@ -117,6 +117,7 @@ export function nextStepFor(input: {
       return input.canMarkOnboarded ? { kind: "onboard" } : { kind: "none" };
     case "REJECTED":
     case "ONBOARDED":
+    case "NOT_SELECTED":
       return { kind: "none" };
   }
 }
@@ -130,9 +131,11 @@ export type LifecycleStage = { key: "DRAFT" | "IN_REVIEW" | "APPROVED" | "ONBOAR
 export function lifecycleStages(status: OnboardingStatus): LifecycleStage[] {
   const order = ["DRAFT", "IN_REVIEW", "APPROVED", "ONBOARDED"] as const;
   const labels = { DRAFT: "Draft", IN_REVIEW: "In review", APPROVED: "ATO", ONBOARDED: "Onboarded" };
-  const at = status === "REJECTED" ? 1 : order.indexOf(status);
+  // A Not selected System (#376) stands on the Draft step, labelled Not selected: the stage it keeps is on the Evaluation tab.
+  const at = status === "REJECTED" ? 1 : status === "NOT_SELECTED" ? 0 : order.indexOf(status);
   return order.map((key, index): LifecycleStage => {
     if (status === "REJECTED" && key === "IN_REVIEW") return { key, label: "Rejected", state: "now", tone: "danger" };
+    if (status === "NOT_SELECTED" && key === "DRAFT") return { key, label: "Not selected", state: "now" };
     const state = status === "ONBOARDED" ? "past" : index < at ? "past" : index === at ? "now" : "todo";
     return { key, label: labels[key], state };
   });
@@ -177,6 +180,8 @@ export function lifecycleNote(input: {
       return `Rejected${input.submittedAt ? ` after the review submitted ${formatDay(input.submittedAt)}` : ""} · waiting for ${input.ownerName}'s resubmission`;
     case "APPROVED":
       return `ATO${input.approvedAt ? ` ${formatDay(input.approvedAt)}` : ""} · waiting for ${input.ownerName} or an Admin to mark it Onboarded`;
+    case "NOT_SELECTED":
+      return "Not selected: it lost a Comparison and is closed · an Admin can reopen it";
     case "ONBOARDED":
       return input.onboardedAt ? `Onboarded ${formatDay(input.onboardedAt)}` : "Onboarded";
   }

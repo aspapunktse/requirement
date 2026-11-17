@@ -38,10 +38,11 @@ export const ONBOARDING_STATUS_LABEL: Record<OnboardingStatus, string> = {
   APPROVED: "ATO",
   REJECTED: "Rejected",
   ONBOARDED: "Onboarded",
+  NOT_SELECTED: "Not selected",
 };
 
 /** The onboarding statuses in lifecycle order, for the filter's select. */
-export const ONBOARDING_STATUSES: OnboardingStatus[] = ["DRAFT", "IN_REVIEW", "APPROVED", "REJECTED", "ONBOARDED"];
+export const ONBOARDING_STATUSES: OnboardingStatus[] = ["DRAFT", "IN_REVIEW", "APPROVED", "REJECTED", "ONBOARDED", "NOT_SELECTED"];
 
 export function isOnboardingStatus(value: string): value is OnboardingStatus {
   return (ONBOARDING_STATUSES as string[]).includes(value);

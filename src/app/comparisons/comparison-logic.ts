@@ -110,9 +110,9 @@ export function filterGroups(groups: readonly TableGroup[], filter: ControlFilte
   return groups.map((group) => ({ ...group, rows: group.rows.filter(keep) })).filter((group) => group.rows.length > 0);
 }
 
-/** The Candidates the Record outcome dialog offers as the chosen one: a Candidate rejected at a gate can't be chosen (it is listed, with the reason). */
-export function chooseable(candidate: Pick<CandidateRow, "rejected">): boolean {
-  return !candidate.rejected;
+/** The Candidates the Record outcome dialog offers as the chosen one: a Candidate rejected at a gate or closed as Not selected can't be chosen (it is listed, with the reason). */
+export function chooseable(candidate: Pick<CandidateRow, "rejected"> & { notSelected?: boolean }): boolean {
+  return !candidate.rejected && !candidate.notSelected;
 }
 
 /** The date of a recorded outcome, "16 Nov 2026". */

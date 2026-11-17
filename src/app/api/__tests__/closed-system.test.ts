@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
 import { ACTING_USER_COOKIE } from "@/lib/acting-user";
-import { SYSTEM_CLOSED_REFUSAL } from "@/lib/system-closed";
+import { SYSTEM_CLOSED_REFUSAL, closedRefusalText } from "@/lib/system-closed";
 import { POST as changeOwners } from "../systems/owner/route";
 import { PATCH as patchDetails } from "../systems/[id]/details/route";
 import { GET as getEvaluation } from "../systems/[id]/evaluation/route";
@@ -30,11 +30,30 @@ const writeRoutes = Object.entries(modules).flatMap(([file, mod]) =>
 );
 
 /** A body that gets past each route's own body check, so the closed rule is what answers. */
-const bodyFor = (path: string) => (path.endsWith("business-system-owner") ? { businessSystemOwnerId: null } : path.endsWith("risk-analysis-lead") ? { leadId: null } : {});
+const bodyFor = (path: string) => (path.endsWith("reopen") ? { comment: "Reopen" } : path.endsWith("business-system-owner") ? { businessSystemOwnerId: null } : path.endsWith("risk-analysis-lead") ? { leadId: null } : {});
 
 function requestAs(userId: string, url: string, method: string, body?: unknown) {
   const headers = new Headers({ "Content-Type": "application/json", cookie: `${ACTING_USER_COOKIE}=${userId}` });
   return new NextRequest(`http://localhost${url}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
+}
+
+/** What a write could change on the System, as one comparable value. */
+async function fingerprint(systemId: string) {
+  const system = await prisma.system.findUniqueOrThrow({ where: { id: systemId } });
+  const [events, decisions, risks, analyses, assessments, documents, offerings, approvals, scopes, units, deps] = await Promise.all([
+    prisma.changeEvent.count({ where: { systemId } }),
+    prisma.gateDecision.count({ where: { systemId } }),
+    prisma.risk.count({ where: { systemId } }),
+    prisma.riskAnalysis.count({ where: { systemId } }),
+    prisma.controlAssessment.count({ where: { systemId } }),
+    prisma.systemDocument.count({ where: { systemId } }),
+    prisma.controlOffering.count({ where: { providerId: systemId } }),
+    prisma.approval.count({ where: { systemId } }),
+    prisma.system.count({ where: { id: systemId, frameworkScopes: { some: {} } } }),
+    prisma.system.count({ where: { id: systemId, businessUnits: { some: {} } } }),
+    prisma.providerDependency.count({ where: { dependentId: systemId } }),
+  ]);
+  return JSON.stringify({ system, events, decisions, risks, analyses, assessments, documents, offerings, approvals, scopes, units, deps });
 }
 
 describe("A System rejected at OG3 is closed (#330)", { timeout: 120_000 }, () => {
@@ -45,25 +64,6 @@ describe("A System rejected at OG3 is closed (#330)", { timeout: 120_000 }, () =
   let bso: string;
   let stranger: string;
   let closedId: string;
-
-  /** What a write could change on the System, as one comparable value. */
-  async function fingerprint(systemId: string) {
-    const system = await prisma.system.findUniqueOrThrow({ where: { id: systemId } });
-    const [events, decisions, risks, analyses, assessments, documents, offerings, approvals, scopes, units, deps] = await Promise.all([
-      prisma.changeEvent.count({ where: { systemId } }),
-      prisma.gateDecision.count({ where: { systemId } }),
-      prisma.risk.count({ where: { systemId } }),
-      prisma.riskAnalysis.count({ where: { systemId } }),
-      prisma.controlAssessment.count({ where: { systemId } }),
-      prisma.systemDocument.count({ where: { systemId } }),
-      prisma.controlOffering.count({ where: { providerId: systemId } }),
-      prisma.approval.count({ where: { systemId } }),
-      prisma.system.count({ where: { id: systemId, frameworkScopes: { some: {} } } }),
-      prisma.system.count({ where: { id: systemId, businessUnits: { some: {} } } }),
-      prisma.providerDependency.count({ where: { dependentId: systemId } }),
-    ]);
-    return JSON.stringify({ system, events, decisions, risks, analyses, assessments, documents, offerings, approvals, scopes, units, deps });
-  }
 
   beforeAll(async () => {
     for (const [key, role] of [["admin", "ADMIN"], ["owner", "SYSTEM_OWNER"], ["bso", "VIEWER"], ["stranger", "SYSTEM_OWNER"]] as const) {
@@ -166,6 +166,95 @@ describe("A System rejected at OG3 is closed (#330)", { timeout: 120_000 }, () =
       expect((await evaluation.json()).evaluation).toMatchObject({ closed: true });
       const risks = await getRisks(requestAs(who, `/api/systems/${closedId}/risks`, "GET"), { params: Promise.resolve({ id: closedId }) });
       expect(risks.status).toBe(200);
+    }
+  });
+});
+
+/**
+ * A System closed as Not selected (#376) is closed the same way: status NOT_SELECTED plus the closed marker, so every write is refused with 409 for every role,
+ * and reads still work. The one route that is not refused is the Admin's reopen (`[id]/reopen`), which is its way out and is tested in `not-selected.test.ts`.
+ */
+describe("A System closed as Not selected is closed (#376)", { timeout: 120_000 }, () => {
+  const userIds: string[] = [];
+  const systemIds: string[] = [];
+  let admin: string;
+  let owner: string;
+  let bso: string;
+  let closedId: string;
+  const writes = writeRoutes.filter((route) => route.path !== "[id]/reopen");
+
+  beforeAll(async () => {
+    for (const [key, role] of [["admin", "ADMIN"], ["owner", "SYSTEM_OWNER"], ["bso", "VIEWER"]] as const) {
+      const user = await prisma.user.create({ data: { email: `test-376-closed-${key}-${SUFFIX}@example.com`, name: `Test 376 closed ${key} ${SUFFIX}`, role } });
+      userIds.push(user.id);
+      if (key === "admin") admin = user.id;
+      if (key === "owner") owner = user.id;
+      if (key === "bso") bso = user.id;
+    }
+    const system = await prisma.system.create({
+      data: {
+        name: `Test 376 Not selected ${SUFFIX}`,
+        ownerId: owner,
+        businessSystemOwnerId: bso,
+        status: "NOT_SELECTED",
+        evaluationStage: "FIRST_ROUND",
+        evaluationTrack: "SELF",
+        evaluationStageEnteredAt: new Date(),
+        evaluationClosedAt: new Date(),
+      },
+    });
+    closedId = system.id;
+    systemIds.push(closedId);
+    await prisma.risk.create({ data: { systemId: closedId, title: `Test 376 closed risk ${SUFFIX}`, description: "A Risk", severity: "LOW", likelihood: "LOW" } });
+  });
+
+  afterAll(async () => {
+    await prisma.changeEvent.deleteMany({ where: { systemId: { in: systemIds } } });
+    await prisma.system.deleteMany({ where: { id: { in: systemIds } } });
+    await prisma.user.deleteMany({ where: { id: { in: userIds } } });
+  }, 60_000);
+
+  it("finds the write routes, the reopen route among them", () => {
+    expect(writes.length).toBeGreaterThan(30);
+    expect(writeRoutes.map((route) => route.path)).toContain("[id]/reopen");
+  });
+
+  it.each(["admin", "owner", "bso"] as const)("refuses every write route for the %s (409 with the Not selected wording), and changes nothing", async (who) => {
+    const actor = { admin, owner, bso }[who];
+    const before = await fingerprint(closedId);
+    const wrong: string[] = [];
+    for (const route of writes) {
+      const params = Object.fromEntries(route.segments.map((name) => [name, name === "id" ? closedId : `missing-${name}`]));
+      const url = `/api/systems/${closedId}/${route.path.replace("[id]/", "").replace(/\[(\w+)\]/g, (_match, name: string) => params[name])}`;
+      const response = await route.handler(requestAs(actor, url, route.method, bodyFor(route.path)), { params: Promise.resolve(params) });
+      if (response.status !== 409 && !(who !== "admin" && response.status === 403)) wrong.push(`${route.method} ${route.path}: ${response.status}`);
+    }
+    expect(wrong).toEqual([]);
+    expect(await fingerprint(closedId)).toBe(before);
+  });
+
+  it("says Not selected, not rejected, when a write is refused", async () => {
+    const response = await patchDetails(requestAs(admin, `/api/systems/${closedId}/details`, "PATCH", {}), { params: Promise.resolve({ id: closedId }) });
+    expect(response.status).toBe(409);
+    expect((await response.json()).error).toBe(closedRefusalText("NOT_SELECTED"));
+    expect(closedRefusalText("NOT_SELECTED")).not.toBe(SYSTEM_CLOSED_REFUSAL);
+  });
+
+  it("refuses a bulk owner change that includes it, and changes nothing", async () => {
+    const before = await fingerprint(closedId);
+    const response = await changeOwners(requestAs(admin, "/api/systems/owner", "POST", { systemIds: [closedId], ownerId: admin }));
+    expect(response.status).toBe(409);
+    expect((await response.json()).error).toBe(closedRefusalText("NOT_SELECTED"));
+    expect(await fingerprint(closedId)).toBe(before);
+  });
+
+  it("still lets everyone read it", async () => {
+    for (const who of [admin, owner, bso]) {
+      const risks = await getRisks(requestAs(who, `/api/systems/${closedId}/risks`, "GET"), { params: Promise.resolve({ id: closedId }) });
+      expect(risks.status).toBe(200);
+      const evaluation = await getEvaluation(requestAs(who, `/api/systems/${closedId}/evaluation`, "GET"), { params: Promise.resolve({ id: closedId }) });
+      expect(evaluation.status).toBe(200);
+      expect((await evaluation.json()).evaluation).toMatchObject({ notSelected: true, closed: false });
     }
   });
 });

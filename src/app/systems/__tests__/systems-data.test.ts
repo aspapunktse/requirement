@@ -188,6 +188,24 @@ describe("Needs attention (decision 4a)", () => {
     expect((await rowsOf(owner)).byId.get(s2)?.needsAttention).toBe(true);
   });
 
+  it("lists a stale Not selected System as its own status: not a Draft, not stale, not in a role view, in no Needs attention count (#376)", async () => {
+    const id = await prisma.system.create({ data: { name: `Test Systems NS ${suffix}`, ownerId: owner.id, status: "NOT_SELECTED", evaluationStage: "FIRST_ROUND", evaluationClosedAt: now } }).then((row) => row.id);
+    try {
+      await prisma.$executeRaw`UPDATE "System" SET "updatedAt" = ${new Date(now.getTime() - 400 * day)} WHERE id = ${id}`;
+      for (const u of [owner, reviewer, manager]) {
+        const { byId, view } = await rowsOf(u);
+        const row = byId.get(id) as SystemRow;
+        expect(row.status).toBe("NOT_SELECTED");
+        expect(row.needsAttention).toBe(false);
+        // "Owned by me" still lists the owner's own System in any status; every other role view leaves it out.
+        expect(row.inRoleView).toBe(u === owner);
+        expect(view.rows.filter((r) => r.status === "DRAFT" && r.id === id)).toEqual([]);
+      }
+    } finally {
+      await prisma.system.delete({ where: { id } });
+    }
+  });
+
   it("measures a Draft's age from the read time: 60 days is not yet stale, 61 is", () => {
     const at = new Date("2026-10-25T12:00:00Z");
     const draft = (days: number) => ({ openQuestions: 0, status: "DRAFT" as const, updatedAt: new Date(at.getTime() - days * day).toISOString() });
@@ -196,6 +214,12 @@ describe("Needs attention (decision 4a)", () => {
     expect(needsAttention({ ...draft(90), status: "IN_REVIEW" }, at, 60)).toBe(false);
     expect(needsAttention({ ...draft(1), openQuestions: 2 }, at, 60)).toBe(true);
     expect(needsAttention({ ...draft(1), status: "REJECTED" }, at, 60)).toBe(true);
+  });
+
+  it("never flags a Not selected System: it is not a Draft, so it is not a stale one, and it has no Queries to act on (#376)", () => {
+    const at = new Date("2026-10-25T12:00:00Z");
+    const notSelected = { openQuestions: 3, status: "NOT_SELECTED" as const, updatedAt: new Date(at.getTime() - 400 * day).toISOString() };
+    expect(needsAttention(notSelected, at, 60)).toBe(false);
   });
 });
 
@@ -244,6 +268,7 @@ describe("the role view (decision 3a)", () => {
     expect(inRoleView(row(69, 100), as, facts, 70)).toBe(true);
     expect(inRoleView(row(70, 100), as, facts, 70)).toBe(false);
     expect(inRoleView(row(0, 5, "DRAFT"), as, facts, 70)).toBe(false);
+    expect(inRoleView(row(0, 5, "NOT_SELECTED"), as, facts, 70)).toBe(false);
     expect(inRoleView(row(null, null), as, facts, 70)).toBe(false);
     expect(inRoleView(row(0, 0), as, facts, 70)).toBe(false);
   });

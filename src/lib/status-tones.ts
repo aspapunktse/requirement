@@ -9,6 +9,8 @@ export function onboardingStatusTone(status: string): ChipTone {
       return "warn";
     case "REJECTED":
       return "danger";
+    case "NOT_SELECTED":
+      return "neutral";
     default:
       return "neutral";
   }

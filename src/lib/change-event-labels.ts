@@ -51,6 +51,8 @@ export const CHANGE_EVENT_ACTION_LABEL: Record<ChangeEventAction, string> = {
   COMPARISON_CANDIDATE_REMOVED: "removed a System from a Comparison",
   COMPARISON_OUTCOME_RECORDED: "recorded the outcome of a Comparison this System is a Candidate in",
   COMPARISON_REOPENED: "reopened a Comparison this System is a Candidate in",
+  SYSTEM_NOT_SELECTED: "closed a System as Not selected",
+  SYSTEM_REOPENED: "reopened a Not selected System",
 };
 
 export type ChangeEventTone = "ok" | "warn" | "danger" | "accent";
@@ -90,6 +92,8 @@ export const CHANGE_EVENT_ACTION_TONE: Record<ChangeEventAction, ChangeEventTone
   COMPARISON_CANDIDATE_REMOVED: "accent",
   COMPARISON_OUTCOME_RECORDED: "accent",
   COMPARISON_REOPENED: "accent",
+  SYSTEM_NOT_SELECTED: "warn",
+  SYSTEM_REOPENED: "accent",
   EVALUATION_STAGE_CHANGED: "accent",
   TRACK_VERDICT_GIVEN: "accent",
   TRACK_VERDICT_REOPENED: "warn",

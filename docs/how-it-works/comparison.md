@@ -1,6 +1,6 @@
 # How a Comparison works
 
-> **Status: designed; the data model, the API (#372), the list and Comparison pages (#373), adding Candidates (#374) and recording the outcome, freezing the figures and reopening (#375) are built; closing the Candidates not chosen as Not selected (#376) is not.** This describes the behaviour agreed with the product owner on 2026-11-16. It is the source for the user manual. The terms are defined in [`CONTEXT.md`](../../CONTEXT.md) under "Evaluation"; the one architectural decision is [ADR 0015](../adr/0015-not-selected-closes-a-system-and-can-be-reopened.md).
+> **Status: designed; the data model, the API (#372), the list and Comparison pages (#373), adding Candidates (#374) recording the outcome, freezing the figures and reopening (#375), and closing the Candidates not chosen as Not selected and reopening them (#376) are built.** This describes the behaviour agreed with the product owner on 2026-11-16. It is the source for the user manual. The terms are defined in [`CONTEXT.md`](../../CONTEXT.md) under "Evaluation"; the one architectural decision is [ADR 0015](../adr/0015-not-selected-closes-a-system-and-can-be-reopened.md).
 
 ## What it is for
 
@@ -70,13 +70,14 @@ A Candidate rejected at a gate stays in the Comparison, is shown as Rejected and
 
 ### 6. Deal with the Candidates not chosen
 
-When you record the outcome, the app offers to close each Candidate that was not chosen as **Not selected**. You decide per Candidate; nothing is closed automatically.
+When you record the outcome, the dialog lists each Candidate that was not chosen, with a "Close as Not selected" box, unchecked. You decide per Candidate; nothing is closed automatically. The same action is on the closed Comparison afterwards ("Close as Not selected"), for the Candidates still open.
 
-- A Not selected System is read-only for everyone and kept for the record.
-- It leaves the Draft counts and its owner's tasks.
+- A Not selected System is read-only for everyone and kept for the record. Every change to it is refused, and what it shows can still be read.
+- It is its own status. It leaves the Draft counts (and the stale-Draft count) and its owner's tasks, and the Systems list, the Home figures and the Business Risk Owner's portfolio show it as Not selected.
+- It keeps its stage and Track, stays in the Comparison shown as Not selected, can't be chosen, and can't be added to another Comparison while it is closed.
 - Only a Candidate still in evaluation can be closed this way, never one that is authorized to operate or Onboarded.
 - The Comparison's owner can close the Candidates they own. An Admin can close any.
-- An Admin can **reopen** a Not selected System, with a comment. It returns to the stage it was in, with its answers intact. Use this when the first choice falls through.
+- An Admin can **reopen** a Not selected System from its page, with a required comment. It returns to Draft at the stage it was in, with its Assessments, Risks and documents untouched, and Continuous Compliance recomputes which Controls apply. Use this when the first choice falls through.
 
 A Candidate you leave open stays an ordinary System.
 

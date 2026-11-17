@@ -40,10 +40,10 @@ const NO_OWNER_TASKS: OwnerTasks = { ownedCount: 0, rows: [], needingAttentionCo
 export async function getOwnerTasks(user: { id: string; role: UserRole }): Promise<OwnerTasks> {
   if (isReadOnlySystemRole(user)) return NO_OWNER_TASKS;
 
-  const ownedSystemIds = (
-    await prisma.system.findMany({ where: { ownerId: user.id }, select: { id: true } })
-  ).map((s) => s.id);
-  if (ownedSystemIds.length === 0) return NO_OWNER_TASKS;
+  const owned = await prisma.system.findMany({ where: { ownerId: user.id }, select: { id: true, status: true } });
+  // A Not selected System (#376) is closed and gives its owner no tasks: its open Queries are left out (it is still counted as owned).
+  const ownedSystemIds = owned.filter((system) => system.status !== "NOT_SELECTED").map((system) => system.id);
+  if (owned.length === 0) return NO_OWNER_TASKS;
 
   const [attention, openQueries, needingBso] = await Promise.all([
     getSystemsNeedingAttention(user.id),
@@ -94,7 +94,7 @@ export async function getOwnerTasks(user: { id: string; role: UserRole }): Promi
   ];
 
   return {
-    ownedCount: ownedSystemIds.length,
+    ownedCount: owned.length,
     rows,
     needingAttentionCount: new Set(attention.map((system) => system.id)).size,
     openQuestionCount: openQueries.length,

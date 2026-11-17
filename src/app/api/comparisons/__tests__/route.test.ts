@@ -273,7 +273,7 @@ describe("Comparisons (#372)", { timeout: 60_000 }, () => {
         const { comparison } = JSON.parse(text);
         expect(comparison.candidates[0].openRisks).toEqual({ LOW: 0, MEDIUM: 0, HIGH: 1, CRITICAL: 1 });
         expect(Object.keys(comparison.candidates[0]).sort()).toEqual(
-          ["addedAt", "addedBy", "canOpen", "chosen", "classification", "name", "openRisks", "owner", "rejected", "score", "stage", "systemId", "vendor"].sort(),
+          ["addedAt", "addedBy", "canCloseAsNotSelected", "canOpen", "chosen", "classification", "name", "notSelected", "openRisks", "owner", "rejected", "score", "stage", "systemId", "vendor"].sort(),
         );
         expect(Object.keys(comparison.candidates[0].score).sort()).toEqual(
           ["answeredCount", "complete", "controls", "countedCount", "firstRoundCount", "fulfilledCount", "mandatoryNotFulfilledCount", "score"].sort(),

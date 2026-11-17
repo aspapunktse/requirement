@@ -127,6 +127,20 @@ describe("each role's picture on /home (#226)", () => {
       }
     });
 
+    it("gives a Not selected System its own column, not Draft, and no column when there is none (#376)", async () => {
+      const owner = await makeUser("pipeline-notsel", "SYSTEM_OWNER");
+      const draft = await makeSystem(owner.id, "ns draft");
+      const none = expectType((await roleView(owner)).picture, "pipeline");
+      expect(none.stages).toEqual(["Draft", "In review", "ATO", "Onboarded"]);
+
+      const closed = await makeSystem(owner.id, "ns closed", { status: "NOT_SELECTED", evaluationStage: "FIRST_ROUND", evaluationClosedAt: new Date() });
+      const picture = expectType((await roleView(owner)).picture, "pipeline");
+      expect(picture.stages).toEqual(["Draft", "In review", "ATO", "Onboarded", "Not selected"]);
+      expect(picture.items.find((item) => item.id === closed.id)?.stage).toBe(4);
+      expect(picture.items.find((item) => item.id === draft.id)?.stage).toBe(0);
+      expect(picture.items.find((item) => item.id === closed.id)?.flag ?? null).not.toBe("Rejected");
+    });
+
     it("shows only the Systems the user owns", async () => {
       const owner = await makeUser("pipeline-stranger", "SYSTEM_OWNER");
       const other = await makeUser("pipeline-other", "SYSTEM_OWNER");

@@ -25,7 +25,7 @@ type PortfolioSystem = {
 };
 
 /** Display order for grouping the System Portfolio by onboarding status. */
-const PORTFOLIO_STATUS_ORDER = ["DRAFT", "IN_REVIEW", "APPROVED", "REJECTED", "ONBOARDED"];
+const PORTFOLIO_STATUS_ORDER = ["DRAFT", "IN_REVIEW", "APPROVED", "REJECTED", "ONBOARDED", "NOT_SELECTED"];
 
 /** The lifecycle label of a status (Approved shows as ATO); an unknown value is shown as it is. */
 const statusText = (status: string) => ONBOARDING_STATUS_LABEL[status as OnboardingStatus] ?? status;

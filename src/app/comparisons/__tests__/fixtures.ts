@@ -19,6 +19,8 @@ export function candidate(name: string, over: Partial<Omit<CandidateRow, "score"
     canOpen: true,
     stage: "FIRST_ROUND",
     rejected: false,
+    notSelected: false,
+    canCloseAsNotSelected: false,
     addedAt: "2026-11-01T10:00:00.000Z",
     addedBy: null,
     chosen: false,

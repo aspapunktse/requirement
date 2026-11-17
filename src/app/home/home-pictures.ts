@@ -16,7 +16,13 @@ import type { HomePicture } from "./home-types";
  */
 
 const STAGES = ["Draft", "In review", "ATO", "Onboarded"];
-/** A Rejected System goes back to Draft for revision; the enum value is mapped there as a safety net. */
+const NOT_SELECTED_STAGE = "Not selected";
+/** The stage columns: a fifth, Not selected (#376), only when a System is in it, so the Systems closed after a Comparison are not drawn as Drafts. */
+const stagesFor = (items: { stage: number }[]) => (items.some((item) => item.stage === STAGES.length) ? [...STAGES, NOT_SELECTED_STAGE] : STAGES);
+/**
+ * A Rejected System goes back to Draft for revision; the enum value is mapped there as a safety net. A Not selected System (#376) is
+ * closed and not a Draft: it is drawn in a column of its own.
+ */
 function stageOf(status: string): number {
   switch (status) {
     case "IN_REVIEW":
@@ -25,6 +31,8 @@ function stageOf(status: string): number {
       return 2;
     case "ONBOARDED":
       return 3;
+    case "NOT_SELECTED":
+      return STAGES.length;
     default:
       return 0;
   }
@@ -104,7 +112,7 @@ export async function loadPipelinePicture(userId: string, flags: Map<string, str
     title: "Your Systems through onboarding",
     note: noteCount(systems.length, "System", shown.length),
     empty: "You don't own a System yet.",
-    stages: STAGES,
+    stages: stagesFor(items),
     items,
   };
 }
@@ -173,23 +181,24 @@ export async function loadPortfolioPicture(scope: AssignedScope, openRisks: { sy
   const risksBySystem = new Map<string, number>();
   for (const risk of openRisks) if (risk.systemId) risksBySystem.set(risk.systemId, (risksBySystem.get(risk.systemId) ?? 0) + 1);
   const shown = systems.slice(0, MAX_SYSTEMS_DRAWN);
+  const items = shown.map((system) => {
+    const pct = pctBySystem.get(system.id);
+    return {
+      id: system.id,
+      name: system.name,
+      href: `/systems/${system.id}`,
+      stage: stageOf(system.status),
+      pct: pct === null || pct === undefined ? null : Math.round(pct),
+      risks: risksBySystem.get(system.id) ?? 0,
+    };
+  });
   return {
     type: "portfolio",
     title: "Your portfolio by onboarding status",
     note: `${noteCount(systems.length, "System", shown.length)} · compliance %`,
     empty: "No System is in your assigned scope.",
-    stages: STAGES,
-    items: shown.map((system) => {
-      const pct = pctBySystem.get(system.id);
-      return {
-        id: system.id,
-        name: system.name,
-        href: `/systems/${system.id}`,
-        stage: stageOf(system.status),
-        pct: pct === null || pct === undefined ? null : Math.round(pct),
-        risks: risksBySystem.get(system.id) ?? 0,
-      };
-    }),
+    stages: stagesFor(items),
+    items,
   };
 }
 

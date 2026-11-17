@@ -11,13 +11,14 @@ export type ViewKey = "all" | "mine" | "attention" | "unclassified" | "providers
 export const VIEW_KEYS: ViewKey[] = ["all", "mine", "attention", "unclassified", "providers", "below", "suggested"];
 
 /** Onboarding Statuses in lifecycle order (the tabs, the ring and the Status sort). */
-export const STATUS_ORDER: OnboardingStatus[] = ["DRAFT", "IN_REVIEW", "APPROVED", "ONBOARDED", "REJECTED"];
+export const STATUS_ORDER: OnboardingStatus[] = ["DRAFT", "IN_REVIEW", "APPROVED", "ONBOARDED", "REJECTED", "NOT_SELECTED"];
 export const STATUS_LABEL: Record<OnboardingStatus, string> = {
   DRAFT: "Draft",
   IN_REVIEW: "In Review",
   APPROVED: "ATO",
   ONBOARDED: "Onboarded",
   REJECTED: "Rejected",
+  NOT_SELECTED: "Not selected",
 };
 export const isStatus = (value: string): value is OnboardingStatus => (STATUS_ORDER as string[]).includes(value);
 

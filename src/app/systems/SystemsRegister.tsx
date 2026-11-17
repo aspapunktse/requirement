@@ -56,6 +56,7 @@ const STATUS_COLOR: Record<string, string> = {
   APPROVED: "var(--rg-success)",
   ONBOARDED: "var(--rg-accent)",
   REJECTED: "var(--rg-danger)",
+  NOT_SELECTED: "var(--rg-waived)",
 };
 const STAT_COLOR: Record<string, string> = { warn: "var(--rg-gold)", danger: "var(--rg-danger)" };
 

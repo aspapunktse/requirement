@@ -235,9 +235,18 @@ describe("status tabs", () => {
     renderRegister();
     const tabs = screen.getByRole("tablist", { name: "Onboarding Status" });
     const counts = () => within(tabs).getAllByRole("tab").map((tab) => `${tab.firstChild?.textContent}:${tab.querySelector(".n")?.textContent}`);
-    expect(counts()).toEqual(["All:5", "Draft:1", "In Review:1", "ATO:1", "Onboarded:1", "Rejected:1"]);
+    expect(counts()).toEqual(["All:5", "Draft:1", "In Review:1", "ATO:1", "Onboarded:1", "Rejected:1", "Not selected:0"]);
     await userEvent.type(screen.getByRole("searchbox", { name: "Search Systems" }), "elena");
-    expect(counts()).toEqual(["All:2", "Draft:1", "In Review:1", "ATO:0", "Onboarded:0", "Rejected:0"]);
+    expect(counts()).toEqual(["All:2", "Draft:1", "In Review:1", "ATO:0", "Onboarded:0", "Rejected:0", "Not selected:0"]);
+  });
+
+  it("give a Not selected System its own tab, apart from Draft and Rejected (#376)", async () => {
+    renderRegister({ rows: [row({ id: "s-ns", name: "Closed candidate", status: "NOT_SELECTED" }), row({ id: "s-d", name: "A draft", status: "DRAFT" })] });
+    const tabs = screen.getByRole("tablist", { name: "Onboarding Status" });
+    const counts = () => within(tabs).getAllByRole("tab").map((tab) => `${tab.firstChild?.textContent}:${tab.querySelector(".n")?.textContent}`);
+    expect(counts()).toEqual(["All:2", "Draft:1", "In Review:0", "ATO:0", "Onboarded:0", "Rejected:0", "Not selected:1"]);
+    await userEvent.click(screen.getByRole("tab", { name: /^Not selected/ }));
+    expect(names()).toEqual(["Closed candidate"]);
   });
 
   it("selects with a click and with the arrow keys, and the panel follows", async () => {

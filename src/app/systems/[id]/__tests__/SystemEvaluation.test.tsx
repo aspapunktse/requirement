@@ -37,6 +37,7 @@ const evaluation = (over: Partial<EvaluationView> = {}): EvaluationView => ({
   og2Justification: null,
   decisions: [],
   closed: false,
+  notSelected: false,
   closedAt: null,
   authorized: false,
   og3: null,
