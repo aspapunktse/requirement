@@ -85,16 +85,31 @@ class Abort extends Error {
 const refuse = (status: 400 | 403 | 404 | 409, error: string) => new Abort({ ok: false, status, error });
 const NOT_FOUND = "Comparison not found";
 
+/** Prisma reports a Postgres serialization failure (40001) as P2034 from a model query, and as P2010 carrying the SQLSTATE from `$queryRaw` (the row lock). */
+function isSerializationFailure(error: unknown) {
+  if (!(error instanceof Prisma.PrismaClientKnownRequestError)) return false;
+  if (error.code === "P2034") return true;
+  return error.code === "P2010" && /40001|could not serialize/i.test(`${JSON.stringify(error.meta ?? {})} ${error.message}`);
+}
+
 async function run<T>(work: (tx: Tx) => Promise<T>, options?: Parameters<typeof prisma.$transaction>[1]): Promise<ComparisonResult<{ value: T }>> {
   try {
     return { ok: true, value: await prisma.$transaction(work, options) };
   } catch (error) {
     if (error instanceof Abort) return error.result;
     // A RepeatableRead transaction that met a concurrent change to the Comparison row: nothing was written; ask the caller to retry.
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2034") return { ok: false, status: 409, error: "The Comparison was changed at the same time. Try again." };
+    if (isSerializationFailure(error)) return { ok: false, status: 409, error: "The Comparison was changed at the same time. Try again." };
     throw error;
   }
 }
+
+/**
+ * Every change to a Comparison's Candidates calls this in the same transaction. A Candidate is a row of its own, so without it the
+ * Comparison row is untouched, and a RepeatableRead transaction that locked the row (`recordOutcome`) after waiting for this one
+ * would carry on with a snapshot taken before the change and freeze the old Candidate set. Touching the row makes that
+ * transaction fail with a serialization error instead (`run` answers 409), so it can never freeze a stale set.
+ */
+const touchComparison = (tx: Tx, id: string) => tx.comparison.update({ where: { id }, data: { updatedAt: new Date() }, select: { id: true } });
 
 /** Locks the Comparison row for the rest of the transaction (so the Candidate count and a delete can't race); false when it doesn't exist. */
 async function lockComparison(tx: Tx, id: string) {
@@ -394,7 +409,7 @@ export async function readComparison(actor: Actor, id: string): Promise<Comparis
                 comment: comparison.outcomeComment ?? "",
                 recordedBy: comparison.outcomeRecordedBy,
                 recordedAt: comparison.outcomeRecordedAt,
-                chosenNotTopScorer: isNotTopScorer(snapshot.chosen?.id ?? null, ordered),
+                chosenNotTopScorer: isNotTopScorer(snapshot.chosen?.id ?? null, Object.entries(snapshot.candidates).map(([systemId, figures]) => ({ systemId, score: figures.score }))),
               }
             : null,
         canManage: manager,
@@ -508,6 +523,7 @@ async function writeCandidates(tx: Tx, actor: Actor, comparison: LoadedCompariso
     rows.push(await tx.comparisonCandidate.create({ data: { comparisonId: comparison.id, systemId, addedById: actor.id } }));
     await logChangeEvent(systemId, "COMPARISON_CANDIDATE_ADDED", `Added as a Candidate to the Comparison "${comparison.name}"`, actor.id, tx);
   }
+  if (add.length > 0) await touchComparison(tx, comparison.id);
   return rows;
 }
 
@@ -717,6 +733,7 @@ export function removeCandidate(actor: Actor, id: string, systemId: string) {
     }
     requireOpen(comparison);
     await tx.comparisonCandidate.delete({ where: { comparisonId_systemId: { comparisonId: id, systemId } } });
+    await touchComparison(tx, id);
     await logChangeEvent(systemId, "COMPARISON_CANDIDATE_REMOVED", `Removed as a Candidate from the Comparison "${comparison.name}"`, actor.id, tx);
     return { systemId };
   });

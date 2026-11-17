@@ -10,7 +10,7 @@ import { GET as picker, POST as addCandidates } from "../[id]/candidates/route";
 import { DELETE as removeCandidate } from "../[id]/candidates/[systemId]/route";
 import { POST as addParticipant } from "../[id]/participants/route";
 import { DELETE as removeParticipant } from "../[id]/participants/[userId]/route";
-import { CLOSED_COMPARISON_REFUSAL, readInterviewContext } from "@/lib/comparison";
+import { addCandidateIn, CLOSED_COMPARISON_REFUSAL, readInterviewContext, recordOutcome } from "@/lib/comparison";
 
 /**
  * Recording a Comparison's outcome, freezing its figures, and reopening it (#375). Self-contained fixtures (CI's database is
@@ -358,5 +358,66 @@ describe("a closed Comparison is read-only (#375)", { timeout: 60_000 }, () => {
     await recordAs("owner", id, { chosenSystemId: row.candidates[0].systemId, comment: "Done" });
     const response = await patchOne(requestAs(`/api/comparisons/${id}`, users.participant, "PATCH", { name: "x" }), ctx({ id }));
     expect(response.status).toBe(403);
+  });
+});
+
+describe("recording the outcome while a Candidate is being added (#375)", { timeout: 60_000 }, () => {
+  it("never freezes a Candidate set that is missing the Candidate added at the same time", async () => {
+    const { id, systems } = await makeComparison(2);
+    const added = await makeSystem("owner");
+    const owner = { id: users.owner, role: "SYSTEM_OWNER" as const };
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    let holding!: () => void;
+    const held = new Promise<void>((resolve) => (holding = resolve));
+
+    // One transaction adds the Candidate and keeps the Comparison row locked until the gate opens.
+    const adding = prisma.$transaction(async (tx) => {
+      const result = await addCandidateIn(tx, owner, id, added);
+      expect(result.ok).toBe(true);
+      holding();
+      await gate;
+    });
+    await held;
+    const recording = recordOutcome(owner, id, { chosenSystemId: systems[0], comment: "Racing" });
+    // Wait, without sleeping a fixed time, until the recording transaction is blocked on the row lock: its snapshot is then older than the add.
+    for (let tries = 0; tries < 500; tries++) {
+      const waiting = await prisma.$queryRaw<{ n: bigint }[]>`SELECT count(*)::bigint AS n FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock' AND query LIKE '%FOR UPDATE%'`;
+      if (Number(waiting[0].n) > 0) break;
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    release();
+    await adding;
+    const result = await recording;
+
+    const row = await stored(id);
+    if (!result.ok) {
+      // Refused: nothing was written.
+      expect(result.status).toBe(409);
+      expect(row.outcomeRecordedAt).toBeNull();
+      expect(row.outcomeSnapshot).toBeNull();
+      expect(await prisma.changeEvent.count({ where: { systemId: { in: [...systems, added] }, action: "COMPARISON_OUTCOME_RECORDED" } })).toBe(0);
+    } else {
+      // Recorded: the frozen set and the Change Events cover the added Candidate.
+      expect(Object.keys((row.outcomeSnapshot as Json).candidates).sort()).toEqual([...systems, added].sort());
+      expect(await prisma.changeEvent.count({ where: { systemId: added, action: "COMPARISON_OUTCOME_RECORDED" } })).toBe(1);
+    }
+    // With the Comparison row touched by every membership change, the first outcome is the one expected here.
+    expect(result.ok).toBe(false);
+  });
+});
+
+describe("the top scorer note is historical (#375)", { timeout: 60_000 }, () => {
+  it("does not change when the top scorer's System is deleted after closing", async () => {
+    const { id, systems } = await makeComparison(3);
+    await assess(systems[0], 0, "FULFILLED");
+    await assess(systems[0], 1, "FULFILLED");
+    await assess(systems[1], 0, "FULFILLED");
+    await recordAs("owner", id, { chosenSystemId: systems[1], comment: "Cheaper" });
+    expect((await view("owner", id)).comparison.outcome.chosenNotTopScorer).toBe(true);
+    await prisma.system.delete({ where: { id: systems[0] } });
+    const after = (await view("owner", id)).comparison;
+    expect(after.candidates).toHaveLength(2);
+    expect(after.outcome.chosenNotTopScorer).toBe(true);
   });
 });
