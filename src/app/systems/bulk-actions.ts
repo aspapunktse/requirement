@@ -1,7 +1,7 @@
 import { downloadCsv } from "@/lib/download-csv";
 import { systemsCsv, systemsCsvFilename } from "./systems-logic";
 import type { UserRole } from "@prisma/client";
-import { canChangeOwner } from "@/lib/system-permissions";
+import { canChangeOwner, canCreateSystem } from "@/lib/system-permissions";
 import type { SystemRow } from "./systems-types";
 
 /**
@@ -12,6 +12,9 @@ import type { SystemRow } from "./systems-types";
  *
  * "Add to Internal Audit" (#234) likewise renders from `SystemsRegister`: a button shown to an Internal Auditor
  * only (`canWriteInternalAudits`) that opens `AddToInternalAuditDialog`; the server checks the role again.
+ *
+ * "Add to Comparison" (#374) likewise renders from `SystemsRegister` (`AddToComparisonDialog`), for a role that may create a
+ * System (`canAddToComparison`); the server applies the rules for adding a Candidate, all or nothing.
  *
  * EXTENSION POINT: a further action that is a plain function of the selected rows is added here as an entry.
  * One that needs a dialog or a call to the server renders it from `SystemsRegister` (the bar passes the
@@ -35,4 +38,9 @@ export const BULK_ACTIONS: BulkAction[] = [
 /** Does the acting user own, or administer, at least one of the selected Systems (#233)? */
 export function canChangeAnyOwner(selected: SystemRow[], actor: { id: string; role: UserRole }) {
   return selected.some((row) => canChangeOwner(actor, row));
+}
+
+/** May the acting user be offered "Add to Comparison" (#374)? The roles that may create a System, who own Systems and Comparisons. */
+export function canAddToComparison(actor: { role: UserRole }) {
+  return canCreateSystem(actor);
 }

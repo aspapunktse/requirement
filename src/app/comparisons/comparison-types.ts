@@ -15,6 +15,7 @@ export type ComparisonListRow = {
   participantCount: number;
   closed: boolean;
   canManage: boolean;
+  canAddCandidate: boolean;
   createdAt: string;
   updatedAt: string;
 };

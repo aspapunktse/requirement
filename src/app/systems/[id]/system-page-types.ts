@@ -114,6 +114,8 @@ export type SystemPageView = {
   role: UserRole;
   /** When the figures were read (ISO), so the server and the browser agree on "x days ago". */
   now: string;
+  /** The Comparisons the reader can see in which this System is a Candidate (#374), by name; none, nothing shown. */
+  comparisons: { id: string; name: string }[];
   system: {
     id: string;
     name: string;

@@ -12,6 +12,7 @@ import { formatComparisonScore } from "@/lib/comparison-score";
 import "@/app/home/home.css";
 import "@/app/systems/systems.css";
 import "./comparisons.css";
+import { AddCandidateDialog } from "./AddCandidateDialog";
 import { ChangeComparisonOwnerDialog, ComparisonFormDialog, DeleteComparisonDialog, ParticipantsDialog } from "./ComparisonDialogs";
 import {
   CONTROL_FILTERS,
@@ -106,7 +107,7 @@ export function ComparisonPage({ id, userId, role }: { id: string; userId: strin
 
 function ComparisonBody({ detail, candidates, userId, isAdmin, reload }: { detail: ComparisonDetail; candidates: CandidateRow[]; userId: string; isAdmin: boolean; reload: () => void }) {
   const router = useRouter();
-  const [dialog, setDialog] = useState<null | "edit" | "participants" | "owner" | "delete">(null);
+  const [dialog, setDialog] = useState<null | "edit" | "participants" | "owner" | "delete" | "add">(null);
   const [removing, setRemoving] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -166,22 +167,31 @@ function ComparisonBody({ detail, candidates, userId, isAdmin, reload }: { detai
               <dd>{plural(candidates.length, "Candidate")}</dd>
             </div>
           </dl>
-          {detail.canManage && !readOnly && (
+          {(detail.canManage || detail.canAddCandidate) && !readOnly && (
             <div className="actions">
-              <button type="button" className="hc-btn" onClick={() => setDialog("edit")}>
-                Edit name and need
-              </button>
-              <button type="button" className="hc-btn" onClick={() => setDialog("participants")}>
-                Participants
-              </button>
-              {isAdmin && (
-                <button type="button" className="hc-btn" onClick={() => setDialog("owner")}>
-                  Change owner
+              {detail.canAddCandidate && (
+                <button type="button" className="hc-btn primary" onClick={() => setDialog("add")}>
+                  Add Candidate
                 </button>
               )}
-              <button type="button" className="hc-btn danger" onClick={() => setDialog("delete")}>
-                Delete
-              </button>
+              {detail.canManage && (
+                <>
+                  <button type="button" className="hc-btn" onClick={() => setDialog("edit")}>
+                    Edit name and need
+                  </button>
+                  <button type="button" className="hc-btn" onClick={() => setDialog("participants")}>
+                    Participants
+                  </button>
+                  {isAdmin && (
+                    <button type="button" className="hc-btn" onClick={() => setDialog("owner")}>
+                      Change owner
+                    </button>
+                  )}
+                  <button type="button" className="hc-btn danger" onClick={() => setDialog("delete")}>
+                    Delete
+                  </button>
+                </>
+              )}
             </div>
           )}
         </div>
@@ -219,7 +229,7 @@ function ComparisonBody({ detail, candidates, userId, isAdmin, reload }: { detai
         {candidates.length === 0 ? (
           <div className="hc-done">
             <h3>No Candidates yet</h3>
-            <p>A Comparison needs two to five Candidates to set side by side. Systems are added to it as Candidates.</p>
+            <p>A Comparison needs two to five Candidates to set side by side.{detail.canAddCandidate && !readOnly ? " Use Add Candidate to put Systems in it, or to create a new one." : ""}</p>
           </div>
         ) : (
           <ol className="cmp-sl">
@@ -310,6 +320,16 @@ function ComparisonBody({ detail, candidates, userId, isAdmin, reload }: { detai
         </section>
       )}
 
+      {dialog === "add" && (
+        <AddCandidateDialog
+          id={detail.id}
+          onClose={() => setDialog(null)}
+          onDone={() => {
+            setDialog(null);
+            reload();
+          }}
+        />
+      )}
       {dialog === "edit" && (
         <ComparisonFormDialog
           comparison={detail}

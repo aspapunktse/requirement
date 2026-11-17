@@ -277,6 +277,11 @@ export function SystemCockpit({
               )}
               <CiaBars integrity={system.integrity} availability={system.availability} />
               {system.vendor && <span>Vendor {system.vendor}</span>}
+              {view.comparisons.map((comparison) => (
+                <span key={comparison.id} className="comparison-candidate" data-testid="candidate-in-comparison">
+                  Candidate in Comparison <Link href={`/comparisons/${comparison.id}`}>{comparison.name}</Link>
+                </span>
+              ))}
             </div>
             {system.description && <p className="sc-desc">{system.description}</p>}
           </div>

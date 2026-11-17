@@ -471,3 +471,30 @@ describe("ComparisonPage: who can do what", () => {
     for (const name of [/Edit name and need/, /Participants/, /Change owner/, /^Delete$/, /Remove/]) expect(screen.queryByRole("button", { name })).not.toBeInTheDocument();
   });
 });
+
+describe("ComparisonPage: Add Candidate (#374)", () => {
+  it("offers Add Candidate to a participant who can add, without the manager's buttons, and opens the picker", async () => {
+    stubFetch((url) =>
+      url === "/api/comparisons/cmp-1"
+        ? { body: { comparison: { ...trio(), canManage: false, canAddCandidate: true } } }
+        : { body: { systems: [], full: false, stagedEvaluation: true, canCreateSystem: true } },
+    );
+    open("SYSTEM_OWNER", "u-pat");
+    await screen.findByRole("heading", { level: 1 });
+    expect(screen.queryByRole("button", { name: /Edit name and need/ })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Add Candidate" }));
+    expect(await screen.findByRole("dialog", { name: "Add Candidate" })).toBeInTheDocument();
+  });
+
+  it("shows no Add Candidate when the user can't add, or the Comparison is closed", async () => {
+    serve({ ...trio(), canAddCandidate: false });
+    open();
+    await screen.findByRole("heading", { level: 1 });
+    expect(screen.queryByRole("button", { name: "Add Candidate" })).not.toBeInTheDocument();
+    cleanup();
+    serve({ ...trio(), canAddCandidate: true, closed: true });
+    open();
+    await screen.findByRole("heading", { level: 1 });
+    expect(screen.queryByRole("button", { name: "Add Candidate" })).not.toBeInTheDocument();
+  });
+});

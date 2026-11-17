@@ -67,6 +67,7 @@ export function listRow(name: string, over: Partial<ComparisonListRow> = {}): Co
     participantCount: 0,
     closed: false,
     canManage: false,
+    canAddCandidate: false,
     createdAt: "2026-11-01T10:00:00.000Z",
     updatedAt: "2026-11-01T10:00:00.000Z",
     ...over,

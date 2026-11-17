@@ -7,10 +7,10 @@ import type { Person } from "./comparison-types";
 /** The dialogs of the Comparison pages (#373): new Comparison, edit name and need, participants, change owner, delete. Each saves through the API and reports back; the page reloads. */
 
 type Pickable = { id: string; name: string; email: string; role: string };
-type Sent = { ok: true; body: Record<string, unknown> } | { ok: false; error: string };
+export type Sent = { ok: true; body: Record<string, unknown> } | { ok: false; error: string };
 
 /** The Register dialog shell, as the other dialogs of the app (ChangeOwnerDialog): a scrim, a labelled form, Escape closes. */
-function Shell({ title, titleId, onClose, onSubmit, children }: { title: string; titleId: string; onClose: () => void; onSubmit?: (event: FormEvent) => void; children: ReactNode }) {
+export function Shell({ title, titleId, onClose, onSubmit, children }: { title: string; titleId: string; onClose: () => void; onSubmit?: (event: FormEvent) => void; children: ReactNode }) {
   return (
     <>
       <div className="fixed inset-0 z-50 bg-rg-scrim" onClick={onClose} aria-hidden="true" />
@@ -33,9 +33,9 @@ function Shell({ title, titleId, onClose, onSubmit, children }: { title: string;
   );
 }
 
-const FIELD = "rounded-[var(--rg-radius-md)] border border-rg-line bg-rg-surface p-2 font-normal text-rg-ink";
+export const FIELD = "rounded-[var(--rg-radius-md)] border border-rg-line bg-rg-surface p-2 font-normal text-rg-ink";
 
-async function send(url: string, method: string, body?: unknown): Promise<Sent> {
+export async function send(url: string, method: string, body?: unknown): Promise<Sent> {
   try {
     const response = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
     const json = await response.json().catch(() => ({}));

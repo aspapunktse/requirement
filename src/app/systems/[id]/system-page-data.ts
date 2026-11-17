@@ -17,6 +17,7 @@ import { canChangeBusinessSystemOwner, canChangeOwner, canSubmit } from "@/lib/s
 import { canMarkOnboarded } from "@/lib/onboarding";
 import { informationTypeFloor, isBelowInformationTypes } from "@/lib/information-type-floor";
 import { frameworkLabel } from "@/lib/framework-label";
+import { listComparisonsOfCandidate } from "@/lib/comparison";
 import { suggestionsFor } from "@/lib/framework-suggestions";
 import { SUGGESTING_TYPE_SELECT } from "@/lib/framework-suggestions-data";
 import { EVALUATION_STAGE_LABEL, TRACK_LABEL } from "@/lib/evaluation-stages";
@@ -201,6 +202,7 @@ export async function loadSystemPage(user: User, id: string, now = new Date()): 
         userName: user.name,
         role: user.role,
         now: now.toISOString(),
+        comparisons: await listComparisonsOfCandidate(tx, user, system.id),
         system: {
           id: system.id,
           name: system.name,
