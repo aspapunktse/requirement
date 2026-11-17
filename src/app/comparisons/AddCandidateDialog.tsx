@@ -49,7 +49,10 @@ export function AddCandidateDialog({ id, onClose, onDone }: { id: string; onClos
 
   const shown = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    const all = loaded?.systems ?? [];
+    // Systems that can be added first, then the ones that can't, each group by name (the server sends it that way; kept here too).
+    const byName = (a: Addable, b: Addable) => a.name.localeCompare(b.name);
+    const all = [...(loaded?.systems ?? [])];
+    all.sort((a, b) => Number(a.reason !== null) - Number(b.reason !== null) || byName(a, b));
     return needle === "" ? all : all.filter((system) => `${system.name} ${system.vendor ?? ""} ${system.owner.name}`.toLowerCase().includes(needle));
   }, [loaded, query]);
 

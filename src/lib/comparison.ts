@@ -566,7 +566,7 @@ export async function listAddableSystems(
         orderBy: [{ name: "asc" }, { id: "asc" }],
       });
       const taken = new Set(comparison.candidates.map((candidate) => candidate.systemId));
-      const systems = rows.map((row) => ({
+      const listed = rows.map((row) => ({
         id: row.id,
         name: row.name,
         vendor: row.vendor,
@@ -574,6 +574,8 @@ export async function listAddableSystems(
         stage: row.evaluationStage,
         reason: row.evaluationStage === null ? NOT_STAGED_REFUSAL : row.evaluationClosedAt ? CLOSED_REFUSAL : taken.has(row.id) ? DUPLICATE_REFUSAL : null,
       }));
+      // The Systems that can be added come first, the ones that can't (with their reasons) after; each group by name.
+      const systems = [...listed.filter((system) => system.reason === null), ...listed.filter((system) => system.reason !== null)];
       return { ok: true as const, systems, full: taken.size >= MAX_CANDIDATES, stagedEvaluation: await readStagedEvaluationEnabled(tx), canCreateSystem: canCreateSystem(actor) };
     },
     { isolationLevel: "RepeatableRead" },

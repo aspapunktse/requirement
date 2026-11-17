@@ -63,6 +63,13 @@ describe("AddCandidateDialog (#374)", () => {
     expect(JSON.parse(post[1]!.body as string)).toEqual({ systemId: "s-1" });
   });
 
+  it("lists the Systems that can be added first, then the ones that can't, each group by name", async () => {
+    stub(list({ systems: [system("s-1", "Aardvark", "Closed."), system("s-2", "Zeta"), system("s-3", "Beta", "Closed."), system("s-4", "Mu")] }));
+    renderDialog();
+    await screen.findByRole("radio", { name: /Zeta/ });
+    expect(screen.getAllByRole("radio").map((radio) => radio.closest("label")!.querySelector(".font-semibold")!.textContent)).toEqual(["Mu", "Zeta", "Aardvark", "Beta"]);
+  });
+
   it("filters the list by what is typed", async () => {
     stub(list());
     renderDialog();

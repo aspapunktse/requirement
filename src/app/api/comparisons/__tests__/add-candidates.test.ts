@@ -237,6 +237,9 @@ describe("Adding Candidates (#374)", { timeout: 60_000 }, () => {
       expect(reason(taken)).toBe(DUPLICATE_REFUSAL);
       expect(reason(unstaged)).toBe(NOT_STAGED_REFUSAL);
       expect(reason(closed)).toBe(CLOSED_REFUSAL);
+      // Addable Systems come before the ones that can't be added.
+      const reasons = (body.systems as Json[]).map((system) => system.reason !== null);
+      expect(reasons).toEqual([...reasons].sort((a, b) => Number(a) - Number(b)));
       expect((body.systems as Json[]).some((system) => system.id === theirs)).toBe(false); // not visible to the owner, so not listed
       expect(body).toMatchObject({ full: false, canCreateSystem: true });
       expect(typeof body.stagedEvaluation).toBe("boolean");
