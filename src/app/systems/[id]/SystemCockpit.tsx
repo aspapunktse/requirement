@@ -22,6 +22,7 @@ import { CiaBars } from "@/app/systems/CiaBars";
 import { SensitivityChip } from "@/components/SensitivityChip";
 import { IMPACT_LABEL, IMPACT_RANK, STATUS_LABEL } from "@/app/systems/systems-types";
 import { DecisionDialog } from "./DecisionDialog";
+import { ReopenNotSelectedDialog } from "./ReopenNotSelectedDialog";
 import { RiskGrid } from "./RiskGrid";
 import { Stack } from "./Stack";
 import { currentTab, serverTab, subscribeToHash, writeHash } from "./system-hash";
@@ -83,6 +84,7 @@ export function SystemCockpit({
   const [deciding, setDeciding] = useState<"APPROVED" | "REJECTED" | null>(null);
   const [changingOwner, setChangingOwner] = useState(false);
   const [changingBso, setChangingBso] = useState(false);
+  const [reopening, setReopening] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   // Bumped after a header action, so the mounted (but hidden) Approval panel is read again.
   const [approvalVersion, setApprovalVersion] = useState(0);
@@ -380,6 +382,21 @@ export function SystemCockpit({
               ))}
             </ol>
             <p className="sc-note">{view.note}</p>
+            {system.status === "NOT_SELECTED" && (
+              <p role="status" className="sc-callout warn" data-testid="not-selected-notice">
+                <span>
+                  <b>Not selected.</b> This System lost a Comparison and is closed. Nothing on it can be changed, by anyone, until an Admin reopens it.
+                  {view.canReopenNotSelected && (
+                    <>
+                      {" "}
+                      <button type="button" className="sc-link" onClick={() => setReopening(true)}>
+                        Reopen…
+                      </button>
+                    </>
+                  )}
+                </span>
+              </p>
+            )}
             {system.evaluation?.closed && (
               <p role="status" className="sc-callout warn">
                 <b>Closed.</b> This System was rejected. Nothing on it can be changed, by anyone.
@@ -698,6 +715,18 @@ export function SystemCockpit({
           onDone={() => {
             setDeciding(null);
             setApprovalVersion((version) => version + 1);
+            router.refresh();
+          }}
+        />
+      )}
+
+      {reopening && (
+        <ReopenNotSelectedDialog
+          systemId={system.id}
+          systemName={system.name}
+          onClose={() => setReopening(false)}
+          onDone={() => {
+            setReopening(false);
             router.refresh();
           }}
         />

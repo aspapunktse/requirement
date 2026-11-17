@@ -3,7 +3,7 @@ import type { CSSProperties } from "react";
 import { Ring } from "./HomeGraphics";
 import type { HomePicture } from "./home-types";
 
-const STAGE_TONE = ["var(--hc-stage-0)", "var(--hc-stage-1)", "var(--hc-stage-2)", "var(--hc-stage-3)"];
+const STAGE_TONE = ["var(--hc-stage-0)", "var(--hc-stage-1)", "var(--hc-stage-2)", "var(--hc-stage-3)", "var(--rg-waived)"];
 
 const pctTone = (pct: number) => (pct >= 90 ? "var(--rg-success)" : pct >= 70 ? "var(--rg-accent)" : pct >= 50 ? "var(--rg-gold)" : "var(--rg-danger)");
 
@@ -34,7 +34,7 @@ export function HomePictureView({ picture }: { picture: HomePicture }) {
     case "pipeline":
       if (picture.items.length === 0) return <p className="hc-empty">{picture.empty}</p>;
       return (
-        <div className="hc-pipe">
+        <div className="hc-pipe" style={picture.stages.length > 4 ? { gridTemplateColumns: `repeat(${picture.stages.length}, minmax(0, 1fr))` } : undefined}>
           {picture.stages.map((stage, index) => {
             const items = picture.items.filter((item) => item.stage === index);
             return (
@@ -125,7 +125,7 @@ export function HomePictureView({ picture }: { picture: HomePicture }) {
     case "portfolio":
       if (picture.items.length === 0) return <p className="hc-empty">{picture.empty}</p>;
       return (
-        <div className="hc-port">
+        <div className="hc-port" style={picture.stages.length > 4 ? { gridTemplateColumns: `repeat(${picture.stages.length}, minmax(0, 1fr))` } : undefined}>
           {picture.stages.map((stage, index) => {
             const items = picture.items.filter((item) => item.stage === index);
             return (

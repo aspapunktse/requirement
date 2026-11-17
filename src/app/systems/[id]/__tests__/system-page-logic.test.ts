@@ -36,6 +36,10 @@ describe("nextStepFor: the one action in the header (decision 2a on #243)", () =
     }
   });
 
+  it("offers nothing on a Not selected System, which no one but an Admin's reopen can change (#376)", () => {
+    expect(nextStepFor({ status: "NOT_SELECTED", canSubmit: true, canMarkOnboarded: true, decidableSteps: [BASE] })).toEqual({ kind: "none" });
+  });
+
   it("agrees with the API rules for every status and role: the System's owner, another user, an Admin, a read-only role", () => {
     const system = { ownerId: "owner" };
     const actors = [
@@ -72,6 +76,10 @@ describe("lifecycleStages", () => {
     expect(lifecycleStages("REJECTED")[1].tone).toBe("danger");
   });
 
+  it("shows a Not selected System as Not selected on the Draft step (it stays at the stage it was in)", () => {
+    expect(states("NOT_SELECTED")).toEqual(["Not selected:now", "In review:todo", "ATO:todo", "Onboarded:todo"]);
+  });
+
   it("has finished all four steps once Onboarded", () => {
     expect(states("ONBOARDED")).toEqual(["Draft:past", "In review:past", "ATO:past", "Onboarded:past"]);
   });
@@ -94,6 +102,11 @@ describe("lifecycleNote", () => {
   it("names marking Onboarded for an Approved System, and the day for an Onboarded one", () => {
     expect(lifecycleNote({ ...base, status: "APPROVED", approvedAt: "2026-10-22T08:00:00.000Z" })).toBe("ATO 22 Oct 2026 · waiting for Ola Owner or an Admin to mark it Onboarded");
     expect(lifecycleNote({ ...base, status: "ONBOARDED", onboardedAt: "2026-10-25T08:00:00.000Z" })).toBe("Onboarded 25 Oct 2026");
+  });
+
+  it("says a Not selected System is closed and that an Admin can reopen it", () => {
+    expect(lifecycleNote({ ...base, status: "NOT_SELECTED" })).toContain("Not selected");
+    expect(lifecycleNote({ ...base, status: "NOT_SELECTED" })).toContain("an Admin can reopen it");
   });
 
   it("prints a day in UTC", () => {

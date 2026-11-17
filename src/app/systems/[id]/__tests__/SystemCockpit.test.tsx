@@ -83,6 +83,7 @@ const view = (over: Partial<SystemPageView> = {}): SystemPageView => ({
   nextStep: { kind: "submit", blockedBy: 0 },
   canChangeOwner: true,
   canChangeBusinessSystemOwner: true,
+  canReopenNotSelected: false,
   headline: { baseFramework: "ISO/IEC 27001:2022", met: 5, applicable: 8, controlsDone: 6, controlsTotal: 9, openRisks: 2 },
   frameworks: [
     { id: "fw-iso", label: "ISO/IEC 27001:2022", isBase: true, met: 5, partial: 2, notMet: 1, notApplicable: 3, applicable: 8 },
@@ -178,6 +179,43 @@ describe("header (#243)", () => {
     const stepper = screen.getByRole("list", { name: "Lifecycle" });
     expect(within(stepper).getByText("Rejected")).toHaveAttribute("aria-current", "step");
     expect(screen.getByText("Provider")).toBeInTheDocument();
+  });
+
+  const notSelected = (over: Partial<SystemPageView> = {}) => ({ system: { ...view().system, status: "NOT_SELECTED" as const }, nextStep: { kind: "none" as const }, ...over });
+
+  it("shows a Not selected System as Not selected on the stepper, with a notice, and no Reopen for anyone but an Admin (#376)", () => {
+    renderCockpit(notSelected());
+    expect(within(screen.getByRole("list", { name: "Lifecycle" })).getByText("Not selected")).toHaveAttribute("aria-current", "step");
+    expect(screen.getByTestId("not-selected-notice")).toHaveTextContent("Not selected. This System lost a Comparison and is closed");
+    expect(screen.queryByRole("button", { name: /Reopen/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Submit for review" })).not.toBeInTheDocument();
+  });
+
+  it("offers an Admin Reopen on a Not selected System, which needs a comment, posts it and refreshes (#376)", async () => {
+    renderCockpit(notSelected({ role: "ADMIN", canReopenNotSelected: true }));
+    await userEvent.click(screen.getByRole("button", { name: /Reopen/ }));
+    const dialog = screen.getByRole("dialog", { name: /Reopen ServiceNow/ });
+    await userEvent.click(within(dialog).getByRole("button", { name: "Reopen" }));
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent("A comment is required");
+    expect(fetch).not.toHaveBeenCalled();
+    await userEvent.type(within(dialog).getByLabelText(/Comment/), "The vendor came back");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Reopen" }));
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+    const [url, init] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("/api/systems/s1/reopen");
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(String(init.body))).toEqual({ comment: "The vendor came back" });
+  });
+
+  it("keeps the Reopen dialog open and shows the API's refusal (#376)", async () => {
+    vi.stubGlobal("fetch", vi.fn(() => json({ error: "Only a System closed as Not selected can be reopened" }, 409)));
+    renderCockpit(notSelected({ role: "ADMIN", canReopenNotSelected: true }));
+    await userEvent.click(screen.getByRole("button", { name: /Reopen/ }));
+    const dialog = screen.getByRole("dialog");
+    await userEvent.type(within(dialog).getByLabelText(/Comment/), "x");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Reopen" }));
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent("Only a System closed as Not selected can be reopened");
+    expect(refresh).not.toHaveBeenCalled();
   });
 
   it("offers Submit for review on a Draft, which posts to the submit API and refreshes", async () => {

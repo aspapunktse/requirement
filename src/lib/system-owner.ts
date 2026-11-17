@@ -1,4 +1,4 @@
-import { SYSTEM_CLOSED_REFUSAL } from "@/lib/system-closed";
+import { closedRefusalText } from "@/lib/system-closed";
 import type { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { logChangeEvent } from "@/lib/change-events";
@@ -40,7 +40,7 @@ export async function changeSystemOwners(actor: Actor, systemIds: string[], owne
       const newOwner = await tx.user.findUnique({ where: { id: ownerId }, select: { id: true, name: true, role: true } });
       const systems = await tx.system.findMany({
         where: { AND: [{ id: { in: ids } }, await visibleSystemsWhere(actor, tx)] },
-        select: { id: true, name: true, ownerId: true, businessSystemOwnerId: true, evaluationClosedAt: true, owner: { select: { name: true } } },
+        select: { id: true, name: true, ownerId: true, businessSystemOwnerId: true, evaluationClosedAt: true, status: true, owner: { select: { name: true } } },
       });
       const byId = new Map(systems.map((system) => [system.id, system]));
       const refusedIds = ids.filter((id) => {
@@ -58,7 +58,7 @@ export async function changeSystemOwners(actor: Actor, systemIds: string[], owne
       // A closed System (rejected at OG3, #330) can't change owner: one in the selection refuses the whole batch, but only once the
       // actor may change every selected System, so an invisible closed System is indistinguishable from any other refused id.
       const closedIds = ids.filter((id) => byId.get(id)!.evaluationClosedAt);
-      if (closedIds.length > 0) throw new Abort({ ok: false, status: 409, error: SYSTEM_CLOSED_REFUSAL, refusedIds: closedIds });
+      if (closedIds.length > 0) throw new Abort({ ok: false, status: 409, error: closedRefusalText(byId.get(closedIds[0])!.status), refusedIds: closedIds });
       if (!newOwner || !canBeSystemOwner(newOwner)) {
         throw new Abort({ ok: false, status: 400, error: NEW_OWNER_REFUSAL });
       }

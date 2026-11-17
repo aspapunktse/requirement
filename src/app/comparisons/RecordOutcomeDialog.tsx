@@ -11,14 +11,28 @@ import type { CandidateRow } from "./comparison-types";
 const NONE = "none";
 
 /**
- * Where the "Close the others as Not selected" offer goes (#376). Recording the outcome closes the Comparison; the Not selected issue
- * adds, here, a choice per Candidate not chosen (the Candidates the acting user may close, never one that is authorized or Onboarded),
- * sent with the outcome. Nothing is offered yet, so it renders nothing. `chosenSystemId` is the pick (null while none is made,
- * "none" for None chosen).
+ * The "Close as Not selected" offer (#376): a checkbox per Candidate not chosen that the acting user may close (still in evaluation: the
+ * server decides and sends `canCloseAsNotSelected`), unchecked by default. Closing is optional and is sent with the outcome. The picked
+ * Candidate is never offered. `chosenSystemId` is the pick (null while none is made, "none" for None chosen).
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export function NotSelectedOffer(props: { candidates: readonly CandidateRow[]; chosenSystemId: string | null }) {
-  return null;
+export function NotSelectedOffer({ candidates, chosenSystemId, selected, onToggle }: { candidates: readonly CandidateRow[]; chosenSystemId: string | null; selected: ReadonlySet<string>; onToggle: (systemId: string) => void }) {
+  const offered = candidates.filter((candidate) => candidate.canCloseAsNotSelected && candidate.systemId !== chosenSystemId);
+  if (offered.length === 0) return null;
+  return (
+    <fieldset className="flex flex-col gap-2" data-testid="not-selected-offer">
+      <legend className="mb-1 font-semibold">Close as Not selected</legend>
+      <p className="text-rg-muted">A Candidate you close stays in this Comparison, but is closed and read-only for everyone until an Admin reopens it. Leave a box unchecked to keep the Candidate in evaluation.</p>
+      {offered.map((candidate) => (
+        <label key={candidate.systemId} className="flex items-start gap-2">
+          <input type="checkbox" className="mt-1" checked={selected.has(candidate.systemId)} onChange={() => onToggle(candidate.systemId)} />
+          <span>
+            Close {candidate.name} as Not selected
+            <small className="block text-rg-muted">{candidate.vendor ?? "No vendor"}</small>
+          </span>
+        </label>
+      ))}
+    </fieldset>
+  );
 }
 
 /**
@@ -32,15 +46,18 @@ export function RecordOutcomeDialog({ id, candidates, onClose, onDone }: { id: s
   const [comment, setComment] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [closing, setClosing] = useState<ReadonlySet<string>>(new Set());
   const notTop = pick !== null && pick !== NONE && isNotTopScorer(pick, candidates);
 
   async function save(event: FormEvent) {
     event.preventDefault();
     if (pick === null) return setError("Pick the chosen Candidate, or None chosen");
     if (comment.trim() === "") return setError("A comment is required");
+    // Only the boxes still on offer: choosing a checked Candidate afterwards takes it off the list.
+    const closeIds = candidates.filter((candidate) => candidate.canCloseAsNotSelected && candidate.systemId !== pick && closing.has(candidate.systemId)).map((candidate) => candidate.systemId);
     setError(null);
     setSaving(true);
-    const result = await send(`/api/comparisons/${id}/outcome`, "POST", { chosenSystemId: pick === NONE ? null : pick, comment });
+    const result = await send(`/api/comparisons/${id}/outcome`, "POST", { chosenSystemId: pick === NONE ? null : pick, comment, closeAsNotSelected: closeIds });
     setSaving(false);
     if (!result.ok) return setError(result.error);
     onDone();
@@ -58,7 +75,7 @@ export function RecordOutcomeDialog({ id, candidates, onClose, onDone }: { id: s
             <input type="radio" name="pick" className="mt-1" value={candidate.systemId} checked={pick === candidate.systemId} disabled={!chooseable(candidate)} onChange={() => setPick(candidate.systemId)} />
             <span>
               {candidate.name}
-              <small className="block text-rg-muted">{chooseable(candidate) ? (candidate.vendor ?? "No vendor") : "Rejected at a gate: it can't be chosen."}</small>
+              <small className="block text-rg-muted">{chooseable(candidate) ? (candidate.vendor ?? "No vendor") : candidate.notSelected ? "Closed as Not selected: it can't be chosen." : "Rejected at a gate: it can't be chosen."}</small>
             </span>
           </label>
         ))}
@@ -79,7 +96,18 @@ export function RecordOutcomeDialog({ id, candidates, onClose, onDone }: { id: s
         Comment (required)
         <textarea className={FIELD} rows={3} value={comment} placeholder="Why this one, or why none" onChange={(event) => setComment(event.target.value)} />
       </label>
-      <NotSelectedOffer candidates={candidates} chosenSystemId={pick} />
+      <NotSelectedOffer
+        candidates={candidates}
+        chosenSystemId={pick}
+        selected={closing}
+        onToggle={(systemId) =>
+          setClosing((current) => {
+            const next = new Set(current);
+            if (!next.delete(systemId)) next.add(systemId);
+            return next;
+          })
+        }
+      />
       {error && (
         <p role="alert" className="text-rg-danger">
           {error}
@@ -125,6 +153,53 @@ export function ReopenComparisonDialog({ id, name, onClose, onDone }: { id: stri
         <Button onClick={onClose}>Cancel</Button>
         <Button type="submit" variant="primary" disabled={busy}>
           {busy ? "Reopening…" : "Reopen"}
+        </Button>
+      </div>
+    </Shell>
+  );
+}
+
+/** The same offer from a closed Comparison (#376): close more of the Candidates not chosen as Not selected, through `POST /api/comparisons/[id]/not-selected`. */
+export function CloseNotSelectedDialog({ id, candidates, onClose, onDone }: { id: string; candidates: readonly CandidateRow[]; onClose: () => void; onDone: () => void }) {
+  const titleId = useId();
+  const [closing, setClosing] = useState<ReadonlySet<string>>(new Set());
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  async function save(event: FormEvent) {
+    event.preventDefault();
+    if (closing.size === 0) return setError("Pick at least one Candidate to close");
+    setError(null);
+    setSaving(true);
+    const result = await send(`/api/comparisons/${id}/not-selected`, "POST", { systemIds: [...closing] });
+    setSaving(false);
+    if (!result.ok) return setError(result.error);
+    onDone();
+  }
+
+  return (
+    <Shell title="Close as Not selected" titleId={titleId} onClose={onClose} onSubmit={save}>
+      <NotSelectedOffer
+        candidates={candidates.filter((candidate) => !candidate.chosen)}
+        chosenSystemId={null}
+        selected={closing}
+        onToggle={(systemId) =>
+          setClosing((current) => {
+            const next = new Set(current);
+            if (!next.delete(systemId)) next.add(systemId);
+            return next;
+          })
+        }
+      />
+      {error && (
+        <p role="alert" className="text-rg-danger">
+          {error}
+        </p>
+      )}
+      <div className="flex justify-end gap-2">
+        <Button onClick={onClose}>Cancel</Button>
+        <Button type="submit" variant="primary" disabled={saving}>
+          {saving ? "Closing…" : "Close as Not selected"}
         </Button>
       </div>
     </Shell>

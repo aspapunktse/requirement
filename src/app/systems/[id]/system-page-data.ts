@@ -234,9 +234,11 @@ export async function loadSystemPage(user: User, id: string, now = new Date()): 
           availability: system.availabilityImpactLevel,
           createdAt: system.createdAt.toISOString(),
           onboardedAt: system.onboardedAt?.toISOString() ?? null,
-          evaluation: system.evaluationStage ? { stage: system.evaluationStage, track: system.evaluationTrack, closed: system.evaluationClosedAt !== null } : null,
+          evaluation: system.evaluationStage ? { stage: system.evaluationStage, track: system.evaluationTrack, closed: system.evaluationClosedAt !== null && system.status !== "NOT_SELECTED" } : null,
         },
-        note: system.evaluationClosedAt
+        note: system.status === "NOT_SELECTED"
+          ? `Not selected: closed after a Comparison${system.evaluationStage ? `, at ${EVALUATION_STAGE_LABEL[system.evaluationStage]}` : ""} · read-only for everyone · an Admin can reopen it`
+          : system.evaluationClosedAt
           ? `Closed: rejected at ${EVALUATION_STAGE_LABEL[system.evaluationStage ?? "OG3"]} on ${formatDay(system.evaluationClosedAt.toISOString())} · read-only for everyone`
           : system.evaluationStage
           ? `Evaluated in stages · ${EVALUATION_STAGE_LABEL[system.evaluationStage]}${system.evaluationTrack ? ` · ${TRACK_LABEL[system.evaluationTrack]} track` : ""} · see the Evaluation tab`
@@ -262,6 +264,7 @@ export async function loadSystemPage(user: User, id: string, now = new Date()): 
           staged: system.evaluationStage !== null,
         }),
         // A closed System (#330) is changed by no one.
+        canReopenNotSelected: system.status === "NOT_SELECTED" && user.role === "ADMIN",
         canChangeOwner: system.evaluationClosedAt === null && canChangeOwner(user, system),
         canChangeBusinessSystemOwner: system.evaluationClosedAt === null && canChangeBusinessSystemOwner(user, system),
         headline: {

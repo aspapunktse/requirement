@@ -115,6 +115,22 @@ describe("getOwnerTasks", () => {
     expect(tasks.openQuestionCount).toBe(0);
   });
 
+  it("gives its owner no task for a Not selected System: not a stale Draft, not a Query (#376)", async () => {
+    const owner = await makeUser("not-selected-owner", "SYSTEM_OWNER");
+    const system = await prisma.system.create({
+      data: { name: `Test not selected ${suffix}`, ownerId: owner.id, status: "NOT_SELECTED", evaluationStage: "FIRST_ROUND", evaluationClosedAt: new Date(), updatedAt: new Date(Date.now() - 200 * 86_400_000) },
+    });
+    systemIds.push(system.id);
+    // A Query waiting for the owner on a closed System is not their task either.
+    const assessment = await prisma.controlAssessment.create({ data: { systemId: system.id, controlId, status: "FULFILLED" } });
+    await prisma.assessmentQuery.create({ data: { controlAssessmentId: assessment.id, lastMessageAuthorId: approverId } });
+    const tasks = await getOwnerTasks({ id: owner.id, role: "SYSTEM_OWNER" });
+    expect(tasks.rows).toEqual([]);
+    expect(tasks.ownedCount).toBe(1); // still theirs, but no work in it
+    expect(tasks.needingAttentionCount).toBe(0);
+    expect(tasks.openQuestionCount).toBe(0);
+  });
+
   it("never includes a System someone else owns", async () => {
     const tasks = await getOwnerTasks({ id: userIds["REVIEWER"], role: "REVIEWER" });
     const ids = tasks.rows.map((r) => r.id);

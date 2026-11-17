@@ -123,9 +123,11 @@ export async function readSystemRows(
 
 /**
  * Needs attention (product-owner decision 4a on #232): it has open Assessment Queries the user can act on,
- * or it is Rejected, or it is a Draft that has not changed for more than `staleDraftDays` days (an Admin setting).
+ * or it is Rejected, or it is a Draft that has not changed for more than `staleDraftDays` days (an Admin setting). A Not selected
+ * System (#376) never needs attention: it is closed and read-only, and not a Draft, so it is never stale either.
  */
 export function needsAttention(row: Pick<SystemRow, "openQuestions" | "status" | "updatedAt">, now: Date, staleDraftDays: number): boolean {
+  if (row.status === "NOT_SELECTED") return false;
   if (row.openQuestions > 0 || row.status === "REJECTED") return true;
   return row.status === "DRAFT" && now.getTime() - Date.parse(row.updatedAt) > staleDraftDays * DAY_MS;
 }
@@ -153,7 +155,7 @@ export function inRoleView(
       return facts.inScope;
     default: {
       const share = fulfilment(row);
-      return row.status !== "DRAFT" && share !== null && share < underFulfilledPercent / 100;
+      return row.status !== "DRAFT" && row.status !== "NOT_SELECTED" && share !== null && share < underFulfilledPercent / 100;
     }
   }
 }

@@ -2,7 +2,7 @@ import { cleanup, render, screen, waitFor, within } from "@testing-library/react
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ComparisonPage } from "../ComparisonPage";
-import { RecordOutcomeDialog } from "../RecordOutcomeDialog";
+import { CloseNotSelectedDialog, RecordOutcomeDialog } from "../RecordOutcomeDialog";
 import type { ComparisonDetail } from "../comparison-types";
 import { candidate, control, detail } from "./fixtures";
 
@@ -87,7 +87,7 @@ describe("RecordOutcomeDialog (#375)", () => {
     await waitFor(() => expect(onDone).toHaveBeenCalled());
     expect(calls[0][0]).toBe("/api/comparisons/cmp-1/outcome");
     expect(calls[0][1]?.method).toBe("POST");
-    expect(JSON.parse(String(calls[0][1]?.body))).toEqual({ chosenSystemId: "sys-Alpha", comment: "Best fit" });
+    expect(JSON.parse(String(calls[0][1]?.body))).toEqual({ chosenSystemId: "sys-Alpha", comment: "Best fit", closeAsNotSelected: [] });
   });
 
   it("records None chosen as a null Candidate", async () => {
@@ -97,7 +97,7 @@ describe("RecordOutcomeDialog (#375)", () => {
     await userEvent.type(screen.getByLabelText(/Comment/), "Nothing meets the need");
     await userEvent.click(screen.getByRole("button", { name: "Record outcome" }));
     await waitFor(() => expect(onDone).toHaveBeenCalled());
-    expect(JSON.parse(String(calls[0][1]?.body))).toEqual({ chosenSystemId: null, comment: "Nothing meets the need" });
+    expect(JSON.parse(String(calls[0][1]?.body))).toEqual({ chosenSystemId: null, comment: "Nothing meets the need", closeAsNotSelected: [] });
   });
 
   it("warns when the pick is not the top scorer, without blocking it", async () => {
@@ -223,5 +223,83 @@ describe("ComparisonPage: record outcome, closed and reopen (#375)", () => {
     await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Reopen" }));
     await waitFor(() => expect(calls.some(([url, init]) => url === "/api/comparisons/cmp-1/outcome" && init?.method === "DELETE")).toBe(true));
     await waitFor(() => expect(calls.filter(([url, init]) => url === "/api/comparisons/cmp-1" && !init?.method)).toHaveLength(2));
+  });
+});
+
+describe("Close as Not selected (#376)", () => {
+  const closable = (name: string, over = {}) => candidate(name, { canCloseAsNotSelected: true, controls: [control("A.1", "FULFILLED")], ...over });
+  const renderDialog = (candidates = [closable("Alpha"), closable("Beta"), candidate("Gamma", { controls: [control("A.1", "FULFILLED")] })]) => {
+    const onDone = vi.fn();
+    render(<RecordOutcomeDialog id="cmp-1" candidates={candidates} onClose={vi.fn()} onDone={onDone} />);
+    return { onDone };
+  };
+
+  it("offers a checkbox, unchecked, for each Candidate not chosen that the user may close, and none for the others", () => {
+    stub();
+    renderDialog();
+    const offer = screen.getByTestId("not-selected-offer");
+    expect(within(offer).getByRole("checkbox", { name: /Close Alpha as Not selected/ })).not.toBeChecked();
+    expect(within(offer).getByRole("checkbox", { name: /Close Beta as Not selected/ })).not.toBeChecked();
+    expect(within(offer).queryByRole("checkbox", { name: /Gamma/ })).not.toBeInTheDocument();
+  });
+
+  it("offers nothing when no Candidate may be closed", () => {
+    stub();
+    renderDialog([candidate("Alpha"), candidate("Beta")]);
+    expect(screen.queryByTestId("not-selected-offer")).not.toBeInTheDocument();
+  });
+
+  it("does not offer the picked Candidate", async () => {
+    stub();
+    renderDialog();
+    await userEvent.click(screen.getByRole("radio", { name: /Alpha/ }));
+    const offer = screen.getByTestId("not-selected-offer");
+    expect(within(offer).queryByRole("checkbox", { name: /Alpha/ })).not.toBeInTheDocument();
+    expect(within(offer).getByRole("checkbox", { name: /Beta/ })).toBeInTheDocument();
+  });
+
+  it("sends the ticked Candidates with the outcome, and none when nothing is ticked", async () => {
+    const calls = stub();
+    const { onDone } = renderDialog();
+    await userEvent.click(screen.getByRole("radio", { name: /Alpha/ }));
+    await userEvent.click(screen.getByRole("checkbox", { name: /Close Beta as Not selected/ }));
+    await userEvent.type(screen.getByLabelText(/Comment/), "Best fit");
+    await userEvent.click(screen.getByRole("button", { name: "Record outcome" }));
+    await waitFor(() => expect(onDone).toHaveBeenCalled());
+    expect(JSON.parse(String(calls[0][1]?.body))).toEqual({ chosenSystemId: "sys-Alpha", comment: "Best fit", closeAsNotSelected: ["sys-Beta"] });
+  });
+
+  it("leaves out a ticked Candidate that is then picked as the chosen one", async () => {
+    const calls = stub();
+    const { onDone } = renderDialog();
+    await userEvent.click(screen.getByRole("radio", { name: /None chosen/ }));
+    await userEvent.click(screen.getByRole("checkbox", { name: /Close Alpha as Not selected/ }));
+    await userEvent.click(screen.getByRole("radio", { name: /Alpha/ }));
+    await userEvent.type(screen.getByLabelText(/Comment/), "x");
+    await userEvent.click(screen.getByRole("button", { name: "Record outcome" }));
+    await waitFor(() => expect(onDone).toHaveBeenCalled());
+    expect(JSON.parse(String(calls[0][1]?.body)).closeAsNotSelected).toEqual([]);
+  });
+
+  it("lists a Not selected Candidate as not choosable", () => {
+    stub();
+    renderDialog([closable("Alpha"), candidate("Beta", { notSelected: true })]);
+    expect(screen.getByRole("radio", { name: /Beta/ })).toBeDisabled();
+    expect(screen.getByText("Closed as Not selected: it can't be chosen.")).toBeInTheDocument();
+  });
+
+  it("closes more Candidates from a closed Comparison through the not-selected route", async () => {
+    const calls = stub({ status: 200, body: { closed: 1 } });
+    const onDone = vi.fn();
+    render(<CloseNotSelectedDialog id="cmp-1" candidates={[closable("Alpha", { chosen: true }), closable("Beta")]} onClose={vi.fn()} onDone={onDone} />);
+    expect(screen.queryByRole("checkbox", { name: /Alpha/ })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Close as Not selected" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Pick at least one");
+    expect(calls).toHaveLength(0);
+    await userEvent.click(screen.getByRole("checkbox", { name: /Close Beta as Not selected/ }));
+    await userEvent.click(screen.getByRole("button", { name: "Close as Not selected" }));
+    await waitFor(() => expect(onDone).toHaveBeenCalled());
+    expect(calls[0][0]).toBe("/api/comparisons/cmp-1/not-selected");
+    expect(JSON.parse(String(calls[0][1]?.body))).toEqual({ systemIds: ["sys-Beta"] });
   });
 });

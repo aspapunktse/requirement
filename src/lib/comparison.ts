@@ -14,8 +14,8 @@ import { canBeSystemOwner, canCreateSystem, isSystemOwnerOrAdmin, NEW_OWNER_REFU
 /**
  * A Comparison (#372; CONTEXT.md "Evaluation"; docs/how-it-works/comparison.md): its model rules and API logic. The routes
  * under `api/comparisons` resolve the acting user and call these. Terms: Comparison, Candidate (a System in a Comparison),
- * Comparison Score (`comparison-score.ts`). Recording the outcome closes it (#375; `comparison-outcome.ts`); closing the Candidates not
- * chosen as Not selected is a later issue (#376).
+ * Comparison Score (`comparison-score.ts`). Recording the outcome closes it (#375; `comparison-outcome.ts`) and can close the Candidates
+ * not chosen as Not selected in the same transaction (#376, ADR 0015), or that can be done afterwards from the closed Comparison.
  *
  * - Create: a role that may create a System (`canCreateSystem`); the creator is the owner.
  * - Rename, edit the need, name and remove participants, delete: the owner or an Admin (`isSystemOwnerOrAdmin`, so a
@@ -27,6 +27,10 @@ import { canBeSystemOwner, canCreateSystem, isSystemOwnerOrAdmin, NEW_OWNER_REFU
  *   was not rejected at a gate or "none chosen"; it closes the Comparison, freezes the figures and writes one Change Event on every
  *   Candidate, in one RepeatableRead transaction. A closed Comparison refuses every write (409, `CLOSED_COMPARISON_REFUSAL`): rename,
  *   need, owner, participants, adding and removing a Candidate (by any route, `planCandidates` included), delete. Reopening clears the outcome and frozen figures.
+ * - Close as Not selected (#376): a Candidate still in evaluation (staged, Draft, not closed: no ATO, not Onboarded) that was not chosen.
+ *   The Comparison's owner closes the Candidates they own, an Admin any (a participant none). The whole request is refused when any
+ *   one can't be closed (403 not yours, 409 no longer in evaluation, 400 not a Candidate, 409 the chosen one): nothing is written.
+ *   One Change Event per System. A Not selected System can't be added to a Comparison while closed.
  * - Who sees a Comparison: see `comparisonsVisibleWhere`. A hidden one is 404.
  * - A reader gets only the limited summary of a Candidate (`CandidateSummary`), built field by field; being a Candidate,
  *   owner or participant gives no right on a System and never widens `visibleSystemsWhere`.
@@ -44,6 +48,7 @@ export const MAX_CANDIDATES = 5;
 
 export const NOT_STAGED_REFUSAL = "Only a staged System can be a Candidate";
 export const CLOSED_REFUSAL = "A closed System can't be added to a Comparison";
+export const NOT_SELECTED_REFUSAL = "A Not selected System can't be added to a Comparison until an Admin reopens it";
 export const DUPLICATE_REFUSAL = "This System is already a Candidate in this Comparison";
 export const FULL_REFUSAL = `A Comparison holds at most ${MAX_CANDIDATES} Candidates`;
 export const CLOSED_COMPARISON_REFUSAL = "This Comparison is closed. Reopen it to change it.";
@@ -136,6 +141,14 @@ const requireOpen = (comparison: { outcomeRecordedAt: Date | null }) => {
 const isParticipant = (actor: { id: string }, comparison: { participants: { userId: string }[] }) =>
   comparison.participants.some((participant) => participant.userId === actor.id);
 
+/** Is the System still in evaluation, so that it can be closed as Not selected: staged, a Draft (no ATO, not Onboarded, not In Review) and not closed. */
+const stillInEvaluation = (system: { status: string; evaluationStage: string | null; evaluationClosedAt: Date | null }) =>
+  system.status === "DRAFT" && system.evaluationStage !== null && system.evaluationClosedAt === null;
+
+/** May `actor` close this Candidate as Not selected: it is still in evaluation, and they are an Admin or the Comparison's owner who owns the System. */
+const mayCloseAsNotSelected = (actor: Actor, manager: boolean, system: { status: string; evaluationStage: string | null; evaluationClosedAt: Date | null; ownerId: string }) =>
+  stillInEvaluation(system) && (actor.role === "ADMIN" || (manager && system.ownerId === actor.id));
+
 // ---------------------------------------------------------------------------------------------------------------------
 // Reads
 
@@ -212,6 +225,10 @@ export type CandidateSummary = {
   addedBy: { id: string; name: string } | null;
   /** The chosen Candidate of the recorded outcome (#375). */
   chosen: boolean;
+  /** The System is closed as Not selected (#376): shown as Not selected, whatever its stage. */
+  notSelected: boolean;
+  /** The reader may close it as Not selected now (#376): it is still in evaluation, was not chosen, and they own it or are an Admin. */
+  canCloseAsNotSelected: boolean;
 } & CandidateFigures;
 
 const byControlCode = (a: { code: string; controlId: string }, b: { code: string; controlId: string }) =>
@@ -348,7 +365,7 @@ export async function readComparison(actor: Actor, id: string): Promise<Comparis
               systemId: true,
               addedAt: true,
               addedBy: { select: { id: true, name: true } },
-              system: { select: { name: true, vendor: true, evaluationStage: true, status: true, owner: { select: { id: true, name: true } } } },
+              system: { select: { name: true, vendor: true, evaluationStage: true, evaluationClosedAt: true, status: true, ownerId: true, owner: { select: { id: true, name: true } } } },
             },
             orderBy: [{ addedAt: "asc" }, { systemId: "asc" }],
           },
@@ -366,6 +383,7 @@ export async function readComparison(actor: Actor, id: string): Promise<Comparis
           : await tx.system.findMany({ where: { AND: [{ id: { in: systemIds } }, await visibleSystemsWhere(actor, tx)] }, select: { id: true } });
       const openableIds = new Set(openable.map((system) => system.id));
 
+      const manager = canManage(actor, comparison);
       const summaries: CandidateSummary[] = [];
       for (const candidate of comparison.candidates) {
         // A Candidate missing from the figures was deleted after the read began (the snapshot makes that unreachable) or, on a closed
@@ -383,6 +401,8 @@ export async function readComparison(actor: Actor, id: string): Promise<Comparis
           addedAt: candidate.addedAt,
           addedBy: candidate.addedBy,
           chosen: snapshot?.chosen?.id === candidate.systemId,
+          notSelected: candidate.system.status === "NOT_SELECTED",
+          canCloseAsNotSelected: snapshot?.chosen?.id !== candidate.systemId && mayCloseAsNotSelected(actor, manager, candidate.system),
           classification: figures.classification,
           score: figures.score,
           openRisks: figures.openRisks,
@@ -390,7 +410,6 @@ export async function readComparison(actor: Actor, id: string): Promise<Comparis
       }
       const ordered = orderCandidates(summaries.map((summary) => ({ ...summary, ...summary.score }))).map((entry) => summaries.find((summary) => summary.systemId === entry.systemId)!);
 
-      const manager = canManage(actor, comparison);
       const participant = comparison.participants.some((entry) => entry.user.id === actor.id);
       return {
         id: comparison.id,
@@ -485,7 +504,7 @@ async function planCandidates(tx: Tx, actor: Actor, comparison: LoadedComparison
   requireOpen(comparison);
 
   const ids = [...new Set(systemIds)];
-  const systems = await tx.system.findMany({ where: { id: { in: ids } }, select: { id: true, ownerId: true, evaluationStage: true, evaluationClosedAt: true } });
+  const systems = await tx.system.findMany({ where: { id: { in: ids } }, select: { id: true, ownerId: true, evaluationStage: true, evaluationClosedAt: true, status: true } });
   const found = new Map(systems.map((system) => [system.id, system]));
   const visible =
     actor.role !== "ADMIN" && manager && systems.length > 0
@@ -508,6 +527,7 @@ async function planCandidates(tx: Tx, actor: Actor, comparison: LoadedComparison
     }
     if (failures.at(-1)?.systemId === systemId) continue;
     if (system!.evaluationStage === null) fail(409, NOT_STAGED_REFUSAL);
+    else if (system!.status === "NOT_SELECTED") fail(409, NOT_SELECTED_REFUSAL);
     else if (system!.evaluationClosedAt) fail(409, CLOSED_REFUSAL);
     else if (existing.has(systemId)) fail(409, DUPLICATE_REFUSAL);
     else if (existing.size + add.length >= MAX_CANDIDATES) fail(409, FULL_REFUSAL);
@@ -614,7 +634,7 @@ export async function listAddableSystems(
       const scope: Prisma.SystemWhereInput = actor.role === "ADMIN" ? {} : manager ? await visibleSystemsWhere(actor, tx) : { ownerId: actor.id };
       const rows = await tx.system.findMany({
         where: scope,
-        select: { id: true, name: true, vendor: true, evaluationStage: true, evaluationClosedAt: true, owner: { select: { id: true, name: true } } },
+        select: { id: true, name: true, vendor: true, evaluationStage: true, evaluationClosedAt: true, status: true, owner: { select: { id: true, name: true } } },
         orderBy: [{ name: "asc" }, { id: "asc" }],
       });
       const taken = new Set(comparison.candidates.map((candidate) => candidate.systemId));
@@ -624,7 +644,7 @@ export async function listAddableSystems(
         vendor: row.vendor,
         owner: row.owner,
         stage: row.evaluationStage,
-        reason: row.evaluationStage === null ? NOT_STAGED_REFUSAL : row.evaluationClosedAt ? CLOSED_REFUSAL : taken.has(row.id) ? DUPLICATE_REFUSAL : null,
+        reason: row.evaluationStage === null ? NOT_STAGED_REFUSAL : row.status === "NOT_SELECTED" ? NOT_SELECTED_REFUSAL : row.evaluationClosedAt ? CLOSED_REFUSAL : taken.has(row.id) ? DUPLICATE_REFUSAL : null,
       }));
       // The Systems that can be added come first, the ones that can't (with their reasons) after; each group by name.
       const systems = [...listed.filter((system) => system.reason === null), ...listed.filter((system) => system.reason !== null)];
@@ -739,16 +759,48 @@ export function removeCandidate(actor: Actor, id: string, systemId: string) {
   });
 }
 
-const POSITION_SELECT = { systemId: true, system: { select: { id: true, name: true, evaluationClosedAt: true } } } as const;
+const POSITION_SELECT = { systemId: true, system: { select: { id: true, name: true, status: true, evaluationClosedAt: true } } } as const;
+
+/**
+ * Closes the Candidates `systemIds` of a Comparison as Not selected (#376), inside the caller's transaction (every query on `tx`), and writes
+ * one SYSTEM_NOT_SELECTED Change Event on each, naming the Comparison. Each must be a Candidate (400), not the chosen one (409), one `actor`
+ * may close (403: an Admin any, the Comparison's owner those they own) and still in evaluation (409: staged, a Draft, not closed). The first
+ * that fails throws and the caller's transaction rolls back, so none is closed. The status change is conditional on the System still being in
+ * evaluation, so a gate decision that landed in between is not overwritten.
+ */
+async function closeAsNotSelected(tx: Tx, actor: Actor, comparison: { id: string; name: string; ownerId: string }, systemIds: string[], chosenId: string | null) {
+  const ids = [...new Set(systemIds)];
+  if (ids.length === 0) return;
+  const rows = await tx.comparisonCandidate.findMany({
+    where: { comparisonId: comparison.id, systemId: { in: ids } },
+    select: { systemId: true, system: { select: { name: true, status: true, evaluationStage: true, evaluationClosedAt: true, ownerId: true } } },
+  });
+  const byId = new Map(rows.map((row) => [row.systemId, row.system]));
+  const manager = canManage(actor, comparison);
+  for (const id of ids) {
+    const system = byId.get(id);
+    if (!system) throw refuse(400, "A System to close is not a Candidate in this Comparison");
+    if (id === chosenId) throw refuse(409, `"${system.name}" is the chosen Candidate and can't be closed as Not selected`);
+    if (actor.role !== "ADMIN" && !(manager && system.ownerId === actor.id)) throw refuse(403, "Only an Admin, or the Comparison's owner for a Candidate they own, can close it as Not selected");
+    if (!stillInEvaluation(system)) throw refuse(409, `"${system.name}" is no longer in evaluation (it is closed, has an ATO or is Onboarded), so it can't be closed as Not selected`);
+    const closed = await tx.system.updateMany({
+      where: { id, status: "DRAFT", evaluationClosedAt: null, evaluationStage: { not: null } },
+      data: { status: "NOT_SELECTED", evaluationClosedAt: new Date() },
+    });
+    if (closed.count !== 1) throw refuse(409, `"${system.name}" is no longer in evaluation, so it can't be closed as Not selected`);
+    await logChangeEvent(id, "SYSTEM_NOT_SELECTED", `Closed as Not selected after the Comparison "${comparison.name}"`, actor.id, tx);
+  }
+}
 
 /**
  * Records the outcome and closes the Comparison (#375): `chosenSystemId` is one Candidate, or null for "None chosen"; `comment` is
  * required. The owner or an Admin. Refused: 403 for anyone else, 409 when it is already closed, has fewer than two Candidates, or
- * the chosen Candidate was rejected at a gate (`evaluationClosedAt`); 400 when the chosen System is not a Candidate. In one
- * RepeatableRead transaction, every query on `tx`: the figures are read through the Comparison Score loader and frozen into
+ * the chosen Candidate was rejected at a gate (`evaluationClosedAt`) or closed as Not selected; 400 when the chosen System is not a Candidate.
+ * `closeAsNotSelected` lists Candidates not chosen to close as Not selected (#376), by the same rules as `closeCandidatesAsNotSelected`; any that
+ * can't be closed refuses the whole request. In one RepeatableRead transaction, every query on `tx`: the figures are read through the Comparison Score loader and frozen into
  * `outcomeSnapshot`, and one Change Event is written on every Candidate saying which was chosen.
  */
-export function recordOutcome(actor: Actor, id: string, input: { chosenSystemId: string | null; comment: string }) {
+export function recordOutcome(actor: Actor, id: string, input: { chosenSystemId: string | null; comment: string; closeAsNotSelected?: string[] }) {
   return run(
     async (tx) => {
       const comparison = await loadVisibleLocked(tx, actor, id);
@@ -758,6 +810,7 @@ export function recordOutcome(actor: Actor, id: string, input: { chosenSystemId:
       if (candidates.length < 2) throw refuse(409, "A Comparison needs at least two Candidates before an outcome can be recorded");
       const chosen = input.chosenSystemId === null ? null : candidates.find((candidate) => candidate.systemId === input.chosenSystemId);
       if (chosen === undefined) throw refuse(400, "The chosen System is not a Candidate in this Comparison");
+      if (chosen?.system.status === "NOT_SELECTED") throw refuse(409, "A Candidate that was closed as Not selected can't be chosen. An Admin can reopen it first.");
       if (chosen?.system.evaluationClosedAt) throw refuse(409, "A Candidate that was rejected at a gate can't be chosen");
 
       const live = await readLiveFigures(tx, candidates.map((candidate) => candidate.systemId));
@@ -787,6 +840,8 @@ export function recordOutcome(actor: Actor, id: string, input: { chosenSystemId:
             : `Outcome recorded for the Comparison "${comparison.name}": "${chosen.system.name}" was chosen`;
         await logChangeEvent(candidate.systemId, "COMPARISON_OUTCOME_RECORDED", detail, actor.id, tx);
       }
+      // The offer's choices (#376) close in this transaction too: if any can't be closed, the outcome is not recorded either.
+      await closeAsNotSelected(tx, actor, comparison, input.closeAsNotSelected ?? [], chosen?.systemId ?? null);
       return { id };
     },
     { isolationLevel: "RepeatableRead", timeout: 30_000 },
@@ -794,8 +849,27 @@ export function recordOutcome(actor: Actor, id: string, input: { chosenSystemId:
 }
 
 /**
+ * Closes Candidates of a closed Comparison as Not selected, afterwards (#376): the same action the Record outcome dialog offers. The owner
+ * or an Admin (403 for anyone else, 404 when hidden); 409 when the Comparison is still open (record the outcome first). All or nothing.
+ */
+export function closeCandidatesAsNotSelected(actor: Actor, id: string, systemIds: string[]) {
+  return run(
+    async (tx) => {
+      const comparison = await loadVisibleLocked(tx, actor, id);
+      if (!canManage(actor, comparison)) throw refuse(403, "Only the Comparison's owner or an Admin can close Candidates as Not selected");
+      if (!comparison.outcomeRecordedAt) throw refuse(409, "Record the outcome before closing Candidates as Not selected");
+      const stored = await tx.comparison.findUniqueOrThrow({ where: { id }, select: { outcomeSnapshot: true } });
+      const chosenId = outcomeSnapshotSchema.parse(stored.outcomeSnapshot).chosen?.id ?? null;
+      await closeAsNotSelected(tx, actor, comparison, systemIds, chosenId);
+      return { closed: new Set(systemIds).size };
+    },
+    { isolationLevel: "RepeatableRead", timeout: 30_000 },
+  );
+}
+
+/**
  * Reopens a closed Comparison (#375): the outcome and the frozen figures are cleared, so the page shows live figures again, and every
- * Candidate gets a Change Event. The owner or an Admin; 409 when it is not closed. Systems closed as Not selected (#376) stay closed.
+ * Candidate gets a Change Event. The owner or an Admin; 409 when it is not closed. Systems closed as Not selected (#376) stay closed until an Admin reopens them.
  */
 export function reopenComparison(actor: Actor, id: string) {
   return run(

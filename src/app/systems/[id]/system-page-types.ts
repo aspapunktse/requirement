@@ -161,6 +161,8 @@ export type SystemPageView = {
   /** The lifecycle note under the stepper (see `lifecycleNote`). */
   note: string;
   nextStep: NextStep;
+  /** May the acting user reopen this Not selected System (#376)? An Admin only. */
+  canReopenNotSelected: boolean;
   /** May the acting user change the System's owner (the ⋯ menu)? */
   canChangeOwner: boolean;
   /** May the acting user set, change or clear the System's Business System Owner (#321)? The owner or an Admin. */

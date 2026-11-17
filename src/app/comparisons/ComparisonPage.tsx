@@ -13,7 +13,7 @@ import "@/app/home/home.css";
 import "@/app/systems/systems.css";
 import "./comparisons.css";
 import { AddCandidateDialog } from "./AddCandidateDialog";
-import { RecordOutcomeDialog, ReopenComparisonDialog } from "./RecordOutcomeDialog";
+import { CloseNotSelectedDialog, RecordOutcomeDialog, ReopenComparisonDialog } from "./RecordOutcomeDialog";
 import { ChangeComparisonOwnerDialog, ComparisonFormDialog, DeleteComparisonDialog, ParticipantsDialog } from "./ComparisonDialogs";
 import {
   CONTROL_FILTERS,
@@ -109,7 +109,7 @@ export function ComparisonPage({ id, userId, role }: { id: string; userId: strin
 
 function ComparisonBody({ detail, candidates, userId, isAdmin, reload }: { detail: ComparisonDetail; candidates: CandidateRow[]; userId: string; isAdmin: boolean; reload: () => void }) {
   const router = useRouter();
-  const [dialog, setDialog] = useState<null | "edit" | "participants" | "owner" | "delete" | "add" | "record" | "reopen">(null);
+  const [dialog, setDialog] = useState<null | "edit" | "participants" | "owner" | "delete" | "add" | "record" | "reopen" | "close-not-selected">(null);
   const [removing, setRemoving] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -179,6 +179,11 @@ function ComparisonBody({ detail, candidates, userId, isAdmin, reload }: { detai
               <button type="button" className="hc-btn" onClick={() => setDialog("reopen")}>
                 Reopen
               </button>
+              {candidates.some((candidate) => candidate.canCloseAsNotSelected && !candidate.chosen) && (
+                <button type="button" className="hc-btn" onClick={() => setDialog("close-not-selected")}>
+                  Close as Not selected
+                </button>
+              )}
             </div>
           )}
           {(detail.canManage || detail.canAddCandidate) && !readOnly && (
@@ -365,6 +370,17 @@ function ComparisonBody({ detail, candidates, userId, isAdmin, reload }: { detai
           }}
         />
       )}
+      {dialog === "close-not-selected" && (
+        <CloseNotSelectedDialog
+          id={detail.id}
+          candidates={candidates}
+          onClose={() => setDialog(null)}
+          onDone={() => {
+            setDialog(null);
+            reload();
+          }}
+        />
+      )}
       {dialog === "reopen" && (
         <ReopenComparisonDialog
           id={detail.id}
@@ -474,7 +490,7 @@ function CandidateRowView({
   const percent = score.score === null ? 0 : Math.round(score.score * 100);
 
   return (
-    <li className={`cmp-row${candidate.rejected ? " rejected" : ""}${candidate.chosen ? " chosen" : ""}`}>
+    <li className={`cmp-row${candidate.rejected || candidate.notSelected ? " rejected" : ""}${candidate.chosen ? " chosen" : ""}`}>
       <span className="rank" title="Position in the order">
         {rank}
       </span>
@@ -495,7 +511,7 @@ function CandidateRowView({
           {candidate.chosen && <span className="cmp-chosen">Chosen</span>}
         </span>
         <small>
-          {candidate.vendor ? `${candidate.vendor} · ` : ""}owner {candidate.owner.name} · {candidate.rejected ? <span className="cmp-rejected">Rejected</span> : stageLabel(candidate.stage)}
+          {candidate.vendor ? `${candidate.vendor} · ` : ""}owner {candidate.owner.name} · {candidate.rejected ? <span className="cmp-rejected">Rejected</span> : candidate.notSelected ? <span className="cmp-rejected">Not selected</span> : stageLabel(candidate.stage)}
         </small>
       </div>
       <div className="score-box">

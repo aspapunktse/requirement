@@ -305,8 +305,10 @@ export type EvaluationView = {
   og2Justification: string | null;
   /** The decisions made at gates so far (#330), oldest first. */
   decisions: GateDecisionView[];
-  /** Rejected at a gate: the System is closed and read-only for every role. */
+  /** Rejected at a gate: the System is closed and read-only for every role. False for a Not selected System (`notSelected`), which is closed too. */
   closed: boolean;
+  /** Closed as Not selected after a Comparison (#376): read-only for every role until an Admin reopens it. It keeps its stage and Track. */
+  notSelected: boolean;
   /** The gate it was rejected at, when closed. */
   closedAt: EvaluationStage | null;
   /** Authorized to operate at OG3 (ATO): the System is Approved and waits to be marked Onboarded (or already is). */
@@ -453,8 +455,9 @@ export async function loadEvaluationView(viewer: { id: string; role: UserRole },
         oag2,
         og2Justification,
         decisions,
-        closed: system.evaluationClosedAt !== null,
-        closedAt: system.evaluationClosedAt !== null ? ([...decisions].reverse().find((decision) => decision.outcome === "REJECT")?.gate ?? stage) : null,
+        closed: system.evaluationClosedAt !== null && system.status !== "NOT_SELECTED",
+        notSelected: system.status === "NOT_SELECTED",
+        closedAt: system.evaluationClosedAt !== null && system.status !== "NOT_SELECTED" ? ([...decisions].reverse().find((decision) => decision.outcome === "REJECT")?.gate ?? stage) : null,
         authorized: stage === "OG3" && system.evaluationClosedAt === null && system.status !== "DRAFT",
         og3: og3Gate ? { ...og3Gate, adviseAgainst: await hasAdviseAgainst(tx, systemId, OAG_STAGES) } : null,
         qualification: gateView("QUALIFICATION"),

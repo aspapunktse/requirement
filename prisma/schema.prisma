@@ -13,6 +13,9 @@ enum OnboardingStatus {
   APPROVED
   REJECTED
   ONBOARDED
+  // A Candidate closed after it lost a Comparison (#376, ADR 0015): read-only like a Rejected one (`evaluationClosedAt` is set too),
+  // but an Admin can reopen it. Its evaluationStage and Track are kept.
+  NOT_SELECTED
 }
 
 enum ControlAssessmentStatus {
@@ -279,9 +282,9 @@ model System {
   evaluationStageEnteredAt    DateTime?
   trackVerdicts               TrackVerdict[]
   recommendations             Recommendation[]
-  // Set when the Business System Owner rejects the System at OG3 (#330): the evaluation is closed for good, and every write on the
-  // System is refused (409). The Onboarding Status is REJECTED too, but a classic Rejected System returns to Draft; this marker is what
-  // tells the two apart. Null for every other System.
+  // Set when the Business System Owner rejects the System at OG3 (#330: closed for good) or when a Candidate is closed as Not selected
+  // (#376: an Admin can reopen it). Every write on the System is refused (409). The Onboarding Status (REJECTED or NOT_SELECTED) says
+  // which; a classic Rejected System returns to Draft and has no marker. Null for every other System.
   evaluationClosedAt          DateTime?
   gateDecisions               GateDecision[]
   changeReviews               ChangeReview[]
@@ -1155,6 +1158,9 @@ enum ChangeEventAction {
   // A Comparison's outcome was recorded, or it was reopened (#375): one event on every Candidate.
   COMPARISON_OUTCOME_RECORDED
   COMPARISON_REOPENED
+  // A Candidate was closed as Not selected after a Comparison, or an Admin reopened it (#376). System-scoped, actor the person.
+  SYSTEM_NOT_SELECTED
+  SYSTEM_REOPENED
 }
 
 // A curated, System-lifecycle-relevant mutation record — feeds the landing

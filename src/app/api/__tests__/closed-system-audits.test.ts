@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
 import { listCheckUps } from "@/lib/check-ups";
 import { resolveSystemFilter } from "@/lib/internal-audits";
-import { SYSTEM_CLOSED_REFUSAL } from "@/lib/system-closed";
+import { closedRefusalText } from "@/lib/system-closed";
 import { createFixtureFramework, mapControlsToFramework } from "@/test/framework-fixtures";
 import { requestAs } from "@/test/provider-fixtures";
 import { POST as createAudit } from "../internal-audits/route";
@@ -11,7 +11,7 @@ import { PUT as putResponse } from "../check-ups/[id]/response/route";
 import { POST as postWithdrawal } from "../check-ups/[id]/withdrawal/route";
 
 /**
- * A System the BSO rejected at OG3 is closed (#330), also for Internal Audits: its owner can't answer a Check-up on it, the Internal
+ * A System the BSO rejected at OG3 is closed (#330), also for Internal Audits (and a Not selected one, #376, behaves the same, with its own refusal wording): its owner can't answer a Check-up on it, the Internal
  * Auditor can still withdraw or evaluate one (so the audit can be closed), and launching leaves a closed System out, whether it came in
  * by a filter or by hand. Fixtures only (CI's database is migrated, not seeded).
  */
@@ -19,7 +19,7 @@ const SUFFIX = `${process.pid}-${Date.now()}`;
 const ctx = (id: string) => ({ params: Promise.resolve({ id }) }) as never;
 const future = (days: number) => new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
 
-describe("A closed System and Internal Audits (#330)", { timeout: 60_000 }, () => {
+describe.each(["REJECTED", "NOT_SELECTED"] as const)("A closed System (%s) and Internal Audits (#330, #376)", { timeout: 60_000 }, (closedStatus) => {
   let auditor: string;
   let openOwner: string;
   let closedOwner: string;
@@ -71,7 +71,7 @@ describe("A closed System and Internal Audits (#330)", { timeout: 60_000 }, () =
     // Launched while both Systems were open, then the BSO rejected one of them at OG3.
     const auditId = await draftAudit([openSystem, closedSystem]);
     expect((await launchAudit(auditId)).status).toBe(200);
-    await prisma.system.update({ where: { id: closedSystem }, data: { status: "REJECTED", evaluationClosedAt: new Date() } });
+    await prisma.system.update({ where: { id: closedSystem }, data: { status: closedStatus, evaluationClosedAt: new Date() } });
 
     const checkUps = await listCheckUps(auditId);
     const onClosed = checkUps.find((c) => c.target.kind === "system" && c.target.id === closedSystem)!;
@@ -84,7 +84,7 @@ describe("A closed System and Internal Audits (#330)", { timeout: 60_000 }, () =
 
     const refused = await putResponse(requestAs(`/api/check-ups/${onClosed.id}/response`, closedOwner, "PUT", body(onClosed.id)), ctx(onClosed.id));
     expect(refused.status).toBe(409);
-    expect((await refused.json()).error).toBe(SYSTEM_CLOSED_REFUSAL);
+    expect((await refused.json()).error).toBe(closedRefusalText(closedStatus));
     expect(await prisma.checkUpResponse.count({ where: { checkUpId: onClosed.id } })).toBe(0);
 
     // An open System's Check-up is answered as before.

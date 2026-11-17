@@ -855,6 +855,11 @@ export function SystemEvaluation({ systemId }: { systemId: string }) {
           Couldn&apos;t refresh the evaluation; what follows may be out of date.
         </p>
       )}
+      {evaluation.notSelected && (
+        <p role="status" className="sc-callout warn">
+          <b>Not selected.</b> This System lost a Comparison and is closed. It keeps its stage and is read-only for everyone until an Admin reopens it.
+        </p>
+      )}
       {evaluation.closed && (
         <p role="status" className="sc-callout warn">
           <b>Closed.</b> The Business System Owner rejected this System at {evaluation.closedAt ? EVALUATION_STAGE_LABEL[evaluation.closedAt] : "OG3"}. It is read-only for everyone.

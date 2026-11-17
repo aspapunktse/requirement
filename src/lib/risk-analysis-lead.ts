@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { logChangeEvent } from "@/lib/change-events";
 import { canRecordRiskAnalysis, RISK_ANALYSIS_REFUSED } from "@/lib/risk-analysis";
 import { visibleSystemsWhere } from "@/lib/system-visibility";
-import { SYSTEM_CLOSED_REFUSAL } from "@/lib/system-closed";
+import { closedRefusalText } from "@/lib/system-closed";
 
 /**
  * The Risk Analysis lead of a System (#361, product-owner decision of 2026-11-11, CONTEXT.md "Risk Analysis lead"): the one person given
@@ -54,11 +54,11 @@ export async function changeRiskAnalysisLead(actor: { id: string; role: UserRole
     return await prisma.$transaction(async (tx) => {
       const system = await tx.system.findFirst({
         where: { AND: [{ id: systemId }, await visibleSystemsWhere(actor, tx)] },
-        select: { id: true, ownerId: true, evaluationStage: true, evaluationClosedAt: true, riskAnalysisLead: { select: { id: true, name: true } } },
+        select: { id: true, ownerId: true, evaluationStage: true, evaluationClosedAt: true, status: true, riskAnalysisLead: { select: { id: true, name: true } } },
       });
       if (!system) throw new Abort({ ok: false, status: 404, error: "System not found" });
       // The closed rule answers before the role rule, as on every System write (#330).
-      if (system.evaluationClosedAt) throw new Abort({ ok: false, status: 409, error: SYSTEM_CLOSED_REFUSAL });
+      if (system.evaluationClosedAt) throw new Abort({ ok: false, status: 409, error: closedRefusalText(system.status) });
       if (!canRecordRiskAnalysis(actor, system)) throw new Abort({ ok: false, status: 403, error: RISK_ANALYSIS_REFUSED });
       if (system.evaluationStage === null) throw new Abort({ ok: false, status: 400, error: RISK_ANALYSIS_LEAD_NOT_STAGED });
 
