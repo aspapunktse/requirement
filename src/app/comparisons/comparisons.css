@@ -1,10 +1,13 @@
 /* The Comparison pages (#373): the list and one Comparison, design proposal B "Shortlist and differences" with the Framework
    separators of C, the Mandatory filter of A and the Open and Closed lanes of C. It builds on the Home look
    (`src/app/home/home.css`: hero, cards, tabs, search, lane headers, buttons) and the Systems list (`systems.css`). Register
-   tokens only (--rg-*), so every Theme and both modes work. The root carries `hc sy cmp`. Nothing here makes the page wider than
+   tokens only (--rg-*), so every Theme and both modes work. The root carries `hc cmp` and NOT `sy`: the Systems register's `.sy table` and phone rules (blocks every row, hides the header, 980px minimum width) would reach these tables. Nothing here makes the page wider than
    the screen: the Control-by-Control table and the list's tables scroll inside their own container. */
 
 .cmp .hc-hero .actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 16px; }
+.cmp .num { font-variant-numeric: tabular-nums; }
+.cmp .muted { color: var(--rg-muted); }
+.cmp .hc-card.sy-reg { overflow: visible; }
 .cmp .hc-btn.danger { color: var(--rg-danger); }
 .cmp .hc-btn:disabled { opacity: 0.45; cursor: default; }
 .cmp-hint { font-size: 0.82rem; color: var(--rg-muted); max-width: 46ch; }

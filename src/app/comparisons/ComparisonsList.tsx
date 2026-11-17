@@ -182,7 +182,7 @@ export function ComparisonsList({ canCreate, roleLabel }: { canCreate: boolean; 
   }
 
   return (
-    <div className="hc sy cmp" data-page-id="COMPARISONS">
+    <div className="hc cmp" data-page-id="COMPARISONS">
       {hero}
       <section className="hc-card sy-reg" aria-labelledby="cmp-reg-h">
         <div className="hc-card-h">

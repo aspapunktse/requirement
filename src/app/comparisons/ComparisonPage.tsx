@@ -69,7 +69,7 @@ export function ComparisonPage({ id, userId, role }: { id: string; userId: strin
 
   if (failed && data === null) {
     return (
-      <div className="hc sy cmp">
+      <div className="hc cmp">
         <div className="hc-card hc-done" role="alert">
           <h1>The Comparison could not be loaded</h1>
           <button type="button" className="hc-btn" onClick={reload}>
@@ -81,7 +81,7 @@ export function ComparisonPage({ id, userId, role }: { id: string; userId: strin
   }
   if (data === null) {
     return (
-      <div className="hc sy cmp">
+      <div className="hc cmp">
         <div className="hc-card hc-done" role="status">
           <h1>Loading the Comparison…</h1>
         </div>
@@ -90,7 +90,7 @@ export function ComparisonPage({ id, userId, role }: { id: string; userId: strin
   }
   if (!detail) {
     return (
-      <div className="hc sy cmp">
+      <div className="hc cmp">
         <div className="hc-card hc-done" role="status">
           <h1>Comparison not found</h1>
           <p>It does not exist, or you can&apos;t see it.</p>
@@ -139,7 +139,7 @@ function ComparisonBody({ detail, candidates, userId, isAdmin, reload }: { detai
   const differences = detail.classificationDifferences.map((key) => DIFFERENCE_LABEL[key] ?? key);
 
   return (
-    <div className="hc sy cmp" data-page-id="COMPARISON">
+    <div className="hc cmp" data-page-id="COMPARISON">
       <nav className="cmp-crumb" aria-label="Breadcrumb">
         <Link href="/systems">Systems</Link> / <Link href="/comparisons">Comparisons</Link>
       </nav>

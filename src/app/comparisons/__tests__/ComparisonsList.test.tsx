@@ -58,6 +58,14 @@ describe("ComparisonsList", () => {
     expect(await screen.findByRole("link", { name: "Alpha HR" })).toBeInTheDocument();
   });
 
+  it("is not inside the Systems register's .sy wrapper, whose table rules would stack the rows on a phone and force a 980px width", async () => {
+    serve(rows);
+    const { container } = open();
+    await screen.findByRole("link", { name: "Alpha HR" });
+    expect(container.querySelector(".sy")).toBeNull();
+    expect(container.querySelector(".cmp-tablewrap .cmp-reg thead")).not.toBeNull();
+  });
+
   it("splits the list into an Open and a Closed section, each with a lane header and a count", async () => {
     serve(rows);
     open();

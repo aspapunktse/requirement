@@ -314,6 +314,21 @@ describe("ComparisonPage: the Control-by-Control table", () => {
   });
 });
 
+describe("ComparisonPage: the layout guard", () => {
+  it("is not inside the Systems register's .sy wrapper, whose phone rules would break the table, and separators span every column", async () => {
+    serve(trio());
+    const { container } = open();
+    await screen.findByRole("heading", { level: 1 });
+    // systems.css turns every tbody row into a block and hides thead at <=720px for anything under `.sy`; jsdom can't run the media query, so guard the structure.
+    expect(container.querySelector(".sy")).toBeNull();
+    expect(container.closest(".sy")).toBeNull();
+    expect(table().closest(".cmp-mx-wrap")).not.toBeNull();
+    expect(table().querySelector("thead")).not.toBeNull();
+    const columns = table().querySelectorAll("thead th").length;
+    for (const th of table().querySelectorAll("tr.grp th")) expect(th).toHaveAttribute("colspan", String(columns));
+  });
+});
+
 describe("ComparisonPage: who can do what", () => {
   it("offers no write controls to a reader who may not manage and owns no Candidate", async () => {
     serve(trio());
