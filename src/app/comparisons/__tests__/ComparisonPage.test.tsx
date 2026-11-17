@@ -154,6 +154,20 @@ describe("ComparisonPage: the shortlist", () => {
     expect(within(rowsOf().find((item) => within(item).queryByText("Calm"))!).getByText("No open Risks")).toBeInTheDocument();
   });
 
+  it("shows a Candidate rejected at a gate as Rejected instead of its stage, in its normal place, also when it can't be opened", async () => {
+    const rejected = candidate("Gone", { controls: [control("A.1", "FULFILLED")], stage: "OG2", rejected: true, canOpen: false });
+    serve(detail([rejected, candidate("Kept", { controls: [control("A.1", "WAIVED")], stage: "OG2" })]));
+    open();
+    await screen.findByRole("heading", { level: 1 });
+    const [first, second] = rowsOf();
+    expect(within(first).getByText("Gone")).toBeInTheDocument();
+    expect(first).toHaveClass("rejected");
+    expect(within(first).getByText("Rejected")).toBeInTheDocument();
+    expect(within(first).queryByText(/OG2|Gate 2/)).not.toBeInTheDocument();
+    expect(second).not.toHaveClass("rejected");
+    expect(within(second).queryByText("Rejected")).not.toBeInTheDocument();
+  });
+
   it("links a Candidate the reader can open to its System page, and shows one they can't as plain text", async () => {
     serve(trio());
     open();

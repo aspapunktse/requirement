@@ -264,7 +264,7 @@ describe("Comparisons (#372)", { timeout: 60_000 }, () => {
         const { comparison } = JSON.parse(text);
         expect(comparison.candidates[0].openRisks).toEqual({ LOW: 0, MEDIUM: 0, HIGH: 1, CRITICAL: 1 });
         expect(Object.keys(comparison.candidates[0]).sort()).toEqual(
-          ["addedAt", "addedBy", "canOpen", "classification", "name", "openRisks", "owner", "score", "stage", "systemId", "vendor"].sort(),
+          ["addedAt", "addedBy", "canOpen", "classification", "name", "openRisks", "owner", "rejected", "score", "stage", "systemId", "vendor"].sort(),
         );
         expect(Object.keys(comparison.candidates[0].score).sort()).toEqual(
           ["answeredCount", "complete", "controls", "countedCount", "firstRoundCount", "fulfilledCount", "mandatoryNotFulfilledCount", "score"].sort(),
@@ -348,6 +348,12 @@ describe("Comparisons (#372)", { timeout: 60_000 }, () => {
       expect(candidateB.score.controls).toHaveLength(4);
       expect(candidateA.stage).toBe("FIRST_ROUND");
       expect(candidateB.stage).toBe("OG1");
+      expect(candidateA.rejected).toBe(false);
+      // A System rejected at a gate keeps its stage but is reported as rejected.
+      await prisma.system.update({ where: { id: b }, data: { status: "REJECTED", evaluationClosedAt: new Date() } });
+      const after = (await (await read("owner", id)).json()).comparison.candidates.find((candidate: Json) => candidate.systemId === b);
+      expect(after.rejected).toBe(true);
+      expect(after.stage).toBe("OG1");
       expect(comparison.closed).toBe(false);
     });
 

@@ -18,6 +18,7 @@ export function candidate(name: string, over: Partial<Omit<CandidateRow, "score"
     owner: { id: "u-owner", name: "Olive Owner" },
     canOpen: true,
     stage: "FIRST_ROUND",
+    rejected: false,
     addedAt: "2026-11-01T10:00:00.000Z",
     addedBy: null,
     classification: { deploymentFacets: [{ id: "f-saas", name: "SaaS" }], sensitivityLevel: 2, integrityImpactLevel: "MODERATE", availabilityImpactLevel: "HIGH", frameworkScope: [{ id: "fw-1", name: "ISO 27001" }] },

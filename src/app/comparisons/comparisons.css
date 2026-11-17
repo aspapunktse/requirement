@@ -75,6 +75,9 @@
 .cmp-row .cls small { color: var(--rg-muted); font-size: 0.76rem; overflow-wrap: anywhere; }
 .cmp-tag { font-size: 0.72rem; font-weight: 650; color: var(--rg-muted); border: 1px solid var(--rg-line); border-radius: 6px; padding: 0 7px; overflow-wrap: anywhere; }
 .cmp-row .act { grid-area: act; display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+/* A Candidate rejected at a gate stays in the order, dimmed */
+.cmp-row.rejected { opacity: 0.8; }
+.cmp-rejected { font-weight: 750; color: var(--rg-danger); }
 @media (max-width: 900px) {
   .cmp-row { grid-template-columns: 28px minmax(0, 1fr) auto; grid-template-areas: "rank main act" ". score score" ". facts facts" ". cls cls"; }
 }

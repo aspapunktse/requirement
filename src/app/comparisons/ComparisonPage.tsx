@@ -370,7 +370,7 @@ function CandidateRowView({
   const percent = score.score === null ? 0 : Math.round(score.score * 100);
 
   return (
-    <li className="cmp-row">
+    <li className={`cmp-row${candidate.rejected ? " rejected" : ""}`}>
       <span className="rank" title="Position in the order">
         {rank}
       </span>
@@ -390,7 +390,7 @@ function CandidateRowView({
           )}
         </span>
         <small>
-          {candidate.vendor ? `${candidate.vendor} · ` : ""}owner {candidate.owner.name} · {stageLabel(candidate.stage)}
+          {candidate.vendor ? `${candidate.vendor} · ` : ""}owner {candidate.owner.name} · {candidate.rejected ? <span className="cmp-rejected">Rejected</span> : stageLabel(candidate.stage)}
         </small>
       </div>
       <div className="score-box">

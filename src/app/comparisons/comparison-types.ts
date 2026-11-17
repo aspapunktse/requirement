@@ -31,6 +31,7 @@ export type CandidateRow = {
   owner: Person;
   canOpen: boolean;
   stage: string | null;
+  rejected: boolean;
   addedAt: string;
   addedBy: Person | null;
   classification: {

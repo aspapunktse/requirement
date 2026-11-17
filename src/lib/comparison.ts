@@ -168,6 +168,8 @@ export type CandidateSummary = {
   canOpen: boolean;
   /** The System's current evaluation stage (`EvaluationStage`); null when it is no longer staged. */
   stage: string | null;
+  /** True when the System was rejected at a gate while in the Comparison (status REJECTED); its stage then no longer says where it is. */
+  rejected: boolean;
   addedAt: Date;
   addedBy: { id: string; name: string } | null;
   classification: {
@@ -241,7 +243,7 @@ export async function readComparison(actor: Actor, id: string): Promise<Comparis
               systemId: true,
               addedAt: true,
               addedBy: { select: { id: true, name: true } },
-              system: { select: { vendor: true, evaluationStage: true, owner: { select: { id: true, name: true } } } },
+              system: { select: { vendor: true, evaluationStage: true, status: true, owner: { select: { id: true, name: true } } } },
             },
             orderBy: [{ addedAt: "asc" }, { systemId: "asc" }],
           },
@@ -281,6 +283,7 @@ export async function readComparison(actor: Actor, id: string): Promise<Comparis
           owner: candidate.system.owner,
           canOpen: openableIds.has(candidate.systemId),
           stage: candidate.system.evaluationStage,
+          rejected: candidate.system.status === "REJECTED",
           addedAt: candidate.addedAt,
           addedBy: candidate.addedBy,
           classification: {
