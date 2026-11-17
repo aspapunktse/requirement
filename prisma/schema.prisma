@@ -102,6 +102,12 @@ model User {
   statSnapshots                      StatSnapshot[]
   appSettingsChanged                 AppSetting[]                        @relation("AppSettingUpdatedBy")
   ownedSystems                       System[]                            @relation("SystemOwner")
+  // Comparisons this User owns (#372). A User who owns one can't be deleted until it is handed over or deleted.
+  ownedComparisons                   Comparison[]                        @relation("ComparisonOwner")
+  // Comparisons this User was named a participant of (#372); the rows go with the User.
+  comparisonParticipations           ComparisonParticipant[]
+  // Candidates this User added (#372); deleting the User keeps the Candidate and clears who added it.
+  comparisonCandidatesAdded          ComparisonCandidate[]               @relation("ComparisonCandidateAddedBy")
   // Systems this User is the Business System Owner of (#321). Deleting the User leaves them without one.
   businessOwnedSystems               System[]                            @relation("SystemBusinessOwner")
   // Systems this User is the Risk Analysis lead of (#361). Deleting the User leaves them without one.
@@ -258,6 +264,8 @@ model System {
   riskAnalysisLeadId          String?
   riskAnalysisLead            User?                          @relation("SystemRiskAnalysisLead", fields: [riskAnalysisLeadId], references: [id], onDelete: SetNull)
   documents                   SystemDocument[]
+  // The Comparisons this System is a Candidate in (#372). Deleting the System removes its Candidate rows.
+  comparisonCandidates        ComparisonCandidate[]
   riskAnalyses                RiskAnalysis[]
   // Staged evaluation (PRD 0002, ADR 0014, #328). A System created while the App Setting "Staged evaluation for new
   // Systems" is on starts at the first round; null is the classic flow (Draft, In Review, Approved, Onboarded), which
@@ -1139,6 +1147,9 @@ enum ChangeEventAction {
   CHANGE_REVIEW_WIDENED
   // The Business System Owner (or an Admin) accepted a Change Review or revoked the ATO (#334). Actor the person; the detail has the comment.
   CHANGE_REVIEW_DECIDED
+  // A System added to or removed from a Comparison as a Candidate (#372).
+  COMPARISON_CANDIDATE_ADDED
+  COMPARISON_CANDIDATE_REMOVED
 }
 
 // A curated, System-lifecycle-relevant mutation record — feeds the landing
@@ -1553,4 +1564,48 @@ model SystemDocumentFile {
   uploadedAt       DateTime       @default(now())
   uploadedById     String?
   uploadedBy       User?          @relation("SystemDocumentFileUploadedBy", fields: [uploadedById], references: [id], onDelete: SetNull)
+}
+
+// A Comparison (#372; CONTEXT.md "Evaluation"): a named record that sets two to five Systems side by side to help choose
+// one for the same need. The outcome fields (Selected / Not selected) come in a later issue. The owner is a User who may
+// create a System; the owner relation is Restrict, so a User who owns a Comparison can't be deleted until it is handed over.
+model Comparison {
+  id           String                  @id @default(cuid())
+  name         String
+  need         String?
+  ownerId      String
+  owner        User                    @relation("ComparisonOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  candidates   ComparisonCandidate[]
+  participants ComparisonParticipant[]
+  createdAt    DateTime                @default(now())
+  updatedAt    DateTime                @updatedAt
+
+  @@index([ownerId])
+}
+
+// A System that takes part in a Comparison: once per Comparison, with when and by whom it was added. Deleting the Comparison
+// or the System removes the row (the Comparison just loses that Candidate); deleting the User who added it keeps the row.
+model ComparisonCandidate {
+  comparisonId String
+  comparison   Comparison @relation(fields: [comparisonId], references: [id], onDelete: Cascade)
+  systemId     String
+  system       System     @relation(fields: [systemId], references: [id], onDelete: Cascade)
+  addedAt      DateTime   @default(now())
+  addedById    String?
+  addedBy      User?      @relation("ComparisonCandidateAddedBy", fields: [addedById], references: [id], onDelete: SetNull)
+
+  @@id([comparisonId, systemId])
+  @@index([systemId])
+}
+
+// A User the owner or an Admin named as a participant of a Comparison (#372): sees it and can add Systems they own.
+model ComparisonParticipant {
+  comparisonId String
+  comparison   Comparison @relation(fields: [comparisonId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  addedAt      DateTime   @default(now())
+
+  @@id([comparisonId, userId])
+  @@index([userId])
 }

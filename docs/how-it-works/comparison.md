@@ -1,6 +1,6 @@
 # How a Comparison works
 
-> **Status: designed, not built.** This describes the behaviour agreed with the product owner on 2026-11-16. It is the source for the user manual. The terms are defined in [`CONTEXT.md`](../../CONTEXT.md) under "Evaluation"; the one architectural decision is [ADR 0015](../adr/0015-not-selected-closes-a-system-and-can-be-reopened.md).
+> **Status: designed; the data model and API are built (#372), the pages are not.** This describes the behaviour agreed with the product owner on 2026-11-16. It is the source for the user manual. The terms are defined in [`CONTEXT.md`](../../CONTEXT.md) under "Evaluation"; the one architectural decision is [ADR 0015](../adr/0015-not-selected-closes-a-system-and-can-be-reopened.md).
 
 ## What it is for
 
