@@ -150,6 +150,28 @@ describe("OnboardingInterview started from a Comparison (#374)", () => {
     });
   });
 
+  it("keeps what was answered while the classification was being read, changing only the classification", async () => {
+    const real = globalThis.fetch as unknown as (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    vi.stubGlobal("fetch", (input: string | URL | Request, init?: RequestInit) => (String(input).endsWith("/classification") ? gate.then(() => real(input, init)) : real(input, init)));
+    const user = await open();
+    await user.click(screen.getByRole("button", { name: "Start from Alpha's classification" }));
+    // While the request is pending: name the System, and pick a Provider on the Relies-on step.
+    await user.click(screen.getByLabelText("System name"));
+    await user.paste("Typed meanwhile");
+    await user.click(screen.getByRole("button", { name: "Next" }));
+    await user.click(await screen.findByRole("checkbox", { name: "On-premises" }));
+    await user.click(screen.getByRole("button", { name: "Relies on" }));
+    await user.click(await screen.findByRole("checkbox", { name: "Landing Zone" }));
+    release();
+    expect(await screen.findByRole("status")).toHaveTextContent("Started from Alpha's classification");
+    await user.click(screen.getByRole("button", { name: "Review" }));
+    await user.click(screen.getByRole("button", { name: "Create System" }));
+    await waitFor(() => expect(push).toHaveBeenCalled());
+    expect(posted()).toMatchObject({ name: "Typed meanwhile", providerIds: ["p1"], sensitivityLevel: 4, deploymentFacetIds: ["f-saas"], frameworkScopeIds: ["gdpr"] });
+  });
+
   it("creates the System into the Comparison and returns to it", async () => {
     const user = await open();
     await nameAndCreate(user, "Newcomer", "On-premises");

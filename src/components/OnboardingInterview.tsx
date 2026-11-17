@@ -221,6 +221,9 @@ export function OnboardingInterview({
   const [startError, setStartError] = useState<string | null>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const stepMoved = useRef(false);
+  // The latest answers, for work that finishes after a request (a pre-fill must not undo what was changed meanwhile).
+  const answersRef = useRef(answers);
+  answersRef.current = answers;
 
   useEffect(() => {
     let cancelled = false;
@@ -400,9 +403,10 @@ export function OnboardingInterview({
         frameworkScopeIds: string[];
       };
       const scope = read.frameworkScopeIds.filter((id) => data.frameworks.some((f) => f.id === id && !f.isBase));
-      apply(
-        {
-          ...answers,
+      // Merged into the answers as they are now, not as they were when the request began: only the six classification fields change.
+      const latest = answersRef.current;
+      const merged: OnboardingAnswers = {
+          ...latest,
           deploymentFacetIds: read.deploymentFacetIds.filter((id) => data.deploymentFacets.some((facet) => facet.id === id)),
           informationTypeIds: read.informationTypeIds.filter((id) => data.informationTypes.some((type) => type.id === id)),
           sensitivityLevel: read.sensitivityLevel,
@@ -410,9 +414,9 @@ export function OnboardingInterview({
           availabilityImpactLevel: read.availabilityImpactLevel,
           frameworkScopeIds: scope,
           declinedFrameworkIds: [],
-        },
-        `Started from ${candidate.name}'s classification`,
-      );
+      };
+      setNote({ what: `Started from ${candidate.name}'s classification`, effect: compareEvaluations(evaluateOnboarding(data, latest), evaluateOnboarding(data, merged)) });
+      setAnswers(merged);
       setQuestionsAnswered((list) => [...new Set([...list, ...scope])]);
       setStartedFrom(candidate.name);
       setLastTypeAdded(null);
