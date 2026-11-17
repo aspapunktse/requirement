@@ -164,6 +164,7 @@ Comparison (#369, ADR 0015, no milestone): grilled with the product owner on 202
 5. #374 Adding Candidates from the list, the System page and the interview. **Done: PR #382.** One rule set (`planCandidates` in `src/lib/comparison.ts`) for the picker, the bulk add, a new Comparison with Candidates and a new System from the interview.
 6. #375 Record the outcome, freeze the figures, reopen. **Done: PR #383.** Closed = `outcomeRecordedAt` set; figures frozen as a zod-validated JSON snapshot; every write to a closed Comparison is refused with 409. The Record outcome dialog has a slot for #376's Not selected offer.
 7. #376 Not selected: close a Candidate System, Admin reopen. **Done: PR #384.** New `NOT_SELECTED` status (closed marker set, stage and Track kept); offered in the Record outcome dialog and from a closed Comparison; Admin reopen with a comment returns it to Draft and recomputes its applicable Controls.
+8. #385 Production-sized demo estate: `prisma/seed-production-like.ts` (`--dry-run`, `--production`) adds ~100 Systems with ids prefixed `seed385-`, replaces only its own rows and refuses when real data references them. **Done: PR (pending).** The dev DB's seeded state below does not include it; run it in an issue's own database when a check needs a full estate.
 
 ## Dev DB seeded state
 
