@@ -18,6 +18,12 @@
  *   Re-running deletes those rows (by id prefix, never by name) and creates them again, so the result is
  *   the same after every run. Rows it did not create are never modified or deleted. Existing catalogs
  *   (Deployment Facets, Business Units, Information Types, Frameworks, Controls, settings) are only read.
+ * - Replace is refused, before anything is written (and in --dry-run), when a row that is not the script's references
+ *   a demo row: another System depending on a demo Provider, a real Comparison or Internal Audit holding a demo System
+ *   (or a Check-up on one), a demo System reassigned to someone else, a demo User used by real data, and so on. It prints
+ *   what it found and exits 1. The remedy is to remove those references in the app first. Rows people added to a demo
+ *   System (Risks, Query messages, Change Events by a person) are not a reason to refuse; they are listed and go with it.
+ *   The delete is one transaction, and the check runs again inside it.
  * - A System name that already exists as a System this script did not create is skipped.
  * - Deterministic: a seeded generator, so the plan is identical on every run (only the dates move with the day).
  */
@@ -34,10 +40,14 @@ import {
   SEED,
   buildEstatePlan,
   describeDatabaseTarget,
+  formatReplaceCheck,
   isLocalDatabaseUrl,
+  nonEmpty,
   makeRng,
   type CatalogInput,
   type EstatePlan,
+  type Finding,
+  type ReplaceCheck,
   type PlannedSystem,
   type ProviderKind,
 } from "./seed-production-like-plan";
@@ -140,13 +150,21 @@ async function main() {
 
     // --- Summary (always) -----------------------------------------------------------------------------------------
     printSummary(plan, markerCounts, base.name);
+    const check = await checkReplace(prisma, plan, SYSTEM_ACTOR);
+    const text = formatReplaceCheck(check);
+    if (text) console.log(`\n${text}`);
+    if (check.blockers.length > 0) {
+      if (args.dryRun) console.log("\nDry run: nothing was written. A real run would refuse for the reasons above.");
+      process.exitCode = 1;
+      return;
+    }
     if (args.dryRun) {
       console.log("\nDry run: nothing was written.");
       return;
     }
 
     // --- Replace: delete what an earlier run created ------------------------------------------------------------
-    await deleteMarkerRows(prisma);
+    await deleteMarkerRows(prisma, plan, SYSTEM_ACTOR);
 
     // --- Shared rows -----------------------------------------------------------------------------------------------
     await prisma.$transaction(async (tx) => {
@@ -478,7 +496,7 @@ function offeredControls<C extends { id: string; code: string }>(kind: ProviderK
 // -------------------------------------------------------------------------------------------------------------------
 
 async function writeInternalAudit(
-  prisma: Awaited<typeof import("../src/lib/prisma")>["prisma"],
+  prisma: Db,
   plan: EstatePlan,
   applicableBySystem: Map<string, { id: string; code: string; mandatory: boolean }[]>,
   ago: (days: number) => Date,
@@ -515,25 +533,142 @@ async function writeInternalAudit(
 // Replace: remove what an earlier run created
 // -------------------------------------------------------------------------------------------------------------------
 
-async function deleteMarkerRows(prisma: Awaited<typeof import("../src/lib/prisma")>["prisma"]) {
-  const where = { id: { startsWith: MARKER } };
-  await prisma.comparison.deleteMany({ where });
-  await prisma.internalAudit.deleteMany({ where });
-  const ids = (await prisma.system.findMany({ where, select: { id: true } })).map((row) => row.id);
-  for (let i = 0; i < ids.length; i += 20) await prisma.system.deleteMany({ where: { id: { in: ids.slice(i, i + 20) } } });
-  // Catalog entries and Users it created, each only if nothing else came to use it since.
-  const attempt = async (label: string, run: () => Promise<unknown>) => {
-    try {
-      await run();
-    } catch (error) {
-      console.warn(`  Kept some ${label} from an earlier run (still in use): ${(error as Error).message.split("\n").pop()}`);
-    }
+type Db = Awaited<typeof import("../src/lib/prisma")>["prisma"];
+
+const M = { startsWith: MARKER };
+const NOT_M = { not: { startsWith: MARKER } };
+
+/**
+ * Read-only: what a replace would run into. Every relation of a demo System, User, Comparison or Internal Audit in the
+ * schema is looked at from the other side: a row that is not the script's and points at one is a blocker (deleting would
+ * cascade it away or fail on a Restrict), unless the delete only clears a nullable pointer (SetNull) that nobody could
+ * mind, and then it is listed as well, to be safe. `client` is the transaction in the delete, so the check and the delete
+ * see the same snapshot.
+ */
+async function checkReplace(client: Prisma.TransactionClient | Db, plan: EstatePlan, systemActor: string): Promise<ReplaceCheck> {
+  const db = client as Prisma.TransactionClient;
+  const blockers: Finding[] = [];
+  const willDelete: Finding[] = [];
+  const add = (list: Finding[], table: string, count: number, examples: string[] = []) => {
+    if (count > 0) list.push({ table, count, examples: [...new Set(examples)].slice(0, 3) });
   };
-  await attempt("Information Types", () => prisma.informationType.deleteMany({ where }));
-  await attempt("Business Units", () => prisma.businessUnit.deleteMany({ where }));
-  await attempt("Deployment Facets", () => prisma.deploymentFacet.deleteMany({ where }));
-  const users = await prisma.user.findMany({ where, select: { id: true } });
-  for (const user of users) await attempt(`User ${user.id}`, () => prisma.user.delete({ where: { id: user.id } }));
+  const sysName = (rows: { name: string }[]) => rows.map((row) => row.name);
+
+  const demoSystems = { id: M };
+  const otherSystems = { id: NOT_M };
+  const demoUsers = { id: M };
+  const otherUsers = { id: NOT_M };
+
+  // Providers and dependencies: only the script's own link (a demo System on a demo Provider) is expected.
+  const deps = await db.providerDependency.findMany({
+    where: { OR: [{ provider: demoSystems, dependent: otherSystems }, { dependent: demoSystems, provider: otherSystems }] },
+    select: { dependent: { select: { name: true } }, provider: { select: { name: true } } },
+  });
+  add(blockers, "Provider dependencies between a demo System and another System", deps.length, deps.map((d) => `${d.dependent.name} on ${d.provider.name}`));
+
+  // Comparisons.
+  const candidates = await db.comparisonCandidate.findMany({
+    where: { OR: [{ system: demoSystems, comparison: otherSystems }, { comparison: demoSystems, system: otherSystems }] },
+    select: { system: { select: { name: true } }, comparison: { select: { name: true } } },
+  });
+  add(blockers, "Comparison Candidates mixing a demo System/Comparison with another", candidates.length, candidates.map((c) => `${c.system.name} in ${c.comparison.name}`));
+  const participants = await db.comparisonParticipant.findMany({
+    where: { OR: [{ comparison: demoSystems, user: otherUsers }, { comparison: otherSystems, user: demoUsers }] },
+    select: { user: { select: { name: true } }, comparison: { select: { name: true } } },
+  });
+  add(blockers, "Comparison participants mixing a demo User/Comparison with another", participants.length, participants.map((p) => `${p.user.name} in ${p.comparison.name}`));
+  const comparisons = await db.comparison.findMany({
+    where: { OR: [{ id: NOT_M, ownerId: M }, { id: NOT_M, outcomeRecordedById: M }, { id: M, ownerId: NOT_M }] },
+    select: { name: true },
+  });
+  add(blockers, "Comparisons owned across the demo boundary", comparisons.length, sysName(comparisons));
+
+  // Internal Audits and Check-ups (a launched audit's Check-ups are Restrict).
+  const auditSystems = await db.internalAuditSystem.findMany({
+    where: { OR: [{ system: demoSystems, internalAudit: otherSystems }, { internalAudit: demoSystems, system: otherSystems }] },
+    select: { system: { select: { name: true } }, internalAudit: { select: { title: true } } },
+  });
+  add(blockers, "Internal Audit Systems mixing a demo System/Audit with another", auditSystems.length, auditSystems.map((r) => `${r.system.name} in ${r.internalAudit.title}`));
+  const checkUps = await db.checkUp.findMany({ where: { OR: [{ system: demoSystems }, { internalAudit: demoSystems }] }, select: { id: true } });
+  add(blockers, "Check-ups on a demo System or a demo Internal Audit", checkUps.length, checkUps.map((c) => c.id));
+  const audits = await db.internalAudit.findMany({
+    where: { OR: [{ id: NOT_M, createdBy: demoUsers }, { id: NOT_M, launchedBy: demoUsers }, { id: NOT_M, closedBy: demoUsers }, { id: M, status: { not: "DRAFT" } }, { id: M, createdById: NOT_M }] },
+    select: { title: true },
+  });
+  add(blockers, "Internal Audits created, launched or closed across the demo boundary, or a demo audit no longer a draft", audits.length, audits.map((a) => a.title));
+  const checkUpUsers =
+    (await db.checkUpResponse.count({ where: { OR: [{ respondedBy: demoUsers }, { lastChangedBy: demoUsers }] } })) +
+    (await db.checkUpEvaluation.count({ where: { evaluatedBy: demoUsers } })) +
+    (await db.checkUpWithdrawal.count({ where: { withdrawnBy: demoUsers } }));
+  add(blockers, "Check-up responses, evaluations or withdrawals by a demo User", checkUpUsers);
+
+  // Ownership: a demo System must still belong to who the script gave it to, and no other System to a demo User.
+  const expectedOwners = [...new Set(plan.users.map((user) => user.id))];
+  const reassigned = await db.system.findMany({
+    where: { id: M, OR: [{ ownerId: { notIn: expectedOwners }, owner: otherUsers }, { businessSystemOwner: otherUsers, businessSystemOwnerId: { notIn: expectedOwners } }] },
+    select: { name: true },
+  });
+  add(blockers, "Demo Systems handed to a User the script did not give them to", reassigned.length, sysName(reassigned));
+  const owned = await db.system.findMany({
+    where: { id: NOT_M, OR: [{ owner: demoUsers }, { businessSystemOwner: demoUsers }, { riskAnalysisLead: demoUsers }] },
+    select: { name: true },
+  });
+  add(blockers, "Other Systems owned (or led) by a demo User", owned.length, sysName(owned));
+
+  // Demo Users used by anything that is not a demo System's own record.
+  const onOtherSystem = { system: otherSystems };
+  const userRefs: [string, number][] = [
+    ["Approvals by a demo User on another System", await db.approval.count({ where: { approver: demoUsers, ...onOtherSystem } })],
+    ["Track verdicts by a demo User on another System", await db.trackVerdict.count({ where: { verdictBy: demoUsers, ...onOtherSystem } })],
+    ["Gate decisions by a demo User on another System", await db.gateDecision.count({ where: { decidedBy: demoUsers, ...onOtherSystem } })],
+    ["Recommendations by a demo User on another System", await db.recommendation.count({ where: { givenBy: demoUsers, ...onOtherSystem } })],
+    ["Change reviews decided by a demo User on another System", await db.changeReview.count({ where: { decidedBy: demoUsers, ...onOtherSystem } })],
+    ["Assessments assessed by a demo User on another System", await db.controlAssessment.count({ where: { assessedBy: demoUsers, ...onOtherSystem } })],
+    ["Query messages by a demo User on another System", await db.queryMessage.count({ where: { author: demoUsers, assessmentQuery: { controlAssessment: onOtherSystem } } })],
+    ["Queries resolved by a demo User on another System", await db.assessmentQuery.count({ where: { resolvedBy: demoUsers, controlAssessment: onOtherSystem } })],
+    ["Risks owned by a demo User outside the demo Systems", await db.risk.count({ where: { owner: demoUsers, OR: [{ systemId: null }, onOtherSystem] } })],
+    ["Frameworks, Controls or Requirements owned by a demo User", (await db.framework.count({ where: { owner: demoUsers } })) + (await db.control.count({ where: { owner: demoUsers } })) + (await db.requirement.count({ where: { gapAcceptedBy: demoUsers } }))],
+    ["Risk Analyses recorded or completed by a demo User on another System", await db.riskAnalysis.count({ where: { OR: [{ recordedBy: demoUsers }, { completedBy: demoUsers }], ...onOtherSystem } })],
+    ["System documents or files touched by a demo User", (await db.systemDocument.count({ where: { updatedBy: demoUsers, ...onOtherSystem } })) + (await db.systemDocumentFile.count({ where: { uploadedBy: demoUsers } }))],
+    ["Review Group memberships of a demo User", await db.reviewGroup.count({ where: { members: { some: demoUsers } } })],
+    ["Organization implementations updated by a demo User", await db.organizationControlImplementation.count({ where: { updatedBy: demoUsers } })],
+    ["Settings changed by a demo User", await db.appSetting.count({ where: { updatedBy: demoUsers } })],
+  ];
+  for (const [table, count] of userRefs) add(blockers, table, count);
+
+  // Demo catalog entries (only made for an empty catalog) that another System came to use.
+  const catalogUse = await db.system.count({ where: { id: NOT_M, OR: [{ businessUnits: { some: demoSystems } }, { deploymentFacets: { some: demoSystems } }, { informationTypes: { some: demoSystems } }] } });
+  add(blockers, "Other Systems using a Business Unit, Deployment Facet or Information Type the script created", catalogUse);
+
+  // Not a reason to refuse: what people added to a demo System goes with it.
+  // The script's own events are by the plan's Users or the SYSTEM actor, so count only those by anyone else.
+  const planUsers = plan.users.map((user) => user.id);
+  const strayEvents = await db.changeEvent.count({ where: { system: demoSystems, actorId: { notIn: [systemActor, ...planUsers] } } });
+  add(willDelete, "Change Events by a person other than the demo Users on a demo System", strayEvents);
+  add(willDelete, "Risks on a demo System that are not the script's", await db.risk.count({ where: { system: demoSystems, id: NOT_M } }));
+  add(willDelete, "Query messages on a demo System by a User other than the demo ones or the owners", await db.queryMessage.count({ where: { assessmentQuery: { controlAssessment: { system: demoSystems } }, authorId: { notIn: planUsers } } }));
+  add(willDelete, "Approvals on a demo System by a User other than the demo Reviewer", await db.approval.count({ where: { system: demoSystems, approverId: { not: plan.reviewerId } } }));
+  add(willDelete, "Documents, Recommendations, Change Reviews or Risk Analyses on a demo System", (await db.systemDocument.count({ where: { system: demoSystems } })) + (await db.recommendation.count({ where: { system: demoSystems } })) + (await db.changeReview.count({ where: { system: demoSystems } })) + (await db.riskAnalysis.count({ where: { system: demoSystems } })));
+  return { blockers: nonEmpty(blockers), willDelete: nonEmpty(willDelete) };
+}
+
+/** Replace: remove what an earlier run created, all or nothing, after checking again inside the transaction. */
+async function deleteMarkerRows(prisma: Db, plan: EstatePlan, systemActor: string) {
+  await prisma.$transaction(
+    async (tx) => {
+      const check = await checkReplace(tx, plan, systemActor);
+      if (check.blockers.length > 0) throw new Error(`Replace refused (changed since the check):\n${formatReplaceCheck({ ...check, willDelete: [] })}`);
+      const where = { id: M };
+      await tx.comparison.deleteMany({ where });
+      await tx.internalAudit.deleteMany({ where });
+      await tx.system.deleteMany({ where });
+      await tx.informationType.deleteMany({ where });
+      await tx.businessUnit.deleteMany({ where });
+      await tx.deploymentFacet.deleteMany({ where });
+      await tx.user.deleteMany({ where });
+    },
+    { timeout: 300_000, maxWait: 30_000 },
+  );
 }
 
 // -------------------------------------------------------------------------------------------------------------------

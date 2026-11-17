@@ -640,3 +640,39 @@ export function buildEstatePlan(input: CatalogInput): EstatePlan {
 }
 
 export const REJECTION_TEXT = { returned: REJECTION_COMMENTS, gate: REJECTION_AT_GATE };
+
+// ---------------------------------------------------------------------------------------------------------------
+// The replace pre-check: what the writer finds before it deletes (see seed-production-like.ts)
+// ---------------------------------------------------------------------------------------------------------------
+
+/** One kind of row the replace would touch: which table, how many, and a few names or ids to look for. */
+export type Finding = { table: string; count: number; examples: string[] };
+
+export type ReplaceCheck = {
+  /** Rows that do not belong to the script but reference what it would delete: the replace is refused. */
+  blockers: Finding[];
+  /** Rows people added to the demo Systems: deleted with them; listed so the operator sees it first. */
+  willDelete: Finding[];
+};
+
+export const hasMarker = (id: string | null | undefined): boolean => typeof id === "string" && id.startsWith(MARKER);
+
+/** Drops empty findings, so a caller can build the list without checking each count. */
+export const nonEmpty = (findings: Finding[]): Finding[] => findings.filter((finding) => finding.count > 0);
+
+const describeFinding = (finding: Finding) => `  - ${finding.table}: ${finding.count}${finding.examples.length > 0 ? ` (e.g. ${finding.examples.slice(0, 3).join("; ")})` : ""}`;
+
+/** The text printed for a check; empty when there is nothing to say. */
+export function formatReplaceCheck(check: ReplaceCheck): string {
+  const lines: string[] = [];
+  if (check.blockers.length > 0) {
+    lines.push("Cannot replace the demo estate: these rows are not the script's, and they reference demo rows the replace would delete or that block deleting them:");
+    lines.push(...check.blockers.map(describeFinding));
+    lines.push("Remove those references in the app first (or hand the Systems over), then run again. Nothing was changed.");
+  }
+  if (check.willDelete.length > 0) {
+    lines.push("Will be deleted with the demo Systems (added by people, or by someone other than the script):");
+    lines.push(...check.willDelete.map(describeFinding));
+  }
+  return lines.join("\n");
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MARKER, NAMES, STATUS_SHARES, allocateCounts, buildEstatePlan, describeDatabaseTarget, isLocalDatabaseUrl, type CatalogInput } from "../seed-production-like-plan";
+import { MARKER, NAMES, STATUS_SHARES, allocateCounts, buildEstatePlan, describeDatabaseTarget, formatReplaceCheck, isLocalDatabaseUrl, nonEmpty, type CatalogInput } from "../seed-production-like-plan";
 
 const catalogs = (overrides: Partial<CatalogInput> = {}): CatalogInput => ({
   facets: [
@@ -161,5 +161,29 @@ describe("buildEstatePlan", () => {
       expect(system.businessSystemOwnerId).not.toBeNull();
       expect(system.businessSystemOwnerId).not.toBe(system.ownerId);
     }
+  });
+});
+
+describe("formatReplaceCheck", () => {
+  it("is empty when there is nothing to report", () => {
+    expect(formatReplaceCheck({ blockers: [], willDelete: [] })).toBe("");
+    expect(nonEmpty([{ table: "x", count: 0, examples: [] }])).toEqual([]);
+  });
+
+  it("names every blocker with its count and examples and says nothing was changed", () => {
+    const text = formatReplaceCheck({
+      blockers: [{ table: "Provider dependencies", count: 2, examples: ["Test #385 System on Okta"] }],
+      willDelete: [{ table: "Risks", count: 3, examples: [] }],
+    });
+    expect(text).toContain("Provider dependencies: 2 (e.g. Test #385 System on Okta)");
+    expect(text).toContain("Nothing was changed");
+    expect(text).toContain("Will be deleted with the demo Systems");
+    expect(text).toContain("Risks: 3");
+  });
+
+  it("lists only what will be deleted when nothing blocks", () => {
+    const text = formatReplaceCheck({ blockers: [], willDelete: [{ table: "Risks", count: 1, examples: [] }] });
+    expect(text).not.toContain("Cannot replace");
+    expect(text).toContain("Risks: 1");
   });
 });
