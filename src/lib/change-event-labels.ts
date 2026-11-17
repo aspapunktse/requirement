@@ -47,6 +47,8 @@ export const CHANGE_EVENT_ACTION_LABEL: Record<ChangeEventAction, string> = {
   USER_CREATED: "created a User",
   USER_RENAMED: "changed a User's name or email",
   USER_ROLE_CHANGED: "changed a User's role",
+  COMPARISON_CANDIDATE_ADDED: "added a System to a Comparison as a Candidate",
+  COMPARISON_CANDIDATE_REMOVED: "removed a System from a Comparison",
 };
 
 export type ChangeEventTone = "ok" | "warn" | "danger" | "accent";
@@ -82,6 +84,8 @@ export const CHANGE_EVENT_ACTION_TONE: Record<ChangeEventAction, ChangeEventTone
   USER_CREATED: "ok",
   USER_RENAMED: "accent",
   USER_ROLE_CHANGED: "accent",
+  COMPARISON_CANDIDATE_ADDED: "accent",
+  COMPARISON_CANDIDATE_REMOVED: "accent",
   EVALUATION_STAGE_CHANGED: "accent",
   TRACK_VERDICT_GIVEN: "accent",
   TRACK_VERDICT_REOPENED: "warn",

@@ -4,7 +4,7 @@ import { getAssignedScope, scopedSystemsWhere } from "@/lib/business-risk-owner"
 import { isReadOnlySystemRole } from "@/lib/system-permissions";
 import { reviewGroupScopeWhere } from "@/lib/review-group-visibility";
 
-const FULL_VISIBILITY_ROLES: UserRole[] = ["ADMIN", "RISK_OWNER", "REVIEWER", "COMPLIANCE_MANAGER", "INTERNAL_AUDITOR", "RISK_FACILITATOR"];
+export const FULL_VISIBILITY_ROLES: UserRole[] = ["ADMIN", "RISK_OWNER", "REVIEWER", "COMPLIANCE_MANAGER", "INTERNAL_AUDITOR", "RISK_FACILITATOR"];
 
 /**
  * False for a role that may only read Systems (`READ_ONLY_SYSTEM_ROLES` in
