@@ -157,10 +157,10 @@ Before M2: #91, unify the owner rule and restrict System creation (PR #96). Foll
 **Before PRD 0001:** the original 16-issue backlog, ADR 0003 (#47–#53), #54–#59, #62, #64, #65, #68 and the extension-points catalog (#31–#45). Most of these had no PR; each issue's comments hold its resolved design and what was checked.
 
 Comparison (#369, ADR 0015, no milestone): grilled with the product owner on 2026-11-16; the design is in `CONTEXT.md` (Comparison, Candidate, Comparison Score, Not selected), [ADR 0015](docs/adr/0015-not-selected-closes-a-system-and-can-be-reopened.md) and [`docs/how-it-works/comparison.md`](docs/how-it-works/comparison.md), which is the source for the user manual and is updated with each issue.
-1. #370 Design proposals for the Comparison list and page (`public/design/comparison/proposal-a|b|c.html`). **Done: PR #379.** The product owner picks one before #373 starts; record the pick on #370.
+1. #370 Design proposals for the Comparison list and page (`public/design/comparison/proposal-a|b|c.html`). **Done: PR #379.** Picked 2026-11-17 (recorded on #370): B, with C's Framework separators, A's Mandatory filter and C's Open/Closed lanes on the list; Comparisons sit under Systems, not as a main nav item.
 2. #371 Comparison Score: the calculation and counts for one System (`loadComparisonScores` in `src/lib/comparison-score-data.ts`). **Done: PR #378.**
 3. #372 Data model and API (Candidates, participants, visibility; `src/lib/comparison.ts`, `api/comparisons`). **Done: PR #380.**
-4. #373 The list and the Comparison page. Blocked by #370 (and the pick), #371, #372.
+4. #373 The list and the Comparison page (`src/app/comparisons/`). **Done: PR #381.** `closed` is always false until #375; #374 and #375 both rework the Comparison page, so run them in sequence.
 5. #374 Adding Candidates from the list, the System page and the interview. Blocked by #372, #373.
 6. #375 Record the outcome, freeze the figures, reopen. Blocked by #372, #373.
 7. #376 Not selected: close a Candidate System, Admin reopen. Blocked by #375.

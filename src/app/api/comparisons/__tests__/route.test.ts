@@ -4,10 +4,12 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requestAs } from "@/test/provider-fixtures";
+import { createFixtureFramework, mapControlsToFramework } from "@/test/framework-fixtures";
 import { GET as listComparisons, POST as createComparison } from "../route";
 import { DELETE as deleteComparison, GET as getComparison, PATCH as patchComparison } from "../[id]/route";
 import { POST as addCandidate } from "../[id]/candidates/route";
 import { DELETE as removeCandidate } from "../[id]/candidates/[systemId]/route";
+import { GET as listPeople } from "../[id]/people/route";
 import { POST as addParticipant } from "../[id]/participants/route";
 import { DELETE as removeParticipant } from "../[id]/participants/[userId]/route";
 import { GET as getSystem } from "../../systems/[id]/route";
@@ -262,7 +264,7 @@ describe("Comparisons (#372)", { timeout: 60_000 }, () => {
         const { comparison } = JSON.parse(text);
         expect(comparison.candidates[0].openRisks).toEqual({ LOW: 0, MEDIUM: 0, HIGH: 1, CRITICAL: 1 });
         expect(Object.keys(comparison.candidates[0]).sort()).toEqual(
-          ["addedAt", "addedBy", "canOpen", "classification", "name", "openRisks", "owner", "score", "systemId", "vendor"].sort(),
+          ["addedAt", "addedBy", "canOpen", "classification", "name", "openRisks", "owner", "rejected", "score", "stage", "systemId", "vendor"].sort(),
         );
         expect(Object.keys(comparison.candidates[0].score).sort()).toEqual(
           ["answeredCount", "complete", "controls", "countedCount", "firstRoundCount", "fulfilledCount", "mandatoryNotFulfilledCount", "score"].sort(),
@@ -288,6 +290,90 @@ describe("Comparisons (#372)", { timeout: 60_000 }, () => {
       expect(asOwner).toMatchObject({ name: expect.stringContaining("Test 372 Comparison"), candidateCount: 1, participantCount: 1, canManage: true, owner: { id: users.owner } });
       const asParticipant = ((await (await list("participant")).json()).comparisons as Json[]).find((c) => c.id === id)!;
       expect(asParticipant.canManage).toBe(false);
+      expect(asOwner.closed).toBe(false);
+    });
+  });
+
+  describe("what the pages need (#373)", () => {
+    const facetIds: string[] = [];
+    const controlIds: string[] = [];
+    const ctl = {} as Record<"a1" | "a2" | "b1" | "both", string>;
+    let fwA = "";
+    let fwB = "";
+    let facet = "";
+
+    beforeAll(async () => {
+      facet = (await prisma.deploymentFacet.create({ data: { name: `Test 373 Facet ${suffix}` } })).id;
+      facetIds.push(facet);
+      fwA = (await createFixtureFramework(`373 Alpha`)).id;
+      fwB = (await createFixtureFramework(`373 Beta`)).id;
+      for (const key of ["a1", "a2", "b1", "both"] as const) {
+        const control = await prisma.control.create({
+          data: { code: `TEST-373-${suffix}-${key}`, title: `Test 373 ${key}`, description: "d", category: "Test", applicability: "PER_SYSTEM", mandatory: key === "a1", question: "Does it?", deploymentFacets: { connect: [{ id: facet }] } },
+        });
+        ctl[key] = control.id;
+        controlIds.push(control.id);
+      }
+      await mapControlsToFramework(fwA, [ctl.a1, ctl.a2, ctl.both]);
+      await mapControlsToFramework(fwB, [ctl.b1, ctl.both]);
+      for (const [frameworkId, controlId] of [[fwA, ctl.a1], [fwA, ctl.a2], [fwA, ctl.both], [fwB, ctl.b1], [fwB, ctl.both]] as const) {
+        await prisma.frameworkFirstRoundControl.create({ data: { frameworkId, controlId } });
+      }
+    });
+
+    afterAll(async () => {
+      await prisma.controlAssessment.deleteMany({ where: { controlId: { in: controlIds } } });
+      await prisma.control.deleteMany({ where: { id: { in: controlIds } } });
+      await prisma.deploymentFacet.deleteMany({ where: { id: { in: facetIds } } });
+    });
+
+    it("groups the first-round Controls of any Candidate by Framework, a Control under the first Framework that marks it, and gives each Candidate's stage", async () => {
+      const a = await makeSystem("owner", { deploymentFacets: { connect: [{ id: facet }] }, frameworkScopes: { connect: [{ id: fwA }] } });
+      const b = await makeSystem("owner", { deploymentFacets: { connect: [{ id: facet }] }, frameworkScopes: { connect: [{ id: fwA }, { id: fwB }] }, evaluationStage: "OG1" });
+      await prisma.controlAssessment.create({ data: { systemId: a, controlId: ctl.a1, status: "FULFILLED", assessedById: users.owner } });
+      const id = await makeComparison("owner", { candidates: [{ systemId: a }, { systemId: b }] });
+      const { comparison } = await (await read("owner", id)).json();
+      const groups = comparison.controlGroups as { framework: { name: string } | null; controls: { code: string; mandatory: boolean }[] }[];
+      // Alphabetical by Framework name after the base Framework, which holds none of these Controls.
+      expect(groups).toHaveLength(2);
+      expect(groups[0].framework?.name).toContain("373 Alpha");
+      expect(groups[1].framework?.name).toContain("373 Beta");
+      expect(groups[0].controls.map((control) => control.code)).toEqual([`TEST-373-${suffix}-a1`, `TEST-373-${suffix}-a2`, `TEST-373-${suffix}-both`]);
+      expect(groups[1].controls.map((control) => control.code)).toEqual([`TEST-373-${suffix}-b1`]);
+      expect(groups[0].controls[0].mandatory).toBe(true);
+      const candidateA = comparison.candidates.find((candidate: Json) => candidate.systemId === a);
+      const candidateB = comparison.candidates.find((candidate: Json) => candidate.systemId === b);
+      // System A has Framework A only, so it has no row for b1: the table reads "Does not apply" there.
+      expect(candidateA.score.controls.map((control: Json) => control.status)).toEqual(["FULFILLED", "NOT_STARTED", "NOT_STARTED"]);
+      expect(candidateB.score.controls).toHaveLength(4);
+      expect(candidateA.stage).toBe("FIRST_ROUND");
+      expect(candidateB.stage).toBe("OG1");
+      expect(candidateA.rejected).toBe(false);
+      // A System rejected at a gate keeps its stage but is reported as rejected.
+      await prisma.system.update({ where: { id: b }, data: { status: "REJECTED", evaluationClosedAt: new Date() } });
+      const after = (await (await read("owner", id)).json()).comparison.candidates.find((candidate: Json) => candidate.systemId === b);
+      expect(after.rejected).toBe(true);
+      expect(after.stage).toBe("OG1");
+      expect(comparison.closed).toBe(false);
+    });
+
+    it("gives no Control groups for a Comparison without Candidates or first-round Controls", async () => {
+      const id = await makeComparison("owner");
+      expect((await (await read("owner", id)).json()).comparison.controlGroups).toEqual([]);
+    });
+
+    it("lists the people the owner or an Admin can pick, and refuses everyone else without leaking", async () => {
+      const id = await makeComparison("owner", { participants: ["participant"] });
+      for (const key of ["owner", "admin"] as const) {
+        const response = await listPeople(requestAs(`/api/comparisons/${id}/people`, users[key], "GET"), ctx({ id }));
+        expect(response.status, key).toBe(200);
+        const { users: people } = await response.json();
+        expect(people.map((person: Json) => person.id)).toEqual(expect.arrayContaining([users.owner, users.admin, users.participant]));
+        expect(people.map((person: Json) => person.id)).not.toContain(users.viewer);
+      }
+      expect((await listPeople(requestAs(`/api/comparisons/${id}/people`, users.participant, "GET"), ctx({ id }))).status).toBe(403);
+      expect((await listPeople(requestAs(`/api/comparisons/${id}/people`, users.stranger, "GET"), ctx({ id }))).status).toBe(404);
+      expect((await listPeople(requestAs(`/api/comparisons/${id}/people`, null, "GET"), ctx({ id }))).status).toBe(401);
     });
   });
 

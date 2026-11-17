@@ -1,6 +1,6 @@
 # How a Comparison works
 
-> **Status: designed; the data model and API are built (#372), the pages are not.** This describes the behaviour agreed with the product owner on 2026-11-16. It is the source for the user manual. The terms are defined in [`CONTEXT.md`](../../CONTEXT.md) under "Evaluation"; the one architectural decision is [ADR 0015](../adr/0015-not-selected-closes-a-system-and-can-be-reopened.md).
+> **Status: designed; the data model, the API (#372) and the list and Comparison pages (#373) are built; adding Candidates and recording the outcome are not.** This describes the behaviour agreed with the product owner on 2026-11-16. It is the source for the user manual. The terms are defined in [`CONTEXT.md`](../../CONTEXT.md) under "Evaluation"; the one architectural decision is [ADR 0015](../adr/0015-not-selected-closes-a-system-and-can-be-reopened.md).
 
 ## What it is for
 
@@ -18,7 +18,7 @@ Each product is a **Candidate**. A Candidate is an ordinary System in the app. Y
 
 ### 1. Create the Comparison
 
-Open **Comparisons** and choose **New Comparison**. Give it a name ("New HR system 2027") and describe the need it answers. You become its owner.
+Open **Systems**, then **Comparisons** (a link on the Systems page, and under "Go to" in the Ctrl+K palette), and choose **New Comparison**. Give it a name ("New HR system 2027") and describe the need it answers. You become its owner.
 
 ### 2. Add Candidates
 
@@ -48,7 +48,7 @@ For each Candidate the Comparison shows:
 
 Candidates are listed with complete ones first, highest score first, and incomplete ones after, also by score.
 
-Below the summary, a **Control-by-Control table** has one row per first-round Control and one column per Candidate, showing each Candidate's status for that Control. A Control that does not apply to a Candidate reads **Does not apply**.
+Below the summary, a **Control-by-Control table** has one row per first-round Control and one column per Candidate, showing each Candidate's status for that Control. A Control that does not apply to a Candidate reads **Does not apply**. Rows are grouped under a separator naming each Framework and its count of Controls. One filter with three options narrows the table: **Where they differ** (the default, the Controls where the Candidates' statuses are not all the same), **Mandatory**, and **All**, each with its count. The list of Comparisons has an **Open** and a **Closed** section.
 
 **When Candidates differ.** A SaaS Candidate and an on-premises one get different Controls, so their scores rest on different sets. The Comparison allows this, because different deployment models are often the real choice. It shows a notice naming what differs (Deployment Facets, Sensitivity Level, Impact Levels or Framework Scope), and the Control-by-Control table shows where.
 

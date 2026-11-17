@@ -132,6 +132,8 @@ describe("AppHeader: main navigation", () => {
     ["/home", "Home"],
     ["/systems", "Systems"],
     ["/systems/abc", "Systems"],
+    ["/comparisons", "Systems"],
+    ["/comparisons/abc", "Systems"],
     ["/information-types", "Information Types"],
     ["/controls", "Controls"],
     ["/risks", "Risks"],
@@ -361,6 +363,7 @@ describe("AppHeader: Ctrl+K palette", () => {
     expect(options.map((o) => o.querySelector("span")?.textContent)).toEqual([
       "Home",
       "Systems",
+      "Comparisons",
       "Information Types",
       "Document Requirements",
       "Controls",
@@ -400,7 +403,7 @@ describe("AppHeader: Ctrl+K palette", () => {
     const dialog = screen.getByRole("dialog");
     const options = within(dialog).getAllByRole("option");
     expect(options[0]).toHaveTextContent("Review the cloud policy");
-    expect(options).toHaveLength(15);
+    expect(options).toHaveLength(16);
     expect(within(dialog).getByRole("combobox")).toHaveAttribute("placeholder", "Jump to a task…");
     const groups = within(dialog)
       .getAllByText(/^(Tasks|Go to|Theme)$/)
@@ -474,7 +477,23 @@ describe("AppHeader: Ctrl+K palette", () => {
     const labels = within(screen.getByRole("dialog"))
       .getAllByRole("option")
       .map((o) => o.querySelector("span")?.textContent);
-    expect(labels.filter((label) => !label?.startsWith("Theme: "))).toEqual(["Home", "Information Types", "Document Requirements", "Controls", "Risks", "Check-ups", "Statement of Applicability", "Frameworks"]);
+    expect(labels.filter((label) => !label?.startsWith("Theme: "))).toEqual(["Home", "Comparisons", "Information Types", "Document Requirements", "Controls", "Risks", "Check-ups", "Statement of Applicability", "Frameworks"]);
+  });
+
+  it("lists Comparisons under Systems in Go to, with Systems as its meta, and leaves it out on its own pages", async () => {
+    pathname = "/organization/controls";
+    const { unmount } = render(withHeader(null, asRole("VIEWER")));
+    await userEvent.keyboard("{Control>}k{/Control}");
+    const option = within(screen.getByRole("dialog")).getByRole("option", { name: /Comparisons/ });
+    expect(option).toHaveTextContent("Systems");
+    unmount();
+    pathname = "/comparisons/abc";
+    render(withHeader(null, asRole("VIEWER")));
+    await userEvent.keyboard("{Control>}k{/Control}");
+    const labels = within(screen.getByRole("dialog")).getAllByRole("option").map((o) => o.querySelector("span")?.textContent);
+    expect(labels).not.toContain("Comparisons");
+    // Systems is the current page there, so it is left out too.
+    expect(labels).not.toContain("Systems");
   });
 
   it("lists the Admin pages under Go to for an Admin only", async () => {

@@ -81,8 +81,7 @@
   const NAV = [
     { key: 'home', label: 'Home', icon: 'home', href: '/design/home/proposal-a.html' },
     { key: 'systems', label: 'Systems', icon: 'system', href: '/design/systems/proposal-a.html' },
-    // Comparisons sets two to five Candidate Systems side by side to choose one (#370), so it sits beside Systems.
-    { key: 'comparisons', label: 'Comparisons', icon: 'columns', href: '/design/comparison/proposal-a.html' },
+    // Comparisons sits under Systems, not as an item of its own (product owner, #370): its proposals mount with current: 'systems'.
     // Everyone reads the catalogue and uses "Where can I put this information?", so it sits in the main navigation beside Systems (#302).
     { key: 'information-types', label: 'Information Types', icon: 'infotype', href: '/design/information-types/proposal-a.html' },
     { key: 'controls', label: 'Controls', icon: 'control', href: '/design/controls/proposal-a.html' },

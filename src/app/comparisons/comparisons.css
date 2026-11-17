@@ -1,0 +1,129 @@
+/* The Comparison pages (#373): the list and one Comparison, design proposal B "Shortlist and differences" with the Framework
+   separators of C, the Mandatory filter of A and the Open and Closed lanes of C. It builds on the Home look
+   (`src/app/home/home.css`: hero, cards, tabs, search, lane headers, buttons) and the Systems list (`systems.css`). Register
+   tokens only (--rg-*), so every Theme and both modes work. The root carries `hc cmp` and NOT `sy`: the Systems register's `.sy table` and phone rules (blocks every row, hides the header, 980px minimum width) would reach these tables. Nothing here makes the page wider than
+   the screen: the Control-by-Control table and the list's tables scroll inside their own container. */
+
+.cmp .hc-hero .actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 16px; }
+.cmp .num { font-variant-numeric: tabular-nums; }
+.cmp .muted { color: var(--rg-muted); }
+.cmp .hc-card.sy-reg { overflow: visible; }
+.cmp .hc-btn.danger { color: var(--rg-danger); }
+.cmp .hc-btn:disabled { opacity: 0.45; cursor: default; }
+.cmp-hint { font-size: 0.82rem; color: var(--rg-muted); max-width: 46ch; }
+.cmp-crumb { font-size: 0.82rem; color: var(--rg-muted); }
+.cmp-crumb a { color: var(--rg-accent); font-weight: 600; text-decoration: none; }
+.cmp-crumb a:hover { text-decoration: underline; }
+.cmp .hc-who { flex-wrap: wrap; }
+.cmp h1 { overflow-wrap: anywhere; }
+.cmp .hc-lede { overflow-wrap: anywhere; white-space: pre-line; }
+
+.cmp-state { display: inline-flex; align-items: center; gap: 6px; font-size: 0.74rem; font-weight: 700; border-radius: 99px; padding: 1px 10px; }
+.cmp-state::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.cmp-state.open { color: var(--rg-success); background: var(--rg-success-soft); }
+.cmp-state.closed { color: var(--rg-waived); background: color-mix(in srgb, var(--rg-waived) 14%, var(--rg-surface)); }
+
+.cmp-meta { display: flex; flex-wrap: wrap; gap: 6px 26px; margin: 12px 0 0; font-size: 0.86rem; }
+.cmp-meta dt { color: var(--rg-muted); font-size: 0.74rem; font-weight: 650; text-transform: uppercase; letter-spacing: 0.05em; }
+.cmp-meta dd { margin: 0; overflow-wrap: anywhere; }
+
+.cmp-note { padding: 12px 16px; border-radius: 14px; border: 1px solid var(--rg-line); border-left: 4px solid var(--rg-accent); background: var(--rg-surface); font-size: 0.86rem; overflow-wrap: anywhere; }
+.cmp-note.warn { border-left-color: var(--rg-gold); background: var(--rg-gold-soft); color: var(--rg-gold-ink); }
+
+/* The list: one table per lane, scrolling inside its own container */
+.cmp .hc-lane-h { font-family: inherit; }
+.cmp-tablewrap { overflow-x: auto; max-width: 100%; }
+.cmp-reg { width: 100%; border-collapse: collapse; min-width: 560px; }
+.cmp-reg th, .cmp-reg td { padding: 11px 14px; text-align: left; border-bottom: 1px solid var(--hc-line-soft); vertical-align: top; font-size: 0.86rem; }
+.cmp-reg thead th { font-size: 0.72rem; font-weight: 750; letter-spacing: 0.05em; text-transform: uppercase; color: var(--rg-muted); background: var(--hc-raised); }
+.cmp-reg td.nm { min-width: 220px; }
+.cmp-reg td.nm a { font-weight: 700; color: var(--rg-ink); text-decoration: none; overflow-wrap: anywhere; }
+.cmp-reg td.nm a:hover { color: var(--rg-accent); text-decoration: underline; }
+.cmp-reg .need { color: var(--rg-muted); font-size: 0.8rem; margin-top: 2px; max-width: 58ch; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.cmp-reg tbody tr:hover td { background: var(--hc-raised); }
+.cmp-lane-empty { padding: 16px 18px; color: var(--rg-muted); font-size: 0.86rem; border-top: 1px solid var(--hc-line-soft); }
+
+/* The shortlist: one row per Candidate */
+.cmp-sl { list-style: none; margin: 12px 0 0; padding: 0; }
+.cmp-row { display: grid; grid-template-columns: 28px minmax(0, 1.4fr) minmax(130px, 0.8fr) minmax(0, 1.4fr) auto; grid-template-areas: "rank main score facts act" ". cls cls cls cls"; gap: 8px 16px; align-items: start; padding: 14px 18px; border-top: 1px solid var(--hc-line-soft); }
+.cmp-row .rank { grid-area: rank; width: 24px; height: 24px; border-radius: 8px; display: grid; place-items: center; font-weight: 800; font-size: 0.78rem; background: var(--hc-raised); color: var(--rg-muted); }
+.cmp-row .main { grid-area: main; display: grid; gap: 2px; min-width: 0; }
+.cmp-row .main small { color: var(--rg-muted); font-size: 0.78rem; overflow-wrap: anywhere; }
+.cmp-row .top { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.cmp-row .cname { font-weight: 700; color: var(--rg-ink); text-decoration: none; overflow-wrap: anywhere; }
+.cmp-row a.cname { color: var(--rg-accent); }
+.cmp-row a.cname:hover { text-decoration: underline; }
+.cmp-row .cname.plain { cursor: default; }
+.cmp .lim { font-size: 0.66rem; font-weight: 750; letter-spacing: 0.05em; text-transform: uppercase; color: var(--rg-muted); border: 1px solid var(--rg-line); border-radius: 4px; padding: 0 5px; white-space: nowrap; }
+.cmp-row .score-box { grid-area: score; display: grid; gap: 4px; min-width: 0; }
+.cmp-row .score { font-size: 1.5rem; line-height: 1; font-weight: 780; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.cmp-row .score.none { color: var(--rg-muted); }
+.cmp-row .score-box small { color: var(--rg-muted); font-size: 0.74rem; }
+.cmp-row .bar { height: 6px; border-radius: 3px; background: var(--hc-line-soft); overflow: hidden; }
+.cmp-row .bar div { height: 100%; background: var(--rg-success); border-radius: 3px; }
+.cmp-row .facts { grid-area: facts; display: grid; gap: 4px; justify-items: start; min-width: 0; }
+.cmp-flag { font-size: 0.78rem; font-weight: 650; color: var(--rg-muted); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.cmp-flag.warn { color: var(--rg-gold-ink); background: var(--rg-gold-soft); border-radius: 6px; padding: 0 7px; }
+.cmp-flag.bad { color: var(--rg-danger); }
+.cmp-reason { font-size: 0.78rem; color: var(--rg-muted); overflow-wrap: anywhere; }
+.cmp-risks { display: inline-flex; flex-wrap: wrap; gap: 2px 10px; font-size: 0.78rem; color: var(--rg-muted); }
+.cmp-risks .muted { color: var(--rg-muted); }
+.cmp-risks b { font-variant-numeric: tabular-nums; }
+.cmp-risks .r-CRITICAL b { color: var(--rg-danger); }
+.cmp-risks .r-HIGH b { color: var(--rg-gold-ink); }
+.cmp-row .cls { grid-area: cls; display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; min-width: 0; }
+.cmp-row .cls small { color: var(--rg-muted); font-size: 0.76rem; overflow-wrap: anywhere; }
+.cmp-tag { font-size: 0.72rem; font-weight: 650; color: var(--rg-muted); border: 1px solid var(--rg-line); border-radius: 6px; padding: 0 7px; overflow-wrap: anywhere; }
+.cmp-row .act { grid-area: act; display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+/* A Candidate rejected at a gate stays in the order, dimmed */
+.cmp-row.rejected { opacity: 0.8; }
+.cmp-rejected { font-weight: 750; color: var(--rg-danger); }
+@media (max-width: 900px) {
+  .cmp-row { grid-template-columns: 28px minmax(0, 1fr) auto; grid-template-areas: "rank main act" ". score score" ". facts facts" ". cls cls"; }
+}
+
+/* Control by Control: the table scrolls inside its card; the Control column and the header stay put */
+.cmp-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; padding: 10px 18px; font-size: 0.76rem; color: var(--rg-muted); }
+.cmp-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.cmp-mx-wrap { overflow: auto; max-width: 100%; max-height: 70vh; border-top: 1px solid var(--hc-line-soft); }
+.cmp-mx { border-collapse: separate; border-spacing: 0; width: 100%; min-width: 0; }
+.cmp-mx th, .cmp-mx td { padding: 8px 10px; border-bottom: 1px solid var(--hc-line-soft); text-align: left; vertical-align: middle; font-size: 0.84rem; background: var(--rg-surface); }
+.cmp-mx thead th { position: sticky; top: 0; z-index: 3; background: var(--hc-raised); font-size: 0.78rem; font-weight: 700; vertical-align: bottom; overflow-wrap: anywhere; }
+.cmp-mx th.ctl { position: sticky; left: 0; z-index: 2; min-width: 170px; max-width: 240px; font-weight: 600; box-shadow: 1px 0 0 var(--hc-line-soft); overflow-wrap: anywhere; }
+.cmp-mx thead th.ctl { z-index: 4; }
+.cmp-mx td.cell, .cmp-mx th.cand { min-width: 128px; }
+.cmp-mx tbody tr:not(.grp):hover th, .cmp-mx tbody tr:not(.grp):hover td { background: var(--hc-raised); }
+.cmp-mx .code { display: block; font-family: var(--rg-font-mono); font-size: 0.7rem; color: var(--rg-muted); font-weight: 600; }
+.cmp-mx .mand { font-size: 0.66rem; font-weight: 750; text-transform: uppercase; letter-spacing: 0.05em; color: var(--rg-gold-ink); background: var(--rg-gold-soft); border-radius: 4px; padding: 0 5px; margin-left: 4px; white-space: nowrap; }
+.cmp-mx tr.diff td.cell { box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--rg-gold) 45%, transparent); }
+/* A Framework's separator row: its name and how many Controls sit under it */
+.cmp-mx tr.grp th { background: var(--hc-raised); font-size: 0.74rem; font-weight: 750; letter-spacing: 0.05em; text-transform: uppercase; color: var(--rg-muted); padding: 7px 10px; }
+.cmp-mx .grp-in { display: inline-flex; align-items: baseline; gap: 10px; position: sticky; left: 10px; }
+.cmp-mx .grp-in small { text-transform: none; letter-spacing: 0; font-weight: 600; }
+
+/* A status: a glyph and a word; on a phone the word hides visually (it stays for screen readers) */
+.cmp-st { display: inline-flex; align-items: center; gap: 6px; font-size: 0.8rem; font-weight: 650; white-space: nowrap; border-radius: 99px; padding: 1px 9px 1px 3px; border: 1px solid transparent; }
+.cmp .g { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; font-size: 0.72rem; font-weight: 800; line-height: 1; flex: none; font-style: normal; }
+.st-FULFILLED { color: var(--rg-success); background: var(--rg-success-soft); }
+.g.st-FULFILLED, .st-FULFILLED .g { background: var(--rg-success); color: var(--rg-surface); }
+.st-IN_PROGRESS { color: var(--rg-gold-ink); background: var(--rg-gold-soft); }
+.g.st-IN_PROGRESS, .st-IN_PROGRESS .g { background: var(--rg-gold); color: var(--rg-gold-ink); }
+.st-NOT_STARTED { color: var(--rg-muted); background: var(--hc-raised); border-color: var(--rg-line); }
+.g.st-NOT_STARTED, .st-NOT_STARTED .g { border: 1.5px solid var(--rg-muted); color: var(--rg-muted); }
+.st-WAIVED { color: var(--rg-waived); background: color-mix(in srgb, var(--rg-waived) 14%, var(--rg-surface)); }
+.g.st-WAIVED, .st-WAIVED .g { background: var(--rg-waived); color: var(--rg-surface); }
+.st-NOT_APPLICABLE { color: var(--rg-muted); background: var(--hc-raised); border-color: var(--hc-line-soft); }
+.g.st-NOT_APPLICABLE, .st-NOT_APPLICABLE .g { color: var(--rg-muted); }
+.st-X { color: var(--rg-muted); background: transparent; border: 1px dashed var(--rg-line); }
+.g.st-X, .st-X .g { color: var(--rg-muted); }
+.cmp-legend .g { width: 16px; height: 16px; font-size: 0.66rem; }
+.cmp-legend .g.st-NOT_STARTED, .cmp-legend .g.st-NOT_APPLICABLE, .cmp-legend .g.st-X { background: var(--hc-raised); }
+@media (max-width: 720px) {
+  .cmp-st { padding: 0; border-color: transparent; background: none; gap: 0; }
+  .cmp-st .l { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .cmp-st .g { width: 24px; height: 24px; font-size: 0.8rem; }
+  .cmp-mx td.cell, .cmp-mx th.cand { min-width: 0; padding-inline: 6px; text-align: center; }
+  .cmp-mx th.ctl { min-width: 120px; max-width: 150px; font-size: 0.78rem; padding-inline: 8px; }
+  .cmp-mx thead th.cand { font-size: 0.7rem; }
+  .cmp-row { padding-inline: 14px; gap: 8px 10px; }
+}

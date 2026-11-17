@@ -41,7 +41,8 @@ const everyone = () => true;
 /** In order, as in the design's header (`public/design/shared/appbar.js`), then the two role-only items. */
 export const NAV_ITEMS: NavItem[] = [
   { key: "home", label: "Home", icon: "home", href: "/home", prefixes: ["/home"], allows: everyone },
-  { key: "systems", label: "Systems", icon: "system", href: "/systems", prefixes: ["/systems"], allows: everyone },
+  // Comparisons (#373) sit under Systems, not as an item of their own: their pages mark Systems as current.
+  { key: "systems", label: "Systems", icon: "system", href: "/systems", prefixes: ["/systems", "/comparisons"], allows: everyone },
   // Everyone reads the catalogue, so it sits beside Systems for every role (#302, #303).
   { key: "information-types", label: "Information Types", icon: "infotype", href: "/information-types", prefixes: ["/information-types"], allows: everyone },
   // The Document Requirement catalogue (#323) sits beside the Information Types one: everyone reads it.
@@ -94,6 +95,9 @@ export function currentNavKey(pathname: string, role: UserRole | null | undefine
 /** The group name of the navigation pages in the Ctrl+K palette. */
 export const GO_TO_GROUP = "Go to";
 
+/** Pages that sit under a main item (named by `parent`): listed in the palette, but with no item of their own in the header. */
+const SUB_PAGES: { parent: NavKey; label: string; href: string; icon: HomeIconKey }[] = [{ parent: "systems", label: "Comparisons", href: "/comparisons", icon: "layers" }];
+
 export type NavPaletteItem = { group: string; icon: HomeIconKey; label: string; meta: string; href: string };
 
 /** The "Go to" entries for the palette: the role's navigation pages and, for an Admin, the Admin pages, leaving out the page the user is on. */
@@ -102,8 +106,13 @@ export function goToPaletteItems(role: UserRole | null | undefined, pathname = "
   const currentKey = currentNavKey(pathname, role);
   const on = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
   for (const item of navItemsFor(role)) {
-    if (item.key === currentKey && item.href) continue;
-    if (item.href) items.push({ group: GO_TO_GROUP, icon: item.icon, label: item.title ?? item.label, meta: item.title ? item.label : "", href: item.href });
+    if (item.href) {
+      if (item.key !== currentKey) items.push({ group: GO_TO_GROUP, icon: item.icon, label: item.title ?? item.label, meta: item.title ? item.label : "", href: item.href });
+      // A sub-page follows its parent, except on its own pages.
+      for (const page of SUB_PAGES) {
+        if (page.parent === item.key && !on(page.href)) items.push({ group: GO_TO_GROUP, icon: page.icon, label: page.label, meta: item.label, href: page.href });
+      }
+    }
     else if (item.key === "admin") {
       for (const page of ADMIN_PAGES) if (!on(page.href)) items.push({ group: GO_TO_GROUP, icon: item.icon, label: page.label, meta: "Admin", href: page.href });
     }

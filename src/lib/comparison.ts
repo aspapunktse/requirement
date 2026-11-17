@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { logChangeEvent } from "@/lib/change-events";
 import { classificationDifferences, orderCandidates } from "@/lib/comparison-score";
 import { loadComparisonScores } from "@/lib/comparison-score-data";
+import { readLiveMarkingsByFramework } from "@/lib/first-round";
+import { listOwnerCandidates } from "@/lib/system-owner";
 import { FULL_VISIBILITY_ROLES, visibleSystemsWhere } from "@/lib/system-visibility";
 import { canBeSystemOwner, isSystemOwnerOrAdmin, NEW_OWNER_REFUSAL } from "@/lib/system-permissions";
 
@@ -108,6 +110,11 @@ export type ComparisonListItem = {
   owner: { id: string; name: string };
   candidateCount: number;
   participantCount: number;
+  /**
+   * Closed by a recorded outcome. A Comparison has no outcome yet (that is a later issue, #375), so this is always false; the
+   * pages already show an Open and a Closed section.
+   */
+  closed: boolean;
   canManage: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -140,6 +147,7 @@ export async function listComparisons(actor: Actor): Promise<ComparisonListItem[
     owner: row.owner,
     candidateCount: row._count.candidates,
     participantCount: row._count.participants,
+    closed: false,
     canManage: canManage(actor, row),
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -158,6 +166,10 @@ export type CandidateSummary = {
   owner: { id: string; name: string };
   /** Whether the reader can open the System (`visibleSystemsWhere`). Being in the Comparison doesn't change that. */
   canOpen: boolean;
+  /** The System's current evaluation stage (`EvaluationStage`); null when it is no longer staged. */
+  stage: string | null;
+  /** True when the System was rejected at a gate while in the Comparison (status REJECTED); its stage then no longer says where it is. */
+  rejected: boolean;
   addedAt: Date;
   addedBy: { id: string; name: string } | null;
   classification: {
@@ -180,6 +192,9 @@ export type CandidateSummary = {
   openRisks: { LOW: number; MEDIUM: number; HIGH: number; CRITICAL: number };
 };
 
+const byControlCode = (a: { code: string; controlId: string }, b: { code: string; controlId: string }) =>
+  a.code.localeCompare(b.code, "en", { numeric: true }) || (a.controlId < b.controlId ? -1 : 1);
+
 export type ComparisonView = {
   id: string;
   name: string;
@@ -190,6 +205,14 @@ export type ComparisonView = {
   candidates: CandidateSummary[];
   /** Which parts of the classification differ between the Candidates (`classificationDifferences`). */
   classificationDifferences: string[];
+  /**
+   * The first-round Controls of any Candidate for the Control-by-Control table, grouped by Framework: a Control sits under the
+   * first Framework (the base Framework first, then by name) in a Candidate's scope whose owner marked it first round.
+   * Groups follow that order; a Control with no live marking (not expected) is listed under a group with `framework: null`.
+   * Controls within a group are in code order. Each Candidate's `score.controls` holds its own status per Control.
+   */
+  controlGroups: { framework: { id: string; name: string } | null; controls: { controlId: string; code: string; title: string; mandatory: boolean }[] }[];
+  closed: boolean;
   canManage: boolean;
   /** The reader may add some System as a Candidate (the owner, an Admin, a participant), while there is room. */
   canAddCandidate: boolean;
@@ -220,7 +243,7 @@ export async function readComparison(actor: Actor, id: string): Promise<Comparis
               systemId: true,
               addedAt: true,
               addedBy: { select: { id: true, name: true } },
-              system: { select: { vendor: true, owner: { select: { id: true, name: true } } } },
+              system: { select: { vendor: true, evaluationStage: true, status: true, owner: { select: { id: true, name: true } } } },
             },
             orderBy: [{ addedAt: "asc" }, { systemId: "asc" }],
           },
@@ -243,7 +266,7 @@ export async function readComparison(actor: Actor, id: string): Promise<Comparis
         figure.classification.frameworkScopeIds.forEach((frameworkId) => frameworkIds.add(frameworkId));
       }
       const facets = facetIds.size === 0 ? [] : await tx.deploymentFacet.findMany({ where: { id: { in: [...facetIds] } }, select: { id: true, name: true } });
-      const frameworks = frameworkIds.size === 0 ? [] : await tx.framework.findMany({ where: { id: { in: [...frameworkIds] } }, select: { id: true, name: true } });
+      const frameworks = frameworkIds.size === 0 ? [] : await tx.framework.findMany({ where: { id: { in: [...frameworkIds] } }, select: { id: true, name: true, isBase: true } });
       const facetName = new Map(facets.map((facet) => [facet.id, facet.name]));
       const frameworkName = new Map(frameworks.map((framework) => [framework.id, framework.name]));
       const named = (ids: readonly string[], names: Map<string, string>) =>
@@ -259,6 +282,8 @@ export async function readComparison(actor: Actor, id: string): Promise<Comparis
           vendor: candidate.system.vendor,
           owner: candidate.system.owner,
           canOpen: openableIds.has(candidate.systemId),
+          stage: candidate.system.evaluationStage,
+          rejected: candidate.system.status === "REJECTED",
           addedAt: candidate.addedAt,
           addedBy: candidate.addedBy,
           classification: {
@@ -291,6 +316,26 @@ export async function readComparison(actor: Actor, id: string): Promise<Comparis
         summaries.map((summary) => ({ ...summary, ...summary.score })),
       ).map((entry) => summaries.find((summary) => summary.systemId === entry.systemId)!);
 
+      // The Control-by-Control table's rows, grouped by the Framework whose owner marked each Control first round.
+      const controlsById = new Map<string, { controlId: string; code: string; title: string; mandatory: boolean }>();
+      for (const summary of summaries) {
+        for (const control of summary.score.controls) {
+          controlsById.set(control.controlId, { controlId: control.controlId, code: control.code, title: control.title, mandatory: control.mandatory });
+        }
+      }
+      const markings = controlsById.size === 0 || frameworkIds.size === 0 ? new Map<string, Set<string>>() : await readLiveMarkingsByFramework(tx, [...frameworkIds], [...controlsById.keys()]);
+      const orderedFrameworks = [...frameworks].sort((a, b) => Number(b.isBase) - Number(a.isBase) || a.name.localeCompare(b.name, "en", { numeric: true }) || (a.id < b.id ? -1 : 1));
+      const grouped = new Set<string>();
+      const controlGroups: ComparisonView["controlGroups"] = [];
+      for (const framework of orderedFrameworks) {
+        const marked = markings.get(framework.id);
+        const entries = [...controlsById.values()].filter((control) => marked?.has(control.controlId) && !grouped.has(control.controlId));
+        entries.forEach((control) => grouped.add(control.controlId));
+        if (entries.length > 0) controlGroups.push({ framework: { id: framework.id, name: framework.name }, controls: entries.sort(byControlCode) });
+      }
+      const ungrouped = [...controlsById.values()].filter((control) => !grouped.has(control.controlId));
+      if (ungrouped.length > 0) controlGroups.push({ framework: null, controls: ungrouped.sort(byControlCode) });
+
       const manager = canManage(actor, comparison);
       const participant = comparison.participants.some((entry) => entry.user.id === actor.id);
       return {
@@ -306,6 +351,8 @@ export async function readComparison(actor: Actor, id: string): Promise<Comparis
             return figure.classification;
           }),
         ),
+        controlGroups,
+        closed: false,
         canManage: manager,
         canAddCandidate: (manager || participant) && ordered.length < MAX_CANDIDATES,
         createdAt: comparison.createdAt,
@@ -437,4 +484,16 @@ export function removeParticipant(actor: Actor, id: string, userId: string) {
     await tx.comparisonParticipant.delete({ where: { comparisonId_userId: { comparisonId: id, userId } } });
     return { userId };
   });
+}
+
+/**
+ * The users the owner or an Admin can pick as a participant or, for an Admin, a new owner: everyone with a System-creating role
+ * (a participant adds Systems they own, a new owner must be able to own a System). 404 when the Comparison is hidden from `actor`,
+ * 403 when they can't manage it.
+ */
+export async function listComparisonPeople(actor: Actor, id: string): Promise<ComparisonResult<{ users: Awaited<ReturnType<typeof listOwnerCandidates>> }>> {
+  const comparison = await prisma.comparison.findFirst({ where: { AND: [{ id }, comparisonsVisibleWhere(actor)] }, select: { ownerId: true } });
+  if (!comparison) return { ok: false, status: 404, error: NOT_FOUND };
+  if (!canManage(actor, comparison)) return { ok: false, status: 403, error: "Only the Comparison's owner or an Admin can pick people" };
+  return { ok: true, users: await listOwnerCandidates() };
 }

@@ -103,7 +103,7 @@ function unionOfFrameworks(frameworkIds: string[], liveByFramework: Map<string, 
  * For each of `frameworkIds`, the Controls its owner marked first round that are still mapped to a Requirement of that
  * same Framework (a marking without a live mapping is ignored). Three reads, however many Frameworks or Controls.
  */
-async function readLiveMarkingsByFramework(db: Db, frameworkIds: string[], controlIds: string[] | undefined) {
+export async function readLiveMarkingsByFramework(db: Db, frameworkIds: string[], controlIds: string[] | undefined) {
   const live = new Map<string, Set<string>>();
   if (frameworkIds.length === 0) return live;
   const markings = await db.frameworkFirstRoundControl.findMany({
