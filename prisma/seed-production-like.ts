@@ -558,6 +558,9 @@ async function checkReplace(client: Prisma.TransactionClient | Db, plan: EstateP
   const otherSystems = { id: NOT_M };
   const demoUsers = { id: M };
   const otherUsers = { id: NOT_M };
+  // Who the plan itself names: the demo Users and any existing User it reuses (a reused Internal Auditor or owner). References
+  // by these on the script's own audit, Comparisons and Systems are expected, not someone else's work.
+  const expectedUsers = [...new Set(plan.users.map((user) => user.id))];
 
   // Providers and dependencies: only the script's own link (a demo System on a demo Provider) is expected.
   const deps = await db.providerDependency.findMany({
@@ -578,7 +581,7 @@ async function checkReplace(client: Prisma.TransactionClient | Db, plan: EstateP
   });
   add(blockers, "Comparison participants mixing a demo User/Comparison with another", participants.length, participants.map((p) => `${p.user.name} in ${p.comparison.name}`));
   const comparisons = await db.comparison.findMany({
-    where: { OR: [{ id: NOT_M, ownerId: M }, { id: NOT_M, outcomeRecordedById: M }, { id: M, ownerId: NOT_M }] },
+    where: { OR: [{ id: NOT_M, ownerId: M }, { id: NOT_M, outcomeRecordedById: M }, { id: M, ownerId: { notIn: expectedUsers }, owner: otherUsers }, { id: M, outcomeRecordedById: { notIn: expectedUsers }, outcomeRecordedBy: otherUsers }] },
     select: { name: true },
   });
   add(blockers, "Comparisons owned across the demo boundary", comparisons.length, sysName(comparisons));
@@ -592,7 +595,7 @@ async function checkReplace(client: Prisma.TransactionClient | Db, plan: EstateP
   const checkUps = await db.checkUp.findMany({ where: { OR: [{ system: demoSystems }, { internalAudit: demoSystems }] }, select: { id: true } });
   add(blockers, "Check-ups on a demo System or a demo Internal Audit", checkUps.length, checkUps.map((c) => c.id));
   const audits = await db.internalAudit.findMany({
-    where: { OR: [{ id: NOT_M, createdBy: demoUsers }, { id: NOT_M, launchedBy: demoUsers }, { id: NOT_M, closedBy: demoUsers }, { id: M, status: { not: "DRAFT" } }, { id: M, createdById: NOT_M }] },
+    where: { OR: [{ id: NOT_M, createdBy: demoUsers }, { id: NOT_M, launchedBy: demoUsers }, { id: NOT_M, closedBy: demoUsers }, { id: M, status: { not: "DRAFT" } }, { id: M, createdById: { notIn: expectedUsers }, createdBy: otherUsers }, { id: M, launchedById: { not: null } }, { id: M, closedById: { not: null } }] },
     select: { title: true },
   });
   add(blockers, "Internal Audits created, launched or closed across the demo boundary, or a demo audit no longer a draft", audits.length, audits.map((a) => a.title));
@@ -603,7 +606,7 @@ async function checkReplace(client: Prisma.TransactionClient | Db, plan: EstateP
   add(blockers, "Check-up responses, evaluations or withdrawals by a demo User", checkUpUsers);
 
   // Ownership: a demo System must still belong to who the script gave it to, and no other System to a demo User.
-  const expectedOwners = [...new Set(plan.users.map((user) => user.id))];
+  const expectedOwners = expectedUsers;
   const reassigned = await db.system.findMany({
     where: { id: M, OR: [{ ownerId: { notIn: expectedOwners }, owner: otherUsers }, { businessSystemOwner: otherUsers, businessSystemOwnerId: { notIn: expectedOwners } }] },
     select: { name: true },
@@ -636,6 +639,26 @@ async function checkReplace(client: Prisma.TransactionClient | Db, plan: EstateP
   ];
   for (const [table, count] of userRefs) add(blockers, table, count);
 
+  // Demo Users' own scopes (Business Unit and Framework risk-owner scopes, Risk Analysis participation): the plan gives none, so
+  // any is an admin's doing. Deleting the User would silently drop it.
+  const scoped = await db.user.findMany({
+    where: { id: M, OR: [{ businessUnitScopes: { some: {} } }, { frameworkScopes: { some: {} } }, { riskAnalysesAttended: { some: { system: otherSystems } } }] },
+    select: { name: true },
+  });
+  add(blockers, "Demo Users given Business Unit or Framework risk-owner scopes, or in another System's Risk Analysis", scoped.length, sysName(scoped));
+
+  // Incoming relations of the demo catalog entries (only made for an empty catalog), implicit many-to-many included. Deleting
+  // a Deployment Facet drops its Control links, and a Control left with no facet applies to every System, so it would change
+  // real compliance results; a Business Unit drops risk-owner scopes; an Information Type drops suggested-Framework links.
+  const facetControls = await db.control.findMany({ where: { deploymentFacets: { some: { id: M } } }, select: { code: true } });
+  add(blockers, "Controls scoped to a Deployment Facet the script created", facetControls.length, facetControls.map((c) => c.code));
+  const unitOwners = await db.user.findMany({ where: { businessUnitScopes: { some: { id: M } } }, select: { name: true } });
+  add(blockers, "Users scoped to a Business Unit the script created", unitOwners.length, sysName(unitOwners));
+  const suggesting = await db.informationType.findMany({ where: { id: M, suggestedFrameworks: { some: {} } }, select: { name: true } });
+  add(blockers, "Information Types the script created that suggest a Framework", suggesting.length, sysName(suggesting));
+  const declines = await db.frameworkSuggestionDecline.count({ where: { informationType: demoSystems, system: otherSystems } });
+  add(blockers, "Suggested-Framework declines by another System on an Information Type the script created", declines);
+
   // Demo catalog entries (only made for an empty catalog) that another System came to use.
   const catalogUse = await db.system.count({ where: { id: NOT_M, OR: [{ businessUnits: { some: demoSystems } }, { deploymentFacets: { some: demoSystems } }, { informationTypes: { some: demoSystems } }] } });
   add(blockers, "Other Systems using a Business Unit, Deployment Facet or Information Type the script created", catalogUse);
@@ -656,6 +679,20 @@ async function checkReplace(client: Prisma.TransactionClient | Db, plan: EstateP
 async function deleteMarkerRows(prisma: Db, plan: EstatePlan, systemActor: string) {
   await prisma.$transaction(
     async (tx) => {
+      // Lock every demo row something could point at, before checking. Inserting a row that references one (a dependency on a
+      // demo Provider, a Comparison Candidate, an audit System, a Control-facet link) takes FOR KEY SHARE on the referenced row,
+      // which conflicts with FOR UPDATE, so such an insert waits until this transaction ends and then fails or sees the rows
+      // gone; it can never land between the check and the delete and be cascade-deleted. A reference committed before the lock
+      // is seen by the check below, because at READ COMMITTED every later statement reads what was committed before it started.
+      // The pattern is a bound parameter, not concatenated. The order is fixed so two runs can't deadlock.
+      const pattern = `${MARKER}%`;
+      await tx.$queryRaw`SELECT id FROM "System" WHERE id LIKE ${pattern} ORDER BY id FOR UPDATE`;
+      await tx.$queryRaw`SELECT id FROM "Comparison" WHERE id LIKE ${pattern} ORDER BY id FOR UPDATE`;
+      await tx.$queryRaw`SELECT id FROM "InternalAudit" WHERE id LIKE ${pattern} ORDER BY id FOR UPDATE`;
+      await tx.$queryRaw`SELECT id FROM "User" WHERE id LIKE ${pattern} ORDER BY id FOR UPDATE`;
+      await tx.$queryRaw`SELECT id FROM "DeploymentFacet" WHERE id LIKE ${pattern} ORDER BY id FOR UPDATE`;
+      await tx.$queryRaw`SELECT id FROM "BusinessUnit" WHERE id LIKE ${pattern} ORDER BY id FOR UPDATE`;
+      await tx.$queryRaw`SELECT id FROM "InformationType" WHERE id LIKE ${pattern} ORDER BY id FOR UPDATE`;
       const check = await checkReplace(tx, plan, systemActor);
       if (check.blockers.length > 0) throw new Error(`Replace refused (changed since the check):\n${formatReplaceCheck({ ...check, willDelete: [] })}`);
       const where = { id: M };
