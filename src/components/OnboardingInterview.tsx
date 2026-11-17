@@ -223,7 +223,9 @@ export function OnboardingInterview({
   const stepMoved = useRef(false);
   // The latest answers, for work that finishes after a request (a pre-fill must not undo what was changed meanwhile).
   const answersRef = useRef(answers);
-  answersRef.current = answers;
+  useEffect(() => {
+    answersRef.current = answers;
+  }, [answers]);
 
   useEffect(() => {
     let cancelled = false;
