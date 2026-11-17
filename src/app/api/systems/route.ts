@@ -9,6 +9,7 @@ import { sensitivityLevelSchema } from "@/lib/sensitivity-level";
 import { logChangeEvent } from "@/lib/change-events";
 import { readStagedEvaluationEnabled } from "@/lib/app-settings";
 import { BSO_UNKNOWN_USER_REFUSAL } from "@/lib/business-system-owner";
+import { addCandidateIn, STAGING_OFF_REFUSAL } from "@/lib/comparison";
 import { applyFrameworkScopeDeclaredIn } from "@/lib/framework-scope";
 import { declareProviderDependencyIn } from "@/lib/provider-dependencies";
 import {
@@ -52,12 +53,14 @@ const createSystemSchema = z.object({
   providerIds: z.array(z.string().min(1)).max(200).optional(),
   // The optional Business System Owner picked in the interview (#321): any User but the creator, who becomes the owner.
   businessSystemOwnerId: z.string().min(1).nullish(),
+  // The Comparison the interview was started from (#374): the new System becomes its Candidate in the same transaction.
+  comparisonId: z.string().min(1).optional(),
 });
 
 /** A refusal found inside the create transaction: thrown to roll everything back, then answered as `status`. */
 class CreateRefused extends Error {
   constructor(
-    readonly status: 400,
+    readonly status: 400 | 403 | 404 | 409,
     message: string,
   ) {
     super(message);
@@ -89,7 +92,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { deploymentFacetIds, frameworkScopeIds = [], providerIds = [], informationTypeIds = [], declinedFrameworkIds = [], businessSystemOwnerId = null, ...rest } = parsed.data;
+  const { deploymentFacetIds, frameworkScopeIds = [], providerIds = [], informationTypeIds = [], declinedFrameworkIds = [], businessSystemOwnerId = null, comparisonId, ...rest } = parsed.data;
   const scopeIds = [...new Set(frameworkScopeIds)];
   const dependencyIds = [...new Set(providerIds)].sort();
 
@@ -148,6 +151,8 @@ export async function POST(request: NextRequest) {
 
         // The App Setting decides the flow for this System, once, here: on, it starts in its first round (staged evaluation, #328).
         const staged = await readStagedEvaluationEnabled(tx);
+        // Into a Comparison, the new System must be staged: refused up front, with the reason, when the App Setting is off.
+        if (comparisonId && !staged) throw new CreateRefused(409, STAGING_OFF_REFUSAL);
 
         const created = await tx.system.create({
           data: {
@@ -197,6 +202,12 @@ export async function POST(request: NextRequest) {
         for (const providerId of dependencyIds) {
           const result = await declareProviderDependencyIn(tx, created, providerId, auth.user);
           if (!result.ok) throw new CreateRefused(400, NOT_PROVIDERS);
+        }
+
+        // The new System becomes a Candidate under the rules of adding one; a refusal rolls the whole creation back.
+        if (comparisonId) {
+          const added = await addCandidateIn(tx, auth.user, comparisonId, created.id);
+          if (!added.ok) throw new CreateRefused(added.status, added.error);
         }
 
         return tx.system.findUniqueOrThrow({ where: { id: created.id }, include: { deploymentFacets: true, owner: true, informationTypes: true } });

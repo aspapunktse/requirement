@@ -5,9 +5,10 @@ import { logChangeEvent } from "@/lib/change-events";
 import { classificationDifferences, orderCandidates } from "@/lib/comparison-score";
 import { loadComparisonScores } from "@/lib/comparison-score-data";
 import { readLiveMarkingsByFramework } from "@/lib/first-round";
+import { readStagedEvaluationEnabled } from "@/lib/app-settings";
 import { listOwnerCandidates } from "@/lib/system-owner";
 import { FULL_VISIBILITY_ROLES, visibleSystemsWhere } from "@/lib/system-visibility";
-import { canBeSystemOwner, isSystemOwnerOrAdmin, NEW_OWNER_REFUSAL } from "@/lib/system-permissions";
+import { canBeSystemOwner, canCreateSystem, isSystemOwnerOrAdmin, NEW_OWNER_REFUSAL } from "@/lib/system-permissions";
 
 /**
  * A Comparison (#372; CONTEXT.md "Evaluation"; docs/how-it-works/comparison.md): its model rules and API logic. The routes
@@ -23,7 +24,9 @@ import { canBeSystemOwner, isSystemOwnerOrAdmin, NEW_OWNER_REFUSAL } from "@/lib
  * - Who sees a Comparison: see `comparisonsVisibleWhere`. A hidden one is 404.
  * - A reader gets only the limited summary of a Candidate (`CandidateSummary`), built field by field; being a Candidate,
  *   owner or participant gives no right on a System and never widens `visibleSystemsWhere`.
- * - Adding and removing a Candidate write one Change Event on that System in the same transaction.
+ * - Adding and removing a Candidate write one Change Event on that System in the same transaction. Every way of adding
+ *   (one System, several from the Systems list, a new Comparison with Candidates, a new System from the onboarding interview)
+ *   runs `planCandidates`, so the rules can't drift; adding several is all or nothing.
  *
  * Deleting a System removes its Candidate rows (database cascade); the Comparison just loses that Candidate. A User who
  * owns a Comparison can't be deleted (Restrict) until it is handed over or deleted; a participant row goes with its User;
@@ -37,6 +40,7 @@ export const NOT_STAGED_REFUSAL = "Only a staged System can be a Candidate";
 export const CLOSED_REFUSAL = "A closed System can't be added to a Comparison";
 export const DUPLICATE_REFUSAL = "This System is already a Candidate in this Comparison";
 export const FULL_REFUSAL = `A Comparison holds at most ${MAX_CANDIDATES} Candidates`;
+export const STAGING_OFF_REFUSAL = "Staged evaluation for new Systems is off, so a new System would not be staged and can't be a Candidate. An Admin can switch it on in Settings.";
 
 type Actor = { id: string; role: UserRole };
 type Tx = Prisma.TransactionClient;
@@ -60,10 +64,14 @@ export function comparisonsVisibleWhere(user: Actor): Prisma.ComparisonWhereInpu
   };
 }
 
-export type ComparisonResult<T = object> = ({ ok: true } & T) | { ok: false; status: 400 | 403 | 404 | 409; error: string };
+/** Why one System in a bulk add can't be added (the whole add is then refused, and nothing is written). */
+export type CandidateFailure = { systemId: string; error: string };
+
+type Refusal = { ok: false; status: 400 | 403 | 404 | 409; error: string; failures?: CandidateFailure[] };
+export type ComparisonResult<T = object> = ({ ok: true } & T) | Refusal;
 
 class Abort extends Error {
-  constructor(readonly result: { ok: false; status: 400 | 403 | 404 | 409; error: string }) {
+  constructor(readonly result: Refusal) {
     super(result.error);
   }
 }
@@ -116,6 +124,8 @@ export type ComparisonListItem = {
    */
   closed: boolean;
   canManage: boolean;
+  /** `actor` may add a Candidate to it now (the owner, an Admin or a participant, while it is open and has room): for "Add to Comparison". */
+  canAddCandidate: boolean;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -134,6 +144,7 @@ export async function listComparisons(actor: Actor): Promise<ComparisonListItem[
           owner: { select: { id: true, name: true } },
           createdAt: true,
           updatedAt: true,
+          participants: { where: { userId: actor.id }, select: { userId: true } },
           _count: { select: { candidates: true, participants: true } },
         },
         orderBy: [{ createdAt: "desc" }, { id: "asc" }],
@@ -149,6 +160,7 @@ export async function listComparisons(actor: Actor): Promise<ComparisonListItem[
     participantCount: row._count.participants,
     closed: false,
     canManage: canManage(actor, row),
+    canAddCandidate: (canManage(actor, row) || row.participants.length > 0) && row._count.candidates < MAX_CANDIDATES,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   }));
@@ -410,38 +422,247 @@ export function deleteComparison(actor: Actor, id: string) {
   });
 }
 
-/** Adds `systemId` as a Candidate, with one Change Event on the System. See the rules at the top of the file. */
-export function addCandidate(actor: Actor, id: string, systemId: string) {
-  return run(async (tx) => {
-    const comparison = await loadVisibleLocked(tx, actor, id);
-    const manager = canManage(actor, comparison);
-    const participant = isParticipant(actor, comparison);
-    if (!manager && !participant) throw refuse(403, "Only the Comparison's owner, a participant or an Admin can add a Candidate");
+type LoadedComparison = { id: string; name: string; ownerId: string; participants: { userId: string }[] };
 
-    const system = await tx.system.findUnique({
-      where: { id: systemId },
-      select: { id: true, name: true, ownerId: true, evaluationStage: true, evaluationClosedAt: true },
-    });
+/**
+ * The one place the rules for adding a System as a Candidate live (see the top of the file); the single add, the bulk add, creating
+ * a Comparison with Candidates and creating a System into a Comparison all go through it. Checks `systemIds` (in order, each once)
+ * for `actor` and writes nothing: the Systems that can be added, and a failure with its reason for each that can't. Every query is on `tx`.
+ * An access failure (403, 404) never names the System, so a hidden one is not revealed.
+ */
+async function planCandidates(tx: Tx, actor: Actor, comparison: LoadedComparison, systemIds: string[]) {
+  const manager = canManage(actor, comparison);
+  if (!manager && !isParticipant(actor, comparison)) throw refuse(403, "Only the Comparison's owner, a participant or an Admin can add a Candidate");
+
+  const ids = [...new Set(systemIds)];
+  const systems = await tx.system.findMany({ where: { id: { in: ids } }, select: { id: true, ownerId: true, evaluationStage: true, evaluationClosedAt: true } });
+  const found = new Map(systems.map((system) => [system.id, system]));
+  const visible =
+    actor.role !== "ADMIN" && manager && systems.length > 0
+      ? new Set((await tx.system.findMany({ where: { AND: [{ id: { in: ids } }, await visibleSystemsWhere(actor, tx)] }, select: { id: true } })).map((system) => system.id))
+      : null;
+  const existing = new Set((await tx.comparisonCandidate.findMany({ where: { comparisonId: comparison.id }, select: { systemId: true } })).map((row) => row.systemId));
+
+  const add: { id: string }[] = [];
+  const failures: { systemId: string; status: 403 | 404 | 409; error: string }[] = [];
+  for (const systemId of ids) {
+    const system = found.get(systemId);
+    const fail = (status: 403 | 404 | 409, error: string) => failures.push({ systemId, status, error });
     if (actor.role === "ADMIN") {
-      if (!system) throw refuse(404, "System not found");
+      if (!system) fail(404, "System not found");
     } else if (manager) {
       // The owner adds a System they can see; one they can't is not found, as everywhere.
-      const visible = system ? await tx.system.findFirst({ where: { AND: [{ id: systemId }, await visibleSystemsWhere(actor, tx)] }, select: { id: true } }) : null;
-      if (!system || !visible) throw refuse(404, "System not found");
+      if (!system || !visible?.has(systemId)) fail(404, "System not found");
     } else if (!system || !isSystemOwnerOrAdmin(actor, system)) {
-      throw refuse(403, "A participant can add only a System they own");
+      fail(403, "A participant can add only a System they own");
     }
+    if (failures.at(-1)?.systemId === systemId) continue;
+    if (system!.evaluationStage === null) fail(409, NOT_STAGED_REFUSAL);
+    else if (system!.evaluationClosedAt) fail(409, CLOSED_REFUSAL);
+    else if (existing.has(systemId)) fail(409, DUPLICATE_REFUSAL);
+    else if (existing.size + add.length >= MAX_CANDIDATES) fail(409, FULL_REFUSAL);
+    else add.push({ id: systemId });
+  }
+  return { add, failures };
+}
 
-    if (system.evaluationStage === null) throw refuse(409, NOT_STAGED_REFUSAL);
-    if (system.evaluationClosedAt) throw refuse(409, CLOSED_REFUSAL);
-    if (await tx.comparisonCandidate.findUnique({ where: { comparisonId_systemId: { comparisonId: id, systemId } }, select: { systemId: true } })) {
-      throw refuse(409, DUPLICATE_REFUSAL);
-    }
-    if ((await tx.comparisonCandidate.count({ where: { comparisonId: id } })) >= MAX_CANDIDATES) throw refuse(409, FULL_REFUSAL);
-
-    const candidate = await tx.comparisonCandidate.create({ data: { comparisonId: id, systemId, addedById: actor.id } });
+/** Writes the Candidates `planCandidates` accepted, each with one Change Event on its System, in the caller's transaction. */
+async function writeCandidates(tx: Tx, actor: Actor, comparison: LoadedComparison, add: { id: string }[]) {
+  const rows = [];
+  for (const { id: systemId } of add) {
+    rows.push(await tx.comparisonCandidate.create({ data: { comparisonId: comparison.id, systemId, addedById: actor.id } }));
     await logChangeEvent(systemId, "COMPARISON_CANDIDATE_ADDED", `Added as a Candidate to the Comparison "${comparison.name}"`, actor.id, tx);
-    return candidate;
+  }
+  return rows;
+}
+
+/** All or nothing: adds every System of `systemIds`, or throws an Abort (`single`: the one System's own refusal; several: 409 with the reason for each that can't). */
+async function addAll(tx: Tx, actor: Actor, comparison: LoadedComparison, systemIds: string[], single = false) {
+  const { add, failures } = await planCandidates(tx, actor, comparison, systemIds);
+  if (single && failures.length === 1) throw refuse(failures[0].status, failures[0].error);
+  if (failures.length > 0) {
+    throw new Abort({
+      ok: false,
+      status: 409,
+      error: failures.length === 1 ? "One System can't be added, so none was added" : `${failures.length} Systems can't be added, so none was added`,
+      failures: failures.map(({ systemId, error }) => ({ systemId, error })),
+    });
+  }
+  return writeCandidates(tx, actor, comparison, add);
+}
+
+/** Adds `systemId` as a Candidate, with one Change Event on the System. See the rules at the top of the file. */
+export function addCandidate(actor: Actor, id: string, systemId: string) {
+  return run(async (tx) => (await addAll(tx, actor, await loadVisibleLocked(tx, actor, id), [systemId], true))[0]);
+}
+
+/**
+ * Adds every System of `systemIds` as a Candidate, or none: when any can't be added the answer is 409 with the reason for each
+ * (`failures`) and nothing is written. The bulk "Add to Comparison" of the Systems list. Same rules as `addCandidate`.
+ */
+export function addCandidates(actor: Actor, id: string, systemIds: string[]) {
+  return run(async (tx) => addAll(tx, actor, await loadVisibleLocked(tx, actor, id), systemIds));
+}
+
+/**
+ * Creates a Comparison owned by `actor` with `systemIds` already its Candidates, in one transaction: when any can't be added, no
+ * Comparison is created (409 with the reasons). The caller has checked `canCreateSystem`.
+ */
+export function createComparisonWithCandidates(actor: Actor, input: { name: string; need: string | null }, systemIds: string[]) {
+  return run(async (tx) => {
+    const comparison = await tx.comparison.create({ data: { name: input.name, need: input.need, ownerId: actor.id } });
+    await addAll(tx, actor, { id: comparison.id, name: comparison.name, ownerId: actor.id, participants: [] }, systemIds);
+    return comparison;
+  });
+}
+
+/**
+ * Makes `systemId` a Candidate inside the caller's transaction `tx` (the onboarding interview creates a System and its Candidate
+ * together): the same rules and Change Event as `addCandidate`. A refusal is returned, not thrown; the caller rolls back.
+ */
+export async function addCandidateIn(tx: Tx, actor: Actor, id: string, systemId: string): Promise<ComparisonResult> {
+  try {
+    await addAll(tx, actor, await loadVisibleLocked(tx, actor, id), [systemId], true);
+    return { ok: true };
+  } catch (error) {
+    if (error instanceof Abort) return error.result;
+    throw error;
+  }
+}
+
+export type AddableSystem = {
+  id: string;
+  name: string;
+  vendor: string | null;
+  owner: { id: string; name: string };
+  stage: string | null;
+  /** Why it can't be added (not staged, closed, already a Candidate); null when it can. */
+  reason: string | null;
+};
+
+/**
+ * The Systems `actor` may pick for the Add Candidate picker of a Comparison, each with the reason it can't be added now (or null):
+ * the owner's Systems they can see, a participant's own, an Admin's all. 404 when the Comparison is hidden, 403 when `actor` may not
+ * add (neither owner, participant nor Admin). Also whether a new System can be created into it: `stagedEvaluation` (the App
+ * Setting) and `canCreateSystem`. One snapshot.
+ */
+export async function listAddableSystems(
+  actor: Actor,
+  id: string,
+): Promise<ComparisonResult<{ systems: AddableSystem[]; full: boolean; stagedEvaluation: boolean; canCreateSystem: boolean }>> {
+  return prisma.$transaction(
+    async (tx) => {
+      const comparison = await tx.comparison.findFirst({
+        where: { AND: [{ id }, comparisonsVisibleWhere(actor)] },
+        select: { id: true, ownerId: true, participants: { select: { userId: true } }, candidates: { select: { systemId: true } } },
+      });
+      if (!comparison) return { ok: false as const, status: 404 as const, error: NOT_FOUND };
+      const manager = canManage(actor, comparison);
+      if (!manager && !isParticipant(actor, comparison)) return { ok: false as const, status: 403 as const, error: "Only the Comparison's owner, a participant or an Admin can add a Candidate" };
+      const scope: Prisma.SystemWhereInput = actor.role === "ADMIN" ? {} : manager ? await visibleSystemsWhere(actor, tx) : { ownerId: actor.id };
+      const rows = await tx.system.findMany({
+        where: scope,
+        select: { id: true, name: true, vendor: true, evaluationStage: true, evaluationClosedAt: true, owner: { select: { id: true, name: true } } },
+        orderBy: [{ name: "asc" }, { id: "asc" }],
+      });
+      const taken = new Set(comparison.candidates.map((candidate) => candidate.systemId));
+      const listed = rows.map((row) => ({
+        id: row.id,
+        name: row.name,
+        vendor: row.vendor,
+        owner: row.owner,
+        stage: row.evaluationStage,
+        reason: row.evaluationStage === null ? NOT_STAGED_REFUSAL : row.evaluationClosedAt ? CLOSED_REFUSAL : taken.has(row.id) ? DUPLICATE_REFUSAL : null,
+      }));
+      // The Systems that can be added come first, the ones that can't (with their reasons) after; each group by name.
+      const systems = [...listed.filter((system) => system.reason === null), ...listed.filter((system) => system.reason !== null)];
+      return { ok: true as const, systems, full: taken.size >= MAX_CANDIDATES, stagedEvaluation: await readStagedEvaluationEnabled(tx), canCreateSystem: canCreateSystem(actor) };
+    },
+    { isolationLevel: "RepeatableRead" },
+  );
+}
+
+/** What the onboarding interview needs to start for a Comparison: its name, the Candidates `actor` can see as Systems (for "Start from"), or the reason a new System can't be created into it. */
+export type InterviewContext = { comparison: { id: string; name: string }; candidates: { systemId: string; name: string }[] };
+
+export async function readInterviewContext(actor: Actor, id: string): Promise<ComparisonResult<InterviewContext>> {
+  return prisma.$transaction(
+    async (tx) => {
+      const comparison = await tx.comparison.findFirst({
+        where: { AND: [{ id }, comparisonsVisibleWhere(actor)] },
+        select: { id: true, name: true, ownerId: true, participants: { select: { userId: true } }, candidates: { select: { systemId: true } } },
+      });
+      if (!comparison) return { ok: false as const, status: 404 as const, error: NOT_FOUND };
+      if (!canManage(actor, comparison) && !isParticipant(actor, comparison)) {
+        return { ok: false as const, status: 403 as const, error: "Only the Comparison's owner, a participant or an Admin can add a Candidate" };
+      }
+      if (!(await readStagedEvaluationEnabled(tx))) return { ok: false as const, status: 409 as const, error: STAGING_OFF_REFUSAL };
+      if (comparison.candidates.length >= MAX_CANDIDATES) return { ok: false as const, status: 409 as const, error: FULL_REFUSAL };
+      // Only the Candidates `actor` can open as Systems are offered: the rest stay hidden, as everywhere.
+      const ids = comparison.candidates.map((candidate) => candidate.systemId);
+      const visible =
+        ids.length === 0 ? [] : await tx.system.findMany({ where: { AND: [{ id: { in: ids } }, await visibleSystemsWhere(actor, tx)] }, select: { id: true, name: true }, orderBy: [{ name: "asc" }, { id: "asc" }] });
+      return { ok: true as const, comparison: { id: comparison.id, name: comparison.name }, candidates: visible.map((system) => ({ systemId: system.id, name: system.name })) };
+    },
+    { isolationLevel: "RepeatableRead" },
+  );
+}
+
+/** The classification a new System can start from (the Candidate's Deployment Facets, Information Types, levels and Framework Scope, by id; nothing else). */
+export type CandidateClassification = {
+  deploymentFacetIds: string[];
+  informationTypeIds: string[];
+  sensitivityLevel: number | null;
+  integrityImpactLevel: string | null;
+  availabilityImpactLevel: string | null;
+  frameworkScopeIds: string[];
+};
+
+/**
+ * The classification of Candidate `systemId` of Comparison `id`, for "Start from <Candidate>'s classification". Only a Candidate
+ * `actor` can open as a System (`visibleSystemsWhere`) is readable, so this can't be used to read another owner's Information
+ * Types: anything else is 404, as is a Comparison `actor` can't see, or a System that is not its Candidate.
+ */
+export async function readCandidateClassification(actor: Actor, id: string, systemId: string): Promise<ComparisonResult<{ classification: CandidateClassification }>> {
+  return prisma.$transaction(
+    async (tx) => {
+      const notFound = { ok: false as const, status: 404 as const, error: "Candidate not found" };
+      const candidate = await tx.comparisonCandidate.findFirst({ where: { comparisonId: id, systemId, comparison: comparisonsVisibleWhere(actor) }, select: { systemId: true } });
+      if (!candidate) return notFound;
+      const system = await tx.system.findFirst({
+        where: { AND: [{ id: systemId }, await visibleSystemsWhere(actor, tx)] },
+        select: {
+          deploymentFacets: { select: { id: true } },
+          informationTypes: { select: { id: true } },
+          sensitivityLevel: true,
+          integrityImpactLevel: true,
+          availabilityImpactLevel: true,
+          frameworkScopes: { select: { id: true } },
+        },
+      });
+      if (!system) return notFound;
+      return {
+        ok: true as const,
+        classification: {
+          deploymentFacetIds: system.deploymentFacets.map((facet) => facet.id),
+          informationTypeIds: system.informationTypes.map((type) => type.id),
+          sensitivityLevel: system.sensitivityLevel,
+          integrityImpactLevel: system.integrityImpactLevel,
+          availabilityImpactLevel: system.availabilityImpactLevel,
+          frameworkScopeIds: system.frameworkScopes.map((framework) => framework.id),
+        },
+      };
+    },
+    { isolationLevel: "RepeatableRead" },
+  );
+}
+
+/** The Comparisons `actor` sees in which `systemId` is a Candidate, by name, for the System page ("Candidate in Comparison …"). Reads on `tx`. */
+export async function listComparisonsOfCandidate(tx: Tx, actor: Actor, systemId: string) {
+  return tx.comparison.findMany({
+    where: { AND: [{ candidates: { some: { systemId } } }, comparisonsVisibleWhere(actor)] },
+    select: { id: true, name: true },
+    orderBy: [{ name: "asc" }, { id: "asc" }],
   });
 }
 

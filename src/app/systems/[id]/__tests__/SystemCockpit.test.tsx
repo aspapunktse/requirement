@@ -38,6 +38,7 @@ const view = (over: Partial<SystemPageView> = {}): SystemPageView => ({
   userName: "Marcus Lindqvist",
   role: "SYSTEM_OWNER",
   now: NOW,
+  comparisons: [],
   system: {
     id: "s1",
     name: "ServiceNow",
@@ -124,6 +125,23 @@ afterEach(() => {
   vi.unstubAllGlobals();
   push.mockClear();
   refresh.mockClear();
+});
+
+describe("Candidate in Comparison (#374)", () => {
+  it("names each Comparison the System is a Candidate in, with a link to it", () => {
+    renderCockpit({ comparisons: [{ id: "c1", name: "New HR system 2027" }, { id: "c2", name: "Ticketing 2028" }] });
+    const notes = screen.getAllByTestId("candidate-in-comparison");
+    expect(notes).toHaveLength(2);
+    expect(notes[0]).toHaveTextContent("Candidate in Comparison New HR system 2027");
+    expect(screen.getByRole("link", { name: "New HR system 2027" })).toHaveAttribute("href", "/comparisons/c1");
+    expect(screen.getByRole("link", { name: "Ticketing 2028" })).toHaveAttribute("href", "/comparisons/c2");
+  });
+
+  it("shows nothing for a System that is a Candidate in none", () => {
+    renderCockpit({ comparisons: [] });
+    expect(screen.queryByTestId("candidate-in-comparison")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Candidate in Comparison/)).not.toBeInTheDocument();
+  });
 });
 
 describe("header (#243)", () => {

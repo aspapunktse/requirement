@@ -14,11 +14,12 @@ import "./systems.css";
 import { ChangeOwnerDialog } from "@/components/ChangeOwnerDialog";
 import { canChangeOwner } from "@/lib/system-permissions";
 import { canWriteInternalAudits } from "@/lib/internal-audit-rules";
+import { AddToComparisonDialog } from "./AddToComparisonDialog";
 import { AddToInternalAuditDialog } from "./AddToInternalAuditDialog";
 import { SensitivityChip } from "@/components/SensitivityChip";
 import { CiaBars } from "./CiaBars";
 import { InformationTypeTags, LevelSquare } from "./InformationTypeTags";
-import { BULK_ACTIONS, canChangeAnyOwner } from "./bulk-actions";
+import { BULK_ACTIONS, canAddToComparison, canChangeAnyOwner } from "./bulk-actions";
 import { PAGE_SIZES, SHOW_COMPACT_TOGGLE, SHOW_JUMP_PALETTE, SHOW_STAT_TRENDS } from "./systems-config";
 import { downloadCsv } from "@/lib/download-csv";
 import {
@@ -105,6 +106,7 @@ export function SystemsRegister({ view, initialQuery }: { view: SystemsView; ini
   const [compact, setCompact] = useState(false);
   const [changingOwner, setChangingOwner] = useState(false);
   const [addingToAudit, setAddingToAudit] = useState(false);
+  const [addingToComparison, setAddingToComparison] = useState(false);
   const [openFilter, setOpenFilter] = useState<FilterKey | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const regRef = useRef<HTMLElement>(null);
@@ -774,6 +776,11 @@ export function SystemsRegister({ view, initialQuery }: { view: SystemsView; ini
               Change owner
             </button>
           )}
+          {canAddToComparison(actor) && (
+            <button type="button" onClick={() => setAddingToComparison(true)}>
+              Add to Comparison
+            </button>
+          )}
           {canWriteInternalAudits(actor) && (
             <button type="button" onClick={() => setAddingToAudit(true)}>
               Add to Internal Audit
@@ -800,6 +807,18 @@ export function SystemsRegister({ view, initialQuery }: { view: SystemsView; ini
             setChangingOwner(false);
             setSelected(new Set());
             router.refresh();
+          }}
+        />
+      )}
+
+      {addingToComparison && (
+        <AddToComparisonDialog
+          systems={selectedRows.map((row) => ({ id: row.id, name: row.name }))}
+          canCreateComparison={canAddToComparison(actor)}
+          onClose={() => setAddingToComparison(false)}
+          onDone={() => {
+            setAddingToComparison(false);
+            setSelected(new Set());
           }}
         />
       )}

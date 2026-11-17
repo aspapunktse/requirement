@@ -188,7 +188,18 @@ function plural(count: number, one: string, many: string) {
  * `src/lib/onboarding-interview.ts`, run in the browser on the one catalog the page reads, so each option's
  * effect needs no request. "Create System" makes the Draft System with all its answers in one request.
  */
-export function OnboardingInterview({ userId }: { /** The acting user, who becomes the owner and so can't be picked as Business System Owner. */ userId?: string } = {}) {
+export function OnboardingInterview({
+  userId,
+  comparison,
+}: {
+  /** The acting user, who becomes the owner and so can't be picked as Business System Owner. */
+  userId?: string;
+  /**
+   * The Comparison the interview was started from (#374): the new System becomes its Candidate in the request that creates it.
+   * `candidates` are only the ones the acting user can open as Systems, offered as "Start from <Candidate>'s classification".
+   */
+  comparison?: { id: string; name: string; candidates: { systemId: string; name: string }[] };
+} = {}) {
   const router = useRouter();
   const [catalog, setCatalog] = useState<OnboardingCatalog | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -204,8 +215,17 @@ export function OnboardingInterview({ userId }: { /** The acting user, who becom
   const [lastTypeAdded, setLastTypeAdded] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  // "Start from <Candidate>'s classification" (#374): which Candidate is being read, which one the answers were started from.
+  const [startingFrom, setStartingFrom] = useState<string | null>(null);
+  const [startedFrom, setStartedFrom] = useState<string | null>(null);
+  const [startError, setStartError] = useState<string | null>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const stepMoved = useRef(false);
+  // The latest answers, for work that finishes after a request (a pre-fill must not undo what was changed meanwhile).
+  const answersRef = useRef(answers);
+  useEffect(() => {
+    answersRef.current = answers;
+  }, [answers]);
 
   useEffect(() => {
     let cancelled = false;
@@ -343,6 +363,7 @@ export function OnboardingInterview({ userId }: { /** The acting user, who becom
           declinedFrameworkIds: declinedToSend(data, answers).length > 0 ? declinedToSend(data, answers) : undefined,
           providerIds: answers.providerIds,
           businessSystemOwnerId: businessSystemOwnerId || undefined,
+          comparisonId: comparison?.id,
         }),
       });
       const body = await response.json().catch(() => null);
@@ -351,10 +372,60 @@ export function OnboardingInterview({ userId }: { /** The acting user, who becom
         setCreating(false);
         return;
       }
-      router.push(`/systems/${body.system.id}`);
+      // Started from a Comparison, the new Candidate is seen where it belongs: back in the Comparison.
+      router.push(comparison ? `/comparisons/${comparison.id}` : `/systems/${body.system.id}`);
     } catch {
       setError("Failed to create System");
       setCreating(false);
+    }
+  }
+
+  /**
+   * Fills Deployment Facets, Information Types, the Sensitivity Level, the Integrity and Availability Impact Levels and Framework
+   * Scope from a Candidate, read through the server (which only answers for a Candidate the acting user can open). Nothing else is
+   * copied, and every value can be changed before creating. Ids the catalog no longer offers are left out.
+   */
+  async function startFrom(candidate: { systemId: string; name: string }) {
+    if (!comparison) return;
+    setStartError(null);
+    setStartingFrom(candidate.systemId);
+    try {
+      const response = await fetch(`/api/comparisons/${comparison.id}/candidates/${candidate.systemId}/classification`);
+      const body = await response.json().catch(() => null);
+      if (!response.ok || !body?.classification) {
+        setStartError(body?.error ?? "The classification could not be read");
+        return;
+      }
+      const read = body.classification as {
+        deploymentFacetIds: string[];
+        informationTypeIds: string[];
+        sensitivityLevel: number | null;
+        integrityImpactLevel: ImpactLevel | null;
+        availabilityImpactLevel: ImpactLevel | null;
+        frameworkScopeIds: string[];
+      };
+      const scope = read.frameworkScopeIds.filter((id) => data.frameworks.some((f) => f.id === id && !f.isBase));
+      // Merged into the answers as they are now, not as they were when the request began: only the six classification fields change.
+      const latest = answersRef.current;
+      const merged: OnboardingAnswers = {
+          ...latest,
+          deploymentFacetIds: read.deploymentFacetIds.filter((id) => data.deploymentFacets.some((facet) => facet.id === id)),
+          informationTypeIds: read.informationTypeIds.filter((id) => data.informationTypes.some((type) => type.id === id)),
+          sensitivityLevel: read.sensitivityLevel,
+          integrityImpactLevel: read.integrityImpactLevel,
+          availabilityImpactLevel: read.availabilityImpactLevel,
+          frameworkScopeIds: scope,
+          declinedFrameworkIds: [],
+      };
+      setNote({ what: `Started from ${candidate.name}'s classification`, effect: compareEvaluations(evaluateOnboarding(data, latest), evaluateOnboarding(data, merged)) });
+      setAnswers(merged);
+      setQuestionsAnswered((list) => [...new Set([...list, ...scope])]);
+      setStartedFrom(candidate.name);
+      setLastTypeAdded(null);
+    } catch {
+      setStartError("The classification could not be read");
+    } finally {
+      setStartingFrom(null);
     }
   }
 
@@ -853,6 +924,28 @@ export function OnboardingInterview({ userId }: { /** The acting user, who becom
           <p className="hc-eyebrow">NEW SYSTEM</p>
           <h1 id="ob-title">Onboard a new System</h1>
           <p className="hc-lede">Answer a few plain questions. The list of Controls that apply grows and shrinks beside you, and nothing is locked in.</p>
+          {comparison && (
+            <div className="ob-from" data-testid="ob-comparison">
+              <p className="ob-fine">
+                This System becomes a Candidate in the Comparison <b>{comparison.name}</b> when you create it.
+              </p>
+              {startedFrom ? (
+                <p className="ob-fine" role="status">
+                  Started from {startedFrom}&apos;s classification: Deployment Facets, Information Types, Sensitivity Level, Impact Levels and Framework Scope. Change anything you like.
+                </p>
+              ) : null}
+              {startError && (
+                <p className="ob-fail" role="alert">
+                  {startError}
+                </p>
+              )}
+              {comparison.candidates.map((candidate) => (
+                <button key={candidate.systemId} type="button" className="ob-link" disabled={startingFrom !== null} onClick={() => startFrom(candidate)}>
+                  {startingFrom === candidate.systemId ? "Reading…" : `Start from ${candidate.name}'s classification`}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 

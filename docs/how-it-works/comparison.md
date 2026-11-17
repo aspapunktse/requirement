@@ -1,6 +1,6 @@
 # How a Comparison works
 
-> **Status: designed; the data model, the API (#372) and the list and Comparison pages (#373) are built; adding Candidates and recording the outcome are not.** This describes the behaviour agreed with the product owner on 2026-11-16. It is the source for the user manual. The terms are defined in [`CONTEXT.md`](../../CONTEXT.md) under "Evaluation"; the one architectural decision is [ADR 0015](../adr/0015-not-selected-closes-a-system-and-can-be-reopened.md).
+> **Status: designed; the data model, the API (#372) and the list and Comparison pages (#373) and adding Candidates (#374) are built; recording the outcome is not.** This describes the behaviour agreed with the product owner on 2026-11-16. It is the source for the user manual. The terms are defined in [`CONTEXT.md`](../../CONTEXT.md) under "Evaluation"; the one architectural decision is [ADR 0015](../adr/0015-not-selected-closes-a-system-and-can-be-reopened.md).
 
 ## What it is for
 
@@ -24,11 +24,11 @@ Open **Systems**, then **Comparisons** (a link on the Systems page, and under "G
 
 A Comparison holds two to five Candidates. Add them in any of three ways:
 
-- **An existing System.** Choose **Add Candidate** on the Comparison and pick a System. Or select Systems in the Systems list and choose **Add to Comparison**.
-- **A new System.** Choose **Add Candidate → Create a new System**. The normal onboarding interview runs, and the new System joins the Comparison when it is created.
-- **A new System like one you already have.** When the Comparison already has a Candidate, the interview offers **Start from <Candidate>'s classification**. It fills in Deployment Facets, Information Types, Sensitivity Level, Impact Levels and Framework Scope. You can change any of them before you create the System.
+- **An existing System.** Choose **Add Candidate** on the Comparison and pick a System. Or select Systems in the Systems list and choose **Add to Comparison**: pick an open Comparison, or make a new one. It is all or nothing, and if any System can't be added none is, and the dialog says which and why. The owner adds Systems they can see, a participant Systems they own, an Admin any. A System that can't be added now stays in the picker, greyed, with the reason.
+- **A new System.** Choose **Add Candidate → Create a new System**. The normal onboarding interview runs, and the new System joins the Comparison in the same step that creates it: if it can't join (the Comparison is full or closed), no System is created. This is offered only while "Staged evaluation for new Systems" is on. When the interview ends you return to the Comparison.
+- **A new System like one you already have.** When the Comparison already has a Candidate, the interview offers **Start from <Candidate>'s classification**. It fills in Deployment Facets, Information Types, Sensitivity Level, Impact Levels and Framework Scope. You can change any of them before you create the System. Only Candidates you can open as Systems are offered, and nothing else is copied (not the name, vendor or answers).
 
-A System can be added when it is staged and not closed, at any stage of its evaluation. The same System can be a Candidate in more than one Comparison.
+A System can be added when it is staged and not closed, at any stage of its evaluation. The same System can be a Candidate in more than one Comparison. A System's own page says "Candidate in Comparison <name>", with a link, for each Comparison you can see it in.
 
 ### 3. Answer the first round for each Candidate
 

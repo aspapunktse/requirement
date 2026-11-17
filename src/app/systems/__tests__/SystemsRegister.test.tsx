@@ -545,7 +545,7 @@ describe("row selection and the bulk bar", () => {
     renderRegister();
     await userEvent.click(checkbox("Select Jira"));
     const bar = screen.getByRole("region", { name: "Bulk actions" });
-    expect(within(bar).getAllByRole("button").map((b) => b.textContent)).toEqual(["Export CSV", "Change owner", "✕"]);
+    expect(within(bar).getAllByRole("button").map((b) => b.textContent)).toEqual(["Export CSV", "Change owner", "Add to Comparison", "✕"]);
   });
 
   it("opens the Add to Internal Audit dialog with the selected Systems and clears the selection when it is done", async () => {
@@ -576,6 +576,57 @@ describe("row selection and the bulk bar", () => {
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
       expect(screen.queryByRole("region", { name: "Bulk actions" })).not.toBeInTheDocument();
       const post = fetchMock.mock.calls.find(([url]) => url === "/api/internal-audits/a1/systems")!;
+      expect(JSON.parse(post[1]!.body as string).systemIds.sort()).toEqual(["s-jira", "s-okta"]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("shows Add to Comparison to the roles that may create a System, and not to the others", async () => {
+    for (const role of ["ADMIN", "SYSTEM_OWNER"] as const) {
+      const { unmount } = renderRegister({ role });
+      await userEvent.click(checkbox("Select Jira"));
+      expect(screen.getByRole("button", { name: "Add to Comparison" }), role).toBeInTheDocument();
+      unmount();
+    }
+    for (const role of ["INTERNAL_AUDITOR", "REVIEWER", "VIEWER"] as const) {
+      const { unmount } = renderRegister({ role });
+      await userEvent.click(checkbox("Select Jira"));
+      expect(screen.queryByRole("button", { name: "Add to Comparison" }), role).not.toBeInTheDocument();
+      unmount();
+    }
+  });
+
+  it("opens the Add to Comparison dialog with the selected Systems and clears the selection when it is done", async () => {
+    const fetchMock = vi.fn<(input: string | URL | Request, init?: RequestInit) => Promise<Response>>((input) =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify(
+            String(input) === "/api/comparisons"
+              ? { comparisons: [{ id: "c1", name: "New HR system", candidateCount: 1, closed: false, canAddCandidate: true }, { id: "c2", name: "Closed one", candidateCount: 2, closed: true, canAddCandidate: false }] }
+              : { candidates: [] },
+          ),
+          { status: String(input) === "/api/comparisons" ? 200 : 201 },
+        ),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      renderRegister();
+      await userEvent.click(checkbox("Select Jira"));
+      await userEvent.click(checkbox("Select Okta"));
+      await userEvent.click(screen.getByRole("button", { name: "Add to Comparison" }));
+      const dialog = screen.getByRole("dialog", { name: "Add to Comparison" });
+      expect(dialog).toHaveTextContent("Jira, Okta");
+      expect(await within(dialog).findByRole("radio", { name: /New HR system/ })).toBeInTheDocument();
+      expect(within(dialog).queryByRole("radio", { name: /Closed one/ })).not.toBeInTheDocument();
+      await userEvent.click(within(dialog).getByRole("radio", { name: /New HR system/ }));
+      await userEvent.click(within(dialog).getByRole("button", { name: "Add to Comparison" }));
+      expect(await within(dialog).findByRole("status")).toHaveTextContent("Added 2 Systems to New HR system as Candidates.");
+      await userEvent.click(within(dialog).getByRole("button", { name: "Done" }));
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      expect(screen.queryByRole("region", { name: "Bulk actions" })).not.toBeInTheDocument();
+      const post = fetchMock.mock.calls.find(([url]) => url === "/api/comparisons/c1/candidates")!;
       expect(JSON.parse(post[1]!.body as string).systemIds.sort()).toEqual(["s-jira", "s-okta"]);
     } finally {
       vi.unstubAllGlobals();
