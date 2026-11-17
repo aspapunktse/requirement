@@ -163,7 +163,7 @@ Comparison (#369, ADR 0015, no milestone): grilled with the product owner on 202
 4. #373 The list and the Comparison page (`src/app/comparisons/`). **Done: PR #381.** `closed` is always false until #375; #374 and #375 both rework the Comparison page, so run them in sequence.
 5. #374 Adding Candidates from the list, the System page and the interview. **Done: PR #382.** One rule set (`planCandidates` in `src/lib/comparison.ts`) for the picker, the bulk add, a new Comparison with Candidates and a new System from the interview.
 6. #375 Record the outcome, freeze the figures, reopen. **Done: PR #383.** Closed = `outcomeRecordedAt` set; figures frozen as a zod-validated JSON snapshot; every write to a closed Comparison is refused with 409. The Record outcome dialog has a slot for #376's Not selected offer.
-7. #376 Not selected: close a Candidate System, Admin reopen. Blocked by #375.
+7. #376 Not selected: close a Candidate System, Admin reopen. **Done: PR (pending number).** New `NOT_SELECTED` status (closed marker set, stage and Track kept); offered in the Record outcome dialog and from a closed Comparison; Admin reopen with a comment returns it to Draft and recomputes its applicable Controls.
 
 ## Dev DB seeded state
 
