@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
-import { getComplianceForSystems } from "../compliance";
+import { getComplianceForLoadedSystems, getComplianceForSystems } from "../compliance";
 import { getSystemFrameworkRequirements } from "../requirement-status";
 
 /**
@@ -232,6 +232,35 @@ describe("getComplianceForSystems", () => {
     } finally {
       await prisma.controlMapping.create({ data: { requirementId: l1Id, controlId: cA, coverage: "FULL" } });
     }
+  });
+
+  it("getComplianceForLoadedSystems gives the same figures as the read by where clause, for Systems already read (#387)", async () => {
+    const where = { id: { in: [systemAId, systemBId, systemCId, systemDId] } };
+    const systems = await prisma.system.findMany({
+      where,
+      select: {
+        id: true,
+        name: true,
+        sensitivityLevel: true,
+        integrityImpactLevel: true,
+        availabilityImpactLevel: true,
+        deploymentFacets: { select: { id: true } },
+        frameworkScopes: { select: { id: true } },
+      },
+    });
+    for (const frameworkId of [lenientId, strictId]) {
+      const byWhere = await getComplianceForSystems(where, { frameworkId });
+      const loaded = await getComplianceForLoadedSystems(systems, { frameworkId });
+      const byId = (result: typeof byWhere) => [...result.bySystem].sort((a, b) => a.systemId.localeCompare(b.systemId));
+      expect(loaded.framework).toEqual(byWhere.framework);
+      expect({ met: loaded.met, applicable: loaded.applicable, percentage: loaded.percentage }).toEqual({
+        met: byWhere.met,
+        applicable: byWhere.applicable,
+        percentage: byWhere.percentage,
+      });
+      expect(byId(loaded)).toEqual(byId(byWhere));
+    }
+    expect((await getComplianceForLoadedSystems([], { frameworkId: lenientId })).bySystem).toEqual([]);
   });
 
   it("filters the Systems by the where clause (Business Unit membership)", async () => {
