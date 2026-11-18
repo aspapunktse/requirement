@@ -14,6 +14,7 @@ import {
   canEditOrganizationImplementation,
 } from "@/lib/organization-implementation-rules";
 import type { OrgControlRow, OrgHistoryEntry, OrgView } from "./controls-types";
+import { READ_SNAPSHOT } from "@/lib/read-transaction";
 
 const collator = new Intl.Collator("en", { numeric: true });
 
@@ -131,6 +132,6 @@ export async function loadOrganizationControlsView(user: { id: string; name: str
 
       return { userId: user.id, userName: user.name, role: user.role, roleLabel: roleLabel(user.role), rows };
     },
-    { isolationLevel: "RepeatableRead" },
+    READ_SNAPSHOT,
   );
 }

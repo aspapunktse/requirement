@@ -7,6 +7,7 @@ import { canCurateFramework, canSeeDraftFrameworks, visibleOrOwnedFrameworksWher
 import { buildLineages } from "@/lib/framework-lineage";
 import { visibleSystemsWhere } from "@/lib/system-visibility";
 import type { CatalogView } from "./frameworks-types";
+import { READ_SNAPSHOT } from "@/lib/read-transaction";
 
 /**
  * How many of the Systems `user` may see have each Framework in their Framework Scope (the base Framework is in
@@ -35,7 +36,7 @@ export async function countVisibleSystemsByFramework(user: { id: string; role: U
  * RepeatableRead transaction, every query on `tx`, so the figures agree even while the data changes.
  */
 export async function loadFrameworksView(user: { id: string; role: UserRole }): Promise<CatalogView> {
-  return prisma.$transaction((tx) => readFrameworksView(tx, user), { isolationLevel: "RepeatableRead" });
+  return prisma.$transaction((tx) => readFrameworksView(tx, user), READ_SNAPSHOT);
 }
 
 /**

@@ -7,6 +7,7 @@ import { frameworkLabel } from "@/lib/framework-label";
 import { canSeeDraftFrameworks, controlIncludeFor, redactDraftOrigin } from "@/lib/frameworks";
 import { canBeControlOwner } from "@/lib/system-permissions";
 import type { LibraryMapping, LibraryRow, LibrarySource, LibraryView } from "./library-types";
+import { READ_SNAPSHOT } from "@/lib/read-transaction";
 
 const collator = new Intl.Collator("en", { numeric: true });
 
@@ -167,6 +168,6 @@ export async function loadControlLibraryView(user: { id: string; name: string; r
         rows,
       };
     },
-    { isolationLevel: "RepeatableRead" },
+    READ_SNAPSHOT,
   );
 }

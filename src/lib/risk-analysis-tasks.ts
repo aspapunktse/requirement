@@ -5,6 +5,7 @@ import { OPEN_RISK_STATUS } from "@/lib/risk-analysis";
 import { effectiveRiskAnalysisLead, RISK_ANALYSIS_TASK_FALLS_BACK_TO_ALL, ROLES_ELIGIBLE_AS_RISK_ANALYSIS_LEAD } from "@/lib/risk-analysis-lead";
 import { STRICTLY_READ_ONLY_ROLES } from "@/lib/system-permissions";
 import { visibleSystemsWhere } from "@/lib/system-visibility";
+import { READ_SNAPSHOT } from "@/lib/read-transaction";
 
 /**
  * The "My tasks" rows for conducting a Risk Analysis (#361, product-owner decisions of 2026-11-11): one per staged System at a point where
@@ -91,7 +92,7 @@ export async function getRiskAnalysisTasks(user: { id: string; role: UserRole })
           : await tx.risk.groupBy({ by: ["systemId"], where: { systemId: { in: [...inProgress] }, status: OPEN_RISK_STATUS, ownerId: null }, _count: { _all: true } });
       return { systems, analyses, unowned };
     },
-    { isolationLevel: "RepeatableRead" },
+    READ_SNAPSHOT,
   );
   if (read === null) return [];
   const { systems, analyses, unowned } = read;

@@ -70,28 +70,46 @@ export function getComplianceForSystems(
   return withDerivationSnapshot(db, (tx) => readComplianceForSystems(where, options, tx));
 }
 
+/** What the derivation reads of a System: the classification and the Framework Scope, with its name. */
+const COMPLIANCE_SYSTEM_SELECT = {
+  id: true,
+  name: true,
+  sensitivityLevel: true,
+  integrityImpactLevel: true,
+  availabilityImpactLevel: true,
+  deploymentFacets: { select: { id: true } },
+  frameworkScopes: { select: { id: true } },
+} satisfies Prisma.SystemSelect;
+
+type ComplianceSystem = Prisma.SystemGetPayload<{ select: typeof COMPLIANCE_SYSTEM_SELECT }>;
+
+/**
+ * `getComplianceForSystems` for Systems the caller has already read (in the same snapshot, with at least
+ * the classification, Deployment Facet ids, Framework Scope ids and name of `COMPLIANCE_SYSTEM_SELECT`): the
+ * same figures without reading the matched Systems again. `bySystem` follows the order given.
+ */
+export function getComplianceForLoadedSystems(
+  systems: ComplianceSystem[],
+  options: { frameworkId?: string } = {},
+  db?: DerivationDb,
+): Promise<ScopeCompliance> {
+  return withDerivationSnapshot(db, (tx) => compliancePooled(systems, options, tx));
+}
+
 async function readComplianceForSystems(
   where: Prisma.SystemWhereInput,
   options: { frameworkId?: string },
   db: DerivationDb,
 ): Promise<ScopeCompliance> {
+  const systems = await db.system.findMany({ where, select: COMPLIANCE_SYSTEM_SELECT, orderBy: { createdAt: "asc" } });
+  return compliancePooled(systems, options, db);
+}
+
+async function compliancePooled(systems: ComplianceSystem[], options: { frameworkId?: string }, db: DerivationDb): Promise<ScopeCompliance> {
   // Sequential: a transaction has one connection.
   const framework = await db.framework.findFirst({
     where: options.frameworkId ? { id: options.frameworkId } : { isBase: true },
     select: { id: true, name: true, version: true, isBase: true, status: true, strictComplianceRequired: true },
-  });
-  const systems = await db.system.findMany({
-    where,
-    select: {
-      id: true,
-      name: true,
-      sensitivityLevel: true,
-      integrityImpactLevel: true,
-      availabilityImpactLevel: true,
-      deploymentFacets: { select: { id: true } },
-      frameworkScopes: { select: { id: true } },
-    },
-    orderBy: { createdAt: "asc" },
   });
 
   const emptyBySystem = systems.map((s): SystemCompliance => ({

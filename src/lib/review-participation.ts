@@ -2,6 +2,7 @@ import type { Prisma } from "@prisma/client";
 import { APPLICABILITY_SCOPING } from "@/lib/control-assessments";
 import {
   APPLICABLE_APPLICABILITIES,
+  controlAppliesToSystem,
   meetsAllImpactThresholds,
   type SystemClassification,
 } from "@/lib/control-applicability";
@@ -141,6 +142,34 @@ export async function remitGroupsByControl(
     if (groups.size > 0) byControl.set(control.id, groups);
   }
   return byControl;
+}
+
+/**
+ * `remitGroupsByControl` for many Systems at once, reduced to what the Review Steps need: the Review
+ * Groups with at least one Control in their remit, per System (id to name), keyed by System id. One read
+ * of the Controls however many Systems there are (the per-System query is the same scan again for each),
+ * the applicability rules applied in memory by `controlAppliesToSystem`, the twin of `APPLICABILITY_SCOPING`
+ * plus the Impact Level thresholds that `remitGroupsByControl` applies. Every System in `systems` has an entry.
+ */
+export async function groupsWithRemitForSystems(
+  tx: Pick<Prisma.TransactionClient, "control">,
+  systems: (SystemClassification & { id: string })[],
+): Promise<Map<string, Map<string, string>>> {
+  const result = new Map<string, Map<string, string>>(systems.map((system) => [system.id, new Map<string, string>()]));
+  if (systems.length === 0) return result;
+  const controls = await tx.control.findMany({
+    where: { applicability: { in: [...APPLICABLE_APPLICABILITIES] } },
+    include: { ...CONTROL_FOR_REMIT, deploymentFacets: { select: { id: true } } },
+  });
+  for (const system of systems) {
+    const declaredScopeIds = new Set(system.frameworkScopes.map((framework) => framework.id));
+    const groups = result.get(system.id)!;
+    for (const control of controls) {
+      if (!controlAppliesToSystem(control, system)) continue;
+      for (const [id, name] of stepsOfControl(control, declaredScopeIds).groups) groups.set(id, name);
+    }
+  }
+  return result;
 }
 
 /**

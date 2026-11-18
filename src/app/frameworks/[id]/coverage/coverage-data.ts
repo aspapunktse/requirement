@@ -7,6 +7,7 @@ import { frameworkLabel } from "@/lib/framework-label";
 import { canCurateFramework, canMarkFirstRound, mappableControlsWhere, canSeeDraftFrameworks, visibleOrOwnedFrameworksWhere } from "@/lib/frameworks";
 import { canBeControlOwner } from "@/lib/system-permissions";
 import type { CoverageRow, CoverageView } from "./coverage-types";
+import { READ_SNAPSHOT } from "@/lib/read-transaction";
 
 /**
  * Everything the Framework coverage page shows for the acting user (design proposal A "Gap ledger", issue #269),
@@ -145,6 +146,6 @@ export async function loadCoverageView(
         initialSection: requestedSection,
       };
     },
-    { isolationLevel: "RepeatableRead" },
+    READ_SNAPSHOT,
   );
 }

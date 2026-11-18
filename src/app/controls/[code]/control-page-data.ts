@@ -16,6 +16,7 @@ import { canSeeDraftFrameworks, controlIncludeFor, redactDraftOrigin } from "@/l
 import { visibleSystemsWhere } from "@/lib/system-visibility";
 import { classifiedForApplicability, libraryRowOf } from "../library-data";
 import type { ControlPageView, PageOrganization, PageSystem, PageSystems } from "./control-page-types";
+import { READ_SNAPSHOT } from "@/lib/read-transaction";
 
 const collator = new Intl.Collator("en", { numeric: true });
 
@@ -170,6 +171,6 @@ export async function loadControlPageView(user: { id: string; name: string; role
         systems,
       };
     },
-    { isolationLevel: "RepeatableRead" },
+    READ_SNAPSHOT,
   );
 }

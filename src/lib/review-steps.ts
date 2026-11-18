@@ -15,10 +15,12 @@ import {
   participantsContainingControl,
   participantsOver,
   participantsToReopen,
+  groupsWithRemitForSystems,
   remitGroupsByControl,
   type Participant,
   type ParticipationScope,
 } from "@/lib/review-participation";
+import { READ_SNAPSHOT } from "@/lib/read-transaction";
 
 // The participation rules moved to `review-participation.ts`; these names stay importable from here.
 export { BASE_REVIEW_STEP_NAME, isBaseControl, remitGroupsByControl };
@@ -254,7 +256,7 @@ export async function loadReviewRounds(systemId: string) {
       const groups = await groupsWithRemit(tx, system);
       return { rounds, currentRoundId: current?.id ?? null, steps: buildSteps(groups, current?.approvals ?? []) };
     },
-    { isolationLevel: "RepeatableRead" },
+    READ_SNAPSHOT,
   );
 }
 
@@ -281,13 +283,17 @@ export async function getOpenStepsForUser(user: { id: string; role: UserRole }) 
         include: SYSTEM_FOR_STEPS,
       });
       const tasks: { system: (typeof systems)[number]; step: ReviewStep }[] = [];
+      // Set-based, not a few reads per System: every System's latest round and every remit in one read each.
+      const rounds = await tx.reviewRound.findMany({
+        where: { systemId: { in: systems.map((system) => system.id) } },
+        orderBy: [{ submittedAt: "desc" }, { id: "desc" }],
+        include: { approvals: true },
+      });
+      const latestRound = new Map<string, (typeof rounds)[number]>();
+      for (const round of rounds) if (!latestRound.has(round.systemId)) latestRound.set(round.systemId, round);
+      const remits = await groupsWithRemitForSystems(tx, systems);
       for (const system of systems) {
-        const round = await tx.reviewRound.findFirst({
-          where: { systemId: system.id },
-          orderBy: [{ submittedAt: "desc" }, { id: "desc" }],
-          include: { approvals: true },
-        });
-        const steps = buildSteps(await groupsWithRemit(tx, system), round?.approvals ?? []);
+        const steps = buildSteps(remits.get(system.id) ?? new Map(), latestRound.get(system.id)?.approvals ?? []);
         for (const step of steps) {
           if (step.status !== "OPEN") continue;
           if (userCanDecideStep(user, system.ownerId, groupIds, step.reviewGroupId)) tasks.push({ system, step });
@@ -295,7 +301,7 @@ export async function getOpenStepsForUser(user: { id: string; role: UserRole }) 
       }
       return tasks;
     },
-    { isolationLevel: "RepeatableRead" },
+    READ_SNAPSHOT,
   );
 }
 

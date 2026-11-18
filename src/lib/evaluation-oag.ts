@@ -4,6 +4,7 @@ import { logChangeEvent, SYSTEM_ACTOR } from "@/lib/change-events";
 import { userCanDecideStep } from "@/lib/approvals";
 import { EVALUATION_STAGE_LABEL } from "@/lib/evaluation-stages";
 import { participantList, participantsContainingControl, participantsOver, participantsToReopen, type Participant } from "@/lib/review-participation";
+import { READ_SNAPSHOT } from "@/lib/read-transaction";
 
 /**
  * The OAG reviews on the Full track, before OG2 and before OG3 (#331, #332, PRD 0002 F-OAG.1-2, ADR 0014): every group with a remit on the System, plus the
@@ -225,6 +226,6 @@ export async function getOpenRecommendationsForUser(user: { id: string; role: Us
       }
       return tasks;
     },
-    { isolationLevel: "RepeatableRead" },
+    READ_SNAPSHOT,
   );
 }

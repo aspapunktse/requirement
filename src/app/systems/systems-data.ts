@@ -1,9 +1,10 @@
 import type { Prisma, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { READ_SNAPSHOT } from "@/lib/read-transaction";
 import { visibleSystemsWhere } from "@/lib/system-visibility";
 import { getAssignedScope, scopedSystemsWhere } from "@/lib/business-risk-owner";
 import { getActionableQueryCountsBySystem } from "@/lib/assessment-queries";
-import { getComplianceForSystems } from "@/lib/compliance";
+import { getComplianceForLoadedSystems } from "@/lib/compliance";
 import { frameworkLabel } from "@/lib/framework-label";
 import { canCreateSystem } from "@/lib/system-permissions";
 import { roleLabel } from "@/app/home/role-label";
@@ -71,7 +72,7 @@ export async function readSystemRows(
 
   const queryCounts = await getActionableQueryCountsBySystem(user, ids, tx);
   const withFulfilment = options.fulfilment ?? true;
-  const compliance = withFulfilment ? await getComplianceForSystems(where, {}, tx) : null;
+  const compliance = withFulfilment ? await getComplianceForLoadedSystems(systems, {}, tx) : null;
   const fulfilmentBySystem = new Map((compliance?.bySystem ?? []).map((row) => [row.systemId, row]));
   // A Business Risk Owner's own view is their assigned Business Units and Frameworks.
   const inScope =
@@ -163,7 +164,7 @@ export function inRoleView(
 /** The rows for a caller that only needs to count the saved views (the daily snapshot job). */
 export async function loadSystemRowsForCounts(user: User, now: Date): Promise<SystemRow[]> {
   return prisma.$transaction(async (tx) => (await readSystemRows(tx, user, now, { fulfilment: roleViewNeedsFulfilment(user.role) })).rows, {
-    isolationLevel: "RepeatableRead",
+    ...READ_SNAPSHOT,
   });
 }
 
@@ -176,7 +177,7 @@ export async function loadSystemsView(user: User & { name: string }, now = new D
         informationTypes: (await listInformationTypes(tx)).map(({ id, name, sensitivityLevel }) => ({ id, name, sensitivityLevel })),
       };
     },
-    { isolationLevel: "RepeatableRead" },
+    READ_SNAPSHOT,
   );
   return {
     userId: user.id,

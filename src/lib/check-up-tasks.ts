@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import type { TaskRow } from "@/components/ui/TaskTable";
 import { formatCalendarDate } from "@/lib/internal-audit-rules";
 import { isCheckUpOpen, isCheckUpOverdue, ROLES_NEVER_ANSWERING_CHECK_UPS } from "@/lib/check-up-response-rules";
+import { READ_SNAPSHOT } from "@/lib/read-transaction";
 
 /**
  * The Check-ups addressed to a user (PRD 0001 F-IA.4, #155): the ones whose target they own *now*,
@@ -51,7 +52,7 @@ export async function listMyCheckUps(user: { id: string; role: UserRole }, now =
           withdrawal: { select: { id: true } },
         },
       }),
-    { isolationLevel: "RepeatableRead" },
+    READ_SNAPSHOT,
   );
   return rows
     .map((row) => {

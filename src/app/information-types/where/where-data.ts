@@ -6,6 +6,7 @@ import { listSensitivityLevels } from "@/lib/sensitivity-level-data";
 import { whereCounts, type WhereCounts } from "@/lib/information-type-where";
 import type { InformationTypeRow } from "@/lib/information-type";
 import type { SensitivityLevelInfo } from "@/lib/sensitivity-level";
+import { READ_SNAPSHOT } from "@/lib/read-transaction";
 
 /** A System the acting user may see, as the view lists it. */
 export type WhereSystem = { id: string; name: string; isProvider: boolean; sensitivityLevel: number | null; typeIds: string[] };
@@ -26,7 +27,7 @@ export type WhereView = {
 
 /** One RepeatableRead transaction, every query on `tx`, so the counts and the lists agree. */
 export async function loadWhereView(user: { id: string; role: UserRole }): Promise<WhereView> {
-  return prisma.$transaction((tx) => readWhereView(tx, user), { isolationLevel: "RepeatableRead" });
+  return prisma.$transaction((tx) => readWhereView(tx, user), READ_SNAPSHOT);
 }
 
 /** All the reads of the view on the caller's client; the caller owns the snapshot (a test compares two reads in one). */

@@ -11,6 +11,7 @@ import {
   type StatementInputs,
   type StatementOfApplicabilityRow,
 } from "@/lib/statement-of-applicability-rules";
+import { READ_SNAPSHOT } from "@/lib/read-transaction";
 
 export * from "@/lib/statement-of-applicability-rules";
 
@@ -36,9 +37,7 @@ export async function loadStatementOfApplicability(): Promise<
   // statements, and a Requirement deleted between them (a curator, the import loader)
   // would otherwise leave a mapping whose required Requirement is gone and throw.
   // Read-only, so there is nothing to retry. Sequential: a transaction has one connection.
-  const inputs = await prisma.$transaction(readStatementInputs, {
-    isolationLevel: "RepeatableRead",
-  });
+  const inputs = await prisma.$transaction(readStatementInputs, READ_SNAPSHOT);
   return deriveStatementOfApplicability(inputs);
 }
 

@@ -1,5 +1,8 @@
 import { prisma } from "@/lib/prisma";
-import { getStaleAssessments, getUnaddressedMandatoryControls } from "@/lib/control-assessments";
+import type { ControlAssessmentStatus } from "@prisma/client";
+import { applicableControlsOf, loadControlsForApplicability } from "@/lib/control-applicability-data";
+import { inheritanceSourcesFor, resolveEffectiveStatus } from "@/lib/effective-status";
+import { loadOrganizationStatuses, loadProviderSources, toOwnAssessment } from "@/lib/effective-status-data";
 import { RISK_INCLUDE, SYSTEM_RISK_WHERE } from "@/lib/risks";
 
 export type AttentionSystem =
@@ -40,10 +43,48 @@ export async function getSystemsNeedingAttention(ownerId: string): Promise<Atten
     },
   });
 
+  const nonDraftIds = systems.filter((system) => system.status !== "DRAFT").map((system) => system.id);
+  // Set-based, whatever the number of Systems: the Controls, and the owner's Assessments, are read once and
+  // judged per System in memory (the in-memory twin of the applicability rules, `controlAppliesToSystem`).
+  const controls =
+    systems.length === 0
+      ? []
+      : await loadControlsForApplicability(prisma);
+  const assessments =
+    systems.length === 0
+      ? []
+      : await prisma.controlAssessment.findMany({
+          where: { systemId: { in: systems.map((system) => system.id) } },
+          select: { systemId: true, controlId: true, status: true, assessedById: true },
+        });
+  const assessmentsBySystem = new Map<string, Map<string, { status: ControlAssessmentStatus; assessedById: string | null }>>();
+  for (const assessment of assessments) {
+    const own = assessmentsBySystem.get(assessment.systemId) ?? new Map();
+    own.set(assessment.controlId, assessment);
+    assessmentsBySystem.set(assessment.systemId, own);
+  }
+  const applicableBySystem = new Map(systems.map((system) => [system.id, applicableControlsOf(controls, system)]));
+  // What `getUnaddressedMandatoryControls` needs beyond the Controls, for the non-Draft Systems only.
+  const mandatoryIds = [...new Set(nonDraftIds.flatMap((id) => (applicableBySystem.get(id) ?? []).filter((control) => control.mandatory).map((control) => control.id)))];
+  const organizationStatuses = await loadOrganizationStatuses(
+    controls.filter((control) => control.applicability === "BOTH" && mandatoryIds.includes(control.id)).map((control) => control.id),
+  );
+  const providerSources = await loadProviderSources(nonDraftIds, mandatoryIds);
+
   const results: AttentionSystem[] = [];
   for (const system of systems) {
+    const applicable = applicableBySystem.get(system.id) ?? [];
+    const own = assessmentsBySystem.get(system.id) ?? new Map();
     if (system.status !== "DRAFT") {
-      const unaddressed = await getUnaddressedMandatoryControls(system);
+      const unaddressed = applicable.filter((control) => {
+        if (!control.mandatory) return false;
+        const assessment = own.get(control.id);
+        const effective = resolveEffectiveStatus(
+          assessment ? toOwnAssessment(assessment) : null,
+          inheritanceSourcesFor(control, organizationStatuses.get(control.id), providerSources.get(system.id)?.get(control.id)),
+        );
+        return effective.status === "NOT_STARTED";
+      });
       if (unaddressed.length > 0) {
         results.push({ id: system.id, name: system.name, reason: "needs-assessment", count: unaddressed.length });
       }
@@ -51,8 +92,9 @@ export async function getSystemsNeedingAttention(ownerId: string): Promise<Atten
       results.push({ id: system.id, name: system.name, reason: "rejected" });
       continue;
     }
-    const stale = await getStaleAssessments(system);
-    if (stale.length > 0) {
+    // Stale: a recorded Assessment whose Control no longer applies (`getStaleAssessments`).
+    const applicableIds = new Set(applicable.map((control) => control.id));
+    if ([...own.keys()].some((controlId) => !applicableIds.has(controlId))) {
       results.push({ id: system.id, name: system.name, reason: "stale" });
     }
   }

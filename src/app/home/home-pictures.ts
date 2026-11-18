@@ -1,7 +1,9 @@
 import type { RiskSeverity, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { TaskRow } from "@/components/ui/TaskTable";
-import { getApplicableControls, UNTOUCHED_ASSESSMENT_WHERE } from "@/lib/control-assessments";
+import { UNTOUCHED_ASSESSMENT_WHERE } from "@/lib/control-assessments";
+import { applicableControlsOf, loadControlsForApplicability } from "@/lib/control-applicability-data";
+import { READ_SNAPSHOT } from "@/lib/read-transaction";
 import { getComplianceForSystems } from "@/lib/compliance";
 import { loadCoverageSummaries } from "@/lib/framework-coverage";
 import { frameworkLabel } from "@/lib/framework-label";
@@ -82,29 +84,36 @@ export async function loadPipelinePicture(userId: string, flags: Map<string, str
           frameworkScopes: { select: { id: true } },
         },
       });
-      const items = [];
-      for (const system of systems.slice(0, MAX_SYSTEMS_DRAWN)) {
-        // "% assessed": the applicable Controls that have been touched (not an untouched Not Started row).
-        const applicable = await getApplicableControls(system, {}, tx);
-        const touched =
-          applicable.length === 0
-            ? 0
-            : await tx.controlAssessment.count({
-                where: { systemId: system.id, controlId: { in: applicable.map((control) => control.id) }, NOT: UNTOUCHED_ASSESSMENT_WHERE },
-              });
+      const drawn = systems.slice(0, MAX_SYSTEMS_DRAWN);
+      // "% assessed": the applicable Controls that have been touched (not an untouched Not Started row).
+      // The Controls and the touched Assessments are read once for all the drawn Systems and judged in memory.
+      const controls = drawn.length === 0 ? [] : await loadControlsForApplicability(tx);
+      const touchedRows =
+        drawn.length === 0
+          ? []
+          : await tx.controlAssessment.findMany({
+              where: { systemId: { in: drawn.map((system) => system.id) }, NOT: UNTOUCHED_ASSESSMENT_WHERE },
+              select: { systemId: true, controlId: true },
+            });
+      const touchedBySystem = new Map<string, Set<string>>();
+      for (const row of touchedRows) touchedBySystem.set(row.systemId, (touchedBySystem.get(row.systemId) ?? new Set()).add(row.controlId));
+      const items = drawn.map((system) => {
+        const applicable = applicableControlsOf(controls, system);
+        const touchedIds = touchedBySystem.get(system.id);
+        const touched = applicable.filter((control) => touchedIds?.has(control.id)).length;
         const flag = system.status === "REJECTED" ? "Rejected" : flags.get(system.id);
-        items.push({
+        return {
           id: system.id,
           name: system.name,
           href: `/systems/${system.id}`,
           stage: stageOf(system.status),
           pct: applicable.length === 0 ? null : Math.round((touched / applicable.length) * 100),
           ...(flag && { flag }),
-        });
-      }
+        };
+      });
       return { systems, items };
     },
-    { isolationLevel: "RepeatableRead" },
+    READ_SNAPSHOT,
   );
   const shown = items;
   return {
@@ -175,7 +184,7 @@ export async function loadPortfolioPicture(scope: AssignedScope, openRisks: { sy
       systems: await tx.system.findMany({ where, orderBy: { name: "asc" }, select: { id: true, name: true, status: true } }),
       compliance: await getComplianceForSystems(where, {}, tx),
     }),
-    { isolationLevel: "RepeatableRead" },
+    READ_SNAPSHOT,
   );
   const pctBySystem = new Map(compliance.bySystem.map((row) => [row.systemId, row.percentage]));
   const risksBySystem = new Map<string, number>();
@@ -217,7 +226,7 @@ export async function loadFrameworkRingsPicture(user: { role: UserRole }, limit 
       });
       return { frameworks, summaries: await loadCoverageSummaries(frameworks.map((framework) => framework.id), tx) };
     },
-    { isolationLevel: "RepeatableRead" },
+    READ_SNAPSHOT,
   );
   const withRequirements = frameworks.filter((framework) => summaries[framework.id].total > 0);
   return {
@@ -283,7 +292,7 @@ export async function loadAuditOverview(userId: string): Promise<AuditOverview> 
           checkUps: { select: { response: { select: { id: true } }, evaluation: { select: { id: true } }, withdrawal: { select: { id: true } } } },
         },
       }),
-    { isolationLevel: "RepeatableRead" },
+    READ_SNAPSHOT,
   );
 
   const launched = audits.filter((audit) => audit.status === "LAUNCHED");
