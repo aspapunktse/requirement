@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Internal Audit: Evaluation queue</title>
+<link rel="stylesheet" href="../systems/systems.css">
+<link rel="stylesheet" href="../shared/appbar.css">
+<link rel="stylesheet" href="audit.css">
+<link rel="stylesheet" href="../shared/kit.css">
+<link rel="stylesheet" href="../shared/themes.css">
+<script src="../shared/themes.js"></script>
+<style>
+/* One Internal Audit, proposal C: an evaluation queue, built for the Internal Auditor's daily work. A slim
+   hero with a progress bar, then two panes: on the left the Check-ups as an inbox, in tabs (To evaluate,
+   Waiting for an answer, Done) with counts and a search; on the right the picked Check-up with its response
+   and the evaluate / withdraw form. "Evaluate and next" moves down the queue; J and K move too. A closed
+   audit uses the same panes, read-only, with its findings on top. A draft shows its read view. */
+.hero.slim { padding: 18px 24px; }
+.pbar { display: flex; height: 10px; border-radius: 99px; background: var(--line-soft); overflow: hidden; margin-top: 12px; max-width: 520px; } .pbar i { display: block; }
+.panes { display: grid; grid-template-columns: 380px minmax(0, 1fr); min-height: 560px; }
+.panes > .q { border-right: 1px solid var(--line-soft); display: flex; flex-direction: column; min-width: 0; }
+.qlist { overflow: auto; max-height: 640px; }
+.qi { all: unset; box-sizing: border-box; display: grid; gap: 2px; width: 100%; padding: 10px 16px; border-bottom: 1px solid var(--line-soft); cursor: pointer; border-left: 3px solid transparent; }
+.qi:hover { background: var(--raised); } .qi[aria-current="true"] { background: var(--accent-soft); border-left-color: var(--accent); }
+.qi:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.qi .t { display: flex; justify-content: space-between; gap: 8px; font-size: .86rem; font-weight: 650; }
+.qi small { color: var(--muted); font-size: .76rem; }
+.detail { padding: 20px 24px; display: grid; gap: 16px; align-content: start; }
+.detail .acts { display: flex; gap: 8px; flex-wrap: wrap; border-top: 1px solid var(--line-soft); padding-top: 14px; }
+.kbd { font-size: .74rem; color: var(--faint); }
+@media (max-width: 900px) { .panes { grid-template-columns: 1fr; } .panes > .q { border-right: 0; border-bottom: 1px solid var(--line-soft); } .qlist { max-height: 320px; } }
+</style>
+</head>
+<body>
+<header id="appbar"></header>
+<main class="app" id="page"></main>
+<script src="../shared/kit.js"></script>
+<script src="../controls/data.js"></script>
+<script src="../systems/data.js"></script>
+<script src="audit.js"></script>
+<script src="audits.js"></script>
+<script src="detail.js"></script>
+<script src="../shared/appbar.js"></script>
+<script>
+(function () {
+  const A = window.AUD, S = window.AUDS, D = window.AUDD, { esc } = A;
+  const ui = { tab: 'evaluate', q: '', sel: null, id: null };
+  const TABS = [['evaluate', 'To evaluate', (c) => c.answered && !c.outcome && !c.withdrawn], ['waiting', 'Waiting', (c) => !c.answered && !c.withdrawn], ['done', 'Done', (c) => !!(c.outcome || c.withdrawn)]];
+  let shown = [];
+
+  function render(a) {
+    if (ui.id !== a.id) { ui.id = a.id; ui.sel = null; ui.q = ''; ui.tab = a.status === 'CLOSED' ? 'done' : 'evaluate'; }
+    if (a.status === 'DRAFT') return D.hero(a, null) + D.draftBody(a);
+    const st = S.stats(a), t = Math.max(1, st.total);
+    const bar = `<div class="pbar" role="img" aria-label="${st.evaluated + st.withdrawn} of ${st.total} done">${[['evaluated', st.evaluated], ['withdrawn', st.withdrawn], ['awaiting', st.awaiting], ['overdue', st.overdue]].map(([k, n]) => `<i style="width:${n / t * 100}%;background:${S.STATE_COLOR[k]}"></i>`).join('')}</div><small class="muted">${st.evaluated + st.withdrawn} of ${st.total} done · ${st.awaiting} to evaluate · ${st.notAnswered} waiting for an answer${st.overdue ? `, <b style="color:var(--bad)">${st.overdue} overdue</b>` : ''}</small>`;
+    const test = TABS.find((x) => x[0] === ui.tab)[2];
+    shown = a.checkUps.filter(test).filter((c) => !ui.q || `${c.code} ${c.control.title} ${c.target.name} ${c.recipient}`.toLowerCase().includes(ui.q))
+      .sort((x, y) => (y.overdue - x.overdue) || (x.respondedAt || '').localeCompare(y.respondedAt || '') || x.code.localeCompare(y.code));
+    const sel = shown.find((c) => c.id === ui.sel) || shown[0];
+    const item = (c) => { const s = S.cuState(c); return `<button type="button" class="qi" data-cu="${c.id}" aria-current="${sel && sel.id === c.id}"><span class="t"><span><span class="code">${esc(c.code)}</span> ${esc(c.control.title)}</span>${ui.tab === 'evaluate' ? `<b style="font-size:.78rem">${esc(c.answer)}</b>` : S.chip(s.tone, s.label)}</span><small>${c.target.kind === 'org' ? 'Organization' : esc(c.target.name)} · ${c.recipient ? esc(c.recipient) : '<span style="color:var(--bad)">no recipient</span>'}${c.respondedAt ? ' · answered ' + esc(A.fmtDate(c.respondedAt)) : ''}</small></button>`; };
+    const live = S.isAuditor() && a.status === 'LAUNCHED' && sel && !sel.outcome && !sel.withdrawn;
+    const acts = live ? `<div class="acts">${sel.answered ? Object.entries(S.OUTCOME).map(([k, o]) => `<button class="btn ${k === 'CONFORMING' ? 'primary' : ''}" type="button" data-eval="${o.label}">${o.label} and next</button>`).join('') : ''}<button class="btn" type="button" data-mock="Withdrawn with a reason (mock)">Withdraw…</button><span class="kbd" style="margin-left:auto;align-self:center">J / K to move</span></div>` : '';
+    return D.hero(a, st, '').replace('class="hero"', 'class="hero slim"').replace('</h1>', '</h1>' + bar) + D.closeBanner(a, st)
+      + `<section class="card" aria-label="Check-up queue" style="overflow:hidden"><div class="panes"><div class="q">
+          <div class="tabs" role="tablist">${TABS.map(([k, l, f]) => `<button type="button" role="tab" data-tab="${k}" aria-selected="${ui.tab === k}">${l}<span class="n">${a.checkUps.filter(f).length}</span></button>`).join('')}</div>
+          <div style="padding:10px 14px;border-bottom:1px solid var(--line-soft)"><label class="search"><svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.6"/><path d="m11 11 3.5 3.5" stroke="currentColor" stroke-width="1.6"/></svg><input id="q" type="search" placeholder="Control, System or person" aria-label="Search Check-ups" value="${esc(ui.q)}"></label></div>
+          <div class="qlist">${shown.map(item).join('') || `<div class="done-state"><h3>${ui.tab === 'evaluate' ? 'Nothing to evaluate' : 'Nothing here'}</h3><p>${ui.tab === 'evaluate' ? 'Every answered Check-up is evaluated.' : 'Try another tab.'}</p></div>`}</div></div>
+        <div class="detail">${sel ? D.checkUpPanel(a, sel).replace(/<div class="seg" role="group" aria-label="Outcome">[\s\S]*?<\/div>/, '').replace(/<button class="btn" type="button" data-mock="Withdrawn[^<]*<\/button>/, '') + acts : '<p class="muted">Nothing picked.</p>'}</div>
+      </div></section>`;
+  }
+
+  const draw = D.mount(render, 'C', [['A', 'detail-a.html'], ['B', 'detail-b.html']]);
+  const move = (d) => { const i = shown.findIndex((c) => c.id === ui.sel); const n = shown[Math.max(0, Math.min(shown.length - 1, (i < 0 ? 0 : i) + d))]; if (n) { ui.sel = n.id; draw(); } };
+  document.addEventListener('click', (e) => {
+    const t = e.target.closest('[data-tab]'); if (t) { ui.tab = t.dataset.tab; ui.sel = null; draw(); }
+    const c = e.target.closest('[data-cu]'); if (c) { ui.sel = c.dataset.cu; draw(); }
+    const v = e.target.closest('[data-eval]'); if (v) { A.toast(`Evaluated as ${esc(v.dataset.eval)} (mock)`); move(1); }
+  });
+  document.addEventListener('input', (e) => { if (e.target.id === 'q') { ui.q = e.target.value.toLowerCase(); draw(); const n = document.getElementById('q'); n.focus(); n.setSelectionRange(n.value.length, n.value.length); } });
+  document.addEventListener('keydown', (e) => { if (/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) return; if (e.key === 'j') move(1); if (e.key === 'k') move(-1); });
+})();
+</script>
+</body>
+</html>

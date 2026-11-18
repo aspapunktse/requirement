@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Internal Audits: Register</title>
+<link rel="stylesheet" href="../systems/systems.css">
+<link rel="stylesheet" href="../shared/appbar.css">
+<link rel="stylesheet" href="audit.css">
+<link rel="stylesheet" href="../shared/kit.css">
+<link rel="stylesheet" href="../shared/themes.css">
+<script src="../shared/themes.js"></script>
+<style>
+/* Audits list, proposal B: a register. A compact hero, then one card holding state tabs with counts, a
+   search and a sortable table: title and scope, state, due, a progress bar with counts, findings
+   (Conforming / Observation / Nonconformity, Risks opened) and the next thing to do. Below 760px each row
+   becomes a stacked card. */
+.hero.slim { padding: 20px 24px; }
+.tbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 12px 18px; border-bottom: 1px solid var(--line-soft); }
+.tbar .search { flex: 1 1 240px; }
+table.reg { width: 100%; border-collapse: collapse; font-size: .86rem; }
+.reg th { text-align: left; font-size: .72rem; letter-spacing: .05em; text-transform: uppercase; color: var(--faint); font-weight: 750; padding: 10px 12px; border-bottom: 1px solid var(--line-soft); white-space: nowrap; }
+.reg th button { all: unset; cursor: pointer; } .reg th button:hover { color: var(--ink); }
+.reg td { padding: 12px; border-bottom: 1px solid var(--line-soft); vertical-align: middle; }
+.reg tr:hover td { background: var(--raised); }
+.reg td.t a { color: var(--ink); font-weight: 680; text-decoration: none; } .reg td.t a:hover { color: var(--accent); text-decoration: underline; }
+.reg td.t small { display: block; color: var(--muted); font-size: .78rem; max-width: 46ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.prog { display: grid; gap: 4px; min-width: 150px; }
+.prog small { color: var(--muted); font-size: .74rem; font-variant-numeric: tabular-nums; }
+.bar { display: flex; height: 7px; border-radius: 99px; background: var(--line-soft); overflow: hidden; } .bar i { display: block; height: 100%; }
+.f3 { display: inline-flex; gap: 8px; font-variant-numeric: tabular-nums; font-weight: 700; }
+.f3 span { display: inline-flex; align-items: center; gap: 4px; } .f3 i { width: 8px; height: 8px; border-radius: 2px; }
+.late { color: var(--bad); font-weight: 700; } .soon { color: var(--gold-ink); font-weight: 700; }
+.next { display: inline-block; min-width: 130px; font-size: .8rem; color: var(--muted); } .next b { color: var(--ink); }
+@media (max-width: 760px) {
+  .reg thead { display: none; } .reg, .reg tbody, .reg tr, .reg td { display: block; width: 100%; }
+  .reg tr { padding: 10px 14px; border-bottom: 1px solid var(--line-soft); } .reg td { border: 0; padding: 3px 0; }
+}
+</style>
+</head>
+<body>
+<header id="appbar"></header>
+<main class="app" id="page"></main>
+<script src="../shared/kit.js"></script>
+<script src="../controls/data.js"></script>
+<script src="../systems/data.js"></script>
+<script src="audit.js"></script>
+<script src="audits.js"></script>
+<script src="../shared/appbar.js"></script>
+<script>
+(function () {
+  const A = window.AUD, S = window.AUDS, { esc } = A;
+  const ui = { tab: 'active', q: '', sort: 'due', dir: 1 };
+  const href = (a) => `detail-a.html?id=${a.id}${location.hash}`;
+  const TABS = [['active', 'Active', (a) => a.status !== 'CLOSED'], ['LAUNCHED', 'Launched', (a) => a.status === 'LAUNCHED'], ['DRAFT', 'Drafts', (a) => a.status === 'DRAFT'], ['CLOSED', 'Closed', (a) => a.status === 'CLOSED'], ['all', 'All', () => true]];
+
+  function next(a, st) {
+    if (a.status === 'DRAFT') { const p = S.plan(a); return p.launch.length ? `<span class="next">Fix: ${esc(p.launch[0].text)}</span>` : `<span class="next"><b>Launch</b>: ${p.total} Check-ups</span>`; }
+    if (a.status === 'CLOSED') return `<span class="next">Closed ${esc(A.fmtDate(a.closedAt))}</span>`;
+    if (st.canClose) return '<span class="next" style="color:var(--ok)"><b style="color:inherit">Close the audit</b></span>';
+    if (st.awaiting) return `<span class="next"><b>Evaluate</b> ${st.awaiting} answered</span>`;
+    return `<span class="next">Waiting on ${S.plural(st.notAnswered, 'answer')}</span>`;
+  }
+  function row(a) {
+    const st = S.stats(a), t = Math.max(1, st.total), n = A.daysUntil(a.due);
+    const prog = a.status === 'DRAFT' ? `<span class="muted" style="font-size:.8rem">${a.codes.length} Controls · ${a.systems.length} Systems${a.org ? ' + Org' : ''}</span>`
+      : `<div class="prog"><div class="bar">${[['evaluated', st.evaluated], ['withdrawn', st.withdrawn], ['awaiting', st.awaiting], ['overdue', st.overdue]].map(([k, v]) => `<i style="width:${v / t * 100}%;background:${S.STATE_COLOR[k]}"></i>`).join('')}</div><small>${st.evaluated + st.withdrawn}/${st.total} done${st.overdue ? ` · <span class="late">${st.overdue} overdue</span>` : ''}</small></div>`;
+    const finds = a.status === 'DRAFT' ? '<span class="muted">–</span>' : `<span class="f3" title="Conforming, Observation, Nonconformity"><span><i style="background:var(--ok)"></i>${st.CONFORMING}</span><span><i style="background:var(--gold)"></i>${st.OBSERVATION}</span><span><i style="background:var(--bad)"></i>${st.NONCONFORMITY}</span></span>${st.risks ? `<small class="muted" style="display:block;font-size:.74rem">${S.plural(st.risks, 'Risk')} opened</small>` : ''}`;
+    return `<tr><td class="t"><a href="${href(a)}">${esc(a.title)}</a><small>${esc(a.scope || 'No scope description')}</small></td>
+      <td>${S.chip(S.STATUS[a.status].tone, S.STATUS[a.status].label)}</td>
+      <td class="${a.status === 'LAUNCHED' ? (n < 0 ? 'late' : n <= 7 ? 'soon' : '') : ''}" style="white-space:nowrap">${esc(A.fmtDate(a.due))}${a.status === 'LAUNCHED' ? `<small style="display:block;font-weight:500;font-size:.74rem">${esc(S.dueText(a))}</small>` : ''}</td>
+      <td>${prog}</td><td>${finds}</td><td>${next(a, st)}</td></tr>`;
+  }
+  const KEY = { title: (a) => a.title, due: (a) => a.due, progress: (a) => S.stats(a).done, findings: (a) => S.stats(a).NONCONFORMITY };
+  function render() {
+    const root = document.getElementById('page');
+    if (!S.canRead()) { root.innerHTML = S.roleNote(); return; }
+    const test = TABS.find((t) => t[0] === ui.tab)[2];
+    const list = S.audits.filter(test).filter((a) => !ui.q || (a.title + ' ' + a.scope).toLowerCase().includes(ui.q))
+      .sort((a, b) => { const x = KEY[ui.sort](a), y = KEY[ui.sort](b); return (x < y ? -1 : x > y ? 1 : 0) * ui.dir; });
+    const th = (k, l) => `<th aria-sort="${ui.sort === k ? (ui.dir > 0 ? 'ascending' : 'descending') : 'none'}"><button type="button" data-sort="${k}">${l}${ui.sort === k ? (ui.dir > 0 ? ' ↑' : ' ↓') : ''}</button></th>`;
+    const launched = S.audits.filter((a) => a.status === 'LAUNCHED'), aw = launched.reduce((n, a) => n + S.stats(a).awaiting, 0), od = launched.reduce((n, a) => n + S.stats(a).overdue, 0);
+    root.innerHTML = `<section class="hero slim" aria-labelledby="pageH"><div><div class="eyebrow">Assurance</div><h1 id="pageH">Internal Audits</h1>
+        <p class="lede">${launched.length} launched · <b>${aw}</b> Check-ups awaiting evaluation · <b style="color:var(--bad)">${od}</b> overdue</p></div>
+        <div>${S.isAuditor() ? `<a class="btn primary" href="proposal-a.html${location.hash}">+ New Internal Audit</a>` : '<span class="muted" style="font-size:.84rem">Read only for your role</span>'}</div></section>
+      <section class="card" aria-label="Audit register">
+        <div class="tabs" role="tablist">${TABS.map(([k, l, f]) => `<button type="button" role="tab" data-tab="${k}" aria-selected="${ui.tab === k}">${l}<span class="n">${S.audits.filter(f).length}</span></button>`).join('')}</div>
+        <div class="tbar"><label class="search"><svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.6"/><path d="m11 11 3.5 3.5" stroke="currentColor" stroke-width="1.6"/></svg><input id="q" type="search" placeholder="Search by title or scope" aria-label="Search audits" value="${esc(ui.q)}"><kbd>/</kbd></label><span class="muted" style="font-size:.8rem">${S.plural(list.length, 'audit')}</span></div>
+        ${list.length ? `<div style="overflow-x:auto"><table class="reg"><thead><tr>${th('title', 'Internal Audit')}<th>State</th>${th('due', 'Due')}${th('progress', 'Progress')}${th('findings', 'Findings')}<th>Next</th></tr></thead><tbody>${list.map(row).join('')}</tbody></table></div>`
+          : '<div class="done-state"><h3>No audit matches</h3><p>Try another tab or clear the search.</p></div>'}
+      </section>`;
+    document.getElementById('q').oninput = (e) => { ui.q = e.target.value.toLowerCase(); render(); const n = document.getElementById('q'); n.focus(); n.setSelectionRange(n.value.length, n.value.length); };
+  }
+  document.addEventListener('click', (e) => {
+    const t = e.target.closest('[data-tab]'); if (t) { ui.tab = t.dataset.tab; render(); }
+    const s = e.target.closest('[data-sort]'); if (s) { ui.dir = ui.sort === s.dataset.sort ? -ui.dir : 1; ui.sort = s.dataset.sort; render(); }
+  });
+  document.addEventListener('keydown', (e) => { if (e.key === '/' && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) { e.preventDefault(); document.getElementById('q').focus(); } });
+  addEventListener('appbar:role', render);
+  Appbar.mount({ current: 'audits', proposal: { label: 'B', siblings: [['A', 'list-a.html']] }, items: S.paletteItems(href) });
+  render();
+})();
+</script>
+</body>
+</html>

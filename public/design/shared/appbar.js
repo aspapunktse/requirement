@@ -87,7 +87,7 @@
     { key: 'controls', label: 'Controls', icon: 'control', href: '/design/controls/proposal-a.html' },
     { key: 'risks', label: 'Risks', icon: 'risk', href: null },
     { key: 'check-ups', label: 'Check-ups', icon: 'checkup', href: null },
-    { key: 'audits', label: 'Internal Audits', icon: 'audit', href: '/design/audit/proposal-a.html' },
+    { key: 'audits', label: 'Internal Audits', icon: 'audit', href: '/design/audit/list-a.html' },
     { key: 'soa', label: 'SoA', long: 'Statement of Applicability', icon: 'soa', href: '/design/soa/proposal-a.html' },
     { key: 'frameworks', label: 'Frameworks', icon: 'framework', href: '/design/frameworks/proposal-a.html' },
     // As in production, only an Admin sees the Admin item; it links to the first Admin page with a proposal.
@@ -100,6 +100,7 @@
     { key: 'RISK_OWNER', label: 'Risk Owner', person: 'Johan Berg' },
     { key: 'BUSINESS_RISK_OWNER', label: 'Business Risk Owner', person: 'Lena Holm' },
     { key: 'COMPLIANCE_MANAGER', label: 'Compliance Manager', person: 'Anna Sjöberg' },
+    { key: 'INTERNAL_AUDITOR', label: 'Internal Auditor', person: 'Eva Nyström' },
     { key: 'ADMIN', label: 'Admin', person: 'Default Admin' },
   ];
 
