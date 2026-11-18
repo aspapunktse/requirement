@@ -351,7 +351,7 @@ describe("the number of queries does not grow with the number of Systems", { tim
 
     await loadProviderSources(dependents.slice(0, 1), controlIds, counting);
     const one = calls.splice(0);
-    expect(one.sort()).toEqual(["control.findMany", "controlAssessment.findMany", "controlOffering.findMany", "providerDependency.findMany"]);
+    expect(one.sort()).toEqual(["control.findMany", "controlAssessment.findMany", "providerDependency.findMany"]);
 
     const many = await loadProviderSources(dependents, controlIds, counting);
     expect(many.size).toBe(12);
