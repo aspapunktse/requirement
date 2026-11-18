@@ -50,6 +50,7 @@ export function AuditPlanner({
   // First questions the auditor changed, by Control id: only those that differ from where the Control starts.
   const [edits, setEdits] = useState<Record<string, string>>({});
   const [openId, setOpenId] = useState<string | null>(null);
+  const [reveal, setReveal] = useState<{ id: string; nonce: number } | null>(null);
   const [found, setFound] = useState<WhereSystem[]>([]);
   const [startedFrom, setStartedFrom] = useState<string | null>(null);
   const [said, setSaid] = useState("");
@@ -180,6 +181,7 @@ export function AuditPlanner({
 
   function writeQuestion(controlId: string) {
     setOpenId(controlId);
+    setReveal((current) => ({ id: controlId, nonce: (current?.nonce ?? 0) + 1 }));
     controlsRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" });
   }
 
@@ -346,6 +348,7 @@ export function AuditPlanner({
               now={nowUtc}
               openId={openId}
               onOpen={setOpenId}
+              reveal={reveal}
             />
           </div>
 

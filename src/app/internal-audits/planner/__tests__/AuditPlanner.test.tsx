@@ -176,6 +176,21 @@ describe("AuditPlanner (#393)", () => {
     expect(screen.getByLabelText("First question for ORG-002")).toBeInTheDocument();
   });
 
+  it("opens the question of a Control the search hides when \"Write the first\" is clicked", async () => {
+    previewAnswer = { blockers: [{ kind: "no-questions", message: "1 Control has no question", controlIds: ["c2"] }] };
+    const user = userEvent.setup();
+    renderPlanner();
+    await user.click(screen.getByLabelText("Pick ORG-002"));
+    await user.click(screen.getByRole("switch", { name: "Include the Organization" }));
+    await user.type(screen.getByLabelText("Search Controls by code, title or question"), "backups");
+    expect(screen.queryByLabelText("Pick ORG-002")).not.toBeInTheDocument();
+
+    const blockers = screen.getByRole("list", { name: "Before it can launch" });
+    await within(blockers).findByText("1 Control has no question");
+    await user.click(within(blockers).getByRole("button", { name: "Write the first" }));
+    expect(screen.getByLabelText("First question for ORG-002")).toBeInTheDocument();
+  });
+
   it("keeps working when the preview can't be loaded", async () => {
     previewAnswer = "fail";
     const user = userEvent.setup();
@@ -294,6 +309,13 @@ describe("AuditPlanner (#393)", () => {
       expect(init!.method).toBe("PATCH");
       expect(JSON.parse(init!.body as string)).toMatchObject({ title: "Draft audit", controlIds: ["c1", "c3"], systemIds: ["s1"], firstQuestions: {} });
       await waitFor(() => expect(previewBodies().at(-1)).toMatchObject({ internalAuditId: "d1" }));
+    });
+
+    it("still shows the server's past-due blocker for a saved due date that has passed", async () => {
+      previewAnswer = { blockers: [{ kind: "past-due-date", message: "The due date can't be in the past", controlIds: [] }] };
+      renderPlanner({ ...initial, dueDate: "2001-01-01" });
+      const blockers = screen.getByRole("list", { name: "Before it can launch" });
+      expect(await within(blockers).findByText("The due date can't be in the past")).toBeInTheDocument();
     });
 
     it("doesn't refuse an unchanged due date that has since passed", async () => {

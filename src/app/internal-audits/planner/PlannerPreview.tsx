@@ -74,7 +74,7 @@ export function PlannerPreview({
   const t = Math.max(1, total + skipped);
   const ready = readiness.filter((item) => item.ok).length;
 
-  const blockers = (preview?.blockers ?? []).filter((blocker) => blocker.kind !== "invalid" && blocker.kind !== "past-due-date");
+  const blockers = (preview?.blockers ?? []).filter((blocker) => blocker.kind !== "invalid");
   const launchItems: Item[] = blockers.length
     ? blockers.map((blocker) => {
         const codes = blocker.controlIds.map((id) => controlsById.get(id)?.code).filter((code): code is string => Boolean(code));

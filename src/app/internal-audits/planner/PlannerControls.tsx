@@ -26,6 +26,7 @@ export function PlannerControls({
   now,
   openId,
   onOpen,
+  reveal,
 }: {
   controls: PlannerControl[];
   picked: Set<string>;
@@ -36,11 +37,23 @@ export function PlannerControls({
   now: Date | null;
   openId: string | null;
   onOpen: (id: string | null) => void;
+  /** Asks to show one picked Control's row: filters are cleared and the page grown until it renders. */
+  reveal: { id: string; nonce: number } | null;
 }) {
   const [view, setView] = useState<ControlView>("all");
   const [query, setQuery] = useState("");
   const [domain, setDomain] = useState<string | null>(null);
   const [shown, setShown] = useState(PAGE);
+  const [seenReveal, setSeenReveal] = useState(0);
+  // A reveal request (adjusting state while rendering, not in an effect): show the picked view with no search or domain, far enough down.
+  if (reveal && reveal.nonce !== seenReveal) {
+    setSeenReveal(reveal.nonce);
+    setView("picked");
+    setQuery("");
+    setDomain(null);
+    const index = controls.filter((control) => picked.has(control.id)).findIndex((control) => control.id === reveal.id);
+    setShown((current) => Math.max(current, Math.ceil((index + 1) / PAGE) * PAGE));
+  }
 
   const due = useMemo(() => new Set(controls.filter((c) => isDueForAudit(c.lastAudited, now ?? undefined)).map((c) => c.id)), [controls, now]);
   const domains = useMemo(() => {
@@ -172,6 +185,7 @@ export function PlannerControls({
                   <textarea
                     className="ap-inp"
                     rows={3}
+                    autoFocus={reveal?.id === control.id}
                     maxLength={MAX_QUESTION_LENGTH}
                     aria-label={`First question for ${control.code}`}
                     value={question}
