@@ -1,9 +1,11 @@
 import type { CheckUpOutcome, ControlApplicability, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { InternalAuditError } from "@/lib/internal-audits";
-import { internalAuditEditRefusal, formatCalendarDate } from "@/lib/internal-audit-rules";
+import { formatCalendarDate, internalAuditEditRefusal } from "@/lib/internal-audit-rules";
 import { checkUpRecipientId, isCheckUpOverdue } from "@/lib/check-up-response-rules";
 import {
+  applyFirstQuestion,
+  defaultQuestionsFor,
   launchSummaryText,
   planLaunch,
   validateQuestionList,
@@ -66,22 +68,29 @@ export async function setDraftQuestions(internalAuditId: string, controlId: stri
 
 type AuditForLaunch = { title: string; dueDate: Date; includeOrganization: boolean };
 
-/** Bulk-loads what `planLaunch` needs, in a constant number of queries, on the caller's transaction client. */
-async function loadLaunchInputs(tx: Prisma.TransactionClient, internalAuditId: string, audit: AuditForLaunch): Promise<LaunchInputs> {
-  const [controlRows, systemRows] = await Promise.all([
-    tx.internalAuditControl.findMany({
-      where: { internalAuditId },
-      select: { controlId: true, questions: { orderBy: { position: "asc" }, select: { text: true } } },
-    }),
-    tx.internalAuditSystem.findMany({ where: { internalAuditId }, select: { systemId: true } }),
-  ]);
-  const questionsByControlId = new Map(controlRows.map((row) => [row.controlId, row.questions.map((q) => q.text)]));
+/** The launch inputs, with each System's owner too (the planner's preview names who receives the Check-ups). */
+type LoadedLaunchInputs = Omit<LaunchInputs, "systems"> & { systems: (LaunchSystem & { ownerId: string })[] };
+
+/**
+ * Bulk-loads what `planLaunch` needs for any selection of Controls and Systems, in a constant number of
+ * queries, on the caller's transaction client. `questionsFor` gives each Control's question list (a saved
+ * draft's, a default copy or an edited one), so the saved draft and the planner's unsaved one go through
+ * the same loading and the same `planLaunch`.
+ */
+async function loadLaunchInputsFor(
+  tx: Prisma.TransactionClient,
+  controlIds: string[],
+  systemIds: string[],
+  audit: LaunchInputs["audit"],
+  questionsFor: (control: { id: string; question: string | null }) => string[],
+): Promise<LoadedLaunchInputs> {
   const controls = await tx.control.findMany({
-    where: { id: { in: controlRows.map((row) => row.controlId) } },
+    where: { id: { in: controlIds } },
     select: {
       id: true,
       code: true,
       title: true,
+      question: true,
       applicability: true,
       ownerId: true,
       minSensitivityLevel: true,
@@ -95,10 +104,11 @@ async function loadLaunchInputs(tx: Prisma.TransactionClient, internalAuditId: s
   });
   // A System the BSO rejected at OG3 is closed (#330): no Check-up is launched for it, however it came into the audit's list.
   const systems = await tx.system.findMany({
-    where: { id: { in: systemRows.map((row) => row.systemId) }, evaluationClosedAt: null },
+    where: { id: { in: systemIds }, evaluationClosedAt: null },
     select: {
       id: true,
       name: true,
+      ownerId: true,
       sensitivityLevel: true,
       integrityImpactLevel: true,
       availabilityImpactLevel: true,
@@ -107,10 +117,29 @@ async function loadLaunchInputs(tx: Prisma.TransactionClient, internalAuditId: s
     },
   });
   return {
-    audit: { title: audit.title, dueDate: formatCalendarDate(audit.dueDate), includeOrganization: audit.includeOrganization },
-    controls: controls.map((control): LaunchControl => ({ ...control, questions: questionsByControlId.get(control.id) ?? [] })),
-    systems: systems satisfies LaunchSystem[],
+    audit,
+    controls: controls.map(({ question, ...control }): LaunchControl => ({ ...control, questions: questionsFor({ id: control.id, question }) })),
+    systems,
   };
+}
+
+/** Bulk-loads what `planLaunch` needs for a saved draft, on the caller's transaction client. */
+async function loadLaunchInputs(tx: Prisma.TransactionClient, internalAuditId: string, audit: AuditForLaunch): Promise<LoadedLaunchInputs> {
+  const [controlRows, systemRows] = await Promise.all([
+    tx.internalAuditControl.findMany({
+      where: { internalAuditId },
+      select: { controlId: true, questions: { orderBy: { position: "asc" }, select: { text: true } } },
+    }),
+    tx.internalAuditSystem.findMany({ where: { internalAuditId }, select: { systemId: true } }),
+  ]);
+  const questionsByControlId = new Map(controlRows.map((row) => [row.controlId, row.questions.map((q) => q.text)]));
+  return loadLaunchInputsFor(
+    tx,
+    controlRows.map((row) => row.controlId),
+    systemRows.map((row) => row.systemId),
+    { title: audit.title, dueDate: formatCalendarDate(audit.dueDate), includeOrganization: audit.includeOrganization },
+    (control) => questionsByControlId.get(control.id) ?? [],
+  );
 }
 
 export type LaunchReport = {
@@ -162,6 +191,113 @@ export async function getLaunchPreview(internalAuditId: string, now = new Date()
     if (!audit || audit.status !== "DRAFT") return null;
     const inputs = await loadLaunchInputs(tx, internalAuditId, audit);
     return describePlan(planLaunch(inputs, now), inputs);
+  }, SNAPSHOT);
+}
+
+export type PlanPreviewSelection = {
+  /** The draft being edited, if any: its saved questions are the starting point for the Controls it already has. */
+  internalAuditId?: string;
+  title: string;
+  dueDate: string | null;
+  includeOrganization: boolean;
+  controlIds: string[];
+  systemIds: string[];
+  /** A first question typed in the planner, by Control id; see `applyFirstQuestion`. */
+  firstQuestions?: Record<string, string>;
+};
+
+export type PlanRecipient = {
+  id: string;
+  name: string;
+  /** Which hats the person wears in this audit: a System Owner for a System-level Check-up, the Control Owner for an Organization-level one. */
+  roles: ("System Owner" | "Control Owner")[];
+  /** Check-ups this audit would send them. */
+  fromThisAudit: number;
+  /** Check-ups they already have: in launched audits, neither evaluated nor withdrawn, where they are the current recipient. */
+  alreadyOpen: number;
+};
+
+export type PlanPreview = Omit<LaunchReport, "blockers"> & {
+  blockers: { kind: string; message: string; controlIds: string[] }[];
+  /** Check-ups per picked Control (0 when none applies). */
+  perControl: Record<string, number>;
+  recipients: PlanRecipient[];
+};
+
+/**
+ * What launching an audit with this *unsaved* selection would create, skip and be blocked by, and who
+ * would receive it (the audit planner, #393). It is `planLaunch`, the function the launch itself runs,
+ * on inputs loaded the same way, so the planner can't disagree with launching the saved draft. Read-only.
+ */
+export async function previewAuditPlan(selection: PlanPreviewSelection, now = new Date()): Promise<PlanPreview> {
+  const controlIds = [...new Set(selection.controlIds)];
+  const systemIds = [...new Set(selection.systemIds)];
+  return prisma.$transaction(async (tx) => {
+    const saved = new Map<string, string[]>();
+    if (selection.internalAuditId) {
+      const draft = await tx.internalAudit.findUnique({ where: { id: selection.internalAuditId }, select: { status: true } });
+      if (draft?.status === "DRAFT") {
+        const rows = await tx.internalAuditControl.findMany({
+          where: { internalAuditId: selection.internalAuditId, controlId: { in: controlIds } },
+          select: { controlId: true, questions: { orderBy: { position: "asc" }, select: { text: true } } },
+        });
+        for (const row of rows) saved.set(row.controlId, row.questions.map((q) => q.text));
+      }
+    }
+    const inputs = await loadLaunchInputsFor(
+      tx,
+      controlIds,
+      systemIds,
+      { title: selection.title, dueDate: selection.dueDate, includeOrganization: selection.includeOrganization },
+      (control) =>
+        applyFirstQuestion(saved.get(control.id) ?? defaultQuestionsFor(control.question), selection.firstQuestions?.[control.id]),
+    );
+    const plan = planLaunch(inputs, now);
+
+    const ownerOfControl = new Map(inputs.controls.map((control) => [control.id, control.ownerId]));
+    const ownerOfSystem = new Map(inputs.systems.map((system) => [system.id, system.ownerId]));
+    const perControl: Record<string, number> = Object.fromEntries(controlIds.map((id) => [id, 0]));
+    const sent = new Map<string, { roles: Set<"System Owner" | "Control Owner">; count: number }>();
+    for (const checkUp of plan.checkUps) {
+      perControl[checkUp.controlId] = (perControl[checkUp.controlId] ?? 0) + 1;
+      const recipientId = checkUp.systemId ? ownerOfSystem.get(checkUp.systemId) : ownerOfControl.get(checkUp.controlId);
+      if (!recipientId) continue;
+      const entry = sent.get(recipientId) ?? { roles: new Set(), count: 0 };
+      entry.roles.add(checkUp.systemId ? "System Owner" : "Control Owner");
+      entry.count += 1;
+      sent.set(recipientId, entry);
+    }
+
+    const recipientIds = [...sent.keys()];
+    const [users, open] = await Promise.all([
+      tx.user.findMany({ where: { id: { in: recipientIds } }, select: { id: true, name: true } }),
+      tx.checkUp.findMany({
+        where: {
+          internalAudit: { status: "LAUNCHED" },
+          evaluation: null,
+          withdrawal: null,
+          OR: [{ system: { ownerId: { in: recipientIds } } }, { systemId: null, control: { ownerId: { in: recipientIds } } }],
+        },
+        select: { system: { select: { ownerId: true } }, control: { select: { ownerId: true } } },
+      }),
+    ]);
+    const openByRecipient = new Map<string, number>();
+    for (const checkUp of open) {
+      const recipientId = checkUpRecipientId(checkUp);
+      if (recipientId) openByRecipient.set(recipientId, (openByRecipient.get(recipientId) ?? 0) + 1);
+    }
+    const recipients = users
+      .map((user): PlanRecipient => ({
+        id: user.id,
+        name: user.name,
+        roles: [...sent.get(user.id)!.roles].sort(),
+        fromThisAudit: sent.get(user.id)!.count,
+        alreadyOpen: openByRecipient.get(user.id) ?? 0,
+      }))
+      .sort((a, b) => b.fromThisAudit - a.fromThisAudit || a.name.localeCompare(b.name, "en"));
+
+    const report = describePlan(plan, inputs);
+    return { ...report, blockers: plan.blockers.map(({ kind, message, controlIds: ids }) => ({ kind, message, controlIds: ids })), perControl, recipients };
   }, SNAPSHOT);
 }
 
