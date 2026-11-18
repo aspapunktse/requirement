@@ -3,7 +3,8 @@ import {
   addDerivedStatusCounts,
   compliancePercentage,
   countRowStatuses,
-  deriveFrameworkStatusesForSystems,
+  deriveStatusesFromData,
+  readFrameworkDerivationDataWhere,
   emptyDerivedStatusCounts,
   isFrameworkInEffectiveScope,
   withDerivationSnapshot,
@@ -106,11 +107,8 @@ async function readComplianceForSystems(
 }
 
 async function compliancePooled(systems: ComplianceSystem[], options: { frameworkId?: string }, db: DerivationDb): Promise<ScopeCompliance> {
-  // Sequential: a transaction has one connection.
-  const framework = await db.framework.findFirst({
-    where: options.frameworkId ? { id: options.frameworkId } : { isBase: true },
-    select: { id: true, name: true, version: true, isBase: true, status: true, strictComplianceRequired: true },
-  });
+  // Sequential: a transaction has one connection. The Framework is found and its derivation data read in one go.
+  const data = await readFrameworkDerivationDataWhere(options.frameworkId ? { id: options.frameworkId } : { isBase: true }, db);
 
   const emptyBySystem = systems.map((s): SystemCompliance => ({
     systemId: s.id,
@@ -119,10 +117,11 @@ async function compliancePooled(systems: ComplianceSystem[], options: { framewor
     applicable: 0,
     percentage: null,
   }));
-  if (!framework) return { framework: null, met: 0, applicable: 0, percentage: null, bySystem: emptyBySystem };
+  if (!data) return { framework: null, met: 0, applicable: 0, percentage: null, bySystem: emptyBySystem };
+  const framework = data.framework;
 
   const inScope = systems.filter((s) => isFrameworkInEffectiveScope(framework, s.frameworkScopes));
-  const derived = await deriveFrameworkStatusesForSystems(framework.id, inScope, db);
+  const derived = { bySystem: (await deriveStatusesFromData(data, inScope, db)).bySystem };
 
   let pooled = emptyDerivedStatusCounts();
   const bySystem = systems.map((system): SystemCompliance => {

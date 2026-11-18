@@ -49,16 +49,20 @@ export async function readSnapshotPoints(
 }
 
 /**
- * Replaces the derived value of every past point of `trends` that has a snapshot for `userId`, in one query.
- * Returns new arrays; `trends` is not changed.
+ * Replaces the derived value of every past point of `trends` that has a recorded point (`readSnapshotPoints`). Returns new
+ * arrays; `trends` is not changed. A point for a label that has no trend is ignored.
  */
-export async function withSnapshotTrends(user: { id: string; role: UserRole }, trends: Record<string, number[]>, now: Date): Promise<Record<string, number[]>> {
-  const labels = Object.keys(trends);
-  if (labels.length === 0) return trends;
-  const points = await readSnapshotPoints(user, labels, now);
+export function applySnapshotPoints(trends: Record<string, number[]>, points: { statKey: string; index: number; value: number }[]): Record<string, number[]> {
   if (points.length === 0) return trends;
   const out: Record<string, number[]> = {};
   for (const [label, values] of Object.entries(trends)) out[label] = [...values];
-  for (const point of points) out[point.statKey][point.index] = point.value;
+  for (const point of points) if (out[point.statKey]) out[point.statKey][point.index] = point.value;
   return out;
+}
+
+/** `readSnapshotPoints` then `applySnapshotPoints`, for a caller that has the derived trends before it reads (one query, none without a trend). */
+export async function withSnapshotTrends(user: { id: string; role: UserRole }, trends: Record<string, number[]>, now: Date): Promise<Record<string, number[]>> {
+  const labels = Object.keys(trends);
+  if (labels.length === 0) return trends;
+  return applySnapshotPoints(trends, await readSnapshotPoints(user, labels, now));
 }

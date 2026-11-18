@@ -2,6 +2,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
 import { countByWeek, longestWaitByWeek, weekEnds } from "../home-trends";
 import { roleView } from "../role-view";
+import { applySnapshotPoints } from "../home-snapshots";
 
 const DAY = 86_400_000;
 const now = new Date("2026-10-24T12:00:00Z");
@@ -24,6 +25,18 @@ describe("weekly trends for the stat cards (#226)", () => {
   it("stops counting a span once it has ended", () => {
     const trend = countByWeek([{ from: ago(40), to: ago(20) }], now);
     expect(trend).toEqual([0, 1, 1, 1, 0, 0, 0]);
+  });
+
+  it("replaces derived points with recorded ones, ignoring a key with no trend, and leaves the input alone (#389)", () => {
+    const trends = { a: [1, 2, 3, 4, 5, 6, 7], b: [0, 0, 0, 0, 0, 0, 0] };
+    const out = applySnapshotPoints(trends, [
+      { statKey: "a", index: 0, value: 9 },
+      { statKey: "a", index: 5, value: 8 },
+      { statKey: "gone", index: 2, value: 4 },
+    ]);
+    expect(out).toEqual({ a: [9, 2, 3, 4, 5, 8, 7], b: [0, 0, 0, 0, 0, 0, 0] });
+    expect(trends.a).toEqual([1, 2, 3, 4, 5, 6, 7]);
+    expect(applySnapshotPoints(trends, [])).toBe(trends);
   });
 
   it("reads the longest wait in days at each week end", () => {

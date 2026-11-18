@@ -161,6 +161,14 @@ export async function readOpenChangeReview(tx: Tx, systemId: string) {
     orderBy: [{ control: { code: "asc" } }],
   });
   const recommendations = await tx.recommendation.findMany({ where: { changeReviewId: review.id }, orderBy: [{ givenAt: "asc" }, { id: "asc" }] });
+  return { review, participants: changeReviewParticipants(rows, recommendations) };
+}
+
+/** The participants of a Change Review from its Control rows (by Control code) and its Recommendations (oldest first), base review first then by group name. Pure. */
+function changeReviewParticipants(
+  rows: { reviewGroupId: string | null; control: { code: string; title: string }; reviewGroup: { name: string } | null }[],
+  recommendations: (ChangeReviewParticipant["recommendation"] & { reviewGroupId: string | null; voidedAt: Date | null; voidReason: string | null })[],
+) {
   const live = new Map<string | null, (typeof recommendations)[number]>();
   const reopened = new Map<string | null, { at: Date; reason: string }>();
   for (const row of recommendations) {
@@ -179,8 +187,7 @@ export async function readOpenChangeReview(tx: Tx, systemId: string) {
     entry.controls.push(row.control);
     byParticipant.set(row.reviewGroupId, entry);
   }
-  const participants = [...byParticipant.values()].sort((a, b) => (a.reviewGroupId === null ? -1 : b.reviewGroupId === null ? 1 : a.name.localeCompare(b.name)));
-  return { review, participants };
+  return [...byParticipant.values()].sort((a, b) => (a.reviewGroupId === null ? -1 : b.reviewGroupId === null ? 1 : a.name.localeCompare(b.name)));
 }
 
 export type GiveChangeReviewRecommendationResult =
@@ -372,19 +379,39 @@ export async function loadChangeReviewView(viewer: Actor, systemId: string): Pro
   );
 }
 
-/** One open Change Review per Systems with its participants, for "My tasks": read in one snapshot. */
+/** One open Change Review per Systems with its participants, for "My tasks": read in one snapshot, set-based (a read per kind of row, not a few per System). */
 async function openReviewsWhere(where: Prisma.SystemWhereInput) {
   return prisma.$transaction(
     async (tx) => {
       const systems = await tx.system.findMany({
         where: { ...where, evaluationClosedAt: null, changeReviews: { some: { status: "OPEN" } } },
-        orderBy: { updatedAt: "asc" },
+        orderBy: [{ updatedAt: "asc" }, { id: "asc" }],
         select: { id: true, name: true, ownerId: true, businessSystemOwnerId: true, updatedAt: true },
       });
       const result: { system: (typeof systems)[number]; participants: ChangeReviewParticipant[] }[] = [];
+      if (systems.length === 0) return result;
+      const systemIds = systems.map((system) => system.id);
+      // The latest open review of each System (one is open at a time), then its Control rows and Recommendations.
+      const open = await tx.changeReview.findMany({ where: { systemId: { in: systemIds }, status: "OPEN" }, orderBy: [{ startedAt: "desc" }, { id: "desc" }] });
+      const reviewOf = new Map<string, (typeof open)[number]>();
+      for (const review of open) if (!reviewOf.has(review.systemId)) reviewOf.set(review.systemId, review);
+      const reviewIds = [...reviewOf.values()].map((review) => review.id);
+      const rows = await tx.changeReviewControl.findMany({
+        where: { changeReviewId: { in: reviewIds } },
+        include: { control: { select: { code: true, title: true } }, reviewGroup: { select: { name: true } } },
+        orderBy: [{ control: { code: "asc" } }],
+      });
+      const recommendations = await tx.recommendation.findMany({ where: { changeReviewId: { in: reviewIds } }, orderBy: [{ givenAt: "asc" }, { id: "asc" }] });
       for (const system of systems) {
-        const open = await readOpenChangeReview(tx, system.id);
-        if (open) result.push({ system, participants: open.participants });
+        const review = reviewOf.get(system.id);
+        if (!review) continue;
+        result.push({
+          system,
+          participants: changeReviewParticipants(
+            rows.filter((row) => row.changeReviewId === review.id),
+            recommendations.filter((row) => row.changeReviewId === review.id),
+          ),
+        });
       }
       return result;
     },

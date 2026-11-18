@@ -154,6 +154,8 @@ export async function remitGroupsByControl(
 export async function groupsWithRemitForSystems(
   tx: Pick<Prisma.TransactionClient, "control">,
   systems: (SystemClassification & { id: string })[],
+  /** Per System, the chosen subset of Controls that count (OG1's first-round Controls); a System with no entry counts them all. */
+  subsetBySystem?: ReadonlyMap<string, ControlSubset>,
 ): Promise<Map<string, Map<string, string>>> {
   const result = new Map<string, Map<string, string>>(systems.map((system) => [system.id, new Map<string, string>()]));
   if (systems.length === 0) return result;
@@ -164,7 +166,9 @@ export async function groupsWithRemitForSystems(
   for (const system of systems) {
     const declaredScopeIds = new Set(system.frameworkScopes.map((framework) => framework.id));
     const groups = result.get(system.id)!;
+    const subset = subsetBySystem?.get(system.id);
     for (const control of controls) {
+      if (!inSubset(subset, control.id)) continue;
       if (!controlAppliesToSystem(control, system)) continue;
       for (const [id, name] of stepsOfControl(control, declaredScopeIds).groups) groups.set(id, name);
     }

@@ -39,7 +39,7 @@ export async function readSystemRows(
   user: User,
   now: Date,
   options: { fulfilment?: boolean } = {},
-): Promise<{ rows: SystemRow[]; where: Prisma.SystemWhereInput; baseFramework: string | null; thresholds: SystemsThresholds }> {
+): Promise<{ rows: SystemRow[]; where: Prisma.SystemWhereInput; baseFramework: string | null; thresholds: SystemsThresholds; createdAts: Date[] | null }> {
   // The Admin-set thresholds, read in the same snapshot as the Systems they are applied to.
   const thresholds = await readSystemsThresholds(tx);
   const where = await visibleSystemsWhere(user, tx);
@@ -65,6 +65,7 @@ export async function readSystemRows(
       integrityImpactLevel: true,
       availabilityImpactLevel: true,
       updatedAt: true,
+      createdAt: true,
       _count: { select: { risks: { where: { status: "OPEN" } } } },
     },
   });
@@ -119,7 +120,9 @@ export async function readSystemRows(
     row.inRoleView = inRoleView(row, user, { openRisks: system._count.risks, inScope: inScope.has(system.id) }, thresholds.underFulfilledPercent);
     return row;
   });
-  return { rows, where, baseFramework: compliance?.framework ? frameworkLabel(compliance.framework) : null, thresholds };
+  // A role that sees every System has them all here, so the Systems trend needs no read of its own.
+  const createdAts = Object.keys(where).length === 0 ? systems.map((system) => system.createdAt) : null;
+  return { rows, where, baseFramework: compliance?.framework ? frameworkLabel(compliance.framework) : null, thresholds, createdAts };
 }
 
 /**
@@ -173,7 +176,7 @@ export async function loadSystemsView(user: User & { name: string }, now = new D
   const { rows, baseFramework, trends, thresholds, sensitivityLevels, informationTypes } = await prisma.$transaction(
     async (tx) => {
       const read = await readSystemRows(tx, user, now);
-      return { rows: read.rows, baseFramework: read.baseFramework, thresholds: read.thresholds, trends: await loadSystemsTrends(tx, user, read.rows, read.where, now), sensitivityLevels: await listSensitivityLevels(tx),
+      return { rows: read.rows, baseFramework: read.baseFramework, thresholds: read.thresholds, trends: await loadSystemsTrends(tx, user, read.rows, read.where, now, read.createdAts), sensitivityLevels: await listSensitivityLevels(tx),
         informationTypes: (await listInformationTypes(tx)).map(({ id, name, sensitivityLevel }) => ({ id, name, sensitivityLevel })),
       };
     },

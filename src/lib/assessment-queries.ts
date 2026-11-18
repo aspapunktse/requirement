@@ -568,6 +568,8 @@ export async function getActionableQueries(
 
   const openQueries = await prisma.assessmentQuery.findMany({
     where: { resolved: false, controlAssessment: { systemId: { in: systemIds } } },
+    // Without an order the rows came back in whatever order the plan produced (it differs between load strategies); oldest first, as the System page lists them.
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
     include: {
       controlAssessment: {
         include: {

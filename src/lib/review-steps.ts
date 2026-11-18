@@ -106,7 +106,7 @@ function stepStatus(approvals: StepApproval[], reviewGroupId: string | null): Re
 /** What the remit and step reads need of a System: its Deployment Facets and declared Framework Scope. */
 export const SYSTEM_FOR_STEPS = {
   deploymentFacets: { select: { id: true } },
-  frameworkScopes: { select: { id: true } },
+  frameworkScopes: { select: { id: true }, orderBy: { id: "asc" } },
 } satisfies Prisma.SystemInclude;
 
 /** The base step plus one step per live group (sorted by name), with statuses from `approvals`. */
@@ -279,7 +279,7 @@ export async function getOpenStepsForUser(user: { id: string; role: UserRole }) 
           ownerId: { not: user.id },
           ...(decidesAny ? {} : { frameworkScopes: { some: { reviewGroupId: { in: groupIds } } } }),
         },
-        orderBy: { updatedAt: "asc" },
+        orderBy: [{ updatedAt: "asc" }, { id: "asc" }],
         include: SYSTEM_FOR_STEPS,
       });
       const tasks: { system: (typeof systems)[number]; step: ReviewStep }[] = [];

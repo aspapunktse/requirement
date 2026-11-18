@@ -33,8 +33,9 @@ import { isReadOnlySystemRole } from "@/lib/system-permissions";
 import { frameworkLabel } from "@/lib/framework-label";
 import { BASE_REVIEW_STEP_NAME } from "@/lib/review-steps";
 import { loadRecentActivity } from "./home-activity";
+import { SHOW_STAT_TRENDS } from "./home-config";
 import { computeTrends } from "./home-trends";
-import { withSnapshotTrends } from "./home-snapshots";
+import { applySnapshotPoints, readSnapshotPoints } from "./home-snapshots";
 import {
   daysSince,
   loadAuditOverview,
@@ -230,6 +231,112 @@ async function ownedInReviewRows(user: { id: string; role: UserRole }): Promise<
 }
 
 /**
+ * The role's own view with the task rows that need a decision from the user (Review Steps, OG1 verdicts, OAG and Change Review
+ * Recommendations, gate decisions). The loaders of those rows are independent, so they run side by side.
+ */
+async function roleDraftView(user: { id: string; name: string; role: UserRole }): Promise<RoleViewDraft> {
+  const gates = ["QUALIFICATION", "OG2", "OG3"] as const;
+  const [openVerdicts, openSteps, openRecommendations, openChangeReviewRecommendations, gateTasks, changeReviewDecisions] = await Promise.all([
+    getOpenVerdictsForUser(user),
+    getOpenStepsForUser(user),
+    getOpenRecommendationsForUser(user),
+    getOpenChangeReviewRecommendationsForUser(user),
+    Promise.all(gates.map(async (gate) => (await getGateTasksForUser(user, gate)).map((system) => ({ system, gate })))),
+    getChangeReviewDecisionTasksForUser(user),
+  ]);
+  const openVerdictRows = openVerdicts.map(
+    ({ system, participant }): TaskRow => ({
+      id: `${system.id}:verdict:${participant.reviewGroupId ?? "base"}`,
+      kind: "System",
+      title: system.name,
+      subtitle: `${participant.name} · OG1 verdict`,
+      tone: "accent",
+      status: "Awaiting verdict",
+      updatedAt: system.updatedAt,
+      href: `/systems/${system.id}#evaluation`,
+    }),
+  );
+  const reviewStepRows = openSteps.map(
+    ({ system, step }): TaskRow => ({
+      // The base step keeps the System's id (a Reviewer's row since before Review Steps); a group's step has its own row.
+      id: step.reviewGroupId === null ? system.id : `${system.id}:step:${step.reviewGroupId}`,
+      kind: "System",
+      title: system.name,
+      subtitle: step.name,
+      tone: "accent",
+      status: "Awaiting review",
+      updatedAt: system.updatedAt,
+      href: `/systems/${system.id}`,
+    }),
+  );
+  // A group's open Recommendation at the OAG review, like an OG1 verdict (#331).
+  const openRecommendationRows = openRecommendations.map(
+    ({ system, stage, participant }): TaskRow => ({
+      id: `${system.id}:recommendation:${participant.reviewGroupId ?? "base"}`,
+      kind: "System",
+      title: system.name,
+      subtitle: `${participant.name} · OAG review Recommendation${stage === "OAG_REVIEW_2" ? " (before OG3)" : ""}`,
+      tone: "accent",
+      status: "Awaiting Recommendation",
+      updatedAt: system.updatedAt,
+      href: `/systems/${system.id}#evaluation`,
+    }),
+  );
+  // A group's open Recommendation on a Change Review of an Onboarded System (#334).
+  const changeReviewRecommendationRows = openChangeReviewRecommendations.map(
+    ({ system, participant }): TaskRow => ({
+      id: `${system.id}:change-review:${participant.reviewGroupId ?? "base"}`,
+      kind: "System",
+      title: system.name,
+      subtitle: `${participant.name} · Change Review Recommendation`,
+      tone: "accent",
+      status: "Awaiting Recommendation",
+      updatedAt: system.updatedAt,
+      href: `/systems/${system.id}#change-review`,
+    }),
+  );
+  reviewStepRows.push(...openVerdictRows, ...openRecommendationRows, ...changeReviewRecommendationRows);
+  // A System waiting at Qualification, OG2 or OG3 is a task for its Business System Owner (#330, #331).
+  const GATE_TASK_SUBTITLE = { QUALIFICATION: "Qualification: worth a full evaluation?", OG2: "OG2: proceed?", OG3: "OG3: authorize to operate?" } as const;
+  const gateRows = gateTasks
+    .flat()
+    .map(
+      ({ system, gate }): TaskRow => ({
+        id: `${system.id}:${gate.toLowerCase()}`,
+        kind: "System",
+        title: system.name,
+        subtitle: GATE_TASK_SUBTITLE[gate],
+        tone: "accent",
+        status: "Awaiting your decision",
+        updatedAt: system.updatedAt,
+        href: `/systems/${system.id}#evaluation`,
+      }),
+    );
+  // A Change Review whose groups have all recommended waits for its Business System Owner (#334).
+  const changeReviewDecisionRows = changeReviewDecisions.map(
+    (system): TaskRow => ({
+      id: `${system.id}:change-review-decision`,
+      kind: "System",
+      title: system.name,
+      subtitle: "Change Review: accept, or revoke the ATO?",
+      tone: "accent",
+      status: "Awaiting your decision",
+      updatedAt: system.updatedAt,
+      href: `/systems/${system.id}#change-review`,
+    }),
+  );
+  gateRows.push(...changeReviewDecisionRows);
+  return roleOwnView(user, reviewStepRows)
+      .then((own) => withReviewStepTasks(own, user, reviewStepRows))
+      .then((own) => (gateRows.length === 0 ? own : { ...own, tasks: [...(own.tasks ?? []), ...gateRows] }))
+      .then((own) => withMemberQueryTasks(own, user))
+      .then((own) => withControlLibraryTile(own, user))
+      .then(withStatementOfApplicabilityTile)
+      .then((view) => withOrganizationRisksTile(user, view))
+      .then((view) => withInternalAuditsReadTile(user, view));
+}
+
+/**
  * What `/home` shows for `user`: the role's own view (lede, stats, tasks,
  * tiles) plus, for anyone who owns at least one System, the owner tasks
  * (#98). Ownership is `ownerId` alone, whatever the role, so a REVIEWER or
@@ -253,99 +360,8 @@ async function ownedInReviewRows(user: { id: string; role: UserRole }): Promise<
  * answered ones included, also gets the "Your Check-ups" tile.
  */
 export async function roleView(user: { id: string; name: string; role: UserRole }, now = new Date()): Promise<RoleView> {
-  const openVerdictRows = (await getOpenVerdictsForUser(user)).map(
-    ({ system, participant }): TaskRow => ({
-      id: `${system.id}:verdict:${participant.reviewGroupId ?? "base"}`,
-      kind: "System",
-      title: system.name,
-      subtitle: `${participant.name} · OG1 verdict`,
-      tone: "accent",
-      status: "Awaiting verdict",
-      updatedAt: system.updatedAt,
-      href: `/systems/${system.id}#evaluation`,
-    }),
-  );
-  const reviewStepRows = (await getOpenStepsForUser(user)).map(
-    ({ system, step }): TaskRow => ({
-      // The base step keeps the System's id (a Reviewer's row since before Review Steps); a group's step has its own row.
-      id: step.reviewGroupId === null ? system.id : `${system.id}:step:${step.reviewGroupId}`,
-      kind: "System",
-      title: system.name,
-      subtitle: step.name,
-      tone: "accent",
-      status: "Awaiting review",
-      updatedAt: system.updatedAt,
-      href: `/systems/${system.id}`,
-    }),
-  );
-  // A group's open Recommendation at the OAG review, like an OG1 verdict (#331).
-  const openRecommendationRows = (await getOpenRecommendationsForUser(user)).map(
-    ({ system, stage, participant }): TaskRow => ({
-      id: `${system.id}:recommendation:${participant.reviewGroupId ?? "base"}`,
-      kind: "System",
-      title: system.name,
-      subtitle: `${participant.name} · OAG review Recommendation${stage === "OAG_REVIEW_2" ? " (before OG3)" : ""}`,
-      tone: "accent",
-      status: "Awaiting Recommendation",
-      updatedAt: system.updatedAt,
-      href: `/systems/${system.id}#evaluation`,
-    }),
-  );
-  // A group's open Recommendation on a Change Review of an Onboarded System (#334).
-  const changeReviewRecommendationRows = (await getOpenChangeReviewRecommendationsForUser(user)).map(
-    ({ system, participant }): TaskRow => ({
-      id: `${system.id}:change-review:${participant.reviewGroupId ?? "base"}`,
-      kind: "System",
-      title: system.name,
-      subtitle: `${participant.name} · Change Review Recommendation`,
-      tone: "accent",
-      status: "Awaiting Recommendation",
-      updatedAt: system.updatedAt,
-      href: `/systems/${system.id}#change-review`,
-    }),
-  );
-  reviewStepRows.push(...openVerdictRows, ...openRecommendationRows, ...changeReviewRecommendationRows);
-  // A System waiting at Qualification, OG2 or OG3 is a task for its Business System Owner (#330, #331).
-  const GATE_TASK_SUBTITLE = { QUALIFICATION: "Qualification: worth a full evaluation?", OG2: "OG2: proceed?", OG3: "OG3: authorize to operate?" } as const;
-  const gateRows = (
-    await Promise.all((["QUALIFICATION", "OG2", "OG3"] as const).map(async (gate) => (await getGateTasksForUser(user, gate)).map((system) => ({ system, gate }))))
-  )
-    .flat()
-    .map(
-      ({ system, gate }): TaskRow => ({
-        id: `${system.id}:${gate.toLowerCase()}`,
-        kind: "System",
-        title: system.name,
-        subtitle: GATE_TASK_SUBTITLE[gate],
-        tone: "accent",
-        status: "Awaiting your decision",
-        updatedAt: system.updatedAt,
-        href: `/systems/${system.id}#evaluation`,
-      }),
-    );
-  // A Change Review whose groups have all recommended waits for its Business System Owner (#334).
-  const changeReviewDecisionRows = (await getChangeReviewDecisionTasksForUser(user)).map(
-    (system): TaskRow => ({
-      id: `${system.id}:change-review-decision`,
-      kind: "System",
-      title: system.name,
-      subtitle: "Change Review: accept, or revoke the ATO?",
-      tone: "accent",
-      status: "Awaiting your decision",
-      updatedAt: system.updatedAt,
-      href: `/systems/${system.id}#change-review`,
-    }),
-  );
-  gateRows.push(...changeReviewDecisionRows);
   const [view, owner, controlRows, riskOwnerRows, riskAnalysisRows, checkUps, inReviewRows, activity] = await Promise.all([
-    roleOwnView(user, reviewStepRows)
-      .then((own) => withReviewStepTasks(own, user, reviewStepRows))
-      .then((own) => (gateRows.length === 0 ? own : { ...own, tasks: [...(own.tasks ?? []), ...gateRows] }))
-      .then((own) => withMemberQueryTasks(own, user))
-      .then((own) => withControlLibraryTile(own, user))
-      .then(withStatementOfApplicabilityTile)
-      .then((view) => withOrganizationRisksTile(user, view))
-      .then((view) => withInternalAuditsReadTile(user, view)),
+    roleDraftView(user),
     getOwnerTasks(user),
     getControlOwnerTasks(user),
     getRiskOwnerTasks(user),
@@ -382,17 +398,23 @@ export async function roleView(user: { id: string; name: string; role: UserRole 
     user.role === "REVIEWER" || user.role === "RISK_OWNER"
       ? undefined
       : { ownerId: user.id };
-  const derived = await computeTrends(
-    user,
-    stats.map((stat) => stat.label),
-    { reviewStarts: view.reviewStarts, attentionSystemIds: [...pipelineFlags(owner.rows).keys()], queryScope },
-    now,
-  );
+  // The trends (derived from timestamps, and the recorded snapshots that replace their past points) and the System Owner's pipeline
+  // picture are independent reads, so they run side by side.
+  const [derived, snapshotPoints, loadedPicture] = await Promise.all([
+    computeTrends(
+      user,
+      stats.map((stat) => stat.label),
+      { reviewStarts: view.reviewStarts, attentionSystemIds: [...pipelineFlags(owner.rows).keys()], queryScope },
+      now,
+    ),
+    SHOW_STAT_TRENDS ? readSnapshotPoints(user, stats.map((stat) => stat.label), now) : [],
+    isSystemOwnerRole ? loadPipelinePicture(user.id, pipelineFlags(owner.rows)) : undefined,
+  ]);
   // Past points with a recorded daily snapshot (#227) replace the values derived from timestamps.
-  const trends = await withSnapshotTrends(user, derived, now);
+  const trends = applySnapshotPoints(derived, snapshotPoints);
   stats = stats.map((stat) => (trends[stat.label] ? { ...stat, trend: trends[stat.label] } : stat));
 
-  const picture = isSystemOwnerRole ? await loadPipelinePicture(user.id, pipelineFlags(owner.rows)) : (view.picture ?? EMPTY_PICTURE);
+  const picture = loadedPicture ?? view.picture ?? EMPTY_PICTURE;
 
   return {
     lede: view.lede,

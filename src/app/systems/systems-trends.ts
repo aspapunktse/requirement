@@ -39,6 +39,8 @@ export async function loadSystemsTrends(
   rows: SystemRow[],
   where: Prisma.SystemWhereInput,
   now: Date,
+  /** The creation dates of every System when the caller has just read them all (the role sees every System); read here when not given. */
+  allCreatedAts?: Date[] | null,
 ): Promise<Partial<Record<ViewKey, number[]>>> {
   if (!SHOW_STAT_TRENDS) return {};
   const live = viewCounts(rows);
@@ -48,7 +50,7 @@ export async function loadSystemsTrends(
   // All Systems can be rebuilt from `createdAt` only when the role sees every System, whatever its status.
   const sawEverySystem = Object.keys(where).length === 0;
   const derivedAll = sawEverySystem
-    ? countByWeek((await tx.system.findMany({ select: { createdAt: true } })).map((system) => ({ from: system.createdAt })), now)
+    ? countByWeek((allCreatedAts ?? (await tx.system.findMany({ select: { createdAt: true } })).map((system) => system.createdAt)).map((from) => ({ from })), now)
     : null;
 
   const trends: Partial<Record<ViewKey, number[]>> = {};
