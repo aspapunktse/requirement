@@ -81,6 +81,26 @@ export function dueDateRefusal(dueDate: string, now: Date = new Date()): string 
   return parsed.getTime() < todayUtc ? "The due date can't be in the past" : null;
 }
 
+/** How long ago a Control was last audited for it to be **due for audit** (CONTEXT.md, product-owner decision of 2026-11-18). Fixed: no setting. */
+export const DUE_FOR_AUDIT_MONTHS = 12;
+
+/**
+ * Is a Control with this **last audited** date due for audit: never audited (`null`), or last audited
+ * `DUE_FOR_AUDIT_MONTHS` months ago or more? Whole calendar days in UTC: a date exactly 12 months before today
+ * (a 29 February counts as the 28th in a year without one) is due; the day after is not yet.
+ */
+export function isDueForAudit(lastAudited: Date | string | null, now: Date = new Date()): boolean {
+  if (lastAudited === null) return true;
+  const last = typeof lastAudited === "string" ? new Date(lastAudited) : lastAudited;
+  const lastDay = Date.UTC(last.getUTCFullYear(), last.getUTCMonth(), last.getUTCDate());
+  const monthIndex = now.getUTCFullYear() * 12 + now.getUTCMonth() - DUE_FOR_AUDIT_MONTHS;
+  const year = Math.floor(monthIndex / 12);
+  const month = monthIndex % 12;
+  const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+  const cutoff = Date.UTC(year, month, Math.min(now.getUTCDate(), daysInMonth));
+  return lastDay <= cutoff;
+}
+
 export type InternalAuditDraft = {
   title: string;
   controlIds: string[];

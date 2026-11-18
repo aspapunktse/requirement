@@ -15,6 +15,23 @@ export const internalAuditBodySchema = z.object({
   includeOrganization: z.boolean().optional(),
   controlIds: z.array(z.string()).optional(),
   systemIds: z.array(z.string()).optional(),
+  /** The planner's edited question per Control id (#393); see `InternalAuditInput.firstQuestions`. */
+  firstQuestions: z.record(z.string(), z.string()).optional(),
+});
+
+/**
+ * The body of POST /api/internal-audits/preview (#393): the planner's unsaved selection. `internalAuditId`
+ * names the draft being edited, whose saved questions the preview starts from. Everything but the
+ * selection is optional: an empty planner previews to an empty plan with its blockers.
+ */
+export const planPreviewBodySchema = z.object({
+  internalAuditId: z.string().optional(),
+  title: z.string().optional(),
+  dueDate: z.string().nullable().optional(),
+  includeOrganization: z.boolean().optional(),
+  controlIds: z.array(z.string()).optional(),
+  systemIds: z.array(z.string()).optional(),
+  firstQuestions: z.record(z.string(), z.string()).optional(),
 });
 
 /** The body of POST /api/internal-audits/[id]/systems (#234): the Systems to add to a draft. */

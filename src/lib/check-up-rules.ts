@@ -20,6 +20,18 @@ export function defaultQuestionsFor(selfAssessmentQuestion: string | null | unde
 }
 
 /**
+ * The question list of a Control in the planner (#393) once the auditor has typed a first question for it:
+ * `override` replaces the first question of `existing` (or becomes the only one), a blank one removes the
+ * first question, and `undefined` leaves the list as it is. The later questions are never touched here (more
+ * of them are added on the draft page).
+ */
+export function applyFirstQuestion(existing: string[], override: string | undefined): string[] {
+  if (override === undefined) return existing;
+  const text = override.trim();
+  return text === "" ? existing.slice(1) : [text, ...existing.slice(1)];
+}
+
+/**
  * Why `questions` isn't an acceptable list for one target Control, one message per problem (empty
  * when fine). An empty list is allowed on a draft (launch refuses it); a blank entry, an over-long
  * one or too many are not. The route and the editor share this.

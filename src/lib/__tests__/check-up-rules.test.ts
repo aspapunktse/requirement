@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  applyFirstQuestion,
   defaultQuestionsFor,
   launchSummaryText,
   MAX_QUESTIONS_PER_CONTROL,
@@ -226,5 +227,24 @@ describe("launchSummaryText", () => {
     expect(launchSummaryText({ systemCheckUpCount: 1, organizationCheckUpCount: 0, skipped: [] })).toBe(
       "1 Check-up (1 System-level, 0 Organization-level); none skipped",
     );
+  });
+});
+
+describe("applyFirstQuestion (#393)", () => {
+  it("leaves the list alone without an override", () => {
+    expect(applyFirstQuestion(["A?", "B?"], undefined)).toEqual(["A?", "B?"]);
+  });
+
+  it("replaces the first question, trimmed, and keeps the later ones", () => {
+    expect(applyFirstQuestion(["A?", "B?"], "  New?  ")).toEqual(["New?", "B?"]);
+  });
+
+  it("writes the first question of a Control that had none", () => {
+    expect(applyFirstQuestion([], "New?")).toEqual(["New?"]);
+  });
+
+  it("drops the first question for a blank override, and does nothing to an empty list", () => {
+    expect(applyFirstQuestion(["A?", "B?"], "   ")).toEqual(["B?"]);
+    expect(applyFirstQuestion([], "")).toEqual([]);
   });
 });

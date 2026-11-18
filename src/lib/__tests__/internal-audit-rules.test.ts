@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { InternalAuditStatus, UserRole } from "@prisma/client";
 import {
+  DUE_FOR_AUDIT_MONTHS,
+  isDueForAudit,
   canReadInternalAudits,
   canWriteInternalAudits,
   dueDateRefusal,
@@ -105,5 +107,32 @@ describe("internalAuditNotes", () => {
 
   it("says nothing about the Organization when it is not included", () => {
     expect(internalAuditNotes({ includeOrganization: false, systemCount: 0, controls: [{ applicability: "PER_SYSTEM" }] })).toEqual([]);
+  });
+});
+
+describe("isDueForAudit (#393)", () => {
+  const now = new Date("2026-11-18T12:00:00Z");
+
+  it("is a fixed 12 months", () => {
+    expect(DUE_FOR_AUDIT_MONTHS).toBe(12);
+  });
+
+  it("is due when never audited", () => {
+    expect(isDueForAudit(null, now)).toBe(true);
+  });
+
+  it("is due exactly 12 months after the last audit, and not a day before", () => {
+    expect(isDueForAudit(new Date("2025-11-18T23:59:59Z"), now)).toBe(true);
+    expect(isDueForAudit(new Date("2025-11-19T00:00:00Z"), now)).toBe(false);
+    expect(isDueForAudit("2024-01-01T00:00:00Z", now)).toBe(true);
+    expect(isDueForAudit(new Date("2026-11-17T00:00:00Z"), now)).toBe(false);
+  });
+
+  it("clamps the cutoff to the month's length around 29 February", () => {
+    // Audited on 29 February 2024: due from 1 March 2025, the first day on which the cutoff (12 months back) is not before it.
+    expect(isDueForAudit(new Date("2024-02-29T00:00:00Z"), new Date("2025-03-01T00:00:00Z"))).toBe(true);
+    expect(isDueForAudit(new Date("2024-02-29T00:00:00Z"), new Date("2025-02-28T00:00:00Z"))).toBe(false);
+    // 12 months before 29 February 2028 is 29 February 2027, which doesn't exist: the 28th.
+    expect(isDueForAudit(new Date("2027-02-28T00:00:00Z"), new Date("2028-02-29T00:00:00Z"))).toBe(true);
   });
 });

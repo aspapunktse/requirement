@@ -1,7 +1,8 @@
 import { getActingUser } from "@/lib/acting-user";
+import { loadPlannerData } from "@/lib/audit-planner";
 import { canWriteInternalAudits } from "@/lib/internal-audit-rules";
-import { listAuditChoices, listSystemFilterOptions } from "@/lib/internal-audits";
-import { InternalAuditForm } from "@/components/InternalAuditForm";
+import { listSystemFilterOptions } from "@/lib/internal-audits";
+import { AuditPlanner } from "../planner/AuditPlanner";
 
 export default async function NewInternalAuditPage() {
   const user = await getActingUser();
@@ -14,13 +15,7 @@ export default async function NewInternalAuditPage() {
     return <p className="p-6 text-rg-muted">Only an Internal Auditor can create an Internal Audit.</p>;
   }
 
-  const [{ controls, systems }, filterOptions] = await Promise.all([listAuditChoices(), listSystemFilterOptions()]);
+  const [data, filterOptions] = await Promise.all([loadPlannerData(), listSystemFilterOptions()]);
 
-  return (
-    <div className="mx-auto max-w-2xl p-6">
-      <h1 className="mb-4 text-2xl">New Internal Audit</h1>
-      <p className="mb-4 text-sm text-rg-muted">It starts as a draft: nothing is sent to anyone until it is launched.</p>
-      <InternalAuditForm controls={controls} systems={systems} filterOptions={filterOptions} />
-    </div>
-  );
+  return <AuditPlanner data={data} filterOptions={filterOptions} />;
 }

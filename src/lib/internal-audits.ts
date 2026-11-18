@@ -1,6 +1,6 @@
 import type { ControlApplicability, InternalAuditStatus, OnboardingStatus, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { defaultQuestionsFor } from "@/lib/check-up-rules";
+import { applyFirstQuestion, defaultQuestionsFor, MAX_QUESTION_LENGTH } from "@/lib/check-up-rules";
 import {
   dueDateRefusal,
   formatCalendarDate,
@@ -238,6 +238,12 @@ export type InternalAuditInput = {
   includeOrganization?: boolean;
   controlIds?: string[];
   systemIds?: string[];
+  /**
+   * The audit planner's one question per Control (#393), by Control id: saved as that Control's first
+   * question (a new Control's instead of its default copy; a Control the draft already has gets its first
+   * question replaced, the others kept). Blank removes the first question. Ids that are not targets are ignored.
+   */
+  firstQuestions?: Record<string, string>;
 };
 
 const unique = (ids: string[]) => [...new Set(ids)];
@@ -248,7 +254,12 @@ const unique = (ids: string[]) => [...new Set(ids)];
  * draft's question does not follow later edits to the Control. A Control without a question
  * starts with none, and must be given one before launch.
  */
-async function seedDefaultQuestions(tx: Prisma.TransactionClient, internalAuditId: string, controlIds: string[]) {
+async function seedDefaultQuestions(
+  tx: Prisma.TransactionClient,
+  internalAuditId: string,
+  controlIds: string[],
+  firstQuestions: Record<string, string> = {},
+) {
   if (controlIds.length === 0) return;
   const [rows, controls] = await Promise.all([
     tx.internalAuditControl.findMany({ where: { internalAuditId, controlId: { in: controlIds } }, select: { id: true, controlId: true } }),
@@ -257,13 +268,46 @@ async function seedDefaultQuestions(tx: Prisma.TransactionClient, internalAuditI
   const questionByControlId = new Map(controls.map((control) => [control.id, control.question]));
   await tx.internalAuditQuestion.createMany({
     data: rows.flatMap((row) =>
-      defaultQuestionsFor(questionByControlId.get(row.controlId)).map((text, index) => ({
+      applyFirstQuestion(defaultQuestionsFor(questionByControlId.get(row.controlId)), firstQuestions[row.controlId]).map((text, index) => ({
         internalAuditControlId: row.id,
         position: index + 1,
         text,
       })),
     ),
   });
+}
+
+/**
+ * Replaces the first question of each of `controlIds`, Controls the draft already had, with the planner's
+ * edited one (blank removes it); the later questions stay and the positions stay 1, 2, 3...
+ */
+async function replaceFirstQuestions(
+  tx: Prisma.TransactionClient,
+  internalAuditId: string,
+  controlIds: string[],
+  firstQuestions: Record<string, string>,
+) {
+  const wanted = controlIds.filter((id) => firstQuestions[id] !== undefined);
+  if (wanted.length === 0) return;
+  const rows = await tx.internalAuditControl.findMany({
+    where: { internalAuditId, controlId: { in: wanted } },
+    select: { id: true, controlId: true, questions: { orderBy: { position: "asc" }, select: { text: true } } },
+  });
+  for (const row of rows) {
+    const existing = row.questions.map((q) => q.text);
+    const next = applyFirstQuestion(existing, firstQuestions[row.controlId]);
+    if (next.length === existing.length && next.every((text, index) => text === existing[index])) continue;
+    await tx.internalAuditQuestion.deleteMany({ where: { internalAuditControlId: row.id } });
+    await tx.internalAuditQuestion.createMany({
+      data: next.map((text, index) => ({ internalAuditControlId: row.id, position: index + 1, text })),
+    });
+  }
+}
+
+function refuseLongQuestions(firstQuestions: Record<string, string> | undefined) {
+  if (Object.values(firstQuestions ?? {}).some((text) => text.trim().length > MAX_QUESTION_LENGTH)) {
+    throw new InternalAuditError(400, `A question can be at most ${MAX_QUESTION_LENGTH} characters`);
+  }
 }
 
 async function requireExisting(tx: Prisma.TransactionClient, controlIds: string[], systemIds: string[]) {
@@ -296,6 +340,7 @@ export async function createInternalAudit(input: InternalAuditInput, createdById
   };
   refuseInvalid(draft);
   refuseDueDate(draft.dueDate!, now);
+  refuseLongQuestions(input.firstQuestions);
 
   return prisma.$transaction(async (tx) => {
     await requireExisting(tx, draft.controlIds, draft.systemIds);
@@ -311,7 +356,7 @@ export async function createInternalAudit(input: InternalAuditInput, createdById
       },
       select: { id: true },
     });
-    await seedDefaultQuestions(tx, audit.id, draft.controlIds);
+    await seedDefaultQuestions(tx, audit.id, draft.controlIds, input.firstQuestions);
     return audit.id;
   });
 }
@@ -345,6 +390,7 @@ export async function updateInternalAudit(id: string, input: InternalAuditInput,
     };
     refuseInvalid(draft);
     if (draft.dueDate !== formatCalendarDate(current.dueDate)) refuseDueDate(draft.dueDate!, now);
+    refuseLongQuestions(input.firstQuestions);
     await requireExisting(tx, draft.controlIds, draft.systemIds);
 
     // Guarded by the status as well, so an audit launched since the read above is not touched.
@@ -365,7 +411,8 @@ export async function updateInternalAudit(id: string, input: InternalAuditInput,
     await tx.internalAuditControl.createMany({
       data: newControlIds.map((controlId) => ({ internalAuditId: id, controlId })),
     });
-    await seedDefaultQuestions(tx, id, newControlIds);
+    await seedDefaultQuestions(tx, id, newControlIds, input.firstQuestions);
+    if (input.firstQuestions) await replaceFirstQuestions(tx, id, [...keptControls].filter((controlId) => draft.controlIds.includes(controlId)), input.firstQuestions);
     const keptSystems = new Set(current.systems.map((row) => row.systemId));
     await tx.internalAuditSystem.deleteMany({ where: { internalAuditId: id, systemId: { notIn: draft.systemIds } } });
     await tx.internalAuditSystem.createMany({
