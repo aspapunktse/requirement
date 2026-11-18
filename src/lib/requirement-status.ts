@@ -198,8 +198,16 @@ export function loadFrameworkDerivationData(
 }
 
 async function readFrameworkDerivationData(frameworkId: string, db: DerivationDb): Promise<FrameworkDerivationData | null> {
-  const framework = await db.framework.findUnique({
-    where: { id: frameworkId },
+  return readFrameworkDerivationDataWhere({ id: frameworkId }, db);
+}
+
+/**
+ * `loadFrameworkDerivationData` for the Framework `where` picks (the base Framework, say): the one read that also finds it, so a caller
+ * that has no id yet does not read the Framework twice. Null when none matches.
+ */
+export async function readFrameworkDerivationDataWhere(where: Prisma.FrameworkWhereInput, db: DerivationDb): Promise<FrameworkDerivationData | null> {
+  const framework = await db.framework.findFirst({
+    where,
     select: {
       id: true,
       name: true,
@@ -355,7 +363,11 @@ export function deriveFrameworkStatusesForSystems(frameworkId: string, systems: 
 async function readFrameworkStatusesForSystems(frameworkId: string, systems: DerivationSystem[], db: DerivationDb) {
   const data = await readFrameworkDerivationData(frameworkId, db);
   if (!data) return null;
+  return deriveStatusesFromData(data, systems, db);
+}
 
+/** `deriveFrameworkStatusesForSystems` from the Framework's data when the caller has it already: the Systems' Assessments and Provider sources, then the rows. */
+export async function deriveStatusesFromData(data: FrameworkDerivationData, systems: DerivationSystem[], db: DerivationDb) {
   const systemIds = systems.map((s) => s.id);
   // Sequential: a transaction has one connection.
   const assessments =

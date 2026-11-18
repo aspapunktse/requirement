@@ -34,9 +34,6 @@ export function longestWaitByWeek(starts: Date[], now: Date): number[] {
   );
 }
 
-/** A count that is re-asked at each week end (a `count` query on a creation timestamp). */
-const perWeek = (now: Date, count: (end: Date) => Promise<number>) => Promise.all(weekEnds(now).map(count));
-
 export type TrendInputs = {
   /** When each review the Reviewer is waiting on was submitted (latest Review Round). */
   reviewStarts?: Date[];
@@ -77,14 +74,17 @@ export async function computeTrends(
     if (wanted.has(label)) jobs.push(Promise.resolve(make()).then((trend) => void (out[label] = trend)));
   };
 
-  add("Controls", () => perWeek(now, (end) => prisma.control.count({ where: { createdAt: { lte: end } } })));
-  add("Frameworks", () => perWeek(now, (end) => prisma.framework.count({ where: { AND: [visibleFrameworksWhere(user), { createdAt: { lte: end } }] } })));
-  add("Deployment facets", () => perWeek(now, (end) => prisma.deploymentFacet.count({ where: { createdAt: { lte: end } } })));
-  add("Users", () => perWeek(now, (end) => prisma.user.count({ where: { createdAt: { lte: end } } })));
-  add("Systems", () => perWeek(now, (end) => prisma.system.count({ where: { createdAt: { lte: end } } })));
-  add("Onboarded systems", () =>
-    perWeek(now, (end) =>
-      prisma.system.count({ where: { status: "ONBOARDED", OR: [{ onboardedAt: { lte: end } }, { onboardedAt: null, createdAt: { lte: end } }] } }),
+  // One read of the creation times per figure, counted per week in memory (`countByWeek`), instead of a `count` per week end.
+  const createdAts = (rows: { createdAt: Date }[]) => countByWeek(rows.map((row) => ({ from: row.createdAt })), now);
+  add("Controls", async () => createdAts(await prisma.control.findMany({ select: { createdAt: true } })));
+  add("Frameworks", async () => createdAts(await prisma.framework.findMany({ where: visibleFrameworksWhere(user), select: { createdAt: true } })));
+  add("Deployment facets", async () => createdAts(await prisma.deploymentFacet.findMany({ select: { createdAt: true } })));
+  add("Users", async () => createdAts(await prisma.user.findMany({ select: { createdAt: true } })));
+  add("Systems", async () => createdAts(await prisma.system.findMany({ select: { createdAt: true } })));
+  add("Onboarded systems", async () =>
+    countByWeek(
+      (await prisma.system.findMany({ where: { status: "ONBOARDED" }, select: { onboardedAt: true, createdAt: true } })).map((system) => ({ from: system.onboardedAt ?? system.createdAt })),
+      now,
     ),
   );
   add("Draft Internal Audits", async () =>
