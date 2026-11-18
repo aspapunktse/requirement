@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { logChangeEvent, SYSTEM_ACTOR } from "@/lib/change-events";
 import { userCanDecideStep } from "@/lib/approvals";
 import { EVALUATION_STAGE_LABEL } from "@/lib/evaluation-stages";
-import { participantList, participantsContainingControl, participantsOver, participantsToReopen, type Participant } from "@/lib/review-participation";
+import { groupsWithRemitForSystems, participantList, participantsContainingControl, participantsOver, participantsToReopen, type Participant, type Participation } from "@/lib/review-participation";
 import { READ_SNAPSHOT } from "@/lib/read-transaction";
 
 /**
@@ -68,19 +68,23 @@ export async function readOagReview(tx: Tx, systemId: string) {
     where: { systemId, stage, givenAt: { gte: since } },
     orderBy: [{ givenAt: "asc" }, { id: "asc" }],
   });
+  return { system, participants: oagParticipants(participation, rows), since, stage };
+}
+
+/** The participants of an OAG review with their live Recommendations, from the rows given since the System entered the stage (oldest first). Pure. */
+function oagParticipants(participation: Participation, rows: (LiveRecommendation & { reviewGroupId: string | null; voidedAt: Date | null; voidReason: string | null })[]) {
   const live = new Map<string | null, LiveRecommendation>();
   const reopenedBy = new Map<string | null, { at: Date; reason: string }>();
   for (const row of rows) {
     if (!row.voidedAt) live.set(row.reviewGroupId, row);
     else if (row.voidReason) reopenedBy.set(row.reviewGroupId, { at: row.voidedAt, reason: row.voidReason });
   }
-  const participants = participantList(participation).map((participant): OagParticipant => {
+  return participantList(participation).map((participant): OagParticipant => {
     const recommendation = live.get(participant.reviewGroupId) ?? null;
     if (recommendation) return { ...participant, recommendation };
     const reopened = reopenedBy.get(participant.reviewGroupId);
     return reopened ? { ...participant, recommendation: null, reopened } : { ...participant, recommendation: null };
   });
-  return { system, participants, since, stage };
 }
 
 /** The live Recommendations of an OAG review, as the groups', base review first then by group name: what the BSO sees at OG2. */
@@ -211,17 +215,29 @@ export async function getOpenRecommendationsForUser(user: { id: string; role: Us
   if (!decidesAny && groupIds.length === 0) return [];
   return prisma.$transaction(
     async (tx) => {
-      const systems = await tx.system.findMany({
+      const found = await tx.system.findMany({
         where: { evaluationStage: { in: [...OAG_STAGES] }, evaluationClosedAt: null, ownerId: { not: user.id } },
-        orderBy: { updatedAt: "asc" },
-        select: { id: true, name: true, ownerId: true, updatedAt: true },
+        orderBy: [{ updatedAt: "asc" }, { id: "asc" }],
+        include: CLASSIFICATION_INCLUDE,
       });
-      const tasks: { system: (typeof systems)[number]; stage: OagStage; participant: OagParticipant }[] = [];
+      const systems = found.filter((system) => isOagStage(system.evaluationStage) && system.evaluationStageEnteredAt !== null);
+      const tasks: { system: { id: string; name: string; ownerId: string; updatedAt: Date }; stage: OagStage; participant: OagParticipant }[] = [];
+      if (systems.length === 0) return tasks;
+      // Set-based, not a few reads per System: the remits and the Recommendations of every System at the OAG review in one read each.
+      const remits = await groupsWithRemitForSystems(tx, systems);
+      const recommendations = await tx.recommendation.findMany({
+        where: { systemId: { in: systems.map((system) => system.id) }, stage: { in: [...OAG_STAGES] } },
+        orderBy: [{ givenAt: "asc" }, { id: "asc" }],
+      });
       for (const system of systems) {
-        const review = await readOagReview(tx, system.id);
-        if (!review) continue;
-        for (const participant of review.participants) {
-          if (participant.recommendation === null && userCanRecommend(user, system.ownerId, groupIds, participant.reviewGroupId)) tasks.push({ system, stage: review.stage, participant });
+        const stage = system.evaluationStage as OagStage;
+        const since = system.evaluationStageEnteredAt!;
+        const given = recommendations.filter((row) => row.systemId === system.id && row.stage === stage && row.givenAt >= since);
+        const participants = oagParticipants({ base: true, groups: remits.get(system.id) ?? new Map() }, given);
+        for (const participant of participants) {
+          if (participant.recommendation === null && userCanRecommend(user, system.ownerId, groupIds, participant.reviewGroupId)) {
+            tasks.push({ system: { id: system.id, name: system.name, ownerId: system.ownerId, updatedAt: system.updatedAt }, stage, participant });
+          }
         }
       }
       return tasks;

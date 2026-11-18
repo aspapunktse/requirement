@@ -2,14 +2,16 @@ import type { EvaluationStage, EvaluationTrack, Prisma, UserRole } from "@prisma
 import { prisma } from "@/lib/prisma";
 import { logChangeEvent, SYSTEM_ACTOR } from "@/lib/change-events";
 import { userCanDecideStep } from "@/lib/approvals";
-import { firstRoundControlIdsForSystem } from "@/lib/first-round";
+import { firstRoundControlIdsForSystem, firstRoundControlIdsForSystems } from "@/lib/first-round";
 import { EVALUATION_STAGE_LABEL, TRACK_LABEL } from "@/lib/evaluation-stages";
 import {
   participantList,
   participantsContainingControl,
   participantsOver,
   participantsToReopen,
+  groupsWithRemitForSystems,
   type Participant,
+  type Participation,
 } from "@/lib/review-participation";
 import { READ_SNAPSHOT } from "@/lib/read-transaction";
 
@@ -75,6 +77,11 @@ export async function readOg1(tx: Tx, systemId: string) {
     where: { systemId, givenAt: { gte: since } },
     orderBy: [{ givenAt: "asc" }, { id: "asc" }],
   });
+  return { system, firstRound, participants: og1Participants(participation, verdicts), since };
+}
+
+/** The participants of OG1 with their live verdicts, from the verdicts given since the System entered OG1 (oldest first). Pure. */
+function og1Participants(participation: Participation, verdicts: (LiveVerdict & { reviewGroupId: string | null; voidedAt: Date | null; voidReason: string | null })[]) {
   const liveByParticipant = new Map<string | null, LiveVerdict>();
   const reopenedBy = new Map<string | null, { at: Date; reason: string }>();
   for (const entry of verdicts) {
@@ -84,13 +91,12 @@ export async function readOg1(tx: Tx, systemId: string) {
       reopenedBy.set(entry.reviewGroupId, { at: entry.voidedAt, reason: entry.voidReason });
     }
   }
-  const participants = participantList(participation).map((participant): Og1Participant => {
+  return participantList(participation).map((participant): Og1Participant => {
     const verdict = liveByParticipant.get(participant.reviewGroupId) ?? null;
     if (verdict) return { ...participant, verdict };
     const reopened = reopenedBy.get(participant.reviewGroupId);
     return reopened ? { ...participant, verdict: null, reopened } : { ...participant, verdict: null };
   });
-  return { system, firstRound, participants, since };
 }
 
 /** Moves the System out of OG1 on the verdicts given: Full goes to Qualification, Self to the second round. Null if it was no longer at OG1. */
@@ -221,18 +227,28 @@ export async function getOpenVerdictsForUser(user: { id: string; role: UserRole 
   if (!decidesAny && groupIds.length === 0) return [];
   return prisma.$transaction(
     async (tx) => {
-      const systems = await tx.system.findMany({
+      const found = await tx.system.findMany({
         where: { evaluationStage: "OG1", ownerId: { not: user.id } },
-        orderBy: { updatedAt: "asc" },
-        select: { id: true, name: true, ownerId: true, updatedAt: true },
+        orderBy: [{ updatedAt: "asc" }, { id: "asc" }],
+        include: CLASSIFICATION_INCLUDE,
       });
-      const tasks: { system: (typeof systems)[number]; participant: Og1Participant }[] = [];
+      const systems = found.filter((system) => system.evaluationStageEnteredAt !== null);
+      const tasks: { system: { id: string; name: string; ownerId: string; updatedAt: Date }; participant: Og1Participant }[] = [];
+      if (systems.length === 0) return tasks;
+      // Set-based, not a few reads per System: the first-round Controls, the remits and the verdicts of every System at OG1 in one read each.
+      const firstRound = await firstRoundControlIdsForSystems(systems.map((system) => system.id), { db: tx });
+      const remits = await groupsWithRemitForSystems(tx, systems, firstRound);
+      const verdicts = await tx.trackVerdict.findMany({
+        where: { systemId: { in: systems.map((system) => system.id) } },
+        orderBy: [{ givenAt: "asc" }, { id: "asc" }],
+      });
       for (const system of systems) {
-        const og1 = await readOg1(tx, system.id);
-        if (!og1) continue;
-        for (const participant of og1.participants) {
+        const since = system.evaluationStageEnteredAt!;
+        const given = verdicts.filter((verdict) => verdict.systemId === system.id && verdict.givenAt >= since);
+        const participants = og1Participants({ base: true, groups: remits.get(system.id) ?? new Map() }, given);
+        for (const participant of participants) {
           if (participant.verdict === null && userCanGiveVerdict(user, system.ownerId, groupIds, participant.reviewGroupId)) {
-            tasks.push({ system, participant });
+            tasks.push({ system: { id: system.id, name: system.name, ownerId: system.ownerId, updatedAt: system.updatedAt }, participant });
           }
         }
       }

@@ -36,7 +36,7 @@ export async function readWhereView(tx: Prisma.TransactionClient, user: { id: st
   const levels = await listSensitivityLevels(tx);
   const visible = await visibleSystemsWhere(user, tx);
   const all = await tx.system.findMany({
-    select: { id: true, name: true, isProvider: true, sensitivityLevel: true, informationTypes: { select: { id: true } } },
+    select: { id: true, name: true, isProvider: true, sensitivityLevel: true, informationTypes: { select: { id: true }, orderBy: { id: "asc" } } },
     orderBy: [{ name: "asc" }, { id: "asc" }],
   });
   const visibleIds = new Set((await tx.system.findMany({ where: visible, select: { id: true } })).map((system) => system.id));
