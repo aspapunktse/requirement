@@ -86,17 +86,21 @@ export async function loadProviderSources(
           availabilityImpactLevel: true,
           deploymentFacets: { select: { id: true } },
           frameworkScopes: { select: { id: true } },
+          // The offerings come with the Provider: one read, not one more per page.
+          offerings: {
+            where: { controlId: { in: controlIds } },
+            select: { providerId: true, controlId: true, type: true, customerResponsibility: true },
+            orderBy: { id: "asc" },
+          },
         },
       },
     },
+    orderBy: { id: "asc" },
   });
   if (dependencies.length === 0) return result;
   const providers = new Map(dependencies.map((dependency) => [dependency.provider.id, dependency.provider]));
 
-  const offerings = await db.controlOffering.findMany({
-    where: { providerId: { in: [...providers.keys()] }, controlId: { in: controlIds } },
-    select: { providerId: true, controlId: true, type: true, customerResponsibility: true },
-  });
+  const offerings = [...providers.values()].flatMap((provider) => provider.offerings);
   if (offerings.length === 0) return result;
   const offeredControlIds = [...new Set(offerings.map((offering) => offering.controlId))];
 
