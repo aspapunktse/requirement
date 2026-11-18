@@ -4,6 +4,7 @@ import { canCurateInformationTypes } from "@/lib/information-type";
 import { listInformationTypes } from "@/lib/information-type-data";
 import { listSensitivityLevels } from "@/lib/sensitivity-level-data";
 import { InformationTypesRegister } from "./InformationTypesRegister";
+import { READ_SNAPSHOT } from "@/lib/read-transaction";
 
 /**
  * The Information Type catalogue (#303, ADR 0012), design proposal A "Register and drawer" (#302): a register
@@ -27,7 +28,7 @@ export default async function InformationTypesPage() {
         ? await tx.framework.findMany({ where: { isBase: false }, select: { id: true, name: true, version: true, status: true }, orderBy: [{ name: "asc" }, { version: "asc" }] })
         : [],
     }),
-    { isolationLevel: "RepeatableRead" },
+    READ_SNAPSHOT,
   );
 
   // Keyed on the acting user, so switching user starts from a clean state (no open drawer carried over).

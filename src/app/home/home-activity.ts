@@ -2,6 +2,7 @@ import type { Prisma, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { loadAttribution } from "@/lib/change-event-attribution";
 import { CHANGE_EVENT_ACTION_LABEL, CHANGE_EVENT_ACTION_TONE } from "@/lib/change-event-labels";
+import { READ_SNAPSHOT } from "@/lib/read-transaction";
 import { visibleSystemsWhere } from "@/lib/system-visibility";
 import { ACTIVITY_DAYS, ACTIVITY_MAX, SHOW_ACTIVITY } from "./home-config";
 import type { HomeActivity } from "./home-types";
@@ -55,6 +56,6 @@ export async function loadRecentActivity(user: { id: string; role: UserRole }, n
         }),
       );
     },
-    { isolationLevel: "RepeatableRead" },
+    READ_SNAPSHOT,
   );
 }

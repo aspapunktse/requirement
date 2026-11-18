@@ -9,6 +9,7 @@ import { lockSystem } from "@/lib/system-lock";
 import { EVALUATION_STAGE_LABEL } from "@/lib/evaluation-stages";
 import { RECOMMENDATION_LABEL, userCanRecommend } from "@/lib/evaluation-oag";
 import { canDecideAtGate, sendBackTargets, sendBackTo } from "@/lib/gate-decisions";
+import { READ_SNAPSHOT } from "@/lib/read-transaction";
 
 /**
  * Change Review on an Onboarded System (#334, PRD 0002 F-CR.1-3, ADR 0014; CONTEXT.md "Change Review"). A change to a System's
@@ -367,7 +368,7 @@ export async function loadChangeReviewView(viewer: Actor, systemId: string): Pro
         })),
       };
     },
-    { isolationLevel: "RepeatableRead" },
+    READ_SNAPSHOT,
   );
 }
 
@@ -387,7 +388,7 @@ async function openReviewsWhere(where: Prisma.SystemWhereInput) {
       }
       return result;
     },
-    { isolationLevel: "RepeatableRead" },
+    READ_SNAPSHOT,
   );
 }
 

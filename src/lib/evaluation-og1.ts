@@ -11,6 +11,7 @@ import {
   participantsToReopen,
   type Participant,
 } from "@/lib/review-participation";
+import { READ_SNAPSHOT } from "@/lib/read-transaction";
 
 /**
  * OG1, the first gate of staged evaluation (#328, PRD 0002 F-ST.3, ADR 0014): every group with first-round Controls in its remit,
@@ -237,6 +238,6 @@ export async function getOpenVerdictsForUser(user: { id: string; role: UserRole 
       }
       return tasks;
     },
-    { isolationLevel: "RepeatableRead" },
+    READ_SNAPSHOT,
   );
 }

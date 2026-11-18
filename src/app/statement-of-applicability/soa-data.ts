@@ -12,6 +12,7 @@ import {
   type SoaMapping,
 } from "@/lib/statement-of-applicability";
 import type { SoaLedgerRow, SoaRequirementGroup, SoaSystemStatus, SoaView } from "./soa-types";
+import { READ_SNAPSHOT } from "@/lib/read-transaction";
 
 const collator = new Intl.Collator("en", { numeric: true });
 
@@ -54,7 +55,7 @@ export function requirementGroups(mappings: SoaMapping[]): SoaRequirementGroup[]
  * and Systems there are.
  */
 export async function loadSoaView(user: { id: string; role: UserRole }): Promise<SoaView> {
-  return prisma.$transaction((tx) => readSoaView(tx, user), { isolationLevel: "RepeatableRead" });
+  return prisma.$transaction((tx) => readSoaView(tx, user), READ_SNAPSHOT);
 }
 
 /**

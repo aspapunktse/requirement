@@ -7,6 +7,7 @@ import {
   participantsContainingControl,
   participantsOver,
   participantsToReopen,
+  groupsWithRemitForSystems,
   remitGroupsByControl,
 } from "@/lib/review-participation";
 import { SYSTEM_FOR_STEPS } from "@/lib/review-steps";
@@ -158,6 +159,35 @@ describe("Review participation over a Control subset", () => {
     const narrowed = await remitGroupsByControl(prisma, system, undefined, new Set([controls.g2]));
     expect([...narrowed.keys()]).toEqual([controls.g2]);
     expect((await remitGroupsByControl(prisma, system, controls.g1, new Set([controls.g2]))).size).toBe(0);
+  });
+
+  it("groupsWithRemitForSystems gives, in one read, the groups the per-System read gives, for Systems with different scope and facets (#387)", async () => {
+    const full = await loadSystem();
+    // One declaring only the first Framework, one with no Deployment Facet (so the facet-scoped fixture Controls do not apply), one declaring none.
+    const second = await prisma.system.create({
+      data: { name: `Test #387 Second ${suffix}`, ownerId, status: "IN_REVIEW", deploymentFacets: { connect: [{ id: facetId }] }, frameworkScopes: { connect: [{ id: full.frameworkScopes[0].id }] } },
+    });
+    const noFacet = await prisma.system.create({
+      data: { name: `Test #387 No facet ${suffix}`, ownerId, status: "IN_REVIEW", frameworkScopes: { connect: full.frameworkScopes.map(({ id }) => ({ id })) } },
+    });
+    const noScope = await prisma.system.create({ data: { name: `Test #387 No scope ${suffix}`, ownerId, status: "IN_REVIEW", deploymentFacets: { connect: [{ id: facetId }] } } });
+    try {
+      const systems = await prisma.system.findMany({ where: { id: { in: [full.id, second.id, noFacet.id, noScope.id] } }, include: SYSTEM_FOR_STEPS });
+      const batched = await groupsWithRemitForSystems(prisma, systems);
+      expect(batched.size).toBe(4);
+      for (const system of systems) {
+        const single = new Map<string, string>();
+        for (const forControl of (await remitGroupsByControl(prisma, system)).values()) for (const [id, name] of forControl) single.set(id, name);
+        expect([...batched.get(system.id)!].sort()).toEqual([...single].sort());
+      }
+      expect(groupIds({ groups: batched.get(full.id)! })).toEqual(groups.map((group) => group.id).sort());
+      expect(groupIds({ groups: batched.get(second.id)! })).toEqual([groups[0].id]);
+      expect(batched.get(noFacet.id)!.size).toBe(0);
+      expect(batched.get(noScope.id)!.size).toBe(0);
+      expect((await groupsWithRemitForSystems(prisma, [])).size).toBe(0);
+    } finally {
+      await prisma.system.deleteMany({ where: { id: { in: [second.id, noFacet.id, noScope.id] } } });
+    }
   });
 
   it("reopens on an edit inside the subset the group whose remit includes it, and nothing for an edit outside it", async () => {

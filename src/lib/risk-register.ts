@@ -4,6 +4,7 @@ import { visibleSystemsWhere } from "@/lib/system-visibility";
 import { canReadOrganizationRisks } from "@/lib/risk-roles";
 import { SYSTEM_RISK_WHERE } from "@/lib/risks";
 import type { RiskSourceValue } from "@/lib/risk-source";
+import { READ_SNAPSHOT } from "@/lib/read-transaction";
 
 /** One row of the cross-System Risk register (#322). Plain values, so the page can hand it to a client component. */
 export type RiskRegisterRow = {
@@ -51,7 +52,7 @@ export async function loadRiskRegister(user: { id: string; role: UserRole }): Pr
         orderBy: [{ createdAt: "desc" }, { id: "asc" }],
       });
     },
-    { isolationLevel: "RepeatableRead" },
+    READ_SNAPSHOT,
   );
   return rows.map((risk) => ({ ...risk, createdAt: risk.createdAt.toISOString() }));
 }
