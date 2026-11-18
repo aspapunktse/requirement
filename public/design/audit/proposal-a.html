@@ -6,7 +6,10 @@
 <meta name="robots" content="noindex">
 <title>Audit Planner</title>
 <link rel="stylesheet" href="../systems/systems.css">
+<link rel="stylesheet" href="../shared/appbar.css">
 <link rel="stylesheet" href="audit.css">
+<link rel="stylesheet" href="../shared/themes.css">
+<script src="../shared/themes.js"></script>
 <style>
 /* Proposal A: a planner. One page: the title and scope in a hero, starting packs, then three
    numbered cards (when, which Controls, where) beside a sticky launch preview that counts the
@@ -122,15 +125,10 @@
 </style>
 </head>
 <body>
-<header class="topbar">
-  <div class="logo">IS</div>
-  <div><b>ISMS</b><small>System onboarding</small></div>
-  <nav aria-label="Main"><a href="/design/home/proposal-a.html">Home</a><a href="/design/systems/proposal-a.html">Systems</a><a href="/design/controls/proposal-a.html">Controls</a><a href="#">Risks</a><a href="#" aria-current="page">Internal Audits</a><a href="#">Check-ups</a></nav>
-  <div class="proposal-switch">Proposal A · <a href="proposal-b.html">see B</a> · <a href="proposal-c.html">see C</a></div>
-</header>
+<header id="appbar"></header>
 
 <div class="app">
-  <div class="crumb"><a href="#">Internal Audits</a> <span>/</span> <span>New</span></div>
+  <div class="crumb"><a href="list-a.html" id="crumbList">Internal Audits</a> <span>/</span> <span>New</span></div>
 
   <section class="hero" aria-label="Audit">
     <div class="hero-top"><span class="eyebrow">New Internal Audit</span><span class="chip">Draft · nothing is sent until it is launched</span></div>
@@ -208,6 +206,12 @@
 <script src="../controls/data.js"></script>
 <script src="../systems/data.js"></script>
 <script src="audit.js"></script>
+<script src="audits.js"></script>
+<script src="../shared/appbar.js"></script>
+<script>
+  Appbar.mount({ current: 'audits', proposal: { label: 'A', siblings: [['B', 'proposal-b.html'], ['C', 'proposal-c.html']] }, items: AUDS.paletteItems((a) => `detail-a.html?id=${a.id}${location.hash}`) });
+  document.getElementById('crumbList').href = 'list-a.html' + location.hash;
+</script>
 <script>
 (function () {
   const A = window.AUD, { esc, icon } = A;

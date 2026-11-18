@@ -3,6 +3,57 @@
 // `id` is the vote key: keep it stable once people have voted, or the votes are orphaned.
 window.DESIGN_PARTS = [
   {
+    id: "audit-detail",
+    name: "One Internal Audit",
+    added: "2026-11-18",
+    question: "How should one Internal Audit read as a draft, while it is launched and once it is closed: what launching it would send, how far its Check-ups have come, what the Internal Auditor evaluates next and what it found?",
+    proposals: [
+      {
+        id: "audit-detail-a",
+        label: "A",
+        title: "Command center",
+        href: "/design/audit/detail-a.html",
+        summary: "The Home look: a ring of the Check-ups by state in the hero, stat cards that filter them (Not answered, Awaiting evaluation, Overdue, Evaluated, Withdrawn), a list grouped by Control, System or recipient and the picked Check-up beside it with its response and evaluation. Banners say whether it can close; a closed audit shows its findings; a draft shows its launch preview.",
+      },
+      {
+        id: "audit-detail-b",
+        label: "B",
+        title: "Matrix",
+        href: "/design/audit/detail-b.html",
+        summary: "Controls down, Systems and the Organization across: each square is one Check-up coloured by state or outcome, hatched where the Control doesn't apply, with totals per row and column. The legend highlights one state, and a square opens the Check-up in a side panel.",
+      },
+      {
+        id: "audit-detail-c",
+        label: "C",
+        title: "Evaluation queue",
+        href: "/design/audit/detail-c.html",
+        summary: "Built for the Internal Auditor's daily work: a slim hero with a progress bar, then an inbox of Check-ups in tabs (To evaluate, Waiting, Done) beside the picked one's response, with Conforming, Observation or Nonconformity \"and next\" and Withdraw; J and K move through the queue.",
+      },
+    ],
+  },
+  {
+    id: "audits-list",
+    name: "Internal Audits list",
+    added: "2026-11-18",
+    question: "How should the list of Internal Audits show what is in progress, what waits on the Internal Auditor and what earlier audits found?",
+    proposals: [
+      {
+        id: "audits-list-a",
+        label: "A",
+        title: "Command center",
+        href: "/design/audit/list-a.html",
+        summary: "A ring of every open Check-up across the launched audits, stat cards that filter (Launched, Awaiting evaluation, Overdue Check-ups, Drafts, Closed), then lanes of audit cards: progress and due date when launched, what launching would send for a draft, findings when closed.",
+      },
+      {
+        id: "audits-list-b",
+        label: "B",
+        title: "Register",
+        href: "/design/audit/list-b.html",
+        summary: "A slim hero and one sortable table with state tabs and counts (Active, Launched, Drafts, Closed, All) and a search: state, due date, a progress bar, findings with Risks opened and the next thing to do on each audit.",
+      },
+    ],
+  },
+  {
     id: "comparison",
     name: "Comparison",
     added: "2026-11-16",
