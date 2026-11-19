@@ -71,19 +71,8 @@ type AuditForLaunch = { title: string; dueDate: Date; includeOrganization: boole
 /** The launch inputs, with each System's owner too (the planner's preview names who receives the Check-ups). */
 type LoadedLaunchInputs = Omit<LaunchInputs, "systems"> & { systems: (LaunchSystem & { ownerId: string })[] };
 
-/**
- * Bulk-loads what `planLaunch` needs for any selection of Controls and Systems, in a constant number of
- * queries, on the caller's transaction client. `questionsFor` gives each Control's question list (a saved
- * draft's, a default copy or an edited one), so the saved draft and the planner's unsaved one go through
- * the same loading and the same `planLaunch`.
- */
-async function loadLaunchInputsFor(
-  tx: Prisma.TransactionClient,
-  controlIds: string[],
-  systemIds: string[],
-  audit: LaunchInputs["audit"],
-  questionsFor: (control: { id: string; question: string | null }) => string[],
-): Promise<LoadedLaunchInputs> {
+/** The Controls and Systems `planLaunch` reads, as stored (the questions are added per audit). */
+async function loadControlsAndSystems(tx: Prisma.TransactionClient, controlIds: string[], systemIds: string[]) {
   const controls = await tx.control.findMany({
     where: { id: { in: controlIds } },
     select: {
@@ -116,11 +105,40 @@ async function loadLaunchInputsFor(
       frameworkScopes: { select: { id: true } },
     },
   });
+  return { controls, systems };
+}
+
+type LoadedControls = Awaited<ReturnType<typeof loadControlsAndSystems>>["controls"];
+type LoadedSystems = Awaited<ReturnType<typeof loadControlsAndSystems>>["systems"];
+
+function buildLaunchInputs(
+  controls: LoadedControls,
+  systems: LoadedSystems,
+  audit: LaunchInputs["audit"],
+  questionsFor: (control: { id: string; question: string | null }) => string[],
+): LoadedLaunchInputs {
   return {
     audit,
     controls: controls.map(({ question, ...control }): LaunchControl => ({ ...control, questions: questionsFor({ id: control.id, question }) })),
     systems,
   };
+}
+
+/**
+ * Bulk-loads what `planLaunch` needs for any selection of Controls and Systems, in a constant number of
+ * queries, on the caller's transaction client. `questionsFor` gives each Control's question list (a saved
+ * draft's, a default copy or an edited one), so the saved draft and the planner's unsaved one go through
+ * the same loading and the same `planLaunch`.
+ */
+async function loadLaunchInputsFor(
+  tx: Prisma.TransactionClient,
+  controlIds: string[],
+  systemIds: string[],
+  audit: LaunchInputs["audit"],
+  questionsFor: (control: { id: string; question: string | null }) => string[],
+): Promise<LoadedLaunchInputs> {
+  const { controls, systems } = await loadControlsAndSystems(tx, controlIds, systemIds);
+  return buildLaunchInputs(controls, systems, audit, questionsFor);
 }
 
 /** Bulk-loads what `planLaunch` needs for a saved draft, on the caller's transaction client. */
@@ -192,6 +210,48 @@ export async function getLaunchPreview(internalAuditId: string, now = new Date()
     const inputs = await loadLaunchInputs(tx, internalAuditId, audit);
     return describePlan(planLaunch(inputs, now), inputs);
   }, SNAPSHOT);
+}
+
+/**
+ * `getLaunchPreview` for many drafts at once, in a constant number of queries however many drafts there are
+ * (the Internal Audits list, #398). The draft Controls and Systems of every audit are read with grouped queries,
+ * each distinct Control and System is loaded once, and each draft then goes through the same `planLaunch` and
+ * `describePlan` as `getLaunchPreview`, so the two can't disagree. On the caller's transaction client.
+ */
+export async function loadLaunchReports(
+  tx: Prisma.TransactionClient,
+  drafts: { id: string; title: string; dueDate: Date; includeOrganization: boolean }[],
+  now = new Date(),
+): Promise<Map<string, LaunchReport>> {
+  const reports = new Map<string, LaunchReport>();
+  if (drafts.length === 0) return reports;
+  const ids = drafts.map((draft) => draft.id);
+  const [controlRows, systemRows] = await Promise.all([
+    tx.internalAuditControl.findMany({
+      where: { internalAuditId: { in: ids } },
+      select: { internalAuditId: true, controlId: true, questions: { orderBy: { position: "asc" }, select: { text: true } } },
+    }),
+    tx.internalAuditSystem.findMany({ where: { internalAuditId: { in: ids } }, select: { internalAuditId: true, systemId: true } }),
+  ]);
+  const { controls, systems } = await loadControlsAndSystems(
+    tx,
+    [...new Set(controlRows.map((row) => row.controlId))],
+    [...new Set(systemRows.map((row) => row.systemId))],
+  );
+  const controlById = new Map(controls.map((control) => [control.id, control]));
+  const systemById = new Map(systems.map((system) => [system.id, system]));
+  for (const draft of drafts) {
+    const own = controlRows.filter((row) => row.internalAuditId === draft.id);
+    const questions = new Map(own.map((row) => [row.controlId, row.questions.map((q) => q.text)]));
+    const inputs = buildLaunchInputs(
+      own.flatMap((row) => controlById.get(row.controlId) ?? []),
+      systemRows.filter((row) => row.internalAuditId === draft.id).flatMap((row) => systemById.get(row.systemId) ?? []),
+      { title: draft.title, dueDate: formatCalendarDate(draft.dueDate), includeOrganization: draft.includeOrganization },
+      (control) => questions.get(control.id) ?? [],
+    );
+    reports.set(draft.id, describePlan(planLaunch(inputs, now), inputs));
+  }
+  return reports;
 }
 
 export type PlanPreviewSelection = {
