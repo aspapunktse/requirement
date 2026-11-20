@@ -108,6 +108,20 @@ export function AuditPlanner({
     setStartedFrom(NOT_AUDITED);
     setSaid(ids.length === 0 ? "No Control is due for audit." : `Added ${ids.length} Control${ids.length === 1 ? "" : "s"} that were not audited in the last 12 months.`);
   }
+  /** Adds the pack's Controls to the picks (never twice, none removed). A Control the planner doesn't know (deleted since the page loaded) is skipped. */
+  function startFromPack(packId: string) {
+    const pack = data.packs.find((candidate) => candidate.id === packId);
+    if (!pack) return;
+    const ids = pack.controlIds.filter((id) => controlsById.has(id));
+    const fresh = ids.filter((id) => !pickedSet.has(id)).length;
+    pickControls(ids, true);
+    setStartedFrom(pack.name);
+    setSaid(
+      ids.length === 0
+        ? `"${pack.name}" has no Controls.`
+        : `Added ${fresh} Control${fresh === 1 ? "" : "s"} from "${pack.name}"${fresh < ids.length ? ` (${ids.length - fresh} already picked)` : ""}.`,
+    );
+  }
   function repeat(auditId: string) {
     const audit = data.repeatable.find((candidate) => candidate.id === auditId);
     if (!audit) return;
@@ -257,6 +271,18 @@ export function AuditPlanner({
             <b>{NOT_AUDITED}</b>
             <small>Every Control never audited or due again</small>
           </button>
+          {data.packs.map((pack) => (
+            <button key={pack.id} type="button" className="ap-pack" onClick={() => startFromPack(pack.id)}>
+              <span className="ib">
+                <Icon name="layers" size={18} />
+              </span>
+              <b>{pack.name}</b>
+              <small>
+                {pack.controlIds.length} Control{pack.controlIds.length === 1 ? "" : "s"}
+                {pack.note ? ` · ${pack.note}` : ""}
+              </small>
+            </button>
+          ))}
           {recent.map((audit) => (
             <button key={audit.id} type="button" className="ap-pack prev" onClick={() => repeat(audit.id)}>
               <span className="ib">
@@ -293,6 +319,9 @@ export function AuditPlanner({
         <p className="ap-said" role="status">
           {said}
         </p>
+        <Link className="ap-manage" href="/internal-audits/control-packs">
+          Manage Control Packs
+        </Link>
       </section>
 
       <div className="ap-main">

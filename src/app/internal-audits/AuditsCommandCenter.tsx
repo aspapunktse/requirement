@@ -123,7 +123,7 @@ function AuditCard({ audit }: { audit: InternalAuditListItem }) {
  * every Check-up in the launched audits by state, stat cards that filter, a search, and a lane per status of audit
  * cards. The data is read on the server (`loadInternalAuditList`); this component only filters and lays it out.
  */
-export function AuditsCommandCenter({ list, canWrite }: { list: InternalAuditList; canWrite: boolean }) {
+export function AuditsCommandCenter({ list, canWrite, canReadPacks = false }: { list: InternalAuditList; canWrite: boolean; canReadPacks?: boolean }) {
   const [filter, setFilter] = useState<AuditFilter | null>(null);
   const [query, setQuery] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
@@ -132,9 +132,10 @@ export function AuditsCommandCenter({ list, canWrite }: { list: InternalAuditLis
   const paletteItems: PaletteItem[] = useMemo(
     () => [
       ...(canWrite ? [{ group: "Actions", icon: "plus" as const, label: "New Internal Audit", meta: "plan a draft", href: "/internal-audits/new" }] : []),
+      ...(canReadPacks ? [{ group: "Pages", icon: "layers" as const, label: "Control Packs", meta: "named sets of Controls for planning", href: "/internal-audits/control-packs" }] : []),
       ...list.audits.map((audit) => ({ group: "Internal Audits", icon: "audit" as const, label: audit.title, meta: INTERNAL_AUDIT_STATUS_LABEL[audit.status], href: `/internal-audits/${audit.id}` })),
     ],
-    [list.audits, canWrite],
+    [list.audits, canWrite, canReadPacks],
   );
   usePagePalette({ items: paletteItems, placeholder: "Jump to an Internal Audit…" });
 
@@ -179,6 +180,11 @@ export function AuditsCommandCenter({ list, canWrite }: { list: InternalAuditLis
               </Link>
             ) : (
               <span className="ia-note">You can read Internal Audits; only an Internal Auditor plans and runs them.</span>
+            )}
+            {canReadPacks && (
+              <Link href="/internal-audits/control-packs" className="hc-btn">
+                Control Packs
+              </Link>
             )}
           </div>
         </div>

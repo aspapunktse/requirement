@@ -37,6 +37,22 @@ export function canReadInternalAudits(user: { role: UserRole }) {
   return ROLES_ALLOWED_TO_READ_INTERNAL_AUDITS.includes(user.role);
 }
 
+/**
+ * Control Packs (#394, CONTEXT.md): named sets of Controls kept for planning an audit. Only the Internal Auditor
+ * creates, renames, deletes and fills them (an Admin can't, for the same reason as the audits); whoever reads
+ * Internal Audits sees them. Product-owner decision of 2026-11-18 (issue #394).
+ */
+export const ROLES_ALLOWED_TO_WRITE_CONTROL_PACKS: UserRole[] = ROLES_ALLOWED_TO_WRITE_INTERNAL_AUDITS;
+export const ROLES_ALLOWED_TO_READ_CONTROL_PACKS: UserRole[] = ROLES_ALLOWED_TO_READ_INTERNAL_AUDITS;
+
+export function canWriteControlPacks(user: { role: UserRole }) {
+  return ROLES_ALLOWED_TO_WRITE_CONTROL_PACKS.includes(user.role);
+}
+
+export function canReadControlPacks(user: { role: UserRole }) {
+  return ROLES_ALLOWED_TO_READ_CONTROL_PACKS.includes(user.role);
+}
+
 export const INTERNAL_AUDIT_STATUS_LABEL: Record<InternalAuditStatus, string> = {
   DRAFT: "Draft",
   LAUNCHED: "Launched",

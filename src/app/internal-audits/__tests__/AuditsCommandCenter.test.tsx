@@ -164,6 +164,18 @@ describe("AuditsCommandCenter (#398)", () => {
     expect(screen.queryByRole("link", { name: /New Internal Audit/ })).toBeNull();
   });
 
+  it("links to Control Packs for every role that can read them, beside the other actions (#394)", () => {
+    const { unmount } = render(<AuditsCommandCenter list={list} canWrite canReadPacks />);
+    expect(screen.getByRole("link", { name: "Control Packs" })).toHaveAttribute("href", "/internal-audits/control-packs");
+    unmount();
+    const readOnly = render(<AuditsCommandCenter list={list} canWrite={false} canReadPacks />);
+    expect(screen.getByRole("link", { name: "Control Packs" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /New Internal Audit/ })).toBeNull();
+    readOnly.unmount();
+    render(<AuditsCommandCenter list={list} canWrite={false} />);
+    expect(screen.queryByRole("link", { name: "Control Packs" })).toBeNull();
+  });
+
   it("offers + New Internal Audit to the Internal Auditor only; others get a read-only note", () => {
     const { unmount } = render(<AuditsCommandCenter list={list} canWrite />);
     expect(screen.getByRole("link", { name: "+ New Internal Audit" })).toHaveAttribute("href", "/internal-audits/new");

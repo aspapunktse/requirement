@@ -1,5 +1,5 @@
 import { getActingUser } from "@/lib/acting-user";
-import { canReadInternalAudits, canWriteInternalAudits } from "@/lib/internal-audit-rules";
+import { canReadControlPacks, canReadInternalAudits, canWriteInternalAudits } from "@/lib/internal-audit-rules";
 import { loadInternalAuditList } from "@/lib/internal-audit-list";
 import { AuditsCommandCenter } from "./AuditsCommandCenter";
 
@@ -22,5 +22,5 @@ export default async function InternalAuditsPage() {
 
   const list = await loadInternalAuditList();
 
-  return <AuditsCommandCenter key={user.id} list={list} canWrite={canWriteInternalAudits(user)} />;
+  return <AuditsCommandCenter key={user.id} list={list} canWrite={canWriteInternalAudits(user)} canReadPacks={canReadControlPacks(user)} />;
 }
