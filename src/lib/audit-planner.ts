@@ -1,6 +1,8 @@
 import type { ControlApplicability, InternalAuditStatus, OnboardingStatus, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { InternalAuditDetail } from "@/lib/internal-audits";
+import type { ControlPackRow } from "@/lib/control-pack";
+import { listControlPacks } from "@/lib/control-pack-data";
 
 /**
  * What the audit planner (#393) loads on the server: the Controls with when each was last audited, the
@@ -50,6 +52,8 @@ export type PlannerData = {
   controls: PlannerControl[];
   systems: PlannerSystem[];
   repeatable: RepeatableAudit[];
+  /** The Control Packs (#394), by name: each a Start from card that adds its Controls. */
+  packs: ControlPackRow[];
 };
 
 /**
@@ -112,9 +116,9 @@ export async function listRepeatableAudits(): Promise<RepeatableAudit[]> {
 
 /** Everything the planner page needs, read in one snapshot. */
 export async function loadPlannerData(): Promise<PlannerData> {
-  const [{ controls, systems }, repeatable] = await Promise.all([
+  const [{ controls, systems, packs }, repeatable] = await Promise.all([
     prisma.$transaction(async (tx) => {
-      const [controlRows, systemRows, lastAudited] = await Promise.all([
+      const [controlRows, systemRows, lastAudited, packRows] = await Promise.all([
         tx.control.findMany({
           select: { id: true, code: true, title: true, applicability: true, category: true, question: true },
         }),
@@ -130,8 +134,10 @@ export async function loadPlannerData(): Promise<PlannerData> {
           },
         }),
         loadLastAudited(tx),
+        listControlPacks(tx),
       ]);
       return {
+        packs: packRows,
         controls: controlRows
           .map((control): PlannerControl => ({ ...control, lastAudited: lastAudited.get(control.id)?.toISOString() ?? null }))
           .sort((a, b) => codeCollator.compare(a.code, b.code)),
@@ -149,7 +155,7 @@ export async function loadPlannerData(): Promise<PlannerData> {
     }, SNAPSHOT),
     listRepeatableAudits(),
   ]);
-  return { controls, systems, repeatable };
+  return { controls, systems, repeatable, packs };
 }
 
 /** What the edit page hands the planner about the draft: its fields and the first question of each Control. */

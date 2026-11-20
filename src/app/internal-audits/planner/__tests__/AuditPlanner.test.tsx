@@ -27,6 +27,11 @@ const data: PlannerData = {
     { id: "a2", title: "Q2 review", status: "LAUNCHED", launchedAt: daysAgo(200), controlIds: ["c1"], systemIds: [], includeOrganization: false },
     { id: "a3", title: "Q1 review", status: "CLOSED", launchedAt: daysAgo(300), controlIds: ["c3"], systemIds: ["s2"], includeOrganization: false },
   ],
+  packs: [
+    { id: "p1", name: "Access control pack", note: "Who gets in", controlIds: ["c1", "c3"] },
+    { id: "p2", name: "Empty pack", note: "", controlIds: [] },
+    { id: "p3", name: "Gone pack", note: "", controlIds: ["c1", "deleted-control"] },
+  ],
 };
 const filterOptions = {
   frameworks: [{ id: "f1", name: "NIS2", version: "2022" }],
@@ -79,6 +84,39 @@ describe("AuditPlanner (#393)", () => {
     stubFetch();
   });
   afterEach(() => vi.unstubAllGlobals());
+
+  it("shows each Control Pack as a Start from card, and picking one adds its Controls without removing any", async () => {
+    const user = userEvent.setup();
+    renderPlanner();
+    expect(screen.getByRole("button", { name: /^Access control pack/ })).toHaveTextContent("2 Controls · Who gets in");
+    expect(screen.getByRole("button", { name: /Empty pack/ })).toHaveTextContent("0 Controls");
+    expect(screen.getByRole("link", { name: "Manage Control Packs" })).toHaveAttribute("href", "/internal-audits/control-packs");
+
+    await user.click(screen.getByLabelText("Pick ORG-002"));
+    await user.click(screen.getByRole("button", { name: /^Access control pack/ }));
+    expect(screen.getByLabelText("Pick ORG-002")).toBeChecked();
+    expect(screen.getByLabelText("Pick SEC-001")).toBeChecked();
+    expect(screen.getByLabelText("Pick SEC-003")).toBeChecked();
+    expect(document.querySelector(".ap-said")).toHaveTextContent('Added 2 Controls from "Access control pack"');
+
+    // A second pick adds nothing new and removes nothing.
+    await user.click(screen.getByRole("button", { name: /^Access control pack/ }));
+    expect(document.querySelector(".ap-said")).toHaveTextContent("Added 0 Controls");
+    expect(screen.getByLabelText("Pick ORG-002")).toBeChecked();
+    // The title suggestion follows the pack.
+    expect(screen.getByRole("button", { name: /^Use .*· Access control pack/ })).toBeInTheDocument();
+  });
+
+  it("skips a Control the planner doesn't know and says an empty pack has none", async () => {
+    const user = userEvent.setup();
+    renderPlanner();
+    await user.click(screen.getByRole("button", { name: /Gone pack/ }));
+    expect(screen.getByLabelText("Pick SEC-001")).toBeChecked();
+    expect(document.querySelector(".ap-said")).toHaveTextContent('Added 1 Control from "Gone pack"');
+    await user.click(screen.getByRole("button", { name: /Empty pack/ }));
+    expect(document.querySelector(".ap-said")).toHaveTextContent('"Empty pack" has no Controls.');
+    expect(screen.getByLabelText("Pick SEC-001")).toBeChecked();
+  });
 
   it("names everything missing and sends nothing when saved empty", async () => {
     const user = userEvent.setup();

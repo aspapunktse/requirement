@@ -587,6 +587,8 @@ model Control {
   // Where a Change Review added this Control to a group's remit (#334). Cascade: deleting a Control never blocks on it.
   changeReviewControls ChangeReviewControl[]
   internalAudits       InternalAuditControl[]
+  // The Control Packs this Control is in (#394). Cascade: deleting a Control drops it out of every pack.
+  controlPacks         ControlPackControl[]
   // Check-ups generated for this Control (#154). Restrict: a Control with Check-ups can't be deleted.
   checkUps             CheckUp[]
 
@@ -1629,4 +1631,30 @@ model ComparisonParticipant {
 
   @@id([comparisonId, userId])
   @@index([userId])
+}
+
+// A named set of Controls an Internal Auditor keeps for planning Internal Audits (#394, CONTEXT.md "Control Pack").
+// The audit never remembers the pack: no relation from InternalAudit, so editing or deleting a pack changes no audit.
+// Names are unique case-insensitively: the migration adds a unique index on lower("name"), which Prisma can't express.
+model ControlPack {
+  id        String   @id @default(cuid())
+  name      String
+  note      String   @default("")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  controls ControlPackControl[]
+}
+
+// One Control in a Control Pack. Cascade both ways: deleting a Control drops out of the pack, deleting the pack
+// removes its rows; a pack left with no Controls still exists.
+model ControlPackControl {
+  id            String      @id @default(cuid())
+  controlPackId String
+  controlPack   ControlPack @relation(fields: [controlPackId], references: [id], onDelete: Cascade)
+  controlId     String
+  control       Control     @relation(fields: [controlId], references: [id], onDelete: Cascade)
+
+  @@unique([controlPackId, controlId])
+  @@index([controlId])
 }

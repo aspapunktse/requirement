@@ -129,7 +129,7 @@ _Avoid_: Assessment Query (a non-blocking reviewer thread with no formal outcome
 When a Control was last verified: the date of its most recent evaluated Check-up, whatever the outcome and on whichever System or the Organization. A withdrawn Check-up doesn't count; a Control with no evaluated Check-up has never been audited. A Control is **due for audit** when it has never been audited or was last audited 12 months ago or more. *(Agreed with the product owner 2026-11-18.)*
 
 **Control Pack**:
-A named set of Controls an Internal Auditor keeps for planning Internal Audits (for example "Access control" or "Suppliers and cloud"). Only an Internal Auditor creates, renames and deletes one and picks its Controls. Picking a Control Pack while planning adds its Controls to the audit; the audit doesn't remember the pack, so changing or deleting a pack never touches an existing audit. Used only in audit planning for now. *(Agreed with the product owner 2026-11-18; not built yet.)*
+A named set of Controls an Internal Auditor keeps for planning Internal Audits (for example "Access control" or "Suppliers and cloud"). Only an Internal Auditor creates, renames and deletes one and picks its Controls. Picking a Control Pack while planning adds its Controls to the audit; the audit doesn't remember the pack, so changing or deleting a pack never touches an existing audit. Used only in audit planning for now. *(Agreed with the product owner 2026-11-18.)*
 _Avoid_: Theme, bundle, Control set (too close to Framework)
 
 **Continuous Compliance**:
