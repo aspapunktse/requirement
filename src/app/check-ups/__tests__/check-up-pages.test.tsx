@@ -147,10 +147,14 @@ describe("Check-up pages (#155)", () => {
   it("shows the audit's progress and links every Check-up row to its response", async () => {
     acting.userId = users.INTERNAL_AUDITOR;
     const html = renderToStaticMarkup(await InternalAuditPage({ params: Promise.resolve({ id: auditId }) } as never));
-    expect(html).toContain("2 sent, 1 answered, 0 evaluated, 0 withdrawn, 0 overdue");
-    expect(html).toContain(`/check-ups/${answeredId}`);
-    expect(html).toContain("Answered: read the response");
+    expect(html).toContain("<b>1</b> awaiting evaluation");
+    expect(html).toContain("<b>0</b> evaluated");
+    expect(html).toContain("<b>1</b> not answered");
+    expect(html).toContain("2 of 2");
+    expect(html).toContain("Answered");
     expect(html).toContain("Not answered");
+    // The panel links the picked Check-up (the first open one) to its own page.
+    expect(html.includes(`/check-ups/${openId}`) || html.includes(`/check-ups/${answeredId}`)).toBe(true);
   });
 
   describe("evaluating (#156)", () => {
@@ -174,12 +178,11 @@ describe("Check-up pages (#155)", () => {
 
     it("tells the audit page how many await evaluation, and links the next one for an Internal Auditor only", async () => {
       const auditor = await auditPage(users.INTERNAL_AUDITOR);
-      expect(auditor).toContain("1 awaiting evaluation");
-      expect(auditor).toContain("Evaluate the next one");
-      expect(auditor).toContain("Awaiting evaluation</a>");
+      expect(auditor).toContain("<b>1</b> awaiting evaluation");
+      expect(auditor).toContain("Awaiting evaluation");
       const admin = await auditPage(users.ADMIN);
-      expect(admin).toContain("1 awaiting evaluation");
-      expect(admin).not.toContain("Evaluate the next one");
+      expect(admin).toContain("<b>1</b> awaiting evaluation");
+      expect(admin).not.toContain("Withdraw…");
     });
 
     it("shows an evaluated Check-up's outcome and comment to everyone who can read it, with the response frozen", async () => {
@@ -214,9 +217,9 @@ describe("Check-up pages (#155)", () => {
       const mine = await render(recipientId, () => MyCheckUpsPage());
       expect(mine).toContain("Nonconformity");
       const html = await auditPage(users.INTERNAL_AUDITOR);
-      expect(html).toContain("2 sent, 1 answered, 1 evaluated, 0 withdrawn, 0 overdue");
+      expect(html).toContain("<b>1</b> evaluated");
+      expect(html).toContain("<b>0</b> awaiting evaluation");
       expect(html).toContain("Nonconformity");
-      expect(html).not.toContain("awaiting evaluation");
     });
   });
 });

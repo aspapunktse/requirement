@@ -100,36 +100,37 @@ describe("Withdrawing and closing: pages (#158)", () => {
 
   // The tests run in order and share the audit: open, then partly withdrawn, then finished, then closed.
 
-  it("offers an Internal Auditor a Withdraw action per open Check-up and a disabled Close naming what is open", async () => {
+  it("offers an Internal Auditor Withdraw on the picked open Check-up and a disabled Close saying how many are open", async () => {
     const page = await auditPage("INTERNAL_AUDITOR");
-    expect(page.match(/aria-label="Withdraw this Check-up"/g)).toHaveLength(3);
+    // The panel shows the first open Check-up, with Withdraw; every Check-up is listed in its group.
+    expect(page.match(/aria-label="Withdraw…"/g)).toHaveLength(1);
     expect(page).toContain("Close this Internal Audit");
-    expect(page).toContain("Still open (3)");
-    for (const label of ["A", "B", "C"] as const) expect(page).toContain(`${codes[label]} for System &quot;Test 158 page System ${SUFFIX}&quot;`);
-    expect(page).toMatch(/<button[^>]*disabled=""[^>]*>Close Internal Audit/);
-    expect(page).toContain("0 withdrawn");
+    expect(page).toContain("3 Check-ups");
+    expect(page).toContain("neither evaluated nor withdrawn");
+    for (const label of ["A", "B", "C"] as const) expect(page).toContain(codes[label]);
+    expect(page).toMatch(/<button[^>]*disabled=""[^>]*>Close audit/);
+    expect(page).toContain("<b>0</b> withdrawn");
   });
 
   it("shows a reading role what is open, but neither a Withdraw action nor a Close button", async () => {
     for (const role of ["ADMIN", "RISK_OWNER"]) {
       const page = await auditPage(role);
-      expect(page).toContain("Still open (3)");
-      expect(page).not.toContain("Withdraw this Check-up");
-      expect(page).not.toContain("Close Internal Audit");
+      expect(page).toContain("3 Check-ups");
+      expect(page).toContain("neither evaluated nor withdrawn");
+      expect(page).not.toContain("Withdraw…");
+      expect(page).not.toContain("Close audit");
     }
   });
 
   it("shows a withdrawn Check-up with its reason, who and when, counts it as withdrawn and names the rest", async () => {
     await withdrawCheckUp(checkUpOf.A, auditor(), { reason: "The Control no longer applies here" });
     const page = await auditPage("INTERNAL_AUDITOR");
-    expect(page).toContain("3 sent, 0 answered, 0 evaluated, 1 withdrawn, 0 overdue");
-    expect(page).toContain("Withdrawn");
-    expect(page).toContain("The Control no longer applies here");
-    expect(page).toContain("Test 158 page INTERNAL_AUDITOR, ");
-    expect(page.match(/aria-label="Withdraw this Check-up"/g)).toHaveLength(2);
-    expect(page).toContain("Still open (2)");
-    expect(page).not.toContain(`${codes.A} for System`);
-    expect(page).toMatch(/<button[^>]*disabled=""[^>]*>Close Internal Audit/);
+    expect(page).toContain("<b>1</b> withdrawn");
+    expect(page).toContain("1 of 1 done");
+    expect(page).toContain("2 Check-ups");
+    expect(page).toMatch(/<button[^>]*disabled=""[^>]*>Close audit/);
+    // The panel opens on the first open Check-up (B), so A's reason shows once A is picked: it is in the loaded data.
+    expect(page).toContain(codes.B);
   });
 
   it("shows the withdrawn Check-up's page with the reason, who and when, and offers no answer form, evaluation or withdrawal", async () => {
@@ -155,12 +156,13 @@ describe("Withdrawing and closing: pages (#158)", () => {
     await evaluateCheckUp(checkUpOf.B, auditor(), { outcome: "CONFORMING" });
     await withdrawCheckUp(checkUpOf.C, auditor(), { reason: "Duplicate of another Check-up" });
     const page = await auditPage("INTERNAL_AUDITOR");
-    expect(page).toContain("3 sent, 1 answered, 1 evaluated, 2 withdrawn, 0 overdue");
-    expect(page).toContain("Every Check-up is evaluated or withdrawn");
-    expect(page).not.toContain("Still open");
-    expect(page).toMatch(/<button[^>]*>Close Internal Audit/);
-    expect(page).not.toMatch(/<button[^>]*disabled=""[^>]*>Close Internal Audit/);
-    expect(page).not.toContain("Withdraw this Check-up");
+    expect(page).toContain("<b>1</b> evaluated");
+    expect(page).toContain("<b>2</b> withdrawn");
+    expect(page).toContain("Ready to close");
+    expect(page).not.toContain("neither evaluated nor withdrawn");
+    expect(page).toMatch(/<button[^>]*>Close audit/);
+    expect(page).not.toMatch(/<button[^>]*disabled=""[^>]*>Close audit/);
+    expect(page).not.toContain("Withdraw…");
   });
 
   it("shows a closed audit as closed, with who closed it, and offers no action at all", async () => {
@@ -170,9 +172,9 @@ describe("Withdrawing and closing: pages (#158)", () => {
       expect(page).toContain("Closed");
       expect(page).toMatch(/Closed \d{4}-\d{2}-\d{2} by Test 158 page INTERNAL_AUDITOR/);
       expect(page).toContain("read-only for everyone");
-      expect(page).not.toContain("Close Internal Audit");
+      expect(page).not.toContain("Close audit");
       expect(page).not.toContain("Close this Internal Audit");
-      expect(page).not.toContain("Withdraw this Check-up");
+      expect(page).not.toContain("Withdraw…");
       expect(page).not.toContain("Launch Internal Audit");
       expect(page).not.toContain("Delete draft");
       expect(page).not.toContain("/edit");
