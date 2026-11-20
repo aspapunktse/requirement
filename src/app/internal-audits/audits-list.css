@@ -1,0 +1,35 @@
+/* The Internal Audits list (design proposal A "Command center", issue #398). It builds on the Home look
+   (`src/app/home/home.css`: hero, ring, stat cards, search box, buttons, empty state) and adds the audit cards
+   and their lanes. Register tokens (--rg-*) only. The root carries `hc ia`. */
+
+.ia .hc-btn.primary:hover { border-color: var(--rg-accent); }
+.ia-muted { color: var(--rg-muted); }
+.ia-note { font-size: 0.84rem; color: var(--rg-muted); }
+.ia-tools { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.ia-tools .hc-search { flex: 1 1 240px; max-width: 420px; }
+.ia-lanes { display: grid; gap: 20px; }
+.ia-lane { display: grid; gap: 10px; }
+.ia-lane > h2 { font-size: 0.74rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--rg-muted); display: flex; align-items: center; gap: 8px; }
+.ia-lane > h2 i { width: 8px; height: 8px; border-radius: 50%; }
+.ia-lane > h2 .n { font-variant-numeric: tabular-nums; color: var(--rg-ink); }
+.ia-lane > h2 small { text-transform: none; letter-spacing: 0; font-weight: 600; color: var(--rg-muted); margin-left: auto; }
+.ia-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: 14px; }
+.ia-card { display: grid; gap: 10px; padding: 16px 18px; align-content: start; text-decoration: none; color: inherit; }
+.ia-card:hover { border-color: var(--rg-accent); }
+.ia-card:focus-visible { outline: 2px solid var(--rg-accent); outline-offset: 2px; }
+.ia-top { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+.ia-card h3 { font-size: 1.02rem; line-height: 1.35; overflow-wrap: anywhere; }
+.ia-scope { color: var(--rg-muted); font-size: 0.85rem; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 1.2em; }
+.ia-scope.none { color: var(--rg-muted); opacity: 0.75; }
+.ia-meta { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 0.8rem; color: var(--rg-muted); }
+.ia-meta b { color: var(--rg-ink); font-variant-numeric: tabular-nums; }
+.ia-meta .bad, .ia-meta .bad b { color: var(--rg-danger); }
+.ia-bar { display: flex; height: 8px; border-radius: 99px; background: var(--hc-line-soft); overflow: hidden; }
+.ia-bar i { display: block; height: 100%; }
+.ia-foot { display: flex; justify-content: space-between; gap: 8px; align-items: center; flex-wrap: wrap; border-top: 1px solid var(--hc-line-soft); padding-top: 10px; font-size: 0.82rem; }
+.ia-due.late { color: var(--rg-danger); font-weight: 700; }
+.ia-due.soon { color: var(--rg-gold-ink); font-weight: 700; }
+.ia-ready { color: var(--rg-success); font-weight: 700; }
+.ia-find { display: flex; gap: 6px; flex-wrap: wrap; }
+.ia .hc-move li b { min-width: 1.4em; }
+.ia-empty { border: 0; }
