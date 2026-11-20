@@ -1,15 +1,13 @@
-import Link from "next/link";
 import { getActingUser } from "@/lib/acting-user";
-import { canReadInternalAudits, canWriteInternalAudits, INTERNAL_AUDIT_STATUS_LABEL } from "@/lib/internal-audit-rules";
-import { listInternalAudits } from "@/lib/internal-audits";
-import { buttonClassName } from "@/components/ui/Button";
-import { StatusChip } from "@/components/ui/StatusChip";
-import { internalAuditStatusTone } from "@/lib/status-tones";
+import { canReadControlPacks, canReadInternalAudits, canWriteInternalAudits } from "@/lib/internal-audit-rules";
+import { loadInternalAuditList } from "@/lib/internal-audit-list";
+import { AuditsCommandCenter } from "./AuditsCommandCenter";
 
 /**
- * The Internal Audits (PRD 0001 F-IA.1, #152): title, due date and state of each. Read by the
- * Internal Auditor, Admin, Compliance Manager and Risk Owner; only an Internal Auditor can start a
- * new one. The rows are loaded here and passed down; nothing is fetched on mount.
+ * The Internal Audits list, design proposal A "Command center" (#398, PRD 0001 F-IA.1): a ring of the Check-ups in
+ * the launched audits, stat cards that filter, and a lane of cards per status. Read by the Internal Auditor, Admin,
+ * Compliance Manager and Risk Owner; only an Internal Auditor can start a new one. Everything is read here in one
+ * snapshot (`loadInternalAuditList`) and passed down; nothing is fetched on mount.
  */
 export default async function InternalAuditsPage() {
   const user = await getActingUser();
@@ -22,59 +20,7 @@ export default async function InternalAuditsPage() {
     return <p className="p-6 text-rg-muted">Internal Audits are not available to your role.</p>;
   }
 
-  const audits = await listInternalAudits();
+  const list = await loadInternalAuditList();
 
-  return (
-    <div className="mx-auto max-w-5xl p-6">
-      <div className="mb-4 flex items-start justify-between gap-4">
-        <div>
-          <h1 className="mb-1 text-2xl">Internal Audits</h1>
-          <p className="text-sm text-rg-muted">
-            An Internal Auditor plans an audit as a draft: the Controls to verify, the Systems and whether the
-            Organization is included. Nothing is sent to anyone while it is a draft.
-          </p>
-        </div>
-        {canWriteInternalAudits(user) && (
-          <Link href="/internal-audits/new" className={buttonClassName("primary", "whitespace-nowrap")}>
-            New Internal Audit
-          </Link>
-        )}
-      </div>
-
-      {audits.length === 0 ? (
-        <p className="text-sm text-rg-muted">There are no Internal Audits yet.</p>
-      ) : (
-        <table className="w-full text-left text-sm">
-          <thead>
-            <tr className="border-b border-rg-line">
-              <th className="py-2 pr-4 font-medium">Title</th>
-              <th className="py-2 pr-4 font-medium">Due</th>
-              <th className="py-2 pr-4 font-medium">State</th>
-              <th className="py-2 pr-4 font-medium">Controls</th>
-              <th className="py-2 pr-4 font-medium">Systems</th>
-              <th className="py-2 font-medium">Organization</th>
-            </tr>
-          </thead>
-          <tbody>
-            {audits.map((audit) => (
-              <tr key={audit.id} className="border-b border-rg-line">
-                <td className="py-2 pr-4">
-                  <Link className="font-medium underline" href={`/internal-audits/${audit.id}`}>
-                    {audit.title}
-                  </Link>
-                </td>
-                <td className="py-2 pr-4">{audit.dueDate}</td>
-                <td className="py-2 pr-4">
-                  <StatusChip tone={internalAuditStatusTone(audit.status)}>{INTERNAL_AUDIT_STATUS_LABEL[audit.status]}</StatusChip>
-                </td>
-                <td className="py-2 pr-4">{audit.controlCount}</td>
-                <td className="py-2 pr-4">{audit.systemCount}</td>
-                <td className="py-2">{audit.includeOrganization ? "Included" : "-"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </div>
-  );
+  return <AuditsCommandCenter key={user.id} list={list} canWrite={canWriteInternalAudits(user)} canReadPacks={canReadControlPacks(user)} />;
 }

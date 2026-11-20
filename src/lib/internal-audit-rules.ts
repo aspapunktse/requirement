@@ -163,3 +163,16 @@ export function internalAuditNotes(audit: {
   }
   return notes;
 }
+
+/**
+ * Whole calendar days (UTC) from today to `dueDate` ("YYYY-MM-DD" or a Date at UTC midnight): positive while the
+ * date is ahead, 0 on the day itself, negative once it has passed. Null for a string that isn't a real date.
+ * The one definition of "past due" and "due in N days", shared by the Check-up states and the audit cards.
+ */
+export function calendarDaysUntil(dueDate: string | Date, now: Date = new Date()): number | null {
+  const due = typeof dueDate === "string" ? parseCalendarDate(dueDate) : dueDate;
+  if (!due) return null;
+  const todayUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  const dueUtc = Date.UTC(due.getUTCFullYear(), due.getUTCMonth(), due.getUTCDate());
+  return Math.round((dueUtc - todayUtc) / 86_400_000);
+}
