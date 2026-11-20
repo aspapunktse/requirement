@@ -103,53 +103,56 @@ export async function listInternalAudits(): Promise<InternalAuditSummary[]> {
 
 /** One Internal Audit with its target Controls and selected Systems, or null. */
 export async function getInternalAudit(id: string): Promise<InternalAuditDetail | null> {
-  return prisma.$transaction(async (tx) => {
-    const audit = await tx.internalAudit.findUnique({
-      where: { id },
-      include: {
-        createdBy: { select: { id: true, name: true } },
-        launchedBy: { select: { id: true, name: true } },
-        closedBy: { select: { id: true, name: true } },
-      },
-    });
-    if (!audit) return null;
-    const [controlRows, systemRows] = await Promise.all([
-      tx.internalAuditControl.findMany({
-        where: { internalAuditId: id },
-        select: { controlId: true, questions: { orderBy: { position: "asc" }, select: { text: true } } },
-      }),
-      tx.internalAuditSystem.findMany({ where: { internalAuditId: id }, select: { systemId: true } }),
-    ]);
-    const [controls, systems] = await Promise.all([
-      tx.control.findMany({
-        where: { id: { in: controlRows.map((row) => row.controlId) } },
-        select: { id: true, code: true, title: true, applicability: true },
-      }),
-      tx.system.findMany({
-        where: { id: { in: systemRows.map((row) => row.systemId) } },
-        orderBy: { name: "asc" },
-        select: { id: true, name: true, status: true },
-      }),
-    ]);
-    const questionsByControlId = new Map(controlRows.map((row) => [row.controlId, row.questions.map((q) => q.text)]));
-    return {
-      id: audit.id,
-      title: audit.title,
-      scopeDescription: audit.scopeDescription,
-      dueDate: formatCalendarDate(audit.dueDate),
-      status: audit.status,
-      includeOrganization: audit.includeOrganization,
-      createdBy: audit.createdBy,
-      createdAt: audit.createdAt.toISOString(),
-      updatedAt: audit.updatedAt.toISOString(),
-      launchedAt: audit.launchedAt?.toISOString() ?? null,
-      launchedBy: audit.launchedBy,
-      closedAt: audit.closedAt?.toISOString() ?? null,
-      closedBy: audit.closedBy,
-      controls: controls.sort(byCode).map((control) => ({ ...control, questions: questionsByControlId.get(control.id) ?? [] })),
-      systems,
-    };
-  }, SNAPSHOT);
+  return prisma.$transaction((tx) => readInternalAudit(tx, id), SNAPSHOT);
+}
+
+/** `getInternalAudit` on the caller's transaction client, for a loader that reads more in the same snapshot (#399). */
+export async function readInternalAudit(tx: Prisma.TransactionClient, id: string): Promise<InternalAuditDetail | null> {
+  const audit = await tx.internalAudit.findUnique({
+    where: { id },
+    include: {
+      createdBy: { select: { id: true, name: true } },
+      launchedBy: { select: { id: true, name: true } },
+      closedBy: { select: { id: true, name: true } },
+    },
+  });
+  if (!audit) return null;
+  const [controlRows, systemRows] = await Promise.all([
+    tx.internalAuditControl.findMany({
+      where: { internalAuditId: id },
+      select: { controlId: true, questions: { orderBy: { position: "asc" }, select: { text: true } } },
+    }),
+    tx.internalAuditSystem.findMany({ where: { internalAuditId: id }, select: { systemId: true } }),
+  ]);
+  const [controls, systems] = await Promise.all([
+    tx.control.findMany({
+      where: { id: { in: controlRows.map((row) => row.controlId) } },
+      select: { id: true, code: true, title: true, applicability: true },
+    }),
+    tx.system.findMany({
+      where: { id: { in: systemRows.map((row) => row.systemId) } },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, status: true },
+    }),
+  ]);
+  const questionsByControlId = new Map(controlRows.map((row) => [row.controlId, row.questions.map((q) => q.text)]));
+  return {
+    id: audit.id,
+    title: audit.title,
+    scopeDescription: audit.scopeDescription,
+    dueDate: formatCalendarDate(audit.dueDate),
+    status: audit.status,
+    includeOrganization: audit.includeOrganization,
+    createdBy: audit.createdBy,
+    createdAt: audit.createdAt.toISOString(),
+    updatedAt: audit.updatedAt.toISOString(),
+    launchedAt: audit.launchedAt?.toISOString() ?? null,
+    launchedBy: audit.launchedBy,
+    closedAt: audit.closedAt?.toISOString() ?? null,
+    closedBy: audit.closedBy,
+    controls: controls.sort(byCode).map((control) => ({ ...control, questions: questionsByControlId.get(control.id) ?? [] })),
+    systems,
+  };
 }
 
 /** Every Control and every System (any status) the Internal Auditor can pick for an audit. */

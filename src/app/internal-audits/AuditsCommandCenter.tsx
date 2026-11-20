@@ -8,28 +8,18 @@ import { Icon, Ring } from "@/app/home/HomeGraphics";
 import { useSearchHotkey, type PaletteItem } from "@/app/home/JumpPalette";
 import { usePagePalette } from "@/components/PaletteProvider";
 import { StatusChip } from "@/components/ui/StatusChip";
-import { CHECK_UP_STATE_LABEL, isReadyToClose, type CheckUpStateCounts, type CheckUpStateKey } from "@/lib/check-up-states";
+import { CHECK_UP_STATE_LABEL, isReadyToClose, type CheckUpStateCounts } from "@/lib/check-up-states";
 import type { InternalAuditList, InternalAuditListItem } from "@/lib/internal-audit-list";
 import { INTERNAL_AUDIT_STATUS_LABEL } from "@/lib/internal-audit-rules";
 import { internalAuditStatusTone } from "@/lib/status-tones";
+import { BAR_STATES, plural, STATE_COLOR, STATE_LEGEND } from "./check-up-state-view";
 import { dueLine, matchesFilter, matchesQuery, statCounts, type AuditFilter } from "./audits-list-logic";
-
-const STATE_COLOR: Record<CheckUpStateKey, string> = {
-  evaluated: "var(--rg-success)",
-  withdrawn: "var(--rg-muted)",
-  awaiting: "var(--rg-gold)",
-  overdue: "var(--rg-danger)",
-  notAnswered: "var(--rg-line)",
-};
-const BAR_STATES: CheckUpStateKey[] = ["evaluated", "withdrawn", "awaiting", "overdue"];
 
 const LANES = [
   { status: "LAUNCHED", title: "Launched", color: "var(--rg-success)", note: "soonest due first" },
   { status: "DRAFT", title: "Drafts", color: "var(--rg-muted)", note: "nothing sent yet" },
   { status: "CLOSED", title: "Closed", color: "var(--rg-waived)", note: "newest first, read-only" },
 ] as const;
-
-const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 function ProgressBar({ progress }: { progress: CheckUpStateCounts }) {
   const total = Math.max(1, progress.total);
@@ -153,14 +143,6 @@ export function AuditsCommandCenter({ list, canWrite }: { list: InternalAuditLis
       <span className="v">{value}</span>
     </button>
   );
-  const legend: { state: CheckUpStateKey; label: string }[] = [
-    { state: "evaluated", label: "evaluated" },
-    { state: "withdrawn", label: "withdrawn" },
-    { state: "awaiting", label: "awaiting evaluation" },
-    { state: "overdue", label: "overdue" },
-    { state: "notAnswered", label: "not answered yet" },
-  ];
-
   return (
     <div className="hc ia" data-page-id="INTERNAL AUDITS">
       <section className="hc-hero" aria-labelledby="ia-title">
@@ -192,7 +174,7 @@ export function AuditsCommandCenter({ list, canWrite }: { list: InternalAuditLis
             label={`${totals.open} of ${totals.total} Check-ups in launched audits are open`}
           />
           <ul aria-label="Check-ups in launched audits by state">
-            {legend.map(({ state, label }) => (
+            {STATE_LEGEND.map(({ state, label }) => (
               <li key={state}>
                 <i style={{ background: STATE_COLOR[state] }} aria-hidden="true" />
                 <b>{totals[state]}</b> {label}

@@ -69,28 +69,31 @@ describe("Internal Audit page: launch and Check-ups (#154)", () => {
   it("shows an Internal Auditor a draft's question editor, the launch preview and the Launch button", async () => {
     await prisma.control.update({ where: { id: controlId }, data: { ownerId: controlOwnerId } });
     const page = await html("INTERNAL_AUDITOR", draftId);
-    expect(page).toContain("Launch preview");
-    expect(page).toContain("Launching creates 2 Check-ups (1 System-level, 1 Organization-level)");
+    expect(page).toContain("If launched now");
+    expect(page).toContain("Nothing blocks the launch: launching sends 2 Check-ups (1 System-level, 1 Organization-level)");
     expect(page).toContain("Save questions for TEST-154-PAGE");
-    expect(page).toContain("Launch Internal Audit");
-    expect(page).toContain("Edit");
+    expect(page).toMatch(/<button[^>]*>Launch<\/button>/);
+    expect(page).not.toMatch(/<button[^>]*disabled=""[^>]*>Launch<\/button>/);
+    expect(page).toContain(`/internal-audits/${draftId}/edit`);
   });
 
   it("names the Control that has no Control Owner and disables Launch", async () => {
     await prisma.control.update({ where: { id: controlId }, data: { ownerId: null } });
     const page = await html("INTERNAL_AUDITOR", draftId);
-    expect(page).toContain("Launch is blocked");
+    expect(page).toContain("Before it can launch");
     expect(page).toContain("No Control Owner for: TEST-154-PAGE");
-    expect(page).toMatch(/<button[^>]*disabled=""[^>]*>Launch Internal Audit/);
+    expect(page).toMatch(/<button[^>]*disabled=""[^>]*>Launch<\/button>/);
   });
 
   it("shows a reading role the questions and the preview, with no editor and no Launch button", async () => {
     for (const role of ["ADMIN", "RISK_OWNER"]) {
       const page = await html(role, draftId);
-      expect(page).toContain("Launch preview");
+      expect(page).toContain("If launched now");
       expect(page).toContain("Is the page Control in place?");
       expect(page).not.toContain("Save questions");
-      expect(page).not.toContain("Launch Internal Audit");
+      expect(page).not.toContain(">Launch</button>");
+      expect(page).not.toContain("Delete draft");
+      expect(page).not.toContain("/edit");
     }
   });
 
@@ -98,14 +101,14 @@ describe("Internal Audit page: launch and Check-ups (#154)", () => {
     await prisma.control.update({ where: { id: controlId }, data: { ownerId: null } });
     for (const role of ROLES) {
       const page = await html(role, launchedId);
-      expect(page).toContain("Check-ups (2 sent)");
+      expect(page).toContain("2 of 2");
       expect(page).toContain("Test 154 page System");
       expect(page).toContain("Organization");
       expect(page).toContain("Test 154 page ADMIN"); // the System's owner
-      expect(page).toContain("No Control Owner"); // the Control's owner was cleared after launch
+      expect(page).toContain("no recipient"); // the Control's owner was cleared after launch
       expect(page).toContain("Is the page Control in place?");
       expect(page).not.toContain("Delete draft");
-      expect(page).not.toContain("Launch Internal Audit");
+      expect(page).not.toContain(">Launch</button>");
       expect(page).not.toContain("Save questions");
       expect(page).not.toContain("/edit");
     }

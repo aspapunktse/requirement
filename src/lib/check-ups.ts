@@ -290,75 +290,78 @@ export type PlanPreview = Omit<LaunchReport, "blockers"> & {
  * on inputs loaded the same way, so the planner can't disagree with launching the saved draft. Read-only.
  */
 export async function previewAuditPlan(selection: PlanPreviewSelection, now = new Date()): Promise<PlanPreview> {
+  return prisma.$transaction((tx) => previewAuditPlanOn(tx, selection, now), SNAPSHOT);
+}
+
+/** `previewAuditPlan` on the caller's transaction client (the single-audit page reads it in its own snapshot, #399). */
+export async function previewAuditPlanOn(tx: Prisma.TransactionClient, selection: PlanPreviewSelection, now = new Date()): Promise<PlanPreview> {
   const controlIds = [...new Set(selection.controlIds)];
   const systemIds = [...new Set(selection.systemIds)];
-  return prisma.$transaction(async (tx) => {
-    const saved = new Map<string, string[]>();
-    if (selection.internalAuditId) {
-      const draft = await tx.internalAudit.findUnique({ where: { id: selection.internalAuditId }, select: { status: true } });
-      if (draft?.status === "DRAFT") {
-        const rows = await tx.internalAuditControl.findMany({
-          where: { internalAuditId: selection.internalAuditId, controlId: { in: controlIds } },
-          select: { controlId: true, questions: { orderBy: { position: "asc" }, select: { text: true } } },
-        });
-        for (const row of rows) saved.set(row.controlId, row.questions.map((q) => q.text));
-      }
+  const saved = new Map<string, string[]>();
+  if (selection.internalAuditId) {
+    const draft = await tx.internalAudit.findUnique({ where: { id: selection.internalAuditId }, select: { status: true } });
+    if (draft?.status === "DRAFT") {
+      const rows = await tx.internalAuditControl.findMany({
+        where: { internalAuditId: selection.internalAuditId, controlId: { in: controlIds } },
+        select: { controlId: true, questions: { orderBy: { position: "asc" }, select: { text: true } } },
+      });
+      for (const row of rows) saved.set(row.controlId, row.questions.map((q) => q.text));
     }
-    const inputs = await loadLaunchInputsFor(
-      tx,
-      controlIds,
-      systemIds,
-      { title: selection.title, dueDate: selection.dueDate, includeOrganization: selection.includeOrganization },
-      (control) =>
-        applyFirstQuestion(saved.get(control.id) ?? defaultQuestionsFor(control.question), selection.firstQuestions?.[control.id]),
-    );
-    const plan = planLaunch(inputs, now);
+  }
+  const inputs = await loadLaunchInputsFor(
+    tx,
+    controlIds,
+    systemIds,
+    { title: selection.title, dueDate: selection.dueDate, includeOrganization: selection.includeOrganization },
+    (control) =>
+      applyFirstQuestion(saved.get(control.id) ?? defaultQuestionsFor(control.question), selection.firstQuestions?.[control.id]),
+  );
+  const plan = planLaunch(inputs, now);
 
-    const ownerOfControl = new Map(inputs.controls.map((control) => [control.id, control.ownerId]));
-    const ownerOfSystem = new Map(inputs.systems.map((system) => [system.id, system.ownerId]));
-    const perControl: Record<string, number> = Object.fromEntries(controlIds.map((id) => [id, 0]));
-    const sent = new Map<string, { roles: Set<"System Owner" | "Control Owner">; count: number }>();
-    for (const checkUp of plan.checkUps) {
-      perControl[checkUp.controlId] = (perControl[checkUp.controlId] ?? 0) + 1;
-      const recipientId = checkUp.systemId ? ownerOfSystem.get(checkUp.systemId) : ownerOfControl.get(checkUp.controlId);
-      if (!recipientId) continue;
-      const entry = sent.get(recipientId) ?? { roles: new Set(), count: 0 };
-      entry.roles.add(checkUp.systemId ? "System Owner" : "Control Owner");
-      entry.count += 1;
-      sent.set(recipientId, entry);
-    }
+  const ownerOfControl = new Map(inputs.controls.map((control) => [control.id, control.ownerId]));
+  const ownerOfSystem = new Map(inputs.systems.map((system) => [system.id, system.ownerId]));
+  const perControl: Record<string, number> = Object.fromEntries(controlIds.map((id) => [id, 0]));
+  const sent = new Map<string, { roles: Set<"System Owner" | "Control Owner">; count: number }>();
+  for (const checkUp of plan.checkUps) {
+    perControl[checkUp.controlId] = (perControl[checkUp.controlId] ?? 0) + 1;
+    const recipientId = checkUp.systemId ? ownerOfSystem.get(checkUp.systemId) : ownerOfControl.get(checkUp.controlId);
+    if (!recipientId) continue;
+    const entry = sent.get(recipientId) ?? { roles: new Set(), count: 0 };
+    entry.roles.add(checkUp.systemId ? "System Owner" : "Control Owner");
+    entry.count += 1;
+    sent.set(recipientId, entry);
+  }
 
-    const recipientIds = [...sent.keys()];
-    const [users, open] = await Promise.all([
-      tx.user.findMany({ where: { id: { in: recipientIds } }, select: { id: true, name: true } }),
-      tx.checkUp.findMany({
-        where: {
-          internalAudit: { status: "LAUNCHED" },
-          evaluation: null,
-          withdrawal: null,
-          OR: [{ system: { ownerId: { in: recipientIds } } }, { systemId: null, control: { ownerId: { in: recipientIds } } }],
-        },
-        select: { system: { select: { ownerId: true } }, control: { select: { ownerId: true } } },
-      }),
-    ]);
-    const openByRecipient = new Map<string, number>();
-    for (const checkUp of open) {
-      const recipientId = checkUpRecipientId(checkUp);
-      if (recipientId) openByRecipient.set(recipientId, (openByRecipient.get(recipientId) ?? 0) + 1);
-    }
-    const recipients = users
-      .map((user): PlanRecipient => ({
-        id: user.id,
-        name: user.name,
-        roles: [...sent.get(user.id)!.roles].sort(),
-        fromThisAudit: sent.get(user.id)!.count,
-        alreadyOpen: openByRecipient.get(user.id) ?? 0,
-      }))
-      .sort((a, b) => b.fromThisAudit - a.fromThisAudit || a.name.localeCompare(b.name, "en"));
+  const recipientIds = [...sent.keys()];
+  const [users, open] = await Promise.all([
+    tx.user.findMany({ where: { id: { in: recipientIds } }, select: { id: true, name: true } }),
+    tx.checkUp.findMany({
+      where: {
+        internalAudit: { status: "LAUNCHED" },
+        evaluation: null,
+        withdrawal: null,
+        OR: [{ system: { ownerId: { in: recipientIds } } }, { systemId: null, control: { ownerId: { in: recipientIds } } }],
+      },
+      select: { system: { select: { ownerId: true } }, control: { select: { ownerId: true } } },
+    }),
+  ]);
+  const openByRecipient = new Map<string, number>();
+  for (const checkUp of open) {
+    const recipientId = checkUpRecipientId(checkUp);
+    if (recipientId) openByRecipient.set(recipientId, (openByRecipient.get(recipientId) ?? 0) + 1);
+  }
+  const recipients = users
+    .map((user): PlanRecipient => ({
+      id: user.id,
+      name: user.name,
+      roles: [...sent.get(user.id)!.roles].sort(),
+      fromThisAudit: sent.get(user.id)!.count,
+      alreadyOpen: openByRecipient.get(user.id) ?? 0,
+    }))
+    .sort((a, b) => b.fromThisAudit - a.fromThisAudit || a.name.localeCompare(b.name, "en"));
 
-    const report = describePlan(plan, inputs);
-    return { ...report, blockers: plan.blockers.map(({ kind, message, controlIds: ids }) => ({ kind, message, controlIds: ids })), perControl, recipients };
-  }, SNAPSHOT);
+  const report = describePlan(plan, inputs);
+  return { ...report, blockers: plan.blockers.map(({ kind, message, controlIds: ids }) => ({ kind, message, controlIds: ids })), perControl, recipients };
 }
 
 /**
