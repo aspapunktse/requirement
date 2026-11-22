@@ -199,16 +199,18 @@ export async function DELETE(request: NextRequest, ctx: RouteContext<"/api/frame
     return NextResponse.json({ error: BASE_FRAMEWORK_ERRORS.LAST_BASE }, { status: 409 });
   }
 
-  const [systemsUsingIt, requirements, supplementaryControls] = await Promise.all([
+  const [systemsUsingIt, requirements, supplementaryControls, boundaries] = await Promise.all([
     prisma.system.count({ where: { frameworkScopes: { some: { id } } } }),
     prisma.requirement.count({ where: { frameworkId: id } }),
     prisma.control.count({ where: { originFrameworkId: id } }),
+    // A Compliance Boundary that holds it (#418): the foreign key restricts the delete, so refuse it here rather than 500.
+    prisma.complianceBoundaryFramework.count({ where: { frameworkId: id } }),
   ]);
-  if (systemsUsingIt > 0 || requirements > 0 || supplementaryControls > 0) {
+  if (systemsUsingIt > 0 || requirements > 0 || supplementaryControls > 0 || boundaries > 0) {
     return NextResponse.json(
       {
         error:
-          "This Framework is in use by Systems, or has Requirements or Supplementary Controls, and can't be retired",
+          "This Framework is in use by Systems or a Compliance Boundary, or has Requirements or Supplementary Controls, and can't be retired",
       },
       { status: 409 },
     );
