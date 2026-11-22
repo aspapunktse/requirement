@@ -1,10 +1,5 @@
 import { z } from "zod";
 
-/**
- * The fields of a new Control, without the cross-field rule below. Exported so
- * the Framework import (`framework-import-schema.ts`) can extend it with the
- * scoping fields and share the same field rules as `POST /api/controls`.
- */
 export const RESERVED_CONTROL_CODE = "new";
 export const RESERVED_CONTROL_CODE_ERROR = `The code "${RESERVED_CONTROL_CODE}" is reserved (it is the address of the New Control page); pick another code`;
 
@@ -13,6 +8,11 @@ export function isReservedControlCode(code: string): boolean {
   return code.trim().toLowerCase() === RESERVED_CONTROL_CODE;
 }
 
+/**
+ * The fields of a new Control, without the cross-field rule below. Exported so
+ * the Framework import (`framework-import-schema.ts`) can extend it with the
+ * scoping fields and share the same field rules as `POST /api/controls`.
+ */
 export const controlFieldsSchema = z.object({
   code: z.string().min(1).refine((code) => !isReservedControlCode(code), { message: RESERVED_CONTROL_CODE_ERROR }),
   title: z.string().min(1),
