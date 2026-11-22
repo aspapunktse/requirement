@@ -19,7 +19,6 @@ const ICON_BY_HREF: Record<string, HomeIconKey> = {
   "/systems?status=ONBOARDED": "stack",
   "/check-ups": "check",
   "/controls": "book",
-  "/admin/controls": "book",
   "/statement-of-applicability": "doc",
   "/internal-audits": "search",
   "/frameworks": "grid",

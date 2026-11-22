@@ -161,7 +161,7 @@
     if (c.sens) out.push(`<span class="chipfrom"><span class="from">From</span>${sensChip(c.sens)}</span>`);
     return out.join('');
   }
-  const editBtn = (m, cls = '') => (m.can.edit ? `<a class="btn ${cls}" href="${withRole('../controls/proposal-a.html')}" title="Opens /admin/controls in the app">Edit</a>` : '');
+  const editBtn = (m, cls = '') => (m.can.edit ? `<a class="btn ${cls}" href="${withRole('../controls/proposal-a.html')}" title="Opens the Control editor in the app">Edit</a>` : '');
 
   const controlBody = (m) => `<p class="desc">${esc(m.c.description)}</p>
     ${m.c.question ? `<div class="block"><span class="label">Self-Assessment Question</span><p class="question">${esc(m.c.question)}</p></div>` : ''}

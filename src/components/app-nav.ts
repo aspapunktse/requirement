@@ -47,8 +47,8 @@ export const NAV_ITEMS: NavItem[] = [
   { key: "information-types", label: "Information Types", icon: "infotype", href: "/information-types", prefixes: ["/information-types"], allows: everyone },
   // The Document Requirement catalogue (#323) sits beside the Information Types one: everyone reads it.
   { key: "document-requirements", label: "Document Requirements", icon: "doc", href: "/document-requirements", prefixes: ["/document-requirements"], allows: everyone },
-  // The Control Library admin pages also mark Controls and Frameworks, for a role without the Admin item (decision 4a on #256).
-  { key: "controls", label: "Controls", icon: "control", href: "/controls", prefixes: ["/controls", "/admin/controls"], allows: everyone },
+  // The Framework admin pages also mark Frameworks, for a role without the Admin item (decision 4a on #256).
+  { key: "controls", label: "Controls", icon: "control", href: "/controls", prefixes: ["/controls"], allows: everyone },
   // The Risk register (#322): every role sees the Risks on the Systems it can see. Organization Risks sit behind it for the three roles that read them.
   { key: "risks", label: "Risks", icon: "risk", href: "/risks", prefixes: ["/risks"], allows: everyone },
   { key: "check-ups", label: "Check-ups", icon: "checkup", href: "/check-ups", prefixes: ["/check-ups"], allows: everyone },
@@ -65,7 +65,6 @@ export const NAV_ITEMS: NavItem[] = [
  * Admin shortcuts where they overlap (product-owner decision 3b on #256). Add a new Admin page here.
  */
 export const ADMIN_PAGES: { label: string; href: string }[] = [
-  { label: "Control Library", href: "/admin/controls" },
   { label: "Frameworks", href: "/admin/frameworks" },
   { label: "Deployment Facets", href: "/admin/deployment-facets" },
   { label: "Review Groups", href: "/admin/review-groups" },
