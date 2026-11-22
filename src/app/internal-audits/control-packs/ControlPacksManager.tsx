@@ -20,7 +20,8 @@ type Editing = string | null | undefined;
  * Manage the Control Packs (#394): a list with each pack's name, note and Control count, and an editor beside it
  * (name, note, a searchable Control picker) with a delete that asks first. The Internal Auditor edits; every other
  * role that may open the page sees the same editor read-only. The routes decide who may write, `canWrite` only shapes
- * what is offered. After a save, the pack in the list is replaced by the route's answer.
+ * what is offered. After a save, the pack in the list is replaced by the route's answer. While a new pack is being
+ * written the list is hidden and the editor takes the full width; Close or a save brings the list back.
  */
 export function ControlPacksManager({ initialPacks, controls, canWrite }: { initialPacks: ControlPackRow[]; controls: PackControl[]; canWrite: boolean }) {
   const [packs, setPacks] = useState(initialPacks);
@@ -40,19 +41,19 @@ export function ControlPacksManager({ initialPacks, controls, canWrite }: { init
   }
 
   return (
-    <div className="hc cp" data-page-id="INTERNAL AUDITS . CONTROL PACKS">
-      <nav className="cp-crumb" aria-label="Breadcrumb">
+    <div className="hc pk" data-page-id="INTERNAL AUDITS . CONTROL PACKS">
+      <nav className="pk-crumb" aria-label="Breadcrumb">
         <Link href="/internal-audits">Internal Audits</Link>
         <span>/</span>
         <span>Control Packs</span>
       </nav>
 
-      <section className="hc-hero" aria-labelledby="cp-title">
+      <section className="hc-hero" aria-labelledby="pk-title">
         <div>
           <div className="hc-who">
             <span className="hc-eyebrow">Internal Audits</span>
           </div>
-          <h1 id="cp-title">Control Packs</h1>
+          <h1 id="pk-title">Control Packs</h1>
           <p className="hc-lede">
             Named sets of Controls for planning Internal Audits, offered as &ldquo;Start from&rdquo; cards in the planner. {plural(packs.length, "pack")}.{" "}
             {canWrite ? "Picking a pack adds its Controls to an audit; the audit doesn't remember the pack." : "Only an Internal Auditor changes Control Packs."}
@@ -62,44 +63,46 @@ export function ControlPacksManager({ initialPacks, controls, canWrite }: { init
 
       <div aria-live="polite">
         {notice && (
-          <p className="cp-banner" role="status">
+          <p className="pk-banner" role="status">
             {notice}{" "}
-            <button type="button" className="cp-link" onClick={() => setNotice(null)}>
+            <button type="button" className="pk-link" onClick={() => setNotice(null)}>
               Dismiss
             </button>
           </p>
         )}
       </div>
 
-      <div className="cp-main">
-        <section className="hc-card" aria-labelledby="cp-list-h">
-          <div className="hc-card-h">
-            <h2 id="cp-list-h">Packs</h2>
-            {canWrite && (
-              <button type="button" className="hc-btn primary" onClick={() => setEditing(null)}>
-                New Control Pack
-              </button>
+      <div className="pk-main">
+        {editing !== null && (
+          <section className="hc-card" aria-labelledby="pk-list-h">
+            <div className="hc-card-h">
+              <h2 id="pk-list-h">Packs</h2>
+              {canWrite && (
+                <button type="button" className="hc-btn primary" onClick={() => setEditing(null)}>
+                  New Control Pack
+                </button>
+              )}
+            </div>
+            {packs.length === 0 ? (
+              <p className="pk-empty">{canWrite ? "No Control Packs yet. Add one for a theme you audit again and again." : "No Control Packs yet."}</p>
+            ) : (
+              <ul className="pk-list">
+                {[...packs].sort(byName).map((pack) => (
+                  <li key={pack.id}>
+                    <button type="button" className="pk-row" aria-pressed={editing === pack.id} onClick={() => setEditing(pack.id)}>
+                      <span className="ib">
+                        <Icon name="layers" size={18} />
+                      </span>
+                      <b>{pack.name}</b>
+                      <small>{pack.note || "No note"}</small>
+                      <span className="pk-count">{plural(pack.controlIds.length, "Control")}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
             )}
-          </div>
-          {packs.length === 0 ? (
-            <p className="cp-empty">{canWrite ? "No Control Packs yet. Add one for a theme you audit again and again." : "No Control Packs yet."}</p>
-          ) : (
-            <ul className="cp-list">
-              {[...packs].sort(byName).map((pack) => (
-                <li key={pack.id}>
-                  <button type="button" className="cp-row" aria-pressed={editing === pack.id} onClick={() => setEditing(pack.id)}>
-                    <span className="ib">
-                      <Icon name="layers" size={18} />
-                    </span>
-                    <b>{pack.name}</b>
-                    <small>{pack.note || "No note"}</small>
-                    <span className="cp-count">{plural(pack.controlIds.length, "Control")}</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+          </section>
+        )}
 
         {editing !== undefined && (editing === null || editedPack) && (
           <PackEditor
@@ -209,43 +212,43 @@ function PackEditor({
   }
 
   return (
-    <section className="hc-card cp-editor" aria-labelledby="cp-ed-h">
+    <section className="hc-card pk-editor" aria-labelledby="pk-ed-h">
       <div className="hc-card-h">
-        <h2 id="cp-ed-h">{pack ? (canWrite ? "Edit Control Pack" : pack.name) : "New Control Pack"}</h2>
+        <h2 id="pk-ed-h">{pack ? (canWrite ? "Edit Control Pack" : pack.name) : "New Control Pack"}</h2>
         <button type="button" className="hc-btn ghost" onClick={onClose}>
           Close
         </button>
       </div>
-      <div className="cp-body">
+      <div className="pk-body">
         {error && (
-          <p role="alert" className="cp-error">
+          <p role="alert" className="pk-error">
             {error}
           </p>
         )}
-        <label className="cp-field">
+        <label className="pk-field">
           Name
           <input value={name} maxLength={MAX_CONTROL_PACK_NAME_LENGTH} readOnly={!canWrite} onChange={(event) => setName(event.target.value)} />
         </label>
-        <label className="cp-field">
+        <label className="pk-field">
           Note (optional)
           <input value={note} maxLength={MAX_CONTROL_PACK_NOTE_LENGTH} readOnly={!canWrite} placeholder={canWrite ? "What this pack is for" : ""} onChange={(event) => setNote(event.target.value)} />
         </label>
 
-        <div className="cp-picker">
-          <div className="cp-picker-h">
+        <div className="pk-picker">
+          <div className="pk-picker-h">
             <b>
-              Controls <span className="cp-count">{picked.size} picked</span>
+              Controls <span className="pk-count">{picked.size} picked</span>
             </b>
             <label className="hc-search">
               <Icon name="search" size={15} />
               <input type="search" placeholder="Search by code or title" aria-label="Search Controls" autoComplete="off" value={query} onChange={(event) => setQuery(event.target.value)} />
             </label>
-            <label className="cp-check">
+            <label className="pk-check">
               <input type="checkbox" checked={onlyPicked} onChange={(event) => setOnlyPicked(event.target.checked)} />
               Picked only
             </label>
             {canWrite && (
-              <span className="cp-bulk">
+              <span className="pk-bulk">
                 <button type="button" className="hc-btn ghost" onClick={() => toggleShown(true)} disabled={shown.length === 0}>
                   Add shown
                 </button>
@@ -255,28 +258,28 @@ function PackEditor({
               </span>
             )}
           </div>
-          <ul className="cp-controls" aria-label="Controls">
+          <ul className="pk-controls" aria-label="Controls">
             {shown.map((control) => (
               <li key={control.id}>
-                <label className="cp-control">
+                <label className="pk-control">
                   <input type="checkbox" checked={picked.has(control.id)} disabled={!canWrite} onChange={() => toggle(control.id)} />
-                  <span className="cp-code">{control.code}</span>
-                  <span className="cp-title">{control.title}</span>
+                  <span className="pk-code">{control.code}</span>
+                  <span className="pk-title">{control.title}</span>
                   <small>{control.category}</small>
                 </label>
               </li>
             ))}
-            {shown.length === 0 && <li className="cp-empty">{onlyPicked && !needle ? "No Controls picked." : "No Control matches."}</li>}
+            {shown.length === 0 && <li className="pk-empty">{onlyPicked && !needle ? "No Controls picked." : "No Control matches."}</li>}
           </ul>
         </div>
 
         {canWrite && (
-          <div className="cp-actions">
+          <div className="pk-actions">
             {pack &&
               (confirming ? (
-                <span className="cp-confirm" role="alert">
+                <span className="pk-confirm" role="alert">
                   Delete {pack.name}? Internal Audits already planned are unchanged.
-                  <button type="button" className="hc-btn cp-danger" disabled={busy} onClick={remove}>
+                  <button type="button" className="hc-btn pk-danger" disabled={busy} onClick={remove}>
                     {busy ? "Deleting…" : "Delete"}
                   </button>
                   <button type="button" className="hc-btn ghost" onClick={() => setConfirming(false)}>
@@ -284,11 +287,11 @@ function PackEditor({
                   </button>
                 </span>
               ) : (
-                <button type="button" className="hc-btn cp-danger" onClick={() => setConfirming(true)}>
+                <button type="button" className="hc-btn pk-danger" onClick={() => setConfirming(true)}>
                   Delete Control Pack
                 </button>
               ))}
-            <span className="cp-grow" />
+            <span className="pk-grow" />
             <button type="button" className="hc-btn primary" disabled={busy || !trimmed} onClick={save}>
               {busy ? "Saving…" : pack ? "Save" : "Add Control Pack"}
             </button>

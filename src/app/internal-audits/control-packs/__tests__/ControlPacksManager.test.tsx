@@ -77,6 +77,18 @@ describe("ControlPacksManager: Internal Auditor (#394)", () => {
     expect(screen.getByRole("button", { name: /Test Access/ })).toHaveTextContent("1 Control");
   });
 
+  it("hides the list of packs while a new pack is being written, and shows it again on Close", async () => {
+    const user = userEvent.setup();
+    render_(true);
+    await user.click(screen.getByRole("button", { name: "New Control Pack" }));
+    expect(screen.queryByRole("heading", { name: "Packs" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "New Control Pack" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Test Access/ })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Close" }));
+    expect(screen.getByRole("heading", { name: "Packs" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Test Access/ })).toBeInTheDocument();
+  });
+
   it("says a repeated name clashes without asking the server", async () => {
     vi.stubGlobal("fetch", vi.fn());
     const user = userEvent.setup();
