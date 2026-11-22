@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { AiAssistant } from "@/components/AiAssistant";
 import { AppHeader } from "@/components/AppHeader";
 import { PaletteProvider } from "@/components/PaletteProvider";
 import { getActingUser, isDevAuthStubEnabled } from "@/lib/acting-user";
@@ -36,6 +37,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full flex flex-col">
         <PaletteProvider>
           <AppHeader devStub={isDevAuthStubEnabled()} user={user} />
+          {user && <AiAssistant key={user.id} />}
           {children}
         </PaletteProvider>
       </body>
