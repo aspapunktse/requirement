@@ -5,7 +5,7 @@ import { frameworkLabel } from "@/lib/framework-label";
  * "Version lineage: ISO/IEC 27001:2013 → ISO/IEC 27001:2022 → …", oldest first,
  * with the Framework the row is about in bold and marked aria-current. Draft
  * members say so (only ever passed to users who can see Drafts). One line per
- * branch when a Framework was forked. Shared by /frameworks and /admin/frameworks.
+ * branch when a Framework was forked. Shared by /frameworks and /frameworks/[id]/edit.
  */
 export function FrameworkLineage({ paths }: { paths: LineagePath[] }) {
   return (

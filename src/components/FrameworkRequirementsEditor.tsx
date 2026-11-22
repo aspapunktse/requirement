@@ -121,11 +121,14 @@ export function FrameworkRequirementsEditor({
   licensing,
   initialRequirements,
   controls,
+  onChanged,
 }: {
   frameworkId: string;
   licensing: "PARAPHRASE_ONLY" | "QUOTABLE";
   initialRequirements: RequirementRow[];
   controls: PickableControl[];
+  /** Called after every mutation has reloaded the Requirements, so the page around can refresh its own figures. */
+  onChanged?: () => void;
 }) {
   const [requirements, setRequirements] = useState<RequirementRow[]>(initialRequirements);
   const [error, setError] = useState<string | null>(null);
@@ -142,6 +145,7 @@ export function FrameworkRequirementsEditor({
       return;
     }
     setRequirements((await response.json()).requirements ?? []);
+    onChanged?.();
   }
 
   async function handleCreate(event: React.FormEvent) {

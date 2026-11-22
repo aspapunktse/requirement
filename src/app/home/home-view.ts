@@ -22,7 +22,6 @@ const ICON_BY_HREF: Record<string, HomeIconKey> = {
   "/statement-of-applicability": "doc",
   "/internal-audits": "search",
   "/frameworks": "grid",
-  "/admin/frameworks": "layers",
   "/admin/deployment-facets": "layers",
   "/admin/review-groups": "layers",
   "/admin/users": "layers",

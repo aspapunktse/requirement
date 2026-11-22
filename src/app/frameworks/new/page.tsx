@@ -17,8 +17,8 @@ function Refusal({ children }: { children: React.ReactNode }) {
 
 /**
  * "New Framework" (issue #266, product-owner decision 4b): the create form that used to sit at the foot of
- * /admin/frameworks, on its own page in the Home look. Compliance Managers and Admins only (the same roles
- * `POST /api/frameworks` admits). The new Framework starts as a Draft; its authoring page opens next.
+ * the old Framework admin page, on its own page in the Home look. Compliance Managers and Admins only (the same roles
+ * `POST /api/frameworks` admits). The new Framework starts as a Draft; its editor, `/frameworks/[id]/edit`, opens next.
  */
 export default async function NewFrameworkPage() {
   const user = await getActingUser();

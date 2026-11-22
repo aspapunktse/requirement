@@ -10,7 +10,7 @@ type Licensing = "PARAPHRASE_ONLY" | "QUOTABLE";
 /**
  * The create form for a Framework (issue #266): name, version, description, licensing, Strict compliance and
  * the Framework it supersedes. It posts to `POST /api/frameworks` and, on success, opens the new Draft's
- * authoring page `/admin/frameworks/[id]`, where its Requirements and Control Mappings are added.
+ * editor `/frameworks/[id]/edit`, where its Requirements and Control Mappings are added.
  */
 export function NewFrameworkForm({ frameworks }: { frameworks: { id: string; name: string; version: string }[] }) {
   const router = useRouter();
@@ -49,7 +49,7 @@ export function NewFrameworkForm({ frameworks }: { frameworks: { id: string; nam
         setError(body.error ?? "Failed to create the Framework");
         return;
       }
-      router.push(`/admin/frameworks/${body.framework.id}`);
+      router.push(`/frameworks/${body.framework.id}/edit`);
     } catch {
       setError("Failed to create the Framework");
     } finally {

@@ -47,14 +47,13 @@ export const NAV_ITEMS: NavItem[] = [
   { key: "information-types", label: "Information Types", icon: "infotype", href: "/information-types", prefixes: ["/information-types"], allows: everyone },
   // The Document Requirement catalogue (#323) sits beside the Information Types one: everyone reads it.
   { key: "document-requirements", label: "Document Requirements", icon: "doc", href: "/document-requirements", prefixes: ["/document-requirements"], allows: everyone },
-  // The Framework admin pages also mark Frameworks, for a role without the Admin item (decision 4a on #256).
   { key: "controls", label: "Controls", icon: "control", href: "/controls", prefixes: ["/controls"], allows: everyone },
   // The Risk register (#322): every role sees the Risks on the Systems it can see. Organization Risks sit behind it for the three roles that read them.
   { key: "risks", label: "Risks", icon: "risk", href: "/risks", prefixes: ["/risks"], allows: everyone },
   { key: "check-ups", label: "Check-ups", icon: "checkup", href: "/check-ups", prefixes: ["/check-ups"], allows: everyone },
   { key: "internal-audits", label: "Internal Audits", icon: "audit", href: "/internal-audits", prefixes: ["/internal-audits"], allows: (role) => canReadInternalAudits({ role }) },
   { key: "soa", label: "SoA", title: "Statement of Applicability", icon: "doc", href: "/statement-of-applicability", prefixes: ["/statement-of-applicability"], allows: everyone },
-  { key: "frameworks", label: "Frameworks", icon: "layers", href: "/frameworks", prefixes: ["/frameworks", "/admin/frameworks"], allows: everyone },
+  { key: "frameworks", label: "Frameworks", icon: "layers", href: "/frameworks", prefixes: ["/frameworks"], allows: everyone },
   // Product-owner decision 1a on #256: only the role whose page it is. The page admits an Admin too, but the item shows to a Business Risk Owner only.
   { key: "business-risk-owner", label: "My Business Risks", icon: "chart", href: "/business-risk-owner", prefixes: ["/business-risk-owner"], allows: (role) => role === "BUSINESS_RISK_OWNER" },
   { key: "admin", label: "Admin", icon: "stack", prefixes: ["/admin"], allows: (role) => role === "ADMIN" },
@@ -65,7 +64,6 @@ export const NAV_ITEMS: NavItem[] = [
  * Admin shortcuts where they overlap (product-owner decision 3b on #256). Add a new Admin page here.
  */
 export const ADMIN_PAGES: { label: string; href: string }[] = [
-  { label: "Frameworks", href: "/admin/frameworks" },
   { label: "Deployment Facets", href: "/admin/deployment-facets" },
   { label: "Review Groups", href: "/admin/review-groups" },
   { label: "Business Units", href: "/admin/business-units" },
@@ -81,8 +79,8 @@ export function navItemsFor(role: UserRole | null | undefined): NavItem[] {
 
 /**
  * The item a path belongs to among those the role sees, sub-pages included (`/systems/abc` is Systems,
- * `/admin/settings` is Admin). Admin is tried first, so an Admin's `/admin/frameworks` marks Admin, while a role
- * without the Admin item (a Compliance Manager) gets Frameworks.
+ * `/admin/settings` is Admin). Admin is tried first, so an Admin's `/admin/users` marks Admin, while a role
+ * without the Admin item has no item there.
  */
 export function currentNavKey(pathname: string, role: UserRole | null | undefined): NavKey | null {
   const path = pathname.replace(/\/+$/, "") || "/";

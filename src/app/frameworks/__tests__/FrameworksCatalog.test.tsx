@@ -487,7 +487,47 @@ describe("Download CSV", () => {
   });
 });
 
+describe("Edit from the row", () => {
+  it("links each Framework the user can curate to its edit page, and no other", () => {
+    const rows = ROWS.map((r) => ({ ...r, canCurate: r.id === "f-draft-empty" }));
+    render(<FrameworksCatalog view={view({ role: "VIEWER", roleLabel: "Viewer", canCurate: false, rows })} />);
+    const links = screen.getAllByRole("link", { name: /^Edit / });
+    expect(links).toHaveLength(1);
+    expect(links[0]).toHaveAttribute("href", "/frameworks/f-draft-empty/edit");
+    expect(links[0]).toHaveAccessibleName("Edit Empty Act:1");
+  });
+
+  it("offers Edit on every row for a Compliance Manager", () => {
+    renderCatalog();
+    expect(screen.getAllByRole("link", { name: /^Edit / })).toHaveLength(ROWS.length);
+    expect(within(rowOf("f-iso")).getByRole("link", { name: "Edit ISO/IEC 27001:2022" })).toHaveAttribute("href", "/frameworks/f-iso/edit");
+  });
+
+  it("offers no Edit to a role that curates nothing", () => {
+    const rows = ROWS.map((r) => ({ ...r, canCurate: false }));
+    render(<FrameworksCatalog view={view({ role: "VIEWER", roleLabel: "Viewer", canCurate: false, rows })} />);
+    expect(screen.queryByRole("link", { name: /^Edit / })).not.toBeInTheDocument();
+  });
+});
+
 describe("Ctrl+K palette", () => {
+  it("lists an Edit action for each Framework the user can curate and opens its edit page", async () => {
+    render(withHeader(<FrameworksCatalog view={view()} />));
+    await userEvent.keyboard("{Control>}k{/Control}");
+    const dialog = screen.getByRole("dialog", { name: "Jump to" });
+    await userEvent.type(within(dialog).getByRole("combobox"), "edit cmmc level 2");
+    await userEvent.keyboard("{Enter}");
+    expect(push).toHaveBeenCalledWith("/frameworks/f-c2/edit");
+  });
+
+  it("offers no Edit action for a Framework the user can't curate", async () => {
+    const rows = ROWS.map((r) => ({ ...r, canCurate: false }));
+    render(withHeader(<FrameworksCatalog view={view({ role: "VIEWER", roleLabel: "Viewer", canCurate: false, rows })} />));
+    await userEvent.keyboard("{Control>}k{/Control}");
+    const dialog = screen.getByRole("dialog", { name: "Jump to" });
+    expect(within(dialog).queryByText(/^Edit /)).not.toBeInTheDocument();
+  });
+
   it("lists New Framework (when allowed) and every Framework, and opens one's coverage page", async () => {
     render(withHeader(<FrameworksCatalog view={view()} />));
     await userEvent.keyboard("{Control>}k{/Control}");

@@ -18,12 +18,15 @@ export function FrameworkReviewGroup({
   groups,
   initialReviewGroupId,
   canOpenGroup,
+  onChanged,
 }: {
   frameworkId: string;
   isBase: boolean;
   groups: ReviewGroupOption[];
   initialReviewGroupId: string | null;
   canOpenGroup: boolean;
+  /** Called after the Review Group was tied or untied, so the page around can refresh its own figures. */
+  onChanged?: () => void;
 }) {
   const [reviewGroupId, setReviewGroupId] = useState(initialReviewGroupId);
   const [selected, setSelected] = useState("");
@@ -53,6 +56,7 @@ export function FrameworkReviewGroup({
     const { framework } = await response.json();
     setReviewGroupId(framework.reviewGroup?.id ?? null);
     setSelected("");
+    onChanged?.();
   }
 
   if (isBase) {

@@ -539,7 +539,7 @@ async function roleOwnView(user: { id: string; name: string; role: UserRole }, r
         picture,
         tiles: [
           { title: "Control Library", description: "Author Controls and scope what each applies to.", href: "/controls" },
-          { title: "Frameworks", description: "Manage the Framework catalog.", href: "/admin/frameworks" },
+          { title: "Frameworks", description: "Manage the Framework catalog.", href: "/frameworks" },
           ORGANIZATION_CONTROLS_TILE,
           { title: "Browse Systems", description: "Every System across every status, read-only.", href: "/systems" },
         ],

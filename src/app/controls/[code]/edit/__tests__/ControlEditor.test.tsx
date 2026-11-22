@@ -117,7 +117,7 @@ describe("ControlEditor (#314)", () => {
     render(<ControlEditor view={view({ applicability: "ORGANIZATIONAL", question: null })} returnTab={null} />);
     expect(screen.queryByLabelText("Self-Assessment Question")).not.toBeInTheDocument();
     expect(screen.queryByRole("group", { name: /Deployment Facets/ })).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "ISO/IEC 27001:2022" })).toHaveAttribute("href", "/admin/frameworks/fw1");
+    expect(screen.getByRole("link", { name: "ISO/IEC 27001:2022" })).toHaveAttribute("href", "/frameworks/fw1/edit");
     expect(screen.getByRole("link", { name: "Cancel" })).toHaveAttribute("href", "/controls/A.5.3");
   });
 

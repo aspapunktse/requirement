@@ -356,7 +356,7 @@ export function FrameworkCoverage({ view }: { view: CoverageView }) {
               Download CSV
             </button>
             {canCurate && (
-              <Link href={`/admin/frameworks/${framework.id}`} className="hc-btn">
+              <Link href={`/frameworks/${framework.id}/edit`} className="hc-btn">
                 Requirements &amp; Review Group
               </Link>
             )}

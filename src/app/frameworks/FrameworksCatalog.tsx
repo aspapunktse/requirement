@@ -98,6 +98,13 @@ export function FrameworksCatalog({ view }: { view: CatalogView }) {
         meta: row.requirements === 0 ? "no Requirements" : plural(row.gaps, "open gap"),
         href: `/frameworks/${row.id}/coverage`,
       })),
+      ...sortRows(rows.filter((row) => row.canCurate), "default", 1).map((row) => ({
+        group: "Actions",
+        icon: "layers" as const,
+        label: `Edit ${frameworkLabel(row)}`,
+        meta: "Requirements, mappings, details",
+        href: `/frameworks/${row.id}/edit`,
+      })),
     ],
     [rows, canCurate],
   );
@@ -197,6 +204,11 @@ export function FrameworksCatalog({ view }: { view: CatalogView }) {
             <button type="button" className="hc-btn sm" aria-label={`Publish ${label}`} onClick={() => setPublishing(row)}>
               Publish
             </button>
+          )}{" "}
+          {row.canCurate && (
+            <Link className="hc-btn sm" href={`/frameworks/${row.id}/edit`} aria-label={`Edit ${label}`}>
+              Edit
+            </Link>
           )}{" "}
           <Link className="hc-btn sm" href={`/frameworks/${row.id}/coverage`} aria-label={`Coverage of ${label}`}>
             Coverage →

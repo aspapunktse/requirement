@@ -128,3 +128,17 @@
 .fc-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .fc-actions .hc-btn { text-decoration: none; }
 .fc-actions .hc-btn:disabled { opacity: 0.45; cursor: default; }
+
+/* Framework editor (/frameworks/[id]/edit, #413): chips in the hero, read-only notes, and the embedded Review Group and Requirements editors */
+.fc-edit { gap: 16px; }
+.fc-edit .fc-form, .fc-edit .hc-card { max-width: 960px; }
+.fc-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; font-size: 0.86rem; color: var(--rg-muted); }
+.fc-chips a { color: var(--rg-accent); font-weight: 650; text-decoration: none; }
+.fc-chips a:hover { text-decoration: underline; }
+.fc-note { color: var(--rg-muted); font-size: 0.84rem; }
+.fc-muted { color: var(--rg-muted); font-size: 0.84rem; align-self: center; }
+.fc-input:disabled { background: var(--hc-line-soft); color: var(--rg-muted); cursor: not-allowed; }
+.fc-check input:disabled { cursor: not-allowed; }
+.fc-danger { color: var(--rg-danger); }
+.fc-danger:disabled { opacity: 0.45; cursor: default; }
+.fc-embed { display: grid; gap: 16px; }
