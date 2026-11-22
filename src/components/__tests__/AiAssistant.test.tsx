@@ -91,4 +91,24 @@ describe("AiAssistant", () => {
     expect(screen.queryByText("secret question")).toBeNull();
     expect(screen.getByLabelText("Message")).toHaveValue("");
   });
+
+  it("limits the question's length and still sends a follow-up after a reply over the limit", async () => {
+    const long = "y".repeat(4500);
+    vi.stubGlobal("fetch", mockFetch(200, { reply: long }));
+    const user = userEvent.setup({ delay: null });
+    render(<AiAssistant />);
+    await user.click(screen.getByRole("button", { name: "AI assistant" }));
+    expect(screen.getByLabelText("Message")).toHaveAttribute("maxLength", "4000");
+
+    await user.type(screen.getByLabelText("Message"), "q0");
+    await user.click(screen.getByRole("button", { name: "Ask" }));
+    await waitFor(() => expect(screen.getByText(long)).toBeVisible());
+    await user.type(screen.getByLabelText("Message"), "q1");
+    await user.click(screen.getByRole("button", { name: "Ask" }));
+    await waitFor(() => expect(calls()).toHaveLength(2));
+
+    const sent: { content: string }[] = JSON.parse(calls()[1][1].body as string).messages;
+    expect(sent.every((message) => message.content.length <= 4000)).toBe(true);
+    expect(sent.at(-1)).toEqual({ role: "user", content: "q1" });
+  });
 });

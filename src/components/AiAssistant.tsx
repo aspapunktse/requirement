@@ -3,7 +3,7 @@
 import { useId, useState } from "react";
 import { Icon } from "@/app/home/HomeGraphics";
 import type { AiMessage } from "@/lib/ai";
-import { boundedHistory } from "@/lib/ai-history";
+import { boundedHistory, MAX_MESSAGE_CHARS } from "@/lib/ai-history";
 
 /**
  * The floating AI Assistant panel: one toggle button in the corner of every page, and a chat panel
@@ -33,7 +33,7 @@ export function AiAssistant() {
 
   async function send() {
     const question = draft.trim();
-    if (!question || sending) return;
+    if (!question || question.length > MAX_MESSAGE_CHARS || sending) return;
     const next: AiMessage[] = [...messages, { role: "user", content: question }];
     setMessages(next);
     setDraft("");
@@ -94,7 +94,7 @@ export function AiAssistant() {
               void send();
             }}
           >
-            <input value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="Ask…" aria-label="Message" disabled={sending} className={INPUT} />
+            <input value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="Ask…" aria-label="Message" maxLength={MAX_MESSAGE_CHARS} disabled={sending} className={INPUT} />
             <button type="submit" disabled={sending || !draft.trim()} className={ASK}>
               Ask
             </button>
