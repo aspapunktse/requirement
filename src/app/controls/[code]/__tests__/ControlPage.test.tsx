@@ -1,6 +1,8 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), back: vi.fn() }) }));
 import { libraryRow, mapping } from "../../__tests__/fixtures";
 import { ControlPage } from "../ControlPage";
 import type { ControlPageView, PageSystem } from "../control-page-types";
@@ -24,6 +26,8 @@ function bothView(over: Partial<ControlPageView> = {}): ControlPageView {
     userId: "u1",
     userName: "Olive Owner",
     canEdit: false,
+    auditQuestions: [],
+    canCurateAuditQuestions: false,
     control: libraryRow("A.5.3", {
       applicability: "BOTH",
       question: "Do you segregate duties?",
@@ -191,5 +195,15 @@ describe("first round (#319)", () => {
     cleanup();
     render(<ControlPage view={bothView()} initialTab="satisfies" />);
     expect(screen.getByTestId("first-round-for").textContent).toBe("Not first round for any Framework.");
+  });
+
+  it("lists the Audit Questions read-only for a role that can't curate, and as an editor for one that can (#404)", () => {
+    const { unmount } = render(<ControlPage view={bothView({ auditQuestions: ["Is MFA enforced?"] })} initialTab={null} />);
+    expect(screen.getByRole("list", { name: "Audit Questions for A.5.3" })).toHaveTextContent("Is MFA enforced?");
+    expect(screen.queryByRole("button", { name: "Save Audit Questions" })).toBeNull();
+    unmount();
+    render(<ControlPage view={bothView({ auditQuestions: ["Is MFA enforced?"], canCurateAuditQuestions: true })} initialTab={null} />);
+    expect(screen.getByLabelText("Audit Question 1 for A.5.3")).toHaveValue("Is MFA enforced?");
+    expect(screen.getByRole("button", { name: "Save Audit Questions" })).toBeInTheDocument();
   });
 });

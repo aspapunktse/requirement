@@ -46,6 +46,10 @@ export type ControlPageView = {
   userName: string;
   /** A Compliance Manager or an Admin: Edit shows. */
   canEdit: boolean;
+  /** The Control's Audit Questions (#404), in order, for every role that sees the Control. */
+  auditQuestions: string[];
+  /** A Compliance Manager, an Admin or an Internal Auditor: the Audit Questions are editable. */
+  canCurateAuditQuestions: boolean;
   /** The Control as the library row shows it (Draft Frameworks left out unless the role sees them). */
   control: LibraryRow;
   /**

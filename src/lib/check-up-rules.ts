@@ -20,6 +20,15 @@ export function defaultQuestionsFor(selfAssessmentQuestion: string | null | unde
 }
 
 /**
+ * The question list a Control starts with in a draft (#404): a copy of its Audit Questions, or, when it has
+ * none, `defaultQuestionsFor` its Self-Assessment Question. `bank` is in position order.
+ */
+export function defaultQuestionsForControl(bank: readonly string[] | undefined, selfAssessmentQuestion: string | null | undefined): string[] {
+  const texts = (bank ?? []).map((text) => text.trim()).filter((text) => text !== "");
+  return texts.length > 0 ? texts : defaultQuestionsFor(selfAssessmentQuestion);
+}
+
+/**
  * The question list of a Control in the planner (#393) once the auditor has typed a first question for it:
  * `override` replaces the first question of `existing` (or becomes the only one), a blank one removes the
  * first question, and `undefined` leaves the list as it is. The later questions are never touched here (more

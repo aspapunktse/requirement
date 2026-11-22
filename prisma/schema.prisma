@@ -589,6 +589,8 @@ model Control {
   internalAudits       InternalAuditControl[]
   // The Control Packs this Control is in (#394). Cascade: deleting a Control drops it out of every pack.
   controlPacks         ControlPackControl[]
+  // The Audit Questions an Internal Auditor can verify this Control with (#404), in `position` order. Cascade: deleting a Control deletes them.
+  auditQuestions       ControlAuditQuestion[]
   // Check-ups generated for this Control (#154). Restrict: a Control with Check-ups can't be deleted.
   checkUps             CheckUp[]
 
@@ -1292,6 +1294,20 @@ model InternalAuditQuestion {
   createdAt              DateTime             @default(now())
 
   @@unique([internalAuditControlId, position])
+}
+
+// One Audit Question (#404): a standing, ordered question on a Control that an Internal Auditor can use to verify the
+// Control works. Plain text, curated in the Control Library (no Change Event). A new Internal Audit draft starts its
+// questions for the Control as a copy of these; the draft keeps its own copy, so later edits here change nothing there.
+model ControlAuditQuestion {
+  id        String   @id @default(cuid())
+  controlId String
+  control   Control  @relation(fields: [controlId], references: [id], onDelete: Cascade)
+  position  Int
+  text      String
+  createdAt DateTime @default(now())
+
+  @@unique([controlId, position])
 }
 
 // A System picked for an Internal Audit: the resolved System, never a filter (#153 resolves a

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { formatDate } from "@/app/organization/controls/controls-logic";
 import { controlAppliesToSystem } from "@/lib/control-applicability";
 import { canEditControlLibrary } from "@/lib/control-library";
+import { canCurateAuditQuestions, listAuditQuestions } from "@/lib/control-audit-questions";
 import {
   effectiveNote,
   effectiveSourceDetails,
@@ -160,6 +161,8 @@ export async function loadControlPageView(user: { id: string; name: string; role
         userId: user.id,
         userName: user.name,
         canEdit: canEditControlLibrary(user),
+        auditQuestions: await listAuditQuestions(tx, control.id),
+        canCurateAuditQuestions: canCurateAuditQuestions(user),
         control: libraryRowOf(control, {
           frameworkById,
           baseFramework,

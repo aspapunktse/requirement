@@ -70,7 +70,12 @@ export function DraftAudit({ page, canWrite }: { page: InternalAuditPage; canWri
                   <div>
                     <b>{control.title}</b>
                     {canWrite ? (
-                      <DraftQuestionsEditor internalAuditId={audit.id} control={control} initialQuestions={control.questions} />
+                      <DraftQuestionsEditor
+                        internalAuditId={audit.id}
+                        control={control}
+                        initialQuestions={control.questions}
+                        bank={page.auditQuestions[control.id] ?? []}
+                      />
                     ) : control.questions.length === 0 ? (
                       <small className="bad">No question yet: one must be written before launch</small>
                     ) : (
