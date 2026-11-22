@@ -198,11 +198,11 @@ describe("first round (#319)", () => {
   });
 
   it("lists the Audit Questions read-only for a role that can't curate, and as an editor for one that can (#404)", () => {
-    const { unmount } = render(<ControlPage view={bothView({ auditQuestions: ["Is MFA enforced?"] })} initialTab={null} />);
+    const { unmount } = render(<ControlPage view={bothView({ auditQuestions: [{ text: "Is MFA enforced?", guidance: null }] })} initialTab={null} />);
     expect(screen.getByRole("list", { name: "Audit Questions for A.5.3" })).toHaveTextContent("Is MFA enforced?");
     expect(screen.queryByRole("button", { name: "Save Audit Questions" })).toBeNull();
     unmount();
-    render(<ControlPage view={bothView({ auditQuestions: ["Is MFA enforced?"], canCurateAuditQuestions: true })} initialTab={null} />);
+    render(<ControlPage view={bothView({ auditQuestions: [{ text: "Is MFA enforced?", guidance: null }], canCurateAuditQuestions: true })} initialTab={null} />);
     expect(screen.getByLabelText("Audit Question 1 for A.5.3")).toHaveValue("Is MFA enforced?");
     expect(screen.getByRole("button", { name: "Save Audit Questions" })).toBeInTheDocument();
   });

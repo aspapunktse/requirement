@@ -57,6 +57,7 @@ export function CheckUpPanel({
           {checkUp.questions.map((question) => (
             <li key={question.id}>
               {question.text}
+              {question.guidance && <small>Guidance: {question.guidance}</small>}
               {question.answer && (
                 <small>
                   <b>{CHECK_UP_ANSWER_LABEL[question.answer.answer]}</b>

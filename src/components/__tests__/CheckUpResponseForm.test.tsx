@@ -12,13 +12,19 @@ function mockFetch(status: number, body: unknown) {
 const calls = () => (fetch as ReturnType<typeof vi.fn>).mock.calls as unknown as [string, RequestInit][];
 
 const questions = [
-  { id: "q1", position: 1, text: "Is it in place?", answer: null },
+  { id: "q1", position: 1, text: "Is it in place?", guidance: "Check the access policy", answer: null },
   { id: "q2", position: 2, text: "Is it tested?", answer: null },
 ];
 
 describe("CheckUpResponseForm (#155)", () => {
   beforeEach(() => refresh.mockClear());
   afterEach(() => vi.unstubAllGlobals());
+
+  it("shows a question's guidance note beside it, and nothing for a question without one (#405)", () => {
+    render(<CheckUpResponseForm checkUpId="cu1" questions={questions} initialEvidenceLinks={[]} changing={false} />);
+    expect(screen.getByText("Guidance: Check the access policy")).toBeInTheDocument();
+    expect(screen.getAllByText(/Guidance:/)).toHaveLength(1);
+  });
 
   it("PUTs an answer for every question with the description and the evidence links", async () => {
     vi.stubGlobal("fetch", mockFetch(201, {}));

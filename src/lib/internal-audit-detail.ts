@@ -31,7 +31,7 @@ export type AuditCheckUp = {
   /** Who owns the target now (derived on every read), or null: an Organization-level Check-up whose Control has no Control Owner. */
   recipient: { id: string; name: string } | null;
   state: CheckUpStateKey;
-  questions: { id: string; position: number; text: string; answer: { answer: CheckUpAnswer; description: string } | null }[];
+  questions: { id: string; position: number; text: string; guidance: string | null; answer: { answer: CheckUpAnswer; description: string } | null }[];
   response: { respondedAt: string; respondedByName: string; evidenceLinks: string[] } | null;
   evaluation: { outcome: CheckUpOutcome; comment: string; evaluatedByName: string; evaluatedAt: string } | null;
   withdrawal: { reason: string; withdrawnByName: string; withdrawnAt: string } | null;
@@ -49,8 +49,8 @@ export type InternalAuditPage = {
   counts: CheckUpStateCounts;
   /** Closed audits: the evaluations by outcome and the Risks opened. Null otherwise. */
   findings: CheckUpFindings | null;
-  /** Drafts: each target Control's Audit Questions (#404) by Control id, for the draft editor's "From the bank" picker. Empty otherwise. */
-  auditQuestions: Record<string, string[]>;
+  /** Drafts: each target Control's Audit Questions (#404) with their guidance notes (#405) by Control id, for the draft editor's "From the bank" picker. Empty otherwise. */
+  auditQuestions: Record<string, { text: string; guidance: string | null }[]>;
   /** Drafts: what launching would send and be blocked by, and who would receive it. Null otherwise. */
   plan: PlanPreview | null;
 };
@@ -81,10 +81,10 @@ export async function loadInternalAuditPage(id: string, now: Date = new Date()):
         const bank = await tx.controlAuditQuestion.findMany({
           where: { controlId: { in: audit.controls.map((control) => control.id) } },
           orderBy: { position: "asc" },
-          select: { controlId: true, text: true },
+          select: { controlId: true, text: true, guidance: true },
         });
-        const auditQuestions: Record<string, string[]> = {};
-        for (const row of bank) (auditQuestions[row.controlId] ??= []).push(row.text);
+        const auditQuestions: InternalAuditPage["auditQuestions"] = {};
+        for (const row of bank) (auditQuestions[row.controlId] ??= []).push({ text: row.text, guidance: row.guidance });
         return { audit, daysUntilDue, checkUps: [], counts: emptyCheckUpStateCounts(), findings: null, plan, auditQuestions };
       }
 
@@ -94,7 +94,7 @@ export async function loadInternalAuditPage(id: string, now: Date = new Date()):
           id: true,
           controlId: true,
           systemId: true,
-          questions: { orderBy: { position: "asc" }, select: { id: true, position: true, text: true, answer: { select: { answer: true, description: true } } } },
+          questions: { orderBy: { position: "asc" }, select: { id: true, position: true, text: true, guidance: true, answer: { select: { answer: true, description: true } } } },
           response: { select: { respondedAt: true, evidenceLinks: true, respondedBy: { select: { name: true } } } },
           evaluation: { select: { outcome: true, comment: true, evaluatedAt: true, evaluatedBy: { select: { name: true } } } },
           withdrawal: { select: { reason: true, withdrawnAt: true, withdrawnBy: { select: { name: true } } } },

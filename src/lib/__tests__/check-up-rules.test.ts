@@ -2,6 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   applyFirstQuestion,
   defaultQuestionsFor,
+  defaultQuestionsForControl,
+  guidanceProblem,
+  MAX_GUIDANCE_LENGTH,
+  normalizeGuidance,
   launchSummaryText,
   MAX_QUESTIONS_PER_CONTROL,
   MAX_QUESTION_LENGTH,
@@ -22,7 +26,7 @@ function control(code: string, overrides: Partial<LaunchControl> = {}): LaunchCo
     title: `Control ${code}`,
     applicability: "PER_SYSTEM",
     ownerId: "owner",
-    questions: [`Is ${code} in place?`],
+    questions: [{ text: `Is ${code} in place?`, guidance: null }],
     minSensitivityLevel: null,
     minIntegrityImpactLevel: null,
     minAvailabilityImpactLevel: null,
@@ -51,7 +55,7 @@ function inputs(overrides: Partial<LaunchInputs> & { controls: LaunchControl[]; 
 
 describe("defaultQuestionsFor", () => {
   it("is the Self-Assessment Question, trimmed, or nothing", () => {
-    expect(defaultQuestionsFor("  Is MFA on?  ")).toEqual(["Is MFA on?"]);
+    expect(defaultQuestionsFor("  Is MFA on?  ")).toEqual([{ text: "Is MFA on?", guidance: null }]);
     expect(defaultQuestionsFor("   ")).toEqual([]);
     expect(defaultQuestionsFor(null)).toEqual([]);
     expect(defaultQuestionsFor(undefined)).toEqual([]);
@@ -76,7 +80,7 @@ describe("planLaunch", () => {
   it("generates a System-level Check-up per applicable System and Control, with the Control's questions", () => {
     const plan = planLaunch(
       inputs({
-        controls: [control("A.5.2", { questions: ["First?", "  Second?  "] }), control("A.5.10")],
+        controls: [control("A.5.2", { questions: [{ text: "First?", guidance: null }, { text: "  Second?  ", guidance: null }] }), control("A.5.10")],
         systems: [system("Zeta"), system("Alpha"), system("Mid")],
       }),
       NOW,
@@ -94,7 +98,7 @@ describe("planLaunch", () => {
       "c-A.5.10/s-Mid",
       "c-A.5.10/s-Zeta",
     ]);
-    expect(plan.checkUps[0].questions).toEqual(["First?", "Second?"]);
+    expect(plan.checkUps[0].questions).toEqual([{ text: "First?", guidance: null }, { text: "Second?", guidance: null }]);
   });
 
   it("skips and counts a System the Control doesn't apply to", () => {
@@ -187,7 +191,7 @@ describe("planLaunch", () => {
 
   it("blocks a Control with no non-blank question, naming it", () => {
     const plan = planLaunch(
-      inputs({ controls: [control("A.5.1", { questions: [] }), control("A.5.2", { questions: ["  "] }), control("A.5.3")], systems: [system("S")] }),
+      inputs({ controls: [control("A.5.1", { questions: [] }), control("A.5.2", { questions: [{ text: "  ", guidance: null }] }), control("A.5.3")], systems: [system("S")] }),
       NOW,
     );
     expect(plan.blockers).toHaveLength(1);
@@ -230,21 +234,48 @@ describe("launchSummaryText", () => {
   });
 });
 
+const q = (text: string, guidance: string | null = null) => ({ text, guidance });
+
 describe("applyFirstQuestion (#393)", () => {
   it("leaves the list alone without an override", () => {
-    expect(applyFirstQuestion(["A?", "B?"], undefined)).toEqual(["A?", "B?"]);
+    expect(applyFirstQuestion([q("A?"), q("B?")], undefined)).toEqual([q("A?"), q("B?")]);
   });
 
   it("replaces the first question, trimmed, and keeps the later ones", () => {
-    expect(applyFirstQuestion(["A?", "B?"], "  New?  ")).toEqual(["New?", "B?"]);
+    expect(applyFirstQuestion([q("A?"), q("B?", "note")], "  New?  ")).toEqual([q("New?"), q("B?", "note")]);
   });
 
   it("writes the first question of a Control that had none", () => {
-    expect(applyFirstQuestion([], "New?")).toEqual(["New?"]);
+    expect(applyFirstQuestion([], "New?")).toEqual([q("New?")]);
   });
 
   it("drops the first question for a blank override, and does nothing to an empty list", () => {
-    expect(applyFirstQuestion(["A?", "B?"], "   ")).toEqual(["B?"]);
+    expect(applyFirstQuestion([q("A?"), q("B?")], "   ")).toEqual([q("B?")]);
     expect(applyFirstQuestion([], "")).toEqual([]);
+  });
+
+  it("keeps the first question's guidance only when its text is unchanged (#405)", () => {
+    expect(applyFirstQuestion([q("A?", "note")], " A? ")).toEqual([q("A?", "note")]);
+    expect(applyFirstQuestion([q("A?", "note")], "Different?")).toEqual([q("Different?")]);
+  });
+});
+
+describe("guidance (#405)", () => {
+  it("normalizes to trimmed text or null, and caps at 1,000 characters", () => {
+    expect(normalizeGuidance("  check the log  ")).toBe("check the log");
+    expect(normalizeGuidance("   ")).toBeNull();
+    expect(normalizeGuidance(undefined)).toBeNull();
+    expect(guidanceProblem("x".repeat(MAX_GUIDANCE_LENGTH))).toBeNull();
+    expect(guidanceProblem("x".repeat(MAX_GUIDANCE_LENGTH + 1))).toMatch(/at most 1000/);
+  });
+
+  it("defaultQuestionsForControl copies the bank's notes; the Self-Assessment fallback has none", () => {
+    expect(defaultQuestionsForControl([{ text: " A? ", guidance: " hint " }, { text: "B?", guidance: null }], "SA?")).toEqual([q("A?", "hint"), q("B?")]);
+    expect(defaultQuestionsForControl([], "SA?")).toEqual([q("SA?")]);
+  });
+
+  it("planLaunch copies each question's note into every Check-up", () => {
+    const plan = planLaunch(inputs({ controls: [control("A.8.1", { questions: [q("Q1?", "note"), q("  ")] })], systems: [system("S1")] }), NOW);
+    expect(plan.checkUps[0].questions).toEqual([q("Q1?", "note")]);
   });
 });

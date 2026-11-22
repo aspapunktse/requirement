@@ -1,4 +1,5 @@
 import type { ControlApplicability } from "@prisma/client";
+import { z } from "zod";
 import { controlAppliesToSystem, type ControlImpactThresholds, type SystemClassification } from "@/lib/control-applicability";
 import { dueDateRefusal, validateInternalAudit } from "@/lib/internal-audit-rules";
 import { hasOrganizationImplementation } from "@/lib/organization-implementation-rules";
@@ -12,32 +13,71 @@ import { hasOrganizationImplementation } from "@/lib/organization-implementation
 
 export const MAX_QUESTIONS_PER_CONTROL = 20;
 export const MAX_QUESTION_LENGTH = 2000;
+/** The longest guidance note (#405) an Audit Question, a draft question or a Check-up question can carry. */
+export const MAX_GUIDANCE_LENGTH = 1000;
+
+/** A question with its optional guidance note (#405). `guidance` is trimmed plain text, or null for none. */
+export type GuidedQuestion = { text: string; guidance: string | null };
+
+/**
+ * The body items of the two question-list writes (the Audit Questions of a Control, the questions of a draft): a bare
+ * text (older clients; no note) or `{ text, guidance? }` (#405).
+ */
+export const questionItemsSchema = z.array(z.union([z.string(), z.object({ text: z.string(), guidance: z.string().nullish() })]));
+
+/** Splits parsed body items into the texts and the guidance notes (null for none), by index. */
+export function splitQuestionItems(items: z.infer<typeof questionItemsSchema>): { texts: string[]; guidance: (string | null)[] } {
+  return {
+    texts: items.map((item) => (typeof item === "string" ? item : item.text)),
+    guidance: items.map((item) => (typeof item === "string" ? null : (item.guidance ?? null))),
+  };
+}
+
+/** A guidance note as stored: trimmed, and null when empty or missing. */
+export function normalizeGuidance(guidance: string | null | undefined): string | null {
+  const text = guidance?.trim();
+  return text ? text : null;
+}
+
+/** Why a guidance note is unacceptable, or null when fine (empty is fine). */
+export function guidanceProblem(guidance: string | null | undefined): string | null {
+  return (guidance?.trim().length ?? 0) > MAX_GUIDANCE_LENGTH ? `Guidance can be at most ${MAX_GUIDANCE_LENGTH} characters` : null;
+}
 
 /** The question list a Control starts with when it becomes a target of a draft: its Self-Assessment Question, if any. */
-export function defaultQuestionsFor(selfAssessmentQuestion: string | null | undefined): string[] {
+export function defaultQuestionsFor(selfAssessmentQuestion: string | null | undefined): GuidedQuestion[] {
   const text = selfAssessmentQuestion?.trim();
-  return text ? [text] : [];
+  // A Self-Assessment Question carries no guidance note (#405): that is the Control's Intent's job.
+  return text ? [{ text, guidance: null }] : [];
 }
 
 /**
  * The question list a Control starts with in a draft (#404): a copy of its Audit Questions, or, when it has
  * none, `defaultQuestionsFor` its Self-Assessment Question. `bank` is in position order.
  */
-export function defaultQuestionsForControl(bank: readonly string[] | undefined, selfAssessmentQuestion: string | null | undefined): string[] {
-  const texts = (bank ?? []).map((text) => text.trim()).filter((text) => text !== "");
-  return texts.length > 0 ? texts : defaultQuestionsFor(selfAssessmentQuestion);
+export function defaultQuestionsForControl(
+  bank: readonly { text: string; guidance?: string | null }[] | undefined,
+  selfAssessmentQuestion: string | null | undefined,
+): GuidedQuestion[] {
+  const items = (bank ?? [])
+    .map((q): GuidedQuestion => ({ text: q.text.trim(), guidance: normalizeGuidance(q.guidance) }))
+    .filter((q) => q.text !== "");
+  return items.length > 0 ? items : defaultQuestionsFor(selfAssessmentQuestion);
 }
 
 /**
  * The question list of a Control in the planner (#393) once the auditor has typed a first question for it:
  * `override` replaces the first question of `existing` (or becomes the only one), a blank one removes the
  * first question, and `undefined` leaves the list as it is. The later questions are never touched here (more
- * of them are added on the draft page).
+ * of them are added on the draft page). The first question keeps its guidance note only when its text is
+ * unchanged; a replaced question starts with none, since the note was written for the old wording (#405).
  */
-export function applyFirstQuestion(existing: string[], override: string | undefined): string[] {
+export function applyFirstQuestion(existing: GuidedQuestion[], override: string | undefined): GuidedQuestion[] {
   if (override === undefined) return existing;
   const text = override.trim();
-  return text === "" ? existing.slice(1) : [text, ...existing.slice(1)];
+  if (text === "") return existing.slice(1);
+  const first = existing[0];
+  return [{ text, guidance: first && first.text === text ? first.guidance : null }, ...existing.slice(1)];
 }
 
 /**
@@ -45,8 +85,10 @@ export function applyFirstQuestion(existing: string[], override: string | undefi
  * when fine). An empty list is allowed on a draft (launch refuses it); a blank entry, an over-long
  * one or too many are not. The route and the editor share this.
  */
-export function validateQuestionList(questions: string[]): string[] {
+export function validateQuestionList(questions: string[], guidance: (string | null | undefined)[] = []): string[] {
   const problems: string[] = [];
+  const guidanceProblems = new Set(guidance.map(guidanceProblem).filter((p) => p !== null));
+  problems.push(...guidanceProblems);
   if (questions.length > MAX_QUESTIONS_PER_CONTROL) {
     problems.push(`A Control can have at most ${MAX_QUESTIONS_PER_CONTROL} questions`);
   }
@@ -64,8 +106,8 @@ export type LaunchControl = ControlImpactThresholds & {
   applicability: ControlApplicability;
   /** The Control Owner, or null if unassigned. */
   ownerId: string | null;
-  /** The draft's questions for this Control, in order. */
-  questions: string[];
+  /** The draft's questions for this Control, in order, with their guidance notes. */
+  questions: GuidedQuestion[];
   deploymentFacets: { id: string }[];
   mappings: { requirement: { framework: { id: string; status: string; isBase: boolean } } }[];
 };
@@ -91,8 +133,8 @@ export type PlannedCheckUp = {
   controlId: string;
   /** The target System, or null for the Organization-level Check-up. */
   systemId: string | null;
-  /** The Check-up's own copy of the Control's questions. */
-  questions: string[];
+  /** The Check-up's own copy of the Control's questions and their guidance notes. */
+  questions: GuidedQuestion[];
 };
 
 export type LaunchPlan = {
@@ -129,7 +171,9 @@ function codesOf(controls: LaunchControl[]): string {
 export function planLaunch(inputs: LaunchInputs, now: Date = new Date()): LaunchPlan {
   const controls = [...inputs.controls].sort((a, b) => codeCollator.compare(a.code, b.code));
   const systems = [...inputs.systems].sort((a, b) => a.name.localeCompare(b.name, "en") || a.id.localeCompare(b.id));
-  const questionsOf = (control: LaunchControl) => control.questions.map((text) => text.trim()).filter((text) => text !== "");
+  const questionsOf = (control: LaunchControl) => control.questions
+      .map((q): GuidedQuestion => ({ text: q.text.trim(), guidance: normalizeGuidance(q.guidance) }))
+      .filter((q) => q.text !== "");
   const blockers: LaunchBlocker[] = [];
 
   const problems = validateInternalAudit({

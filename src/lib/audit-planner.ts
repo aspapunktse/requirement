@@ -121,7 +121,7 @@ export async function loadPlannerData(): Promise<PlannerData> {
     prisma.$transaction(async (tx) => {
       const [controlRows, systemRows, lastAudited, packRows] = await Promise.all([
         tx.control.findMany({
-          select: { id: true, code: true, title: true, applicability: true, category: true, question: true, auditQuestions: { orderBy: { position: "asc" }, select: { text: true } } },
+          select: { id: true, code: true, title: true, applicability: true, category: true, question: true, auditQuestions: { orderBy: { position: "asc" }, select: { text: true, guidance: true } } },
         }),
         tx.system.findMany({
           orderBy: { name: "asc" },
@@ -144,7 +144,7 @@ export async function loadPlannerData(): Promise<PlannerData> {
             ({ auditQuestions, ...control }): PlannerControl => ({
               ...control,
               // What a new draft would start this Control's first question as: its first Audit Question, else its Self-Assessment Question (#404).
-              question: defaultQuestionsForControl(auditQuestions.map((q) => q.text), control.question)[0] ?? null,
+              question: defaultQuestionsForControl(auditQuestions, control.question)[0]?.text ?? null,
               lastAudited: lastAudited.get(control.id)?.toISOString() ?? null,
             }),
           )

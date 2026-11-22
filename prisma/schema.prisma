@@ -1291,6 +1291,8 @@ model InternalAuditQuestion {
   internalAuditControl   InternalAuditControl @relation(fields: [internalAuditControlId], references: [id], onDelete: Cascade)
   position               Int
   text                   String
+  // Optional guidance note (#405), copied from the Audit Question it came from or typed by the Internal Auditor.
+  guidance               String?
   createdAt              DateTime             @default(now())
 
   @@unique([internalAuditControlId, position])
@@ -1305,6 +1307,8 @@ model ControlAuditQuestion {
   control   Control  @relation(fields: [controlId], references: [id], onDelete: Cascade)
   position  Int
   text      String
+  // Optional guidance note (#405): plain text, trimmed, at most 1,000 characters; null means none. Copied with the question into drafts.
+  guidance  String?
   createdAt DateTime @default(now())
 
   @@unique([controlId, position])
@@ -1376,6 +1380,8 @@ model CheckUpQuestion {
   checkUp   CheckUp  @relation(fields: [checkUpId], references: [id], onDelete: Cascade)
   position  Int
   text      String
+  // The draft question's guidance note, copied at launch with the text (#405); shown to the recipient and the Internal Auditor.
+  guidance  String?
   createdAt DateTime @default(now())
 
   answer CheckUpResponseAnswer?

@@ -8,7 +8,9 @@ import {
   defaultQuestionsForControl,
   launchSummaryText,
   planLaunch,
+  normalizeGuidance,
   validateQuestionList,
+  type GuidedQuestion,
   type LaunchControl,
   type LaunchInputs,
   type LaunchPlan,
@@ -33,13 +35,18 @@ const SNAPSHOT = { isolationLevel: "RepeatableRead" } as const;
 const codeCollator = new Intl.Collator("en", { numeric: true });
 
 /**
- * Replaces the draft's questions for one target Control with `questions`, in that order
+ * Replaces the draft's questions for one target Control with `questions` (and their optional `guidance` notes, by index), in that order
  * (add, remove, edit and reorder are all this one write). Throws `InternalAuditError`: 404 if
  * there is no such audit or the Control isn't one of its targets, 409 if the audit isn't a draft
  * any more, 400 if the list is invalid. An empty list is allowed on a draft (launch refuses it).
  */
-export async function setDraftQuestions(internalAuditId: string, controlId: string, questions: string[]) {
-  const problems = validateQuestionList(questions);
+export async function setDraftQuestions(
+  internalAuditId: string,
+  controlId: string,
+  questions: string[],
+  guidance: (string | null | undefined)[] = [],
+) {
+  const problems = validateQuestionList(questions, guidance);
   if (problems.length > 0) throw new InternalAuditError(400, problems.join("; "), problems);
 
   await prisma.$transaction(async (tx) => {
@@ -61,7 +68,12 @@ export async function setDraftQuestions(internalAuditId: string, controlId: stri
 
     await tx.internalAuditQuestion.deleteMany({ where: { internalAuditControlId: row.id } });
     await tx.internalAuditQuestion.createMany({
-      data: questions.map((text, index) => ({ internalAuditControlId: row.id, position: index + 1, text: text.trim() })),
+      data: questions.map((text, index) => ({
+        internalAuditControlId: row.id,
+        position: index + 1,
+        text: text.trim(),
+        guidance: normalizeGuidance(guidance[index]),
+      })),
     });
   });
 }
@@ -80,7 +92,7 @@ async function loadControlsAndSystems(tx: Prisma.TransactionClient, controlIds: 
       code: true,
       title: true,
       question: true,
-      auditQuestions: { orderBy: { position: "asc" }, select: { text: true } },
+      auditQuestions: { orderBy: { position: "asc" }, select: { text: true, guidance: true } },
       applicability: true,
       ownerId: true,
       minSensitivityLevel: true,
@@ -116,7 +128,7 @@ function buildLaunchInputs(
   controls: LoadedControls,
   systems: LoadedSystems,
   audit: LaunchInputs["audit"],
-  questionsFor: (control: { id: string; question: string | null; auditQuestions: { text: string }[] }) => string[],
+  questionsFor: (control: { id: string; question: string | null; auditQuestions: { text: string; guidance: string | null }[] }) => GuidedQuestion[],
 ): LoadedLaunchInputs {
   return {
     audit,
@@ -139,7 +151,7 @@ async function loadLaunchInputsFor(
   controlIds: string[],
   systemIds: string[],
   audit: LaunchInputs["audit"],
-  questionsFor: (control: { id: string; question: string | null; auditQuestions: { text: string }[] }) => string[],
+  questionsFor: (control: { id: string; question: string | null; auditQuestions: { text: string; guidance: string | null }[] }) => GuidedQuestion[],
 ): Promise<LoadedLaunchInputs> {
   const { controls, systems } = await loadControlsAndSystems(tx, controlIds, systemIds);
   return buildLaunchInputs(controls, systems, audit, questionsFor);
@@ -150,11 +162,11 @@ async function loadLaunchInputs(tx: Prisma.TransactionClient, internalAuditId: s
   const [controlRows, systemRows] = await Promise.all([
     tx.internalAuditControl.findMany({
       where: { internalAuditId },
-      select: { controlId: true, questions: { orderBy: { position: "asc" }, select: { text: true } } },
+      select: { controlId: true, questions: { orderBy: { position: "asc" }, select: { text: true, guidance: true } } },
     }),
     tx.internalAuditSystem.findMany({ where: { internalAuditId }, select: { systemId: true } }),
   ]);
-  const questionsByControlId = new Map(controlRows.map((row) => [row.controlId, row.questions.map((q) => q.text)]));
+  const questionsByControlId = new Map(controlRows.map((row) => [row.controlId, row.questions]));
   return loadLaunchInputsFor(
     tx,
     controlRows.map((row) => row.controlId),
@@ -233,7 +245,7 @@ export async function loadLaunchReports(
   const [controlRows, systemRows] = await Promise.all([
     tx.internalAuditControl.findMany({
       where: { internalAuditId: { in: ids } },
-      select: { internalAuditId: true, controlId: true, questions: { orderBy: { position: "asc" }, select: { text: true } } },
+      select: { internalAuditId: true, controlId: true, questions: { orderBy: { position: "asc" }, select: { text: true, guidance: true } } },
     }),
     tx.internalAuditSystem.findMany({ where: { internalAuditId: { in: ids } }, select: { internalAuditId: true, systemId: true } }),
   ]);
@@ -246,7 +258,7 @@ export async function loadLaunchReports(
   const systemById = new Map(systems.map((system) => [system.id, system]));
   for (const draft of drafts) {
     const own = controlRows.filter((row) => row.internalAuditId === draft.id);
-    const questions = new Map(own.map((row) => [row.controlId, row.questions.map((q) => q.text)]));
+    const questions = new Map(own.map((row) => [row.controlId, row.questions]));
     const inputs = buildLaunchInputs(
       own.flatMap((row) => controlById.get(row.controlId) ?? []),
       systemRows.filter((row) => row.internalAuditId === draft.id).flatMap((row) => systemById.get(row.systemId) ?? []),
@@ -301,15 +313,15 @@ export async function previewAuditPlan(selection: PlanPreviewSelection, now = ne
 export async function previewAuditPlanOn(tx: Prisma.TransactionClient, selection: PlanPreviewSelection, now = new Date()): Promise<PlanPreview> {
   const controlIds = [...new Set(selection.controlIds)];
   const systemIds = [...new Set(selection.systemIds)];
-  const saved = new Map<string, string[]>();
+  const saved = new Map<string, GuidedQuestion[]>();
   if (selection.internalAuditId) {
     const draft = await tx.internalAudit.findUnique({ where: { id: selection.internalAuditId }, select: { status: true } });
     if (draft?.status === "DRAFT") {
       const rows = await tx.internalAuditControl.findMany({
         where: { internalAuditId: selection.internalAuditId, controlId: { in: controlIds } },
-        select: { controlId: true, questions: { orderBy: { position: "asc" }, select: { text: true } } },
+        select: { controlId: true, questions: { orderBy: { position: "asc" }, select: { text: true, guidance: true } } },
       });
-      for (const row of rows) saved.set(row.controlId, row.questions.map((q) => q.text));
+      for (const row of rows) saved.set(row.controlId, row.questions);
     }
   }
   const inputs = await loadLaunchInputsFor(
@@ -318,7 +330,7 @@ export async function previewAuditPlanOn(tx: Prisma.TransactionClient, selection
     systemIds,
     { title: selection.title, dueDate: selection.dueDate, includeOrganization: selection.includeOrganization },
     (control) =>
-      applyFirstQuestion(saved.get(control.id) ?? defaultQuestionsForControl(control.auditQuestions.map((q) => q.text), control.question), selection.firstQuestions?.[control.id]),
+      applyFirstQuestion(saved.get(control.id) ?? defaultQuestionsForControl(control.auditQuestions, control.question), selection.firstQuestions?.[control.id]),
   );
   const plan = planLaunch(inputs, now);
 
@@ -412,7 +424,7 @@ export async function launchInternalAudit(internalAuditId: string, launchedById:
     await tx.checkUpQuestion.createMany({
       data: plan.checkUps.flatMap(({ controlId, systemId, questions }) => {
         const checkUpId = idByTarget.get(`${controlId}/${systemId ?? ""}`)!;
-        return questions.map((text, index) => ({ checkUpId, position: index + 1, text }));
+        return questions.map(({ text, guidance }, index) => ({ checkUpId, position: index + 1, text, guidance }));
       }),
     });
     // The draft's question rows are kept as the plan's record; each Check-up carries its own copy.
@@ -427,6 +439,8 @@ export type CheckUpRow = {
   /** Who owns the target *now*: the System's owner, or the Control Owner; null if the Control has none. */
   recipient: { id: string; name: string } | null;
   questions: string[];
+  /** Each question's guidance note (#405), the same length and order as `questions`. */
+  guidance: (string | null)[];
   /** Whether the recipient has answered (#155), and who submitted it and when. */
   answered: boolean;
   response: { respondedAt: string; respondedByName: string } | null;
@@ -454,7 +468,7 @@ export async function listCheckUps(internalAuditId: string, now = new Date()): P
         id: true,
         controlId: true,
         systemId: true,
-        questions: { orderBy: { position: "asc" }, select: { text: true } },
+        questions: { orderBy: { position: "asc" }, select: { text: true, guidance: true } },
         response: { select: { respondedAt: true, respondedBy: { select: { name: true } } } },
         evaluation: { select: { outcome: true, evaluatedAt: true, evaluatedBy: { select: { name: true } } } },
         withdrawal: { select: { reason: true, withdrawnAt: true, withdrawnBy: { select: { name: true } } } },
@@ -493,6 +507,7 @@ export async function listCheckUps(internalAuditId: string, now = new Date()): P
           target: system ? { kind: "system", id: system.id, name: system.name } : { kind: "organization" },
           recipient: recipientId ? (ownerById.get(recipientId) ?? null) : null,
           questions: checkUp.questions.map((q) => q.text),
+          guidance: checkUp.questions.map((q) => q.guidance),
           answered,
           response: checkUp.response && {
             respondedAt: checkUp.response.respondedAt.toISOString(),

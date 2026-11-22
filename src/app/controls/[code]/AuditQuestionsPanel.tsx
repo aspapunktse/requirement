@@ -4,7 +4,10 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { validateAuditQuestions } from "@/lib/control-audit-questions";
 
-type Item = { key: number; text: string };
+type Question = { text: string; guidance: string | null };
+type Item = { key: number; text: string; guidance: string };
+
+const toItem = (q: Question, key: number): Item => ({ key, text: q.text, guidance: q.guidance ?? "" });
 
 /**
  * A Control's Audit Questions (#404): the standing questions an Internal Auditor verifies it with, and the
@@ -20,13 +23,13 @@ export function AuditQuestionsPanel({
 }: {
   controlId: string;
   code: string;
-  initialQuestions: string[];
+  initialQuestions: Question[];
   canCurate: boolean;
 }) {
   const router = useRouter();
   const nextKey = useRef(initialQuestions.length);
-  const [items, setItems] = useState<Item[]>(() => initialQuestions.map((text, key) => ({ key, text })));
-  const [saved, setSaved] = useState<string[]>(initialQuestions);
+  const [items, setItems] = useState<Item[]>(() => initialQuestions.map(toItem));
+  const [saved, setSaved] = useState<Question[]>(initialQuestions);
   const [problems, setProblems] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
@@ -39,8 +42,11 @@ export function AuditQuestionsPanel({
           <p className="cp-muted">No Audit Questions yet.</p>
         ) : (
           <ol aria-label={`Audit Questions for ${code}`} className="cp-aq-read">
-            {initialQuestions.map((text, index) => (
-              <li key={index}>{text}</li>
+            {initialQuestions.map((question, index) => (
+              <li key={index}>
+                {question.text}
+                {question.guidance && <p className="cp-muted cp-small cp-aq-guidance">Guidance: {question.guidance}</p>}
+              </li>
             ))}
           </ol>
         )}
@@ -48,7 +54,7 @@ export function AuditQuestionsPanel({
     );
   }
 
-  const dirty = items.length !== saved.length || items.some((item, index) => item.text !== saved[index]);
+  const dirty = items.length !== saved.length || items.some((item, index) => item.text !== saved[index].text || item.guidance.trim() !== (saved[index].guidance ?? ""));
 
   function change(next: Item[]) {
     setItems(next);
@@ -62,7 +68,10 @@ export function AuditQuestionsPanel({
   }
 
   async function save() {
-    const found = validateAuditQuestions(items.map((item) => item.text));
+    const found = validateAuditQuestions(
+      items.map((item) => item.text),
+      items.map((item) => item.guidance),
+    );
     setProblems(found);
     if (found.length > 0) return;
     setBusy(true);
@@ -70,16 +79,18 @@ export function AuditQuestionsPanel({
       const response = await fetch(`/api/controls/${controlId}/audit-questions`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ questions: items.map((item) => item.text) }),
+        body: JSON.stringify({ questions: items.map((item) => ({ text: item.text, guidance: item.guidance })) }),
       });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) {
         setProblems(body.problems ?? [body.error ?? "Failed to save the Audit Questions"]);
         return;
       }
-      const questions: string[] = body.questions;
+      const texts: string[] = body.questions;
+      const guidance: (string | null)[] = body.guidance ?? [];
+      const questions = texts.map((text, index): Question => ({ text, guidance: guidance[index] ?? null }));
       setSaved(questions);
-      setItems(questions.map((text) => ({ key: nextKey.current++, text })));
+      setItems(questions.map((question) => toItem(question, nextKey.current++)));
       setJustSaved(true);
       router.refresh();
     } catch {
@@ -94,18 +105,28 @@ export function AuditQuestionsPanel({
       <span className="cp-label">Audit Questions</span>
       <p className="cp-muted cp-small">
         What an Internal Auditor asks to verify this Control works. A new Internal Audit draft starts from a copy of these; later changes here don&apos;t change
-        drafts or Check-ups that already exist. Without any, the draft starts from the Self-Assessment Question.
+        drafts or Check-ups that already exist. Without any, the draft starts from the Self-Assessment Question. An optional guidance note beside a question travels with it and
+        is shown to the person answering and to the Internal Auditor.
       </p>
       {items.length === 0 && <p className="cp-muted">No Audit Questions yet.</p>}
       <ul className="cp-aq-list" aria-label={`Audit Questions for ${code}`}>
         {items.map((item, index) => (
           <li key={item.key} className="cp-aq-row">
-            <textarea
-              rows={2}
-              aria-label={`Audit Question ${index + 1} for ${code}`}
-              value={item.text}
-              onChange={(event) => change(items.map((other) => (other.key === item.key ? { ...other, text: event.target.value } : other)))}
-            />
+            <div className="cp-aq-fields">
+              <textarea
+                rows={2}
+                aria-label={`Audit Question ${index + 1} for ${code}`}
+                value={item.text}
+                onChange={(event) => change(items.map((other) => (other.key === item.key ? { ...other, text: event.target.value } : other)))}
+              />
+              <textarea
+                rows={1}
+                placeholder="Guidance (optional)"
+                aria-label={`Guidance for Audit Question ${index + 1} (optional)`}
+                value={item.guidance}
+                onChange={(event) => change(items.map((other) => (other.key === item.key ? { ...other, guidance: event.target.value } : other)))}
+              />
+            </div>
             <div className="cp-aq-actions">
               <button type="button" className="hc-btn" aria-label={`Move Audit Question ${index + 1} up`} disabled={index === 0} onClick={() => move(index, -1)}>
                 Up
@@ -134,7 +155,7 @@ export function AuditQuestionsPanel({
         </ul>
       )}
       <div className="cp-aq-bar">
-        <button type="button" className="hc-btn" onClick={() => change([...items, { key: nextKey.current++, text: "" }])}>
+        <button type="button" className="hc-btn" onClick={() => change([...items, { key: nextKey.current++, text: "", guidance: "" }])}>
           Add Audit Question
         </button>
         <button type="button" className="hc-btn primary" disabled={busy || !dirty} onClick={save}>

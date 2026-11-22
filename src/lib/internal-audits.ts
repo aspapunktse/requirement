@@ -1,6 +1,6 @@
 import type { ControlApplicability, InternalAuditStatus, OnboardingStatus, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { applyFirstQuestion, defaultQuestionsForControl, MAX_QUESTION_LENGTH } from "@/lib/check-up-rules";
+import { applyFirstQuestion, defaultQuestionsForControl, MAX_QUESTION_LENGTH, type GuidedQuestion } from "@/lib/check-up-rules";
 import {
   dueDateRefusal,
   formatCalendarDate,
@@ -45,8 +45,11 @@ export type InternalAuditDetail = {
   /** Set once closed (#158). */
   closedAt: string | null;
   closedBy: { id: string; name: string } | null;
-  /** `questions`: the draft's questions for the Control, in order (empty once launched: each Check-up has its own copy). */
-  controls: { id: string; code: string; title: string; applicability: ControlApplicability; questions: string[] }[];
+  /**
+   * `questions`: the draft's questions for the Control, in order (empty once launched: each Check-up has its own copy);
+   * `guidance` is each one's optional guidance note (#405), the same length and order as `questions`.
+   */
+  controls: { id: string; code: string; title: string; applicability: ControlApplicability; questions: string[]; guidance: (string | null)[] }[];
   systems: { id: string; name: string; status: OnboardingStatus }[];
 };
 
@@ -120,7 +123,7 @@ export async function readInternalAudit(tx: Prisma.TransactionClient, id: string
   const [controlRows, systemRows] = await Promise.all([
     tx.internalAuditControl.findMany({
       where: { internalAuditId: id },
-      select: { controlId: true, questions: { orderBy: { position: "asc" }, select: { text: true } } },
+      select: { controlId: true, questions: { orderBy: { position: "asc" }, select: { text: true, guidance: true } } },
     }),
     tx.internalAuditSystem.findMany({ where: { internalAuditId: id }, select: { systemId: true } }),
   ]);
@@ -135,7 +138,7 @@ export async function readInternalAudit(tx: Prisma.TransactionClient, id: string
       select: { id: true, name: true, status: true },
     }),
   ]);
-  const questionsByControlId = new Map(controlRows.map((row) => [row.controlId, row.questions.map((q) => q.text)]));
+  const questionsByControlId = new Map(controlRows.map((row) => [row.controlId, row.questions]));
   return {
     id: audit.id,
     title: audit.title,
@@ -150,7 +153,10 @@ export async function readInternalAudit(tx: Prisma.TransactionClient, id: string
     launchedBy: audit.launchedBy,
     closedAt: audit.closedAt?.toISOString() ?? null,
     closedBy: audit.closedBy,
-    controls: controls.sort(byCode).map((control) => ({ ...control, questions: questionsByControlId.get(control.id) ?? [] })),
+    controls: controls.sort(byCode).map((control) => {
+      const questions = questionsByControlId.get(control.id) ?? [];
+      return { ...control, questions: questions.map((q) => q.text), guidance: questions.map((q) => q.guidance) };
+    }),
     systems,
   };
 }
@@ -268,19 +274,20 @@ async function seedDefaultQuestions(
     tx.internalAuditControl.findMany({ where: { internalAuditId, controlId: { in: controlIds } }, select: { id: true, controlId: true } }),
     tx.control.findMany({
       where: { id: { in: controlIds } },
-      select: { id: true, question: true, auditQuestions: { orderBy: { position: "asc" }, select: { text: true } } },
+      select: { id: true, question: true, auditQuestions: { orderBy: { position: "asc" }, select: { text: true, guidance: true } } },
     }),
   ]);
   const controlById = new Map(controls.map((control) => [control.id, control]));
   await tx.internalAuditQuestion.createMany({
     data: rows.flatMap((row) =>
       applyFirstQuestion(
-        defaultQuestionsForControl(controlById.get(row.controlId)?.auditQuestions.map((q) => q.text), controlById.get(row.controlId)?.question),
+        defaultQuestionsForControl(controlById.get(row.controlId)?.auditQuestions, controlById.get(row.controlId)?.question),
         firstQuestions[row.controlId],
-      ).map((text, index) => ({
+      ).map(({ text, guidance }, index) => ({
         internalAuditControlId: row.id,
         position: index + 1,
         text,
+        guidance,
       })),
     ),
   });
@@ -300,15 +307,15 @@ async function replaceFirstQuestions(
   if (wanted.length === 0) return;
   const rows = await tx.internalAuditControl.findMany({
     where: { internalAuditId, controlId: { in: wanted } },
-    select: { id: true, controlId: true, questions: { orderBy: { position: "asc" }, select: { text: true } } },
+    select: { id: true, controlId: true, questions: { orderBy: { position: "asc" }, select: { text: true, guidance: true } } },
   });
   for (const row of rows) {
-    const existing = row.questions.map((q) => q.text);
+    const existing: GuidedQuestion[] = row.questions;
     const next = applyFirstQuestion(existing, firstQuestions[row.controlId]);
-    if (next.length === existing.length && next.every((text, index) => text === existing[index])) continue;
+    if (next.length === existing.length && next.every((q, index) => q.text === existing[index].text && q.guidance === existing[index].guidance)) continue;
     await tx.internalAuditQuestion.deleteMany({ where: { internalAuditControlId: row.id } });
     await tx.internalAuditQuestion.createMany({
-      data: next.map((text, index) => ({ internalAuditControlId: row.id, position: index + 1, text })),
+      data: next.map(({ text, guidance }, index) => ({ internalAuditControlId: row.id, position: index + 1, text, guidance })),
     });
   }
 }

@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { createFixtureFramework, mapControlsToFramework } from "@/test/framework-fixtures";
 import { requestAs } from "@/test/provider-fixtures";
 import { PUT } from "../audit-questions/route";
+import { PUT as putDraftQuestions } from "../../../internal-audits/[id]/controls/[controlId]/questions/route";
+import { getCheckUpDetail } from "@/lib/check-up-responses";
 import { POST as createAudit } from "../../../internal-audits/route";
 import { POST as launch } from "../../../internal-audits/[id]/launch/route";
 import { POST as preview } from "../../../internal-audits/preview/route";
@@ -147,7 +149,10 @@ describe("Audit Questions (#404)", { timeout: 60_000 }, () => {
     await put("ADMIN", withBank.id, { questions: ["One?", "Two?"] });
     for (const role of ROLES) {
       const view = await loadControlPageView({ id: users[role], name: role, role }, withBank.code);
-      expect(view?.auditQuestions, role).toEqual(["One?", "Two?"]);
+      expect(view?.auditQuestions, role).toEqual([
+        { text: "One?", guidance: null },
+        { text: "Two?", guidance: null },
+      ]);
       expect(view?.canCurateAuditQuestions, role).toBe(CURATING.includes(role));
     }
   });
@@ -202,6 +207,100 @@ describe("Audit Questions (#404)", { timeout: 60_000 }, () => {
       await put("ADMIN", gone.id, { questions: ["Bye?"] });
       await prisma.control.delete({ where: { id: gone.id } });
       expect(await prisma.controlAuditQuestion.count({ where: { controlId: gone.id } })).toBe(0);
+    });
+  });
+
+  describe("guidance notes (#405)", () => {
+    const guidanceOf = async (controlId: string) => (await prisma.controlAuditQuestion.findMany({ where: { controlId }, orderBy: { position: "asc" } })).map((q) => q.guidance);
+    const draftNotes = async (auditId: string, controlId: string) =>
+      (
+        await prisma.internalAuditControl.findUniqueOrThrow({
+          where: { internalAuditId_controlId: { internalAuditId: auditId, controlId } },
+          include: { questions: { orderBy: { position: "asc" } } },
+        })
+      ).questions.map((q) => [q.text, q.guidance]);
+    const putDraft = (auditId: string, controlId: string, body: unknown) =>
+      putDraftQuestions(asAuditor("PUT", `/api/internal-audits/${auditId}/controls/${controlId}/questions`, body), {
+        params: Promise.resolve({ id: auditId, controlId }),
+      } as never);
+
+    it("saves a note trimmed, stores an empty or missing one as none, and keeps bare texts working", async () => {
+      const saved = await put("ADMIN", withBank.id, {
+        questions: [{ text: "A?", guidance: "  Ask for the export  " }, { text: "B?", guidance: "   " }, { text: "C?" }, "D?", { text: "E?", guidance: null }],
+      });
+      expect(saved.status).toBe(200);
+      const body = await saved.json();
+      expect(body.questions).toEqual(["A?", "B?", "C?", "D?", "E?"]);
+      expect(body.guidance).toEqual(["Ask for the export", null, null, null, null]);
+      expect(await guidanceOf(withBank.id)).toEqual(["Ask for the export", null, null, null, null]);
+    });
+
+    it("accepts exactly 1,000 characters and refuses more (400), changing nothing", async () => {
+      expect((await put("ADMIN", withBank.id, { questions: [{ text: "Keep?", guidance: "keep" }] })).status).toBe(200);
+      expect((await put("ADMIN", withBank.id, { questions: [{ text: "Edge?", guidance: "x".repeat(1000) }] })).status).toBe(200);
+      for (const guidance of ["x".repeat(1001), `  ${"x".repeat(1001)}`]) {
+        const refused = await put("ADMIN", withBank.id, { questions: [{ text: "Long?", guidance }] });
+        expect(refused.status).toBe(400);
+        expect((await refused.json()).error).toMatch(/at most 1000/);
+      }
+      expect((await put("ADMIN", withBank.id, { questions: [{ text: "Bad?", guidance: 5 }] })).status).toBe(400);
+      expect(await bankOf(withBank.id)).toEqual(["Edge?"]);
+      expect(await guidanceOf(withBank.id)).toEqual(["x".repeat(1000)]);
+    });
+
+    it("duplicate checks stay on the text: the same text twice is refused whatever the notes say", async () => {
+      const refused = await put("ADMIN", withBank.id, { questions: [{ text: "Same?", guidance: "a" }, { text: "Same?", guidance: "b" }] });
+      expect(refused.status).toBe(400);
+    });
+
+    it("a refused role leaves the notes alone", async () => {
+      await put("ADMIN", withBank.id, { questions: [{ text: "Q?", guidance: "mine" }] });
+      expect((await put("VIEWER", withBank.id, { questions: [{ text: "Q?", guidance: "theirs" }] })).status).toBe(403);
+      expect(await guidanceOf(withBank.id)).toEqual(["mine"]);
+    });
+
+    it("copies the bank's notes into a draft; the Self-Assessment fallback starts with none; a changed first question drops its note", async () => {
+      await put("ADMIN", withBank.id, { questions: [{ text: "N1?", guidance: "Note 1" }, { text: "N2?", guidance: "Note 2" }, "N3?"] });
+      await prisma.controlAuditQuestion.deleteMany({ where: { controlId: withoutBank.id } });
+      const draft = await createDraft([withBank.id, withoutBank.id]);
+      expect(await draftNotes(draft.id, withBank.id)).toEqual([["N1?", "Note 1"], ["N2?", "Note 2"], ["N3?", null]]);
+      expect(await draftNotes(draft.id, withoutBank.id)).toEqual([["Is the other in place?", null]]);
+
+      const edited = await createDraft([withBank.id], { firstQuestions: { [withBank.id]: "Reworded?" } });
+      expect(await draftNotes(edited.id, withBank.id)).toEqual([["Reworded?", null], ["N2?", "Note 2"], ["N3?", null]]);
+      const same = await createDraft([withBank.id], { firstQuestions: { [withBank.id]: " N1? " } });
+      expect(await draftNotes(same.id, withBank.id)).toEqual([["N1?", "Note 1"], ["N2?", "Note 2"], ["N3?", null]]);
+    });
+
+    it("edits a draft's notes through the draft route, with the same trimming and cap", async () => {
+      await put("ADMIN", withBank.id, { questions: ["P?"] });
+      const draft = await createDraft([withBank.id]);
+      const ok = await putDraft(draft.id, withBank.id, { questions: [{ text: "P?", guidance: "  draft note " }, "Q?"] });
+      expect(ok.status).toBe(200);
+      expect(await ok.json()).toEqual({ questions: ["P?", "Q?"], guidance: ["draft note", null] });
+      const refused = await putDraft(draft.id, withBank.id, { questions: [{ text: "P?", guidance: "x".repeat(1001) }] });
+      expect(refused.status).toBe(400);
+      expect(await draftNotes(draft.id, withBank.id)).toEqual([["P?", "draft note"], ["Q?", null]]);
+      // Older clients sending bare texts still work (and clear the notes).
+      expect((await putDraft(draft.id, withBank.id, { questions: ["P?"] })).status).toBe(200);
+      expect(await draftNotes(draft.id, withBank.id)).toEqual([["P?", null]]);
+    });
+
+    it("launch copies the draft's notes into every Check-up; editing the bank or the draft afterwards leaves them unchanged", async () => {
+      await put("ADMIN", withBank.id, { questions: [{ text: "L1?", guidance: "Launch note" }, "L2?"] });
+      const draft = await createDraft([withBank.id], { includeOrganization: false });
+      await putDraft(draft.id, withBank.id, { questions: [{ text: "L1?", guidance: "Draft-edited note" }, "L2?"] });
+      const planned = await preview(asAuditor("POST", "/api/internal-audits/preview", selection([withBank.id], { includeOrganization: false, internalAuditId: draft.id })));
+      expect(planned.status).toBe(200);
+      expect((await launch(asAuditor("POST", `/api/internal-audits/${draft.id}/launch`), idCtx(draft.id))).status).toBe(200);
+
+      await put("ADMIN", withBank.id, { questions: [{ text: "L1?", guidance: "Changed in the bank" }] });
+      await prisma.internalAuditQuestion.updateMany({ where: { internalAuditControl: { internalAuditId: draft.id } }, data: { guidance: "Changed in the draft" } });
+      const checkUps = await prisma.checkUp.findMany({ where: { internalAuditId: draft.id }, include: { questions: { orderBy: { position: "asc" } } } });
+      expect(checkUps).toHaveLength(1);
+      expect(checkUps[0].questions.map((q) => [q.text, q.guidance])).toEqual([["L1?", "Draft-edited note"], ["L2?", null]]);
+      const detail = await getCheckUpDetail(checkUps[0].id);
+      expect(detail?.questions.map((q) => q.guidance)).toEqual(["Draft-edited note", null]);
     });
   });
 });

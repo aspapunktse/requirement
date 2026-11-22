@@ -72,7 +72,7 @@ export type CheckUpDetail = {
   target: { kind: "system"; id: string; name: string } | { kind: "organization" };
   /** Whoever owns the target now, or null (an Organization-level Check-up whose Control has no Control Owner). */
   recipient: { id: string; name: string } | null;
-  questions: { id: string; position: number; text: string; answer: { answer: CheckUpAnswer; description: string } | null }[];
+  questions: { id: string; position: number; text: string; guidance: string | null; answer: { answer: CheckUpAnswer; description: string } | null }[];
   response: {
     respondedBy: { id: string; name: string };
     respondedAt: string;
@@ -109,7 +109,7 @@ export async function getCheckUpDetail(id: string, now = new Date()): Promise<Ch
         internalAudit: { select: { id: true, title: true, status: true, dueDate: true } },
         control: { select: { id: true, code: true, title: true, ownerId: true } },
         system: { select: { id: true, name: true, ownerId: true } },
-        questions: { orderBy: { position: "asc" }, select: { id: true, position: true, text: true, answer: { select: { answer: true, description: true } } } },
+        questions: { orderBy: { position: "asc" }, select: { id: true, position: true, text: true, guidance: true, answer: { select: { answer: true, description: true } } } },
         response: {
           select: {
             respondedAt: true,

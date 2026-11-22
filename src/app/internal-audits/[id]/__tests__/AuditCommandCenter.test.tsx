@@ -19,7 +19,7 @@ function checkUp(id: string, state: CheckUpStateKey, code: string, system: strin
     target: system ? { kind: "system", id: `s-${system}`, name: system } : { kind: "organization" },
     recipient: { id: "u1", name: "Ana Owner" },
     state,
-    questions: [{ id: `q-${id}`, position: 1, text: `Is ${code} in place?`, answer: answered ? { answer: "YES", description: "" } : null }],
+    questions: [{ id: `q-${id}`, position: 1, text: `Is ${code} in place?`, guidance: code === "A.2" ? "Look for the signed form" : null, answer: answered ? { answer: "YES", description: "" } : null }],
     response: answered ? { respondedAt: "2026-11-02T10:00:00.000Z", respondedByName: "Ana Owner", evidenceLinks: [] } : null,
     evaluation: null,
     withdrawal: null,
@@ -143,6 +143,15 @@ describe("AuditCommandCenter (#399)", () => {
     await user.click(row("A.3"));
     expect(panel.textContent).toContain("All fine");
     expect(within(panel).getAllByRole("link").some((a) => a.getAttribute("href") === "/check-ups/c3")).toBe(true);
+  });
+
+  it("shows the Internal Auditor a question's guidance note beside it (#405)", async () => {
+    const user = userEvent.setup({ delay: null });
+    render(<AuditCommandCenter page={pageOf(rows)} rights={all} />);
+    const panel = screen.getByRole("complementary", { name: "Check-up" });
+    expect(panel.textContent).not.toContain("Guidance:");
+    await user.click(row("A.2"));
+    expect(within(panel).getByText("Guidance: Look for the signed form")).toBeTruthy();
   });
 
   it("evaluates an awaiting Check-up through the existing route, then refreshes", async () => {
