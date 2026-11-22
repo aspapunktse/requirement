@@ -24,6 +24,7 @@ import {
   visibilityNote,
   type TabKey,
 } from "./control-page-logic";
+import { AuditQuestionsPanel } from "./AuditQuestionsPanel";
 import type { ControlPageView, PageOrganization, PageSystem, PageSystems } from "./control-page-types";
 
 /** A status as a coloured dot and its word: state is always a word first. */
@@ -387,6 +388,13 @@ export function ControlPage({ view, initialTab }: { view: ControlPageView; initi
               <>
                 <h2>The Control</h2>
                 <ControlBody row={row} />
+                <AuditQuestionsPanel
+                  key={view.auditQuestions.join("\n")}
+                  controlId={row.id}
+                  code={row.code}
+                  initialQuestions={view.auditQuestions}
+                  canCurate={view.canCurateAuditQuestions}
+                />
               </>
             )}
             {tab === "satisfies" && (

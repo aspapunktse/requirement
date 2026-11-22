@@ -5,7 +5,7 @@ import { formatCalendarDate, internalAuditEditRefusal } from "@/lib/internal-aud
 import { checkUpRecipientId, isCheckUpOverdue } from "@/lib/check-up-response-rules";
 import {
   applyFirstQuestion,
-  defaultQuestionsFor,
+  defaultQuestionsForControl,
   launchSummaryText,
   planLaunch,
   validateQuestionList,
@@ -80,6 +80,7 @@ async function loadControlsAndSystems(tx: Prisma.TransactionClient, controlIds: 
       code: true,
       title: true,
       question: true,
+      auditQuestions: { orderBy: { position: "asc" }, select: { text: true } },
       applicability: true,
       ownerId: true,
       minSensitivityLevel: true,
@@ -115,11 +116,14 @@ function buildLaunchInputs(
   controls: LoadedControls,
   systems: LoadedSystems,
   audit: LaunchInputs["audit"],
-  questionsFor: (control: { id: string; question: string | null }) => string[],
+  questionsFor: (control: { id: string; question: string | null; auditQuestions: { text: string }[] }) => string[],
 ): LoadedLaunchInputs {
   return {
     audit,
-    controls: controls.map(({ question, ...control }): LaunchControl => ({ ...control, questions: questionsFor({ id: control.id, question }) })),
+    controls: controls.map(({ question, auditQuestions, ...control }): LaunchControl => ({
+      ...control,
+      questions: questionsFor({ id: control.id, question, auditQuestions }),
+    })),
     systems,
   };
 }
@@ -135,7 +139,7 @@ async function loadLaunchInputsFor(
   controlIds: string[],
   systemIds: string[],
   audit: LaunchInputs["audit"],
-  questionsFor: (control: { id: string; question: string | null }) => string[],
+  questionsFor: (control: { id: string; question: string | null; auditQuestions: { text: string }[] }) => string[],
 ): Promise<LoadedLaunchInputs> {
   const { controls, systems } = await loadControlsAndSystems(tx, controlIds, systemIds);
   return buildLaunchInputs(controls, systems, audit, questionsFor);
@@ -314,7 +318,7 @@ export async function previewAuditPlanOn(tx: Prisma.TransactionClient, selection
     systemIds,
     { title: selection.title, dueDate: selection.dueDate, includeOrganization: selection.includeOrganization },
     (control) =>
-      applyFirstQuestion(saved.get(control.id) ?? defaultQuestionsFor(control.question), selection.firstQuestions?.[control.id]),
+      applyFirstQuestion(saved.get(control.id) ?? defaultQuestionsForControl(control.auditQuestions.map((q) => q.text), control.question), selection.firstQuestions?.[control.id]),
   );
   const plan = planLaunch(inputs, now);
 

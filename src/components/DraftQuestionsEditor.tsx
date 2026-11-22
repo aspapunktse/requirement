@@ -10,18 +10,21 @@ const INPUT_CLASSES = "w-full rounded border border-rg-control p-2 text-sm";
 /**
  * The questions of one target Control of a draft Internal Audit (PRD 0001 F-IA.2, #154): edit,
  * add, remove and reorder, saved as one ordered list. The list starts as a copy of the Control's
- * Self-Assessment Question (taken when the Control was added to the draft); a Control without one
- * needs a question written before launch. The server enforces the same rules (`validateQuestionList`)
+ * Audit Questions or, without any, its Self-Assessment Question (taken when the Control was added to
+ * the draft); "From the bank" adds the Audit Questions the list is missing. A Control without a question needs a question written before launch. The server enforces the same rules (`validateQuestionList`)
  * and refuses the write once the audit is launched.
  */
 export function DraftQuestionsEditor({
   internalAuditId,
   control,
   initialQuestions,
+  bank = [],
 }: {
   internalAuditId: string;
   control: { id: string; code: string };
   initialQuestions: string[];
+  /** The Control's Audit Questions (#404), in order: "From the bank" offers the ones the list doesn't have yet. */
+  bank?: string[];
 }) {
   const router = useRouter();
   const [questions, setQuestions] = useState<string[]>(initialQuestions);
@@ -38,6 +41,18 @@ export function DraftQuestionsEditor({
     const next = [...questions];
     [next[index], next[index + by]] = [next[index + by], next[index]];
     change(next);
+  }
+
+  // The bank's questions the list doesn't have yet, compared trimmed.
+  const present = new Set(questions.map((text) => text.trim()));
+  const missing = bank.filter((text) => !present.has(text.trim()));
+  const [picking, setPicking] = useState(false);
+  const [chosen, setChosen] = useState<Set<string>>(new Set());
+
+  function insertChosen() {
+    change([...questions, ...missing.filter((text) => chosen.has(text))]);
+    setChosen(new Set());
+    setPicking(false);
   }
 
   async function save() {
@@ -100,8 +115,40 @@ export function DraftQuestionsEditor({
           ))}
         </ul>
       )}
+      {picking && missing.length > 0 && (
+        <fieldset className="flex flex-col gap-1 rounded border border-rg-control p-2">
+          <legend className="text-sm text-rg-muted">Audit Questions of {control.code} not in this draft</legend>
+          {missing.map((text) => (
+            <label key={text} className="flex items-start gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={chosen.has(text)}
+                onChange={(event) =>
+                  setChosen((current) => {
+                    const next = new Set(current);
+                    if (event.target.checked) next.add(text);
+                    else next.delete(text);
+                    return next;
+                  })
+                }
+              />
+              <span>{text}</span>
+            </label>
+          ))}
+          <div>
+            <Button disabled={chosen.size === 0} onClick={insertChosen} aria-label={`Insert chosen questions for ${control.code}`}>
+              Insert chosen
+            </Button>
+          </div>
+        </fieldset>
+      )}
       <div className="flex items-center gap-2">
         <Button onClick={() => change([...questions, ""])}>Add question</Button>
+        {bank.length > 0 && (
+          <Button disabled={missing.length === 0} onClick={() => setPicking((open) => !open)} aria-expanded={picking} aria-label={`From the bank for ${control.code}`}>
+            From the bank
+          </Button>
+        )}
         <Button variant="secondary" disabled={busy} onClick={save} aria-label={`Save questions for ${control.code}`}>
           Save questions
         </Button>

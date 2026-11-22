@@ -49,6 +49,8 @@ export type InternalAuditPage = {
   counts: CheckUpStateCounts;
   /** Closed audits: the evaluations by outcome and the Risks opened. Null otherwise. */
   findings: CheckUpFindings | null;
+  /** Drafts: each target Control's Audit Questions (#404) by Control id, for the draft editor's "From the bank" picker. Empty otherwise. */
+  auditQuestions: Record<string, string[]>;
   /** Drafts: what launching would send and be blocked by, and who would receive it. Null otherwise. */
   plan: PlanPreview | null;
 };
@@ -76,7 +78,14 @@ export async function loadInternalAuditPage(id: string, now: Date = new Date()):
           },
           now,
         );
-        return { audit, daysUntilDue, checkUps: [], counts: emptyCheckUpStateCounts(), findings: null, plan };
+        const bank = await tx.controlAuditQuestion.findMany({
+          where: { controlId: { in: audit.controls.map((control) => control.id) } },
+          orderBy: { position: "asc" },
+          select: { controlId: true, text: true },
+        });
+        const auditQuestions: Record<string, string[]> = {};
+        for (const row of bank) (auditQuestions[row.controlId] ??= []).push(row.text);
+        return { audit, daysUntilDue, checkUps: [], counts: emptyCheckUpStateCounts(), findings: null, plan, auditQuestions };
       }
 
       const rows = await tx.checkUp.findMany({
@@ -163,7 +172,7 @@ export async function loadInternalAuditPage(id: string, now: Date = new Date()):
           return a.target.kind === "system" && b.target.kind === "system" ? nameCollator.compare(a.target.name, b.target.name) : 0;
         });
 
-      return { audit, daysUntilDue, checkUps, counts, findings: audit.status === "CLOSED" ? findings : null, plan: null };
+      return { audit, daysUntilDue, checkUps, counts, findings: audit.status === "CLOSED" ? findings : null, plan: null, auditQuestions: {} };
     },
     { isolationLevel: "RepeatableRead" },
   );

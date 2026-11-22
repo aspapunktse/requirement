@@ -67,6 +67,7 @@ function pageOf(checkUps: AuditCheckUp[], status: "LAUNCHED" | "CLOSED" = "LAUNC
     counts,
     findings: status === "CLOSED" ? { CONFORMING: 3, OBSERVATION: 2, NONCONFORMITY: 1, risksOpened: 1 } : null,
     plan: null,
+    auditQuestions: {},
   };
 }
 

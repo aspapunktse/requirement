@@ -1,6 +1,6 @@
 import type { ControlApplicability, InternalAuditStatus, OnboardingStatus, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { applyFirstQuestion, defaultQuestionsFor, MAX_QUESTION_LENGTH } from "@/lib/check-up-rules";
+import { applyFirstQuestion, defaultQuestionsForControl, MAX_QUESTION_LENGTH } from "@/lib/check-up-rules";
 import {
   dueDateRefusal,
   formatCalendarDate,
@@ -253,9 +253,9 @@ const unique = (ids: string[]) => [...new Set(ids)];
 
 /**
  * Gives each of `controlIds`, newly a target of draft `internalAuditId`, its starting question
- * list: the Control's Self-Assessment Question as it is now (#154). It is a copy, taken once: the
- * draft's question does not follow later edits to the Control. A Control without a question
- * starts with none, and must be given one before launch.
+ * list: a copy of the Control's Audit Questions as they are now (#404) or, when it has none, its
+ * Self-Assessment Question (#154). It is a copy, taken once: the draft's questions do not follow later
+ * edits to the Control. A Control with neither starts with none, and must be given one before launch.
  */
 async function seedDefaultQuestions(
   tx: Prisma.TransactionClient,
@@ -266,12 +266,18 @@ async function seedDefaultQuestions(
   if (controlIds.length === 0) return;
   const [rows, controls] = await Promise.all([
     tx.internalAuditControl.findMany({ where: { internalAuditId, controlId: { in: controlIds } }, select: { id: true, controlId: true } }),
-    tx.control.findMany({ where: { id: { in: controlIds } }, select: { id: true, question: true } }),
+    tx.control.findMany({
+      where: { id: { in: controlIds } },
+      select: { id: true, question: true, auditQuestions: { orderBy: { position: "asc" }, select: { text: true } } },
+    }),
   ]);
-  const questionByControlId = new Map(controls.map((control) => [control.id, control.question]));
+  const controlById = new Map(controls.map((control) => [control.id, control]));
   await tx.internalAuditQuestion.createMany({
     data: rows.flatMap((row) =>
-      applyFirstQuestion(defaultQuestionsFor(questionByControlId.get(row.controlId)), firstQuestions[row.controlId]).map((text, index) => ({
+      applyFirstQuestion(
+        defaultQuestionsForControl(controlById.get(row.controlId)?.auditQuestions.map((q) => q.text), controlById.get(row.controlId)?.question),
+        firstQuestions[row.controlId],
+      ).map((text, index) => ({
         internalAuditControlId: row.id,
         position: index + 1,
         text,

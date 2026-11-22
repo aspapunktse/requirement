@@ -28,6 +28,7 @@ function draft(blockers: { kind: string; message: string; controlIds: string[] }
     checkUps: [],
     counts: { evaluated: 0, withdrawn: 0, awaiting: 0, overdue: 0, notAnswered: 0, total: 0, open: 0 },
     findings: null,
+    auditQuestions: { c1: ["Is access reviewed?", "Is MFA enforced?"] },
     plan: {
       summary: "2 Check-ups (1 System-level, 1 Organization-level)",
       systemCheckUpCount: 1,

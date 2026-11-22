@@ -115,3 +115,14 @@ textarea.cp-input { min-height: 90px; resize: vertical; }
 .cp-check input { accent-color: var(--rg-accent); width: 16px; height: 16px; }
 .cp-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .cp-error { color: var(--rg-danger); font-size: 0.88rem; }
+
+/* Audit Questions (#404): the Control's standing questions for Internal Audits, on The Control tab. */
+.cp-aq { max-width: 70ch; display: grid; gap: 8px; }
+.cp-aq-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+.cp-aq-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: start; }
+.cp-aq-row textarea { width: 100%; font: inherit; color: var(--rg-ink); background: var(--rg-surface); border: 1px solid var(--rg-line); border-radius: 10px; padding: 8px 10px; resize: vertical; }
+.cp-aq-row textarea:focus-visible { outline: 2px solid var(--rg-accent); outline-offset: -1px; }
+.cp-aq-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.cp-aq-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.cp-aq-problems { margin: 0; padding-left: 20px; color: var(--rg-danger); font-size: 0.86rem; }
+.cp-aq-read { margin: 0; padding-left: 20px; display: grid; gap: 4px; }

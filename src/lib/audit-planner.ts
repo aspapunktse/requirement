@@ -1,6 +1,7 @@
 import type { ControlApplicability, InternalAuditStatus, OnboardingStatus, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { InternalAuditDetail } from "@/lib/internal-audits";
+import { defaultQuestionsForControl } from "@/lib/check-up-rules";
 import type { ControlPackRow } from "@/lib/control-pack";
 import { listControlPacks } from "@/lib/control-pack-data";
 
@@ -120,7 +121,7 @@ export async function loadPlannerData(): Promise<PlannerData> {
     prisma.$transaction(async (tx) => {
       const [controlRows, systemRows, lastAudited, packRows] = await Promise.all([
         tx.control.findMany({
-          select: { id: true, code: true, title: true, applicability: true, category: true, question: true },
+          select: { id: true, code: true, title: true, applicability: true, category: true, question: true, auditQuestions: { orderBy: { position: "asc" }, select: { text: true } } },
         }),
         tx.system.findMany({
           orderBy: { name: "asc" },
@@ -139,7 +140,14 @@ export async function loadPlannerData(): Promise<PlannerData> {
       return {
         packs: packRows,
         controls: controlRows
-          .map((control): PlannerControl => ({ ...control, lastAudited: lastAudited.get(control.id)?.toISOString() ?? null }))
+          .map(
+            ({ auditQuestions, ...control }): PlannerControl => ({
+              ...control,
+              // What a new draft would start this Control's first question as: its first Audit Question, else its Self-Assessment Question (#404).
+              question: defaultQuestionsForControl(auditQuestions.map((q) => q.text), control.question)[0] ?? null,
+              lastAudited: lastAudited.get(control.id)?.toISOString() ?? null,
+            }),
+          )
           .sort((a, b) => codeCollator.compare(a.code, b.code)),
         systems: systemRows.map(
           (system): PlannerSystem => ({
