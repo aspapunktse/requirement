@@ -1,0 +1,562 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Compliance Boundaries</title>
+<link rel="stylesheet" href="../systems/systems.css">
+<link rel="stylesheet" href="../shared/appbar.css">
+<link rel="stylesheet" href="../shared/kit.css">
+<link rel="stylesheet" href="../shared/themes.css">
+<script src="../shared/themes.js"></script>
+<style>
+/* Compliance Boundaries, proposal A (#417). One prototype with four linked views, kept in the URL (?view=):
+   list (the Boundaries), boundary (one Boundary's page), statement (its Statement of Applicability) and
+   system (the fragment on a System's page). Built on the Home look in kit.css; only what the kit lacks is here. */
+[hidden] { display: none !important; }
+.pv { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; font-size: .8rem; color: var(--muted); }
+.pv .seg { display: inline-flex; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 2px; }
+.pv .seg a { padding: 4px 11px; border-radius: 8px; color: var(--muted); text-decoration: none; font-weight: 650; white-space: nowrap; }
+.pv .seg a[aria-current="true"] { background: var(--accent-soft); color: var(--accent); }
+.crumbs { font-size: .82rem; color: var(--muted); display: flex; gap: 6px; flex-wrap: wrap; }
+.crumbs a { color: var(--accent); text-decoration: none; font-weight: 600; }
+.crumbs a:hover { text-decoration: underline; }
+.hero .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.facts { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 12px; font-size: .84rem; color: var(--muted); }
+.facts b { color: var(--ink); font-weight: 650; }
+.person { display: inline-flex; align-items: center; gap: 7px; }
+.fwchip { display: inline-flex; align-items: center; gap: 5px; padding: 1px 9px; border-radius: 99px; font-size: .76rem; font-weight: 650; background: var(--accent-soft); color: var(--accent); white-space: nowrap; }
+.fwchip.base { background: var(--raised); color: var(--muted); border: 1px solid var(--line-soft); }
+.fwchip.dim { background: var(--raised); color: var(--muted); }
+.neutral { background: var(--raised); color: var(--muted); border: 1px solid var(--line-soft); border-radius: 99px; padding: 1px 9px; font-size: .76rem; font-weight: 650; white-space: nowrap; display: inline-flex; gap: 5px; align-items: center; }
+.tools { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 14px 18px 0; }
+.tools .search { flex: 1 1 240px; }
+.tools label.chk { display: inline-flex; gap: 7px; align-items: center; font-size: .86rem; color: var(--muted); font-weight: 600; cursor: pointer; }
+.tools label.chk input { accent-color: var(--accent); width: 16px; height: 16px; }
+
+/* The Boundaries list: one card of rows */
+.brow { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, .9fr) minmax(0, 1.4fr) minmax(0, .9fr) 92px 92px; gap: 0 16px; align-items: center; padding: 12px 18px; border-top: 1px solid var(--line-soft); text-decoration: none; color: inherit; }
+.brow.head { border-top: 0; padding-block: 10px; font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); background: var(--raised); }
+a.brow:hover { background: var(--raised); }
+.brow .nm b { display: block; font-weight: 680; }
+.brow .nm small { display: block; color: var(--muted); font-size: .78rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.brow .fws { display: flex; flex-wrap: wrap; gap: 4px; }
+.brow .n { font-variant-numeric: tabular-nums; font-weight: 700; font-size: 1rem; }
+.brow .n small { display: block; font-weight: 500; color: var(--faint); font-size: .7rem; }
+.brow.retired { opacity: .72; }
+@media (max-width: 900px) {
+  .brow { grid-template-columns: 1fr 1fr; gap: 6px 14px; }
+  .brow.head { display: none; }
+  .brow .nm { grid-column: 1 / -1; }
+}
+
+/* Compliance Percentage per Framework */
+.pcts { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px; }
+.pc { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 14px; align-items: center; padding: 14px 16px; border: 1px solid var(--line-soft); border-radius: 14px; background: var(--raised); }
+.pc b { display: block; font-size: .92rem; }
+.pc small { color: var(--muted); font-size: .78rem; display: block; }
+.pc a { font-size: .78rem; font-weight: 650; color: var(--accent); text-decoration: none; }
+.pc a:hover { text-decoration: underline; }
+.dash { font-size: 1.3rem; font-weight: 760; color: var(--faint); width: 56px; height: 56px; display: grid; place-items: center; border-radius: 50%; border: 6px solid var(--line-soft); }
+
+/* Members */
+.srow { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, .9fr) minmax(0, 1fr) auto; gap: 0 14px; align-items: center; padding: 11px 18px; border-top: 1px solid var(--line-soft); }
+.lane-h + .srow { border-top: 0; }
+.srow .nm b { font-weight: 680; }
+.srow .nm small { display: block; color: var(--muted); font-size: .78rem; }
+.srow .sub { font-size: .8rem; color: var(--muted); }
+.srow.dim .nm b { color: var(--muted); }
+.srow .acts { display: flex; gap: 6px; justify-content: flex-end; }
+.btn.sm { padding: 4px 10px; font-size: .8rem; }
+.btn[disabled] { opacity: .5; cursor: not-allowed; }
+.add { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 14px 18px; border-top: 1px solid var(--line-soft); background: var(--raised); font-size: .84rem; color: var(--muted); }
+.note { padding: 12px 18px; font-size: .84rem; color: var(--muted); display: flex; gap: 10px; align-items: flex-start; }
+.banner { display: flex; gap: 12px; align-items: flex-start; padding: 14px 18px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); font-size: .88rem; }
+.banner.retired { background: var(--raised); }
+.banner b { display: block; }
+.banner p { color: var(--muted); margin-top: 2px; }
+@media (max-width: 760px) { .srow { grid-template-columns: 1fr auto; } .srow .sub { display: none; } }
+
+/* The join preview */
+dialog.dlg { border: 1px solid var(--line); border-radius: 16px; background: var(--surface); color: var(--ink); padding: 0; width: min(560px, calc(100vw - 32px)); box-shadow: 0 24px 60px rgba(0, 0, 0, .3); }
+dialog.dlg::backdrop { background: rgba(10, 20, 26, .5); }
+.dlg header { padding: 18px 20px 0; }
+.dlg h2 { font-size: 1.1rem; }
+.dlg .body { padding: 14px 20px; display: grid; gap: 12px; }
+.dlg footer { display: flex; justify-content: flex-end; gap: 8px; padding: 14px 20px 18px; border-top: 1px solid var(--line-soft); flex-wrap: wrap; align-items: center; }
+.dlg footer .fine { margin-right: auto; font-size: .76rem; color: var(--faint); max-width: 28ch; }
+.metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.metric { border: 1px solid var(--line-soft); background: var(--raised); border-radius: 12px; padding: 10px 12px; }
+.metric .v { font-size: 1.5rem; font-weight: 780; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.metric .k { font-size: .76rem; color: var(--muted); font-weight: 600; }
+.metric.warn .v { color: var(--gold-ink); }
+.nothing { display: flex; gap: 12px; align-items: center; padding: 12px 14px; border-radius: 12px; background: var(--ok-soft); color: var(--ok); font-weight: 650; }
+.dlg ul { margin: 0; padding-left: 18px; color: var(--muted); font-size: .84rem; display: grid; gap: 4px; }
+
+/* Statement */
+.sect { overflow: clip; }
+.sect .card-h { align-items: center; padding-bottom: 12px; border-bottom: 1px solid var(--line-soft); }
+.sect .hd { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.sect .hd h2 { font-size: 1.1rem; }
+.sect .hd small { color: var(--muted); display: block; font-size: .8rem; }
+.sect .hd-r { display: flex; gap: 8px; flex-wrap: wrap; }
+.qrow { display: grid; grid-template-columns: 112px minmax(0, 1.25fr) 104px minmax(0, 1.05fr) minmax(0, 1.3fr); gap: 0 16px; align-items: center; width: 100%; text-align: left; border: 0; border-top: 1px solid var(--line-soft); background: none; padding: 10px 18px; min-height: 52px; cursor: pointer; color: inherit; }
+.qrow.head { cursor: default; min-height: 36px; padding-block: 8px; background: var(--raised); border-top: 0; font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.qrow:not(.head):hover { background: var(--raised); }
+.qrow[aria-expanded="true"] { background: var(--accent-soft); }
+.qrow .code { font-family: var(--mono); font-size: .8rem; font-weight: 700; color: var(--muted); }
+.qrow .tt { font-weight: 620; min-width: 0; }
+.qrow.ex .tt { color: var(--muted); }
+.qrow .st { display: grid; gap: 4px; min-width: 0; }
+.qrow .st small { color: var(--muted); font-size: .76rem; font-variant-numeric: tabular-nums; }
+.qrow .jt { font-size: .82rem; color: var(--muted); font-style: italic; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.qrow .jt.na { font-style: normal; color: var(--faint); }
+.inc { display: inline-flex; align-items: center; gap: 6px; font-size: .76rem; font-weight: 650; border-radius: 99px; padding: 1px 9px 1px 7px; white-space: nowrap; justify-self: start; }
+.inc::before { content: ""; width: 7px; height: 7px; border-radius: 50%; }
+.inc.yes { background: var(--ok-soft); color: var(--ok); } .inc.yes::before { background: var(--ok); }
+.inc.no { color: var(--muted); box-shadow: inset 0 0 0 1px var(--line); } .inc.no::before { box-shadow: inset 0 0 0 1.5px var(--muted); }
+.missing { display: inline-flex; align-items: center; gap: 6px; color: var(--bad); font-weight: 650; font-size: .82rem; font-style: normal; }
+.missing::before { content: "!"; display: inline-grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; background: var(--bad-soft); font-size: .7rem; font-weight: 800; }
+.bar { display: flex; height: 6px; max-width: 150px; border-radius: 3px; overflow: hidden; background: var(--line-soft); gap: 1px; }
+.bar i { display: block; min-width: 2px; }
+.drill { padding: 14px 18px 18px 18px; background: var(--raised); border-top: 1px solid var(--line-soft); display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.drill h4 { margin: 0 0 8px; font-size: .74rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.drill .syl { display: grid; gap: 2px; }
+.drill .syl div { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 5px 8px; border-radius: 8px; background: var(--surface); border: 1px solid var(--line-soft); font-size: .86rem; }
+.drill .syl div.off { background: transparent; color: var(--faint); border-style: dashed; }
+.drill p { font-size: .84rem; color: var(--muted); }
+.editor { display: grid; gap: 8px; }
+.editor textarea { width: 100%; min-height: 96px; resize: vertical; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--surface); color: var(--ink); font: inherit; line-height: 1.5; }
+.editor textarea:focus { outline: 0; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.editor textarea[readonly] { background: transparent; }
+.editor .re { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: .78rem; color: var(--muted); flex-wrap: wrap; }
+.jump { display: flex; gap: 6px; flex-wrap: wrap; }
+.jump a { text-decoration: none; }
+@media (max-width: 900px) {
+  .qrow { grid-template-columns: 96px minmax(0, 1fr); gap: 4px 12px; }
+  .qrow.head { display: none; }
+  .qrow > :nth-child(n+3) { grid-column: 2; }
+  .drill { grid-template-columns: 1fr; }
+}
+
+/* System page fragment */
+.sys-pick { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: .82rem; color: var(--muted); }
+.sys-pick a { text-decoration: none; padding: 3px 11px; border-radius: 99px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font-weight: 620; }
+.sys-pick a[aria-current="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+@media (max-width: 900px) { .two { grid-template-columns: 1fr; } }
+.scope-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 12px; align-items: center; padding: 12px 0; border-top: 1px solid var(--line-soft); }
+.scope-row:first-child { border-top: 0; }
+.scope-row b { font-weight: 680; }
+.scope-row .src { display: flex; flex-wrap: wrap; gap: 5px; justify-content: flex-end; }
+.bcard { display: grid; gap: 8px; padding: 14px 0; border-top: 1px solid var(--line-soft); }
+.bcard:first-child { border-top: 0; }
+.bcard .top { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.bcard a.t { font-weight: 700; color: var(--ink); text-decoration: none; }
+.bcard a.t:hover { color: var(--accent); }
+.bcard .m { display: flex; flex-wrap: wrap; gap: 5px 14px; font-size: .8rem; color: var(--muted); }
+.fine { font-size: .78rem; color: var(--faint); }
+
+@media print {
+  #appbar, .pv, .crumbs, .noprint, .hero, .stats, .tools, .tabs, .toast { display: none !important; }
+  body { background: #fff; }
+  .app { padding: 0; max-width: none; }
+  .card { box-shadow: none; border-radius: 0; }
+  .qrow { break-inside: avoid; cursor: default; }
+  .drill { display: none; }
+  .print-head { display: block !important; }
+}
+.print-head { display: none; }
+</style>
+</head>
+<body>
+<header id="appbar"></header>
+<main class="app" id="page"></main>
+<dialog class="dlg" id="dlg" aria-labelledby="dlgT"></dialog>
+<script src="../shared/kit.js"></script>
+<script src="data.js"></script>
+<script src="../shared/appbar.js"></script>
+<script>
+(function () {
+  const D = window.BND, Kit = window.Kit, { esc } = Kit, ST = D.STATUS;
+  const $ = (s, r = document) => r.querySelector(s);
+  const initials = (n) => n.split(' ').map((p) => p[0]).join('').slice(0, 2);
+  const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+  const fmt = (d) => new Date(d + 'T12:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  const J = JSON.parse(JSON.stringify(D.JUST)); // justifications live here while the page is open
+
+  // ---- state, kept in the URL so each view can be linked and screenshotted ----
+  const P = new URLSearchParams(location.search);
+  const ui = {
+    view: ['list', 'boundary', 'statement', 'system'].includes(P.get('view')) ? P.get('view') : 'list',
+    b: D.bnd(P.get('b')) ? P.get('b') : 'uk',
+    s: D.sys(P.get('s')) ? P.get('s') : 'jira',
+    tab: P.get('tab') === 'candidates' ? 'candidates' : 'systems',
+    // list
+    q: '', fw: P.get('fw') || 'all', bu: 'all', retired: P.get('retired') === '1', filter: 'all',
+    // boundary
+    lane: 'all',
+    // statement
+    sf: 'all', sq: '', open: new Set(P.get('open') ? P.get('open').split(',') : []),
+  };
+  const url = () => {
+    const q = new URLSearchParams({ view: ui.view });
+    if (ui.view !== 'list' && ui.view !== 'system') q.set('b', ui.b);
+    if (ui.view === 'system') q.set('s', ui.s);
+    if (ui.view === 'boundary' && ui.tab === 'candidates') q.set('tab', 'candidates');
+    return location.pathname + '?' + q + location.hash;
+  };
+  const go = (view, extra = {}) => { Object.assign(ui, { view }, extra); history.pushState(null, '', url()); render(); scrollTo(0, 0); };
+  addEventListener('popstate', () => { const p = new URLSearchParams(location.search); ui.view = p.get('view') || 'list'; if (D.bnd(p.get('b'))) ui.b = p.get('b'); if (D.sys(p.get('s'))) ui.s = p.get('s'); ui.tab = p.get('tab') === 'candidates' ? 'candidates' : 'systems'; render(); });
+  addEventListener('appbar:role', render);
+  const link = (view, extra, text, cls = '') => {
+    const q = new URLSearchParams({ view });
+    if (extra.b) q.set('b', extra.b);
+    if (extra.s) q.set('s', extra.s);
+    if (extra.tab) q.set('tab', extra.tab);
+    return `<a class="${cls}" href="?${q}${location.hash}" data-go="${esc(JSON.stringify({ view, ...extra }))}">${text}</a>`;
+  };
+
+  // ---- who may do what: the Boundary Owner, a Compliance Manager or an Admin manage membership and write justifications ----
+  const who = () => Appbar.role();
+  const isCM = () => ['COMPLIANCE_MANAGER', 'ADMIN'].includes(who().key);
+  const canManage = (b) => !b.retired && (isCM() || who().person === b.owner);
+
+  // ---- small pieces ----
+  const chip = (tone, text) => `<span class="chip ${tone}">${esc(text)}</span>`;
+  const stateChip = (s) => { const t = D.STATE[s.state]; return chip(t.tone, t.group === 'pending' ? 'Not yet operating' : t.label); };
+  const stateDetail = (s) => D.STATE[s.state].label;
+  const fwChip = (f, cls = '') => `<span class="fwchip ${f.base ? 'base' : ''} ${cls}">${esc(f.short)}${f.base ? ' · base' : ''}</span>`;
+  const person = (n) => `<span class="person"><span class="av">${esc(initials(n))}</span>${esc(n)}</span>`;
+  const statusChip = (st) => chip(ST[st].tone, ST[st].label);
+  const bnLink = (b, extra = {}) => link('boundary', { b: b.id, ...extra }, esc(b.name));
+  const crumbs = (...parts) => `<nav class="crumbs" aria-label="Breadcrumb">${parts.join('<span>/</span>')}</nav>`;
+  const proto = () => `<div class="pv noprint"><span>Prototype views</span><div class="seg" role="group" aria-label="Views">
+    ${[['list', 'Boundaries', { }], ['boundary', 'Boundary page', { b: ui.b }], ['statement', 'Statement', { b: ui.b }], ['system', 'System page', { s: ui.s }]]
+      .map(([v, l, e]) => link(v, e, l).replace('<a ', `<a ${ui.view === v ? 'aria-current="true" ' : ''}`)).join('')}</div>
+    <span class="fine">Acting as <b>${esc(who().person)}</b>(${esc(who().label)}); switch the user in the header to see who may edit.</span></div>`;
+  const ringOf = (segs, size, center, sub) => Kit.ring(segs, size, size > 80 ? 9 : 7, center, sub);
+  const compBar = (b) => { const x = D.split(b); return [x.counted.length, x.pending.length, x.closed.length]; };
+
+  // ================= 1. the list =================
+  function listView() {
+    const all = D.BOUNDARIES, active = all.filter((b) => !b.retired);
+    const memberships = active.reduce((a, b) => { const [c, p, x] = compBar(b); a[0] += c; a[1] += p; a[2] += x; return a; }, [0, 0, 0]);
+    const tot = memberships.reduce((a, n) => a + n, 0) || 1;
+    const planning = active.filter((b) => compBar(b)[1] > 0);
+    const noBu = active.filter((b) => !b.bu);
+    const retired = all.filter((b) => b.retired);
+    const fwCount = (f) => all.filter((b) => (f === 'all' || b.fws.includes(f)) && (ui.retired || !b.retired)).length;
+    const bus = [...new Set(all.map((b) => b.bu).filter(Boolean))];
+
+    let list = all.filter((b) => ui.retired || !b.retired);
+    if (ui.filter === 'planning') list = list.filter((b) => !b.retired && compBar(b)[1] > 0);
+    if (ui.filter === 'noBu') list = list.filter((b) => !b.retired && !b.bu);
+    if (ui.filter === 'retired') list = all.filter((b) => b.retired);
+    if (ui.fw !== 'all') list = list.filter((b) => b.fws.includes(ui.fw));
+    if (ui.bu !== 'all') list = list.filter((b) => (b.bu || 'None') === ui.bu);
+    if (ui.q) list = list.filter((b) => (b.name + ' ' + b.desc + ' ' + b.owner).toLowerCase().includes(ui.q.toLowerCase()));
+
+    const stat = (k, label, n, tone = '') => `<button class="card stat spot ${tone}" data-filter="${k}" aria-pressed="${ui.filter === k}"><span class="k">${label}<em>${ui.filter === k ? 'Showing' : 'Filter'}</em></span><span class="v">${n}</span></button>`;
+    const rowHtml = (b) => {
+      const [c, p, x] = compBar(b);
+      return `<a class="brow ${b.retired ? 'retired' : ''}" href="?view=boundary&b=${b.id}${location.hash}" data-go='${esc(JSON.stringify({ view: 'boundary', b: b.id }))}'>
+        <span class="nm"><b>${esc(b.name)} ${b.retired ? chip('', 'Retired') : ''}</b><small>${esc(b.desc)}</small></span>
+        <span class="muted">${b.bu ? esc(b.bu) : '<span class="fine">Whole organization</span>'}</span>
+        <span class="fws">${D.fwOf(b).map((f) => fwChip(f)).join('')}</span>
+        <span>${person(b.owner)}</span>
+        <span class="n">${b.retired ? '<span class="fine">kept</span>' : c}<small>${b.retired ? 'record only' : 'counted'}</small></span>
+        <span class="n" style="${p ? 'color:var(--gold-ink)' : 'color:var(--faint)'}">${b.retired ? '' : p}<small>${b.retired ? '' : 'not yet operating'}</small></span></a>`;
+    };
+    return `${proto()}
+    <section class="hero spot" aria-labelledby="h1">
+      <div><div class="eyebrow">Compliance</div><h1 id="h1">Compliance Boundaries</h1>
+        <p class="lede">A Boundary is a named set of Systems held to one or more Frameworks together, for one purpose: a contract, a certification, an ISMS. Each has its own Statement of Applicability. One System can be in several at once.</p>
+        <div class="actions"><button class="btn primary" id="newB" ${isCM() ? '' : 'disabled title="A Compliance Manager or an Admin creates a Boundary"'}>New Boundary</button>
+          ${isCM() ? '' : '<span class="fine" style="align-self:center">A Compliance Manager or an Admin creates Boundaries.</span>'}</div></div>
+      <div class="move">${ringOf([[memberships[0] / tot, 'var(--accent)'], [memberships[1] / tot, 'var(--gold)'], [memberships[2] / tot, 'var(--faint)']], 96, String(tot), 'memberships')}
+        <ul><li><i style="background:var(--accent)"></i><b>${memberships[0]}</b> counted</li><li><i style="background:var(--gold)"></i><b>${memberships[1]}</b> not yet operating</li><li><i style="background:var(--faint)"></i><b>${memberships[2]}</b> closed</li></ul></div>
+    </section>
+    <div class="stats">${stat('all', 'Active Boundaries', active.length)}${stat('planning', 'With Systems not yet operating', planning.length, 'warn')}${stat('noBu', 'Whole organization', noBu.length)}${stat('retired', 'Retired', retired.length)}</div>
+    <section class="card">
+      <div class="tabs" role="tablist" aria-label="Framework">${[['all', 'All Frameworks']].concat(Object.values(D.FW).map((f) => [f.id, f.short])).map(([id, l]) => `<button role="tab" data-fw="${id}" aria-selected="${ui.fw === id}">${esc(l)}<span class="n">${fwCount(id)}</span></button>`).join('')}</div>
+      <div class="tools"><label class="search"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M9 4a5 5 0 1 0 0 10A5 5 0 0 0 9 4zM13 13l4 4"/></svg><input id="q" type="search" placeholder="Search Boundaries, contract references, owners" value="${esc(ui.q)}" aria-label="Search Boundaries"></label>
+        <select class="sel" id="bu" aria-label="Business Unit"><option value="all">All Business Units</option>${bus.concat(['None']).map((u) => `<option ${ui.bu === u ? 'selected' : ''}>${esc(u)}</option>`).join('')}</select>
+        <label class="chk"><input type="checkbox" id="showRet" ${ui.retired ? 'checked' : ''}> Show retired</label></div>
+      <div style="margin-top:14px"><div class="brow head"><span>Boundary</span><span>Business Unit</span><span>Frameworks</span><span>Boundary Owner</span><span>Counted</span><span>Not yet operating</span></div>
+      ${list.length ? list.map(rowHtml).join('') : `<div class="done-state">${Kit.CHECK}<h3>No Boundaries match</h3><p>Clear a filter, or show retired Boundaries.</p></div>`}</div>
+    </section>`;
+  }
+  function listBind() {
+    $('#newB') && $('#newB').addEventListener('click', () => Kit.toast('Prototype: a form with name, description, Frameworks, Business Unit and Boundary Owner'));
+    document.querySelectorAll('[data-filter]').forEach((b) => b.addEventListener('click', () => { ui.filter = ui.filter === b.dataset.filter ? 'all' : b.dataset.filter; if (ui.filter === 'retired') ui.retired = true; render(); }));
+    document.querySelectorAll('[data-fw]').forEach((b) => b.addEventListener('click', () => { ui.fw = b.dataset.fw; render(); }));
+    $('#q').addEventListener('input', (e) => { ui.q = e.target.value; render(); const i = $('#q'); i.focus(); i.setSelectionRange(i.value.length, i.value.length); });
+    $('#bu').addEventListener('change', (e) => { ui.bu = e.target.value; render(); });
+    $('#showRet').addEventListener('change', (e) => { ui.retired = e.target.checked; if (!ui.retired && ui.filter === 'retired') ui.filter = 'all'; render(); });
+  }
+
+  // ================= 2. one Boundary =================
+  function pctCards(b) {
+    return `<div class="pcts">${D.fwOf(b).map((f) => {
+      const p = D.pct(b, f.id);
+      const ring = p.value === null ? '<div class="dash" aria-hidden="true">—</div>' : ringOf([[p.value / 100, p.value >= 75 ? 'var(--ok)' : p.value >= 50 ? 'var(--gold)' : 'var(--bad)']], 56, p.value + '%', '');
+      return `<div class="pc">${ring}<div><b>${esc(f.name)}</b><small>${p.value === null ? 'Nothing applicable yet' : `${p.met} of ${p.app} applicable ${f.unit} met`}</small><small>Pooled over ${plural(p.systems, 'counted System')}</small></div>
+        <span></span><a href="?view=statement&b=${b.id}${location.hash}" data-go='${esc(JSON.stringify({ view: 'statement', b: b.id }))}'>Open ${esc(f.short)} in the statement</a></div>`;
+    }).join('')}</div>`;
+  }
+  function memberRow(b, s, kind) {
+    const manage = canManage(b);
+    const own = `${D.boundariesOf(s).filter((x) => x.id !== b.id && !x.retired).length}`;
+    return `<div class="srow ${kind === 'counted' ? '' : 'dim'}"><span class="nm"><b>${esc(s.name)}</b><small>${esc(s.bu)} · owned by ${esc(s.owner)}</small></span>
+      <span>${stateChip(s)}</span>
+      <span class="sub">${kind === 'counted' ? 'Counted in the statement and the percentages' : kind === 'pending' ? 'Planning: shows what is coming, not counted until Onboarded or an ATO' : `${stateDetail(s)}: stays listed, not counted`}${+own ? `<br><span class="fine">Also in ${own} other ${+own === 1 ? 'Boundary' : 'Boundaries'}</span>` : ''}</span>
+      <span class="acts">${manage ? `<button class="btn sm" data-remove="${s.id}">Remove</button>` : ''}</span></div>`;
+  }
+  function boundaryView() {
+    const b = D.bnd(ui.b), x = D.split(b), cands = D.candidates(b), manage = canManage(b);
+    const tot = b.members.length || 1;
+    const stat = (k, label, n, tone = '') => `<button class="card stat spot ${tone}" data-lane="${k}" aria-pressed="${ui.lane === k}"><span class="k">${label}<em>${ui.lane === k ? 'Showing' : 'Filter'}</em></span><span class="v">${n}</span></button>`;
+    const lane = (k, title, color, list, hint) => (ui.lane === 'all' || ui.lane === k) && list.length ? `<div class="lane-h"><i style="background:${color}"></i>${title}<small>${hint}</small></div>${list.map((s) => memberRow(b, s, k)).join('')}` : '';
+    const banner = b.retired ? `<div class="banner retired" role="note"><svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><rect x="4" y="9" width="12" height="8" rx="2"/><path d="M7 9V6a3 3 0 0 1 6 0v3"/></svg>
+      <div><b>Retired ${esc(fmt(b.retired.on))} by ${esc(b.retired.by)}</b><p>${esc(b.retired.why)} Retiring is final: this Boundary no longer brings any Framework into a System’s scope, and it is kept as a read-only record. There is no statement or percentage to show, and no frozen copy of one.</p></div></div>` : '';
+    const pend = x.pending.length ? `<div class="banner" role="note" style="background:var(--gold-soft);border-color:transparent"><div><b>${plural(x.pending.length, 'System')} not yet operating</b><p>${esc(x.pending.map((s) => s.name).join(', '))} ${x.pending.length === 1 ? 'is' : 'are'} in evaluation. ${x.counted.length ? 'Not counted until Onboarded or an ATO.' : 'With no counted System the statement lists every Requirement as excluded and there is no percentage yet.'}</p></div></div>` : '';
+    return `${proto()}${crumbs(link('list', {}, 'Compliance Boundaries'), esc(b.name))}
+    <section class="hero spot" aria-labelledby="h1">
+      <div><div class="eyebrow">Compliance Boundary ${b.retired ? '· Retired' : ''}</div><h1 id="h1">${esc(b.name)}</h1>
+        <p class="lede">${esc(b.desc)}</p>
+        <div class="facts"><span>Business Unit <b>${b.bu ? esc(b.bu) : 'None (whole organization)'}</b></span><span>Boundary Owner <b>${person(b.owner)}</b></span><span>Created <b>${esc(fmt(b.created))}</b></span></div>
+        <div class="chips"><span class="fine">Held to</span>${D.fwOf(b).map((f) => fwChip(f)).join('')}</div>
+        <div class="actions">${b.retired ? '' : `<a class="btn primary" href="?view=statement&b=${b.id}${location.hash}" data-go='${esc(JSON.stringify({ view: 'statement', b: b.id }))}'>Statement of Applicability</a>
+          <button class="btn" id="edit" ${isCM() ? '' : 'disabled title="A Compliance Manager or an Admin edits Frameworks and the owner"'}>Edit Frameworks and owner</button>
+          <button class="btn" id="retire" ${canManage(b) ? '' : 'disabled title="The Boundary Owner, a Compliance Manager or an Admin retires a Boundary"'}>Retire</button>`}</div></div>
+      <div class="move">${ringOf([[x.counted.length / tot, 'var(--accent)'], [x.pending.length / tot, 'var(--gold)'], [x.closed.length / tot, 'var(--faint)']], 96, String(b.members.length), 'Systems')}
+        <ul><li><i style="background:var(--accent)"></i><b>${x.counted.length}</b> counted</li><li><i style="background:var(--gold)"></i><b>${x.pending.length}</b> not yet operating</li><li><i style="background:var(--faint)"></i><b>${x.closed.length}</b> closed</li></ul></div>
+    </section>
+    ${banner}${b.retired ? '' : pend}
+    <div class="stats">${stat('all', 'All Systems', b.members.length)}${stat('counted', 'Counted', x.counted.length, 'ok')}${stat('pending', 'Not yet operating', x.pending.length, 'warn')}${stat('closed', 'Closed', x.closed.length)}</div>
+    ${b.retired ? '' : `<section class="card"><div class="card-h"><h2>Compliance Percentage</h2><p>Per Framework, pooled over the ${plural(x.counted.length, 'counted System')}: total Met ÷ total applicable</p></div><div class="card-b">${pctCards(b)}</div></section>`}
+    <section class="card" id="members">
+      <div class="tabs" role="tablist"><button role="tab" data-tab="systems" aria-selected="${ui.tab === 'systems'}">Systems<span class="n">${b.members.length}</span></button>
+        ${b.retired ? '' : `<button role="tab" data-tab="candidates" aria-selected="${ui.tab === 'candidates'}">Candidates<span class="n">${cands.length}</span></button>`}</div>
+      ${ui.tab === 'systems' || b.retired ? `${lane('counted', 'Counted', 'var(--accent)', x.counted, 'In the statement and the percentages')}${lane('pending', 'Not yet operating', 'var(--gold)', x.pending, 'In evaluation')}${lane('closed', 'Closed', 'var(--faint)', x.closed, 'Rejected or Not selected')}
+        ${ui.lane !== 'all' && !x[ui.lane === 'counted' ? 'counted' : ui.lane === 'pending' ? 'pending' : 'closed'].length ? `<div class="done-state">${Kit.CHECK}<h3>None here</h3><p>No System of this Boundary is in that group.</p></div>` : ''}
+        ${manage ? addBox(b) : `<div class="note"><span class="fine">${b.retired ? 'A retired Boundary is read-only.' : `Only the Boundary Owner (${esc(b.owner)}), a Compliance Manager or an Admin adds and removes Systems.`}</span></div>`}`
+      : candidatesTab(b, cands, manage)}
+    </section>`;
+  }
+  const addBox = (b) => {
+    const opts = D.addable(b);
+    return `<div class="add"><label for="addSel"><b>Add a System</b></label><select class="sel" id="addSel"><option value="">Choose a System…</option>${opts.map((s) => `<option value="${s.id}">${esc(s.name)} · ${esc(D.STATE[s.state].label)}</option>`).join('')}</select>
+      <span class="fine">A System in evaluation can join and shows as not yet operating. Closed Systems (Rejected, Not selected) can’t be added.</span></div>`;
+  };
+  function candidatesTab(b, cands, manage) {
+    const body = cands.length ? cands.map((s) => {
+      const pre = D.preview(b, s);
+      return `<div class="srow"><span class="nm"><b>${esc(s.name)}</b><small>${esc(s.bu)} · ${stateChip(s)}</small></span>
+        <span>${pre.prepared.map((f) => `<span class="fwchip">Prepared for ${esc(D.FW[f].short)}</span>`).join(' ')}</span>
+        <span class="sub">${pre.controls ? `${pre.fresh.map((f) => D.FW[f].short).join(' and ')} would newly apply` : 'Nothing new would apply'}</span>
+        <span class="acts"><button class="btn sm primary" data-preview="${s.id}" ${manage ? '' : 'disabled title="Only the Boundary Owner, a Compliance Manager or an Admin adds Systems"'}>Preview and add</button></span></div>`;
+    }).join('') : `<div class="done-state">${Kit.CHECK}<h3>No candidates</h3><p>${b.fws.every((f) => D.FW[f].base) ? 'ISO 27001 is the base Framework, so every System already applies it and none is only “prepared” for it.' : 'Every System prepared for these Frameworks is already in the Boundary.'}</p></div>`;
+    return `<div class="note"><span>Candidates are Systems prepared for (they declare) one of this Boundary’s Frameworks but are not in this Boundary. Their Controls already apply and are assessed, so adding one is often a small step.</span></div>${body}${manage ? addBox(b) : ''}`;
+  }
+  function boundaryBind() {
+    document.querySelectorAll('[data-lane]').forEach((c) => c.addEventListener('click', () => { ui.lane = ui.lane === c.dataset.lane ? 'all' : c.dataset.lane; ui.tab = 'systems'; render(); }));
+    document.querySelectorAll('[data-tab]').forEach((c) => c.addEventListener('click', () => { ui.tab = c.dataset.tab; history.replaceState(null, '', url()); render(); }));
+    document.querySelectorAll('[data-preview]').forEach((c) => c.addEventListener('click', () => openPreview(D.sys(c.dataset.preview))));
+    const sel = $('#addSel'); if (sel) sel.addEventListener('change', () => sel.value && openPreview(D.sys(sel.value)));
+    document.querySelectorAll('[data-remove]').forEach((c) => c.addEventListener('click', () => {
+      const b = D.bnd(ui.b), s = D.sys(c.dataset.remove);
+      b.members = b.members.filter((m) => m !== s.id); Kit.toast(`${s.name} left ${b.name}; a Change Event is recorded on the System`); render();
+    }));
+    $('#edit') && $('#edit').addEventListener('click', () => Kit.toast('Prototype: edit Frameworks (adding or dropping one recomputes applicability) and the Boundary Owner'));
+    $('#retire') && $('#retire').addEventListener('click', () => Kit.toast('Prototype: asks for a reason and warns that retiring is final'));
+  }
+
+  // ---- the join preview ----
+  function openPreview(s) {
+    const b = D.bnd(ui.b), p = D.preview(b, s), dlg = $('#dlg');
+    const prepared = p.prepared.length ? `<li>${esc(s.name)} is prepared for ${p.prepared.map((f) => esc(D.FW[f].name)).join(' and ')}: those Controls already apply and are assessed.</li>` : '';
+    const viaOther = p.viaOther.length ? `<li>${p.viaOther.map((f) => esc(D.FW[f].name)).join(' and ')} already apply through ${esc(p.others.map((o) => o.name).join(', '))}.</li>` : '';
+    const note = !p.counted ? `<li>${esc(s.name)} is in evaluation: it joins as <b>not yet operating</b> and is not counted until it is Onboarded or has an ATO.</li>` : '';
+    dlg.innerHTML = `<header><div class="eyebrow">Before you add</div><h2 id="dlgT">Add ${esc(s.name)} to ${esc(b.name)}?</h2><p class="muted" style="margin-top:4px">${stateChip(s)} · ${esc(s.bu)}</p></header>
+      <div class="body">
+        ${p.controls ? `<div class="metrics"><div class="metric"><div class="v">${p.controls}</div><div class="k">Controls would newly apply (${esc(p.fresh.map((f) => D.FW[f].short).join(', '))})</div></div>
+          <div class="metric"><div class="v">${p.fulfilled}</div><div class="k">of those already effectively Fulfilled through inheritance</div></div>
+          <div class="metric ${p.review ? 'warn' : ''}"><div class="v">${p.review ? 'Yes' : 'No'}</div><div class="k">${p.review ? 'A Change Review starts: the System is Onboarded' : p.onboarded ? 'No Change Review' : 'No Change Review: not Onboarded'}</div></div></div>
+          <p class="fine">${p.controls - p.fulfilled} would start as work for ${esc(s.owner)}${p.review ? '; the Change Review decides whether the System stays Onboarded' : ''}.</p>`
+        : `<div class="nothing"><svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10l4 4 8-8"/></svg>Nothing new applies. No Change Review starts.</div>`}
+        ${prepared || viaOther || note ? `<ul>${prepared}${viaOther}${note}</ul>` : ''}
+      </div>
+      <footer><span class="fine">Joining is recorded as a Change Event on the System.</span><button class="btn" id="dCancel">Cancel</button><button class="btn primary" id="dAdd">Add ${esc(s.name)}</button></footer>`;
+    dlg.showModal();
+    $('#dCancel').onclick = () => dlg.close();
+    $('#dAdd').onclick = () => { b.members.push(s.id); dlg.close(); Kit.toast(`${s.name} added${p.review ? '; Change Review started' : ''}`); render(); };
+  }
+
+  // ================= 3. the Statement of Applicability =================
+  const sdata = (b) => b.fws.map((f) => ({ fw: D.FW[f], rows: D.rows(b, f), pct: D.pct(b, f) }));
+  const needsJ = (b, r) => !r.included && !(J[b.id] && J[b.id][r.code]);
+  function passes(b, r) {
+    if (ui.sf === 'included' && !r.included) return false;
+    if (ui.sf === 'excluded' && r.included) return false;
+    if (ui.sf === 'notmet' && r.st !== 'N') return false;
+    if (ui.sf === 'missing' && !needsJ(b, r)) return false;
+    return !ui.sq || (r.code + ' ' + r.title).toLowerCase().includes(ui.sq.toLowerCase());
+  }
+  function statusCell(r) {
+    if (!r.included) return '<span class="muted fine">Not in the statement</span>';
+    const t = r.of || 1;
+    const bar = `<div class="bar" role="img" aria-label="${r.met} met of ${r.of}">${['M', 'P', 'N'].map((k) => { const n = r.app.filter((p) => p.st === k).length; return n ? `<i style="flex:${n};background:${ST[k].color}"></i>` : ''; }).join('')}</div>`;
+    const sub = r.app.length ? (r.orgOnly ? `Organization · met on ${r.met} of ${r.of} Systems` : `Met on ${r.met} of ${plural(r.of, 'System')}`) : 'Organization only';
+    return `<div class="st">${statusChip(r.st)}${r.app.length ? bar : ''}<small>${sub}</small></div>`;
+  }
+  function drill(b, r, fw) {
+    const manage = canManage(b) || false;
+    const sy = r.per.map((p) => `<div class="${p.st === 'A' ? 'off' : ''}"><span>${esc(p.sys.name)}</span>${p.st === 'A' ? '<span class="fine">Not applicable</span>' : statusChip(p.st)}</div>`).join('');
+    const pend = D.split(b).pending;
+    const left = `<div><h4>${r.included ? 'Status per counted System' : 'Counted Systems'}</h4><div class="syl">${sy || '<p>No counted System yet.</p>'}${r.org ? `<div><span>Organization (Organizational Controls)</span>${statusChip(r.org)}</div>` : ''}</div>
+      ${pend.length ? `<p class="fine" style="margin-top:8px">${esc(pend.map((s) => s.name).join(', '))} not yet operating, so not counted.</p>` : ''}
+      <p class="fine" style="margin-top:8px">One Assessment per System and Control, read by every Boundary the System is in. A Boundary never changes it.</p></div>`;
+    const jv = (J[b.id] && J[b.id][r.code]) || '';
+    const right = r.included
+      ? `<div><h4>Justification</h4><p>Included, because it applies to ${r.app.length && !r.orgOnly ? plural(r.of, 'counted System') : 'the Organization’s Controls'}. Inclusion is derived from applicability and can’t be overridden, so there is nothing to justify.</p></div>`
+      : `<div class="editor"><h4>Why this ${esc(fw.one.toLowerCase())} is excluded</h4><p>Derived: no counted System of this Boundary has it apply, and no Organizational Control covers it. The justification explains the exclusion; it never changes a status.</p>
+          <textarea id="ta" data-key="${esc(r.code)}" aria-label="Exclusion justification for ${esc(r.code)}" ${manage ? '' : 'readonly'} placeholder="${manage ? 'Say why this does not apply to this Boundary' : 'No justification written yet'}">${esc(jv)}</textarea>
+          <div class="re"><span>${manage ? 'Stored for this Boundary and this Requirement only.' : `Written by the Boundary Owner (${esc(b.owner)}) or a Compliance Manager.`}</span>${manage ? '<button class="btn primary sm" id="saveJ">Save justification</button>' : ''}</div></div>`;
+    return `<div class="drill">${left}${right}</div>`;
+  }
+  function section(b, d) {
+    const rs = d.rows.filter((r) => passes(b, r));
+    const inc = d.rows.filter((r) => r.included).length;
+    const ring = d.pct.value === null ? '<div class="dash" style="width:48px;height:48px;font-size:1rem" aria-label="No percentage">—</div>' : ringOf([[d.pct.value / 100, d.pct.value >= 75 ? 'var(--ok)' : d.pct.value >= 50 ? 'var(--gold)' : 'var(--bad)']], 48, d.pct.value + '%', '');
+    return `<section class="card sect" id="sec-${d.fw.id}" data-fw="${d.fw.id}" aria-labelledby="t-${d.fw.id}">
+      <div class="card-h"><div class="hd">${ring}<div><h2 id="t-${d.fw.id}">${esc(d.fw.name)}</h2><small>${d.rows.length} ${esc(d.fw.unit)} · ${inc} included · ${d.rows.length - inc} excluded${d.fw.base ? ' · base Framework' : ''}</small></div></div>
+        <div class="hd-r noprint"><button class="btn sm" data-csv="${d.fw.id}">Export section (CSV)</button><button class="btn sm" data-print="${d.fw.id}">Print section</button></div></div>
+      <div class="qrow head" aria-hidden="true"><span>${esc(d.fw.one)}</span><span>Title</span><span>In the statement</span><span>Worst status</span><span>Justification</span></div>
+      ${rs.length ? rs.map((r) => {
+        const open = ui.open.has(r.key), jv = J[b.id] && J[b.id][r.code];
+        const jt = r.included ? '<span class="jt na">Not needed: it applies</span>' : jv ? `<span class="jt">${esc(jv)}</span>` : '<span class="missing">Missing justification</span>';
+        return `<button class="qrow ${r.included ? '' : 'ex'}" data-open="${esc(r.key)}" aria-expanded="${open}"><span class="code">${esc(r.code)}</span><span class="tt">${esc(r.title)}</span>
+          <span class="inc ${r.included ? 'yes' : 'no'}">${r.included ? 'Included' : 'Excluded'}</span>${statusCell(r)}${jt}</button>${open ? drill(b, r, d.fw) : ''}`;
+      }).join('') : `<div class="done-state"><h3>No ${esc(d.fw.unit)} match</h3><p>Clear the filter or search.</p></div>`}</section>`;
+  }
+  function statementView() {
+    const b = D.bnd(ui.b);
+    if (b.retired) {
+      return `${proto()}${crumbs(link('list', {}, 'Compliance Boundaries'), bnLink(b), 'Statement of Applicability')}
+      <section class="card"><div class="done-state"><svg width="48" height="48" viewBox="0 0 20 20" fill="none" stroke="var(--faint)" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><rect x="4" y="9" width="12" height="8" rx="2"/><path d="M7 9V6a3 3 0 0 1 6 0v3"/></svg>
+        <h3>${esc(b.name)} is retired</h3><p>A retired Boundary keeps its name, Frameworks, members and dates, but no statement: nothing was frozen when it retired, and it brings no Framework into anyone’s scope.</p>${link('boundary', { b: b.id }, 'Back to the Boundary', 'btn')}</div></section>`;
+    }
+    const ds = sdata(b), x = D.split(b), canEdit = canManage(b);
+    const all = ds.flatMap((d) => d.rows);
+    const n = { inc: all.filter((r) => r.included).length, exc: all.filter((r) => !r.included).length, nm: all.filter((r) => r.st === 'N').length, mj: all.filter((r) => needsJ(b, r)).length };
+    const stat = (k, label, v, tone = '') => `<button class="card stat spot ${tone}" data-sf="${k}" aria-pressed="${ui.sf === k}"><span class="k">${label}<em>${ui.sf === k ? 'Showing' : 'Filter'}</em></span><span class="v">${v}</span></button>`;
+    return `${proto()}${crumbs(link('list', {}, 'Compliance Boundaries'), bnLink(b), 'Statement of Applicability')}
+    <div class="print-head"><h1>Statement of Applicability: ${esc(b.name)}</h1><p>Boundary Owner ${esc(b.owner)}. ${plural(x.counted.length, 'counted System')}.</p></div>
+    <section class="hero spot" aria-labelledby="h1">
+      <div><div class="eyebrow">Statement of Applicability</div><h1 id="h1">${esc(b.name)}</h1>
+        <p class="lede">One section per Framework, with that Framework’s own Requirements as rows. A Requirement is included when it applies to a counted System or the Organization implements it; its status is the worst across the counted Systems.</p>
+        <div class="facts"><span>Boundary Owner <b>${person(b.owner)}</b></span><span>Counted <b>${x.counted.map((s) => esc(s.name)).join(', ') || 'none yet'}</b></span>${x.pending.length ? `<span>Not yet operating <b>${esc(x.pending.map((s) => s.name).join(', '))}</b></span>` : ''}</div>
+        <div class="actions noprint"><button class="btn primary" data-csv="all">Export whole statement (CSV)</button><button class="btn" data-print="all">Print whole statement</button>
+          <span class="jump">${ds.map((d) => `<a class="btn ghost" href="#sec-${d.fw.id}">Jump to ${esc(d.fw.short)}</a>`).join('')}</span></div></div>
+      <div class="move">${ringOf([[n.inc / (all.length || 1), 'var(--accent)']], 96, String(n.inc), 'included')}<ul><li><i style="background:var(--accent)"></i><b>${n.inc}</b> included</li><li><i style="background:var(--faint)"></i><b>${n.exc}</b> excluded</li><li><i style="background:var(--bad)"></i><b>${n.mj}</b> missing a justification</li></ul></div>
+    </section>
+    ${x.counted.length ? '' : `<div class="banner" role="note" style="background:var(--gold-soft);border-color:transparent"><div><b>No counted System yet</b><p>Every Requirement is excluded until a System is Onboarded or has an ATO. ${esc(x.pending.map((s) => s.name).join(', '))} ${x.pending.length === 1 ? 'is' : 'are'} not yet operating.</p></div></div>`}
+    <div class="stats">${stat('all', 'All Requirements', all.length)}${stat('included', 'Included', n.inc, 'ok')}${stat('excluded', 'Excluded', n.exc)}${stat('notmet', 'Worst status Not met', n.nm, 'danger')}${stat('missing', 'Missing justification', n.mj, 'warn')}</div>
+    <div class="tools noprint" style="padding:0"><label class="search"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M9 4a5 5 0 1 0 0 10A5 5 0 0 0 9 4zM13 13l4 4"/></svg><input id="sq" type="search" placeholder="Search by code or title" value="${esc(ui.sq)}" aria-label="Search Requirements"></label>
+      <span class="fine">${canEdit ? `You can write exclusion justifications here (${esc(who().person)}).` : `Read only for ${esc(who().label)}: the Boundary Owner, a Compliance Manager or an Admin writes justifications.`}</span></div>
+    ${ds.map((d) => section(b, d)).join('')}`;
+  }
+  function csv(b, only) {
+    const head = ['Boundary', 'Framework', 'Code', 'Title', 'In the statement', 'Worst status', 'Met on', 'Systems', 'Exclusion justification'];
+    const out = [head];
+    sdata(b).filter((d) => only === 'all' || d.fw.id === only).forEach((d) => d.rows.forEach((r) => out.push([b.name, d.fw.name, r.code, r.title, r.included ? 'Included' : 'Excluded',
+      r.st ? ST[r.st].label : '', r.included ? `${r.met} of ${r.of}` : '', r.app.map((p) => `${p.sys.name}: ${ST[p.st].label}`).join('; '), (J[b.id] && J[b.id][r.code]) || ''])));
+    return '﻿' + out.map((l) => l.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\r\n');
+  }
+  function statementBind() {
+    const b = D.bnd(ui.b); if (b.retired) return;
+    document.querySelectorAll('[data-sf]').forEach((c) => c.addEventListener('click', () => { ui.sf = ui.sf === c.dataset.sf ? 'all' : c.dataset.sf; render(); }));
+    const q = $('#sq'); q.addEventListener('input', (e) => { ui.sq = e.target.value; render(); const i = $('#sq'); i.focus(); i.setSelectionRange(i.value.length, i.value.length); });
+    document.querySelectorAll('[data-open]').forEach((c) => c.addEventListener('click', () => { const k = c.dataset.open; ui.open.has(k) ? ui.open.delete(k) : ui.open.add(k); const y = scrollY; render(); scrollTo(0, y); }));
+    document.querySelectorAll('[data-csv]').forEach((c) => c.addEventListener('click', () => {
+      const a = document.createElement('a'), only = c.dataset.csv;
+      a.href = URL.createObjectURL(new Blob([csv(b, only)], { type: 'text/csv;charset=utf-8' }));
+      a.download = `statement-${b.id}${only === 'all' ? '' : '-' + only}.csv`; a.click(); URL.revokeObjectURL(a.href);
+      Kit.toast(only === 'all' ? 'Whole statement exported' : `${D.FW[only].short} section exported`);
+    }));
+    document.querySelectorAll('[data-print]').forEach((c) => c.addEventListener('click', () => {
+      const only = c.dataset.print, st = document.createElement('style');
+      st.textContent = only === 'all' ? '' : `@media print { .sect:not([data-fw="${only}"]) { display: none !important; } }`;
+      document.head.appendChild(st); addEventListener('afterprint', () => st.remove(), { once: true }); print();
+    }));
+    const save = $('#saveJ');
+    if (save) save.addEventListener('click', () => {
+      const ta = $('#ta'), code = ta.dataset.key; (J[b.id] = J[b.id] || {})[code] = ta.value.trim();
+      if (!J[b.id][code]) delete J[b.id][code];
+      Kit.toast(`Justification saved for ${code} on ${b.name}`); render();
+    });
+  }
+
+  // ================= 4. the System page fragment =================
+  function systemView() {
+    const s = D.sys(ui.s), sc = D.scope(s), bs = D.boundariesOf(s), t = D.STATE[s.state];
+    const src = (r) => {
+      const out = [];
+      if (r.base) out.push('<span class="chip plain">Base Framework · always</span>');
+      if (r.declared) out.push('<span class="neutral">Declared</span>');
+      r.via.forEach((b) => out.push(`<span class="fwchip">via ${esc(b.name.replace(/ \(.*/, ''))}</span>`));
+      return out.join('');
+    };
+    const prepared = (r) => r.declared && !r.via.length && !r.base;
+    const scopeRows = sc.map((r) => `<div class="scope-row"><div><b>${esc(r.fw.name)}</b>${prepared(r) ? `<div class="fine" style="margin-top:2px">Prepared for ${esc(r.fw.name)} · in no Boundary</div>` : ''}</div>
+      <div class="src">${prepared(r) ? `<span class="neutral">Prepared for ${esc(r.fw.short)} · in no Boundary</span>` : src(r)}</div></div>`).join('');
+    const bcards = bs.map((b) => {
+      const grp = D.group(s);
+      const status = b.retired ? chip('', 'Retired') : grp === 'counted' ? chip('success', 'Counted') : grp === 'pending' ? chip('warn', 'Not yet operating') : chip('', `Closed · ${t.label}`);
+      return `<div class="bcard"><div class="top">${link('boundary', { b: b.id }, esc(b.name), 't')}${status}</div>
+        <div class="m"><span>${D.fwOf(b).map((f) => fwChip(f)).join(' ')}</span><span>Boundary Owner <b style="color:var(--ink)">${esc(b.owner)}</b></span>${b.bu ? `<span>${esc(b.bu)}</span>` : ''}</div>
+        ${b.retired ? `<p class="fine">Retired ${esc(fmt(b.retired.on))}: no longer brings ${b.fws.length === 1 ? 'its Framework' : 'its Frameworks'} into scope.</p>` : ''}</div>`;
+    }).join('');
+    const prep = sc.filter(prepared);
+    return `${proto()}${crumbs('<a href="/design/systems/proposal-a.html' + location.hash + '">Systems</a>', esc(s.name))}
+    <div class="sys-pick noprint"><span>System</span>${D.SYSTEMS.map((x) => link('system', { s: x.id }, esc(x.name)).replace('<a ', `<a ${x.id === s.id ? 'aria-current="true" ' : ''}`)).join('')}</div>
+    <section class="card"><div class="card-b" style="display:flex;gap:16px;align-items:center;justify-content:space-between;flex-wrap:wrap">
+      <div><div class="eyebrow">System</div><h1>${esc(s.name)}</h1><div class="facts"><span>${stateChip(s)}</span><span>Business Unit <b>${esc(s.bu)}</b></span><span>Owner <b>${person(s.owner)}</b></span></div></div>
+      <p class="fine" style="max-width:48ch">Only the part of the System page that Compliance Boundaries change is drawn here: the Profile’s Framework scope and a new Boundaries card.</p></div></section>
+    <div class="two">
+      <section class="card"><div class="card-h"><h2>Profile · Frameworks in scope</h2><p>Declared, plus every Boundary the System is in</p></div><div class="card-b">${scopeRows}
+        ${prep.length ? `<p class="fine" style="margin-top:8px">Prepared is a normal state, not a gap: the Controls of ${esc(prep.map((r) => r.fw.name).join(' and '))} already apply and are assessed, so ${esc(s.name)} is ready should a Boundary need ${prep.length === 1 ? 'it' : 'them'}.</p>` : ''}</div></section>
+      <section class="card"><div class="card-h"><h2>Compliance Boundaries</h2><p>${bs.filter((b) => !b.retired).length} active</p></div><div class="card-b">
+        ${bcards || `<p class="muted">${esc(s.name)} is in no Boundary.</p>`}
+        <p class="fine" style="margin-top:10px">${who().key === 'SYSTEM_OWNER' && who().person === s.owner ? 'You see which Boundaries this System is in, but only a Boundary Owner, a Compliance Manager or an Admin can remove it from one.' : 'Read-only here. The Boundary Owner, a Compliance Manager or an Admin adds and removes Systems on the Boundary’s page; each is a Change Event on the System.'}</p></div></section>
+    </div>`;
+  }
+
+  // ---- render ----
+  function render() {
+    const root = $('#page');
+    root.innerHTML = ui.view === 'boundary' ? boundaryView() : ui.view === 'statement' ? statementView() : ui.view === 'system' ? systemView() : listView();
+    document.title = ({ list: 'Compliance Boundaries', boundary: D.bnd(ui.b).name, statement: 'Statement: ' + D.bnd(ui.b).name, system: D.sys(ui.s).name })[ui.view] + ' · design';
+    root.querySelectorAll('[data-go]').forEach((a) => a.addEventListener('click', (e) => {
+      if (e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault();
+      const g = JSON.parse(a.dataset.go); go(g.view, { ...(g.b ? { b: g.b } : {}), ...(g.s ? { s: g.s } : {}), tab: g.tab || 'systems', lane: 'all' });
+    }));
+    ({ list: listBind, boundary: boundaryBind, statement: statementBind, system: () => {} })[ui.view]();
+    Kit.countUp(root);
+  }
+
+  Appbar.mount({
+    current: 'boundaries',
+    proposal: { label: 'A', siblings: [] },
+    items: () => D.BOUNDARIES.map((b) => ({ group: 'Compliance Boundaries', label: b.name, sub: b.retired ? 'Retired' : b.fws.map((f) => D.FW[f].short).join(', '), icon: 'boundary', run: () => go('boundary', { b: b.id, tab: 'systems', lane: 'all' }) }))
+      .concat(D.BOUNDARIES.filter((b) => !b.retired).map((b) => ({ group: 'Statements of Applicability', label: 'Statement: ' + b.name, icon: 'soa', run: () => go('statement', { b: b.id }) })))
+      .concat(D.SYSTEMS.map((s) => ({ group: 'Systems', label: s.name, sub: 'Boundaries on the System page', icon: 'system', run: () => go('system', { s: s.id }) }))),
+  });
+  render();
+})();
+</script>
+</body>
+</html>

@@ -63,6 +63,7 @@
     risk: 'M10 3l6 3v4c0 4-3 6-6 7-3-1-6-3-6-7V6z',
     checkup: 'M6 3h8v14H6zM8 7h4M8 10l1.5 1.5L12 9',
     audit: 'M4 4h9l3 3v10H4zM8 11a2 2 0 1 0 4 0 2 2 0 0 0-4 0M11.5 12.5L14 15',
+    boundary: 'M3 7V3h4M13 3h4v4M17 13v4h-4M7 17H3v-4M8 8h4v4H8z',
     soa: 'M6 3h6l3 3v11H6zM12 3v3h3M8 10h5M8 13h5',
     framework: 'M10 3l7 4-7 4-7-4zM3 11l7 4 7-4',
     search: 'M9 4a5 5 0 1 0 0 10A5 5 0 0 0 9 4zM13 13l4 4',
@@ -88,6 +89,7 @@
     { key: 'risks', label: 'Risks', icon: 'risk', href: null },
     { key: 'check-ups', label: 'Check-ups', icon: 'checkup', href: null },
     { key: 'audits', label: 'Internal Audits', icon: 'audit', href: '/design/audit/list-a.html' },
+    { key: 'boundaries', label: 'Boundaries', long: 'Compliance Boundaries', icon: 'boundary', href: '/design/boundaries/proposal-a.html' },
     { key: 'soa', label: 'SoA', long: 'Statement of Applicability', icon: 'soa', href: '/design/soa/proposal-a.html' },
     { key: 'frameworks', label: 'Frameworks', icon: 'framework', href: '/design/frameworks/proposal-a.html' },
     // As in production, only an Admin sees the Admin item; it links to the first Admin page with a proposal.
