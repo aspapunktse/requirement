@@ -423,8 +423,8 @@ dialog.dlg::backdrop { background: rgba(10, 20, 26, .5); }
     const right = r.included
       ? `<div><h4>Justification</h4><p>Included, because it applies to ${r.app.length && !r.orgOnly ? plural(r.of, 'counted System') : 'the Organization’s Controls'}. Inclusion is derived from applicability and can’t be overridden, so there is nothing to justify.</p></div>`
       : `<div class="editor"><h4>Why this ${esc(fw.one.toLowerCase())} is excluded</h4><p>Derived: no counted System of this Boundary has it apply, and no Organizational Control covers it. The justification explains the exclusion; it never changes a status.</p>
-          <textarea id="ta" data-key="${esc(r.code)}" aria-label="Exclusion justification for ${esc(r.code)}" ${manage ? '' : 'readonly'} placeholder="${manage ? 'Say why this does not apply to this Boundary' : 'No justification written yet'}">${esc(jv)}</textarea>
-          <div class="re"><span>${manage ? 'Stored for this Boundary and this Requirement only.' : `Written by the Boundary Owner (${esc(b.owner)}) or a Compliance Manager.`}</span>${manage ? '<button class="btn primary sm" id="saveJ">Save justification</button>' : ''}</div></div>`;
+          <textarea class="j-ta" data-key="${esc(r.code)}" aria-label="Exclusion justification for ${esc(r.code)}" ${manage ? '' : 'readonly'} placeholder="${manage ? 'Say why this does not apply to this Boundary' : 'No justification written yet'}">${esc(jv)}</textarea>
+          <div class="re"><span>${manage ? 'Stored for this Boundary and this Requirement only.' : `Written by the Boundary Owner (${esc(b.owner)}) or a Compliance Manager.`}</span>${manage ? '<button class="btn primary sm" data-save-j>Save justification</button>' : ''}</div></div>`;
     return `<div class="drill">${left}${right}</div>`;
   }
   function section(b, d) {
@@ -492,12 +492,11 @@ dialog.dlg::backdrop { background: rgba(10, 20, 26, .5); }
       st.textContent = only === 'all' ? '' : `@media print { .sect:not([data-fw="${only}"]) { display: none !important; } }`;
       document.head.appendChild(st); addEventListener('afterprint', () => st.remove(), { once: true }); print();
     }));
-    const save = $('#saveJ');
-    if (save) save.addEventListener('click', () => {
-      const ta = $('#ta'), code = ta.dataset.key; (J[b.id] = J[b.id] || {})[code] = ta.value.trim();
+    document.querySelectorAll('[data-save-j]').forEach((save) => save.addEventListener('click', () => {
+      const ta = save.closest('.editor').querySelector('.j-ta'), code = ta.dataset.key; (J[b.id] = J[b.id] || {})[code] = ta.value.trim();
       if (!J[b.id][code]) delete J[b.id][code];
       Kit.toast(`Justification saved for ${code} on ${b.name}`); render();
-    });
+    }));
   }
 
   // ================= 4. the System page fragment =================
