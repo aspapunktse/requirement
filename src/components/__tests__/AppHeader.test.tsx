@@ -159,9 +159,10 @@ describe("AppHeader: main navigation", () => {
 
   it.each([
     ["COMPLIANCE_MANAGER", "/controls/new", "Controls"],
-    ["COMPLIANCE_MANAGER", "/admin/frameworks/x", "Frameworks"],
+    ["COMPLIANCE_MANAGER", "/frameworks/x/edit", "Frameworks"],
     ["ADMIN", "/controls/new", "Controls"],
-    ["ADMIN", "/admin/frameworks/x", "Admin"],
+    ["ADMIN", "/frameworks/x/edit", "Frameworks"],
+    ["ADMIN", "/admin/users", "Admin"],
   ])("for %s, %s marks %s (decision 4a)", (role, path, label) => {
     pathname = path;
     render(<AppHeader devStub={false} user={asRole(role as UserRole)} />);
@@ -192,7 +193,6 @@ describe("AppHeader: Admin menu", () => {
   });
 
   const ADMIN_LINKS = [
-    ["Frameworks", "/admin/frameworks"],
     ["Deployment Facets", "/admin/deployment-facets"],
     ["Review Groups", "/admin/review-groups"],
     ["Business Units", "/admin/business-units"],
@@ -241,13 +241,14 @@ describe("AppHeader: Admin menu", () => {
   });
 
   it("is marked current on any Admin path, and then so is the page in the menu", async () => {
-    pathname = "/admin/frameworks/f1";
+    pathname = "/admin/users";
     render(<AppHeader devStub={false} user={asRole("ADMIN")} />);
     const button = within(mainNav()).getByRole("button", { name: /Admin/ });
     expect(button).toHaveAttribute("aria-current", "page");
     expect(within(mainNav()).getByRole("link", { name: "Frameworks" })).not.toHaveAttribute("aria-current");
     await userEvent.click(button);
-    expect(within(screen.getByRole("navigation", { name: "Admin pages" })).getByRole("link", { name: "Frameworks" })).toHaveAttribute("aria-current", "page");
+    expect(within(screen.getByRole("navigation", { name: "Admin pages" })).getByRole("link", { name: "Users" })).toHaveAttribute("aria-current", "page");
+    expect(within(screen.getByRole("navigation", { name: "Admin pages" })).queryByRole("link", { name: "Frameworks" })).not.toBeInTheDocument();
   });
 
   it("is not current on a page outside Admin", () => {
@@ -287,7 +288,7 @@ describe("AppHeader: collapsed menu", () => {
     expect(within(goTo).getByRole("link", { name: "Systems" })).toHaveAttribute("aria-current", "page");
     const admin = screen.getAllByRole("navigation", { name: "Admin pages" })[0];
     expect(within(admin).getByText("Admin")).toBeInTheDocument();
-    expect(within(admin).getAllByRole("link")).toHaveLength(7);
+    expect(within(admin).getAllByRole("link")).toHaveLength(6);
   });
 
   it("has no Admin group for other roles", async () => {

@@ -478,7 +478,7 @@ describe("a Framework Owner curating their own Framework (#320)", () => {
   it("gets the curation controls of a Compliance Manager, without the owner picker", async () => {
     render(<FrameworkCoverage view={ownerView()} />);
     expect(screen.queryByText(/Read-only/)).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Requirements & Review Group" })).toHaveAttribute("href", "/admin/frameworks/f1");
+    expect(screen.getByRole("link", { name: "Requirements & Review Group" })).toHaveAttribute("href", "/frameworks/f1/edit");
     expect(screen.queryByRole("button", { name: "Assign owner" })).not.toBeInTheDocument();
     await openDrawerOf("A.5.2");
     const dialog = drawer();

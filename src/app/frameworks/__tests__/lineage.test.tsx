@@ -13,7 +13,7 @@ vi.mock("@/lib/acting-user", async (importOriginal) => {
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: () => {}, refresh: () => {} }) }));
 
 import FrameworksOverviewPage from "../page";
-import AdminFrameworksPage from "../../admin/frameworks/page";
+import EditFrameworkPage from "../[id]/edit/page";
 
 // Version lineage on both Framework lists (#146): 2013 <- 2022 (Draft) <- 2030, plus 2030 <- 2040 (Draft).
 // Fixtures are deleted newest-first; supersedes is also SetNull, so order only matters for tidiness.
@@ -21,7 +21,7 @@ const SUFFIX = `${process.pid}-${Date.now()}`;
 const NAME = `Test 146 lineage ${SUFFIX}`;
 const EMAILS = ["cm", "viewer"].map((k) => `test-146-${k}-${SUFFIX}@example.com`);
 
-describe("version lineage on /frameworks and /admin/frameworks", () => {
+describe("version lineage on /frameworks and /frameworks/[id]/edit", () => {
   const users: Record<string, string> = {};
   const frameworkIds: string[] = [];
 
@@ -64,8 +64,8 @@ describe("version lineage on /frameworks and /admin/frameworks", () => {
     expect(markup).toContain('aria-current="true"');
   });
 
-  it("shows the same chain in order on /admin/frameworks for a Compliance Manager", async () => {
-    const plain = text(await html(AdminFrameworksPage, "cm"));
+  it("shows the same chain in order on the edit page of a version for a Compliance Manager", async () => {
+    const plain = text(await html(() => EditFrameworkPage({ params: Promise.resolve({ id: frameworkIds[2] }) } as never), "cm"));
     expect(plain).toContain(
       `Version lineage: ${NAME}:2013 → ${NAME}:2022 (Draft) → ${NAME}:2030 → ${NAME}:2040 (Draft)`,
     );

@@ -136,6 +136,15 @@ describe("roleView: owner tasks for any role (#98)", () => {
     expect(labels(view)).toEqual(["Controls", "Frameworks"]);
   });
 
+  it("points the Frameworks tile at the catalog, and no tile at the retired /admin/frameworks (#413)", async () => {
+    const manager = await makeUser("frameworks-tile-cm", "COMPLIANCE_MANAGER");
+    expect((await roleView(manager)).tiles.filter((t) => t.title === "Frameworks").map((t) => t.href)).toEqual(["/frameworks"]);
+    for (const role of ["ADMIN", "COMPLIANCE_MANAGER", "VIEWER"] as const) {
+      const user = await makeUser(`frameworks-tile-${role}`, role);
+      expect((await roleView(user)).tiles.some((t) => t.href.startsWith("/admin/frameworks")), role).toBe(false);
+    }
+  });
+
   it("gives only an ADMIN the Settings shortcut (#240), which the Ctrl+K palette lists as a page", async () => {
     const admin = await makeUser("settings-tile-admin", "ADMIN");
     const view = await roleView(admin);

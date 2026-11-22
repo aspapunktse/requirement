@@ -97,7 +97,7 @@ export function ControlEditor({ view, returnTab }: { view: ControlEditView; retu
               {view.mappedFrameworks.map((framework, index) => (
                 <span key={framework.id}>
                   {index > 0 && ", "}
-                  <Link href={`/admin/frameworks/${framework.id}`}>{framework.label}</Link>
+                  <Link href={`/frameworks/${framework.id}/edit`}>{framework.label}</Link>
                 </span>
               ))}
               .
@@ -105,7 +105,7 @@ export function ControlEditor({ view, returnTab }: { view: ControlEditView; retu
           ) : (
             <>
               {" "}
-              This Control is not mapped to a Requirement yet; <Link href="/admin/frameworks">map it on a Framework&apos;s page</Link>.
+              This Control is not mapped to a Requirement yet; <Link href="/frameworks">map it on a Framework&apos;s page</Link>.
             </>
           )}
         </p>

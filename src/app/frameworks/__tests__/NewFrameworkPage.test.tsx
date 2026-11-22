@@ -84,7 +84,7 @@ describe("the New Framework form", () => {
     vi.stubGlobal("fetch", vi.fn());
   });
 
-  it("posts the details to /api/frameworks and opens the new Framework's authoring page", async () => {
+  it("posts the details to /api/frameworks and opens the new Framework's edit page", async () => {
     vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ framework: { id: "f-new" } }), { status: 201 }));
     render(<NewFrameworkForm frameworks={frameworks} />);
 
@@ -96,7 +96,7 @@ describe("the New Framework form", () => {
     await userEvent.click(screen.getByRole("checkbox", { name: /Requires 100% Fulfilled/ }));
     await userEvent.click(screen.getByRole("button", { name: "Create Framework" }));
 
-    await waitFor(() => expect(push).toHaveBeenCalledWith("/admin/frameworks/f-new"));
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/frameworks/f-new/edit"));
     expect(posts()).toHaveLength(1);
     expect(posts()[0][0]).toBe("/api/frameworks");
     expect(JSON.parse(posts()[0][1]!.body as string)).toEqual({
