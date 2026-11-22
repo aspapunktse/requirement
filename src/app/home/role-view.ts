@@ -517,7 +517,7 @@ async function roleOwnView(user: { id: string; name: string; role: UserRole }, r
         ],
         picture: users.picture,
         tiles: [
-          { title: "Controls", description: "Manage the Control Library.", href: "/admin/controls" },
+          { title: "Controls", description: "Browse the Control Library and create Controls.", href: "/controls" },
           { title: "Deployment Facets", description: "Manage deployment classifications.", href: "/admin/deployment-facets" },
           { title: "Review Groups", description: "Manage who reviews each Framework.", href: "/admin/review-groups" },
           { title: "Users", description: "Create Users, rename them and assign roles.", href: "/admin/users" },
@@ -538,7 +538,7 @@ async function roleOwnView(user: { id: string; name: string; role: UserRole }, r
         ],
         picture,
         tiles: [
-          { title: "Control Library", description: "Author Controls and scope what each applies to.", href: "/admin/controls" },
+          { title: "Control Library", description: "Author Controls and scope what each applies to.", href: "/controls" },
           { title: "Frameworks", description: "Manage the Framework catalog.", href: "/admin/frameworks" },
           ORGANIZATION_CONTROLS_TILE,
           { title: "Browse Systems", description: "Every System across every status, read-only.", href: "/systems" },

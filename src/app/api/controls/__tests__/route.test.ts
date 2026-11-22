@@ -188,6 +188,15 @@ describe("POST /api/controls", () => {
     expect(response.status).toBe(400);
   });
 
+  it.each(["new", "NEW", " New "])("rejects the reserved code %j with 400 and writes nothing (#412)", async (code) => {
+    const before = await prisma.control.count({ where: { code: { in: ["new", "NEW", " New "] } } });
+    const response = await POST(
+      requestPost(adminId, { code, title: "t", description: "d", category: "Security", applicability: "ORGANIZATIONAL" }),
+    );
+    expect(response.status).toBe(400);
+    expect(await prisma.control.count({ where: { code: { in: ["new", "NEW", " New "] } } })).toBe(before);
+  });
+
   it("rejects a duplicate code", async () => {
     const code = "TEST-CREATE-004";
     createdCodes.push(code);

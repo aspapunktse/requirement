@@ -158,9 +158,9 @@ describe("AppHeader: main navigation", () => {
   });
 
   it.each([
-    ["COMPLIANCE_MANAGER", "/admin/controls", "Controls"],
+    ["COMPLIANCE_MANAGER", "/controls/new", "Controls"],
     ["COMPLIANCE_MANAGER", "/admin/frameworks/x", "Frameworks"],
-    ["ADMIN", "/admin/controls", "Admin"],
+    ["ADMIN", "/controls/new", "Controls"],
     ["ADMIN", "/admin/frameworks/x", "Admin"],
   ])("for %s, %s marks %s (decision 4a)", (role, path, label) => {
     pathname = path;
@@ -192,7 +192,6 @@ describe("AppHeader: Admin menu", () => {
   });
 
   const ADMIN_LINKS = [
-    ["Control Library", "/admin/controls"],
     ["Frameworks", "/admin/frameworks"],
     ["Deployment Facets", "/admin/deployment-facets"],
     ["Review Groups", "/admin/review-groups"],
@@ -288,7 +287,7 @@ describe("AppHeader: collapsed menu", () => {
     expect(within(goTo).getByRole("link", { name: "Systems" })).toHaveAttribute("aria-current", "page");
     const admin = screen.getAllByRole("navigation", { name: "Admin pages" })[0];
     expect(within(admin).getByText("Admin")).toBeInTheDocument();
-    expect(within(admin).getAllByRole("link")).toHaveLength(8);
+    expect(within(admin).getAllByRole("link")).toHaveLength(7);
   });
 
   it("has no Admin group for other roles", async () => {
@@ -503,7 +502,7 @@ describe("AppHeader: Ctrl+K palette", () => {
     const labels = within(screen.getByRole("dialog"))
       .getAllByRole("option")
       .map((o) => o.querySelector("span")?.textContent);
-    expect(labels).toEqual(expect.arrayContaining(["Control Library", "Deployment Facets", "Review Groups", "Settings", "Business Risk Owners"]));
+    expect(labels).toEqual(expect.arrayContaining(["Deployment Facets", "Review Groups", "Settings", "Business Risk Owners"]));
     unmount();
 
     render(withHeader(null, asRole("COMPLIANCE_MANAGER")));

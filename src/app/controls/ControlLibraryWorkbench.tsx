@@ -147,7 +147,7 @@ export function ControlLibraryWorkbench({ view }: { view: LibraryView }) {
         meta: row.ownerName ?? "Unassigned",
         href: hashForCode(row.code),
       })),
-      ...(canEdit ? [{ group: "Actions", icon: "plus" as const, label: "New Control", meta: "Control Library editor", href: "/admin/controls" }] : []),
+      ...(canEdit ? [{ group: "Actions", icon: "plus" as const, label: "New Control", meta: "Create a Control", href: "/controls/new" }] : []),
     ],
     [rows, canEdit],
   );
@@ -377,7 +377,7 @@ export function ControlLibraryWorkbench({ view }: { view: LibraryView }) {
           <p className="hc-lede">{lede}</p>
           <div className="actions">
             {canEdit && (
-              <Link className="hc-btn primary" href="/admin/controls">
+              <Link className="hc-btn primary" href="/controls/new">
                 + New Control
               </Link>
             )}

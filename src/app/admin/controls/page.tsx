@@ -1,33 +1,10 @@
-import Link from "next/link";
-import { getActingUser } from "@/lib/acting-user";
-import { ControlLibraryManager } from "@/components/ControlLibraryManager";
-import { listSensitivityLevels } from "@/lib/sensitivity-level-data";
-import { ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE } from "@/lib/catalog";
+import { redirect } from "next/navigation";
 
-export default async function ControlLibraryPage() {
-  const user = await getActingUser();
-
-  if (!user) {
-    return <p className="p-6 text-rg-muted">Pick a user to act as first.</p>;
-  }
-
-  if (!ROLES_ALLOWED_TO_MANAGE_REQUIREMENT_DATABASE.includes(user.role)) {
-    return (
-      <p className="p-6 text-rg-muted">
-        Only Compliance Managers and Admins can author Controls and map them to Deployment
-        Facets, Sensitivity Levels and Impact Levels.{" "}
-        <Link href="/controls" className="text-ems-blue hover:underline">
-          Read the Control Library
-        </Link>
-        .
-      </p>
-    );
-  }
-
-  return (
-    <div className="mx-auto max-w-4xl p-6">
-      <h1 className="mb-4 text-2xl">Control Library</h1>
-      <ControlLibraryManager sensitivityLevels={await listSensitivityLevels()} />
-    </div>
-  );
+/**
+ * `/admin/controls` is retired (issue #412): Controls are created at `/controls/new` and edited at
+ * `/controls/<code>/edit`. This keeps old bookmarks working. A page rather than `redirects` in `next.config`
+ * so the redirect is covered by a unit test.
+ */
+export default function RetiredAdminControlsPage(): never {
+  redirect("/controls");
 }

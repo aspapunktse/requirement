@@ -265,10 +265,11 @@ describe("roleView: owner tasks for any role (#98)", () => {
       },
     );
 
-    it.each(["ADMIN", "COMPLIANCE_MANAGER"] as UserRole[])("keeps the %s's editor tile and adds no second one", async (role) => {
+    it.each(["ADMIN", "COMPLIANCE_MANAGER"] as UserRole[])("points the %s's Control tile to /controls and adds no second one (#412)", async (role) => {
       const user = await makeUser(`cl-tile-${role}`, role);
-      const tiles = (await roleView(user)).tiles.filter((t) => t.href === "/controls" || t.href === "/admin/controls");
-      expect(tiles.map((t) => t.href)).toEqual(["/admin/controls"]);
+      const view = await roleView(user);
+      expect(view.tiles.filter((t) => t.href === "/controls")).toHaveLength(1);
+      expect(view.tiles.some((t) => t.href === "/admin/controls")).toBe(false);
     });
   });
 

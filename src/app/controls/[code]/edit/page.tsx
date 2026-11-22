@@ -9,7 +9,7 @@ import { loadControlEditView } from "./control-edit-data";
 
 /**
  * The editor for one Control (issue #314, decision 3), for a Compliance Manager or an Admin: the same two roles
- * `PATCH /api/controls/[id]` accepts. Any other role gets the refusal below (as `/admin/controls` words it), and
+ * `PATCH /api/controls/[id]` accepts. Any other role gets the refusal below (as `/controls/new` words it), and
  * nothing of the Control is read for them. A code no Control has is a 404. `?tab=` is the tab of the Control's
  * page to return to.
  */

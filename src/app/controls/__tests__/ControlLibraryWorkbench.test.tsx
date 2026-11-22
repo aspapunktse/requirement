@@ -119,7 +119,7 @@ describe("ControlLibraryWorkbench: hero and stat cards (#313)", () => {
   it("shows the edit actions to a Compliance Manager or an Admin, with Import disabled and said to come later", () => {
     renderLibrary(CURATOR);
     const hero = within(screen.getByRole("region", { name: "Control Library" }));
-    expect(hero.getByRole("link", { name: "+ New Control" })).toHaveAttribute("href", "/admin/controls");
+    expect(hero.getByRole("link", { name: "+ New Control" })).toHaveAttribute("href", "/controls/new");
     const importButton = hero.getByRole("button", { name: "Import" });
     expect(importButton).toBeDisabled();
     expect(importButton).toHaveAttribute("title", expect.stringContaining("Coming later"));
@@ -533,9 +533,9 @@ describe("ControlLibraryWorkbench: Ctrl+K palette (#313)", () => {
   it("adds New Control for a Compliance Manager or an Admin only, which navigates", () => {
     renderLibrary(CURATOR);
     const item = registration.current!.items.find((entry) => entry.label === "New Control");
-    expect(item).toMatchObject({ href: "/admin/controls" });
-    act(() => registration.current!.onSelect!({ href: "/admin/controls" }));
-    expect(push).toHaveBeenCalledWith("/admin/controls");
+    expect(item).toMatchObject({ href: "/controls/new" });
+    act(() => registration.current!.onSelect!({ href: "/controls/new" }));
+    expect(push).toHaveBeenCalledWith("/controls/new");
     cleanup();
     renderLibrary();
     expect(registration.current!.items.some((entry) => entry.label === "New Control")).toBe(false);

@@ -14,7 +14,6 @@ vi.mock("@/lib/acting-user", async (importOriginal) => {
 });
 
 import ControlLibraryReadPage from "../page";
-import AdminControlsPage from "../../admin/controls/page";
 
 // The Control Library page (#169, #313), rendered per role.
 const SUFFIX = `${process.pid}-${Date.now()}`;
@@ -74,7 +73,7 @@ describe("the Control Library page", { timeout: 30_000 }, () => {
 
   it.each(ROLES)("links the editor for the %s only if it can author Controls", async (role) => {
     const markup = await html(ControlLibraryReadPage, role);
-    expect(markup.includes('href="/admin/controls"')).toBe(CURATORS.includes(role));
+    expect(markup.includes('href="/controls/new"')).toBe(CURATORS.includes(role));
   });
 
   // What the browser receives is the view handed to the client component (the RSC payload), not only the HTML.
@@ -100,8 +99,4 @@ describe("the Control Library page", { timeout: 30_000 }, () => {
     expect(view.rows.find((row) => row.code === `TEST-169-PAGE-${SUFFIX}`)?.mappings.some((mapping) => mapping.draft)).toBe(true);
   });
 
-  it("points a role that cannot author Controls from the editor to the read-only page", async () => {
-    const markup = await html(AdminControlsPage, "VIEWER");
-    expect(markup).toContain('href="/controls"');
-  });
 });
