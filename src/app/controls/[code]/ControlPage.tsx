@@ -389,7 +389,6 @@ export function ControlPage({ view, initialTab }: { view: ControlPageView; initi
                 <h2>The Control</h2>
                 <ControlBody row={row} />
                 <AuditQuestionsPanel
-                  key={view.auditQuestions.join("\n")}
                   controlId={row.id}
                   code={row.code}
                   initialQuestions={view.auditQuestions}

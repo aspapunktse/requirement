@@ -107,6 +107,16 @@ describe("Audit Questions (#404)", { timeout: 60_000 }, () => {
     expect(await prisma.changeEvent.count({ where: { actorId: { in: Object.values(users) } } })).toBe(0);
   });
 
+  it("serialises two simultaneous saves for one Control: both succeed and the result is exactly one of the lists", async () => {
+    const a = ["A1?", "A2?", "A3?"];
+    const b = ["B1?", "B2?"];
+    const [ra, rb] = await Promise.all([put("ADMIN", withBank.id, { questions: a }), put("COMPLIANCE_MANAGER", withBank.id, { questions: b })]);
+    expect([ra.status, rb.status]).toEqual([200, 200]);
+    const rows = await prisma.controlAuditQuestion.findMany({ where: { controlId: withBank.id }, orderBy: { position: "asc" } });
+    expect(rows.map((r) => r.position)).toEqual(rows.map((_, i) => i + 1));
+    expect([a, b]).toContainEqual(rows.map((r) => r.text));
+  });
+
   it("refuses every other role and an anonymous request with nothing changed", async () => {
     await put("ADMIN", withBank.id, { questions: ["Keep me?"] });
     for (const role of REFUSED) {

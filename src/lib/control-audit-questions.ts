@@ -45,8 +45,10 @@ export async function listAuditQuestions(tx: Prisma.TransactionClient, controlId
 export async function replaceAuditQuestions(controlId: string, questions: string[]): Promise<string[] | null> {
   const texts = questions.map((text) => text.trim());
   return prisma.$transaction(async (tx) => {
-    const control = await tx.control.findUnique({ where: { id: controlId }, select: { id: true } });
-    if (!control) return null;
+    // Lock the Control row so two simultaneous replaces for it run one after the other (else both delete, then both
+    // insert, and the second hits the (controlId, position) unique index). No row means no such Control.
+    const locked = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM "Control" WHERE id = ${controlId} FOR UPDATE`;
+    if (locked.length === 0) return null;
     await tx.controlAuditQuestion.deleteMany({ where: { controlId } });
     await tx.controlAuditQuestion.createMany({ data: texts.map((text, index) => ({ controlId, position: index + 1, text })) });
     return texts;
