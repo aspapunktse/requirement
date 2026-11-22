@@ -57,4 +57,38 @@ describe("AiAssistant", () => {
     await user.click(screen.getByRole("button", { name: "Ask" }));
     await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("The AI assistant is unavailable — check that Ollama is running."));
   });
+
+  it("keeps working past the endpoint's message limit by sending only the latest turns", async () => {
+    vi.stubGlobal("fetch", mockFetch(200, { reply: "ok" }));
+    const user = userEvent.setup({ delay: null });
+    render(<AiAssistant />);
+    await user.click(screen.getByRole("button", { name: "AI assistant" }));
+    for (let i = 0; i < 11; i++) {
+      await user.type(screen.getByLabelText("Message"), `q${i}`);
+      await user.click(screen.getByRole("button", { name: "Ask" }));
+      await waitFor(() => expect(calls()).toHaveLength(i + 1));
+      await waitFor(() => expect(screen.getAllByText("ok")).toHaveLength(i + 1));
+    }
+    const sent = JSON.parse(calls()[10][1].body as string).messages;
+    expect(sent.length).toBeLessThanOrEqual(20);
+    expect(sent[0].role).toBe("system");
+    expect(sent.at(-1)).toEqual({ role: "user", content: "q10" });
+    expect(screen.getByText("q0")).toBeVisible();
+  });
+
+  it("starts afresh when remounted for another acting user", async () => {
+    vi.stubGlobal("fetch", mockFetch(200, { reply: "ok" }));
+    const user = userEvent.setup({ delay: null });
+    const { rerender } = render(<AiAssistant key="user-a" />);
+    await user.click(screen.getByRole("button", { name: "AI assistant" }));
+    await user.type(screen.getByLabelText("Message"), "secret question");
+    await user.click(screen.getByRole("button", { name: "Ask" }));
+    await waitFor(() => expect(screen.getByText("ok")).toBeVisible());
+    await user.type(screen.getByLabelText("Message"), "unsent draft");
+
+    rerender(<AiAssistant key="user-b" />);
+    await user.click(screen.getByRole("button", { name: "AI assistant" }));
+    expect(screen.queryByText("secret question")).toBeNull();
+    expect(screen.getByLabelText("Message")).toHaveValue("");
+  });
 });

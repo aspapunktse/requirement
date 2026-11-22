@@ -37,7 +37,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full flex flex-col">
         <PaletteProvider>
           <AppHeader devStub={isDevAuthStubEnabled()} user={user} />
-          {user && <AiAssistant />}
+          {user && <AiAssistant key={user.id} />}
           {children}
         </PaletteProvider>
       </body>

@@ -3,12 +3,14 @@
 import { useId, useState } from "react";
 import { Icon } from "@/app/home/HomeGraphics";
 import type { AiMessage } from "@/lib/ai";
+import { boundedHistory } from "@/lib/ai-history";
 
 /**
  * The floating AI Assistant panel: one toggle button in the corner of every page, and a chat panel
  * that POSTs the whole conversation to `/api/ai/chat` — the local Ollama server, by default
  * `gemma4:12b`. The conversation lives in the panel's state and is sent again with every question,
- * so there is nothing to load or clean up on the server side.
+ * trimmed to the endpoint's limit (`boundedHistory`), so there is nothing to load or clean up on the
+ * server side. The root layout keys the panel by the acting user, so switching user starts afresh.
  */
 
 const FOCUS = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rg-accent";
@@ -41,7 +43,7 @@ export function AiAssistant() {
       const response = await fetch("/api/ai/chat", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ messages: next }),
+        body: JSON.stringify({ messages: boundedHistory(next) }),
       });
       const body: { reply?: unknown } = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error("The assistant answered with status " + response.status);
