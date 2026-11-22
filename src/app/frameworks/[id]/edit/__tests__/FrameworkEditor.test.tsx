@@ -51,9 +51,9 @@ const INITIAL: FrameworkDraft = {
 };
 const OTHERS = [{ id: "f-old", name: "NIS", version: "0" }];
 
-function renderEditor(props: { row?: Partial<CatalogRow>; initial?: Partial<FrameworkDraft>; catalogManager?: boolean } = {}) {
+function renderEditor(props: { row?: Partial<CatalogRow>; initial?: Partial<FrameworkDraft>; catalogManager?: boolean; requirementCount?: number } = {}) {
   return render(
-    <FrameworkEditor row={{ ...ROW, ...props.row }} catalogManager={props.catalogManager ?? true} initial={{ ...INITIAL, ...props.initial }} supersedesOptions={OTHERS} requirementCount={2}>
+    <FrameworkEditor row={{ ...ROW, ...props.row }} catalogManager={props.catalogManager ?? true} initial={{ ...INITIAL, ...props.initial }} supersedesOptions={OTHERS} requirementCount={props.requirementCount ?? 2}>
       <p>children go here</p>
     </FrameworkEditor>,
   );
@@ -264,6 +264,27 @@ describe("FrameworkEditor: publish", () => {
     expect(await within(dialog).findByRole("alert")).toHaveTextContent("Already published");
     await userEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    expect(router.refresh).not.toHaveBeenCalled();
+    expect(calls("POST")).toHaveLength(1);
+  });
+});
+
+describe("FrameworkEditor: fresh figures", () => {
+  it("refreshes the page data on Publish and opens the dialog with the row the server then sends", async () => {
+    const { rerender } = renderEditor({ row: { requirements: 0, gaps: 0 }, requirementCount: 0 });
+    router.refresh.mockImplementation(() => {
+      // The server answers with the Requirement the author just added, still unmapped.
+      rerender(
+        <FrameworkEditor row={{ ...ROW, requirements: 1, gaps: 1 }} catalogManager initial={INITIAL} supersedesOptions={OTHERS} requirementCount={1}>
+          <p>children go here</p>
+        </FrameworkEditor>,
+      );
+    });
+    expect(screen.getByText("· 0 Requirements")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Publish" }));
+    expect(router.refresh).toHaveBeenCalled();
+    const dialog = await screen.findByRole("dialog", { name: "Publish NIS2:1?" });
+    expect(dialog).toHaveTextContent("1 Coverage Gap is still open.");
+    expect(dialog).not.toHaveTextContent("Every Requirement is covered or accepted.");
+    expect(screen.getByText("· 1 Requirements")).toBeInTheDocument();
   });
 });

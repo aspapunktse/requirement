@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useState, useTransition, type FormEvent, type ReactNode } from "react";
 import { FrameworkLineage } from "@/components/FrameworkLineage";
 import { StatusChip } from "@/components/ui/StatusChip";
 import { frameworkLabel } from "@/lib/framework-label";
@@ -57,6 +57,8 @@ export function FrameworkEditor({
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
+  // Publish reads the figures of `row`, so a click first refreshes the page data; the dialog opens once that settles.
+  const [refreshing, startRefresh] = useTransition();
 
   const label = frameworkLabel(row);
   const isDraft = row.status === "DRAFT";
@@ -262,7 +264,15 @@ export function FrameworkEditor({
               {saving ? "Saving…" : "Save"}
             </button>
             {isDraft && (
-              <button type="button" className="hc-btn" onClick={() => setPublishing(true)}>
+              <button
+                type="button"
+                className="hc-btn"
+                disabled={refreshing}
+                onClick={() => {
+                  setPublishing(true);
+                  startRefresh(() => router.refresh());
+                }}
+              >
                 Publish
               </button>
             )}
@@ -281,7 +291,7 @@ export function FrameworkEditor({
 
       {children}
 
-      {publishing && (
+      {publishing && !refreshing && (
         <PublishFrameworkDialog
           row={row}
           onClose={() => setPublishing(false)}

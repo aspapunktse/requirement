@@ -9,12 +9,11 @@ import {
   requirementInclude,
   visibleOrOwnedFrameworksWhere,
 } from "@/lib/frameworks";
-import { FrameworkRequirementsEditor } from "@/components/FrameworkRequirementsEditor";
-import { FrameworkReviewGroup } from "@/components/FrameworkReviewGroup";
 import "@/app/home/home.css";
 import "../../frameworks.css";
 import { loadFrameworksView } from "../../frameworks-data";
 import { FrameworkEditor } from "./FrameworkEditor";
+import { FrameworkSections } from "./FrameworkSections";
 
 function Refusal({ children }: { children: React.ReactNode }) {
   return (
@@ -102,30 +101,16 @@ export default async function EditFrameworkPage({ params }: PageProps<"/framewor
       supersedesOptions={others}
       requirementCount={requirements.length}
     >
-      <section className="hc-card" aria-label="Review Group">
-        <div className="hc-card-b fc-embed">
-          <FrameworkReviewGroup
-            frameworkId={framework.id}
-            isBase={framework.isBase}
-            groups={reviewGroups.map((group) => ({ id: group.id, name: group.name, memberCount: group._count.members }))}
-            initialReviewGroupId={framework.reviewGroupId}
-            canOpenGroup={user.role === "ADMIN"}
-          />
-        </div>
-      </section>
-      <section className="hc-card" aria-label="Requirements and Control Mappings">
-        <div className="hc-card-h">
-          <h2>Requirements and Control Mappings</h2>
-        </div>
-        <div className="hc-card-b fc-embed">
-          <FrameworkRequirementsEditor
-            frameworkId={framework.id}
-            licensing={framework.licensing}
-            initialRequirements={requirements}
-            controls={controls}
-          />
-        </div>
-      </section>
+      <FrameworkSections
+        frameworkId={framework.id}
+        isBase={framework.isBase}
+        licensing={framework.licensing}
+        reviewGroups={reviewGroups.map((group) => ({ id: group.id, name: group.name, memberCount: group._count.members }))}
+        reviewGroupId={framework.reviewGroupId}
+        canOpenGroup={user.role === "ADMIN"}
+        requirements={requirements}
+        controls={controls}
+      />
     </FrameworkEditor>
   );
 }
