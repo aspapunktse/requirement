@@ -45,6 +45,9 @@ CREATE TABLE "ComplianceBoundarySystem" (
 -- CreateIndex
 CREATE UNIQUE INDEX "ComplianceBoundary_name_key" ON "ComplianceBoundary"("name");
 
+-- Names are unique ignoring case, enforced here so two concurrent creates or renames can't both succeed.
+CREATE UNIQUE INDEX "ComplianceBoundary_lower_name_key" ON "ComplianceBoundary"(lower("name"));
+
 -- CreateIndex
 CREATE INDEX "ComplianceBoundary_businessUnitId_idx" ON "ComplianceBoundary"("businessUnitId");
 

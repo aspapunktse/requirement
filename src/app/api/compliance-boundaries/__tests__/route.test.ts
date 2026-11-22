@@ -147,6 +147,23 @@ describe("/api/compliance-boundaries", () => {
     expect(await snapshot()).toEqual(before);
   });
 
+  it("POST and PATCH: concurrent requests differing only in case can't both win (unique index on lower(name))", async () => {
+    const cm = userIds.COMPLIANCE_MANAGER;
+    const base = NAME("race");
+    const created = await Promise.all([post(cm, { name: base, frameworkIds: [publishedA] }), post(cm, { name: base.toUpperCase(), frameworkIds: [publishedA] })]);
+    expect(created.map((response) => response.status).sort()).toEqual([201, 409]);
+    expect(await prisma.complianceBoundary.count({ where: { name: { equals: base, mode: "insensitive" } } })).toBe(1);
+
+    const one = await createBoundary("rename one");
+    const two = await createBoundary("rename two");
+    const target = NAME("renamed");
+    const renamed = await Promise.all([patch(one.id, cm, { name: target }), patch(two.id, cm, { name: target.toLowerCase() })]);
+    expect(renamed.map((response) => response.status).sort()).toEqual([200, 409]);
+    expect(await prisma.complianceBoundary.count({ where: { name: { equals: target, mode: "insensitive" } } })).toBe(1);
+    // The database refuses it too, whatever the route does.
+    await expect(prisma.complianceBoundary.create({ data: { name: NAME("RACE") } })).rejects.toThrow();
+  });
+
   it("PATCH: curators edit every field; the whole Framework list is replaced; no Change Event is written", async () => {
     const boundary = await createBoundary("editable", null, [publishedA]);
     const rename = await patch(boundary.id, userIds.ADMIN, { name: NAME("edited"), description: "Contract 7", businessUnitId: unitId, boundaryOwnerId: ownerId, frameworkIds: [publishedB] });

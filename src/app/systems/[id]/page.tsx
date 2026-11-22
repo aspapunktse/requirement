@@ -11,6 +11,7 @@ import { assessmentEditAccess } from "@/lib/system-permissions";
 import { canManageProvider } from "@/lib/control-offering-rules";
 import { listControlOfferings, listOfferableControls } from "@/lib/control-offerings";
 import { prisma } from "@/lib/prisma";
+import { READ_SNAPSHOT } from "@/lib/read-transaction";
 import { listBoundariesOfSystem } from "@/lib/compliance-boundary-data";
 import { listSensitivityLevels } from "@/lib/sensitivity-level-data";
 import { canManageProviderDependencies } from "@/lib/provider-dependency-rules";
@@ -89,7 +90,7 @@ export default async function SystemDetailPage({ params }: PageProps<"/systems/[
   const riskOwners = canAssignOwner || canRecordAnalysis ? await prisma.user.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }) : [];
   const canChangeClassification = canChangeSystemClassification(user, system);
   // The Compliance Boundaries the System is in (#418), read-only on its Profile.
-  const boundaries = await listBoundariesOfSystem(system.id);
+  const boundaries = await prisma.$transaction((tx) => listBoundariesOfSystem(system.id, tx), READ_SNAPSHOT);
 
   const panels = {
     // Only a staged System has an Evaluation tab (#328); the cockpit leaves the panel out for the rest.
