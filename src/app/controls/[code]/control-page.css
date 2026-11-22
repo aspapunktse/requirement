@@ -120,6 +120,8 @@ textarea.cp-input { min-height: 90px; resize: vertical; }
 .cp-aq { max-width: 70ch; display: grid; gap: 8px; }
 .cp-aq-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
 .cp-aq-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: start; }
+.cp-aq-fields { display: grid; gap: 6px; }
+.cp-aq-guidance { margin: 2px 0 0; }
 .cp-aq-row textarea { width: 100%; font: inherit; color: var(--rg-ink); background: var(--rg-surface); border: 1px solid var(--rg-line); border-radius: 10px; padding: 8px 10px; resize: vertical; }
 .cp-aq-row textarea:focus-visible { outline: 2px solid var(--rg-accent); outline-offset: -1px; }
 .cp-aq-actions { display: flex; gap: 6px; flex-wrap: wrap; }

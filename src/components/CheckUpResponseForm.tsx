@@ -31,7 +31,7 @@ export function CheckUpResponseForm({
   changing,
 }: {
   checkUpId: string;
-  questions: { id: string; position: number; text: string; answer: { answer: CheckUpAnswer; description: string } | null }[];
+  questions: { id: string; position: number; text: string; guidance?: string | null; answer: { answer: CheckUpAnswer; description: string } | null }[];
   initialEvidenceLinks: string[];
   /** True when a response exists and this edits it. */
   changing: boolean;
@@ -93,6 +93,7 @@ export function CheckUpResponseForm({
             <legend className="px-1 text-sm font-medium">
               {question.position}. {question.text}
             </legend>
+            {question.guidance && <p className="whitespace-pre-wrap text-sm text-rg-muted">Guidance: {question.guidance}</p>}
             <div className="flex gap-4 text-sm">
               {CHECK_UP_ANSWERS.map((answer) => (
                 <label key={answer} className="flex items-center gap-1">

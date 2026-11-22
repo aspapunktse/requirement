@@ -32,7 +32,13 @@ describe("DraftQuestionsEditor (#154)", () => {
     const [url, init] = calls()[0];
     expect(url).toBe("/api/internal-audits/a1/controls/c1/questions");
     expect(init.method).toBe("PUT");
-    expect(JSON.parse(init.body as string)).toEqual({ questions: ["Second?", "First? (edited)", "New?"] });
+    expect(JSON.parse(init.body as string)).toEqual({
+      questions: [
+        { text: "Second?", guidance: "" },
+        { text: "First? (edited)", guidance: "" },
+        { text: "New?", guidance: "" },
+      ],
+    });
   });
 
   it("removes a question and says so when none are left", async () => {
@@ -66,7 +72,7 @@ describe("DraftQuestionsEditor (#154)", () => {
     it("offers only the Audit Questions the list doesn't have (trimmed) and inserts the chosen ones, saved on Save", async () => {
       vi.stubGlobal("fetch", mockFetch(200, { questions: ["Have?", "Bank B?"] }));
       const user = userEvent.setup();
-      render(<DraftQuestionsEditor internalAuditId="a1" control={control} initialQuestions={["Have?"]} bank={[" Have? ", "Bank B?", "Bank C?"]} />);
+      render(<DraftQuestionsEditor internalAuditId="a1" control={control} initialQuestions={["Have?"]} bank={[" Have? ", "Bank B?", "Bank C?"].map((text) => ({ text, guidance: null }))} />);
 
       await user.click(screen.getByRole("button", { name: "From the bank for SEC-001" }));
       expect(screen.queryByLabelText("Have?")).toBeNull();
@@ -78,14 +84,53 @@ describe("DraftQuestionsEditor (#154)", () => {
       expect(fetch).not.toHaveBeenCalled();
       await user.click(screen.getByRole("button", { name: "Save questions for SEC-001" }));
       await waitFor(() => expect(refresh).toHaveBeenCalled());
-      expect(JSON.parse(calls()[0][1].body as string)).toEqual({ questions: ["Have?", "Bank B?"] });
+      expect(JSON.parse(calls()[0][1].body as string)).toEqual({
+        questions: [
+          { text: "Have?", guidance: "" },
+          { text: "Bank B?", guidance: "" },
+        ],
+      });
     });
 
     it("has no picker without a bank, and a disabled one when the draft already has every Audit Question", () => {
       const { rerender } = render(<DraftQuestionsEditor internalAuditId="a1" control={control} initialQuestions={["Q?"]} />);
       expect(screen.queryByRole("button", { name: "From the bank for SEC-001" })).toBeNull();
-      rerender(<DraftQuestionsEditor internalAuditId="a1" control={control} initialQuestions={["Q?"]} bank={["Q?"]} />);
+      rerender(<DraftQuestionsEditor internalAuditId="a1" control={control} initialQuestions={["Q?"]} bank={[{ text: "Q?", guidance: null }]} />);
       expect(screen.getByRole("button", { name: "From the bank for SEC-001" })).toBeDisabled();
+    });
+  });
+
+  describe("Guidance notes (#405)", () => {
+    it("shows the initial notes, sends edited ones with their question, and names an over-long one without sending", async () => {
+      vi.stubGlobal("fetch", mockFetch(200, { questions: ["Q?"], guidance: ["Look at the log"] }));
+      const user = userEvent.setup();
+      render(<DraftQuestionsEditor internalAuditId="a1" control={control} initialQuestions={["Q?"]} initialGuidance={["Old note"]} />);
+      const note = screen.getByLabelText("Guidance for question 1 for SEC-001 (optional)");
+      expect(note).toHaveValue("Old note");
+      await user.click(note);
+      await user.paste("x".repeat(1001));
+      await user.click(screen.getByRole("button", { name: "Save questions for SEC-001" }));
+      expect(screen.getByRole("alert")).toHaveTextContent("Guidance can be at most 1000 characters");
+      expect(fetch).not.toHaveBeenCalled();
+      await user.clear(note);
+      await user.type(note, "Look at the log");
+      await user.click(screen.getByRole("button", { name: "Save questions for SEC-001" }));
+      await waitFor(() => expect(refresh).toHaveBeenCalled());
+      expect(JSON.parse(calls()[0][1].body as string)).toEqual({ questions: [{ text: "Q?", guidance: "Look at the log" }] });
+    });
+
+    it("From the bank inserts the note with the question", async () => {
+      vi.stubGlobal("fetch", mockFetch(200, { questions: ["Bank B?"], guidance: ["Ask for a screenshot"] }));
+      const user = userEvent.setup();
+      render(<DraftQuestionsEditor internalAuditId="a1" control={control} initialQuestions={[]} bank={[{ text: "Bank B?", guidance: "Ask for a screenshot" }]} />);
+      await user.click(screen.getByRole("button", { name: "From the bank for SEC-001" }));
+      expect(screen.getByText("Guidance: Ask for a screenshot")).toBeInTheDocument();
+      await user.click(screen.getByRole("checkbox"));
+      await user.click(screen.getByRole("button", { name: "Insert chosen questions for SEC-001" }));
+      expect(screen.getByLabelText("Guidance for question 1 for SEC-001 (optional)")).toHaveValue("Ask for a screenshot");
+      await user.click(screen.getByRole("button", { name: "Save questions for SEC-001" }));
+      await waitFor(() => expect(refresh).toHaveBeenCalled());
+      expect(JSON.parse(calls()[0][1].body as string)).toEqual({ questions: [{ text: "Bank B?", guidance: "Ask for a screenshot" }] });
     });
   });
 });

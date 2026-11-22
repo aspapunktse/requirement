@@ -1,6 +1,6 @@
 import type { Prisma, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { MAX_QUESTION_LENGTH, MAX_QUESTIONS_PER_CONTROL } from "@/lib/check-up-rules";
+import { guidanceProblem, MAX_QUESTION_LENGTH, MAX_QUESTIONS_PER_CONTROL, normalizeGuidance, type GuidedQuestion } from "@/lib/check-up-rules";
 
 /**
  * Audit Questions (#404): a Control's standing, ordered questions an Internal Auditor verifies it with. Curated
@@ -19,8 +19,9 @@ export function canCurateAuditQuestions(user: { role: UserRole }): boolean {
  * fine). The text is compared trimmed, so "Is MFA on?" and " Is MFA on? " are the same question. The route and
  * the editor share this. The cap is the one a draft has per Control, since a draft starts as a copy of the list.
  */
-export function validateAuditQuestions(questions: string[]): string[] {
+export function validateAuditQuestions(questions: string[], guidance: (string | null | undefined)[] = []): string[] {
   const problems: string[] = [];
+  for (const problem of new Set(guidance.map(guidanceProblem))) if (problem) problems.push(problem);
   const texts = questions.map((text) => text.trim());
   if (texts.length > MAX_QUESTIONS_PER_CONTROL) problems.push(`A Control can have at most ${MAX_QUESTIONS_PER_CONTROL} Audit Questions`);
   if (texts.some((text) => text === "")) problems.push("An Audit Question can't be blank");
@@ -31,26 +32,25 @@ export function validateAuditQuestions(questions: string[]): string[] {
   return problems;
 }
 
-/** One Control's Audit Questions in order, on the caller's transaction client. */
-export async function listAuditQuestions(tx: Prisma.TransactionClient, controlId: string): Promise<string[]> {
-  const rows = await tx.controlAuditQuestion.findMany({ where: { controlId }, orderBy: { position: "asc" }, select: { text: true } });
-  return rows.map((row) => row.text);
+/** One Control's Audit Questions in order, with their guidance notes (#405), on the caller's transaction client. */
+export async function listAuditQuestions(tx: Prisma.TransactionClient, controlId: string): Promise<GuidedQuestion[]> {
+  return tx.controlAuditQuestion.findMany({ where: { controlId }, orderBy: { position: "asc" }, select: { text: true, guidance: true } });
 }
 
 /**
  * Replaces the whole ordered list in one transaction (add, edit, remove and reorder are all this one write).
- * Returns the saved list, or null when the Control doesn't exist. `questions` must already have passed
- * `validateAuditQuestions`.
+ * Returns the saved list, or null when the Control doesn't exist. `questions` (and the optional `guidance`
+ * notes, by index; trimmed, empty stored as none) must already have passed `validateAuditQuestions`.
  */
-export async function replaceAuditQuestions(controlId: string, questions: string[]): Promise<string[] | null> {
-  const texts = questions.map((text) => text.trim());
+export async function replaceAuditQuestions(controlId: string, questions: string[], guidance: (string | null | undefined)[] = []): Promise<GuidedQuestion[] | null> {
+  const items = questions.map((text, index): GuidedQuestion => ({ text: text.trim(), guidance: normalizeGuidance(guidance[index]) }));
   return prisma.$transaction(async (tx) => {
     // Lock the Control row so two simultaneous replaces for it run one after the other (else both delete, then both
     // insert, and the second hits the (controlId, position) unique index). No row means no such Control.
     const locked = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM "Control" WHERE id = ${controlId} FOR UPDATE`;
     if (locked.length === 0) return null;
     await tx.controlAuditQuestion.deleteMany({ where: { controlId } });
-    await tx.controlAuditQuestion.createMany({ data: texts.map((text, index) => ({ controlId, position: index + 1, text })) });
-    return texts;
+    await tx.controlAuditQuestion.createMany({ data: items.map(({ text, guidance }, index) => ({ controlId, position: index + 1, text, guidance })) });
+    return items;
   });
 }

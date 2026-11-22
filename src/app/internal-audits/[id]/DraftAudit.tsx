@@ -74,6 +74,7 @@ export function DraftAudit({ page, canWrite }: { page: InternalAuditPage; canWri
                         internalAuditId={audit.id}
                         control={control}
                         initialQuestions={control.questions}
+                        initialGuidance={control.guidance}
                         bank={page.auditQuestions[control.id] ?? []}
                       />
                     ) : control.questions.length === 0 ? (
@@ -81,7 +82,10 @@ export function DraftAudit({ page, canWrite }: { page: InternalAuditPage; canWri
                     ) : (
                       <ol className="ad-questions">
                         {control.questions.map((question, index) => (
-                          <li key={index}>{question}</li>
+                          <li key={index}>
+                            {question}
+                            {control.guidance[index] && <small>Guidance: {control.guidance[index]}</small>}
+                          </li>
                         ))}
                       </ol>
                     )}

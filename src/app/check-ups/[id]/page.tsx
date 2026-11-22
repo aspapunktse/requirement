@@ -117,6 +117,7 @@ export default async function CheckUpPage({ params }: PageProps<"/check-ups/[id]
                 <p className="font-medium">
                   {question.position}. {question.text}
                 </p>
+                {question.guidance && <p className="whitespace-pre-wrap text-rg-muted">Guidance: {question.guidance}</p>}
                 {question.answer && (
                   <>
                     <p>

@@ -21,14 +21,14 @@ function draft(blockers: { kind: string; message: string; controlIds: string[] }
       launchedBy: null,
       closedAt: null,
       closedBy: null,
-      controls: [{ id: "c1", code: "SEC-001", title: "Access", applicability: "PER_SYSTEM", questions: ["Is access reviewed?"] }],
+      controls: [{ id: "c1", code: "SEC-001", title: "Access", applicability: "PER_SYSTEM", questions: ["Is access reviewed?"], guidance: ["Check the quarterly review sheet"] }],
       systems: [{ id: "s1", name: "Payroll", status: "ONBOARDED" }],
     },
     daysUntilDue: 30,
     checkUps: [],
     counts: { evaluated: 0, withdrawn: 0, awaiting: 0, overdue: 0, notAnswered: 0, total: 0, open: 0 },
     findings: null,
-    auditQuestions: { c1: ["Is access reviewed?", "Is MFA enforced?"] },
+    auditQuestions: { c1: [{ text: "Is access reviewed?", guidance: null }, { text: "Is MFA enforced?", guidance: "Ask for the policy export" }] },
     plan: {
       summary: "2 Check-ups (1 System-level, 1 Organization-level)",
       systemCheckUpCount: 1,
@@ -55,6 +55,7 @@ describe("DraftAudit (#399)", () => {
     expect(screen.getByRole("link", { name: /Edit/ }).getAttribute("href")).toBe("/internal-audits/a1/edit");
     expect(screen.getByRole("button", { name: /Delete/ })).toBeTruthy();
     expect(screen.getByLabelText("Question 1 for SEC-001")).toBeTruthy();
+    expect((screen.getByLabelText("Guidance for question 1 for SEC-001 (optional)") as HTMLTextAreaElement).value).toBe("Check the quarterly review sheet");
   });
 
   it("lists what blocks the launch and disables Launch", () => {
@@ -66,6 +67,7 @@ describe("DraftAudit (#399)", () => {
   it("shows a reader the questions and the launch preview but no edit, delete, launch or editor", () => {
     render(<DraftAudit page={draft([])} canWrite={false} />);
     expect(screen.getByText("Is access reviewed?")).toBeTruthy();
+    expect(screen.getByText("Guidance: Check the quarterly review sheet")).toBeTruthy();
     expect(screen.getByRole("complementary", { name: "If launched now" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Launch" })).toBeNull();
     expect(screen.queryByRole("button", { name: /Delete/ })).toBeNull();
