@@ -3,6 +3,21 @@
 // `id` is the vote key: keep it stable once people have voted, or the votes are orphaned.
 window.DESIGN_PARTS = [
   {
+    id: "boundaries",
+    name: "Compliance Boundaries",
+    added: "2026-11-22",
+    question: "How do Compliance Boundaries and their per-Boundary Statements of Applicability look: the list, one Boundary with its Systems, candidates and join preview, the statement per Framework, and the System page?",
+    proposals: [
+      {
+        id: "boundaries-a",
+        label: "A",
+        title: "Boundary pages and statement",
+        href: "/design/boundaries/proposal-a.html",
+        summary: "Four linked views in the Home look: the Boundaries list with a retired filter, a Boundary page (counted, not yet operating and closed Systems, candidates, a join preview, Compliance Percentage per Framework), its statement with one section per Framework and drill-down per Requirement, and the Boundaries card on a System page.",
+      },
+    ],
+  },
+  {
     id: "audit-detail",
     name: "One Internal Audit",
     added: "2026-11-18",
