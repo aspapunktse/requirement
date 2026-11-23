@@ -1,12 +1,14 @@
 import { csvFilename, toCsv, type CsvValue } from "@/lib/csv";
 import { frameworkLabel } from "@/lib/framework-label";
+import type { DerivedRequirementStatus } from "@/lib/requirement-status-rules";
 import { describeMetOn, STATEMENT_STATUS_LABEL, type BoundaryStatement, type BoundaryStatementRow, type BoundaryStatementSection } from "@/lib/boundary-statement-rules";
 
 /**
  * The export of a Compliance Boundary's Statement of Applicability (#421, design proposal C): the whole statement or one Framework's
  * section, as CSV and as a print page. Pure: it turns what `loadBoundaryStatement` returns into text and facts, deriving nothing.
- * It carries no per-System status, so it is the same for every role: the counted Systems are named to every role on the page too,
- * and the Systems a user may not see are never named in a row (the page names them only in the drill-down).
+ * The CSV also carries one column per counted System the acting user may see (`statement.systems`, the page's own visibility rule),
+ * holding that System's status for the Requirement. A System the user may not see has no column and is never named in a row; it is
+ * named only in the facts, as the page names every counted System. The print page keeps to the worst status and "Met on x of y".
  */
 
 /** The sections of an export: all of them, or the one Framework asked for (null when the Boundary doesn't hold it). */
@@ -20,6 +22,9 @@ export function selectSections(statement: BoundaryStatement, frameworkId: string
 export function exportDate(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
+
+/** The status on one System, worded like the "Worst status" column; a Requirement that does not apply to the System says so. */
+const SYSTEM_STATUS_LABEL: Record<DerivedRequirementStatus, string> = { ...STATEMENT_STATUS_LABEL, NOT_APPLICABLE: "Not applicable" };
 
 const names = (systems: { name: string }[]) => systems.map((system) => system.name).join("; ");
 
@@ -48,8 +53,12 @@ export function exportHeader(statement: BoundaryStatement, sections: BoundarySta
 
 export const BOUNDARY_STATEMENT_CSV_HEADER = ["Framework", "Requirement code", "Requirement title", "In the statement", "Exclusion justification", "Worst status", "Met on"] as const;
 
-/** One row per Requirement: included or excluded, the justification of an excluded one (empty when none is written), the worst status, "Met on x of y Systems". */
-export function boundaryStatementCsvRow(section: BoundaryStatementSection, row: BoundaryStatementRow): CsvValue[] {
+/**
+ * One row per Requirement: included or excluded, the justification of an excluded one (empty when none is written), the worst status,
+ * "Met on x of y Systems", then the status on each System the reader may see, in the order of `statement.systems` (the column order).
+ */
+export function boundaryStatementCsvRow(statement: BoundaryStatement, section: BoundaryStatementSection, row: BoundaryStatementRow): CsvValue[] {
+  const byIndex = new Map(row.systemStatuses);
   return [
     frameworkLabel(section.framework),
     row.code,
@@ -58,6 +67,10 @@ export function boundaryStatementCsvRow(section: BoundaryStatementSection, row: 
     row.justification ?? "",
     row.worstStatus ? STATEMENT_STATUS_LABEL[row.worstStatus] : "",
     row.included ? describeMetOn(row) : "",
+    ...statement.systems.map((_, index) => {
+      const status = byIndex.get(index);
+      return status ? SYSTEM_STATUS_LABEL[status] : "";
+    }),
   ];
 }
 
@@ -73,12 +86,13 @@ export function boundaryStatementCsv(statement: BoundaryStatement, sections: Bou
     ["Frameworks", header.frameworks.join("; ")],
     ["Counted Systems", `${header.countedSystems.length}${header.countedSystems.length > 0 ? `: ${header.countedSystems.join("; ")}` : ""}`],
     ...(header.notYetOperating.length > 0 ? [["Not yet operating, not counted", names(statement.notYetOperating)] as CsvValue[]] : []),
+    ...(statement.countedSystems.length > statement.systems.length ? [["Systems not shown (no access)", String(statement.countedSystems.length - statement.systems.length)] as CsvValue[]] : []),
     ["Exported", header.exportedOn],
     [""],
   ];
-  const rows = sections.flatMap((section) => section.rows.map((row) => boundaryStatementCsvRow(section, row)));
+  const rows = sections.flatMap((section) => section.rows.map((row) => boundaryStatementCsvRow(statement, section, row)));
   // toCsv takes one header row; the facts come first, then the column header as an ordinary row.
-  return toCsv(["Compliance Boundary", header.boundaryName], [...facts, [...BOUNDARY_STATEMENT_CSV_HEADER], ...rows]);
+  return toCsv(["Compliance Boundary", header.boundaryName], [...facts, [...BOUNDARY_STATEMENT_CSV_HEADER, ...statement.systems.map((system) => system.name)], ...rows]);
 }
 
 /** "isms-scope-iso-iec-27001-2022-2026-11-23.csv": the Boundary, the Framework when one section, the date. */

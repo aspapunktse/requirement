@@ -22,6 +22,7 @@ vi.mock("@/lib/acting-user", async (importOriginal) => {
 
 import { StatementPanel } from "../[id]/StatementPanel";
 import StatementPage from "../[id]/statement/page";
+import BoundaryPage from "../[id]/page";
 import PrintPage from "../[id]/statement/print/page";
 
 /** The export buttons and the print page (#421). The panel is a component test; the pages run against real Postgres with `Test #421 ...` fixtures. */
@@ -111,6 +112,19 @@ describe("the statement and print pages", { timeout: 60_000 }, () => {
     expect(retiredPage).not.toContain("Export whole statement");
     expect(retiredPage).not.toContain("Print whole statement");
     expect(retiredPage).not.toContain("Export section");
+  });
+
+  it("the Boundary page offers the whole-statement buttons at the top, and a retired Boundary none", async () => {
+    const page = await html(BoundaryPage({ params: Promise.resolve({ id: active }) } as never));
+    expect(page).toContain("Export whole statement (CSV)");
+    expect(page).toContain("Print whole statement");
+    expect(page).toContain(`href="/api/compliance-boundaries/${active}/statement/export"`);
+    expect(page).toContain(`href="/compliance-boundaries/${active}/statement/print"`);
+    expect(page.indexOf("Export whole statement (CSV)")).toBeLessThan(page.indexOf("Statement of Applicability", page.indexOf("</h1>")));
+
+    const retiredPage = await html(BoundaryPage({ params: Promise.resolve({ id: retired }) } as never));
+    expect(retiredPage).not.toContain("Export whole statement");
+    expect(retiredPage).not.toContain("Print whole statement");
   });
 
   it("the print page has the cover facts and a section per Framework, or one section", async () => {

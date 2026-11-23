@@ -63,9 +63,11 @@ describe("GET statement export (#421)", { timeout: 90_000 }, () => {
 
     const counted = await prisma.system.create({ data: { name: N("Counted"), ownerId: users.other, status: "ONBOARDED", deploymentFacets: { connect: [{ id: facets[0] }] } } });
     const pending = await prisma.system.create({ data: { name: N("Pending"), ownerId: users.other, status: "DRAFT", deploymentFacets: { connect: [{ id: facets[0] }] } } });
-    systemIds.push(counted.id, pending.id);
+    // Counted through an ATO, but not Onboarded: only its owner and the full-visibility roles may see it (ADR 0004).
+    const approved = await prisma.system.create({ data: { name: N("Hidden"), ownerId: users.other, status: "APPROVED", deploymentFacets: { connect: [{ id: facets[0] }] } } });
+    systemIds.push(counted.id, pending.id, approved.id);
     const created = async (name: string, data: object) => (await prisma.complianceBoundary.create({ data: { name, boundaryOwnerId: users.owner, ...data } })).id;
-    boundary = await created(N("Boundary ÅÄÖ"), { frameworks: { create: [{ frameworkId: fwA }, { frameworkId: fwB }] }, systems: { create: [{ systemId: counted.id }, { systemId: pending.id }] } });
+    boundary = await created(N("Boundary ÅÄÖ"), { frameworks: { create: [{ frameworkId: fwA }, { frameworkId: fwB }] }, systems: { create: [{ systemId: counted.id }, { systemId: pending.id }, { systemId: approved.id }] } });
     retired = await created(N("Retired"), { retiredAt: new Date(), frameworks: { create: [{ frameworkId: fwA }] } });
     emptyBoundary = await created(N("Empty"), { frameworks: { create: [{ frameworkId: fwA }] } });
     boundaryIds.push(boundary, retired, emptyBoundary);
@@ -95,15 +97,18 @@ describe("GET statement export (#421)", { timeout: 90_000 }, () => {
     expect(fact("Frameworks")).toContain("Test 421 export A Framework");
     expect(fact("Frameworks")).toContain("Test 421 export B Framework");
     expect(fact("Frameworks")).not.toContain("other");
-    expect(fact("Counted Systems")).toBe(`1: ${N("Counted")}`);
+    expect(fact("Counted Systems")).toBe(`2: ${N("Counted")}; ${N("Hidden")}`);
     expect(fact("Not yet operating, not counted")).toBe(N("Pending"));
     expect(fact("Exported")).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-    expect(rows.find((row) => row[0] === "Framework")).toEqual(["Framework", "Requirement code", "Requirement title", "In the statement", "Exclusion justification", "Worst status", "Met on"]);
+    expect(rows.find((row) => row[0] === "Framework")).toEqual(["Framework", "Requirement code", "Requirement title", "In the statement", "Exclusion justification", "Worst status", "Met on", N("Counted"), N("Hidden")]);
     const data = dataRows(rows);
     expect(data).toHaveLength(3);
     expect(data.map((row) => row[3]).sort()).toEqual(["Excluded", "Included", "Included"]);
     const included = data.find((row) => row[3] === "Included" && row[0].includes("export A"))!;
-    expect(included.slice(4)).toEqual(["", "Not met", "Met on 0 of 1 System"]);
+    expect(included.slice(4)).toEqual(["", "Not met", "Met on 0 of 2 Systems", "Not met", "Not met"]);
+    // The excluded Requirement applies to no System, so that System's cell says so.
+    expect(data.find((row) => row[3] === "Excluded")!.slice(7)).toEqual(["Not applicable", "Not applicable"]);
+    expect(fact("Systems not shown (no access)")).toBeUndefined();
   });
 
   it("exports one Framework's section with ?framework=", async () => {
@@ -157,10 +162,22 @@ describe("GET statement export (#421)", { timeout: 90_000 }, () => {
     }
   });
 
-  it("gives a Viewer who can't see a counted System no more than an Admin gets: its name is in the header only, never in a row", async () => {
+  it("lists a System's status only for a reader who may see it: a Viewer gets no column for an Approved System it can't see, its name only in the facts", async () => {
     const rows = await read(await get(users.viewer, boundary));
-    expect(rows.find((row) => row[0] === "Counted Systems")?.[1]).toBe(`1: ${N("Counted")}`);
-    expect(dataRows(rows).flat().some((cell) => cell.includes(N("Counted")))).toBe(false);
+    expect(rows.find((row) => row[0] === "Counted Systems")?.[1]).toBe(`2: ${N("Counted")}; ${N("Hidden")}`);
+    expect(rows.find((row) => row[0] === "Systems not shown (no access)")?.[1]).toBe("1");
+    const header = rows.find((row) => row[0] === "Framework")!;
+    expect(header.slice(7)).toEqual([N("Counted")]);
+    for (const row of dataRows(rows)) expect(row).toHaveLength(8);
+    expect(dataRows(rows).flat().some((cell) => cell.includes(N("Hidden")))).toBe(false);
+  });
+
+  it("shows the System's column to its owner and in a per-Framework section", async () => {
+    const rows = await read(await get(users.other, boundary, fwA));
+    const header = rows.find((row) => row[0] === "Framework")!;
+    expect(header.slice(7)).toEqual([N("Counted"), N("Hidden")]);
+    expect(dataRows(rows).map((row) => row[8]).sort()).toEqual(["Not applicable", "Not met"]);
+    expect(rows.find((row) => row[0] === "Systems not shown (no access)")).toBeUndefined();
   });
 
   it("refuses without an acting user (401) and finds nothing for an unknown Boundary, a Framework the Boundary doesn't hold, or an empty one", async () => {
