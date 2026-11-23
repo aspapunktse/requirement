@@ -33,7 +33,7 @@ const STATUS_CLASS = { MET: "ok", PARTIALLY_MET: "warn", NOT_MET: "bad" } as con
  * counted System; an excluded row carries its justification, which the Boundary Owner, a Compliance Manager or an Admin edit here.
  * A saved text is written through the API and the page refreshes, so the rows come from the server again.
  */
-export function StatementPanel({ statement, headingId = "cb-statement-h" }: { statement: BoundaryStatement; headingId?: string }) {
+export function StatementPanel({ statement, headingId = "cb-statement-h", number }: { statement: BoundaryStatement; headingId?: string; number?: number }) {
   const [filter, setFilter] = useState<StatementFilter>("ALL");
   const [query, setQuery] = useState("");
   const counts = useMemo(() => countStatementRows(statement.sections.flatMap((section) => section.rows)), [statement]);
@@ -43,7 +43,14 @@ export function StatementPanel({ statement, headingId = "cb-statement-h" }: { st
   return (
     <section className="hc-card cb-st" id="statement" aria-labelledby={headingId}>
       <div className="hc-card-h">
-        <h2 id={headingId}>Statement of Applicability</h2>
+        <h2 id={headingId}>
+          {number !== undefined && (
+            <span className="cb-no" aria-hidden="true">
+              {number}
+            </span>
+          )}
+          Statement of Applicability
+        </h2>
         <p>Derived from the counted Systems</p>
       </div>
       <div className="hc-card-b cb">

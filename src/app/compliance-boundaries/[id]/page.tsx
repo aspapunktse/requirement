@@ -5,6 +5,7 @@ import { READ_SNAPSHOT } from "@/lib/read-transaction";
 import { visibleSystemsWhere } from "@/lib/system-visibility";
 import { canCurateBoundaries, canManageBoundaryMembers } from "@/lib/compliance-boundary";
 import { readBoundaryStatement } from "@/lib/boundary-statement";
+import { readBoundaryPerimeter } from "@/lib/boundary-perimeter";
 import { getBoundary, getBoundaryCompliance, loadMemberCandidates, loadPreparedCandidates } from "@/lib/compliance-boundary-data";
 import "@/app/home/home.css";
 import "../compliance-boundaries.css";
@@ -34,7 +35,8 @@ export default async function ComplianceBoundaryPage({ params }: PageProps<"/com
     const active = boundary.retirement === null;
     const compliance = active ? await getBoundaryCompliance(id, boundary.frameworks.map((framework) => framework.id), tx) : [];
     const statement = (await readBoundaryStatement(id, user, tx))!;
-    return { boundary, compliance, statement, linkableSystemIds: visible.map((system) => system.id), candidates: manage && active ? await loadMemberCandidates(id, tx) : [], prepared: manage && active ? await loadPreparedCandidates(id, tx) : [] };
+    const perimeter = active ? await readBoundaryPerimeter(id, user, tx) : null;
+    return { boundary, compliance, statement, perimeter, linkableSystemIds: visible.map((system) => system.id), candidates: manage && active ? await loadMemberCandidates(id, tx) : [], prepared: manage && active ? await loadPreparedCandidates(id, tx) : [] };
   }, READ_SNAPSHOT);
 
   if (!data) {
@@ -50,18 +52,19 @@ export default async function ComplianceBoundaryPage({ params }: PageProps<"/com
     );
   }
 
-  const { boundary, compliance, statement, linkableSystemIds, candidates, prepared } = data;
+  const { boundary, compliance, statement, perimeter, linkableSystemIds, candidates, prepared } = data;
   const canManageMembers = canManageBoundaryMembers(user, { boundaryOwnerId: boundary.boundaryOwner?.id ?? null });
-  // Keyed on the acting user and the members, so switching user, or a refresh after a change, starts from a clean state.
+  // Keyed on the acting user, so switching user starts from a clean state; a refresh after a change keeps the open drawer.
   return (
     <BoundaryView
-      key={`${user.id}:${boundary.members.map((member) => member.systemId).join(",")}`}
+      key={user.id}
       boundary={boundary}
       compliance={compliance}
       statement={statement}
       linkableSystemIds={linkableSystemIds}
       candidates={candidates}
       prepared={prepared}
+      perimeter={perimeter}
       canManageMembers={canManageMembers}
       canCurate={canCurateBoundaries(user)}
     />
