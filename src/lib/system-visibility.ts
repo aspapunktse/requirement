@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getAssignedScope, scopedSystemsWhere } from "@/lib/business-risk-owner";
 import { isReadOnlySystemRole } from "@/lib/system-permissions";
 import { reviewGroupScopeWhere } from "@/lib/review-group-visibility";
+import { EFFECTIVE_SCOPE_SELECT, withEffectiveScope, withEffectiveScopeOrNull } from "@/lib/effective-framework-scope";
 
 export const FULL_VISIBILITY_ROLES: UserRole[] = ["ADMIN", "RISK_OWNER", "REVIEWER", "COMPLIANCE_MANAGER", "INTERNAL_AUDITOR", "RISK_FACILITATOR"];
 
@@ -29,7 +30,7 @@ export function canWriteSystems(user: { role: UserRole }) {
  * see #62) shouldn't 404; everyone else sees Systems they own (any status)
  * plus every ONBOARDED System. The System's Business System Owner (#321, PRD 0002 F-BSO.3) sees
  * it too, in any status, whatever their role: visibility only, it gives no write rights. A member of a Review Group additionally sees every
- * System, in any status, that has one of their groups' Frameworks in its declared
+ * System, in any status, that has one of their groups' Frameworks in its effective (declared or Boundary-derived, #419)
  * Framework Scope (`reviewGroupScopeWhere`, #201).
  */
 export async function visibleSystemsWhere(
@@ -56,27 +57,27 @@ export async function visibleSystemsWhere(
 
 const SYSTEM_SUMMARY_INCLUDE = {
   deploymentFacets: true,
-  // Declared Framework Scope rows, ids only: applicability needs them (ADR 0007), and a
-  // Draft Framework's name mustn't leak to users who can't see Drafts.
-  frameworkScopes: { select: { id: true } },
+  // Effective Framework Scope (declared plus Boundary-derived, #419), ids only: applicability needs them (ADR 0007), and a
+  // Draft Framework's name mustn't leak to users who can't see Drafts. `withEffectiveScope` folds them into `frameworkScopes`.
+  ...EFFECTIVE_SCOPE_SELECT,
   owner: true,
 } satisfies Prisma.SystemInclude;
 
 /** Every System the given user is allowed to see, newest first. */
 export async function getVisibleSystems(user: { id: string; role: UserRole }) {
   const where = await visibleSystemsWhere(user);
-  return prisma.system.findMany({
+  return (await prisma.system.findMany({
     where,
     include: SYSTEM_SUMMARY_INCLUDE,
     orderBy: { createdAt: "desc" },
-  });
+  })).map(withEffectiveScope);
 }
 
 /** One System by id, or null if it doesn't exist or the user can't see it. */
 export async function getVisibleSystem(user: { id: string; role: UserRole }, id: string) {
   const where = await visibleSystemsWhere(user);
-  return prisma.system.findFirst({
+  return withEffectiveScopeOrNull(await prisma.system.findFirst({
     where: { id, ...where },
     include: SYSTEM_SUMMARY_INCLUDE,
-  });
+  }));
 }

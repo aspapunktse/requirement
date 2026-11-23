@@ -11,6 +11,7 @@ import { visibleFrameworksWhere } from "@/lib/frameworks";
 import { scopedSystemsWhere, type AssignedScope } from "@/lib/business-risk-owner";
 import { roleLabel } from "./role-label";
 import type { HomePicture } from "./home-types";
+import { EFFECTIVE_SCOPE_SELECT, withEffectiveScope } from "@/lib/effective-framework-scope";
 
 /**
  * The picture beside each role's task list (proposal A, issue #226), built from data the role may see.
@@ -70,7 +71,7 @@ export async function loadPipelinePicture(userId: string, flags: Map<string, str
   // One snapshot for the Systems, their applicable Controls and their Assessments, every query on `tx`.
   const { systems, items } = await prisma.$transaction(
     async (tx) => {
-      const systems = await tx.system.findMany({
+      const systems = (await tx.system.findMany({
         where: { ownerId: userId },
         orderBy: { name: "asc" },
         select: {
@@ -81,9 +82,9 @@ export async function loadPipelinePicture(userId: string, flags: Map<string, str
           integrityImpactLevel: true,
           availabilityImpactLevel: true,
           deploymentFacets: { select: { id: true } },
-          frameworkScopes: { select: { id: true } },
+          ...EFFECTIVE_SCOPE_SELECT,
         },
-      });
+      })).map(withEffectiveScope);
       const drawn = systems.slice(0, MAX_SYSTEMS_DRAWN);
       // "% assessed": the applicable Controls that have been touched (not an untouched Not Started row).
       // The Controls and the touched Assessments are read once for all the drawn Systems and judged in memory.

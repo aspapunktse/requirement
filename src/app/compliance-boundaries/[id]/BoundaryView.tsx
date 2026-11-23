@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { frameworkLabel } from "@/lib/framework-label";
-import { FRAMEWORKS_LATER_NOTE, MEMBER_STATE_LABEL, type BoundaryDetail, type MemberState } from "@/lib/compliance-boundary";
+import { MEMBER_STATE_LABEL, type BoundaryDetail, type MemberState } from "@/lib/compliance-boundary";
 
 type Candidate = { id: string; name: string; state: MemberState };
 
@@ -84,8 +84,6 @@ export function BoundaryView({
           </div>
         )}
       </section>
-
-      <p className="cb-note">{FRAMEWORKS_LATER_NOTE}.</p>
 
       <section className="hc-card" aria-labelledby="cb-about-h">
         <div className="hc-card-h">

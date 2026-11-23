@@ -5,6 +5,7 @@ import { visibleSystemsWhere } from "@/lib/system-visibility";
 import { getAssignedScope, scopedSystemsWhere } from "@/lib/business-risk-owner";
 import { getActionableQueryCountsBySystem } from "@/lib/assessment-queries";
 import { getComplianceForLoadedSystems } from "@/lib/compliance";
+import { EFFECTIVE_SCOPE_SELECT, withEffectiveScope } from "@/lib/effective-framework-scope";
 import { frameworkLabel } from "@/lib/framework-label";
 import { canCreateSystem } from "@/lib/system-permissions";
 import { roleLabel } from "@/app/home/role-label";
@@ -43,7 +44,7 @@ export async function readSystemRows(
   // The Admin-set thresholds, read in the same snapshot as the Systems they are applied to.
   const thresholds = await readSystemsThresholds(tx);
   const where = await visibleSystemsWhere(user, tx);
-  const systems = await tx.system.findMany({
+  const systems = (await tx.system.findMany({
     where,
     orderBy: [{ name: "asc" }, { id: "asc" }],
     select: {
@@ -60,7 +61,7 @@ export async function readSystemRows(
       sensitivity: { select: { label: true } },
       // The types also carry the Frameworks they suggest, with the System's scope and declines: the flag for Suggested Frameworks to review (ADR 0013).
       informationTypes: { select: { ...SUGGESTING_TYPE_SELECT, sensitivityLevel: true } },
-      frameworkScopes: { select: { id: true } },
+      ...EFFECTIVE_SCOPE_SELECT,
       frameworkSuggestionDeclines: { select: { informationTypeId: true, frameworkId: true } },
       integrityImpactLevel: true,
       availabilityImpactLevel: true,
@@ -68,7 +69,7 @@ export async function readSystemRows(
       createdAt: true,
       _count: { select: { risks: { where: { status: "OPEN" } } } },
     },
-  });
+  })).map(withEffectiveScope);
   const ids = systems.map((system) => system.id);
 
   const queryCounts = await getActionableQueryCountsBySystem(user, ids, tx);

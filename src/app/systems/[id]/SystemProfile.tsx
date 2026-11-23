@@ -745,7 +745,16 @@ type CatalogItem = {
   status?: "DRAFT" | "PUBLISHED";
   // Only set on Frameworks: the base Framework is always in scope and can't be removed.
   isBase?: boolean;
+  // Only on a System's Framework Scope (#419): whether the System declared the Framework, and the Compliance Boundaries it is
+  // in that hold it. A Framework only a Boundary brings in can't be removed here.
+  declared?: boolean;
+  boundaries?: { id: string; name: string }[];
 };
+
+/** A Framework the System declared that no Compliance Boundary of it holds: prepared for, not yet required (#419). The base Framework is exempt. */
+function isPreparedFor(item: CatalogItem) {
+  return item.declared === true && !item.isBase && (item.boundaries ?? []).length === 0;
+}
 
 type TagRelationProps = {
   /** Base API path for this System-level relation, e.g. "/api/systems/{id}/business-units". */
@@ -854,10 +863,17 @@ function TagRelation({ resourcePath, resourceKey, catalogPath, catalogKey, idFie
             <ul className="sc-tags sc-tagedit" aria-label={`${itemLabel}s`}>
               {declared.map((item) => (
                 <li key={item.id}>
-                  {frameworkLabel(item)}
+                  {isPreparedFor(item) ? `Prepared for ${frameworkLabel(item)}` : frameworkLabel(item)}
                   {item.isBase && <span className="sc-faint"> · always</span>}
+                  {isPreparedFor(item) && <span className="sc-faint"> · in no Boundary</span>}
+                  {(item.boundaries ?? []).length > 0 && (
+                    <span className="sc-faint">
+                      {item.declared ? " · also via " : " · via "}
+                      {(item.boundaries ?? []).map((boundary) => boundary.name).join(", ")}
+                    </span>
+                  )}
                   {item.status === "DRAFT" && <span className="sc-faint"> · Draft, no effect until published</span>}
-                  {canManage && !item.isBase && (
+                  {canManage && !item.isBase && item.declared !== false && (
                     <button type="button" className="sc-x-tag" aria-label={`Remove ${frameworkLabel(item)}`} onClick={() => change(fetch(`${resourcePath}/${item.id}`, { method: "DELETE" }), `Failed to remove ${itemLabel}`)}>
                       ✕
                     </button>

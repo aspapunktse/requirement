@@ -21,6 +21,7 @@ import {
   type ParticipationScope,
 } from "@/lib/review-participation";
 import { READ_SNAPSHOT } from "@/lib/read-transaction";
+import { EFFECTIVE_SCOPE_SELECT, systemsWithFrameworkInScope, withEffectiveScope, withEffectiveScopeOrNull } from "@/lib/effective-framework-scope";
 
 // The participation rules moved to `review-participation.ts`; these names stay importable from here.
 export { BASE_REVIEW_STEP_NAME, isBaseControl, remitGroupsByControl };
@@ -106,7 +107,7 @@ function stepStatus(approvals: StepApproval[], reviewGroupId: string | null): Re
 /** What the remit and step reads need of a System: its Deployment Facets and declared Framework Scope. */
 export const SYSTEM_FOR_STEPS = {
   deploymentFacets: { select: { id: true } },
-  frameworkScopes: { select: { id: true }, orderBy: { id: "asc" } },
+  ...EFFECTIVE_SCOPE_SELECT,
 } satisfies Prisma.SystemInclude;
 
 /** The base step plus one step per live group (sorted by name), with statuses from `approvals`. */
@@ -136,7 +137,7 @@ export { lockSystem };
  * #198 migration) reads as all steps open.
  */
 export async function readCurrentSteps(tx: Tx, systemId: string) {
-  const system = await tx.system.findUnique({ where: { id: systemId }, include: SYSTEM_FOR_STEPS });
+  const system = withEffectiveScopeOrNull(await tx.system.findUnique({ where: { id: systemId }, include: SYSTEM_FOR_STEPS }));
   if (!system || system.status !== "IN_REVIEW") return null;
   const round = await tx.reviewRound.findFirst({
     where: { systemId },
@@ -236,7 +237,7 @@ export async function reconcileAllReviewSteps() {
 export async function loadReviewRounds(systemId: string) {
   return prisma.$transaction(
     async (tx) => {
-      const system = await tx.system.findUnique({ where: { id: systemId }, include: SYSTEM_FOR_STEPS });
+      const system = withEffectiveScopeOrNull(await tx.system.findUnique({ where: { id: systemId }, include: SYSTEM_FOR_STEPS }));
       if (!system) return { rounds: [], currentRoundId: null, steps: [] as ReviewStep[] };
 
       const rounds = await tx.reviewRound.findMany({
@@ -273,15 +274,15 @@ export async function getOpenStepsForUser(user: { id: string; role: UserRole }) 
   if (!decidesAny && groupIds.length === 0) return [];
   return prisma.$transaction(
     async (tx) => {
-      const systems = await tx.system.findMany({
+      const systems = (await tx.system.findMany({
         where: {
           status: "IN_REVIEW",
           ownerId: { not: user.id },
-          ...(decidesAny ? {} : { frameworkScopes: { some: { reviewGroupId: { in: groupIds } } } }),
+          ...(decidesAny ? {} : systemsWithFrameworkInScope({ reviewGroupId: { in: groupIds } })),
         },
         orderBy: [{ updatedAt: "asc" }, { id: "asc" }],
         include: SYSTEM_FOR_STEPS,
-      });
+      })).map(withEffectiveScope);
       const tasks: { system: (typeof systems)[number]; step: ReviewStep }[] = [];
       // Set-based, not a few reads per System: every System's latest round and every remit in one read each.
       const rounds = await tx.reviewRound.findMany({

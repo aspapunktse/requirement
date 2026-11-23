@@ -4,6 +4,7 @@ import { getApplicableControls, UNTOUCHED_ASSESSMENT_WHERE, type SystemClassific
 import { SYSTEM_ACTOR } from "@/lib/change-events";
 import { systemsInScopeOf } from "@/lib/framework-scope";
 import { reconcileAllReviewSteps } from "@/lib/review-steps";
+import { EFFECTIVE_SCOPE_SELECT, systemsWithFrameworkInScope, withEffectiveScope } from "@/lib/effective-framework-scope";
 
 /**
  * Recompute of applicability when the requirement database changes under
@@ -64,7 +65,7 @@ const CLASSIFICATION_SELECT = {
   integrityImpactLevel: true,
   availabilityImpactLevel: true,
   deploymentFacets: { select: { id: true } },
-  frameworkScopes: { select: { id: true } },
+  ...EFFECTIVE_SCOPE_SELECT,
 } satisfies Prisma.SystemSelect;
 
 type ClassifiedSystem = SystemClassification & { id: string };
@@ -120,7 +121,7 @@ async function applicableAmong(systems: ClassifiedSystem[], controlIds: string[]
  * Assessment is then kept as stale) from one that was already stale.
  */
 export async function snapshotApplicability(scope: RecomputeScope): Promise<ApplicabilitySnapshot> {
-  const systems = await prisma.system.findMany({ where: scope.systemsWhere, select: CLASSIFICATION_SELECT });
+  const systems = (await prisma.system.findMany({ where: scope.systemsWhere, select: CLASSIFICATION_SELECT })).map(withEffectiveScope);
   return applicableAmong(systems, scope.controlIds);
 }
 
@@ -160,7 +161,7 @@ async function recomputeApplicability(pending: PendingRecompute, trigger: string
   const { scope, before } = pending;
   const summary: RecomputeSummary = { systems: 0, changed: 0, added: 0, removed: 0, stale: 0 };
 
-  const systems = await prisma.system.findMany({ where: scope.systemsWhere, select: CLASSIFICATION_SELECT });
+  const systems = (await prisma.system.findMany({ where: scope.systemsWhere, select: CLASSIFICATION_SELECT })).map(withEffectiveScope);
   summary.systems = systems.length;
   if (systems.length === 0) return summary;
 
@@ -298,6 +299,6 @@ export async function scopeForControl(
   if (frameworks.length === 0) return null;
   const systemsWhere: Prisma.SystemWhereInput = frameworks.some((f) => f.isBase)
     ? {}
-    : { frameworkScopes: { some: { id: { in: frameworks.map((f) => f.id) } } } };
+    : systemsWithFrameworkInScope({ id: { in: frameworks.map((f) => f.id) } });
   return { systemsWhere, controlIds: [controlId] };
 }

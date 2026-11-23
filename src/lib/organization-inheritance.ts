@@ -17,6 +17,7 @@ import {
   type ImplementationEdit,
   type OrganizationControlRow,
 } from "@/lib/organization-implementation";
+import { EFFECTIVE_SCOPE_SELECT, withEffectiveScope } from "@/lib/effective-framework-scope";
 
 /**
  * Saving an Organization Control Implementation and recording what it moved
@@ -183,9 +184,9 @@ async function writeInheritedStatusEvents(
         integrityImpactLevel: true,
         availabilityImpactLevel: true,
         deploymentFacets: { select: { id: true } },
-        frameworkScopes: { select: { id: true } },
+        ...EFFECTIVE_SCOPE_SELECT,
       },
-    }),
+    }).then((rows) => rows.map(withEffectiveScope)),
     tx.controlAssessment.findMany({
       where: { controlId },
       select: { systemId: true, status: true, assessedById: true },

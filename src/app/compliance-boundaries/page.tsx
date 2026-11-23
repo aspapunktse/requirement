@@ -3,7 +3,7 @@ import { getActingUser } from "@/lib/acting-user";
 import { prisma } from "@/lib/prisma";
 import { READ_SNAPSHOT } from "@/lib/read-transaction";
 import { frameworkLabel } from "@/lib/framework-label";
-import { canCurateBoundaries, FRAMEWORKS_LATER_NOTE } from "@/lib/compliance-boundary";
+import { canCurateBoundaries } from "@/lib/compliance-boundary";
 import { listBoundaries } from "@/lib/compliance-boundary-data";
 import "@/app/home/home.css";
 import "./compliance-boundaries.css";
@@ -42,8 +42,6 @@ export default async function ComplianceBoundariesPage() {
           </div>
         )}
       </section>
-
-      <p className="cb-note">{FRAMEWORKS_LATER_NOTE}.</p>
 
       <section className="hc-card" aria-labelledby="cb-list-h">
         <div className="hc-card-h">

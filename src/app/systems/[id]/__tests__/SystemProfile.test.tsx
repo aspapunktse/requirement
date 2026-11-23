@@ -29,7 +29,7 @@ const TYPES = [
 ];
 
 let fetchMock: ReturnType<typeof vi.fn>;
-let scopes = SCOPES;
+let scopes: Record<string, unknown>[] = SCOPES;
 
 beforeEach(() => {
   refresh.mockClear();
@@ -595,6 +595,39 @@ describe("Business Units and Framework Scope", () => {
     const draft = (await screen.findByText(/NIS2:1/)).closest("li")!;
     expect(within(draft).getByText(/Draft, no effect until published/)).toBeInTheDocument();
     expect(within(draft).getByRole("button", { name: "Remove NIS2:1" })).toBeInTheDocument();
+  });
+
+  it("shows a Framework only a Compliance Boundary brings in as \"via <Boundary>\", with no remove (#419)", async () => {
+    scopes = [
+      { ...SCOPES[0], declared: false, boundaries: [] },
+      { ...SCOPES[1], declared: false, boundaries: [{ id: "b1", name: "FCI boundary" }, { id: "b2", name: "UK contract X" }] },
+    ];
+    renderProfile();
+    const scope = within(await screen.findByRole("list", { name: "Frameworks" }));
+    const item = scope.getByText(/GDPR:2016/).closest("li")!;
+    expect(item).toHaveTextContent("via FCI boundary, UK contract X");
+    expect(within(item).queryByRole("button", { name: "Remove GDPR:2016" })).not.toBeInTheDocument();
+    expect(item).not.toHaveTextContent("Prepared for");
+  });
+
+  it("keeps a declared Framework a Boundary also holds removable, and says both (#419)", async () => {
+    scopes = [SCOPES[0], { ...SCOPES[1], declared: true, boundaries: [{ id: "b1", name: "FCI boundary" }] }];
+    renderProfile();
+    const item = (await screen.findByText(/GDPR:2016/)).closest("li")!;
+    expect(item).toHaveTextContent("also via FCI boundary");
+    expect(within(item).getByRole("button", { name: "Remove GDPR:2016" })).toBeInTheDocument();
+  });
+
+  it("shows a declared Framework no Boundary holds as prepared for, and never says so of the base Framework (#419)", async () => {
+    scopes = [{ ...SCOPES[0], declared: false, boundaries: [] }, { ...SCOPES[1], declared: true, boundaries: [] }];
+    renderProfile();
+    const scope = within(await screen.findByRole("list", { name: "Frameworks" }));
+    const item = scope.getByText(/Prepared for GDPR:2016/).closest("li")!;
+    expect(item).toHaveTextContent("Prepared for GDPR:2016 · in no Boundary");
+    expect(within(item).getByRole("button", { name: "Remove GDPR:2016" })).toBeInTheDocument();
+    const base = scope.getByText(/ISO\/IEC 27001:2022/).closest("li")!;
+    expect(base).not.toHaveTextContent("Prepared for");
+    expect(base).not.toHaveTextContent("in no Boundary");
   });
 
   it("does not offer a Draft Framework or one already declared to add", async () => {

@@ -2,6 +2,7 @@ import type { EvaluationStage, EvaluationTrack, Prisma, RecommendationKind, User
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { logChangeEvent } from "@/lib/change-events";
+import { EFFECTIVE_SCOPE_SELECT, withEffectiveScope } from "@/lib/effective-framework-scope";
 import { canSeeDecider, memberGroupIds } from "@/lib/approvals";
 import type { SystemClassification } from "@/lib/control-applicability";
 import { BASE_REVIEW_STEP_NAME, remitParticipantsByControl } from "@/lib/review-participation";
@@ -90,10 +91,10 @@ export async function readClassification(tx: Tx, systemId: string): Promise<Syst
       integrityImpactLevel: true,
       availabilityImpactLevel: true,
       deploymentFacets: { select: { id: true } },
-      frameworkScopes: { select: { id: true } },
+      ...EFFECTIVE_SCOPE_SELECT,
     },
   });
-  return row;
+  return withEffectiveScope(row); // the effective Framework Scope: declared plus the Boundaries' Frameworks (#419)
 }
 
 export async function startOrWidenChangeReview(

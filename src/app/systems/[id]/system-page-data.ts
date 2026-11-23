@@ -1,4 +1,5 @@
 import type { ControlAssessmentStatus, Prisma, UserRole } from "@prisma/client";
+import { EFFECTIVE_SCOPE_SELECT, withEffectiveScopeOrNull } from "@/lib/effective-framework-scope";
 import { prisma } from "@/lib/prisma";
 import { visibleSystemsWhere } from "@/lib/system-visibility";
 import { toSystemDetails } from "@/lib/system-details";
@@ -42,8 +43,9 @@ import {
 
 const SYSTEM_INCLUDE = {
   deploymentFacets: true,
-  // Declared Framework Scope rows, ids only: applicability needs them (ADR 0007).
-  frameworkScopes: { select: { id: true } },
+  // Declared Framework Scope rows and the Frameworks of the Boundaries the System is in, ids only: applicability needs the
+  // effective scope (ADR 0007, #419). `readSystem` maps them into `frameworkScopes`.
+  ...EFFECTIVE_SCOPE_SELECT,
   owner: true,
   // The Business System Owner (#321), shown beside the owner.
   businessSystemOwner: { select: { id: true, name: true } },
@@ -69,7 +71,7 @@ export type SystemPageData = {
 };
 
 function readSystem(tx: Prisma.TransactionClient, user: User, id: string, where: Prisma.SystemWhereInput) {
-  return tx.system.findFirst({ where: { id, ...where }, include: SYSTEM_INCLUDE });
+  return tx.system.findFirst({ where: { id, ...where }, include: SYSTEM_INCLUDE }).then(withEffectiveScopeOrNull);
 }
 
 /** The page's data, or null when the System doesn't exist or the user can't see it. */

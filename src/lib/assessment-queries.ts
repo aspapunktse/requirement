@@ -11,6 +11,7 @@ import {
 } from "@/lib/review-steps";
 import type { SystemClassification } from "@/lib/control-applicability";
 import { QUERY_INCLUDE } from "@/lib/assessment-query-include";
+import { systemsWithFrameworkInScope, withEffectiveScope } from "@/lib/effective-framework-scope";
 
 export { QUERY_INCLUDE };
 
@@ -427,10 +428,10 @@ async function membershipQueryKeys(
   ];
   if (systemIds.length === 0) return keys;
   const collect = async (db: QueryReadClient) => {
-    const systems = await db.system.findMany({
-      where: { id: { in: systemIds }, frameworkScopes: { some: { reviewGroupId: { in: groupIds } } } },
+    const systems = (await db.system.findMany({
+      where: { id: { in: systemIds }, ...systemsWithFrameworkInScope({ reviewGroupId: { in: groupIds } }) },
       include: SYSTEM_FOR_STEPS,
-    });
+    })).map(withEffectiveScope);
     for (const system of systems) {
       const remit = await remitGroupsByControl(db, system);
       for (const query of queries) {

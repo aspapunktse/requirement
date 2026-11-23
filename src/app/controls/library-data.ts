@@ -8,6 +8,7 @@ import { canSeeDraftFrameworks, controlIncludeFor, redactDraftOrigin } from "@/l
 import { canBeControlOwner } from "@/lib/system-permissions";
 import type { LibraryMapping, LibraryRow, LibrarySource, LibraryView } from "./library-types";
 import { READ_SNAPSHOT } from "@/lib/read-transaction";
+import { EFFECTIVE_SCOPE_SELECT, withEffectiveScope } from "@/lib/effective-framework-scope";
 
 const collator = new Intl.Collator("en", { numeric: true });
 
@@ -129,16 +130,16 @@ export async function loadControlLibraryView(user: { id: string; name: string; r
       const controls = await tx.control.findMany({ orderBy: { code: "asc" }, include: controlIncludeFor(user) });
       const frameworks = await tx.framework.findMany({ select: { id: true, name: true, version: true, status: true, isBase: true } });
       const implementations = await tx.organizationControlImplementation.findMany({ select: { controlId: true, status: true } });
-      const systems = await tx.system.findMany({
+      const systems = (await tx.system.findMany({
         select: {
           id: true,
           sensitivityLevel: true,
           integrityImpactLevel: true,
           availabilityImpactLevel: true,
           deploymentFacets: { select: { id: true } },
-          frameworkScopes: { select: { id: true } },
+          ...EFFECTIVE_SCOPE_SELECT,
         },
-      });
+      })).map(withEffectiveScope);
       const users = canEdit ? await tx.user.findMany({ select: { id: true, name: true, role: true }, orderBy: { name: "asc" } }) : [];
 
       const frameworkById = new Map(frameworks.map((framework) => [framework.id, framework]));

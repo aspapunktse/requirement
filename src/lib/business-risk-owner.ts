@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { systemsInScopeOf } from "@/lib/framework-scope";
+import { systemsWithFrameworkInScope } from "@/lib/effective-framework-scope";
 
 export type AssignedScope = {
   businessUnitIds: string[];
@@ -53,7 +54,7 @@ export function scopedSystemsWhere(scope: AssignedScope): Prisma.SystemWhereInpu
   // Owning the base Framework means every System is in scope: the union is everything.
   if (scope.baseFrameworkIds.length > 0) return {};
   if (scope.frameworkIds.length > 0) {
-    clauses.push({ frameworkScopes: { some: { id: { in: scope.frameworkIds } } } });
+    clauses.push(systemsWithFrameworkInScope({ id: { in: scope.frameworkIds } }));
   }
   if (clauses.length === 0) return { id: { in: [] } };
   return { OR: clauses };

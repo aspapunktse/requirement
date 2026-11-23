@@ -1,4 +1,5 @@
 import type { Prisma } from "@prisma/client";
+import { EFFECTIVE_SCOPE_SELECT, frameworksInScopeOfSystem } from "@/lib/effective-framework-scope";
 import {
   declinesToLeaveOut,
   suggestionsFor,
@@ -22,21 +23,24 @@ export const SUGGESTING_TYPE_SELECT = {
   suggestedFrameworks: { select: { id: true, name: true, version: true, status: true, isBase: true }, orderBy: { name: "asc" } },
 } satisfies Prisma.InformationTypeSelect;
 
-/** The System fields a list or page loader adds to its own select to work out the suggestions in memory. */
+/**
+ * The System fields a list or page loader adds to its own select to work out the suggestions in memory. It reads the effective
+ * scope (declared plus Boundaries', #419), so the loader maps its rows through `withEffectiveScope`.
+ */
 export const SYSTEM_SUGGESTION_SELECT = {
   informationTypes: { select: SUGGESTING_TYPE_SELECT, orderBy: { name: "asc" } },
-  frameworkScopes: { select: { id: true } },
+  ...EFFECTIVE_SCOPE_SELECT,
   frameworkSuggestionDeclines: { select: { informationTypeId: true, frameworkId: true } },
 } satisfies Prisma.SystemSelect;
 
-/** A System's declared types (with their suggested Frameworks), its Framework Scope ids and its recorded declines. */
+/** A System's declared types (with their suggested Frameworks), its effective Framework Scope ids (declared or via a Boundary, #419) and its recorded declines. */
 export async function readSuggestionInputs(
   db: ReadDb,
   systemId: string,
 ): Promise<{ declared: SuggestingType[]; scopeIds: string[]; declines: SuggestionDecline[] }> {
   // Sequential: a transaction client has one connection.
   const declared = await db.informationType.findMany({ where: { systems: { some: { id: systemId } } }, select: SUGGESTING_TYPE_SELECT, orderBy: { name: "asc" } });
-  const scope = await db.framework.findMany({ where: { scopedSystems: { some: { id: systemId } } }, select: { id: true } });
+  const scope = await db.framework.findMany({ where: frameworksInScopeOfSystem(systemId), select: { id: true } });
   const declines = await db.frameworkSuggestionDecline.findMany({ where: { systemId }, select: { informationTypeId: true, frameworkId: true } });
   return { declared, scopeIds: scope.map((framework) => framework.id), declines };
 }

@@ -5,8 +5,9 @@ import { getVisibleSystem } from "@/lib/system-visibility";
 import { refuseIfSystemClosed } from "@/lib/system-closed";
 import {
   applyFrameworkScopeRemoved,
+  BoundaryOnlyFrameworkError,
   canManageFrameworkScopes,
-  getSystemFrameworkScopes,
+  getSystemFrameworkScopeItems,
 } from "@/lib/framework-scope";
 
 export async function DELETE(
@@ -42,8 +43,15 @@ export async function DELETE(
     );
   }
 
-  await applyFrameworkScopeRemoved(system, { id: frameworkId, name: framework?.name ?? frameworkId }, auth.user.id);
+  // A Framework that only a Compliance Boundary of the System brings in isn't declared, so the owner can't remove it (#419).
+  // The check runs inside the removal transaction, which rolls back with nothing written.
+  try {
+    await applyFrameworkScopeRemoved(system, { id: frameworkId, name: framework?.name ?? frameworkId }, auth.user.id);
+  } catch (error) {
+    if (error instanceof BoundaryOnlyFrameworkError) return NextResponse.json({ error: error.message }, { status: 409 });
+    throw error;
+  }
 
-  const frameworkScopes = await getSystemFrameworkScopes(system.id);
+  const frameworkScopes = await getSystemFrameworkScopeItems(system.id);
   return NextResponse.json({ frameworkScopes });
 }

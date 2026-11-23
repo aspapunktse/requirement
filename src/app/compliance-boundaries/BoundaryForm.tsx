@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { frameworkLabel } from "@/lib/framework-label";
-import { FRAMEWORKS_LATER_NOTE, type BoundaryDetail } from "@/lib/compliance-boundary";
+import { type BoundaryDetail } from "@/lib/compliance-boundary";
 import type { BoundaryChoices } from "@/lib/compliance-boundary-data";
 
 /**
@@ -77,7 +77,6 @@ export function BoundaryForm({ choices, boundary }: { choices: BoundaryChoices; 
       <section className="hc-hero" aria-labelledby="cb-form-title">
         <div>
           <h1 id="cb-form-title">{heading}</h1>
-          <p className="hc-lede">{FRAMEWORKS_LATER_NOTE}.</p>
         </div>
       </section>
 

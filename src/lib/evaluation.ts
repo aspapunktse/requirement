@@ -15,6 +15,7 @@ import { documentationStatusFor } from "@/lib/system-documentation";
 import { readOg1, trackFromVerdicts, userCanGiveVerdict } from "@/lib/evaluation-og1";
 import { canDecideAtGate, readGateDecisions, sendBackTargets, type GateDecisionView } from "@/lib/gate-decisions";
 import { hasAdviseAgainst, OAG_STAGES, readLiveRecommendations, readOagReview, userCanRecommend } from "@/lib/evaluation-oag";
+import { EFFECTIVE_SCOPE_SELECT, withEffectiveScopeOrNull } from "@/lib/effective-framework-scope";
 
 /**
  * Staged evaluation, up to OG1 (#328, PRD 0002, ADR 0014): the first-round readiness checklist, the submit that moves a System from
@@ -45,10 +46,12 @@ export type FirstRoundReadiness = {
  * first-round Controls only). Read on `tx`.
  */
 export async function readFirstRoundReadiness(tx: Tx, systemId: string): Promise<FirstRoundReadiness | null> {
-  const system = await tx.system.findUnique({
-    where: { id: systemId },
-    include: { deploymentFacets: { select: { id: true } }, frameworkScopes: { select: { id: true } } },
-  });
+  const system = withEffectiveScopeOrNull(
+    await tx.system.findUnique({
+      where: { id: systemId },
+      include: { deploymentFacets: { select: { id: true } }, ...EFFECTIVE_SCOPE_SELECT },
+    }),
+  );
   if (!system || !system.evaluationStage) return null;
   const firstRound = await firstRoundControlIdsForSystem(systemId, { db: tx });
   const applicable = await getApplicableControls(system, { controlIds: [...firstRound] }, tx);
@@ -176,10 +179,12 @@ export type SecondRoundReadiness = {
  * (the classic submit's rule, over all of them) and every second-round Document Requirement on its Track provided. Read on `tx`.
  */
 export async function readSecondRoundReadiness(tx: Tx, systemId: string): Promise<SecondRoundReadiness | null> {
-  const system = await tx.system.findUnique({
-    where: { id: systemId },
-    include: { deploymentFacets: { select: { id: true } }, frameworkScopes: { select: { id: true } } },
-  });
+  const system = withEffectiveScopeOrNull(
+    await tx.system.findUnique({
+      where: { id: systemId },
+      include: { deploymentFacets: { select: { id: true } }, ...EFFECTIVE_SCOPE_SELECT },
+    }),
+  );
   if (!system || !system.evaluationStage) return null;
   const applicable = await getApplicableControls(system, {}, tx);
   const mandatoryTotal = applicable.filter((control) => control.mandatory).length;
