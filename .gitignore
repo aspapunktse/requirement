@@ -43,3 +43,6 @@ next-env.d.ts
 
 .vercel
 .env*
+
+# Local agent state (launch configs, supervisor notes, hooks): never committed
+.claude/
