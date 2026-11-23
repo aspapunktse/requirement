@@ -79,6 +79,26 @@ export type BoundaryListRow = {
   systemCount: number;
 };
 
+/** A System prepared for (it declared) some of a Boundary's non-base Frameworks, not yet a member (#423). */
+export type PreparedCandidate = { id: string; name: string; state: MemberState; preparedFor: { id: string; name: string; version: string }[] };
+
+/**
+ * What adding a System to a Boundary would do (#423), read-only. `newControls` are the Controls that would newly apply, each with
+ * whether it is already effectively Fulfilled for the System (its own Assessment or inheritance counts); empty means "nothing new
+ * applies". `onboarded` is whether the System is Onboarded, and `startsChangeReview` whether joining would start (or widen) a Change
+ * Review: Onboarded, open, and the new Controls add to some participant's remit.
+ */
+export type JoinPreview = {
+  systemId: string;
+  systemName: string;
+  state: MemberState;
+  onboarded: boolean;
+  startsChangeReview: boolean;
+  newControls: { id: string; code: string; title: string; fulfilled: boolean }[];
+};
+
+export const MEMBERS_PREVIEW_FORBIDDEN_MESSAGE = "Only the Boundary Owner, a Compliance Manager or an Admin can preview adding a System.";
+
 export type BoundaryDetail = Omit<BoundaryListRow, "systemCount"> & {
   members: BoundaryMemberRow[];
   createdAt: string;

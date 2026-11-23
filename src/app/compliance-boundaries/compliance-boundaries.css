@@ -42,3 +42,10 @@
 .cb-fieldset legend { font-size: 0.82rem; font-weight: 600; color: var(--rg-muted); padding: 0 4px; }
 .cb-check { display: inline-flex; align-items: center; gap: 8px; font-size: 0.88rem; color: var(--rg-ink); font-weight: 400; }
 .cb-add { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+
+/* Candidates and the join preview (#423). */
+.cb-candidates { display: grid; gap: 8px; }
+.cb-candidates h3, .cb-preview h3 { margin: 0; font-size: 0.92rem; }
+.cb-candidates .cb-empty { padding: 0; }
+.cb-preview { display: grid; gap: 8px; border: 1px solid var(--rg-line); border-radius: 12px; padding: 12px 14px; background: var(--rg-surface); font-size: 0.88rem; }
+.cb-preview p { margin: 0; }

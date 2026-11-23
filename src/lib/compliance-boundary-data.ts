@@ -1,7 +1,11 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { READ_SNAPSHOT } from "@/lib/read-transaction";
-import { countedMembersWhere, memberState, type BoundaryDetail, type BoundaryFrameworkCompliance, type BoundaryListRow } from "@/lib/compliance-boundary";
+import { countedMembersWhere, memberState, type BoundaryDetail, type BoundaryFrameworkCompliance, type BoundaryListRow, type JoinPreview, type PreparedCandidate } from "@/lib/compliance-boundary";
+import { previewScopeAddition } from "@/lib/framework-scope";
+import { remitPairsAdded } from "@/lib/change-review";
+import { loadOrganizationStatuses, loadProviderSources, toOwnAssessment } from "@/lib/effective-status-data";
+import { inheritanceSourcesFor, resolveEffectiveStatus } from "@/lib/effective-status";
 import { getComplianceForSystems } from "@/lib/compliance";
 
 type Db = Prisma.TransactionClient | typeof prisma;
@@ -126,6 +130,69 @@ export async function loadMemberCandidates(boundaryId: string, db: Db = prisma) 
     orderBy: { name: "asc" },
   });
   return systems.map((system) => ({ id: system.id, name: system.name, state: memberState(system) }));
+}
+
+/**
+ * The candidates for a Boundary (#423): open Systems not in it that are prepared for (have declared) one or more of its non-base
+ * Frameworks, each with which ones. The base Framework is in every System's scope, so it never makes a System a candidate; closed
+ * Systems are left out. By name.
+ */
+export async function loadPreparedCandidates(boundaryId: string, db: Db = prisma): Promise<PreparedCandidate[]> {
+  const held = await db.complianceBoundaryFramework.findMany({
+    where: { boundaryId, framework: { isBase: false } },
+    select: { framework: { select: { id: true, name: true, version: true } } },
+  });
+  if (held.length === 0) return [];
+  const heldIds = held.map((entry) => entry.framework.id);
+  const systems = await db.system.findMany({
+    where: { evaluationClosedAt: null, boundaryMemberships: { none: { boundaryId } }, frameworkScopes: { some: { id: { in: heldIds } } } },
+    select: { id: true, name: true, status: true, evaluationClosedAt: true, frameworkScopes: { where: { id: { in: heldIds } }, select: { id: true, name: true, version: true } } },
+    orderBy: { name: "asc" },
+  });
+  return systems.map((system) => ({
+    id: system.id,
+    name: system.name,
+    state: memberState(system),
+    preparedFor: [...system.frameworkScopes].sort((a, b) => a.name.localeCompare(b.name, "en", { sensitivity: "base" }) || a.version.localeCompare(b.version)),
+  }));
+}
+
+/**
+ * What adding the System to the Boundary would do (#423), or null when either is missing. Read-only, and the Controls come from
+ * `previewScopeAddition`, the applicability code `joinBoundaryIn` recomputes with, given the Boundary's Frameworks added. A Control
+ * counts as Fulfilled by its effective status (`resolveEffectiveStatus`: the System's own Assessment if a person set it, else the
+ * Organization's and the Providers' Full or Shared credit), so inheritance counts. Pass the caller's RepeatableRead transaction.
+ */
+export async function previewJoin(boundaryId: string, systemId: string, db: Prisma.TransactionClient): Promise<JoinPreview | null> {
+  const boundary = await db.complianceBoundary.findUnique({ where: { id: boundaryId }, select: { frameworks: { select: { frameworkId: true } } } });
+  const system = await db.system.findUnique({ where: { id: systemId }, select: { id: true, name: true, status: true, evaluationClosedAt: true } });
+  if (!boundary || !system) return null;
+
+  const { before, afterClassification, newlyApplicable } = await previewScopeAddition(db, systemId, boundary.frameworks.map((entry) => entry.frameworkId));
+  const ids = newlyApplicable.map((control) => control.id);
+  const [assessments, organizationStatuses, providerSources] = await Promise.all([
+    ids.length === 0 ? [] : db.controlAssessment.findMany({ where: { systemId, controlId: { in: ids } }, select: { controlId: true, status: true, assessedById: true } }),
+    loadOrganizationStatuses(newlyApplicable.filter((control) => control.applicability === "BOTH").map((control) => control.id), db),
+    loadProviderSources([systemId], ids, db),
+  ]);
+  const own = new Map(assessments.map((assessment) => [assessment.controlId, toOwnAssessment(assessment)]));
+  const newControls = newlyApplicable.map((control) => ({
+    id: control.id,
+    code: control.code,
+    title: control.title,
+    fulfilled:
+      resolveEffectiveStatus(own.get(control.id) ?? null, inheritanceSourcesFor(control, organizationStatuses.get(control.id), providerSources.get(systemId)?.get(control.id))).status === "FULFILLED",
+  }));
+  const open = system.evaluationClosedAt === null;
+  const onboarded = system.status === "ONBOARDED" && open;
+  return {
+    systemId: system.id,
+    systemName: system.name,
+    state: memberState(system),
+    onboarded,
+    startsChangeReview: onboarded && newControls.length > 0 && (await remitPairsAdded(db, before.classification, afterClassification)).length > 0,
+    newControls,
+  };
 }
 
 /** The Boundaries a System is in, for its page: name and Frameworks. */
