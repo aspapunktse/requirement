@@ -44,7 +44,7 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems
   }
 
   const NOT_APPROVED = "Only a System with an ATO can be marked Onboarded";
-  // The System is locked first and its status read again, so an ATO revoked meanwhile (a Change Review decision, #437) is refused
+  // The System is locked and its status read again, so an ATO revoked meanwhile (a Change Review decision, #437) is refused
   // rather than overwritten. A Provider's Offerings only count while it is Onboarded (F-IN.4), so onboarding one can move the
   // Systems depending on it: those are recorded in the same transaction (#124, F-IN.7).
   const markOnboarded = async (tx: Prisma.TransactionClient) => {
@@ -61,11 +61,14 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems
 
   const updated = await prisma.$transaction(
     async (tx) => {
-      await lockSystem(tx, system.id);
-      if (!system.isProvider) return markOnboarded(tx);
-      const current = await tx.system.findUnique({ where: { id: system.id }, select: { status: true } });
-      if (current?.status !== "APPROVED") return null; // nothing to record for a refused onboarding
-      return withProviderInheritanceEvents(tx, { providerId: system.id }, () => markOnboarded(tx));
+      const lockedOnboard = async () => {
+        await lockSystem(tx, system.id);
+        return markOnboarded(tx);
+      };
+      if (!system.isProvider) return lockedOnboard();
+      // The Provider (and Control) advisory locks come before the System row lock, the order Assessment edits and resets use,
+      // so the two can't deadlock. A refused onboarding changes nothing, so the wrapper records no events for it.
+      return withProviderInheritanceEvents(tx, { providerId: system.id }, lockedOnboard);
     },
     { timeout: PROVIDER_TRANSACTION_TIMEOUT_MS },
   );
