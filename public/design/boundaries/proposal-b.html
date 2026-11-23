@@ -18,7 +18,7 @@
    matrix of every Boundary), boundary, statement and system (the fragment on a System page). Built on kit.css. */
 [hidden] { display: none !important; }
 .pv { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; font-size: .8rem; color: var(--muted); }
-.pv .seg { display: inline-flex; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 2px; }
+.pv .seg { display: inline-flex; flex-wrap: wrap; max-width: 100%; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 2px; }
 .pv .seg a { padding: 4px 11px; border-radius: 8px; color: var(--muted); text-decoration: none; font-weight: 650; white-space: nowrap; }
 .pv .seg a[aria-current="true"] { background: var(--accent-soft); color: var(--accent); }
 .fine { font-size: .78rem; color: var(--faint); }
@@ -192,6 +192,13 @@ table.hm { border-collapse: separate; border-spacing: 0; width: 100%; min-width:
 .scope-row:first-child { border-top: 0; }
 .scope-row .src { display: flex; flex-wrap: wrap; gap: 5px; justify-content: flex-end; }
 
+/* Nothing may widen the page: every grid track can shrink, wide tables scroll inside their own wrapper, long words wrap */
+.app, .pane, .ph, .pvp, .sect, .card-b { grid-template-columns: minmax(0, 1fr); }
+.app { max-width: 100%; } .card, .pane { min-width: 0; max-width: 100%; }
+.ph h1, .ph .lede, .ri b, .card-h h2, .card-h p, .facts, .pc b, .pc small, .banner p { overflow-wrap: anywhere; }
+.rail { max-width: 100%; } .rail .rbody { max-width: 100%; }
+.card-h p { max-width: 100%; }
+
 @media print {
   #appbar, .ab-proto, .pv, .noprint, .rail, .toast, .stats { display: none !important; }
   body { background: #fff; }
@@ -357,7 +364,7 @@ table.hm { border-collapse: separate; border-spacing: 0; width: 100%; min-width:
     const stat = (k, label, v, tone = '') => `<button class="card stat spot ${tone}" data-only="${k}" aria-pressed="${ui.only === k}"><span class="k">${label}<em>${ui.only === k ? 'Showing' : 'Filter'}</em></span><span class="v">${v}</span></button>`;
     const x = act.reduce((a, b) => { const s = D.split(b); a[0] += s.counted.length; a[1] += s.pending.length; return a; }, [0, 0]);
     const top = D.SYSTEMS.slice().sort((a, b) => inN(b) - inN(a))[0];
-    return `${proto()}<div class="ws">${rail()}<div style="display:grid;gap:18px">
+    return `${proto()}<div class="ws">${rail()}<div class="pane" style="display:grid;gap:18px">
       <section class="card ph"><div><div class="eyebrow">Compliance</div><h1>Boundaries, side by side</h1>
         <p class="lede" style="margin-top:6px">Each column is a Compliance Boundary, each row a System. A System can sit in several Boundaries at once: ${esc(top.name)} is in ${inN(top)}. Pick a column to open that Boundary; the matrix then becomes where you add and remove Systems.</p></div></section>
       <div class="stats">${stat('all', 'Active Boundaries', act.length)}${stat('overlap', 'Systems in more than one', overlap, 'ok')}
@@ -413,7 +420,7 @@ table.hm { border-collapse: separate; border-spacing: 0; width: 100%; min-width:
     const banner = b.retired ? `<div class="banner retired" role="note"><svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><rect x="4" y="9" width="12" height="8" rx="2"/><path d="M7 9V6a3 3 0 0 1 6 0v3"/></svg>
       <div><b>Retired ${esc(fmt(b.retired.on))} by ${esc(b.retired.by)}</b><p>${esc(b.retired.why)} Retiring is final: it brings no Framework into a System’s scope any more and is kept as a read-only record. There is no statement or percentage, and no frozen copy of one.</p></div></div>` : '';
     const pend = !b.retired && x.pending.length ? `<div class="banner warn" role="note"><div><b>${plural(x.pending.length, 'System')} not yet operating</b><p>${esc(x.pending.map((s) => s.name).join(', '))} ${x.pending.length === 1 ? 'is' : 'are'} in evaluation: shown, not counted until Onboarded or an ATO.</p></div></div>` : '';
-    return `${proto()}<div class="ws">${rail()}<div style="display:grid;gap:18px">${paneHead(b, 'boundary')}${banner}${pend}
+    return `${proto()}<div class="ws">${rail()}<div class="pane" style="display:grid;gap:18px">${paneHead(b, 'boundary')}${banner}${pend}
       <section class="card"><div class="card-h"><h2>Systems × Boundaries</h2><p>${esc(short(b))} is highlighted. ${manage ? 'Click a cell in that column to add or remove a System.' : b.retired ? 'A retired Boundary is read-only.' : `Only the Boundary Owner (${esc(b.owner)}), a Compliance Manager or an Admin adds and removes Systems.`}</p></div>
         <div class="mxw" style="margin-top:12px"><table class="mx"><thead><tr><th class="sy" scope="col">System</th>${headCells(cols, b.id)}<th class="cn" scope="col">In</th></tr></thead><tbody>${body}</tbody></table></div>${legend()}
         ${!cands.length && !b.retired ? `<p class="fine" style="padding:0 16px 14px">${b.fws.every((f) => D.FW[f].base) ? 'ISO 27001 is the base Framework, so every System already applies it and none is only “prepared” for it: there are no candidates.' : 'Every System prepared for these Frameworks is already in the Boundary.'}</p>` : ''}</section>
@@ -491,13 +498,13 @@ table.hm { border-collapse: separate; border-spacing: 0; width: 100%; min-width:
   function statementView() {
     const b = D.bnd(ui.b);
     if (b.retired) {
-      return `${proto()}<div class="ws">${rail()}<div style="display:grid;gap:18px">${paneHead(b, 'boundary')}<section class="card"><div class="done-state"><svg width="48" height="48" viewBox="0 0 20 20" fill="none" stroke="var(--faint)" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><rect x="4" y="9" width="12" height="8" rx="2"/><path d="M7 9V6a3 3 0 0 1 6 0v3"/></svg>
+      return `${proto()}<div class="ws">${rail()}<div class="pane" style="display:grid;gap:18px">${paneHead(b, 'boundary')}<section class="card"><div class="done-state"><svg width="48" height="48" viewBox="0 0 20 20" fill="none" stroke="var(--faint)" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><rect x="4" y="9" width="12" height="8" rx="2"/><path d="M7 9V6a3 3 0 0 1 6 0v3"/></svg>
         <h3>${esc(b.name)} is retired</h3><p>A retired Boundary keeps its name, Frameworks, members and dates, but no statement: nothing was frozen when it retired.</p>${link('boundary', { b: b.id }, 'Back to the Boundary', 'btn')}</div></section></div></div>`;
     }
     const ds = sdata(b), x = D.split(b), all = ds.flatMap((d) => d.rows);
     const n = { inc: all.filter((r) => r.included).length, exc: all.filter((r) => !r.included).length, nm: all.filter((r) => r.st === 'N').length, mj: all.filter((r) => needsJ(b, r)).length };
     const seg = [['all', 'All ' + all.length], ['included', 'Included ' + n.inc], ['excluded', 'Excluded ' + n.exc], ['notmet', 'Not met ' + n.nm], ['missing', 'Missing justification ' + n.mj]];
-    return `${proto()}<div class="ws">${rail()}<div style="display:grid;gap:18px">${paneHead(b, 'statement')}
+    return `${proto()}<div class="ws">${rail()}<div class="pane" style="display:grid;gap:18px">${paneHead(b, 'statement')}
       <div class="print-head"><h1>Statement of Applicability: ${esc(b.name)}</h1><p>Boundary Owner ${esc(b.owner)}. ${plural(x.counted.length, 'counted System')}.</p></div>
       ${x.counted.length ? '' : `<div class="banner warn" role="note"><div><b>No counted System yet</b><p>Every Requirement is excluded until a System is Onboarded or has an ATO. ${esc(x.pending.map((s) => s.name).join(', '))} ${x.pending.length === 1 ? 'is' : 'are'} not yet operating.</p></div></div>`}
       <section class="card"><div class="card-b" style="display:grid;gap:12px">

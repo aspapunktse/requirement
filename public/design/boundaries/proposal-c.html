@@ -20,7 +20,7 @@
    page). Built on kit.css. */
 [hidden] { display: none !important; }
 .pv { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; font-size: .8rem; color: var(--muted); }
-.pv .seg { display: inline-flex; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 2px; }
+.pv .seg { display: inline-flex; flex-wrap: wrap; max-width: 100%; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 2px; }
 .pv .seg a { padding: 4px 11px; border-radius: 8px; color: var(--muted); text-decoration: none; font-weight: 650; white-space: nowrap; }
 .pv .seg a[aria-current="true"] { background: var(--accent-soft); color: var(--accent); }
 .fine { font-size: .78rem; color: var(--faint); }
@@ -188,6 +188,12 @@ tr.dr > td { padding: 0; background: var(--raised); border-bottom: 1px solid var
 .sline { padding: 12px 0; border-top: 1px solid var(--line-soft); display: grid; gap: 4px; font-size: .9rem; line-height: 1.55; }
 .sline:first-child { border-top: 0; }
 .sline a { color: var(--accent); font-weight: 680; text-decoration: none; } .sline a:hover { text-decoration: underline; }
+
+/* Nothing may widen the page: every grid track can shrink, wide tables scroll inside their own wrapper, long words wrap */
+.app, .paper, .doc { grid-template-columns: minmax(0, 1fr); }
+.app { max-width: 100%; } .card, .paper, .doc { min-width: 0; max-width: 100%; }
+.paper h1, .paper h2, .paper h3, .paper p, .meta span, .sline, .sc b.t, .sc .sent, .banner p { overflow-wrap: anywhere; }
+.paper > * { min-width: 0; }
 
 @media print {
   #appbar, .ab-proto, .pv, .noprint, .toast, .scrim, .drawer, .toc, .tools { display: none !important; }
