@@ -6,7 +6,7 @@ import { logChangeEvent } from "@/lib/change-events";
 import { reconcileReviewSteps, reconcileReviewStepsIn } from "@/lib/review-steps";
 import { readClassification, startOrWidenChangeReview } from "@/lib/change-review";
 import { lockSystem } from "@/lib/system-lock";
-import { recordProviderChange } from "@/lib/provider-inheritance";
+import { recordProviderChange, recordProvidersChange } from "@/lib/provider-inheritance";
 import { isSystemOwnerOrAdmin } from "@/lib/system-permissions";
 import { declinesForRemoval } from "@/lib/framework-suggestions-data";
 
@@ -134,8 +134,21 @@ export type ScopeBefore = { classification: SystemClassification; applicable: { 
  * `finishScopeChange` with what this returned. A fan-out over several Systems locks them in id order first.
  */
 export async function beginScopeChange(tx: Prisma.TransactionClient, systemId: string): Promise<ScopeBefore> {
+  return beginScopeChangeFrom(tx, systemId, async (current) => current);
+}
+
+/**
+ * `beginScopeChange` for a change that already happened and was never reconciled (the one-off
+ * `scripts/reconcile-boundary-scope.ts`): the "before" is not the locked state but the state that should have been in force, which
+ * `assume` derives from it (it runs after the System lock, on `tx`). The same lock, the same applicable-Controls read.
+ */
+export async function beginScopeChangeFrom(
+  tx: Prisma.TransactionClient,
+  systemId: string,
+  assume: (current: SystemClassification) => Promise<SystemClassification>,
+): Promise<ScopeBefore> {
   await lockSystem(tx, systemId);
-  const classification = await readClassification(tx, systemId); // the locked state, for the Change Review (#334)
+  const classification = await assume(await readClassification(tx, systemId)); // the locked state, for the Change Review (#334)
   return { classification, applicable: await getApplicableControls(classification, {}, tx) };
 }
 
@@ -274,11 +287,11 @@ async function removeFrameworkScope(system: ScopeSystem, framework: { id: string
 }
 
 /**
- * The Systems that are Providers among `systemIds`, wrapped around `change` with `recordProviderChange` one after the other
- * (#124): a scope change on a Provider moves the effective status its dependents inherit. Not atomic with `change`, as
+ * The Systems that are Providers among `systemIds`, wrapped around `change` with one `recordProvidersChange` (#124), so a pair
+ * reached through several Providers logs one event: a scope change on a Provider moves the effective status its dependents inherit. Not atomic with `change`, as
  * `recordProviderChange` says.
  */
 export async function recordProviderChanges<T>(systemIds: string[], change: () => Promise<T>): Promise<T> {
   const providers = systemIds.length === 0 ? [] : await prisma.system.findMany({ where: { id: { in: systemIds }, isProvider: true }, select: { id: true, isProvider: true } });
-  return providers.reduce<() => Promise<T>>((inner, provider) => () => recordProviderChange(provider, inner), change)();
+  return recordProvidersChange(providers, change);
 }

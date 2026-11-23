@@ -247,6 +247,32 @@ describe("Compliance Boundaries bring their Frameworks into each member's Framew
       }
     });
 
+    it("logs one event for a dependent's Control that two Provider members of the Boundary both offer, not one per Provider", async () => {
+      const boundary = await makeBoundary("two providers", [fw1]);
+      const providerA = await makeSystem("provider A", "ONBOARDED");
+      const providerB = await makeSystem("provider B", "ONBOARDED");
+      const dependent = await makeSystem("provider dependent", "DRAFT", [fw2]);
+      await prisma.system.updateMany({ where: { id: { in: [providerA, providerB] } }, data: { isProvider: true } });
+      for (const provider of [providerA, providerB]) {
+        await prisma.controlOffering.create({ data: { providerId: provider, controlId: c3, type: "FULL" } });
+        // Fulfilled before the Control applies to the Provider; it gives no credit until fw2 reaches the Provider.
+        await prisma.controlAssessment.create({ data: { systemId: provider, controlId: c3, status: "FULFILLED", assessedById: ownerId } });
+        await prisma.providerDependency.create({ data: { providerId: provider, dependentId: dependent } });
+        const joined = await join(boundary, provider);
+        expect(joined.status, JSON.stringify(await joined.json())).toBe(201);
+      }
+      await prisma.controlAssessment.upsert({
+        where: { systemId_controlId: { systemId: dependent, controlId: c3 } },
+        create: { systemId: dependent, controlId: c3, status: "NOT_STARTED" },
+        update: {},
+      });
+      const inherited = () => prisma.changeEvent.findMany({ where: { systemId: dependent, action: "ASSESSMENT_STATUS_CHANGED" } });
+      expect(await inherited()).toHaveLength(0);
+
+      expect((await setFrameworks(boundary, [fw1, fw2])).status).toBe(200);
+      expect(await inherited()).toHaveLength(1);
+    });
+
     it("leaves a Framework in scope while another Boundary of the System still holds it", async () => {
       const one = await makeBoundary("two boundaries one", [fw1]);
       const two = await makeBoundary("two boundaries two", [fw1]);

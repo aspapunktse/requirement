@@ -182,13 +182,22 @@ async function loadContext(db: Tx, { controlIds, dependentIds }: Ids): Promise<R
   return { systems, controls };
 }
 
-/** Resolves before, runs `change`, resolves after and bulk-writes the events, all on `db`. */
-async function recordAround<T>(db: Tx, context: ResolutionContext, change: () => Promise<T>): Promise<T> {
-  const before = await resolveAll(db, context);
+/**
+ * Resolves before, runs `change` once, resolves after and bulk-writes the events, all on `db`. With several contexts (several
+ * Providers changed by one change) the resolved pairs are merged by `systemId|controlId` first, so a (dependent, Control) pair
+ * that more than one context reaches is compared once and logs at most one event.
+ */
+async function recordAround<T>(db: Tx, contexts: ResolutionContext[], change: () => Promise<T>): Promise<T> {
+  const mergeAll = async () => {
+    const merged = new Map<string, EffectiveStatus>();
+    for (const context of contexts) for (const [key, value] of await resolveAll(db, context)) merged.set(key, value);
+    return merged;
+  };
+  const before = await mergeAll();
   const result = await change();
-  const after = await resolveAll(db, context);
+  const after = await mergeAll();
 
-  const codeByControlId = new Map(context.controls.map((control) => [control.id, control.code]));
+  const codeByControlId = new Map(contexts.flatMap((context) => context.controls.map((control) => [control.id, control.code] as const)));
   const events: Prisma.ChangeEventCreateManyInput[] = [];
   for (const [key, effective] of after) {
     const previous = before.get(key);
@@ -221,7 +230,7 @@ export async function withProviderInheritanceEvents<T>(
   const ids = await resolveIds(tx, scope);
   if (!ids) return change();
   await lockControls(tx, ids.controlIds);
-  return recordAround(tx, await loadContext(tx, ids), change);
+  return recordAround(tx, [await loadContext(tx, ids)], change);
 }
 
 /**
@@ -256,7 +265,24 @@ export async function recordProviderChange<T>(system: { id: string; isProvider?:
   if (!system.isProvider) return change();
   const ids = await resolveIds(prisma, { providerId: system.id });
   if (!ids) return change();
-  return recordAround(prisma, await loadContext(prisma, ids), change);
+  return recordAround(prisma, [await loadContext(prisma, ids)], change);
+}
+
+/**
+ * `recordProviderChange` for one change that moves several Providers at once (a Compliance Boundary's Framework change on its
+ * member Systems): every Provider's before state is read, `change` runs once, every after state is read, and a (dependent,
+ * Control) pair reached through more than one Provider logs one event, not one per Provider. The same non-atomic, unserialised
+ * limits as `recordProviderChange`. Systems that are not Providers are ignored.
+ */
+export async function recordProvidersChange<T>(systems: { id: string; isProvider?: boolean }[], change: () => Promise<T>): Promise<T> {
+  const contexts: ResolutionContext[] = [];
+  for (const system of systems) {
+    if (!system.isProvider) continue;
+    const ids = await resolveIds(prisma, { providerId: system.id });
+    if (ids) contexts.push(await loadContext(prisma, ids));
+  }
+  if (contexts.length === 0) return change();
+  return recordAround(prisma, contexts, change);
 }
 
 /**
