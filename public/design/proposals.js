@@ -15,6 +15,20 @@ window.DESIGN_PARTS = [
         href: "/design/boundaries/proposal-a.html",
         summary: "Four linked views in the Home look: the Boundaries list with a retired filter, a Boundary page (counted, not yet operating and closed Systems, candidates, a join preview, Compliance Percentage per Framework), its statement with one section per Framework and drill-down per Requirement, and the Boundaries card on a System page.",
       },
+      {
+        id: "boundaries-b",
+        label: "B",
+        title: "Workspace and matrix",
+        href: "/design/boundaries/proposal-b.html",
+        summary: "A two-pane workspace: a rail of Boundaries beside the picked one, so moving between them is one click. Membership is a Systems by Boundaries matrix that shows overlap at a glance, with candidates as faint cells that open the join preview inline, and the statement is a Requirement by System heatmap per Framework with a drill-down.",
+      },
+      {
+        id: "boundaries-c",
+        label: "C",
+        title: "Scope statement first",
+        href: "/design/boundaries/proposal-c.html",
+        summary: "Written for the auditor: a Boundary opens as a document, with a scope statement (owner, Frameworks, which Systems are in and out and why), a perimeter diagram (counted inside, not yet operating on the edge, Providers outside with inheritance arrows) and the statement sections inline. Membership is edited in a side drawer and the join preview reads as a before/after diff of the scope.",
+      },
     ],
   },
   {
