@@ -3,7 +3,7 @@ import { getActingUser } from "@/lib/acting-user";
 import { prisma } from "@/lib/prisma";
 import { READ_SNAPSHOT } from "@/lib/read-transaction";
 import { frameworkLabel } from "@/lib/framework-label";
-import { canCurateBoundaries } from "@/lib/compliance-boundary";
+import { canCurateBoundaries, emptyListMessage } from "@/lib/compliance-boundary";
 import { listBoundaries } from "@/lib/compliance-boundary-data";
 import "@/app/home/home.css";
 import "./compliance-boundaries.css";
@@ -21,7 +21,10 @@ export default async function ComplianceBoundariesPage({ searchParams }: PagePro
     return <p className="p-6 text-rg-muted">Pick a user to act as first.</p>;
   }
 
-  const boundaries = await prisma.$transaction((tx) => listBoundaries(tx, { includeRetired: showRetired }), READ_SNAPSHOT);
+  const { boundaries, hiddenRetired } = await prisma.$transaction(async (tx) => {
+    const rows = await listBoundaries(tx, { includeRetired: showRetired });
+    return { boundaries: rows, hiddenRetired: showRetired ? 0 : await tx.complianceBoundary.count({ where: { retiredAt: { not: null } } }) };
+  }, READ_SNAPSHOT);
 
   return (
     <div className="hc cb">
@@ -57,7 +60,7 @@ export default async function ComplianceBoundariesPage({ searchParams }: PagePro
           )}
         </p>
         {boundaries.length === 0 ? (
-          <p className="cb-empty">No Compliance Boundaries yet.</p>
+          <p className="cb-empty">{emptyListMessage(hiddenRetired)}</p>
         ) : (
           <ul className="cb-list">
             {boundaries.map((boundary) => (

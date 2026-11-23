@@ -165,3 +165,6 @@ export const retireBoundarySchema = z.object({
     .min(1, "Say why the Compliance Boundary is retired.")
     .max(MAX_RETIREMENT_COMMENT_LENGTH, `The comment can be at most ${MAX_RETIREMENT_COMMENT_LENGTH} characters.`),
 });
+
+/** The list's empty state: when only retired Boundaries are hidden, "yet" would be false (#424). */
+export const emptyListMessage = (hiddenRetired: number) => (hiddenRetired > 0 ? "No active Compliance Boundaries." : "No Compliance Boundaries yet.");

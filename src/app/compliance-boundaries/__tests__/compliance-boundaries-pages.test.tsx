@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { type BoundaryDetail } from "@/lib/compliance-boundary";
+import { emptyListMessage, type BoundaryDetail } from "@/lib/compliance-boundary";
 import { listBoundariesOfSystem } from "@/lib/compliance-boundary-data";
 
 const push = vi.fn();
@@ -83,6 +83,11 @@ const as = (key: string | null) => {
 };
 
 describe("the list page", () => {
+  it("says there are no active Boundaries, not none yet, when only retired ones are hidden (#424)", () => {
+    expect(emptyListMessage(2)).toBe("No active Compliance Boundaries.");
+    expect(emptyListMessage(0)).toBe("No Compliance Boundaries yet.");
+  });
+
   const html = async (key: string | null) => {
     as(key);
     return renderToStaticMarkup(await ListPage({ searchParams: Promise.resolve({}) } as never));
