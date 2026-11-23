@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { loadBoundaryStatement } from "@/lib/boundary-statement";
+import { compliancePercentage } from "@/lib/requirement-status-rules";
 import { cleanupFixtureRequirements, createFixtureFramework, mapControlsToFramework } from "@/test/framework-fixtures";
 
 /**
@@ -121,6 +122,13 @@ describe("loadBoundaryStatement (#420)", { timeout: 90_000 }, () => {
     // B: only the Onboarded System has Facet b among the counted ones; the Draft System with it is not counted.
     expect(rowOf(statement, req.b)).toMatchObject({ included: true, worstStatus: "MET", metCount: 1, appliesToCount: 1 });
     expect(rowOf(statement, req.unmapped)).toMatchObject({ included: true, worstStatus: "NOT_MET", appliesToCount: 2 });
+  });
+
+  it("uses the shared one-decimal Compliance Percentage, the same as the Boundary headline", async () => {
+    const statement = (await loadBoundaryStatement(boundary, users.admin))!;
+    for (const section of statement.sections) {
+      expect(section.percentage).toBe(compliancePercentage({ MET: section.met, applicable: section.applicable }));
+    }
   });
 
   it("includes a Requirement met by an Organizational Control, with the Organization's status", async () => {

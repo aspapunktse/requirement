@@ -5,7 +5,7 @@ import { countedMembersWhere, memberState } from "@/lib/compliance-boundary";
 import { EFFECTIVE_SCOPE_SELECT, withEffectiveScope } from "@/lib/effective-framework-scope";
 import { visibleSystemsWhere } from "@/lib/system-visibility";
 import { deriveStatusesFromData, readFrameworkDerivationDataWhere, type DerivationDb } from "@/lib/requirement-status";
-import { deriveRequirementStatus, type DerivedRequirementStatus } from "@/lib/requirement-status-rules";
+import { compliancePercentage, deriveRequirementStatus, type DerivedRequirementStatus } from "@/lib/requirement-status-rules";
 import { resolveImplementedByOrganization } from "@/lib/effective-status";
 import {
   canWriteJustifications,
@@ -124,7 +124,7 @@ export async function readBoundaryStatement(boundaryId: string, user: { id: stri
         storedJustification: storedByRequirement.get(requirement.id) ?? null,
       });
     });
-    sections.push({ framework, rows, met, applicable, percentage: applicable === 0 ? null : Math.round((met / applicable) * 100) });
+    sections.push({ framework, rows, met, applicable, percentage: compliancePercentage({ MET: met, applicable }) });
   }
   return { ...base, systems, sections };
 }
