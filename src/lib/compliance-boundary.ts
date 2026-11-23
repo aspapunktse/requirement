@@ -10,7 +10,7 @@ import type { Prisma, UserRole } from "@prisma/client";
  * Who may do what:
  * - Every signed-in role reads the list, each Boundary and its members' names.
  * - A Compliance Manager or an Admin creates a Boundary and edits its name, description, Business Unit, Frameworks and Boundary Owner.
- * - The Boundary Owner of that Boundary, a Compliance Manager or an Admin adds and removes member Systems.
+ * - The Boundary Owner of that Boundary, a Compliance Manager or an Admin adds and removes member Systems, and retires the Boundary (#424).
  * Curating a Boundary is not a Change Event; a System joining or leaving, or a Boundary gaining or dropping a Framework, is a scope change that recomputes applicability.
  */
 
@@ -29,6 +29,11 @@ export const NOT_FOUND_MESSAGE = "Compliance Boundary not found.";
 export const MEMBERS_FORBIDDEN_MESSAGE = "Only the Boundary Owner, a Compliance Manager or an Admin can add or remove Systems.";
 export const duplicateNameMessage = (existing: string) => `A Compliance Boundary named "${existing}" already exists.`;
 export const CLOSED_MEMBER_REFUSAL = "A closed System (Rejected or Not selected) can't be added to a Compliance Boundary.";
+export const RETIRE_FORBIDDEN_MESSAGE = "Only the Boundary Owner, a Compliance Manager or an Admin can retire a Compliance Boundary.";
+/** The 409 every write on a retired Boundary answers with (#424): retiring is final, the Boundary is a read-only record. */
+export const RETIRED_REFUSAL = "This Compliance Boundary is retired. It is a read-only record: create a new Compliance Boundary instead.";
+export const ALREADY_RETIRED_REFUSAL = "This Compliance Boundary is already retired.";
+export const MAX_RETIREMENT_COMMENT_LENGTH = 1000;
 export const ALREADY_MEMBER_REFUSAL = "That System is already in this Compliance Boundary.";
 
 /** What a System's state means for a Boundary (CONTEXT.md): closed Systems are shown but never counted; Systems still in evaluation are "not yet operating". */
@@ -77,7 +82,12 @@ export type BoundaryListRow = {
   boundaryOwner: { id: string; name: string } | null;
   frameworks: BoundaryFrameworkRow[];
   systemCount: number;
+  /** When the Boundary was retired (ISO), or null while it is active (#424). */
+  retiredAt: string | null;
 };
+
+/** Who retired a Compliance Boundary, when and why (#424). */
+export type BoundaryRetirement = { retiredAt: string; retiredByName: string | null; comment: string };
 
 /** A System prepared for (it declared) some of a Boundary's non-base Frameworks, not yet a member (#423). */
 export type PreparedCandidate = { id: string; name: string; state: MemberState; preparedFor: { id: string; name: string; version: string }[] };
@@ -99,8 +109,10 @@ export type JoinPreview = {
 
 export const MEMBERS_PREVIEW_FORBIDDEN_MESSAGE = "Only the Boundary Owner, a Compliance Manager or an Admin can preview adding a System.";
 
-export type BoundaryDetail = Omit<BoundaryListRow, "systemCount"> & {
+export type BoundaryDetail = Omit<BoundaryListRow, "systemCount" | "retiredAt"> & {
   members: BoundaryMemberRow[];
+  /** Null while the Boundary is active. */
+  retirement: BoundaryRetirement | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -144,3 +156,15 @@ export const updateBoundarySchema = z
   .refine((value) => Object.keys(value).length > 0, "Nothing to change.");
 
 export const addMemberSchema = z.object({ systemId: id("Choose a System from the list.") });
+
+/** Retiring needs a comment: why the Boundary's purpose ended (#424). */
+export const retireBoundarySchema = z.object({
+  comment: z
+    .string({ error: "Say why the Compliance Boundary is retired." })
+    .trim()
+    .min(1, "Say why the Compliance Boundary is retired.")
+    .max(MAX_RETIREMENT_COMMENT_LENGTH, `The comment can be at most ${MAX_RETIREMENT_COMMENT_LENGTH} characters.`),
+});
+
+/** The list's empty state: when only retired Boundaries are hidden, "yet" would be false (#424). */
+export const emptyListMessage = (hiddenRetired: number) => (hiddenRetired > 0 ? "No active Compliance Boundaries." : "No Compliance Boundaries yet.");

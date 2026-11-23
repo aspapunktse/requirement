@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { type BoundaryDetail } from "@/lib/compliance-boundary";
+import { emptyListMessage, type BoundaryDetail } from "@/lib/compliance-boundary";
 import { listBoundariesOfSystem } from "@/lib/compliance-boundary-data";
 
 const push = vi.fn();
@@ -83,9 +83,14 @@ const as = (key: string | null) => {
 };
 
 describe("the list page", () => {
+  it("says there are no active Boundaries, not none yet, when only retired ones are hidden (#424)", () => {
+    expect(emptyListMessage(2)).toBe("No active Compliance Boundaries.");
+    expect(emptyListMessage(0)).toBe("No Compliance Boundaries yet.");
+  });
+
   const html = async (key: string | null) => {
     as(key);
-    return renderToStaticMarkup(await ListPage());
+    return renderToStaticMarkup(await ListPage({ searchParams: Promise.resolve({}) } as never));
   };
 
   it("lists the Boundary with its Frameworks and member count for every role", async () => {
@@ -182,6 +187,7 @@ describe("the Boundary view", () => {
       { systemId: "s1", name: "Payroll", state: "OPERATING", status: "ONBOARDED", addedAt: "2026-11-22T00:00:00.000Z", addedByName: null },
       { systemId: "s2", name: "Old CRM", state: "CLOSED", status: "NOT_SELECTED", addedAt: "2026-11-22T00:00:00.000Z", addedByName: null },
     ],
+    retirement: null,
     createdAt: "2026-11-22T00:00:00.000Z",
     updatedAt: "2026-11-22T00:00:00.000Z",
   };
@@ -203,6 +209,52 @@ describe("the Boundary view", () => {
     render(<BoundaryView boundary={boundary} compliance={[{ frameworkId: first.id, met: 0, applicable: 0, percentage: null }]} linkableSystemIds={[]} candidates={[]} prepared={[]} canManageMembers={false} canCurate={false} />);
     expect(screen.getByTestId(`cb-compliance-${first.id}`)).toHaveTextContent("—");
     expect(screen.getByTestId(`cb-compliance-${first.id}`)).not.toHaveTextContent("Requirements Met");
+  });
+
+  it("retires with a required comment, a final-warning and a POST, then refreshes the page (#424)", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(json({ boundary }));
+    render(<BoundaryView boundary={boundary} compliance={[]} linkableSystemIds={[]} candidates={[]} prepared={[]} canManageMembers canCurate />);
+    await userEvent.click(screen.getByRole("button", { name: "Retire" }));
+    expect(screen.getByText(/Retiring is final/)).toBeInTheDocument();
+    const confirm = screen.getByRole("button", { name: "Retire permanently" });
+    expect(confirm).toBeDisabled(); // the comment is required
+    await userEvent.type(screen.getByLabelText(/Why is it retired/), "  Contract ended  ");
+    await userEvent.click(confirm);
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+    expect(calls()[0][0]).toBe("/api/compliance-boundaries/b1/retire");
+    expect(calls()[0][1]).toMatchObject({ method: "POST" });
+    expect(JSON.parse(calls()[0][1]!.body as string)).toEqual({ comment: "  Contract ended  " });
+  });
+
+  it("shows a refused retire's message and offers no Retire to someone who may not (#424)", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(json({ error: "Only the Boundary Owner can." }, 403));
+    const { unmount } = render(<BoundaryView boundary={boundary} compliance={[]} linkableSystemIds={[]} candidates={[]} prepared={[]} canManageMembers canCurate />);
+    await userEvent.click(screen.getByRole("button", { name: "Retire" }));
+    await userEvent.type(screen.getByLabelText(/Why is it retired/), "x");
+    await userEvent.click(screen.getByRole("button", { name: "Retire permanently" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Only the Boundary Owner can.");
+    expect(refresh).not.toHaveBeenCalled();
+    unmount();
+    render(<BoundaryView boundary={boundary} compliance={[]} linkableSystemIds={[]} candidates={[]} prepared={[]} canManageMembers={false} canCurate={false} />);
+    expect(screen.queryByRole("button", { name: "Retire" })).toBeNull();
+  });
+
+  it("shows a retired Boundary read-only: banner, no statement figures, no controls (#424)", () => {
+    const retired: BoundaryDetail = { ...boundary, retirement: { retiredAt: "2026-11-23T10:00:00.000Z", retiredByName: "Olle Owner", comment: "Contract ended" } };
+    const [first] = retired.frameworks;
+    render(
+      <BoundaryView boundary={retired} compliance={[{ frameworkId: first.id, met: 4, applicable: 5, percentage: 80 }]} linkableSystemIds={[]} candidates={candidates} prepared={[]} canManageMembers canCurate />,
+    );
+    const banner = screen.getByRole("status");
+    expect(banner).toHaveTextContent("Retired on 2026-11-23 by Olle Owner");
+    expect(banner).toHaveTextContent("Contract ended");
+    expect(screen.getByText("Payroll")).toBeInTheDocument(); // the members stay as the record
+    expect(screen.getByText("CMMC:L1")).toBeInTheDocument();
+    expect(screen.queryByTestId(`cb-compliance-${first.id}`)).toBeNull();
+    for (const name of ["Retire", "Edit", "Add System"]) expect(screen.queryByRole("button", { name }) ?? screen.queryByRole("link", { name })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Remove/ })).toBeNull();
+    expect(screen.queryByText("Candidates")).toBeNull();
+    expect(screen.queryByLabelText("Add a System")).toBeNull();
   });
 
   it("labels each member's state and links only the linkable ones", () => {
@@ -348,6 +400,7 @@ describe("the Boundary form", () => {
       boundaryOwner: null,
       frameworks: [{ id: "f1", name: "CMMC", version: "L1" }],
       members: [],
+      retirement: null,
       createdAt: "",
       updatedAt: "",
     } satisfies BoundaryDetail;
@@ -368,13 +421,18 @@ describe("the Boundary form", () => {
 describe("the System page's Boundaries card", () => {
   it("reads the Boundaries a System is in from the database", async () => {
     expect(await listBoundariesOfSystem(systems.onboarded)).toEqual([
-      { id: boundaryId, name: N("Boundary"), ownerName: "Test 418 owner", frameworks: [{ id: frameworkId, name: N("Framework"), version: "1" }] },
+      { id: boundaryId, name: N("Boundary"), ownerName: "Test 418 owner", frameworks: [{ id: frameworkId, name: N("Framework"), version: "1" }], retired: false },
     ]);
     expect(await listBoundariesOfSystem("missing")).toEqual([]);
   });
 
+  it("marks a retired Boundary as Retired (#424)", () => {
+    render(<SystemBoundaries boundaries={[{ id: "b1", name: "Old contract", ownerName: null, frameworks: [], retired: true }]} />);
+    expect(screen.getByText("Retired")).toBeInTheDocument();
+  });
+
   it("lists the Boundaries read-only, with their Frameworks, or says there are none", () => {
-    render(<SystemBoundaries boundaries={[{ id: "b1", name: "FCI boundary", ownerName: "Olle Owner", frameworks: [{ id: "f1", name: "CMMC", version: "L1" }] }]} />);
+    render(<SystemBoundaries boundaries={[{ id: "b1", name: "FCI boundary", ownerName: "Olle Owner", frameworks: [{ id: "f1", name: "CMMC", version: "L1" }], retired: false }]} />);
     expect(screen.getByRole("link", { name: "FCI boundary" })).toHaveAttribute("href", "/compliance-boundaries/b1");
     expect(screen.getByText("CMMC:L1")).toBeInTheDocument();
     expect(screen.queryByRole("button")).toBeNull();

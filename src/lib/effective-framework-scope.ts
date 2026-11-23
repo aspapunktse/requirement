@@ -15,7 +15,8 @@ import type { Prisma } from "@prisma/client";
 /** Spread into a System `select` or `include` in place of `frameworkScopes: { select: { id: true } }`. */
 export const EFFECTIVE_SCOPE_SELECT = {
   frameworkScopes: { select: { id: true } },
-  boundaryMemberships: { select: { boundary: { select: { frameworks: { select: { frameworkId: true } } } } } },
+  // A retired Compliance Boundary brings no Framework into scope (#424).
+  boundaryMemberships: { where: { boundary: { retiredAt: null } }, select: { boundary: { select: { frameworks: { select: { frameworkId: true } } } } } },
 } satisfies Prisma.SystemSelect;
 
 type ScopeRows = {
@@ -52,7 +53,7 @@ export function systemsWithFrameworkInScope(framework: Prisma.FrameworkWhereInpu
   return {
     OR: [
       { frameworkScopes: { some: framework } },
-      { boundaryMemberships: { some: { boundary: { frameworks: { some: { framework } } } } } },
+      { boundaryMemberships: { some: { boundary: { retiredAt: null, frameworks: { some: { framework } } } } } },
     ],
   };
 }
@@ -65,7 +66,7 @@ export function frameworksInScopeOfSystem(systemId: string): Prisma.FrameworkWhe
   return {
     OR: [
       { scopedSystems: { some: { id: systemId } } },
-      { boundaries: { some: { boundary: { systems: { some: { systemId } } } } } },
+      { boundaries: { some: { boundary: { retiredAt: null, systems: { some: { systemId } } } } } },
     ],
   };
 }

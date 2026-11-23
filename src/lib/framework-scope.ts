@@ -60,6 +60,7 @@ export async function getSystemFrameworkScopeSources(
     select: {
       frameworkScopes: { select: { id: true } },
       boundaryMemberships: {
+        where: { boundary: { retiredAt: null } }, // a retired Boundary brings no Framework into scope (#424)
         select: { boundary: { select: { id: true, name: true, frameworks: { select: { frameworkId: true } } } } },
         orderBy: { boundary: { name: "asc" } },
       },
@@ -113,7 +114,7 @@ export async function boundariesBringingOnly(
   const declared = await db.system.count({ where: { id: systemId, frameworkScopes: { some: { id: frameworkId } } } });
   if (declared > 0) return [];
   return db.complianceBoundary.findMany({
-    where: { frameworks: { some: { frameworkId } }, systems: { some: { systemId } } },
+    where: { retiredAt: null, frameworks: { some: { frameworkId } }, systems: { some: { systemId } } },
     select: { id: true, name: true },
     orderBy: { name: "asc" },
   });

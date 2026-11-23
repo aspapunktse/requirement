@@ -72,14 +72,14 @@ export async function effectiveScopeFrameworkIdsForSystems(systemIds: string[], 
       OR: [
         { isBase: true },
         { scopedSystems: { some: { id: { in: systemIds } } } },
-        { boundaries: { some: { boundary: { systems: { some: { systemId: { in: systemIds } } } } } } },
+        { boundaries: { some: { boundary: { retiredAt: null, systems: { some: { systemId: { in: systemIds } } } } } } },
       ],
     },
     select: {
       id: true,
       isBase: true,
       scopedSystems: { where: { id: { in: systemIds } }, select: { id: true } },
-      boundaries: { select: { boundary: { select: { systems: { where: { systemId: { in: systemIds } }, select: { systemId: true } } } } } },
+      boundaries: { where: { boundary: { retiredAt: null } }, select: { boundary: { select: { systems: { where: { systemId: { in: systemIds } }, select: { systemId: true } } } } } },
     },
   });
   for (const framework of frameworks) {

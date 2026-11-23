@@ -108,3 +108,36 @@ export async function setBoundaryFrameworksIn(
   }
   return members.map((member) => member.systemId);
 }
+
+/**
+ * Retires the Boundary for good (#424): sets the retirement fields, then fans the change out to every member System, closed ones
+ * included, like dropping all its Frameworks at once. A retired Boundary brings no Framework into scope (`EFFECTIVE_SCOPE_SELECT`
+ * and the other scope readers skip it), so each member is recomputed: untouched Assessments of Controls that stop applying are
+ * removed, touched ones are kept and show as stale. Each member gets a Change Event saying the Boundary was retired, and a second
+ * one when its applicable Controls changed. A System that is in another active Boundary holding the same Framework, or declares it,
+ * keeps it in scope and so keeps its Assessments. The members and Frameworks rows stay as the read-only record. The caller has
+ * checked the permission and that the Boundary isn't retired yet, and has taken `lockBoundary`. Systems are locked in id order.
+ * Returns the member ids whose Review Steps to reconcile after the commit.
+ */
+export async function retireBoundaryIn(
+  tx: Prisma.TransactionClient,
+  boundary: { id: string; name: string },
+  comment: string,
+  actorId: string,
+): Promise<string[]> {
+  const members = await tx.complianceBoundarySystem.findMany({ where: { boundaryId: boundary.id }, select: { systemId: true }, orderBy: { systemId: "asc" } });
+  // Sequential: one connection. Every member is locked and read before the write, so each one's "before" is the locked state.
+  const befores: { systemId: string; before: ScopeBefore }[] = [];
+  for (const { systemId } of members) befores.push({ systemId, before: await beginScopeChange(tx, systemId) });
+
+  await tx.complianceBoundary.update({ where: { id: boundary.id }, data: { retiredAt: new Date(), retiredById: actorId, retirementComment: comment } });
+
+  for (const { systemId, before } of befores) {
+    await logChangeEvent(systemId, "BOUNDARY_MEMBERSHIP_CHANGED", `Compliance Boundary "${boundary.name}" retired: it no longer brings its Frameworks into this System's scope`, actorId, tx);
+    await finishScopeChange(tx, systemId, before, actorId, {
+      describe: (added, removed) => `Framework Scope changed: Compliance Boundary "${boundary.name}" retired (+${added}/-${removed} Control Assessment(s))`,
+      logUnchanged: false,
+    });
+  }
+  return members.map((member) => member.systemId);
+}

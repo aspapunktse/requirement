@@ -22,6 +22,7 @@ export function SystemBoundaries({ boundaries }: { boundaries: SystemBoundaryRow
             {boundaries.map((boundary) => (
               <li key={boundary.id} className="cb-member">
                 <Link href={`/compliance-boundaries/${boundary.id}`}>{boundary.name}</Link>
+                {boundary.retired && <span className="cb-tag warn">Retired</span>}
                 <span className="cb-tags">
                   {boundary.frameworks.map((framework) => (
                     <span key={framework.id} className="cb-tag fw">

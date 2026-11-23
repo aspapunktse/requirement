@@ -21,6 +21,7 @@ export default async function EditComplianceBoundaryPage({ params }: PageProps<"
 
   const { boundary, choices } = await prisma.$transaction(async (tx) => ({ boundary: await getBoundary(id, tx), choices: await loadBoundaryChoices(tx) }), READ_SNAPSHOT);
   if (!boundary) return <p className="p-6 text-rg-muted">Compliance Boundary not found.</p>;
+  if (boundary.retirement) return <p className="p-6 text-rg-muted">This Compliance Boundary is retired and can no longer be edited.</p>;
 
   return <BoundaryForm key={boundary.id} choices={choices} boundary={boundary} />;
 }

@@ -5,7 +5,7 @@ import { authenticate } from "@/lib/api-authz";
 import { leaveBoundaryIn, lockBoundary, BOUNDARY_FAN_OUT_TRANSACTION } from "@/lib/compliance-boundary-scope";
 import { recordProviderChanges } from "@/lib/framework-scope";
 import { reconcileReviewSteps } from "@/lib/review-steps";
-import { canManageBoundaryMembers, MEMBERS_FORBIDDEN_MESSAGE, NOT_FOUND_MESSAGE } from "@/lib/compliance-boundary";
+import { canManageBoundaryMembers, MEMBERS_FORBIDDEN_MESSAGE, NOT_FOUND_MESSAGE, RETIRED_REFUSAL } from "@/lib/compliance-boundary";
 import { getBoundary } from "@/lib/compliance-boundary-data";
 
 /**
@@ -23,9 +23,10 @@ export async function DELETE(request: NextRequest, ctx: RouteContext<"/api/compl
     let reconcile: string[] = [];
     const outcome = await recordProviderChanges([systemId], () => prisma.$transaction(async (tx) => {
       await lockBoundary(tx, id); // before any System lock: Boundary, then Systems
-      const boundary = await tx.complianceBoundary.findUnique({ where: { id }, select: { id: true, name: true, boundaryOwnerId: true } });
+      const boundary = await tx.complianceBoundary.findUnique({ where: { id }, select: { id: true, name: true, boundaryOwnerId: true, retiredAt: true } });
       if (!boundary) return { error: NOT_FOUND_MESSAGE, status: 404 };
       if (!canManageBoundaryMembers(auth.user, boundary)) return { error: MEMBERS_FORBIDDEN_MESSAGE, status: 403 };
+      if (boundary.retiredAt) return { error: RETIRED_REFUSAL, status: 409 }; // the members of a retired Boundary stay as the record (#424)
       const membership = await tx.complianceBoundarySystem.findUnique({ where: { boundaryId_systemId: { boundaryId: id, systemId } }, select: { id: true } });
       if (!membership) return { error: "That System is not in this Compliance Boundary.", status: 404 };
       reconcile = await leaveBoundaryIn(tx, boundary, membership.id, systemId, auth.user.id);

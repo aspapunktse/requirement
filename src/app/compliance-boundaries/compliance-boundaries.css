@@ -49,3 +49,17 @@
 .cb-candidates .cb-empty { padding: 0; }
 .cb-preview { display: grid; gap: 8px; border: 1px solid var(--rg-line); border-radius: 12px; padding: 12px 14px; background: var(--rg-surface); font-size: 0.88rem; }
 .cb-preview p { margin: 0; }
+
+/* Retired Compliance Boundaries (#424). */
+.cb-filter { margin: 0; padding: 0 16px 8px; font-size: 0.82rem; }
+.cb-filter a { color: var(--rg-accent); text-decoration: none; }
+.cb-filter a:hover { text-decoration: underline; }
+.cb-retired-tag { margin-left: 8px; vertical-align: middle; }
+.cb-retired-banner { display: grid; gap: 4px; padding: 12px 16px; border-radius: 14px; border: 1px solid var(--rg-gold-ink); background: var(--rg-gold-soft); color: var(--rg-gold-ink); font-size: 0.88rem; }
+.cb-retired-banner h2 { margin: 0; font-size: 0.98rem; }
+.cb-retired-banner p { margin: 0; }
+.cb-retire { display: grid; gap: 8px; border: 1px solid var(--rg-danger); border-radius: 12px; padding: 12px 14px; background: var(--rg-surface); font-size: 0.88rem; }
+.cb-retire h3 { margin: 0; font-size: 0.92rem; }
+.cb-retire p { margin: 0; }
+.cb-retire textarea { min-height: 80px; resize: vertical; }
+.hc-btn.danger { border-color: var(--rg-danger); color: var(--rg-danger); }
