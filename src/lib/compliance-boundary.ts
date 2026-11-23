@@ -1,0 +1,117 @@
+import { z } from "zod";
+import type { UserRole } from "@prisma/client";
+
+/**
+ * Compliance Boundaries (#418, ADR 0016): the shapes, validation and permission rules shared by the routes and the pages.
+ * Prisma-free. A Boundary is a named set of Systems held to one or more Published Frameworks, optionally by a Business Unit,
+ * with a Boundary Owner (CONTEXT.md). This slice does not change applicability: a Boundary's Frameworks join a System's
+ * effective Framework Scope in #419, which deletes `FRAMEWORKS_LATER_NOTE`.
+ *
+ * Who may do what:
+ * - Every signed-in role reads the list, each Boundary and its members' names.
+ * - A Compliance Manager or an Admin creates a Boundary and edits its name, description, Business Unit, Frameworks and Boundary Owner.
+ * - The Boundary Owner of that Boundary, a Compliance Manager or an Admin adds and removes member Systems.
+ * Curating a Boundary is not a Change Event; a System joining or leaving is (one on that System).
+ */
+
+/** The note on the Boundary pages until #419 makes a Boundary's Frameworks part of a System's Framework Scope. */
+export const FRAMEWORKS_LATER_NOTE = "Frameworks take effect in a later release";
+
+export const ROLES_ALLOWED_TO_CURATE_BOUNDARIES: UserRole[] = ["ADMIN", "COMPLIANCE_MANAGER"];
+
+export const MAX_BOUNDARY_NAME_LENGTH = 120;
+export const MAX_BOUNDARY_DESCRIPTION_LENGTH = 1000;
+
+export const canCurateBoundaries = (user: { role: UserRole }) => ROLES_ALLOWED_TO_CURATE_BOUNDARIES.includes(user.role);
+
+/** Adding and removing Systems: the Boundary's own owner, a Compliance Manager or an Admin. Another Boundary's owner is refused. */
+export const canManageBoundaryMembers = (user: { id: string; role: UserRole }, boundary: { boundaryOwnerId: string | null }) =>
+  canCurateBoundaries(user) || (boundary.boundaryOwnerId !== null && boundary.boundaryOwnerId === user.id);
+
+export const NOT_FOUND_MESSAGE = "Compliance Boundary not found.";
+export const MEMBERS_FORBIDDEN_MESSAGE = "Only the Boundary Owner, a Compliance Manager or an Admin can add or remove Systems.";
+export const duplicateNameMessage = (existing: string) => `A Compliance Boundary named "${existing}" already exists.`;
+export const CLOSED_MEMBER_REFUSAL = "A closed System (Rejected or Not selected) can't be added to a Compliance Boundary.";
+export const ALREADY_MEMBER_REFUSAL = "That System is already in this Compliance Boundary.";
+
+/** What a System's state means for a Boundary (CONTEXT.md): closed Systems are shown but never counted; Systems still in evaluation are "not yet operating". */
+export type MemberState = "OPERATING" | "NOT_YET_OPERATING" | "CLOSED";
+
+export function memberState(system: { status: string; evaluationClosedAt: Date | null }): MemberState {
+  if (system.evaluationClosedAt !== null) return "CLOSED";
+  // Counted means having an ATO (Approved) or being Onboarded.
+  return system.status === "APPROVED" || system.status === "ONBOARDED" ? "OPERATING" : "NOT_YET_OPERATING";
+}
+
+export const MEMBER_STATE_LABEL: Record<MemberState, string> = {
+  OPERATING: "Operating",
+  NOT_YET_OPERATING: "Not yet operating",
+  CLOSED: "Closed",
+};
+
+export type BoundaryFrameworkRow = { id: string; name: string; version: string };
+export type BoundaryMemberRow = {
+  systemId: string;
+  name: string;
+  state: MemberState;
+  /** The Onboarding Status, for the closed reason (Rejected or Not selected). */
+  status: string;
+  addedAt: string;
+  addedByName: string | null;
+};
+
+export type BoundaryListRow = {
+  id: string;
+  name: string;
+  description: string | null;
+  businessUnit: { id: string; name: string } | null;
+  boundaryOwner: { id: string; name: string } | null;
+  frameworks: BoundaryFrameworkRow[];
+  systemCount: number;
+};
+
+export type BoundaryDetail = Omit<BoundaryListRow, "systemCount"> & {
+  members: BoundaryMemberRow[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+const name = z
+  .string({ error: "Give the Compliance Boundary a name." })
+  .trim()
+  .min(1, "Give the Compliance Boundary a name.")
+  .max(MAX_BOUNDARY_NAME_LENGTH, `The name can be at most ${MAX_BOUNDARY_NAME_LENGTH} characters.`);
+
+const description = z
+  .string({ error: "The description must be text." })
+  .trim()
+  .max(MAX_BOUNDARY_DESCRIPTION_LENGTH, `The description can be at most ${MAX_BOUNDARY_DESCRIPTION_LENGTH} characters.`)
+  .transform((value) => (value === "" ? null : value));
+
+const id = (message: string) => z.string({ error: message }).min(1, message);
+
+const frameworkIds = z
+  .array(id("Choose Frameworks from the list."), { error: "Choose at least one Framework." })
+  .transform((ids) => [...new Set(ids)])
+  .refine((ids) => ids.length > 0, "A Compliance Boundary needs at least one Framework.");
+
+export const createBoundarySchema = z.object({
+  name,
+  description: description.nullish().transform((value) => value ?? null),
+  businessUnitId: id("Choose a Business Unit from the list.").nullish().transform((value) => value ?? null),
+  boundaryOwnerId: id("Choose a Boundary Owner from the list.").nullish().transform((value) => value ?? null),
+  frameworkIds,
+});
+
+/** Every field optional; `frameworkIds`, when sent, is the whole new list (never empty). `null` clears the description, Business Unit or Boundary Owner. */
+export const updateBoundarySchema = z
+  .object({
+    name: name.optional(),
+    description: description.nullable().optional(),
+    businessUnitId: id("Choose a Business Unit from the list.").nullable().optional(),
+    boundaryOwnerId: id("Choose a Boundary Owner from the list.").nullable().optional(),
+    frameworkIds: frameworkIds.optional(),
+  })
+  .refine((value) => Object.keys(value).length > 0, "Nothing to change.");
+
+export const addMemberSchema = z.object({ systemId: id("Choose a System from the list.") });

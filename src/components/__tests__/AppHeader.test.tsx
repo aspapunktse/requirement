@@ -74,7 +74,7 @@ describe("AppHeader", () => {
 
 const mainNav = () => screen.getByRole("navigation", { name: "Main" });
 const navLabels = () => [...mainNav().querySelectorAll("a, button")].map((el) => el.textContent?.replace("▾", "").trim());
-const SHARED = ["Home", "Systems", "Information Types", "Document Requirements", "Controls", "Risks", "Check-ups", "SoA", "Frameworks"];
+const SHARED = ["Home", "Systems", "Information Types", "Document Requirements", "Controls", "Risks", "Check-ups", "SoA", "Boundaries", "Frameworks"];
 
 describe("AppHeader: main navigation", () => {
   beforeEach(() => {
@@ -84,15 +84,15 @@ describe("AppHeader: main navigation", () => {
   });
 
   const ITEMS_BY_ROLE: Record<UserRole, string[]> = {
-    ADMIN: ["Home", "Systems", "Information Types", "Document Requirements", "Controls", "Risks", "Check-ups", "Internal Audits", "SoA", "Frameworks", "Admin"],
-    COMPLIANCE_MANAGER: ["Home", "Systems", "Information Types", "Document Requirements", "Controls", "Risks", "Check-ups", "Internal Audits", "SoA", "Frameworks"],
+    ADMIN: ["Home", "Systems", "Information Types", "Document Requirements", "Controls", "Risks", "Check-ups", "Internal Audits", "SoA", "Boundaries", "Frameworks", "Admin"],
+    COMPLIANCE_MANAGER: ["Home", "Systems", "Information Types", "Document Requirements", "Controls", "Risks", "Check-ups", "Internal Audits", "SoA", "Boundaries", "Frameworks"],
     SYSTEM_OWNER: SHARED,
-    RISK_OWNER: ["Home", "Systems", "Information Types", "Document Requirements", "Controls", "Risks", "Check-ups", "Internal Audits", "SoA", "Frameworks"],
+    RISK_OWNER: ["Home", "Systems", "Information Types", "Document Requirements", "Controls", "Risks", "Check-ups", "Internal Audits", "SoA", "Boundaries", "Frameworks"],
     REVIEWER: SHARED,
     BUSINESS_RISK_OWNER: [...SHARED, "My Business Risks"],
     VIEWER: SHARED,
     RISK_FACILITATOR: SHARED,
-    INTERNAL_AUDITOR: ["Home", "Systems", "Information Types", "Document Requirements", "Controls", "Risks", "Check-ups", "Internal Audits", "SoA", "Frameworks"],
+    INTERNAL_AUDITOR: ["Home", "Systems", "Information Types", "Document Requirements", "Controls", "Risks", "Check-ups", "Internal Audits", "SoA", "Boundaries", "Frameworks"],
   };
 
   it.each(Object.entries(ITEMS_BY_ROLE))("lists the pages %s may open, in order, and no others", (role, expected) => {
@@ -143,6 +143,7 @@ describe("AppHeader: main navigation", () => {
     ["/check-ups/c1", "Check-ups"],
     ["/internal-audits/a1", "Internal Audits"],
     ["/statement-of-applicability", "SoA"],
+    ["/compliance-boundaries/b1", "Boundaries"],
     ["/frameworks/f1", "Frameworks"],
   ])("marks only the item for %s as current", (path, label) => {
     pathname = path;
@@ -283,6 +284,7 @@ describe("AppHeader: collapsed menu", () => {
       "Check-ups",
       "Internal Audits",
       "Statement of Applicability",
+      "Compliance Boundaries",
       "Frameworks",
     ]);
     expect(within(goTo).getByRole("link", { name: "Systems" })).toHaveAttribute("aria-current", "page");
@@ -370,6 +372,7 @@ describe("AppHeader: Ctrl+K palette", () => {
       "Risks",
       "Check-ups",
       "Statement of Applicability",
+      "Compliance Boundaries",
       "Frameworks",
       "Theme: Register",
       "Theme: High contrast",
@@ -403,7 +406,7 @@ describe("AppHeader: Ctrl+K palette", () => {
     const dialog = screen.getByRole("dialog");
     const options = within(dialog).getAllByRole("option");
     expect(options[0]).toHaveTextContent("Review the cloud policy");
-    expect(options).toHaveLength(16);
+    expect(options).toHaveLength(17);
     expect(within(dialog).getByRole("combobox")).toHaveAttribute("placeholder", "Jump to a task…");
     const groups = within(dialog)
       .getAllByText(/^(Tasks|Go to|Theme)$/)
@@ -477,7 +480,7 @@ describe("AppHeader: Ctrl+K palette", () => {
     const labels = within(screen.getByRole("dialog"))
       .getAllByRole("option")
       .map((o) => o.querySelector("span")?.textContent);
-    expect(labels.filter((label) => !label?.startsWith("Theme: "))).toEqual(["Home", "Comparisons", "Information Types", "Document Requirements", "Controls", "Risks", "Check-ups", "Statement of Applicability", "Frameworks"]);
+    expect(labels.filter((label) => !label?.startsWith("Theme: "))).toEqual(["Home", "Comparisons", "Information Types", "Document Requirements", "Controls", "Risks", "Check-ups", "Statement of Applicability", "Compliance Boundaries", "Frameworks"]);
   });
 
   it("lists Comparisons under Systems in Go to, with Systems as its meta, and leaves it out on its own pages", async () => {

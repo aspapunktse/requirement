@@ -106,6 +106,10 @@ model User {
   statSnapshots                      StatSnapshot[]
   appSettingsChanged                 AppSetting[]                        @relation("AppSettingUpdatedBy")
   ownedSystems                       System[]                            @relation("SystemOwner")
+  // Compliance Boundaries this User is the Boundary Owner of (#418), and the membership rows they added.
+  ownedBoundaries                    ComplianceBoundary[]                @relation("BoundaryOwner")
+  boundaryFrameworksAdded            ComplianceBoundaryFramework[]       @relation("BoundaryFrameworkAddedBy")
+  boundarySystemsAdded               ComplianceBoundarySystem[]          @relation("BoundarySystemAddedBy")
   // Comparisons this User owns (#372). A User who owns one can't be deleted until it is handed over or deleted.
   ownedComparisons                   Comparison[]                        @relation("ComparisonOwner")
   // Comparisons this User was named a participant of (#372); the rows go with the User.
@@ -313,21 +317,23 @@ model System {
   // always in scope on top of it); see ADR 0007, which retired Regulatory
   // Overlay in its favour. Neither is Draft-locked. See #55.
   businessUnits        BusinessUnit[]
-  frameworkScopes      Framework[]           @relation("SystemFrameworkScope")
+  frameworkScopes      Framework[]                @relation("SystemFrameworkScope")
+  // The Compliance Boundaries this System is in (#418). Deleting the System removes its memberships.
+  boundaryMemberships  ComplianceBoundarySystem[]
   // A Provider is a System other Systems depend on and inherit Controls from
   // (ADR 0008, PRD 0001 F-IN.2, #123). The System's owner or an Admin marks
   // or unmarks it; unmarking is refused while it has Offerings or any System
   // depends on it (#124).
-  isProvider           Boolean               @default(false)
+  isProvider           Boolean                    @default(false)
   // The Controls this Provider publishes for the Systems depending on it.
   offerings            ControlOffering[]
   // The Providers this System declares it depends on, and the Systems that
   // depend on this one (as a Provider). See ProviderDependency (#124).
-  providerDependencies ProviderDependency[]  @relation("DependentSystem")
+  providerDependencies ProviderDependency[]       @relation("DependentSystem")
   internalAudits       InternalAuditSystem[]
   // Check-ups that target this System (#154). Restrict: a System with Check-ups can't be deleted.
   checkUps             CheckUp[]
-  dependents           ProviderDependency[]  @relation("ProviderSystem")
+  dependents           ProviderDependency[]       @relation("ProviderSystem")
   // Curated log of System-lifecycle-relevant mutations, feeding the landing
   // page's "Recent updates" feed. See #58.
   changeEvents         ChangeEvent[]
@@ -368,10 +374,12 @@ model BusinessUnit {
   createdAt   DateTime @default(now())
 
   // Systems this Business Unit consumes/uses.
-  systems    System[]
+  systems              System[]
+  // Compliance Boundaries it holds (#418); deleting the Business Unit leaves them without one.
+  complianceBoundaries ComplianceBoundary[]
   // Users assigned this Business Unit as (part of) their
   // BUSINESS_RISK_OWNER portfolio.
-  riskOwners User[]
+  riskOwners           User[]
 }
 
 // A named set of Users who review Systems on behalf of the Frameworks the group is tied to
@@ -445,14 +453,16 @@ model Framework {
   requirements       Requirement[]
   // Supplementary Controls authored because a Requirement of this
   // Framework had no covering base Control.
-  originatedControls Control[]                    @relation("ControlOriginFramework")
+  originatedControls Control[]                     @relation("ControlOriginFramework")
   // Systems whose audit/certification boundary includes this Framework.
-  scopedSystems      System[]                     @relation("SystemFrameworkScope")
+  scopedSystems      System[]                      @relation("SystemFrameworkScope")
+  // Compliance Boundaries that hold this Framework (#418). Restrict: a Framework a Boundary holds can't be deleted.
+  boundaries         ComplianceBoundaryFramework[]
   // Users assigned this Framework as (part of) their BUSINESS_RISK_OWNER
   // portfolio.
-  riskOwners         User[]                       @relation("FrameworkRiskOwner")
+  riskOwners         User[]                        @relation("FrameworkRiskOwner")
   // Information Types that suggest this Framework, and the owners' decisions to leave it out (ADR 0013).
-  suggestedBy        InformationType[]            @relation("InformationTypeSuggestedFramework")
+  suggestedBy        InformationType[]             @relation("InformationTypeSuggestedFramework")
   suggestionDeclines FrameworkSuggestionDecline[]
 
   // The Framework Owner (#319): the one User who decides which of this Framework's Controls are first round.
@@ -1166,6 +1176,8 @@ enum ChangeEventAction {
   // A Candidate was closed as Not selected after a Comparison, or an Admin reopened it (#376). System-scoped, actor the person.
   SYSTEM_NOT_SELECTED
   SYSTEM_REOPENED
+  // A System joined or left a Compliance Boundary (#418). One event on that System, naming the Boundary.
+  BOUNDARY_MEMBERSHIP_CHANGED
 }
 
 // A curated, System-lifecycle-relevant mutation record — feeds the landing
@@ -1679,4 +1691,56 @@ model ControlPackControl {
 
   @@unique([controlPackId, controlId])
   @@index([controlId])
+}
+
+// A named perimeter: a set of Systems held to one or more Published Frameworks, optionally by a Business Unit, with a
+// Boundary Owner (#418, ADR 0016, CONTEXT.md "Compliance Boundary"). Unique by name. Deleting the Business Unit or the
+// Boundary Owner's User keeps the Boundary and clears the field. Nothing reads the Frameworks for applicability yet (#419).
+model ComplianceBoundary {
+  id              String        @id @default(cuid())
+  name            String        @unique
+  description     String?
+  businessUnitId  String?
+  businessUnit    BusinessUnit? @relation(fields: [businessUnitId], references: [id], onDelete: SetNull)
+  boundaryOwnerId String?
+  boundaryOwner   User?         @relation("BoundaryOwner", fields: [boundaryOwnerId], references: [id], onDelete: SetNull)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  frameworks ComplianceBoundaryFramework[]
+  systems    ComplianceBoundarySystem[]
+
+  @@index([businessUnitId])
+  @@index([boundaryOwnerId])
+}
+
+// A Framework a Compliance Boundary holds. Explicit join table so the row can say who added it and when. Deleting the
+// Boundary removes its rows; a Framework a Boundary holds can't be deleted (Restrict).
+model ComplianceBoundaryFramework {
+  id          String             @id @default(cuid())
+  boundaryId  String
+  boundary    ComplianceBoundary @relation(fields: [boundaryId], references: [id], onDelete: Cascade)
+  frameworkId String
+  framework   Framework          @relation(fields: [frameworkId], references: [id], onDelete: Restrict)
+  addedAt     DateTime           @default(now())
+  addedById   String?
+  addedBy     User?              @relation("BoundaryFrameworkAddedBy", fields: [addedById], references: [id], onDelete: SetNull)
+
+  @@unique([boundaryId, frameworkId])
+  @@index([frameworkId])
+}
+
+// A System in a Compliance Boundary. Deleting the System or the Boundary removes the row.
+model ComplianceBoundarySystem {
+  id         String             @id @default(cuid())
+  boundaryId String
+  boundary   ComplianceBoundary @relation(fields: [boundaryId], references: [id], onDelete: Cascade)
+  systemId   String
+  system     System             @relation(fields: [systemId], references: [id], onDelete: Cascade)
+  addedAt    DateTime           @default(now())
+  addedById  String?
+  addedBy    User?              @relation("BoundarySystemAddedBy", fields: [addedById], references: [id], onDelete: SetNull)
+
+  @@unique([boundaryId, systemId])
+  @@index([systemId])
 }

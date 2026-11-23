@@ -11,6 +11,8 @@ import { assessmentEditAccess } from "@/lib/system-permissions";
 import { canManageProvider } from "@/lib/control-offering-rules";
 import { listControlOfferings, listOfferableControls } from "@/lib/control-offerings";
 import { prisma } from "@/lib/prisma";
+import { READ_SNAPSHOT } from "@/lib/read-transaction";
+import { listBoundariesOfSystem } from "@/lib/compliance-boundary-data";
 import { listSensitivityLevels } from "@/lib/sensitivity-level-data";
 import { canManageProviderDependencies } from "@/lib/provider-dependency-rules";
 import { listDependents, listProviderChoices, listProviderDependencies } from "@/lib/provider-dependencies";
@@ -21,6 +23,7 @@ import { SystemActivity } from "./SystemActivity";
 import { SystemControls } from "./SystemControls";
 import { SystemDocumentation } from "./SystemDocumentation";
 import { SystemEvaluation } from "./SystemEvaluation";
+import { SystemBoundaries } from "./SystemBoundaries";
 import { SystemProfile } from "./SystemProfile";
 import { SystemProviders } from "./SystemProviders";
 import { SystemRequirements } from "./SystemRequirements";
@@ -86,6 +89,8 @@ export default async function SystemDetailPage({ params }: PageProps<"/systems/[
   // Recording a Risk Analysis is a subset of assigning owners, so `riskOwners` serves its participants too.
   const riskOwners = canAssignOwner || canRecordAnalysis ? await prisma.user.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }) : [];
   const canChangeClassification = canChangeSystemClassification(user, system);
+  // The Compliance Boundaries the System is in (#418), read-only on its Profile.
+  const boundaries = await prisma.$transaction((tx) => listBoundariesOfSystem(system.id, tx), READ_SNAPSHOT);
 
   const panels = {
     // Only a staged System has an Evaluation tab (#328); the cockpit leaves the panel out for the rest.
@@ -132,6 +137,7 @@ export default async function SystemDetailPage({ params }: PageProps<"/systems/[
     ),
     documentation: <SystemDocumentation systemId={system.id} />,
     profile: (
+      <>
       <SystemProfile
         systemId={system.id}
         about={{
@@ -155,6 +161,8 @@ export default async function SystemDetailPage({ params }: PageProps<"/systems/[
           availabilityImpactLevel: system.availabilityImpactLevel,
         }}
       />
+      <SystemBoundaries boundaries={boundaries} />
+      </>
     ),
     activity: <SystemActivity systemId={system.id} timeline={view.timeline} now={view.now} />,
   };
