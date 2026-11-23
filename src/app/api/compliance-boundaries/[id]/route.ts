@@ -22,7 +22,7 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/complian
  * Edit the Boundary's name, description, Business Unit, Frameworks (the whole new list, at least one, Published ones only
  * when newly added) or Boundary Owner. A Compliance Manager or an Admin. Curation: no Change Event of its own. Adding or dropping a
  * Framework is a scope change on every member System (#419): applicability is recomputed on each, with one Change Event per System whose
- * applicable Controls changed and a Change Review on an Onboarded System that gains Controls, all in this transaction. A retired
+ * applicable Controls changed and a Change Review on a System with an ATO or Onboarded that gains Controls, all in this transaction. A retired
  * Boundary can't be edited (409, #424).
  */
 export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/compliance-boundaries/[id]">) {

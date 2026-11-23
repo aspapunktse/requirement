@@ -73,7 +73,7 @@ export type ClassificationChanges = {
  * Only the classification and the Assessment rows are written. The System's
  * `status`, `onboardedAt` and Approval history are never touched, so an
  * Approved or Onboarded System stays that way while its newly applicable
- * Controls show up as Not Started (F-AP.4). On an Onboarded System a change that
+ * Controls show up as Not Started (F-AP.4). On a System with an ATO or Onboarded a change that
  * adds Controls to an OAG group's remit also starts a Change Review in the same
  * transaction (#334).
  */
@@ -173,7 +173,7 @@ async function applyClassificationChange(
     if (typesChanged) {
       await logChangeEvent(system.id, "CLASSIFICATION_CHANGED", describeTypesChange(typesBefore, typesAfter), actorId, tx);
     }
-    // On an Onboarded System, Controls the change added to a group's remit start (or widen) a Change Review, in this transaction (#334).
+    // On a System with an ATO or Onboarded, Controls the change added to a group's remit start (or widen) a Change Review, in this transaction (#334).
     await startOrWidenChangeReview(tx, system.id, classificationBefore, actorId);
     return { added, removed };
   });

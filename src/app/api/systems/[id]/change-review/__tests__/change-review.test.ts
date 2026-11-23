@@ -11,6 +11,7 @@ import { createFixtureFramework, mapControlsToFramework, cleanupFixtureRequireme
 import { GET as getReview } from "../route";
 import { POST as giveRecommendation } from "../recommendations/route";
 import { POST as decide } from "../decision/route";
+import { POST as onboard } from "../../onboard/route";
 
 /**
  * Change Review on an Onboarded System (#334). Fixtures only (CI's database is migrated, not seeded): two Review Groups, each with its own
@@ -38,7 +39,7 @@ describe("Change Review (#334)", { timeout: 90_000 }, () => {
     users[key] = { id: user.id, name: user.name };
   }
 
-  async function makeSystem(options: { facets?: number[]; scope?: number[]; status?: "ONBOARDED" | "APPROVED"; staged?: boolean; bso?: boolean; track?: "SELF" | "FULL" } = {}) {
+  async function makeSystem(options: { facets?: number[]; scope?: number[]; status?: "ONBOARDED" | "APPROVED" | "DRAFT" | "IN_REVIEW" | "REJECTED"; closed?: boolean; staged?: boolean; bso?: boolean; track?: "SELF" | "FULL" } = {}) {
     const staged = options.staged ?? true;
     const system = await prisma.system.create({
       data: {
@@ -47,6 +48,7 @@ describe("Change Review (#334)", { timeout: 90_000 }, () => {
         businessSystemOwnerId: options.bso === false ? null : users.bso.id,
         sensitivityLevel: 3,
         status: options.status ?? "ONBOARDED",
+        ...(options.closed ? { evaluationClosedAt: new Date() } : {}),
         ...(staged ? { evaluationStage: "OG3" as EvaluationStage, evaluationTrack: options.track ?? "FULL", evaluationStageEnteredAt: new Date(Date.now() - 60_000) } : {}),
         deploymentFacets: { connect: (options.facets ?? []).map((i) => ({ id: facets[i] })) },
         frameworkScopes: { connect: (options.scope ?? [0, 1]).map((i) => ({ id: frameworkIds[i] })) },
@@ -72,7 +74,7 @@ describe("Change Review (#334)", { timeout: 90_000 }, () => {
     decide(requestAs(users[userKey].id, url(systemId, "/decision"), { method: "POST", body }), ctxFor(systemId));
 
   /** An Onboarded System with an open Change Review for both groups, every group having recommended. */
-  async function reviewedSystem(options: { staged?: boolean; bso?: boolean; recommend?: boolean } = {}) {
+  async function reviewedSystem(options: { staged?: boolean; bso?: boolean; recommend?: boolean; status?: "ONBOARDED" | "APPROVED" } = {}) {
     const system = await makeSystem({ facets: [], ...options });
     await changeFacets(system.id, [0]);
     const [review] = await reviews(system.id);
@@ -172,10 +174,39 @@ describe("Change Review (#334)", { timeout: 90_000 }, () => {
       expect(await events(system.id, "CHANGE_REVIEW_STARTED")).toHaveLength(0);
     });
 
-    it("starts nothing on a System that isn't Onboarded", async () => {
-      const system = await makeSystem({ facets: [], status: "APPROVED" });
-      await changeFacets(system.id, [0]);
-      expect(await reviews(system.id)).toHaveLength(0);
+    it("starts nothing on a System still in evaluation or closed (#437)", async () => {
+      for (const options of [{ status: "DRAFT" as const }, { status: "IN_REVIEW" as const, staged: false }, { status: "REJECTED" as const, closed: true }, { status: "APPROVED" as const, closed: true }]) {
+        const system = await makeSystem({ facets: [], ...options });
+        await changeFacets(system.id, [0]);
+        expect(await reviews(system.id), JSON.stringify(options)).toHaveLength(0);
+        expect(await events(system.id, "CHANGE_REVIEW_STARTED")).toHaveLength(0);
+      }
+    });
+
+    it("starts a review on an Approved System (an ATO, not yet Onboarded), which stays Approved, staged or classic (#437)", async () => {
+      for (const staged of [true, false]) {
+        const system = await makeSystem({ facets: [], status: "APPROVED", staged });
+        await changeFacets(system.id, [0]);
+        const [review] = await reviews(system.id);
+        expect(review.status).toBe("OPEN");
+        expect(review.controls.map((c) => c.reviewGroupId).sort()).toEqual([groups[0].id, groups[1].id].sort());
+        expect((await stateOf(system.id)).status).toBe("APPROVED");
+        expect(await events(system.id, "CHANGE_REVIEW_STARTED")).toHaveLength(1);
+      }
+    });
+
+    it("starts a review on an Approved System when a Framework is declared, and widens it on a later change (#437)", async () => {
+      const system = await makeSystem({ facets: [0], scope: [0], status: "APPROVED" });
+      await declare(system.id, 1);
+      const [review] = await reviews(system.id);
+      expect(review.controls.map((c) => c.reviewGroupId)).toEqual([groups[1].id]);
+      await changeFacets(system.id, [0, 1]);
+      const all = await reviews(system.id);
+      expect(all).toHaveLength(1);
+      expect(all[0].id).toBe(review.id);
+      expect(all[0].controls).toHaveLength(2);
+      expect(await events(system.id, "CHANGE_REVIEW_WIDENED")).toHaveLength(1);
+      expect((await stateOf(system.id)).status).toBe("APPROVED");
     });
   });
 
@@ -244,6 +275,49 @@ describe("Change Review (#334)", { timeout: 90_000 }, () => {
       const { system } = await reviewedSystem({ staged: false });
       expect((await decideAs("bso", system.id, { decision: "REVOKE", sendBackTo: "OG1", comment: "Redo" })).status).toBe(400);
       expect((await decideAs("bso", system.id, { decision: "REVOKE", comment: "Redo" })).status).toBe(200);
+      expect((await stateOf(system.id)).status).toBe("DRAFT");
+    });
+
+    it("accept closes the review on an Approved System and leaves it Approved (#437)", async () => {
+      const { system } = await reviewedSystem({ status: "APPROVED" });
+      expect((await decideAs("bso", system.id, { decision: "ACCEPT", comment: "Fine" })).status).toBe(200);
+      expect((await reviews(system.id))[0].status).toBe("ACCEPTED");
+      expect((await stateOf(system.id)).status).toBe("APPROVED");
+    });
+
+    it("revoke sends an Approved staged System back to a stage, and an Approved classic one to Draft (#437)", async () => {
+      const staged = await reviewedSystem({ status: "APPROVED" });
+      const target = sendBackTargets("FULL", "OG3")[0];
+      expect((await decideAs("bso", staged.system.id, { decision: "REVOKE", sendBackTo: target, comment: "Redo" })).status).toBe(200);
+      expect(await stateOf(staged.system.id)).toMatchObject({ status: "DRAFT", evaluationStage: target });
+      expect((await reviews(staged.system.id))[0]).toMatchObject({ status: "REVOKED", sentBackTo: target });
+
+      const classic = await reviewedSystem({ status: "APPROVED", staged: false });
+      expect((await decideAs("bso", classic.system.id, { decision: "REVOKE", comment: "Redo" })).status).toBe(200);
+      expect((await stateOf(classic.system.id)).status).toBe("DRAFT");
+      expect((await reviews(classic.system.id))[0].status).toBe("REVOKED");
+    });
+
+    it("onboarding an Approved System with an open review is allowed and leaves the review open, still decidable (#437)", async () => {
+      const { system, review } = await reviewedSystem({ status: "APPROVED" });
+      const response = await onboard(requestAs(users.owner.id, `/api/systems/${system.id}/onboard`, { method: "POST" }), ctxFor(system.id));
+      expect(response.status).toBe(200);
+      expect((await stateOf(system.id)).status).toBe("ONBOARDED");
+      const [row] = await reviews(system.id);
+      expect(row).toMatchObject({ id: review.id, status: "OPEN" });
+      expect((await getChangeReviewDecisionTasksForUser(users.bso)).some((s) => s.id === system.id)).toBe(true);
+      expect((await decideAs("bso", system.id, { decision: "ACCEPT", comment: "Fine" })).status).toBe(200);
+      expect((await reviews(system.id))[0].status).toBe("ACCEPTED");
+      expect((await stateOf(system.id)).status).toBe("ONBOARDED");
+    });
+
+    it("refuses onboarding a System whose ATO a Change Review just revoked, and changes nothing (#437)", async () => {
+      const { system } = await reviewedSystem({ status: "APPROVED", staged: false });
+      expect((await decideAs("bso", system.id, { decision: "REVOKE", comment: "Redo" })).status).toBe(200);
+      const before = await snapshot(system.id);
+      const response = await onboard(requestAs(users.owner.id, `/api/systems/${system.id}/onboard`, { method: "POST" }), ctxFor(system.id));
+      expect(response.status).toBe(400);
+      expect(await snapshot(system.id)).toBe(before);
       expect((await stateOf(system.id)).status).toBe("DRAFT");
     });
 

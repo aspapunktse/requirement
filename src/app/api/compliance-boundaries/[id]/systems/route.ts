@@ -20,8 +20,8 @@ import { getBoundary } from "@/lib/compliance-boundary-data";
  * Add a System to a Compliance Boundary (#418). The Boundary's own Boundary Owner, a Compliance Manager or an Admin: the role
  * is not enough, the object-level check is part of it. A closed System (Rejected, Not selected) is refused (409); a System still
  * in evaluation can join. One Change Event on the System, written in the same transaction, names the Boundary. The join is a scope
- * change (#419): the Boundary's Frameworks join the System's effective Framework Scope, applicability is recomputed and an Onboarded
- * System that gains Controls gets a Change Review, all in that transaction.
+ * change (#419): the Boundary's Frameworks join the System's effective Framework Scope, applicability is recomputed and a System with an ATO
+ * or Onboarded that gains Controls gets a Change Review, all in that transaction.
  */
 export async function POST(request: NextRequest, ctx: RouteContext<"/api/compliance-boundaries/[id]/systems">) {
   const auth = await authenticate(request);

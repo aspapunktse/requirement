@@ -294,7 +294,7 @@ describe("the Boundary view", () => {
     systemId: "s3",
     systemName: "Planned ERP",
     state: "NOT_YET_OPERATING",
-    onboarded: false,
+    hasAto: false,
     startsChangeReview: false,
     newControls: [
       { id: "c1", code: "CM-1", title: "Config baseline", fulfilled: true },
@@ -326,7 +326,7 @@ describe("the Boundary view", () => {
   });
 
   it("says nothing new applies for a prepared System, and that an Onboarded one starts a Change Review", async () => {
-    vi.mocked(fetch).mockResolvedValueOnce(json({ preview: preview({ newControls: [] }) })).mockResolvedValueOnce(json({ preview: preview({ onboarded: true, startsChangeReview: true }) }));
+    vi.mocked(fetch).mockResolvedValueOnce(json({ preview: preview({ newControls: [] }) })).mockResolvedValueOnce(json({ preview: preview({ hasAto: true, startsChangeReview: true }) }));
     render(<BoundaryView statement={EMPTY_STATEMENT} boundary={boundary} compliance={[]} linkableSystemIds={[]} candidates={candidates} prepared={[]} canManageMembers canCurate />);
     await openDrawer();
     await userEvent.selectOptions(screen.getByLabelText("Add a System"), "s3");
@@ -335,7 +335,7 @@ describe("the Boundary view", () => {
     await userEvent.selectOptions(screen.getByLabelText("Add a System"), "s3");
     expect(await screen.findByText(/adding it starts a Change Review/)).toBeInTheDocument();
     await userEvent.selectOptions(screen.getByLabelText("Add a System"), "");
-    vi.mocked(fetch).mockResolvedValueOnce(json({ preview: preview({ newControls: [], onboarded: true, startsChangeReview: true }) }));
+    vi.mocked(fetch).mockResolvedValueOnce(json({ preview: preview({ newControls: [], hasAto: true, startsChangeReview: true }) }));
     await userEvent.selectOptions(screen.getByLabelText("Add a System"), "s3");
     expect(await screen.findByText("Nothing new applies.")).toBeInTheDocument();
     expect(screen.getByText(/adding it starts a Change Review/)).toBeInTheDocument();

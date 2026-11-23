@@ -136,7 +136,7 @@ Priority: **M** (must), **S** (should), **C** (could, later).
 | ID | Pri | Feature |
 | --- | --- | --- |
 | F-CR.1 | M | A change to scope or classification that adds Controls to an OAG group's remit on an Onboarded System starts a Change Review. Only those groups give Recommendations. |
-| F-CR.2 | M | The System stays Onboarded. The BSO accepts the change, or revokes the ATO and sends the System back to a stage they pick. |
+| F-CR.2 | M | The System keeps its status (Approved or Onboarded, #437). The BSO accepts the change, or revokes the ATO and sends the System back to a stage they pick. |
 | F-CR.3 | M | An Onboarded System without a BSO needs one before its Change Review can be decided. The Change Review shows in its owner's "My tasks" until a BSO is set. |
 
 ## 7. Migration of existing data

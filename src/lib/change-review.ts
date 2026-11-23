@@ -13,9 +13,11 @@ import { canDecideAtGate, sendBackTargets, sendBackTo } from "@/lib/gate-decisio
 import { READ_SNAPSHOT } from "@/lib/read-transaction";
 
 /**
- * Change Review on an Onboarded System (#334, PRD 0002 F-CR.1-3, ADR 0014; CONTEXT.md "Change Review"). A change to a System's
- * Framework Scope or classification can add Controls to an OAG group's remit (the base review counts as a group). On an Onboarded
- * System that starts a Change Review, in the transaction that makes the change; the System stays Onboarded.
+ * Change Review on a System with an ATO (Approved) or Onboarded (#334, #437, PRD 0002 F-CR.1-3, ADR 0014; CONTEXT.md "Change Review"). A
+ * change to a System's Framework Scope or classification can add Controls to an OAG group's remit (the base review counts as a group).
+ * On a System with an ATO or Onboarded that starts a Change Review, in the transaction that makes the change; the System keeps its
+ * status. Marking an Approved System Onboarded while a review is open leaves the review open (#437): a review is tied to the System,
+ * not to its status.
  *
  * - **Start or widen** (`startOrWidenChangeReview`): the remit before and after the change are compared (the same rules as the OAG review,
  *   `review-participation.ts`), and each (Control, participant) pair the change added is stored as a `ChangeReviewControl`. A change that
@@ -25,7 +27,7 @@ import { READ_SNAPSHOT } from "@/lib/read-transaction";
  *   `Recommendation` rows tied to the review (`changeReviewId`, no stage) and follow the OAG review's rules: the Review Step rule says who
  *   may give one, it is shown as the group's, and an owner's edit to an added Control voids it.
  * - **Decision** (`decideChangeReview`): the Business System Owner (or an Admin who doesn't own the System) accepts, which closes the
- *   review, or revokes the ATO: the System goes back to Draft, at the stage they pick (a System on the classic flow, which has no stages,
+ *   review, or revokes the ATO: the System goes back to Draft (from Approved or Onboarded), at the stage they pick (a System on the classic flow, which has no stages,
  *   returns to Draft). It can be decided only once every participant has recommended, and only when the System has a Business System
  *   Owner: until one is set the owner's "My tasks" flag it.
  *
@@ -42,6 +44,9 @@ export const CHANGE_REVIEW_DECISION_REFUSED = "Only the System's Business System
 export const CHANGE_REVIEW_MOVED_ON = "The Change Review has moved on since you opened this form: reload the page";
 export const CLASSIC_SEND_BACK_REFUSED = "This System has no stages: revoking its ATO returns it to Draft, so don't name a stage";
 export const SEND_BACK_REQUIRED = "Say which stage to send the System back to";
+
+/** A Change Review starts on a System that has an ATO (Approved) or is Onboarded (#437); Draft, In Review, Rejected and Not selected start none. */
+export const CHANGE_REVIEW_STATUSES: readonly string[] = ["APPROVED", "ONBOARDED"];
 
 const pairKey = (controlId: string, reviewGroupId: string | null) => `${controlId}|${reviewGroupId ?? ""}`;
 
@@ -88,8 +93,8 @@ async function groupNames(tx: Tx, ids: (string | null)[]) {
 export type ChangeReviewStart = { changeReviewId: string; widened: boolean };
 
 /**
- * Called inside the transaction that changes an Onboarded System's classification or Framework Scope, with the classification before
- * and after (`before`, `after`), on a System row the caller has locked. Nothing happens unless the System is Onboarded and open and the
+ * Called inside the transaction that changes the classification or Framework Scope of a System with an ATO or Onboarded, with the classification before
+ * and after (`before`, `after`), on a System row the caller has locked. Nothing happens unless the System is Approved or Onboarded and open and the
  * change added Controls to some participant's remit. Starts a Change Review, or widens the open one (returning `widened`); null when
  * nothing was started or widened. Writes its Change Event, actor the person who made the change.
  */
@@ -119,7 +124,7 @@ export async function startOrWidenChangeReview(
   actorId: string,
 ): Promise<ChangeReviewStart | null> {
   const system = await tx.system.findUnique({ where: { id: systemId }, select: { status: true, evaluationClosedAt: true } });
-  if (!system || system.status !== "ONBOARDED" || system.evaluationClosedAt) return null;
+  if (!system || !CHANGE_REVIEW_STATUSES.includes(system.status) || system.evaluationClosedAt) return null;
 
   const after = await readClassification(tx, systemId);
   const added = await remitPairsAdded(tx, before, after);
