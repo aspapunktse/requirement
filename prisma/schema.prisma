@@ -111,6 +111,7 @@ model User {
   retiredBoundaries                  ComplianceBoundary[]                @relation("BoundaryRetiredBy")
   boundaryFrameworksAdded            ComplianceBoundaryFramework[]       @relation("BoundaryFrameworkAddedBy")
   boundarySystemsAdded               ComplianceBoundarySystem[]          @relation("BoundarySystemAddedBy")
+  boundaryJustificationsChanged      BoundaryExclusionJustification[]    @relation("BoundaryJustificationChangedBy")
   // Comparisons this User owns (#372). A User who owns one can't be deleted until it is handed over or deleted.
   ownedComparisons                   Comparison[]                        @relation("ComparisonOwner")
   // Comparisons this User was named a participant of (#372); the rows go with the User.
@@ -540,7 +541,9 @@ model Requirement {
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
-  mappings ControlMapping[]
+  mappings                ControlMapping[]
+  // The exclusion justifications Compliance Boundaries wrote for this Requirement (#420). Deleting the Requirement removes them.
+  exclusionJustifications BoundaryExclusionJustification[]
 
   @@unique([frameworkId, code])
 }
@@ -577,22 +580,17 @@ enum ControlApplicability {
 
 // A reusable control definition (security, legal, compliance, operational, etc.)
 model Control {
-  id                        String               @id @default(cuid())
-  code                      String               @unique // e.g. SEC-001
-  title                     String
-  description               String
-  category                  String // e.g. Security, Privacy, Legal, Operational
-  mandatory                 Boolean              @default(true)
-  applicability             ControlApplicability
-  question                  String? // self-assessment question; null for ORGANIZATIONAL-only controls
-  intent                    String? // why the question matters, shown alongside it
-  examples                  String[] // example ways to satisfy the control
-  createdAt                 DateTime             @default(now())
-  // The exclusion justification the Statement of Applicability shows while the Control is
-  // excluded (F-OUT.4, #150). Authored by a Compliance Manager or an Admin; null means none.
-  // Kept when the Control becomes included (inclusion is derived, never stored) and shown
-  // again if it is excluded again. Each change is a SOA_JUSTIFICATION_CHANGED Change Event.
-  soaExclusionJustification String?
+  id            String               @id @default(cuid())
+  code          String               @unique // e.g. SEC-001
+  title         String
+  description   String
+  category      String // e.g. Security, Privacy, Legal, Operational
+  mandatory     Boolean              @default(true)
+  applicability ControlApplicability
+  question      String? // self-assessment question; null for ORGANIZATIONAL-only controls
+  intent        String? // why the question matters, shown alongside it
+  examples      String[] // example ways to satisfy the control
+  createdAt     DateTime             @default(now())
 
   assessments          ControlAssessment[]
   // Where a Change Review added this Control to a group's remit (#334). Cascade: deleting a Control never blocks on it.
@@ -1714,8 +1712,10 @@ model ComplianceBoundary {
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
 
-  frameworks ComplianceBoundaryFramework[]
-  systems    ComplianceBoundarySystem[]
+  frameworks              ComplianceBoundaryFramework[]
+  systems                 ComplianceBoundarySystem[]
+  // Why a Requirement is not in this Boundary's Statement of Applicability (#420).
+  exclusionJustifications BoundaryExclusionJustification[]
 
   @@index([businessUnitId])
   @@index([boundaryOwnerId])
@@ -1752,4 +1752,26 @@ model ComplianceBoundarySystem {
 
   @@unique([boundaryId, systemId])
   @@index([systemId])
+}
+
+// The justification for leaving a Requirement out of a Compliance Boundary's Statement of Applicability (#420, ADR 0016):
+// one per (Boundary, Requirement), written by the Boundary Owner, a Compliance Manager or an Admin. It only explains an
+// exclusion and never changes a status or inclusion (inclusion is derived). Kept when the Requirement becomes included,
+// and shown again if it is excluded again. Deleting the Boundary or the Requirement removes it; deleting the User who last
+// changed it clears that field. Each change is a System-less SOA_JUSTIFICATION_CHANGED Change Event naming the Boundary.
+model BoundaryExclusionJustification {
+  id            String             @id @default(cuid())
+  boundaryId    String
+  boundary      ComplianceBoundary @relation(fields: [boundaryId], references: [id], onDelete: Cascade)
+  requirementId String
+  requirement   Requirement        @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+  text          String
+  updatedById   String?
+  updatedBy     User?              @relation("BoundaryJustificationChangedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  @@unique([boundaryId, requirementId])
+  @@index([requirementId])
+  @@index([updatedById])
 }

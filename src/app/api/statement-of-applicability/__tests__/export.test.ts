@@ -5,7 +5,7 @@ import { CSV_BOM } from "@/lib/csv";
 import { loadStatementOfApplicability } from "@/lib/statement-of-applicability";
 import { SOA_CSV_HEADER, soaCsvRows } from "@/lib/statement-of-applicability-csv";
 import { requestAs } from "@/test/provider-fixtures";
-import { createFixtureFramework, mapControlsToFramework } from "@/test/framework-fixtures";
+import { cleanupFixtureRequirements, createFixtureFramework, getBaseFramework, mapControlsToBase, mapControlsToFramework } from "@/test/framework-fixtures";
 import { parseCsv } from "@/test/csv-parse";
 import { GET } from "../export/route";
 
@@ -25,6 +25,8 @@ describe("GET /api/statement-of-applicability/export (#151)", () => {
   let draftFrameworkId: string;
   let draftName: string;
   let publishedLabel: string;
+  let facetId: string;
+  let boundaryId: string;
 
   const get = async (userId: string | null) => {
     const response = await GET(requestAs("/api/statement-of-applicability/export", userId, "GET"));
@@ -45,9 +47,9 @@ describe("GET /api/statement-of-applicability/export (#151)", () => {
     draftFrameworkId = draft.id;
     draftName = draft.name;
 
-    const make = async (n: number, title: string, soaExclusionJustification: string | null = null) => {
+    const make = async (n: number, title: string) => {
       const control = await prisma.control.create({
-        data: { code: CODE(n), title, description: "d", category: "Test", applicability: "ORGANIZATIONAL", soaExclusionJustification },
+        data: { code: CODE(n), title, description: "d", category: "Test", applicability: "ORGANIZATIONAL" },
       });
       controlIds.push(control.id);
       return control.id;
@@ -55,7 +57,17 @@ describe("GET /api/statement-of-applicability/export (#151)", () => {
     // 1: included (mapped to a Published Framework) and also mapped to a Draft.
     const included = await make(1, "Kryptering, \"stark\"\nåäö");
     // 2: excluded with an authored justification; 3: excluded without one; 4: leading "=" in the title.
-    await make(2, "Undantagen", "Inte relevant, se \"policy\"\nÖvrigt: åäö");
+    // The justification lives on the base Requirement it maps to, in a Compliance Boundary (#420). Control 2 is scoped to a Facet no
+    // System has, so it applies nowhere and stays excluded while it maps to the base Framework.
+    facetId = (await prisma.deploymentFacet.create({ data: { name: `Test 151 SoA Facet ${SUFFIX}` } })).id;
+    const undantagen = await prisma.control.create({
+      data: { code: CODE(2), title: "Undantagen", description: "d", category: "Test", applicability: "PER_SYSTEM", deploymentFacets: { connect: { id: facetId } } },
+    });
+    controlIds.push(undantagen.id);
+    const base = await getBaseFramework();
+    const baseRequirementId = await mapControlsToBase([undantagen.id]);
+    boundaryId = (await prisma.complianceBoundary.create({ data: { name: `Test 151 SoA Boundary ${SUFFIX}`, frameworks: { create: [{ frameworkId: base.id }] } } })).id;
+    await prisma.boundaryExclusionJustification.create({ data: { boundaryId, requirementId: baseRequirementId, text: "Inte relevant, se \"policy\"\nÖvrigt: åäö" } });
     await make(3, "Saknar motivering");
     const formula = await make(4, "=1+1");
     await mapControlsToFramework(published.id, [included, formula]);
@@ -63,9 +75,12 @@ describe("GET /api/statement-of-applicability/export (#151)", () => {
   });
 
   afterAll(async () => {
+    await prisma.complianceBoundary.deleteMany({ where: { id: boundaryId } });
+    await cleanupFixtureRequirements();
     await prisma.requirement.deleteMany({ where: { frameworkId: draftFrameworkId } });
     await prisma.control.deleteMany({ where: { id: { in: controlIds } } });
     await prisma.framework.deleteMany({ where: { id: draftFrameworkId } });
+    await prisma.deploymentFacet.deleteMany({ where: { id: facetId } });
     await prisma.user.deleteMany({ where: { id: { in: Object.values(userIds) } } });
   });
 

@@ -63,3 +63,32 @@
 .cb-retire p { margin: 0; }
 .cb-retire textarea { min-height: 80px; resize: vertical; }
 .hc-btn.danger { border-color: var(--rg-danger); color: var(--rg-danger); }
+
+/* The Statement of Applicability of a Compliance Boundary (#420). */
+.cb-st-note { margin: 0; font-size: 0.84rem; color: var(--rg-muted); }
+.cb-st-systems { display: flex; flex-wrap: wrap; gap: 6px; }
+.cb-st-tools { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.cb-st-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.cb-st-chip { border: 1px solid var(--rg-line); background: var(--rg-surface); color: var(--rg-ink); border-radius: 10px; padding: 5px 10px; font: inherit; font-size: 0.82rem; font-weight: 650; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; }
+.cb-st-chip[aria-pressed="true"] { border-color: var(--rg-accent); background: var(--rg-accent-soft); color: var(--rg-accent); }
+.cb-st-chip .n { font-size: 0.7rem; font-variant-numeric: tabular-nums; }
+.cb-st-search { min-width: 220px; }
+.cb-st-fw { display: grid; gap: 8px; }
+.cb-st-fw-h { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.cb-st-fw-h h3 { margin: 0; font-size: 0.98rem; }
+.cb-st-table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+.cb-st-table th { text-align: left; font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--rg-muted); padding: 6px 8px; border-bottom: 1px solid var(--rg-line); }
+.cb-st-table td { padding: 8px; border-bottom: 1px solid var(--rg-line); vertical-align: top; }
+.cb-st-toggle { border: 0; background: none; padding: 0; font: inherit; color: var(--rg-ink); cursor: pointer; text-align: left; }
+.cb-st-toggle:hover { color: var(--rg-accent); }
+.cb-st-toggle:focus-visible { outline: 2px solid var(--rg-accent); outline-offset: 2px; }
+.cb-st-status { font-weight: 700; }
+.cb-st-status.ok { color: var(--rg-success); }
+.cb-st-status.warn { color: var(--rg-gold-ink); }
+.cb-st-status.bad { color: var(--rg-danger); }
+.cb-st-dash { color: var(--rg-muted); }
+.cb-st-just { white-space: pre-wrap; }
+.cb-st-drill td { background: var(--rg-surface); }
+.cb-st-detail { display: grid; gap: 8px; }
+.cb-st-detail .cb-empty { padding: 0; }
+.cb-st-detail textarea { resize: vertical; }

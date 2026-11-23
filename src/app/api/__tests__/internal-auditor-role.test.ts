@@ -19,7 +19,6 @@ import { POST as createSupplementaryControl } from "../frameworks/[id]/requireme
 import { GET as listOrganizationControls } from "../organization/controls/route";
 import { PATCH as updateOrganizationImplementation } from "../organization/controls/[controlId]/route";
 import { GET as getStatementOfApplicability } from "../statement-of-applicability/route";
-import { PUT as saveExclusionJustification } from "../statement-of-applicability/[controlId]/exclusion-justification/route";
 
 // Admin-only catalogs and user admin.
 import { POST as createDeploymentFacet } from "../deployment-facets/route";
@@ -338,7 +337,6 @@ describe("INTERNAL_AUDITOR role (#147)", () => {
       ["PUT .../gap-acceptance", () => acceptGap(req(`${rq()}/gap-acceptance`, iaId, "PUT", { justification: "Accepted" }), ctx({ id: draftFrameworkId, requirementId }))],
       ["DELETE .../gap-acceptance", () => revokeGapAcceptance(req(`${rq()}/gap-acceptance`, iaId, "DELETE"), ctx({ id: draftFrameworkId, requirementId }))],
       ["POST .../supplementary-control", () => createSupplementaryControl(req(`${rq()}/supplementary-control`, iaId, "POST", { code: `TEST-147-NEW-${SUFFIX}-S`, title: "x", description: "x", category: "Test" }), ctx({ id: draftFrameworkId, requirementId }))],
-      ["PUT /api/statement-of-applicability/[controlId]/exclusion-justification", () => saveExclusionJustification(req(`/api/statement-of-applicability/${orgControlId}/exclusion-justification`, iaId, "PUT", { justification: "Not needed" }), ctx({ controlId: orgControlId }))],
     ] as const)("%s returns 403", async (_label, call) => {
       expect((await call()).status).toBe(403);
     });

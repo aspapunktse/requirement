@@ -89,7 +89,7 @@
     { key: 'risks', label: 'Risks', icon: 'risk', href: null },
     { key: 'check-ups', label: 'Check-ups', icon: 'checkup', href: null },
     { key: 'audits', label: 'Internal Audits', icon: 'audit', href: '/design/audit/list-a.html' },
-    { key: 'boundaries', label: 'Boundaries', long: 'Compliance Boundaries', icon: 'boundary', href: '/design/boundaries/proposal-a.html' },
+    { key: 'boundaries', label: 'Boundaries', long: 'Compliance Boundaries', icon: 'boundary', href: '/design/boundaries/proposal-c.html' },
     { key: 'soa', label: 'SoA', long: 'Statement of Applicability', icon: 'soa', href: '/design/soa/proposal-a.html' },
     { key: 'frameworks', label: 'Frameworks', icon: 'framework', href: '/design/frameworks/proposal-a.html' },
     // As in production, only an Admin sees the Admin item; it links to the first Admin page with a proposal.
