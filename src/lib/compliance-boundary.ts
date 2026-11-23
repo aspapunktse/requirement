@@ -89,6 +89,42 @@ export type BoundaryListRow = {
 /** Who retired a Compliance Boundary, when and why (#424). */
 export type BoundaryRetirement = { retiredAt: string; retiredByName: string | null; comment: string };
 
+/** One Framework held by at least one active Boundary, with how many active Boundaries hold it (#433). */
+export type FrameworkCount = BoundaryFrameworkRow & { count: number };
+
+/**
+ * The list's counters (#433): one per Framework held by at least one **active** Boundary, with the number of active Boundaries
+ * holding it. A Boundary holding two Frameworks counts under both, and a retired Boundary counts under none (even when the list
+ * shows retired ones). Ordered by Framework name and version. No counters by state.
+ */
+export function boundaryFrameworkCounts(rows: Pick<BoundaryListRow, "frameworks" | "retiredAt">[]): FrameworkCount[] {
+  const counts = new Map<string, FrameworkCount>();
+  for (const row of rows) {
+    if (row.retiredAt !== null) continue;
+    for (const framework of row.frameworks) {
+      const entry = counts.get(framework.id);
+      if (entry) entry.count += 1;
+      else counts.set(framework.id, { ...framework, count: 1 });
+    }
+  }
+  return [...counts.values()].sort((a, b) => a.name.localeCompare(b.name, "en", { sensitivity: "base" }) || a.version.localeCompare(b.version, "en", { numeric: true }));
+}
+
+/** The Boundaries holding the Framework (all of them when `frameworkId` is null). */
+export function boundariesHolding<T extends Pick<BoundaryListRow, "frameworks">>(rows: T[], frameworkId: string | null): T[] {
+  return frameworkId === null ? rows : rows.filter((row) => row.frameworks.some((framework) => framework.id === frameworkId));
+}
+
+const STATUS_WORDS: Record<string, string> = { DRAFT: "In evaluation (Draft)", IN_REVIEW: "In evaluation (In Review)", APPROVED: "Has an ATO", ONBOARDED: "Onboarded", REJECTED: "Rejected", NOT_SELECTED: "Not selected" };
+
+/** Where a member sits in the scope statement and why (#433): inside (counted), on the edge (not yet operating) or closed. */
+export function memberPosition(member: { state: MemberState; status: string }): { position: "Inside" | "On the edge" | "Closed"; why: string } {
+  const status = STATUS_WORDS[member.status] ?? member.status;
+  if (member.state === "OPERATING") return { position: "Inside", why: `${status}: counts toward the statement and the Compliance Percentage.` };
+  if (member.state === "NOT_YET_OPERATING") return { position: "On the edge", why: `${status}: planned in, not counted until it is Onboarded or has an ATO.` };
+  return { position: "Closed", why: `${status}: stays listed because it was added earlier, but is not counted and can't be added again.` };
+}
+
 /** A System prepared for (it declared) some of a Boundary's non-base Frameworks, not yet a member (#423). */
 export type PreparedCandidate = { id: string; name: string; state: MemberState; preparedFor: { id: string; name: string; version: string }[] };
 

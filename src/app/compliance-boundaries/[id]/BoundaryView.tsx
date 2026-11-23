@@ -2,12 +2,14 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { frameworkLabel } from "@/lib/framework-label";
 import { formatCompliancePercentage } from "@/lib/requirement-status-rules";
 import type { BoundaryStatement } from "@/lib/boundary-statement-rules";
 import { ExportLinks, StatementPanel } from "./StatementPanel";
-import { MEMBER_STATE_LABEL, type BoundaryDetail, type BoundaryFrameworkCompliance, type JoinPreview, type MemberState, type PreparedCandidate } from "@/lib/compliance-boundary";
+import { PerimeterDiagram } from "./PerimeterDiagram";
+import type { BoundaryPerimeter } from "@/lib/boundary-perimeter-rules";
+import { memberPosition, MEMBER_STATE_LABEL, type BoundaryDetail, type BoundaryFrameworkCompliance, type JoinPreview, type MemberState, type PreparedCandidate } from "@/lib/compliance-boundary";
 
 type Candidate = { id: string; name: string; state: MemberState };
 
@@ -23,6 +25,7 @@ export function BoundaryView({
   linkableSystemIds,
   candidates,
   prepared,
+  perimeter = null,
   canManageMembers,
   canCurate,
 }: {
@@ -32,6 +35,8 @@ export function BoundaryView({
   linkableSystemIds: string[];
   candidates: Candidate[];
   prepared: PreparedCandidate[];
+  /** The perimeter diagram data (#433); null for a retired Boundary, which has none. */
+  perimeter?: BoundaryPerimeter | null;
   canManageMembers: boolean;
   canCurate: boolean;
 }) {
@@ -42,6 +47,7 @@ export function BoundaryView({
   const [preview, setPreview] = useState<{ systemId: string; status: "loading" | "ready" | "error"; data?: JoinPreview; message?: string } | null>(null);
   const previewRequest = useRef(0);
   const [retiring, setRetiring] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [comment, setComment] = useState("");
   const retired = boundary.retirement !== null;
   /** Controls that change a Boundary are for an active one only: a retired Boundary is a read-only record (#424). */
@@ -126,6 +132,11 @@ export function BoundaryView({
   }
 
   const linkable = new Set(linkableSystemIds);
+  const counted = boundary.members.filter((member) => member.state === "OPERATING").length;
+  const notYet = boundary.members.filter((member) => member.state === "NOT_YET_OPERATING").length;
+  const closedCount = boundary.members.length - counted - notYet;
+  const frameworkNames = boundary.frameworks.map((framework) => frameworkLabel(framework));
+  const owner = boundary.boundaryOwner ? <b>{boundary.boundaryOwner.name}</b> : "no Boundary Owner yet";
   return (
     <div className="hc cb">
       <p className="cb-crumbs">
@@ -134,7 +145,8 @@ export function BoundaryView({
       <section className="hc-hero" aria-labelledby="cb-title">
         <div>
           <div className="hc-who">
-            <span className="hc-eyebrow">Compliance Boundary</span>
+            <span className="hc-eyebrow">Compliance Boundary · Scope statement</span>
+            <span className={`cb-tag${retired ? " warn" : " fw"}`}>{retired ? "Retired" : "Active"}</span>
           </div>
           <h1 id="cb-title">{boundary.name}</h1>
           {boundary.description && <p className="hc-lede">{boundary.description}</p>}
@@ -146,6 +158,11 @@ export function BoundaryView({
         </div>
         {(canCurate || canManageMembers) && !retired && (
           <div className="cb-actions">
+            {canManageMembers && (
+              <button type="button" className="hc-btn primary" onClick={() => setDrawerOpen(true)} aria-haspopup="dialog">
+                Edit membership
+              </button>
+            )}
             {canCurate && (
               <Link href={`/compliance-boundaries/${boundary.id}/edit`} className="hc-btn">
                 Edit
@@ -209,12 +226,40 @@ export function BoundaryView({
         </section>
       )}
 
-      <section className="hc-card" aria-labelledby="cb-about-h">
+      {!retired && (
+        <nav className="cb-toc" aria-label="On this page">
+          <span>On this page</span>
+          <a href="#scope">1 Scope</a>
+          <a href="#perimeter">2 Perimeter</a>
+          <a href="#statement">3 Statement of Applicability</a>
+        </nav>
+      )}
+
+      <section className="hc-card" id="scope" aria-labelledby="cb-scope-h">
         <div className="hc-card-h">
-          <h2 id="cb-about-h">About</h2>
+          <h2 id="cb-scope-h">
+            <span className="cb-no" aria-hidden="true">1</span>Scope
+          </h2>
         </div>
-        <div className="hc-card-b">
+        <div className="hc-card-b cb">
+          <p className="cb-prose">
+            <b>{boundary.name}</b> is a Compliance Boundary of {boundary.businessUnit ? <>the <b>{boundary.businessUnit.name}</b> Business Unit</> : "the whole organization"}, owned by {owner}. It is held to{" "}
+            {frameworkNames.map((label, index) => (
+              <span key={label}>
+                {index > 0 && (index === frameworkNames.length - 1 ? " and " : ", ")}
+                <b>{label}</b>
+              </span>
+            ))}
+            .{" "}
+            {retired
+              ? "It is retired, so nothing counts any more."
+              : `${counted} ${counted === 1 ? "System counts" : "Systems count"} toward the statement and the Compliance Percentage${notYet > 0 ? `, ${notYet} not yet operating ${notYet === 1 ? "is" : "are"} planned in on the edge` : ""}${closedCount > 0 ? `, ${closedCount} closed ${closedCount === 1 ? "is" : "are"} listed only` : ""}.`}
+          </p>
           <dl className="cb-facts">
+            <dt>Boundary Owner</dt>
+            <dd>{boundary.boundaryOwner?.name ?? "No Boundary Owner yet"}</dd>
+            <dt>Business Unit</dt>
+            <dd>{boundary.businessUnit?.name ?? "None (whole organization)"}</dd>
             <dt>Frameworks</dt>
             <dd>
               <span className="cb-tags">
@@ -225,55 +270,187 @@ export function BoundaryView({
                 ))}
               </span>
             </dd>
-            <dt>Business Unit</dt>
-            <dd>{boundary.businessUnit?.name ?? "None"}</dd>
-            <dt>Boundary Owner</dt>
-            <dd>{boundary.boundaryOwner?.name ?? "No Boundary Owner yet"}</dd>
           </dl>
+
+          <h3 className="cb-sub" id="cb-members-h">
+            Systems in and out, and why <span className="cb-fine">· {boundary.members.length}</span>
+          </h3>
+          {boundary.members.length === 0 ? (
+            <p className="cb-empty">No Systems in this Compliance Boundary yet.</p>
+          ) : (
+            <table className="cb-st-table cb-scope-table" aria-labelledby="cb-members-h">
+              <thead>
+                <tr>
+                  <th scope="col">System</th>
+                  <th scope="col">Position</th>
+                  <th scope="col">Why</th>
+                </tr>
+              </thead>
+              <tbody>
+                {boundary.members.map((member) => {
+                  const { position, why } = memberPosition(member);
+                  return (
+                    <tr key={member.systemId} className={member.state === "CLOSED" ? "cb-closed" : undefined}>
+                      <td>{linkable.has(member.systemId) ? <Link href={`/systems/${member.systemId}`}>{member.name}</Link> : <b>{member.name}</b>}</td>
+                      <td>
+                        <span className={`cb-tag${member.state === "OPERATING" ? "" : " warn"}`}>
+                          {member.state === "CLOSED" ? (member.status === "NOT_SELECTED" ? "Closed: Not selected" : "Closed: Rejected") : MEMBER_STATE_LABEL[member.state]}
+                        </span>{" "}
+                        <small>{position}</small>
+                      </td>
+                      <td>{why}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+
+          {!retired && (
+            <>
+              <h3 className="cb-sub" id="cb-compliance-h">
+                Compliance Percentage <span className="cb-fine">· counted Systems only</span>
+              </h3>
+              <ul className="cb-members" aria-labelledby="cb-compliance-h">
+                {boundary.frameworks.map((framework) => {
+                  const figures = compliance.find((entry) => entry.frameworkId === framework.id);
+                  return (
+                    <li key={framework.id} className="cb-member" data-testid={`cb-compliance-${framework.id}`}>
+                      <b>{frameworkLabel(framework)}</b>
+                      <span className="cb-grow" />
+                      <span>{formatCompliancePercentage(figures?.percentage ?? null)}</span>
+                      {figures && figures.applicable > 0 && (
+                        <span className="cb-tag">
+                          {figures.met} of {figures.applicable} Requirements Met
+                        </span>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
+          )}
         </div>
       </section>
 
-      {!retired && (
-      <section className="hc-card" aria-labelledby="cb-compliance-h">
-        <div className="hc-card-h">
-          <h2 id="cb-compliance-h">Compliance Percentage</h2>
-          <p>Counted Systems only</p>
-        </div>
-        <div className="hc-card-b">
-          <ul className="cb-members">
-            {boundary.frameworks.map((framework) => {
-              const figures = compliance.find((entry) => entry.frameworkId === framework.id);
-              return (
-                <li key={framework.id} className="cb-member" data-testid={`cb-compliance-${framework.id}`}>
-                  <b>{frameworkLabel(framework)}</b>
-                  <span className="cb-grow" />
-                  <span>{formatCompliancePercentage(figures?.percentage ?? null)}</span>
-                  {figures && figures.applicable > 0 && (
-                    <span className="cb-tag">
-                      {figures.met} of {figures.applicable} Requirements Met
-                    </span>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      </section>
+      {!retired && perimeter && (
+        <section className="hc-card" id="perimeter" aria-labelledby="cb-perimeter-h">
+          <div className="hc-card-h">
+            <h2 id="cb-perimeter-h">
+              <span className="cb-no" aria-hidden="true">2</span>Perimeter
+            </h2>
+            <p>Providers: {perimeter.providers.length}</p>
+          </div>
+          <div className="hc-card-b cb">
+            <p className="cb-prose">Counted Systems sit inside. A System that is not yet operating sits on the edge. Providers sit outside, with an arrow to each System that inherits Controls from them.</p>
+            <PerimeterDiagram perimeter={perimeter} name={boundary.name} />
+          </div>
+        </section>
       )}
 
-      <StatementPanel statement={statement} />
+      <StatementPanel statement={statement} number={retired ? undefined : 3} />
 
-      <section className="hc-card" aria-labelledby="cb-members-h">
-        <div className="hc-card-h">
-          <h2 id="cb-members-h">Systems</h2>
-          <p>{boundary.members.length}</p>
-        </div>
-        <div className="hc-card-b cb">
-          {error && !retiring && (
+      {drawerOpen && canChangeMembers && (
+        <MembershipDrawer
+          boundary={boundary}
+          linkable={linkable}
+          candidates={candidates}
+          prepared={prepared}
+          systemId={systemId}
+          preview={preview}
+          busy={busy}
+          error={error}
+          onChoose={(id) => void choose(id)}
+          onAdd={add}
+          onRemove={remove}
+          onClose={() => setDrawerOpen(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+/**
+ * The side drawer (#433, design proposal C) where membership is edited: who is in, the prepared candidates, the picker, and the
+ * join preview (#423) before the add. It is a modal dialog: Escape, the scrim and the close button close it, focus starts on the
+ * close button, Tab stays inside, and focus returns to the button that opened it.
+ */
+function MembershipDrawer({
+  boundary,
+  linkable,
+  candidates,
+  prepared,
+  systemId,
+  preview,
+  busy,
+  error,
+  onChoose,
+  onAdd,
+  onRemove,
+  onClose,
+}: {
+  boundary: BoundaryDetail;
+  linkable: Set<string>;
+  candidates: Candidate[];
+  prepared: PreparedCandidate[];
+  systemId: string;
+  preview: { status: "loading" | "ready" | "error"; data?: JoinPreview; message?: string } | null;
+  busy: boolean;
+  error: string | null;
+  onChoose: (id: string) => void;
+  onAdd: () => void;
+  onRemove: (id: string) => void;
+  onClose: () => void;
+}) {
+  const panel = useRef<HTMLElement>(null);
+  const closeButton = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    const opener = document.activeElement as HTMLElement | null;
+    closeButton.current?.focus();
+    return () => opener?.focus?.();
+  }, []);
+
+  function onKeyDown(event: React.KeyboardEvent) {
+    if (event.key === "Escape") {
+      event.stopPropagation();
+      onClose();
+      return;
+    }
+    if (event.key !== "Tab" || !panel.current) return;
+    const focusable = [...panel.current.querySelectorAll<HTMLElement>("a[href], button:not([disabled]), select:not([disabled]), input:not([disabled]), textarea:not([disabled])")];
+    if (focusable.length === 0) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
+
+  return (
+    <>
+      <div className="cb-scrim" onClick={onClose} aria-hidden="true" />
+      <aside ref={panel} className="cb-drawer" role="dialog" aria-modal="true" aria-labelledby="cb-drawer-h" onKeyDown={onKeyDown}>
+        <header>
+          <div>
+            <span className="hc-eyebrow">Edit membership</span>
+            <h2 id="cb-drawer-h">{boundary.name}</h2>
+          </div>
+          <button ref={closeButton} type="button" className="cb-drawer-x" onClick={onClose} aria-label="Close">
+            ×
+          </button>
+        </header>
+        <div className="cb-drawer-body cb">
+          {error && (
             <p role="alert" className="cb-error">
               {error}
             </p>
           )}
+          <h3 className="cb-sub">In the Compliance Boundary · {boundary.members.length}</h3>
           {boundary.members.length === 0 ? (
             <p className="cb-empty">No Systems in this Compliance Boundary yet.</p>
           ) : (
@@ -285,67 +462,67 @@ export function BoundaryView({
                     {member.state === "CLOSED" ? (member.status === "NOT_SELECTED" ? "Closed: Not selected" : "Closed: Rejected") : MEMBER_STATE_LABEL[member.state]}
                   </span>
                   <span className="cb-grow" />
-                  {canChangeMembers && (
-                    <button type="button" className="hc-btn" disabled={busy} onClick={() => remove(member.systemId)} aria-label={`Remove ${member.name}`}>
-                      Remove
-                    </button>
-                  )}
+                  <button type="button" className="hc-btn" disabled={busy} onClick={() => onRemove(member.systemId)} aria-label={`Remove ${member.name}`}>
+                    Remove
+                  </button>
                 </li>
               ))}
             </ul>
           )}
-          {canChangeMembers && (
-            <section aria-labelledby="cb-candidates-h" className="cb-candidates">
-              <h3 id="cb-candidates-h">Candidates</h3>
-              <p className="cb-empty">Systems prepared for (they declare) one of this Boundary&apos;s Frameworks that are not in it. Their Controls already apply, so adding one is often a small step.</p>
-              {prepared.length === 0 ? (
-                <p className="cb-empty">No candidates: no System outside this Compliance Boundary is prepared for its Frameworks.</p>
-              ) : (
-                <ul className="cb-members">
-                  {prepared.map((candidate) => (
-                    <li key={candidate.id} className="cb-member">
-                      <b>{candidate.name}</b>
-                      {candidate.state === "NOT_YET_OPERATING" && <span className="cb-tag warn">{MEMBER_STATE_LABEL.NOT_YET_OPERATING}</span>}
-                      <span className="cb-tags">
-                        {candidate.preparedFor.map((framework) => (
-                          <span key={framework.id} className="cb-tag fw">
-                            Prepared for {frameworkLabel(framework)}
-                          </span>
-                        ))}
-                      </span>
-                      <span className="cb-grow" />
-                      <button type="button" className="hc-btn" disabled={busy} onClick={() => choose(candidate.id)} aria-label={`Preview adding ${candidate.name}`}>
-                        Preview and add
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
-          )}
-          {canChangeMembers && (
-            <div className="cb-add">
-              <label className="cb-field">
-                <span>Add a System</span>
-                <select className="cb-input" value={systemId} onChange={(event) => void choose(event.target.value)}>
-                  <option value="">Choose a System</option>
-                  {candidates.map((candidate) => (
-                    <option key={candidate.id} value={candidate.id}>
-                      {candidate.name}
-                      {candidate.state === "NOT_YET_OPERATING" ? " (not yet operating)" : ""}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <button type="button" className="hc-btn primary" disabled={busy || !systemId || preview?.status === "loading"} onClick={add}>
-                Add System
-              </button>
-            </div>
-          )}
-          {canChangeMembers && preview && <JoinPreviewPanel preview={preview} />}
+          <section aria-labelledby="cb-candidates-h" className="cb-candidates">
+            <h3 id="cb-candidates-h">Candidates</h3>
+            <p className="cb-empty">Systems prepared for (they declare) one of this Boundary&apos;s Frameworks that are not in it. Their Controls already apply, so adding one is often a small step.</p>
+            {prepared.length === 0 ? (
+              <p className="cb-empty">No candidates: no System outside this Compliance Boundary is prepared for its Frameworks.</p>
+            ) : (
+              <ul className="cb-members">
+                {prepared.map((candidate) => (
+                  <li key={candidate.id} className="cb-member">
+                    <b>{candidate.name}</b>
+                    {candidate.state === "NOT_YET_OPERATING" && <span className="cb-tag warn">{MEMBER_STATE_LABEL.NOT_YET_OPERATING}</span>}
+                    <span className="cb-tags">
+                      {candidate.preparedFor.map((framework) => (
+                        <span key={framework.id} className="cb-tag fw">
+                          Prepared for {frameworkLabel(framework)}
+                        </span>
+                      ))}
+                    </span>
+                    <span className="cb-grow" />
+                    <button type="button" className="hc-btn" disabled={busy} onClick={() => onChoose(candidate.id)} aria-label={`Preview adding ${candidate.name}`}>
+                      Preview and add
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+          <div className="cb-add">
+            <label className="cb-field">
+              <span>Add a System</span>
+              <select className="cb-input" value={systemId} onChange={(event) => onChoose(event.target.value)}>
+                <option value="">Choose a System</option>
+                {candidates.map((candidate) => (
+                  <option key={candidate.id} value={candidate.id}>
+                    {candidate.name}
+                    {candidate.state === "NOT_YET_OPERATING" ? " (not yet operating)" : ""}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button type="button" className="hc-btn primary" disabled={busy || !systemId || preview?.status === "loading"} onClick={onAdd}>
+              Add System
+            </button>
+          </div>
+          {preview && <JoinPreviewPanel preview={preview} />}
         </div>
-      </section>
-    </div>
+        <footer>
+          <span className="cb-fine">Only the Boundary Owner, a Compliance Manager or an Admin changes membership. Joining is recorded as a Change Event on the System.</span>
+          <button type="button" className="hc-btn primary" onClick={onClose}>
+            Done
+          </button>
+        </footer>
+      </aside>
+    </>
   );
 }
 
