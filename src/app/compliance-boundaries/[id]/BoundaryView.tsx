@@ -6,7 +6,7 @@ import { useRef, useState } from "react";
 import { frameworkLabel } from "@/lib/framework-label";
 import { formatCompliancePercentage } from "@/lib/requirement-status-rules";
 import type { BoundaryStatement } from "@/lib/boundary-statement-rules";
-import { StatementPanel } from "./StatementPanel";
+import { ExportLinks, StatementPanel } from "./StatementPanel";
 import { MEMBER_STATE_LABEL, type BoundaryDetail, type BoundaryFrameworkCompliance, type JoinPreview, type MemberState, type PreparedCandidate } from "@/lib/compliance-boundary";
 
 type Candidate = { id: string; name: string; state: MemberState };
@@ -138,6 +138,11 @@ export function BoundaryView({
           </div>
           <h1 id="cb-title">{boundary.name}</h1>
           {boundary.description && <p className="hc-lede">{boundary.description}</p>}
+          {!retired && (
+            <div className="cb-actions">
+              <ExportLinks boundaryId={boundary.id} csvLabel="Export whole statement (CSV)" printLabel="Print whole statement" />
+            </div>
+          )}
         </div>
         {(canCurate || canManageMembers) && !retired && (
           <div className="cb-actions">

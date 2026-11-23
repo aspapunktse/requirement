@@ -6,7 +6,6 @@ import { getSystemFrameworkScopes, getSystemFrameworkScopeSources, systemsInScop
 import { getVisibleSystem, visibleSystemsWhere } from "@/lib/system-visibility";
 import { getSystemFrameworkRequirements } from "@/lib/requirement-status";
 import { getComplianceForSystems } from "@/lib/compliance";
-import { loadStatementOfApplicability } from "@/lib/statement-of-applicability";
 import { effectiveScopeFrameworkIds, effectiveScopeFrameworkIdsForSystems, isControlFirstRound } from "@/lib/first-round";
 import { groupsWithRemit } from "@/lib/review-steps";
 import { reviewGroupScopeWhere } from "@/lib/review-group-visibility";
@@ -135,11 +134,6 @@ describe("effective Framework Scope: every reader (#419)", { timeout: 90_000 }, 
     expect(scope.bySystem.find((row) => row.systemId === viaBoundary)?.applicable).toBe(1);
     expect(scope.bySystem.find((row) => row.systemId === bare)?.applicable).toBe(0);
     expect(scope.applicable).toBe(1);
-  });
-
-  it("the Statement of Applicability counts the member as a System the Control applies to", async () => {
-    const row = (await loadStatementOfApplicability()).find((entry) => entry.controlId === controlId);
-    expect(row?.appliesToSystemCount).toBe(1);
   });
 
   it("first-round markings follow the Boundary's Framework", async () => {

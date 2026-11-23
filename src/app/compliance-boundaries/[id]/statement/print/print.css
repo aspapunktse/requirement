@@ -1,4 +1,4 @@
-/* The Statement of Applicability print page (#273): a plain A4 document. Register tokens (--rg-*), black on white in print. */
+/* The Statement of Applicability print page (#273, #421): a plain A4 document. Register tokens (--rg-*), black on white in print. */
 
 .soa-print { max-width: 210mm; margin: 0 auto; padding: 24px; color: var(--rg-ink); font-size: 13px; line-height: 1.4; }
 .soa-print h1 { font-size: 24px; margin: 0 0 2px; }
@@ -12,9 +12,12 @@
 .soa-table { width: 100%; border-collapse: collapse; }
 .soa-table th, .soa-table td { border: 1px solid var(--rg-line); padding: 5px 7px; text-align: left; vertical-align: top; }
 .soa-table th { background: var(--rg-accent-soft); font-size: 12px; }
-.soa-table td:nth-child(1) { width: 32%; }
-.soa-table td:nth-child(2) { width: 10%; }
-.soa-table td:nth-child(3) { width: 34%; }
+.soa-table td:nth-child(1) { width: 36%; }
+.soa-table td:nth-child(2) { width: 11%; }
+.soa-table td:nth-child(3) { width: 20%; }
+.soa-section { margin-bottom: 22px; }
+.soa-section h2 { font-size: 17px; margin: 0 0 2px; }
+.soa-section > p { margin: 0 0 8px; }
 .soa-table tr { break-inside: avoid; }
 
 .soa-screen-only { margin-bottom: 18px; }
