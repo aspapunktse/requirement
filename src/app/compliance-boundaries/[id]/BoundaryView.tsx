@@ -37,6 +37,11 @@ export function BoundaryView({
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<{ systemId: string; status: "loading" | "ready" | "error"; data?: JoinPreview; message?: string } | null>(null);
   const previewRequest = useRef(0);
+  const [retiring, setRetiring] = useState(false);
+  const [comment, setComment] = useState("");
+  const retired = boundary.retirement !== null;
+  /** Controls that change a Boundary are for an active one only: a retired Boundary is a read-only record (#424). */
+  const canChangeMembers = canManageMembers && !retired;
 
   /** Reads what adding the System would do (read-only). A late answer for a System no longer chosen is dropped. */
   async function choose(id: string) {
@@ -92,6 +97,30 @@ export function BoundaryView({
     );
   const remove = (id: string) => change(() => fetch(`/api/compliance-boundaries/${boundary.id}/systems/${id}`, { method: "DELETE" }), "Failed to remove the System");
 
+  /** Retires the Boundary for good (#424): needs the comment, then the page refreshes into its read-only form. */
+  async function retire() {
+    setError(null);
+    setBusy(true);
+    try {
+      const response = await fetch(`/api/compliance-boundaries/${boundary.id}/retire`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ comment }),
+      });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        setError(body.error ?? "Failed to retire the Compliance Boundary");
+        return;
+      }
+      setRetiring(false);
+      router.refresh();
+    } catch {
+      setError("Failed to retire the Compliance Boundary");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const linkable = new Set(linkableSystemIds);
   return (
     <div className="hc cb">
@@ -106,14 +135,70 @@ export function BoundaryView({
           <h1 id="cb-title">{boundary.name}</h1>
           {boundary.description && <p className="hc-lede">{boundary.description}</p>}
         </div>
-        {canCurate && (
+        {(canCurate || canManageMembers) && !retired && (
           <div className="cb-actions">
-            <Link href={`/compliance-boundaries/${boundary.id}/edit`} className="hc-btn">
-              Edit
-            </Link>
+            {canCurate && (
+              <Link href={`/compliance-boundaries/${boundary.id}/edit`} className="hc-btn">
+                Edit
+              </Link>
+            )}
+            {canManageMembers && (
+              <button type="button" className="hc-btn danger" disabled={busy || retiring} onClick={() => setRetiring(true)}>
+                Retire
+              </button>
+            )}
           </div>
         )}
       </section>
+
+      {boundary.retirement && (
+        <section className="cb-retired-banner" role="status" aria-labelledby="cb-retired-h">
+          <h2 id="cb-retired-h">Retired</h2>
+          <p>
+            Retired on {new Date(boundary.retirement.retiredAt).toISOString().slice(0, 10)}
+            {boundary.retirement.retiredByName ? ` by ${boundary.retirement.retiredByName}` : ""}. It brings no Framework into any System&apos;s scope and is kept as a read-only record.
+          </p>
+          <p>
+            <b>Why:</b> {boundary.retirement.comment}
+          </p>
+        </section>
+      )}
+
+      {retiring && !retired && (
+        <section className="cb-retire" aria-labelledby="cb-retire-h">
+          <h3 id="cb-retire-h">Retire {boundary.name}</h3>
+          <p>
+            Retiring is final: it can&apos;t be undone, and you would create a new Compliance Boundary instead. The Compliance Boundary stops bringing its Frameworks into the scope of its {boundary.members.length}{" "}
+            {boundary.members.length === 1 ? "System" : "Systems"}, so their Control Assessments are recomputed: untouched Assessments of Controls that no longer apply are removed, ones already worked on are kept and show as stale. Each member System gets a Change Event. The
+            Compliance Boundary stays as a read-only record of its name, Frameworks, Systems and dates.
+          </p>
+          <label className="cb-field">
+            <span>Why is it retired? (required)</span>
+            <textarea className="cb-input" value={comment} onChange={(event) => setComment(event.target.value)} maxLength={1000} required />
+          </label>
+          {error && (
+            <p role="alert" className="cb-error">
+              {error}
+            </p>
+          )}
+          <div className="cb-actions">
+            <button type="button" className="hc-btn danger" disabled={busy || comment.trim() === ""} onClick={retire}>
+              Retire permanently
+            </button>
+            <button
+              type="button"
+              className="hc-btn"
+              disabled={busy}
+              onClick={() => {
+                setRetiring(false);
+                setError(null);
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        </section>
+      )}
 
       <section className="hc-card" aria-labelledby="cb-about-h">
         <div className="hc-card-h">
@@ -139,6 +224,7 @@ export function BoundaryView({
         </div>
       </section>
 
+      {!retired && (
       <section className="hc-card" aria-labelledby="cb-compliance-h">
         <div className="hc-card-h">
           <h2 id="cb-compliance-h">Compliance Percentage</h2>
@@ -164,6 +250,7 @@ export function BoundaryView({
           </ul>
         </div>
       </section>
+      )}
 
       <section className="hc-card" aria-labelledby="cb-members-h">
         <div className="hc-card-h">
@@ -171,7 +258,7 @@ export function BoundaryView({
           <p>{boundary.members.length}</p>
         </div>
         <div className="hc-card-b cb">
-          {error && (
+          {error && !retiring && (
             <p role="alert" className="cb-error">
               {error}
             </p>
@@ -187,7 +274,7 @@ export function BoundaryView({
                     {member.state === "CLOSED" ? (member.status === "NOT_SELECTED" ? "Closed: Not selected" : "Closed: Rejected") : MEMBER_STATE_LABEL[member.state]}
                   </span>
                   <span className="cb-grow" />
-                  {canManageMembers && (
+                  {canChangeMembers && (
                     <button type="button" className="hc-btn" disabled={busy} onClick={() => remove(member.systemId)} aria-label={`Remove ${member.name}`}>
                       Remove
                     </button>
@@ -196,7 +283,7 @@ export function BoundaryView({
               ))}
             </ul>
           )}
-          {canManageMembers && (
+          {canChangeMembers && (
             <section aria-labelledby="cb-candidates-h" className="cb-candidates">
               <h3 id="cb-candidates-h">Candidates</h3>
               <p className="cb-empty">Systems prepared for (they declare) one of this Boundary&apos;s Frameworks that are not in it. Their Controls already apply, so adding one is often a small step.</p>
@@ -225,7 +312,7 @@ export function BoundaryView({
               )}
             </section>
           )}
-          {canManageMembers && (
+          {canChangeMembers && (
             <div className="cb-add">
               <label className="cb-field">
                 <span>Add a System</span>
@@ -244,7 +331,7 @@ export function BoundaryView({
               </button>
             </div>
           )}
-          {canManageMembers && preview && <JoinPreviewPanel preview={preview} />}
+          {canChangeMembers && preview && <JoinPreviewPanel preview={preview} />}
         </div>
       </section>
     </div>

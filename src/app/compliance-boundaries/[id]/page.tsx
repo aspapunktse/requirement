@@ -29,8 +29,10 @@ export default async function ComplianceBoundaryPage({ params }: PageProps<"/com
     const where = await visibleSystemsWhere(user, tx);
     const visible = await tx.system.findMany({ where: { AND: [{ id: { in: boundary.members.map((member) => member.systemId) } }, where] }, select: { id: true } });
     const manage = canManageBoundaryMembers(user, { boundaryOwnerId: boundary.boundaryOwner?.id ?? null });
-    const compliance = await getBoundaryCompliance(id, boundary.frameworks.map((framework) => framework.id), tx);
-    return { boundary, compliance, linkableSystemIds: visible.map((system) => system.id), candidates: manage ? await loadMemberCandidates(id, tx) : [], prepared: manage ? await loadPreparedCandidates(id, tx) : [] };
+    // A retired Boundary is a read-only record: no Compliance Percentage, no candidates (#424).
+    const active = boundary.retirement === null;
+    const compliance = active ? await getBoundaryCompliance(id, boundary.frameworks.map((framework) => framework.id), tx) : [];
+    return { boundary, compliance, linkableSystemIds: visible.map((system) => system.id), candidates: manage && active ? await loadMemberCandidates(id, tx) : [], prepared: manage && active ? await loadPreparedCandidates(id, tx) : [] };
   }, READ_SNAPSHOT);
 
   if (!data) {

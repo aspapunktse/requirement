@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { authenticate } from "@/lib/api-authz";
 import { READ_SNAPSHOT } from "@/lib/read-transaction";
 import { closedRefusalText } from "@/lib/system-closed";
-import { ALREADY_MEMBER_REFUSAL, canManageBoundaryMembers, MEMBERS_PREVIEW_FORBIDDEN_MESSAGE, NOT_FOUND_MESSAGE } from "@/lib/compliance-boundary";
+import { ALREADY_MEMBER_REFUSAL, canManageBoundaryMembers, MEMBERS_PREVIEW_FORBIDDEN_MESSAGE, NOT_FOUND_MESSAGE, RETIRED_REFUSAL } from "@/lib/compliance-boundary";
 import { previewJoin } from "@/lib/compliance-boundary-data";
 
 const paramsSchema = z.object({ id: z.string().min(1), systemId: z.string().min(1) });
@@ -24,9 +24,10 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/complian
   const { id, systemId } = params.data;
 
   const outcome = await prisma.$transaction(async (tx) => {
-    const boundary = await tx.complianceBoundary.findUnique({ where: { id }, select: { boundaryOwnerId: true } });
+    const boundary = await tx.complianceBoundary.findUnique({ where: { id }, select: { boundaryOwnerId: true, retiredAt: true } });
     if (!boundary) return { error: NOT_FOUND_MESSAGE, status: 404 };
     if (!canManageBoundaryMembers(auth.user, boundary)) return { error: MEMBERS_PREVIEW_FORBIDDEN_MESSAGE, status: 403 };
+    if (boundary.retiredAt) return { error: RETIRED_REFUSAL, status: 409 };
     const system = await tx.system.findUnique({ where: { id: systemId }, select: { status: true, evaluationClosedAt: true } });
     if (!system) return { error: "System not found.", status: 404 };
     if (system.evaluationClosedAt) return { error: closedRefusalText(system.status), status: 409 };

@@ -3,7 +3,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { authenticate, authorize } from "@/lib/api-authz";
 import { READ_SNAPSHOT } from "@/lib/read-transaction";
-import { duplicateNameMessage, NOT_FOUND_MESSAGE, ROLES_ALLOWED_TO_CURATE_BOUNDARIES, updateBoundarySchema } from "@/lib/compliance-boundary";
+import { duplicateNameMessage, NOT_FOUND_MESSAGE, RETIRED_REFUSAL, ROLES_ALLOWED_TO_CURATE_BOUNDARIES, updateBoundarySchema } from "@/lib/compliance-boundary";
 import { BOUNDARY_FAN_OUT_TRANSACTION, lockBoundary, setBoundaryFrameworksIn } from "@/lib/compliance-boundary-scope";
 import { recordProviderChanges } from "@/lib/framework-scope";
 import { reconcileReviewSteps } from "@/lib/review-steps";
@@ -22,7 +22,8 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/complian
  * Edit the Boundary's name, description, Business Unit, Frameworks (the whole new list, at least one, Published ones only
  * when newly added) or Boundary Owner. A Compliance Manager or an Admin. Curation: no Change Event of its own. Adding or dropping a
  * Framework is a scope change on every member System (#419): applicability is recomputed on each, with one Change Event per System whose
- * applicable Controls changed and a Change Review on an Onboarded System that gains Controls, all in this transaction.
+ * applicable Controls changed and a Change Review on an Onboarded System that gains Controls, all in this transaction. A retired
+ * Boundary can't be edited (409, #424).
  */
 export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/compliance-boundaries/[id]">) {
   const auth = await authorize(request, ROLES_ALLOWED_TO_CURATE_BOUNDARIES);
@@ -41,9 +42,10 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/compli
     const memberIds = frameworkIds ? (await prisma.complianceBoundarySystem.findMany({ where: { boundaryId: id }, select: { systemId: true } })).map((row) => row.systemId) : [];
     let reconcile: string[] = [];
     const outcome = await recordProviderChanges(memberIds, () => prisma.$transaction(async (tx) => {
-      if (frameworkIds) await lockBoundary(tx, id); // first, before any System lock
-      const existing = await tx.complianceBoundary.findUnique({ where: { id }, select: { id: true, frameworks: { select: { frameworkId: true } } } });
+      await lockBoundary(tx, id); // first, before any System lock; also keeps a retire from racing an edit
+      const existing = await tx.complianceBoundary.findUnique({ where: { id }, select: { id: true, retiredAt: true, frameworks: { select: { frameworkId: true } } } });
       if (!existing) return { error: NOT_FOUND_MESSAGE, status: 404 };
+      if (existing.retiredAt) return { error: RETIRED_REFUSAL, status: 409 }; // a retired Boundary is a read-only record (#424)
       if (name !== undefined) {
         const clash = await findBoundaryNamed(tx, name, id);
         if (clash) return { error: duplicateNameMessage(clash.name), status: 409 };

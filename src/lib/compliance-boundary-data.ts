@@ -20,6 +20,7 @@ const LIST_SELECT = {
   boundaryOwner: { select: { id: true, name: true } },
   frameworks: { select: { framework: { select: { id: true, name: true, version: true } } }, orderBy: FRAMEWORK_ORDER },
   _count: { select: { systems: true } },
+  retiredAt: true,
 } satisfies Prisma.ComplianceBoundarySelect;
 
 const DETAIL_SELECT = {
@@ -38,11 +39,17 @@ const DETAIL_SELECT = {
   },
   createdAt: true,
   updatedAt: true,
+  retiredAt: true,
+  retirementComment: true,
+  retiredBy: { select: { name: true } },
 } satisfies Prisma.ComplianceBoundarySelect;
 
-/** Every Boundary by name, with its Frameworks and member count. Pass the transaction client from inside a transaction. */
-export async function listBoundaries(db: Db = prisma): Promise<BoundaryListRow[]> {
-  const rows = await db.complianceBoundary.findMany({ select: LIST_SELECT });
+/**
+ * Every active Boundary by name, with its Frameworks and member count; retired ones (#424) only with `includeRetired`. Pass the
+ * transaction client from inside a transaction.
+ */
+export async function listBoundaries(db: Db = prisma, { includeRetired = false }: { includeRetired?: boolean } = {}): Promise<BoundaryListRow[]> {
+  const rows = await db.complianceBoundary.findMany({ where: includeRetired ? {} : { retiredAt: null }, select: LIST_SELECT });
   return rows
     .map((row) => ({
       id: row.id,
@@ -52,6 +59,7 @@ export async function listBoundaries(db: Db = prisma): Promise<BoundaryListRow[]
       boundaryOwner: row.boundaryOwner,
       frameworks: row.frameworks.map((entry) => entry.framework),
       systemCount: row._count.systems,
+      retiredAt: row.retiredAt?.toISOString() ?? null,
     }))
     .sort((a, b) => a.name.localeCompare(b.name, "en", { sensitivity: "base" }));
 }
@@ -79,6 +87,7 @@ export async function getBoundary(id: string, db: Db = prisma): Promise<Boundary
     boundaryOwner: row.boundaryOwner,
     frameworks: row.frameworks.map((entry) => entry.framework),
     members,
+    retirement: row.retiredAt ? { retiredAt: row.retiredAt.toISOString(), retiredByName: row.retiredBy?.name ?? null, comment: row.retirementComment ?? "" } : null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -195,7 +204,7 @@ export async function previewJoin(boundaryId: string, systemId: string, db: Pris
   };
 }
 
-/** The Boundaries a System is in, for its page: name and Frameworks. */
+/** The Boundaries a System is in, for its page: name, Frameworks and whether it is retired. */
 export async function listBoundariesOfSystem(systemId: string, db: Db = prisma) {
   const rows = await db.complianceBoundary.findMany({
     where: { systems: { some: { systemId } } },
@@ -204,10 +213,12 @@ export async function listBoundariesOfSystem(systemId: string, db: Db = prisma) 
       name: true,
       boundaryOwner: { select: { name: true } },
       frameworks: { select: { framework: { select: { id: true, name: true, version: true } } }, orderBy: FRAMEWORK_ORDER },
+      retiredAt: true,
     },
   });
+  // A retired Boundary stays listed, marked Retired, so the System's history shows (#424); it brings no Framework into scope.
   return rows
-    .map((row) => ({ id: row.id, name: row.name, ownerName: row.boundaryOwner?.name ?? null, frameworks: row.frameworks.map((entry) => entry.framework) }))
+    .map((row) => ({ id: row.id, name: row.name, ownerName: row.boundaryOwner?.name ?? null, frameworks: row.frameworks.map((entry) => entry.framework), retired: row.retiredAt !== null }))
     .sort((a, b) => a.name.localeCompare(b.name, "en", { sensitivity: "base" }));
 }
 export type SystemBoundaryRow = Awaited<ReturnType<typeof listBoundariesOfSystem>>[number];

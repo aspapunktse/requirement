@@ -108,6 +108,7 @@ model User {
   ownedSystems                       System[]                            @relation("SystemOwner")
   // Compliance Boundaries this User is the Boundary Owner of (#418), and the membership rows they added.
   ownedBoundaries                    ComplianceBoundary[]                @relation("BoundaryOwner")
+  retiredBoundaries                  ComplianceBoundary[]                @relation("BoundaryRetiredBy")
   boundaryFrameworksAdded            ComplianceBoundaryFramework[]       @relation("BoundaryFrameworkAddedBy")
   boundarySystemsAdded               ComplianceBoundarySystem[]          @relation("BoundarySystemAddedBy")
   // Comparisons this User owns (#372). A User who owns one can't be deleted until it is handed over or deleted.
@@ -1697,21 +1698,29 @@ model ControlPackControl {
 // Boundary Owner (#418, ADR 0016, CONTEXT.md "Compliance Boundary"). Unique by name. Deleting the Business Unit or the
 // Boundary Owner's User keeps the Boundary and clears the field. Nothing reads the Frameworks for applicability yet (#419).
 model ComplianceBoundary {
-  id              String        @id @default(cuid())
-  name            String        @unique
-  description     String?
-  businessUnitId  String?
-  businessUnit    BusinessUnit? @relation(fields: [businessUnitId], references: [id], onDelete: SetNull)
-  boundaryOwnerId String?
-  boundaryOwner   User?         @relation("BoundaryOwner", fields: [boundaryOwnerId], references: [id], onDelete: SetNull)
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  id                String        @id @default(cuid())
+  name              String        @unique
+  description       String?
+  businessUnitId    String?
+  businessUnit      BusinessUnit? @relation(fields: [businessUnitId], references: [id], onDelete: SetNull)
+  boundaryOwnerId   String?
+  boundaryOwner     User?         @relation("BoundaryOwner", fields: [boundaryOwnerId], references: [id], onDelete: SetNull)
+  // Retired for good (#424): set once, never cleared. A retired Boundary brings no Framework into any scope and is read-only;
+  // its Frameworks and members stay as the record.
+  retiredAt         DateTime?
+  retiredById       String?
+  retiredBy         User?         @relation("BoundaryRetiredBy", fields: [retiredById], references: [id], onDelete: SetNull)
+  retirementComment String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
 
   frameworks ComplianceBoundaryFramework[]
   systems    ComplianceBoundarySystem[]
 
   @@index([businessUnitId])
   @@index([boundaryOwnerId])
+  @@index([retiredById])
+  @@index([retiredAt])
 }
 
 // A Framework a Compliance Boundary holds. Explicit join table so the row can say who added it and when. Deleting the

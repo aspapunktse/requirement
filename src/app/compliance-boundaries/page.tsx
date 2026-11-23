@@ -13,14 +13,15 @@ import "./compliance-boundaries.css";
  * Frameworks. Every signed-in role reads the list; a Compliance Manager or an Admin starts a new one. Plain kit UI for now:
  * the Boundary's statement and the design proposal's polish come later.
  */
-export default async function ComplianceBoundariesPage() {
+export default async function ComplianceBoundariesPage({ searchParams }: PageProps<"/compliance-boundaries">) {
+  const showRetired = (await searchParams).retired === "1";
   const user = await getActingUser();
 
   if (!user) {
     return <p className="p-6 text-rg-muted">Pick a user to act as first.</p>;
   }
 
-  const boundaries = await prisma.$transaction((tx) => listBoundaries(tx), READ_SNAPSHOT);
+  const boundaries = await prisma.$transaction((tx) => listBoundaries(tx, { includeRetired: showRetired }), READ_SNAPSHOT);
 
   return (
     <div className="hc cb">
@@ -45,9 +46,16 @@ export default async function ComplianceBoundariesPage() {
 
       <section className="hc-card" aria-labelledby="cb-list-h">
         <div className="hc-card-h">
-          <h2 id="cb-list-h">All Compliance Boundaries</h2>
+          <h2 id="cb-list-h">{showRetired ? "All Compliance Boundaries, retired included" : "Compliance Boundaries"}</h2>
           <p>{boundaries.length}</p>
         </div>
+        <p className="cb-filter">
+          {showRetired ? (
+            <Link href="/compliance-boundaries">Hide retired Compliance Boundaries</Link>
+          ) : (
+            <Link href="/compliance-boundaries?retired=1">Show retired Compliance Boundaries</Link>
+          )}
+        </p>
         {boundaries.length === 0 ? (
           <p className="cb-empty">No Compliance Boundaries yet.</p>
         ) : (
@@ -55,7 +63,10 @@ export default async function ComplianceBoundariesPage() {
             {boundaries.map((boundary) => (
               <li key={boundary.id}>
                 <Link href={`/compliance-boundaries/${boundary.id}`} className="cb-row">
-                  <b>{boundary.name}</b>
+                  <b>
+                    {boundary.name}
+                    {boundary.retiredAt && <span className="cb-tag warn cb-retired-tag">Retired</span>}
+                  </b>
                   {boundary.description && <small>{boundary.description}</small>}
                   <small>
                     {boundary.businessUnit ? `${boundary.businessUnit.name} · ` : ""}
