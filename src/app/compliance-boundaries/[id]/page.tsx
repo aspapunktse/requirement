@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { READ_SNAPSHOT } from "@/lib/read-transaction";
 import { visibleSystemsWhere } from "@/lib/system-visibility";
 import { canCurateBoundaries, canManageBoundaryMembers } from "@/lib/compliance-boundary";
-import { getBoundary, getBoundaryCompliance, loadMemberCandidates } from "@/lib/compliance-boundary-data";
+import { getBoundary, getBoundaryCompliance, loadMemberCandidates, loadPreparedCandidates } from "@/lib/compliance-boundary-data";
 import "@/app/home/home.css";
 import "../compliance-boundaries.css";
 import { BoundaryView } from "./BoundaryView";
@@ -30,7 +30,7 @@ export default async function ComplianceBoundaryPage({ params }: PageProps<"/com
     const visible = await tx.system.findMany({ where: { AND: [{ id: { in: boundary.members.map((member) => member.systemId) } }, where] }, select: { id: true } });
     const manage = canManageBoundaryMembers(user, { boundaryOwnerId: boundary.boundaryOwner?.id ?? null });
     const compliance = await getBoundaryCompliance(id, boundary.frameworks.map((framework) => framework.id), tx);
-    return { boundary, compliance, linkableSystemIds: visible.map((system) => system.id), candidates: manage ? await loadMemberCandidates(id, tx) : [] };
+    return { boundary, compliance, linkableSystemIds: visible.map((system) => system.id), candidates: manage ? await loadMemberCandidates(id, tx) : [], prepared: manage ? await loadPreparedCandidates(id, tx) : [] };
   }, READ_SNAPSHOT);
 
   if (!data) {
@@ -46,7 +46,7 @@ export default async function ComplianceBoundaryPage({ params }: PageProps<"/com
     );
   }
 
-  const { boundary, compliance, linkableSystemIds, candidates } = data;
+  const { boundary, compliance, linkableSystemIds, candidates, prepared } = data;
   const canManageMembers = canManageBoundaryMembers(user, { boundaryOwnerId: boundary.boundaryOwner?.id ?? null });
   // Keyed on the acting user and the members, so switching user, or a refresh after a change, starts from a clean state.
   return (
@@ -56,6 +56,7 @@ export default async function ComplianceBoundaryPage({ params }: PageProps<"/com
       compliance={compliance}
       linkableSystemIds={linkableSystemIds}
       candidates={candidates}
+      prepared={prepared}
       canManageMembers={canManageMembers}
       canCurate={canCurateBoundaries(user)}
     />

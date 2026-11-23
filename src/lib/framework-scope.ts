@@ -148,8 +148,46 @@ export async function beginScopeChangeFrom(
   assume: (current: SystemClassification) => Promise<SystemClassification>,
 ): Promise<ScopeBefore> {
   await lockSystem(tx, systemId);
-  const classification = await assume(await readClassification(tx, systemId)); // the locked state, for the Change Review (#334)
+  return readScopeBefore(tx, systemId, assume); // the locked state, for the Change Review (#334)
+}
+
+/** The classification (assumed through `assume`) and the Controls applicable under it, with no lock taken: the read half of `beginScopeChangeFrom`. */
+async function readScopeBefore(
+  tx: Prisma.TransactionClient,
+  systemId: string,
+  assume: (current: SystemClassification) => Promise<SystemClassification>,
+): Promise<ScopeBefore> {
+  const classification = await assume(await readClassification(tx, systemId));
   return { classification, applicable: await getApplicableControls(classification, {}, tx) };
+}
+
+/**
+ * The System's classification as it would be with `frameworkIds` added to its effective Framework Scope: the same sorted,
+ * de-duplicated id list `readClassification` yields once a Boundary holding them has the System as a member.
+ */
+export function withFrameworksInScope(classification: SystemClassification, frameworkIds: string[]): SystemClassification {
+  const ids = [...new Set([...classification.frameworkScopes.map((framework) => framework.id), ...frameworkIds])].sort();
+  return { ...classification, frameworkScopes: ids.map((id) => ({ id })) };
+}
+
+/**
+ * What adding `frameworkIds` to the System's effective Framework Scope would do, computed read-only (no lock, no write; #423):
+ * the classification and applicable Controls as they are (`before`, read exactly as `beginScopeChange` reads them) and with the
+ * Frameworks added (`after`, from the same `getApplicableControls` that `finishScopeChange` recomputes with). `joinBoundaryIn`
+ * writes what this predicts, so the join preview and the real join can't disagree on the Controls. Run it in a RepeatableRead
+ * transaction so both reads see one snapshot.
+ */
+export async function previewScopeAddition(tx: Prisma.TransactionClient, systemId: string, frameworkIds: string[]) {
+  const before = await readScopeBefore(tx, systemId, async (current) => current);
+  const afterClassification = withFrameworksInScope(before.classification, frameworkIds);
+  const afterApplicable = await getApplicableControls(afterClassification, {}, tx);
+  const { newlyApplicableIds } = diffApplicability(before.applicable, afterApplicable);
+  const newIds = new Set(newlyApplicableIds);
+  return {
+    before,
+    afterClassification,
+    newlyApplicable: afterApplicable.filter((control) => newIds.has(control.id)),
+  };
 }
 
 const sameIds = (a: { id: string }[], b: { id: string }[]) => a.length === b.length && a.every((item, i) => item.id === b[i].id);

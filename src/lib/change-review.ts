@@ -53,6 +53,21 @@ async function remitPairs(tx: Tx, classification: SystemClassification) {
   return pairs;
 }
 
+/**
+ * The (Control, participant) pairs a change from classification `before` to `after` adds to the OAG groups' remit (the base review
+ * counts as a group). The one definition `startOrWidenChangeReview` stores and the join preview (#423) counts, so a preview says a
+ * Change Review starts exactly when the real change would start one. Read-only.
+ */
+export async function remitPairsAdded(tx: Tx, before: SystemClassification, after: SystemClassification) {
+  const was = await remitPairs(tx, before);
+  const now = await remitParticipantsByControl(tx, after);
+  const added: { controlId: string; reviewGroupId: string | null }[] = [];
+  for (const [controlId, participants] of now) {
+    for (const reviewGroupId of participants) if (!was.has(pairKey(controlId, reviewGroupId))) added.push({ controlId, reviewGroupId });
+  }
+  return added;
+}
+
 /** "Base review (2 Controls), GDPR Review Group (1 Control)", in display order. */
 function describeAdded(added: { controlId: string; reviewGroupId: string | null }[], names: Map<string, string>) {
   const counts = new Map<string | null, number>();
@@ -107,12 +122,7 @@ export async function startOrWidenChangeReview(
   if (!system || system.status !== "ONBOARDED" || system.evaluationClosedAt) return null;
 
   const after = await readClassification(tx, systemId);
-  const was = await remitPairs(tx, before);
-  const now = await remitParticipantsByControl(tx, after);
-  const added: { controlId: string; reviewGroupId: string | null }[] = [];
-  for (const [controlId, participants] of now) {
-    for (const reviewGroupId of participants) if (!was.has(pairKey(controlId, reviewGroupId))) added.push({ controlId, reviewGroupId });
-  }
+  const added = await remitPairsAdded(tx, before, after);
   if (added.length === 0) return null;
 
   const open = await tx.changeReview.findFirst({ where: { systemId, status: "OPEN" }, include: { controls: { select: { controlId: true, reviewGroupId: true } } } });
