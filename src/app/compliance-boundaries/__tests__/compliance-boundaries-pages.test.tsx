@@ -192,8 +192,21 @@ describe("the Boundary view", () => {
     vi.stubGlobal("fetch", vi.fn());
   });
 
+  it("shows a Compliance Percentage per Framework, with an em dash when nothing is applicable", () => {
+    const [first] = boundary.frameworks;
+    const compliance = [{ frameworkId: first.id, met: 4, applicable: 5, percentage: 80 }];
+    const { unmount } = render(<BoundaryView boundary={boundary} compliance={compliance} linkableSystemIds={[]} candidates={[]} canManageMembers={false} canCurate={false} />);
+    const row = screen.getByTestId(`cb-compliance-${first.id}`);
+    expect(row).toHaveTextContent("80%");
+    expect(row).toHaveTextContent("4 of 5 Requirements Met");
+    unmount();
+    render(<BoundaryView boundary={boundary} compliance={[{ frameworkId: first.id, met: 0, applicable: 0, percentage: null }]} linkableSystemIds={[]} candidates={[]} canManageMembers={false} canCurate={false} />);
+    expect(screen.getByTestId(`cb-compliance-${first.id}`)).toHaveTextContent("—");
+    expect(screen.getByTestId(`cb-compliance-${first.id}`)).not.toHaveTextContent("Requirements Met");
+  });
+
   it("labels each member's state and links only the linkable ones", () => {
-    render(<BoundaryView boundary={boundary} linkableSystemIds={["s1"]} candidates={candidates} canManageMembers canCurate={false} />);
+    render(<BoundaryView boundary={boundary} compliance={[]} linkableSystemIds={["s1"]} candidates={candidates} canManageMembers canCurate={false} />);
     expect(screen.getByRole("link", { name: "Payroll" })).toHaveAttribute("href", "/systems/s1");
     expect(screen.queryByRole("link", { name: "Old CRM" })).toBeNull();
     expect(screen.getByText("Old CRM")).toBeInTheDocument();
@@ -204,7 +217,7 @@ describe("the Boundary view", () => {
 
   it("adds the chosen System with a POST and refreshes the page", async () => {
     vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ boundary }), { status: 201 }));
-    render(<BoundaryView boundary={boundary} linkableSystemIds={[]} candidates={candidates} canManageMembers canCurate />);
+    render(<BoundaryView boundary={boundary} compliance={[]} linkableSystemIds={[]} candidates={candidates} canManageMembers canCurate />);
     const button = screen.getByRole("button", { name: "Add System" });
     expect(button).toBeDisabled();
     await userEvent.selectOptions(screen.getByLabelText("Add a System"), "s3");
@@ -217,7 +230,7 @@ describe("the Boundary view", () => {
 
   it("removes a member with a DELETE, and shows the server's refusal without refreshing", async () => {
     vi.mocked(fetch).mockResolvedValueOnce(new Response(JSON.stringify({ error: "Only the Boundary Owner can." }), { status: 403 }));
-    render(<BoundaryView boundary={boundary} linkableSystemIds={[]} candidates={[]} canManageMembers canCurate={false} />);
+    render(<BoundaryView boundary={boundary} compliance={[]} linkableSystemIds={[]} candidates={[]} canManageMembers canCurate={false} />);
     await userEvent.click(screen.getByRole("button", { name: "Remove Payroll" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Only the Boundary Owner can.");
     expect(calls()[0][0]).toBe("/api/compliance-boundaries/b1/systems/s1");
@@ -226,7 +239,7 @@ describe("the Boundary view", () => {
   });
 
   it("shows no add or remove controls and no Edit link to a reader", () => {
-    render(<BoundaryView boundary={boundary} linkableSystemIds={["s1"]} candidates={[]} canManageMembers={false} canCurate={false} />);
+    render(<BoundaryView boundary={boundary} compliance={[]} linkableSystemIds={["s1"]} candidates={[]} canManageMembers={false} canCurate={false} />);
     expect(screen.queryByRole("button", { name: /Remove|Add System/ })).toBeNull();
     expect(screen.queryByRole("link", { name: "Edit" })).toBeNull();
   });

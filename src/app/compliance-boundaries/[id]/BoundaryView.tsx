@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { frameworkLabel } from "@/lib/framework-label";
-import { MEMBER_STATE_LABEL, type BoundaryDetail, type MemberState } from "@/lib/compliance-boundary";
+import { formatCompliancePercentage } from "@/lib/requirement-status-rules";
+import { MEMBER_STATE_LABEL, type BoundaryDetail, type BoundaryFrameworkCompliance, type MemberState } from "@/lib/compliance-boundary";
 
 type Candidate = { id: string; name: string; state: MemberState };
 
@@ -15,12 +16,14 @@ type Candidate = { id: string; name: string; state: MemberState };
  */
 export function BoundaryView({
   boundary,
+  compliance,
   linkableSystemIds,
   candidates,
   canManageMembers,
   canCurate,
 }: {
   boundary: BoundaryDetail;
+  compliance: BoundaryFrameworkCompliance[];
   linkableSystemIds: string[];
   candidates: Candidate[];
   canManageMembers: boolean;
@@ -106,6 +109,32 @@ export function BoundaryView({
             <dt>Boundary Owner</dt>
             <dd>{boundary.boundaryOwner?.name ?? "No Boundary Owner yet"}</dd>
           </dl>
+        </div>
+      </section>
+
+      <section className="hc-card" aria-labelledby="cb-compliance-h">
+        <div className="hc-card-h">
+          <h2 id="cb-compliance-h">Compliance Percentage</h2>
+          <p>Counted Systems only</p>
+        </div>
+        <div className="hc-card-b">
+          <ul className="cb-members">
+            {boundary.frameworks.map((framework) => {
+              const figures = compliance.find((entry) => entry.frameworkId === framework.id);
+              return (
+                <li key={framework.id} className="cb-member" data-testid={`cb-compliance-${framework.id}`}>
+                  <b>{frameworkLabel(framework)}</b>
+                  <span className="cb-grow" />
+                  <span>{formatCompliancePercentage(figures?.percentage ?? null)}</span>
+                  {figures && figures.applicable > 0 && (
+                    <span className="cb-tag">
+                      {figures.met} of {figures.applicable} Requirements Met
+                    </span>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
         </div>
       </section>
 
