@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { frameworkLabel } from "@/lib/framework-label";
+import { exportHref } from "@/lib/boundary-statement-export";
 import { formatCompliancePercentage, DERIVED_STATUS_LABEL } from "@/lib/requirement-status-rules";
 import {
   countStatementRows,
@@ -97,6 +98,8 @@ export function StatementPanel({ statement, headingId = "cb-statement-h" }: { st
                       {included} included, {section.rows.length - included} excluded
                     </span>
                     <span className="cb-tag fw">{formatCompliancePercentage(section.percentage)}</span>
+                    <span className="cb-grow" />
+                    <ExportLinks boundaryId={boundary.id} frameworkId={section.framework.id} csvLabel="Export section (CSV)" printLabel="Print section" />
                   </header>
                   {rows.length === 0 ? (
                     <p className="cb-empty">{section.rows.length === 0 ? "This Framework has no Requirements." : "No Requirements match."}</p>
@@ -258,5 +261,19 @@ function Drilldown({ row, statement }: { row: BoundaryStatementRow; statement: B
         </>
       )}
     </div>
+  );
+}
+
+/** The export actions (#421): the CSV downloads, the print page opens in a new tab and starts the print dialog. For one Framework's section, or the whole statement. */
+export function ExportLinks({ boundaryId, frameworkId, csvLabel, printLabel }: { boundaryId: string; frameworkId?: string; csvLabel: string; printLabel: string }) {
+  return (
+    <span className="cb-actions">
+      <a className="hc-btn" href={exportHref(boundaryId, "csv", frameworkId)} download>
+        {csvLabel}
+      </a>
+      <a className="hc-btn" href={exportHref(boundaryId, "print", frameworkId)} target="_blank" rel="noopener noreferrer">
+        {printLabel}
+      </a>
+    </span>
   );
 }

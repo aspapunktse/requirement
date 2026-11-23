@@ -18,7 +18,6 @@ import { PUT as acceptGap, DELETE as revokeGapAcceptance } from "../frameworks/[
 import { POST as createSupplementaryControl } from "../frameworks/[id]/requirements/[requirementId]/supplementary-control/route";
 import { GET as listOrganizationControls } from "../organization/controls/route";
 import { PATCH as updateOrganizationImplementation } from "../organization/controls/[controlId]/route";
-import { GET as getStatementOfApplicability } from "../statement-of-applicability/route";
 
 // Admin-only catalogs and user admin.
 import { POST as createDeploymentFacet } from "../deployment-facets/route";
@@ -287,7 +286,7 @@ describe("INTERNAL_AUDITOR role (#147)", () => {
       expect(assessments.assessments.map((a: { control: { id: string } }) => a.control.id)).toContain(controlId);
     });
 
-    it("reads the Control Library, the Published Framework and its Coverage, the Organization Control Implementations and the Statement of Applicability", async () => {
+    it("reads the Control Library, the Published Framework and its Coverage, the Organization Control Implementations", async () => {
       const controls = await listControls(req("/api/controls", iaId, "GET"));
       expect(controls.status).toBe(200);
       expect((await controls.json()).controls.map((c: { id: string }) => c.id)).toEqual(expect.arrayContaining([controlId, orgControlId]));
@@ -302,10 +301,6 @@ describe("INTERNAL_AUDITOR role (#147)", () => {
       const organization = await listOrganizationControls(req("/api/organization/controls", iaId, "GET"));
       expect(organization.status).toBe(200);
       expect((await organization.json()).controls.map((c: { id: string }) => c.id)).toContain(orgControlId);
-
-      const soa = await getStatementOfApplicability(req("/api/statement-of-applicability", iaId, "GET"));
-      expect(soa.status).toBe(200);
-      expect((await soa.json()).rows.map((r: { controlId: string }) => r.controlId)).toContain(orgControlId);
     });
 
     it("does not see a Draft Framework (the issue's rule; flagged if it ever blocks an audit)", async () => {

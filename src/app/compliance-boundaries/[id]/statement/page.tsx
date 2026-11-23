@@ -5,7 +5,7 @@ import { READ_SNAPSHOT } from "@/lib/read-transaction";
 import { readBoundaryStatement } from "@/lib/boundary-statement";
 import "@/app/home/home.css";
 import "../../compliance-boundaries.css";
-import { StatementPanel } from "../StatementPanel";
+import { ExportLinks, StatementPanel } from "../StatementPanel";
 
 /**
  * The Statement of Applicability of one Compliance Boundary on its own page (#420): the same statement the Boundary page shows as
@@ -41,6 +41,11 @@ export default async function BoundaryStatementPage({ params }: PageProps<"/comp
             <span className="hc-eyebrow">Statement of Applicability</span>
           </div>
           <h1 id="cb-st-title">{statement.boundary.name}</h1>
+          {!statement.boundary.retired && (
+            <div className="cb-actions">
+              <ExportLinks boundaryId={id} csvLabel="Export whole statement (CSV)" printLabel="Print whole statement" />
+            </div>
+          )}
         </div>
       </section>
       {/* Keyed on the acting user, so switching user starts from a clean state. */}
