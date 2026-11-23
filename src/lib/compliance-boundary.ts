@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { UserRole } from "@prisma/client";
+import type { Prisma, UserRole } from "@prisma/client";
 
 /**
  * Compliance Boundaries (#418, ADR 0016): the shapes, validation and permission rules shared by the routes and the pages.
@@ -34,11 +34,23 @@ export const ALREADY_MEMBER_REFUSAL = "That System is already in this Compliance
 /** What a System's state means for a Boundary (CONTEXT.md): closed Systems are shown but never counted; Systems still in evaluation are "not yet operating". */
 export type MemberState = "OPERATING" | "NOT_YET_OPERATING" | "CLOSED";
 
+/** Counted means having an ATO (Approved) or being Onboarded. The one rule `memberState` and `countedMembersWhere` share. */
+export const COUNTED_STATUSES = ["APPROVED", "ONBOARDED"] as const;
+
 export function memberState(system: { status: string; evaluationClosedAt: Date | null }): MemberState {
   if (system.evaluationClosedAt !== null) return "CLOSED";
-  // Counted means having an ATO (Approved) or being Onboarded.
-  return system.status === "APPROVED" || system.status === "ONBOARDED" ? "OPERATING" : "NOT_YET_OPERATING";
+  return (COUNTED_STATUSES as readonly string[]).includes(system.status) ? "OPERATING" : "NOT_YET_OPERATING";
 }
+
+/** The Systems of a Boundary that are counted (state OPERATING): members with an ATO or Onboarded, not closed. */
+export const countedMembersWhere = (boundaryId: string): Prisma.SystemWhereInput => ({
+  boundaryMemberships: { some: { boundaryId } },
+  status: { in: [...COUNTED_STATUSES] },
+  evaluationClosedAt: null,
+});
+
+/** A Boundary Framework's pooled Compliance Percentage over the counted Systems (#422): null when nothing is applicable. */
+export type BoundaryFrameworkCompliance = { frameworkId: string; met: number; applicable: number; percentage: number | null };
 
 export const MEMBER_STATE_LABEL: Record<MemberState, string> = {
   OPERATING: "Operating",

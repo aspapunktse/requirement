@@ -1,6 +1,8 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { memberState, type BoundaryDetail, type BoundaryListRow } from "@/lib/compliance-boundary";
+import { READ_SNAPSHOT } from "@/lib/read-transaction";
+import { countedMembersWhere, memberState, type BoundaryDetail, type BoundaryFrameworkCompliance, type BoundaryListRow } from "@/lib/compliance-boundary";
+import { getComplianceForSystems } from "@/lib/compliance";
 
 type Db = Prisma.TransactionClient | typeof prisma;
 
@@ -76,6 +78,25 @@ export async function getBoundary(id: string, db: Db = prisma): Promise<Boundary
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
+}
+
+/**
+ * The pooled Compliance Percentage of each of a Boundary's Frameworks over its counted Systems (#422): total Met / total
+ * applicable, strict Frameworks and Organizational Requirements as for a Business Unit scope (`getComplianceForSystems`). Not yet
+ * operating and closed members are left out. Pass the caller's transaction so all Frameworks share its snapshot; with none, one
+ * RepeatableRead transaction is opened here. Per Framework: the Systems read plus the derivation's reads, so the count is bounded
+ * by the number of Frameworks.
+ */
+export async function getBoundaryCompliance(boundaryId: string, frameworkIds: string[], db?: Prisma.TransactionClient): Promise<BoundaryFrameworkCompliance[]> {
+  const run = async (tx: Prisma.TransactionClient) => {
+    const result: BoundaryFrameworkCompliance[] = [];
+    for (const frameworkId of frameworkIds) {
+      const scope = await getComplianceForSystems(countedMembersWhere(boundaryId), { frameworkId }, tx);
+      result.push({ frameworkId, met: scope.met, applicable: scope.applicable, percentage: scope.percentage });
+    }
+    return result;
+  };
+  return db ? run(db) : prisma.$transaction(run, READ_SNAPSHOT);
 }
 
 /** The Boundary whose name matches ignoring case (other than `exceptId`), or null. */
