@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { FRAMEWORKS_LATER_NOTE, type BoundaryDetail } from "@/lib/compliance-boundary";
+import { type BoundaryDetail } from "@/lib/compliance-boundary";
 import { listBoundariesOfSystem } from "@/lib/compliance-boundary-data";
 
 const push = vi.fn();
@@ -88,13 +88,13 @@ describe("the list page", () => {
     return renderToStaticMarkup(await ListPage());
   };
 
-  it("lists the Boundary with its Frameworks and member count for every role, with the later-release note", async () => {
+  it("lists the Boundary with its Frameworks and member count for every role", async () => {
     for (const key of ["cm", "admin", "viewer", "owner", "other"]) {
       const markup = await html(key);
       expect(markup, key).toContain(N("Boundary"));
       expect(markup, key).toContain(`${N("Framework")}:1`);
       expect(markup, key).toContain("2 Systems");
-      expect(markup, key).toContain(FRAMEWORKS_LATER_NOTE);
+      expect(markup, key).not.toContain("take effect in a later release");
     }
   });
 
@@ -199,7 +199,7 @@ describe("the Boundary view", () => {
     expect(screen.getByText("Old CRM")).toBeInTheDocument();
     expect(screen.getByText("Operating")).toBeInTheDocument();
     expect(screen.getByText("Closed: Not selected")).toBeInTheDocument();
-    expect(screen.getByText(`${FRAMEWORKS_LATER_NOTE}.`)).toBeInTheDocument();
+    expect(screen.queryByText(/take effect in a later release/)).toBeNull();
   });
 
   it("adds the chosen System with a POST and refreshes the page", async () => {

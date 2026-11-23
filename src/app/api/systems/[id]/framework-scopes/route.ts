@@ -6,7 +6,7 @@ import { getVisibleSystem } from "@/lib/system-visibility";
 import {
   applyFrameworkScopeDeclared,
   canManageFrameworkScopes,
-  getSystemFrameworkScopes,
+  getSystemFrameworkScopeItems,
 } from "@/lib/framework-scope";
 import { canSeeDraftFrameworks } from "@/lib/frameworks";
 import { refuseIfSystemClosed } from "@/lib/system-closed";
@@ -21,7 +21,7 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/systems/
     return NextResponse.json({ error: "System not found" }, { status: 404 });
   }
 
-  const frameworkScopes = await getSystemFrameworkScopes(system.id);
+  const frameworkScopes = await getSystemFrameworkScopeItems(system.id);
   return NextResponse.json({ frameworkScopes });
 }
 
@@ -71,6 +71,6 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems
     await applyFrameworkScopeDeclared(system, framework, auth.user.id);
   }
 
-  const frameworkScopes = await getSystemFrameworkScopes(system.id);
+  const frameworkScopes = await getSystemFrameworkScopeItems(system.id);
   return NextResponse.json({ frameworkScopes }, { status: 201 });
 }

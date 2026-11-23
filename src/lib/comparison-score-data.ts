@@ -1,4 +1,5 @@
 import type { Prisma, RiskSeverity } from "@prisma/client";
+import { EFFECTIVE_SCOPE_SELECT, withEffectiveScope } from "@/lib/effective-framework-scope";
 import { prisma } from "@/lib/prisma";
 import { controlAppliesToSystem } from "@/lib/control-applicability";
 import { effectiveScopeFrameworkIdsForSystems, firstRoundControlIdsForSystems } from "@/lib/first-round";
@@ -67,7 +68,7 @@ async function readComparisonScores(db: ComparisonScoreDb, systemIds: string[]) 
   const result = new Map<string, SystemComparisonFigures>();
   if (systemIds.length === 0) return result;
 
-  const systems = await db.system.findMany({
+  const systems = (await db.system.findMany({
     where: { id: { in: systemIds } },
     select: {
       id: true,
@@ -76,9 +77,9 @@ async function readComparisonScores(db: ComparisonScoreDb, systemIds: string[]) 
       integrityImpactLevel: true,
       availabilityImpactLevel: true,
       deploymentFacets: { select: { id: true } },
-      frameworkScopes: { select: { id: true } },
+      ...EFFECTIVE_SCOPE_SELECT,
     },
-  });
+  })).map(withEffectiveScope);
   if (systems.length === 0) return result;
   const existingIds = systems.map((system) => system.id);
 

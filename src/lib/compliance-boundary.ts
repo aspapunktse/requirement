@@ -4,18 +4,15 @@ import type { UserRole } from "@prisma/client";
 /**
  * Compliance Boundaries (#418, ADR 0016): the shapes, validation and permission rules shared by the routes and the pages.
  * Prisma-free. A Boundary is a named set of Systems held to one or more Published Frameworks, optionally by a Business Unit,
- * with a Boundary Owner (CONTEXT.md). This slice does not change applicability: a Boundary's Frameworks join a System's
- * effective Framework Scope in #419, which deletes `FRAMEWORKS_LATER_NOTE`.
+ * with a Boundary Owner (CONTEXT.md). A Boundary's Frameworks join each member System's
+ * effective Framework Scope (#419, `effective-framework-scope.ts`).
  *
  * Who may do what:
  * - Every signed-in role reads the list, each Boundary and its members' names.
  * - A Compliance Manager or an Admin creates a Boundary and edits its name, description, Business Unit, Frameworks and Boundary Owner.
  * - The Boundary Owner of that Boundary, a Compliance Manager or an Admin adds and removes member Systems.
- * Curating a Boundary is not a Change Event; a System joining or leaving is (one on that System).
+ * Curating a Boundary is not a Change Event; a System joining or leaving, or a Boundary gaining or dropping a Framework, is a scope change that recomputes applicability.
  */
-
-/** The note on the Boundary pages until #419 makes a Boundary's Frameworks part of a System's Framework Scope. */
-export const FRAMEWORKS_LATER_NOTE = "Frameworks take effect in a later release";
 
 export const ROLES_ALLOWED_TO_CURATE_BOUNDARIES: UserRole[] = ["ADMIN", "COMPLIANCE_MANAGER"];
 

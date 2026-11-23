@@ -10,6 +10,7 @@ import {
   type EffectiveStatus,
 } from "@/lib/effective-status";
 import { loadOrganizationStatuses, loadProviderSources, toOwnAssessment } from "@/lib/effective-status-data";
+import { EFFECTIVE_SCOPE_SELECT, withEffectiveScope } from "@/lib/effective-framework-scope";
 
 /**
  * Recording what a change to a Provider moved on the Systems that depend on it
@@ -119,11 +120,11 @@ const SYSTEM_SELECT = {
   integrityImpactLevel: true,
   availabilityImpactLevel: true,
   deploymentFacets: { select: { id: true } },
-  frameworkScopes: { select: { id: true } },
+  ...EFFECTIVE_SCOPE_SELECT,
 } satisfies Prisma.SystemSelect;
 
 type ResolutionContext = {
-  systems: Prisma.SystemGetPayload<{ select: typeof SYSTEM_SELECT }>[];
+  systems: ReturnType<typeof withEffectiveScope<Prisma.SystemGetPayload<{ select: typeof SYSTEM_SELECT }>>>[];
   controls: Prisma.ControlGetPayload<{ select: typeof CONTROL_SELECT }>[];
 };
 
@@ -175,7 +176,7 @@ async function resolveIds(db: Tx, scope: ProviderChangeScope): Promise<Ids | nul
 
 async function loadContext(db: Tx, { controlIds, dependentIds }: Ids): Promise<ResolutionContext> {
   const [systems, controls] = await Promise.all([
-    db.system.findMany({ where: { id: { in: dependentIds } }, select: SYSTEM_SELECT }),
+    db.system.findMany({ where: { id: { in: dependentIds } }, select: SYSTEM_SELECT }).then((rows) => rows.map(withEffectiveScope)),
     db.control.findMany({ where: { id: { in: controlIds } }, select: CONTROL_SELECT }),
   ]);
   return { systems, controls };

@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { systemsWithFrameworkInScope } from "@/lib/effective-framework-scope";
 import { prisma } from "@/lib/prisma";
 import { getBaseFramework } from "@/test/framework-fixtures";
 import { getAssignedScope, resolveScopeWhere, scopedSystemsWhere } from "../business-risk-owner";
@@ -12,7 +13,7 @@ describe("scopedSystemsWhere", () => {
     expect(scopedSystemsWhere({ businessUnitIds: ["bu1"], frameworkIds: ["fw1"], baseFrameworkIds: [] })).toEqual({
       OR: [
         { businessUnits: { some: { id: { in: ["bu1"] } } } },
-        { frameworkScopes: { some: { id: { in: ["fw1"] } } } },
+        systemsWithFrameworkInScope({ id: { in: ["fw1"] } }),
       ],
     });
   });
@@ -30,9 +31,9 @@ describe("scopedSystemsWhere", () => {
     expect(scopedSystemsWhere({ ...everything, businessUnitIds: ["bu1"] })).toEqual({});
   });
 
-  it("still needs a stored scope row for an assigned non-base Framework", () => {
+  it("matches a declared scope row or a Compliance Boundary's Framework for an assigned non-base Framework (#419)", () => {
     expect(scopedSystemsWhere({ businessUnitIds: [], frameworkIds: ["fw1"], baseFrameworkIds: [] })).toEqual({
-      OR: [{ frameworkScopes: { some: { id: { in: ["fw1"] } } } }],
+      OR: [systemsWithFrameworkInScope({ id: { in: ["fw1"] } })],
     });
   });
 });

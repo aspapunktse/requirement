@@ -10,6 +10,7 @@ import {
   withDerivationSnapshot,
   type DerivationDb,
 } from "@/lib/requirement-status";
+import { EFFECTIVE_SCOPE_SELECT, withEffectiveScope } from "@/lib/effective-framework-scope";
 
 /**
  * The Requirement-based Compliance Percentage (PRD 0001 F-AS.4, F-OUT.3; #90;
@@ -71,7 +72,7 @@ export function getComplianceForSystems(
   return withDerivationSnapshot(db, (tx) => readComplianceForSystems(where, options, tx));
 }
 
-/** What the derivation reads of a System: the classification and the Framework Scope, with its name. */
+/** What the derivation reads of a System: the classification and the effective Framework Scope (declared plus its Boundaries', #419), with its name. */
 const COMPLIANCE_SYSTEM_SELECT = {
   id: true,
   name: true,
@@ -79,10 +80,10 @@ const COMPLIANCE_SYSTEM_SELECT = {
   integrityImpactLevel: true,
   availabilityImpactLevel: true,
   deploymentFacets: { select: { id: true } },
-  frameworkScopes: { select: { id: true } },
+  ...EFFECTIVE_SCOPE_SELECT,
 } satisfies Prisma.SystemSelect;
 
-type ComplianceSystem = Prisma.SystemGetPayload<{ select: typeof COMPLIANCE_SYSTEM_SELECT }>;
+type ComplianceSystem = ReturnType<typeof withEffectiveScope<Prisma.SystemGetPayload<{ select: typeof COMPLIANCE_SYSTEM_SELECT }>>>;
 
 /**
  * `getComplianceForSystems` for Systems the caller has already read (in the same snapshot, with at least
@@ -102,7 +103,7 @@ async function readComplianceForSystems(
   options: { frameworkId?: string },
   db: DerivationDb,
 ): Promise<ScopeCompliance> {
-  const systems = await db.system.findMany({ where, select: COMPLIANCE_SYSTEM_SELECT, orderBy: { createdAt: "asc" } });
+  const systems = (await db.system.findMany({ where, select: COMPLIANCE_SYSTEM_SELECT, orderBy: { createdAt: "asc" } })).map(withEffectiveScope);
   return compliancePooled(systems, options, db);
 }
 

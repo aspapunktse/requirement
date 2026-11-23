@@ -5,6 +5,7 @@ import { inheritanceSourcesFor, resolveEffectiveStatus } from "@/lib/effective-s
 import { loadOrganizationStatuses, loadProviderSources, toOwnAssessment } from "@/lib/effective-status-data";
 import { READ_SNAPSHOT } from "@/lib/read-transaction";
 import { RISK_INCLUDE, SYSTEM_RISK_WHERE } from "@/lib/risks";
+import { EFFECTIVE_SCOPE_SELECT, withEffectiveScope } from "@/lib/effective-framework-scope";
 
 export type AttentionSystem =
   | { id: string; name: string; reason: "stale" | "rejected" }
@@ -37,15 +38,15 @@ export async function getSystemsNeedingAttention(ownerId: string): Promise<Atten
   // One snapshot: the Controls load their required Framework relations, which a concurrent delete could
   // otherwise remove between statements (#387).
   return prisma.$transaction(async (tx) => {
-    const systems = await tx.system.findMany({
+    const systems = (await tx.system.findMany({
       where: { ownerId, evaluationClosedAt: null },
       orderBy: { createdAt: "asc" },
       include: {
         deploymentFacets: true,
-        frameworkScopes: { select: { id: true } },
+        ...EFFECTIVE_SCOPE_SELECT,
         approvals: { where: { decision: "REJECTED" }, take: 1 },
       },
-    });
+    })).map(withEffectiveScope);
 
     const nonDraftIds = systems.filter((system) => system.status !== "DRAFT").map((system) => system.id);
     // Set-based, whatever the number of Systems: the Controls, and the owner's Assessments, are read once and

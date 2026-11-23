@@ -3,7 +3,9 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { authenticate } from "@/lib/api-authz";
 import { closedRefusalText } from "@/lib/system-closed";
-import { logChangeEvent } from "@/lib/change-events";
+import { joinBoundaryIn, lockBoundary, BOUNDARY_FAN_OUT_TRANSACTION } from "@/lib/compliance-boundary-scope";
+import { recordProviderChanges } from "@/lib/framework-scope";
+import { reconcileReviewSteps } from "@/lib/review-steps";
 import {
   addMemberSchema,
   ALREADY_MEMBER_REFUSAL,
@@ -16,7 +18,9 @@ import { getBoundary } from "@/lib/compliance-boundary-data";
 /**
  * Add a System to a Compliance Boundary (#418). The Boundary's own Boundary Owner, a Compliance Manager or an Admin: the role
  * is not enough, the object-level check is part of it. A closed System (Rejected, Not selected) is refused (409); a System still
- * in evaluation can join. One Change Event on the System, written in the same transaction, names the Boundary.
+ * in evaluation can join. One Change Event on the System, written in the same transaction, names the Boundary. The join is a scope
+ * change (#419): the Boundary's Frameworks join the System's effective Framework Scope, applicability is recomputed and an Onboarded
+ * System that gains Controls gets a Change Review, all in that transaction.
  */
 export async function POST(request: NextRequest, ctx: RouteContext<"/api/compliance-boundaries/[id]/systems">) {
   const auth = await authenticate(request);
@@ -28,7 +32,9 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/complia
   const { systemId } = parsed.data;
 
   try {
-    const outcome = await prisma.$transaction(async (tx) => {
+    let reconcile: string[] = [];
+    const outcome = await recordProviderChanges([systemId], () => prisma.$transaction(async (tx) => {
+      await lockBoundary(tx, id); // before any System lock: Boundary, then Systems
       const boundary = await tx.complianceBoundary.findUnique({ where: { id }, select: { id: true, name: true, boundaryOwnerId: true } });
       if (!boundary) return { error: NOT_FOUND_MESSAGE, status: 404 };
       if (!canManageBoundaryMembers(auth.user, boundary)) return { error: MEMBERS_FORBIDDEN_MESSAGE, status: 403 };
@@ -37,10 +43,10 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/complia
       if (system.evaluationClosedAt) return { error: closedRefusalText(system.status), status: 409 };
       const already = await tx.complianceBoundarySystem.findUnique({ where: { boundaryId_systemId: { boundaryId: id, systemId } }, select: { id: true } });
       if (already) return { error: ALREADY_MEMBER_REFUSAL, status: 409 };
-      await tx.complianceBoundarySystem.create({ data: { boundaryId: id, systemId, addedById: auth.user.id } });
-      await logChangeEvent(systemId, "BOUNDARY_MEMBERSHIP_CHANGED", `Added to Compliance Boundary "${boundary.name}"`, auth.user.id, tx);
+      reconcile = await joinBoundaryIn(tx, boundary, systemId, auth.user.id);
       return { boundary: await getBoundary(id, tx) };
-    });
+    }, BOUNDARY_FAN_OUT_TRANSACTION));
+    for (const reconciled of reconcile) await reconcileReviewSteps(reconciled);
     if ("error" in outcome) return NextResponse.json({ error: outcome.error }, { status: outcome.status });
     return NextResponse.json({ boundary: outcome.boundary }, { status: 201 });
   } catch (error) {

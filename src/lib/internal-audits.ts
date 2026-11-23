@@ -9,6 +9,7 @@ import {
   validateInternalAudit,
 } from "@/lib/internal-audit-rules";
 import { matchesSystemFilter, type SystemFilter } from "@/lib/internal-audit-system-filter";
+import { EFFECTIVE_SCOPE_SELECT, withEffectiveScope } from "@/lib/effective-framework-scope";
 
 /**
  * Reading and writing Internal Audits (PRD 0001 F-IA.1, #152). Who may call these is
@@ -214,7 +215,7 @@ export async function resolveSystemFilter(filter: SystemFilter): Promise<SystemF
     : null;
   if (filter.frameworkId && !framework) throw new InternalAuditError(400, "That Framework doesn't exist");
 
-  const systems = await prisma.system.findMany({
+  const systems = (await prisma.system.findMany({
     // Closed Systems (rejected at OG3, #330) are left out: no Check-up is launched for them.
     where: { evaluationClosedAt: null },
     orderBy: [{ name: "asc" }, { id: "asc" }],
@@ -225,9 +226,9 @@ export async function resolveSystemFilter(filter: SystemFilter): Promise<SystemF
       status: true,
       deploymentFacets: { select: { id: true, name: true } },
       businessUnits: { select: { id: true, name: true } },
-      frameworkScopes: { select: { id: true } },
+      ...EFFECTIVE_SCOPE_SELECT,
     },
-  });
+  })).map(withEffectiveScope);
   return systems
     .filter((system) => matchesSystemFilter(filter, system, framework))
     .map((system) => ({

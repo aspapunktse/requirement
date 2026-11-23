@@ -186,12 +186,10 @@ export async function POST(request: NextRequest) {
         }
         if (types.length > 0) await logChangeEvent(created.id, "CLASSIFICATION_CHANGED", describeTypesChange([], types), auth.user.id, tx);
 
-        // Framework Scope in the order asked for, each declaration seeing the ones before it.
-        const declared: { id: string }[] = [];
+        // Framework Scope in the order asked for, each declaration seeing the ones before it (it re-reads the System's scope on `tx`).
         for (const frameworkId of scopeIds) {
           const framework = frameworks.find((f) => f.id === frameworkId)!;
-          await applyFrameworkScopeDeclaredIn(tx, { ...created, frameworkScopes: declared }, framework, auth.user.id);
-          declared.push({ id: framework.id });
+          await applyFrameworkScopeDeclaredIn(tx, created, framework, auth.user.id);
         }
 
         // The Suggested Frameworks the owner left out, in the same transaction as the System.

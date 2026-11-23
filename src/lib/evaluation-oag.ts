@@ -5,6 +5,7 @@ import { userCanDecideStep } from "@/lib/approvals";
 import { EVALUATION_STAGE_LABEL } from "@/lib/evaluation-stages";
 import { groupsWithRemitForSystems, participantList, participantsContainingControl, participantsOver, participantsToReopen, type Participant, type Participation } from "@/lib/review-participation";
 import { READ_SNAPSHOT } from "@/lib/read-transaction";
+import { EFFECTIVE_SCOPE_SELECT, withEffectiveScope, withEffectiveScopeOrNull } from "@/lib/effective-framework-scope";
 
 /**
  * The OAG reviews on the Full track, before OG2 and before OG3 (#331, #332, PRD 0002 F-OAG.1-2, ADR 0014): every group with a remit on the System, plus the
@@ -42,7 +43,7 @@ const STALE_CONTROL_FALLS_BACK_TO_BASE = true;
 
 const CLASSIFICATION_INCLUDE = {
   deploymentFacets: { select: { id: true } },
-  frameworkScopes: { select: { id: true } },
+  ...EFFECTIVE_SCOPE_SELECT,
 } satisfies Prisma.SystemInclude;
 
 export type LiveRecommendation = { id: string; kind: RecommendationKind; comment: string; givenAt: Date; givenById: string };
@@ -59,7 +60,7 @@ export const userCanRecommend = userCanDecideStep;
 
 /** The state of the OAG review the System is at (`stage` says which), read on `tx`; null unless the System exists and is at one. */
 export async function readOagReview(tx: Tx, systemId: string) {
-  const system = await tx.system.findUnique({ where: { id: systemId }, include: CLASSIFICATION_INCLUDE });
+  const system = withEffectiveScopeOrNull(await tx.system.findUnique({ where: { id: systemId }, include: CLASSIFICATION_INCLUDE }));
   if (!system || !isOagStage(system.evaluationStage) || !system.evaluationStageEnteredAt) return null;
   const stage = system.evaluationStage;
   const since = system.evaluationStageEnteredAt;
@@ -215,11 +216,11 @@ export async function getOpenRecommendationsForUser(user: { id: string; role: Us
   if (!decidesAny && groupIds.length === 0) return [];
   return prisma.$transaction(
     async (tx) => {
-      const found = await tx.system.findMany({
+      const found = (await tx.system.findMany({
         where: { evaluationStage: { in: [...OAG_STAGES] }, evaluationClosedAt: null, ownerId: { not: user.id } },
         orderBy: [{ updatedAt: "asc" }, { id: "asc" }],
         include: CLASSIFICATION_INCLUDE,
-      });
+      })).map(withEffectiveScope);
       const systems = found.filter((system) => isOagStage(system.evaluationStage) && system.evaluationStageEnteredAt !== null);
       const tasks: { system: { id: string; name: string; ownerId: string; updatedAt: Date }; stage: OagStage; participant: OagParticipant }[] = [];
       if (systems.length === 0) return tasks;

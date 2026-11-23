@@ -1,4 +1,5 @@
 import type { Prisma, UserRole } from "@prisma/client";
+import { EFFECTIVE_SCOPE_SELECT, withEffectiveScope } from "@/lib/effective-framework-scope";
 import { prisma } from "@/lib/prisma";
 import { roleLabel } from "@/app/home/role-label";
 import { loadCoverageBreakdowns } from "@/lib/framework-coverage";
@@ -17,10 +18,11 @@ import { READ_SNAPSHOT } from "@/lib/read-transaction";
 export async function countVisibleSystemsByFramework(user: { id: string; role: UserRole }, tx: Prisma.TransactionClient) {
   const systems = await tx.system.findMany({
     where: await visibleSystemsWhere(user, tx),
-    select: { frameworkScopes: { select: { id: true } } },
+    select: EFFECTIVE_SCOPE_SELECT,
   });
+  const scoped = systems.map(withEffectiveScope);
   const scopeCounts = new Map<string, number>();
-  for (const system of systems) {
+  for (const system of scoped) {
     for (const scope of system.frameworkScopes) scopeCounts.set(scope.id, (scopeCounts.get(scope.id) ?? 0) + 1);
   }
   return {

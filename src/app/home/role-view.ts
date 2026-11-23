@@ -1,4 +1,5 @@
 import type { UserRole } from "@prisma/client";
+import { systemsWithFrameworkInScope } from "@/lib/effective-framework-scope";
 import { prisma } from "@/lib/prisma";
 import type { TaskRow } from "@/components/ui/TaskTable";
 import type { NavTile } from "@/components/ui/TileNav";
@@ -438,7 +439,7 @@ async function withMemberQueryTasks(view: RoleViewDraft, user: { id: string; rol
   if (user.role === "REVIEWER" || user.role === "RISK_OWNER" || user.role === "INTERNAL_AUDITOR") return view;
   // One read, empty for anyone in no group: this runs on every landing page.
   const systems = await prisma.system.findMany({
-    where: { frameworkScopes: { some: { reviewGroup: { members: { some: { id: user.id } } } } }, ownerId: { not: user.id } },
+    where: { ...systemsWithFrameworkInScope({ reviewGroup: { members: { some: { id: user.id } } } }), ownerId: { not: user.id } },
     select: { id: true },
   });
   if (systems.length === 0) return view;

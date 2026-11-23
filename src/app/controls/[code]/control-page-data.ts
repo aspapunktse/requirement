@@ -18,6 +18,7 @@ import { visibleSystemsWhere } from "@/lib/system-visibility";
 import { classifiedForApplicability, libraryRowOf } from "../library-data";
 import type { ControlPageView, PageOrganization, PageSystem, PageSystems } from "./control-page-types";
 import { READ_SNAPSHOT } from "@/lib/read-transaction";
+import { EFFECTIVE_SCOPE_SELECT, withEffectiveScope } from "@/lib/effective-framework-scope";
 
 const collator = new Intl.Collator("en", { numeric: true });
 
@@ -97,7 +98,7 @@ export async function loadControlPageView(user: { id: string; name: string; role
       let systems: PageSystems | null = null;
       if (reachesSystems) {
         const classified = classifiedForApplicability(control, frameworkById);
-        const all = await tx.system.findMany({
+        const all = (await tx.system.findMany({
           select: {
             id: true,
             name: true,
@@ -105,11 +106,11 @@ export async function loadControlPageView(user: { id: string; name: string; role
             integrityImpactLevel: true,
             availabilityImpactLevel: true,
             deploymentFacets: { select: { id: true } },
-            frameworkScopes: { select: { id: true } },
+            ...EFFECTIVE_SCOPE_SELECT,
             owner: { select: { name: true } },
             businessUnits: { select: { name: true } },
           },
-        });
+        })).map(withEffectiveScope);
         const applying = all.filter((system) => controlAppliesToSystem(classified, system));
         const applyingIds = applying.map((system) => system.id);
 

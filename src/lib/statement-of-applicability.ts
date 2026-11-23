@@ -12,6 +12,7 @@ import {
   type StatementOfApplicabilityRow,
 } from "@/lib/statement-of-applicability-rules";
 import { READ_SNAPSHOT } from "@/lib/read-transaction";
+import { EFFECTIVE_SCOPE_SELECT, withEffectiveScope } from "@/lib/effective-framework-scope";
 
 export * from "@/lib/statement-of-applicability-rules";
 
@@ -79,16 +80,16 @@ export async function readStatementInputs(
       },
     },
   });
-  const systems = await tx.system.findMany({
+  const systems = (await tx.system.findMany({
     select: {
       id: true,
       sensitivityLevel: true,
       integrityImpactLevel: true,
       availabilityImpactLevel: true,
       deploymentFacets: { select: { id: true } },
-      frameworkScopes: { select: { id: true } },
+      ...EFFECTIVE_SCOPE_SELECT,
     },
-  });
+  })).map(withEffectiveScope);
 
   const controlIds = controls.map((control) => control.id);
   const systemControlIds = controls

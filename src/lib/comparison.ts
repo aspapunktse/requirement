@@ -1,4 +1,5 @@
 import { Prisma, type UserRole } from "@prisma/client";
+import { EFFECTIVE_SCOPE_SELECT, withEffectiveScope } from "@/lib/effective-framework-scope";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { logChangeEvent } from "@/lib/change-events";
@@ -710,10 +711,11 @@ export async function readCandidateClassification(actor: Actor, id: string, syst
           sensitivityLevel: true,
           integrityImpactLevel: true,
           availabilityImpactLevel: true,
-          frameworkScopes: { select: { id: true } },
+          ...EFFECTIVE_SCOPE_SELECT,
         },
       });
       if (!system) return notFound;
+      const scopeIds = withEffectiveScope(system).frameworkScopes.map((framework) => framework.id);
       return {
         ok: true as const,
         classification: {
@@ -722,7 +724,7 @@ export async function readCandidateClassification(actor: Actor, id: string, syst
           sensitivityLevel: system.sensitivityLevel,
           integrityImpactLevel: system.integrityImpactLevel,
           availabilityImpactLevel: system.availabilityImpactLevel,
-          frameworkScopeIds: system.frameworkScopes.map((framework) => framework.id),
+          frameworkScopeIds: scopeIds,
         },
       };
     },

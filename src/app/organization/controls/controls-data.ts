@@ -15,6 +15,7 @@ import {
 } from "@/lib/organization-implementation-rules";
 import type { OrgControlRow, OrgHistoryEntry, OrgView } from "./controls-types";
 import { READ_SNAPSHOT } from "@/lib/read-transaction";
+import { EFFECTIVE_SCOPE_SELECT, withEffectiveScope } from "@/lib/effective-framework-scope";
 
 const collator = new Intl.Collator("en", { numeric: true });
 
@@ -64,16 +65,16 @@ export async function loadOrganizationControlsView(user: { id: string; name: str
           },
         },
       });
-      const systems = await tx.system.findMany({
+      const systems = (await tx.system.findMany({
         select: {
           id: true,
           sensitivityLevel: true,
           integrityImpactLevel: true,
           availabilityImpactLevel: true,
           deploymentFacets: { select: { id: true } },
-          frameworkScopes: { select: { id: true } },
+          ...EFFECTIVE_SCOPE_SELECT,
         },
-      });
+      })).map(withEffectiveScope);
       const events = await tx.changeEvent.findMany({
         where: { action: "ORGANIZATION_IMPLEMENTATION_CHANGED", systemId: null, detail: { contains: ORGANIZATION_IMPLEMENTATION_CHANGE_MARKER } },
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],

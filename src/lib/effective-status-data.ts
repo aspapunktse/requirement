@@ -8,6 +8,7 @@ import {
   type ProviderSource,
 } from "@/lib/effective-status";
 import { controlAppliesToSystem } from "@/lib/control-applicability";
+import { EFFECTIVE_SCOPE_SELECT, withEffectiveScope } from "@/lib/effective-framework-scope";
 
 /**
  * Loaders for the inputs of `resolveEffectiveStatus` (issues #121 and #124); the
@@ -85,7 +86,7 @@ export async function loadProviderSources(
           integrityImpactLevel: true,
           availabilityImpactLevel: true,
           deploymentFacets: { select: { id: true } },
-          frameworkScopes: { select: { id: true } },
+          ...EFFECTIVE_SCOPE_SELECT,
           // The offerings come with the Provider: one read, not one more per page.
           offerings: {
             where: { controlId: { in: controlIds } },
@@ -98,7 +99,7 @@ export async function loadProviderSources(
     orderBy: { id: "asc" },
   });
   if (dependencies.length === 0) return result;
-  const providers = new Map(dependencies.map((dependency) => [dependency.provider.id, dependency.provider]));
+  const providers = new Map(dependencies.map((dependency) => [dependency.provider.id, withEffectiveScope(dependency.provider)]));
 
   const offerings = [...providers.values()].flatMap((provider) => provider.offerings);
   if (offerings.length === 0) return result;

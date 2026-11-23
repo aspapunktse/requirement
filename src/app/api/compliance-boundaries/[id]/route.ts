@@ -4,6 +4,9 @@ import { prisma } from "@/lib/prisma";
 import { authenticate, authorize } from "@/lib/api-authz";
 import { READ_SNAPSHOT } from "@/lib/read-transaction";
 import { duplicateNameMessage, NOT_FOUND_MESSAGE, ROLES_ALLOWED_TO_CURATE_BOUNDARIES, updateBoundarySchema } from "@/lib/compliance-boundary";
+import { BOUNDARY_FAN_OUT_TRANSACTION, lockBoundary, setBoundaryFrameworksIn } from "@/lib/compliance-boundary-scope";
+import { recordProviderChanges } from "@/lib/framework-scope";
+import { reconcileReviewSteps } from "@/lib/review-steps";
 import { checkFrameworks, findBoundaryNamed, getBoundary } from "@/lib/compliance-boundary-data";
 
 export async function GET(request: NextRequest, ctx: RouteContext<"/api/compliance-boundaries/[id]">) {
@@ -17,7 +20,9 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/complian
 
 /**
  * Edit the Boundary's name, description, Business Unit, Frameworks (the whole new list, at least one, Published ones only
- * when newly added) or Boundary Owner. A Compliance Manager or an Admin. Curation: no Change Event.
+ * when newly added) or Boundary Owner. A Compliance Manager or an Admin. Curation: no Change Event of its own. Adding or dropping a
+ * Framework is a scope change on every member System (#419): applicability is recomputed on each, with one Change Event per System whose
+ * applicable Controls changed and a Change Review on an Onboarded System that gains Controls, all in this transaction.
  */
 export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/compliance-boundaries/[id]">) {
   const auth = await authorize(request, ROLES_ALLOWED_TO_CURATE_BOUNDARIES);
@@ -29,7 +34,14 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/compli
   const { name, description, businessUnitId, boundaryOwnerId, frameworkIds } = parsed.data;
 
   try {
-    const outcome = await prisma.$transaction(async (tx) => {
+    // A member System that is a Provider moves its dependents when its scope changes (#124). This pre-read is outside the transaction
+    // on purpose (`recordProviderChanges` wraps it); it only picks the Providers to wrap. The fan-out reads its own member list after
+    // the Boundary lock below, so a System that joins meanwhile is still recomputed (a Provider that joins in that window is the
+    // same non-atomic #124 gap).
+    const memberIds = frameworkIds ? (await prisma.complianceBoundarySystem.findMany({ where: { boundaryId: id }, select: { systemId: true } })).map((row) => row.systemId) : [];
+    let reconcile: string[] = [];
+    const outcome = await recordProviderChanges(memberIds, () => prisma.$transaction(async (tx) => {
+      if (frameworkIds) await lockBoundary(tx, id); // first, before any System lock
       const existing = await tx.complianceBoundary.findUnique({ where: { id }, select: { id: true, frameworks: { select: { frameworkId: true } } } });
       if (!existing) return { error: NOT_FOUND_MESSAGE, status: 404 };
       if (name !== undefined) {
@@ -59,14 +71,12 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/compli
         },
       });
       if (frameworkIds) {
-        await tx.complianceBoundaryFramework.deleteMany({ where: { boundaryId: id, frameworkId: { notIn: frameworkIds } } });
-        await tx.complianceBoundaryFramework.createMany({
-          data: frameworkIds.map((frameworkId) => ({ boundaryId: id, frameworkId, addedById: auth.user.id })),
-          skipDuplicates: true,
-        });
+        const boundary = await tx.complianceBoundary.findUniqueOrThrow({ where: { id }, select: { id: true, name: true } });
+        reconcile = await setBoundaryFrameworksIn(tx, boundary, frameworkIds, auth.user.id);
       }
       return { boundary: await getBoundary(id, tx) };
-    });
+    }, BOUNDARY_FAN_OUT_TRANSACTION));
+    for (const systemId of reconcile) await reconcileReviewSteps(systemId);
     if ("error" in outcome) return NextResponse.json({ error: outcome.error }, { status: outcome.status });
     return NextResponse.json({ boundary: outcome.boundary });
   } catch (error) {

@@ -3,6 +3,7 @@ import { controlAppliesToSystem } from "@/lib/control-applicability";
 import { loadOrganizationStatuses } from "@/lib/effective-status-data";
 import { canBeSuggested } from "@/lib/framework-suggestions";
 import type { OnboardingCatalog, OnboardingControl, OnboardingOffering } from "@/lib/onboarding-interview";
+import { EFFECTIVE_SCOPE_SELECT, withEffectiveScope } from "@/lib/effective-framework-scope";
 
 /**
  * Everything the System onboarding interview (#258) needs to work out, in the browser, which
@@ -54,7 +55,7 @@ export async function loadOnboardingCatalog(): Promise<OnboardingCatalog> {
         orderBy: [{ name: "asc" }, { version: "asc" }],
         select: { id: true, name: true, version: true, description: true, isBase: true, onboardingQuestion: true, onboardingHint: true },
       });
-      const providerSystems = await tx.system.findMany({
+      const providerSystems = (await tx.system.findMany({
         where: { isProvider: true },
         orderBy: [{ name: "asc" }, { id: "asc" }],
         select: {
@@ -65,9 +66,9 @@ export async function loadOnboardingCatalog(): Promise<OnboardingCatalog> {
           integrityImpactLevel: true,
           availabilityImpactLevel: true,
           deploymentFacets: { select: { id: true } },
-          frameworkScopes: { select: { id: true } },
+          ...EFFECTIVE_SCOPE_SELECT,
         },
-      });
+      })).map(withEffectiveScope);
       const controls = await tx.control.findMany({
         where: { applicability: { in: ["PER_SYSTEM", "BOTH"] } },
         orderBy: { code: "asc" },

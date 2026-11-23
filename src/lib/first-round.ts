@@ -1,5 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { frameworksInScopeOfSystem } from "@/lib/effective-framework-scope";
 
 /**
  * First-round Controls (#319, PRD 0002 F-FO). A Framework's owner marks which of the Controls mapped to the
@@ -29,12 +30,12 @@ export async function dropOrphanedFirstRoundMarkings(
 
 /**
  * The ids of the Frameworks in a System's effective Framework Scope that count for first round: the base Framework
- * (always in scope) plus the System's declared scope, only PUBLISHED ones, the same definition applicability uses
+ * (always in scope) plus the System's declared scope and the Frameworks of the Compliance Boundaries it is in (#419), only PUBLISHED ones, the same definition applicability uses
  * (APPLICABILITY_SCOPING). A declared row pointing at a Draft Framework is inert until it is published.
  */
 export async function effectiveScopeFrameworkIds(systemId: string, db: Pick<Db, "framework"> = prisma) {
   const frameworks = await db.framework.findMany({
-    where: { status: "PUBLISHED", OR: [{ isBase: true }, { scopedSystems: { some: { id: systemId } } }] },
+    where: { status: "PUBLISHED", OR: [{ isBase: true }, frameworksInScopeOfSystem(systemId)] },
     select: { id: true },
   });
   return frameworks.map((framework) => framework.id);
@@ -59,19 +60,32 @@ async function readFirstRoundControlIds(db: Db, systemId: string, controlIds: st
 
 /**
  * The effective Framework Scope of many Systems in one query, by System id: the same definition as
- * `effectiveScopeFrameworkIds` (the base Framework plus the System's declared scope, Published only), in a constant
+ * `effectiveScopeFrameworkIds` (the base Framework plus the System's declared scope and its Boundaries' Frameworks, Published only), in a constant
  * number of queries however many Systems. Every id in `systemIds` has an entry, even if it matches no System.
  */
 export async function effectiveScopeFrameworkIdsForSystems(systemIds: string[], db: Pick<Db, "framework"> = prisma) {
   const result = new Map<string, string[]>(systemIds.map((id) => [id, []]));
   if (systemIds.length === 0) return result;
   const frameworks = await db.framework.findMany({
-    where: { status: "PUBLISHED", OR: [{ isBase: true }, { scopedSystems: { some: { id: { in: systemIds } } } }] },
-    select: { id: true, isBase: true, scopedSystems: { where: { id: { in: systemIds } }, select: { id: true } } },
+    where: {
+      status: "PUBLISHED",
+      OR: [
+        { isBase: true },
+        { scopedSystems: { some: { id: { in: systemIds } } } },
+        { boundaries: { some: { boundary: { systems: { some: { systemId: { in: systemIds } } } } } } },
+      ],
+    },
+    select: {
+      id: true,
+      isBase: true,
+      scopedSystems: { where: { id: { in: systemIds } }, select: { id: true } },
+      boundaries: { select: { boundary: { select: { systems: { where: { systemId: { in: systemIds } }, select: { systemId: true } } } } } },
+    },
   });
   for (const framework of frameworks) {
     for (const systemId of systemIds) {
-      if (framework.isBase || framework.scopedSystems.some((system) => system.id === systemId)) result.get(systemId)!.push(framework.id);
+      const viaBoundary = framework.boundaries.some(({ boundary }) => boundary.systems.some((member) => member.systemId === systemId));
+      if (framework.isBase || framework.scopedSystems.some((system) => system.id === systemId) || viaBoundary) result.get(systemId)!.push(framework.id);
     }
   }
   return result;

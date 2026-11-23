@@ -16,6 +16,7 @@ import {
   type LaunchPlan,
   type LaunchSystem,
 } from "@/lib/check-up-rules";
+import { EFFECTIVE_SCOPE_SELECT, withEffectiveScope } from "@/lib/effective-framework-scope";
 
 /**
  * The draft's questions, the launch preview, the launch itself and the generated Check-ups
@@ -105,7 +106,7 @@ async function loadControlsAndSystems(tx: Prisma.TransactionClient, controlIds: 
     },
   });
   // A System the BSO rejected at OG3 is closed (#330): no Check-up is launched for it, however it came into the audit's list.
-  const systems = await tx.system.findMany({
+  const systems = (await tx.system.findMany({
     where: { id: { in: systemIds }, evaluationClosedAt: null },
     select: {
       id: true,
@@ -115,9 +116,9 @@ async function loadControlsAndSystems(tx: Prisma.TransactionClient, controlIds: 
       integrityImpactLevel: true,
       availabilityImpactLevel: true,
       deploymentFacets: { select: { id: true } },
-      frameworkScopes: { select: { id: true } },
+      ...EFFECTIVE_SCOPE_SELECT,
     },
-  });
+  })).map(withEffectiveScope);
   return { controls, systems };
 }
 

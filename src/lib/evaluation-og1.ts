@@ -14,6 +14,7 @@ import {
   type Participation,
 } from "@/lib/review-participation";
 import { READ_SNAPSHOT } from "@/lib/read-transaction";
+import { EFFECTIVE_SCOPE_SELECT, withEffectiveScope, withEffectiveScopeOrNull } from "@/lib/effective-framework-scope";
 
 /**
  * OG1, the first gate of staged evaluation (#328, PRD 0002 F-ST.3, ADR 0014): every group with first-round Controls in its remit,
@@ -34,7 +35,7 @@ type Tx = Prisma.TransactionClient;
 /** What the participation rules read of a System. */
 const CLASSIFICATION_INCLUDE = {
   deploymentFacets: { select: { id: true } },
-  frameworkScopes: { select: { id: true } },
+  ...EFFECTIVE_SCOPE_SELECT,
 } satisfies Prisma.SystemInclude;
 
 /** Open question 2 on #200, as for the Review Steps: a stale Control in no declared Published Framework reopens the base review. */
@@ -68,7 +69,7 @@ export const userCanGiveVerdict = userCanDecideStep;
  * (base review first, then groups by name), each with its live verdict.
  */
 export async function readOg1(tx: Tx, systemId: string) {
-  const system = await tx.system.findUnique({ where: { id: systemId }, include: CLASSIFICATION_INCLUDE });
+  const system = withEffectiveScopeOrNull(await tx.system.findUnique({ where: { id: systemId }, include: CLASSIFICATION_INCLUDE }));
   if (!system || system.evaluationStage !== "OG1" || !system.evaluationStageEnteredAt) return null;
   const since = system.evaluationStageEnteredAt;
   const firstRound = await firstRoundControlIdsForSystem(systemId, { db: tx });
@@ -227,11 +228,11 @@ export async function getOpenVerdictsForUser(user: { id: string; role: UserRole 
   if (!decidesAny && groupIds.length === 0) return [];
   return prisma.$transaction(
     async (tx) => {
-      const found = await tx.system.findMany({
+      const found = (await tx.system.findMany({
         where: { evaluationStage: "OG1", ownerId: { not: user.id } },
         orderBy: [{ updatedAt: "asc" }, { id: "asc" }],
         include: CLASSIFICATION_INCLUDE,
-      });
+      })).map(withEffectiveScope);
       const systems = found.filter((system) => system.evaluationStageEnteredAt !== null);
       const tasks: { system: { id: string; name: string; ownerId: string; updatedAt: Date }; participant: Og1Participant }[] = [];
       if (systems.length === 0) return tasks;

@@ -4,7 +4,6 @@
 .cb-crumbs { display: flex; gap: 6px; font-size: 0.82rem; color: var(--rg-muted); }
 .cb-crumbs a { color: var(--rg-accent); text-decoration: none; }
 .cb-crumbs a:hover { text-decoration: underline; }
-.cb-note { padding: 10px 12px; border-radius: 10px; font-size: 0.86rem; border: 1px solid color-mix(in srgb, var(--rg-accent) 25%, transparent); background: var(--rg-accent-soft); color: var(--rg-ink); }
 .cb-error { padding: 8px 12px; border-radius: 10px; font-size: 0.86rem; color: var(--rg-danger); border: 1px solid var(--rg-danger); }
 .cb-empty { padding: 14px 16px; color: var(--rg-muted); font-size: 0.86rem; }
 .cb-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
