@@ -459,6 +459,7 @@ tr.dr > td { padding: 0; background: var(--raised); border-bottom: 1px solid var
 
   function boundaryView() {
     const b = D.bnd(ui.b), manage = canManage(b), x = D.split(b);
+    if (ui.drawer && !manage) ui.drawer = null; // a role switch can take the permission away
     const per = perimeter(b);
     return `${proto()}${crumbs(link('list', {}, 'Compliance Boundaries'), esc(short(b)))}
     <div class="doc"><article class="card paper">
@@ -505,7 +506,7 @@ tr.dr > td { padding: 0; background: var(--raised); border-bottom: 1px solid var
     const b = D.bnd(ui.b);
     $('#edit') && $('#edit').addEventListener('click', () => Kit.toast('Prototype: edit Frameworks (adding or dropping one recomputes applicability) and the Boundary Owner'));
     $('#retire') && $('#retire').addEventListener('click', () => Kit.toast('Prototype: asks for a required comment and warns that retiring is final'));
-    $('#editM') && $('#editM').addEventListener('click', () => { ui.drawer = { step: 'list', s: null }; history.replaceState(null, '', url()); render(); const d = $('.drawer .xb'); d && d.focus(); });
+    $('#editM') && $('#editM').addEventListener('click', () => { if (!canManage(b)) return; ui.drawer = { step: 'list', s: null }; history.replaceState(null, '', url()); render(); const d = $('.drawer .xb'); d && d.focus(); });
     if (b.retired) return;
     document.querySelectorAll('[data-sf]').forEach((c) => c.addEventListener('click', () => { ui.sf = ui.sf === c.dataset.sf ? 'all' : c.dataset.sf; const y = scrollY; render(); scrollTo(0, y); }));
     const q = $('#sq'); q && q.addEventListener('input', (e) => { ui.sq = e.target.value; const y = scrollY; render(); scrollTo(0, y); const i = $('#sq'); i.focus(); i.setSelectionRange(i.value.length, i.value.length); });
@@ -550,7 +551,7 @@ tr.dr > td { padding: 0; background: var(--raised); border-bottom: 1px solid var
   }
   function drawer(b) {
     const d = ui.drawer;
-    if (!d || b.retired) return '';
+    if (!d || b.retired || !canManage(b)) return '';
     const x = D.split(b), cands = D.candidates(b), opts = D.addable(b);
     const mrow = (s, right) => `<div class="mrow"><div><b>${esc(s.name)}</b><small>${esc(s.bu)} · ${stateChip(s)}</small></div>${right}</div>`;
     let body, foot;
@@ -572,7 +573,7 @@ tr.dr > td { padding: 0; background: var(--raised); border-bottom: 1px solid var
   }
   function drawerBind() {
     if (!ui.drawer) return;
-    const b = D.bnd(ui.b);
+    const b = D.bnd(ui.b); if (!canManage(b)) return;
     const step = (st, s) => { ui.drawer = { step: st, s: s || null }; render(); const d = $('.drawer .dbody'); d && (d.scrollTop = 0); };
     $('#scrim').addEventListener('click', closeDrawer); $('#dX').addEventListener('click', closeDrawer);
     $('#dDone') && $('#dDone').addEventListener('click', closeDrawer);
@@ -627,6 +628,7 @@ tr.dr > td { padding: 0; background: var(--raised); border-bottom: 1px solid var
       if (e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault();
       const g = JSON.parse(a.dataset.go); go(g.view, { ...(g.b ? { b: g.b } : {}), ...(g.s ? { s: g.s } : {}) });
     }));
+    root.querySelectorAll('a[href^="#"]').forEach((a) => a.addEventListener('click', (e) => { e.preventDefault(); const t = document.getElementById(a.getAttribute('href').slice(1)); t && t.scrollIntoView({ behavior: Kit.reduced ? 'auto' : 'smooth', block: 'start' }); }));
     if (ui.view === 'list') listBind();
     if (ui.view === 'boundary' || ui.view === 'statement') docBind();
     if (ui.view === 'boundary') drawerBind();

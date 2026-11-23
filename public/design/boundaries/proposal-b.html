@@ -416,7 +416,7 @@ table.hm { border-collapse: separate; border-spacing: 0; width: 100%; min-width:
     const span = cols.length + 2;
     const body = sections.map(([k, title, color, list, hint]) => `<tr class="lane"><td colspan="${span}"><i style="background:${color}"></i>${title}<small>${hint}</small></td></tr>`
       + list.map((s) => `<tr><td class="sy"><b>${esc(s.name)}</b><small>${esc(s.bu)} · ${stateChip(s)}</small></td>
-        ${cols.map((c) => `<td class="${c.id === b.id ? 'selc' : ''} ${c.retired && c.id !== b.id ? 'ret' : ''}">${cell(c, s, { sel: b.id, edit: true })}</td>`).join('')}<td class="cn">${inN(s)} active</td></tr>${ui.pick === s.id ? inlinePanel(b, s, span) : ''}`).join('')).join('');
+        ${cols.map((c) => `<td class="${c.id === b.id ? 'selc' : ''} ${c.retired && c.id !== b.id ? 'ret' : ''}">${cell(c, s, { sel: b.id, edit: true })}</td>`).join('')}<td class="cn">${inN(s)} active</td></tr>${ui.pick === s.id && manage ? inlinePanel(b, s, span) : ''}`).join('')).join('');
     const banner = b.retired ? `<div class="banner retired" role="note"><svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><rect x="4" y="9" width="12" height="8" rx="2"/><path d="M7 9V6a3 3 0 0 1 6 0v3"/></svg>
       <div><b>Retired ${esc(fmt(b.retired.on))} by ${esc(b.retired.by)}</b><p>${esc(b.retired.why)} Retiring is final: it brings no Framework into a System’s scope any more and is kept as a read-only record. There is no statement or percentage, and no frozen copy of one.</p></div></div>` : '';
     const pend = !b.retired && x.pending.length ? `<div class="banner warn" role="note"><div><b>${plural(x.pending.length, 'System')} not yet operating</b><p>${esc(x.pending.map((s) => s.name).join(', '))} ${x.pending.length === 1 ? 'is' : 'are'} in evaluation: shown, not counted until Onboarded or an ATO.</p></div></div>` : '';
@@ -429,14 +429,16 @@ table.hm { border-collapse: separate; border-spacing: 0; width: 100%; min-width:
   function boundaryBind() {
     const b = D.bnd(ui.b);
     document.querySelectorAll('[data-cell]').forEach((c) => c.addEventListener('click', () => {
-      if (c.getAttribute('aria-disabled') === 'true') { Kit.toast('Only the Boundary Owner, a Compliance Manager or an Admin changes membership'); return; }
+      if (!canManage(b) || c.getAttribute('aria-disabled') === 'true') { Kit.toast('Only the Boundary Owner, a Compliance Manager or an Admin changes membership'); return; }
       ui.pick = ui.pick === c.dataset.cell ? null : c.dataset.cell; render();
     }));
     document.querySelectorAll('[data-closepick]').forEach((c) => c.addEventListener('click', () => { ui.pick = null; render(); }));
     document.querySelectorAll('[data-add]').forEach((c) => c.addEventListener('click', () => {
+      if (!canManage(b)) return;
       const s = D.sys(c.dataset.add), p = D.preview(b, s); b.members.push(s.id); ui.pick = null; Kit.toast(`${s.name} added${p.review ? '; Change Review started' : ''}; a Change Event is recorded on the System`); render();
     }));
     document.querySelectorAll('[data-remove]').forEach((c) => c.addEventListener('click', () => {
+      if (!canManage(b)) return;
       const s = D.sys(c.dataset.remove); b.members = b.members.filter((m) => m !== s.id); ui.pick = null; Kit.toast(`${s.name} left ${b.name}; a Change Event is recorded on the System`); render();
     }));
     $('#edit') && $('#edit').addEventListener('click', () => Kit.toast('Prototype: edit Frameworks (adding or dropping one recomputes applicability) and the Boundary Owner'));
@@ -587,6 +589,7 @@ table.hm { border-collapse: separate; border-spacing: 0; width: 100%; min-width:
       const g = JSON.parse(a.dataset.go); go(g.view, { ...(g.b ? { b: g.b } : {}), ...(g.s ? { s: g.s } : {}) });
     }));
     if (ui.view !== 'system') railBind();
+    root.querySelectorAll('a[href^="#"]').forEach((a) => a.addEventListener('click', (e) => { e.preventDefault(); const t = document.getElementById(a.getAttribute('href').slice(1)); t && t.scrollIntoView({ behavior: Kit.reduced ? 'auto' : 'smooth', block: 'start' }); }));
     pickBind();
     if (ui.view === 'boundary' || ui.view === 'statement') tabsBind();
     if (ui.view === 'list') document.querySelectorAll('[data-only]').forEach((c) => c.addEventListener('click', () => { ui.only = ui.only === c.dataset.only ? 'all' : c.dataset.only; render(); }));
