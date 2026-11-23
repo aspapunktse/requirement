@@ -25,8 +25,9 @@ import { CONTROL_ASSESSMENT_STATUS_LABEL } from "@/lib/requirement-status-rules"
  * - **Inclusion justification** is generated from the Control's mappings into
  *   Published Frameworks. A Draft Framework's mapping never appears in it for
  *   anyone, and never makes a Control included.
- * - **Exclusion justification** is authored by a Compliance Manager or an Admin
- *   (#150) and stored on the Control. It is the row's reason only while the Control
+ * - **Exclusion justification** is, since #420, authored per Compliance Boundary and Requirement
+ *   (`boundary-statement.ts`); `readStatementInputs` gives each Control the texts written on the
+ *   base-Framework Requirements it maps to. It is the row's reason only while the Control
  *   is excluded; for an included Control the row carries null (the stored text is
  *   kept, and shown again if the Control is excluded again). An excluded Control
  *   without one is flagged "justification missing".
@@ -60,7 +61,7 @@ export type SoaControl = ControlImpactThresholds & {
   applicability: ControlApplicability;
   deploymentFacets: { id: string }[];
   mappings: SoaMapping[];
-  /** The stored exclusion justification (#150); null when none. */
+  /** The exclusion justifications of the Control's base-Framework Requirements, combined (#420); null when none. */
   soaExclusionJustification: string | null;
 };
 

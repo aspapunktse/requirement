@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { frameworkLabel } from "@/lib/framework-label";
 import { formatCompliancePercentage } from "@/lib/requirement-status-rules";
+import type { BoundaryStatement } from "@/lib/boundary-statement-rules";
+import { StatementPanel } from "./StatementPanel";
 import { MEMBER_STATE_LABEL, type BoundaryDetail, type BoundaryFrameworkCompliance, type JoinPreview, type MemberState, type PreparedCandidate } from "@/lib/compliance-boundary";
 
 type Candidate = { id: string; name: string; state: MemberState };
@@ -17,6 +19,7 @@ type Candidate = { id: string; name: string; state: MemberState };
 export function BoundaryView({
   boundary,
   compliance,
+  statement,
   linkableSystemIds,
   candidates,
   prepared,
@@ -25,6 +28,7 @@ export function BoundaryView({
 }: {
   boundary: BoundaryDetail;
   compliance: BoundaryFrameworkCompliance[];
+  statement: BoundaryStatement;
   linkableSystemIds: string[];
   candidates: Candidate[];
   prepared: PreparedCandidate[];
@@ -251,6 +255,8 @@ export function BoundaryView({
         </div>
       </section>
       )}
+
+      <StatementPanel statement={statement} />
 
       <section className="hc-card" aria-labelledby="cb-members-h">
         <div className="hc-card-h">

@@ -1,6 +1,6 @@
 import { afterAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
-import { mapControlsToFramework } from "@/test/framework-fixtures";
+import { deleteFixtureRequirement, getBaseFramework, mapControlsToBase, mapControlsToFramework } from "@/test/framework-fixtures";
 import { setupProviderFixtures } from "@/test/provider-fixtures";
 import { loadStatementOfApplicability } from "../statement-of-applicability";
 
@@ -106,8 +106,21 @@ describe("loadStatementOfApplicability (#145)", () => {
   it("reads the stored exclusion justification of an excluded Control", async () => {
     const id = ctx.controls.elsewhere.id;
     expect(await rowOf(id)).toMatchObject({ included: false, exclusionJustification: null, justificationMissing: true });
-    await prisma.control.update({ where: { id }, data: { soaExclusionJustification: "Test 150 reason" } });
-    expect(await rowOf(id)).toMatchObject({ included: false, exclusionJustification: "Test 150 reason", justificationMissing: false });
+    // The justification is stored per (Compliance Boundary, base Requirement) now (#420); the Control reads the texts of the base Requirements it maps to.
+    const requirementId = await mapControlsToBase([id]);
+    const base = await getBaseFramework();
+    const boundary = await prisma.complianceBoundary.create({ data: { name: `Test 150 Boundary ${ctx.suffix}`, frameworks: { create: [{ frameworkId: base.id }] } } });
+    try {
+      expect(await rowOf(id)).toMatchObject({ included: false, justificationMissing: true });
+      await prisma.boundaryExclusionJustification.create({ data: { boundaryId: boundary.id, requirementId, text: "Test 150 reason" } });
+      expect(await rowOf(id)).toMatchObject({ included: false, exclusionJustification: "Test 150 reason", justificationMissing: false });
+      // A retired Boundary's text no longer counts.
+      await prisma.complianceBoundary.update({ where: { id: boundary.id }, data: { retiredAt: new Date() } });
+      expect(await rowOf(id)).toMatchObject({ included: false, exclusionJustification: null, justificationMissing: true });
+    } finally {
+      await prisma.complianceBoundary.delete({ where: { id: boundary.id } });
+      await deleteFixtureRequirement(requirementId);
+    }
   });
 
   it("leaves a Draft Framework's mapping out of the justification and never lets it include a Control", async () => {

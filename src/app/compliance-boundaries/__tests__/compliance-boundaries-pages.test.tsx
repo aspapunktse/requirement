@@ -29,6 +29,9 @@ import EditPage from "../[id]/edit/page";
 import DetailPage from "../[id]/page";
 import { BoundaryForm } from "../BoundaryForm";
 import { BoundaryView } from "../[id]/BoundaryView";
+import type { BoundaryStatement } from "@/lib/boundary-statement-rules";
+
+const EMPTY_STATEMENT: BoundaryStatement = { boundary: { id: "b", name: "Test", retired: false, ownerName: null }, canEdit: false, countedSystems: [], notYetOperating: [], closed: [], systems: [], sections: [] };
 import { SystemBoundaries } from "@/app/systems/[id]/SystemBoundaries";
 
 /**
@@ -201,19 +204,19 @@ describe("the Boundary view", () => {
   it("shows a Compliance Percentage per Framework, with an em dash when nothing is applicable", () => {
     const [first] = boundary.frameworks;
     const compliance = [{ frameworkId: first.id, met: 4, applicable: 5, percentage: 80 }];
-    const { unmount } = render(<BoundaryView boundary={boundary} compliance={compliance} linkableSystemIds={[]} candidates={[]} prepared={[]} canManageMembers={false} canCurate={false} />);
+    const { unmount } = render(<BoundaryView statement={EMPTY_STATEMENT} boundary={boundary} compliance={compliance} linkableSystemIds={[]} candidates={[]} prepared={[]} canManageMembers={false} canCurate={false} />);
     const row = screen.getByTestId(`cb-compliance-${first.id}`);
     expect(row).toHaveTextContent("80%");
     expect(row).toHaveTextContent("4 of 5 Requirements Met");
     unmount();
-    render(<BoundaryView boundary={boundary} compliance={[{ frameworkId: first.id, met: 0, applicable: 0, percentage: null }]} linkableSystemIds={[]} candidates={[]} prepared={[]} canManageMembers={false} canCurate={false} />);
+    render(<BoundaryView statement={EMPTY_STATEMENT} boundary={boundary} compliance={[{ frameworkId: first.id, met: 0, applicable: 0, percentage: null }]} linkableSystemIds={[]} candidates={[]} prepared={[]} canManageMembers={false} canCurate={false} />);
     expect(screen.getByTestId(`cb-compliance-${first.id}`)).toHaveTextContent("—");
     expect(screen.getByTestId(`cb-compliance-${first.id}`)).not.toHaveTextContent("Requirements Met");
   });
 
   it("retires with a required comment, a final-warning and a POST, then refreshes the page (#424)", async () => {
     vi.mocked(fetch).mockResolvedValueOnce(json({ boundary }));
-    render(<BoundaryView boundary={boundary} compliance={[]} linkableSystemIds={[]} candidates={[]} prepared={[]} canManageMembers canCurate />);
+    render(<BoundaryView statement={EMPTY_STATEMENT} boundary={boundary} compliance={[]} linkableSystemIds={[]} candidates={[]} prepared={[]} canManageMembers canCurate />);
     await userEvent.click(screen.getByRole("button", { name: "Retire" }));
     expect(screen.getByText(/Retiring is final/)).toBeInTheDocument();
     const confirm = screen.getByRole("button", { name: "Retire permanently" });
@@ -228,14 +231,14 @@ describe("the Boundary view", () => {
 
   it("shows a refused retire's message and offers no Retire to someone who may not (#424)", async () => {
     vi.mocked(fetch).mockResolvedValueOnce(json({ error: "Only the Boundary Owner can." }, 403));
-    const { unmount } = render(<BoundaryView boundary={boundary} compliance={[]} linkableSystemIds={[]} candidates={[]} prepared={[]} canManageMembers canCurate />);
+    const { unmount } = render(<BoundaryView statement={EMPTY_STATEMENT} boundary={boundary} compliance={[]} linkableSystemIds={[]} candidates={[]} prepared={[]} canManageMembers canCurate />);
     await userEvent.click(screen.getByRole("button", { name: "Retire" }));
     await userEvent.type(screen.getByLabelText(/Why is it retired/), "x");
     await userEvent.click(screen.getByRole("button", { name: "Retire permanently" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Only the Boundary Owner can.");
     expect(refresh).not.toHaveBeenCalled();
     unmount();
-    render(<BoundaryView boundary={boundary} compliance={[]} linkableSystemIds={[]} candidates={[]} prepared={[]} canManageMembers={false} canCurate={false} />);
+    render(<BoundaryView statement={EMPTY_STATEMENT} boundary={boundary} compliance={[]} linkableSystemIds={[]} candidates={[]} prepared={[]} canManageMembers={false} canCurate={false} />);
     expect(screen.queryByRole("button", { name: "Retire" })).toBeNull();
   });
 
@@ -243,7 +246,7 @@ describe("the Boundary view", () => {
     const retired: BoundaryDetail = { ...boundary, retirement: { retiredAt: "2026-11-23T10:00:00.000Z", retiredByName: "Olle Owner", comment: "Contract ended" } };
     const [first] = retired.frameworks;
     render(
-      <BoundaryView boundary={retired} compliance={[{ frameworkId: first.id, met: 4, applicable: 5, percentage: 80 }]} linkableSystemIds={[]} candidates={candidates} prepared={[]} canManageMembers canCurate />,
+      <BoundaryView statement={EMPTY_STATEMENT} boundary={retired} compliance={[{ frameworkId: first.id, met: 4, applicable: 5, percentage: 80 }]} linkableSystemIds={[]} candidates={candidates} prepared={[]} canManageMembers canCurate />,
     );
     const banner = screen.getByRole("status");
     expect(banner).toHaveTextContent("Retired on 2026-11-23 by Olle Owner");
@@ -258,7 +261,7 @@ describe("the Boundary view", () => {
   });
 
   it("labels each member's state and links only the linkable ones", () => {
-    render(<BoundaryView boundary={boundary} compliance={[]} linkableSystemIds={["s1"]} candidates={candidates} prepared={[]} canManageMembers canCurate={false} />);
+    render(<BoundaryView statement={EMPTY_STATEMENT} boundary={boundary} compliance={[]} linkableSystemIds={["s1"]} candidates={candidates} prepared={[]} canManageMembers canCurate={false} />);
     expect(screen.getByRole("link", { name: "Payroll" })).toHaveAttribute("href", "/systems/s1");
     expect(screen.queryByRole("link", { name: "Old CRM" })).toBeNull();
     expect(screen.getByText("Old CRM")).toBeInTheDocument();
@@ -283,7 +286,7 @@ describe("the Boundary view", () => {
 
   it("previews, then adds the chosen System with a POST and refreshes the page", async () => {
     vi.mocked(fetch).mockResolvedValueOnce(json({ preview: preview() })).mockResolvedValueOnce(json({ boundary }, 201));
-    render(<BoundaryView boundary={boundary} compliance={[]} linkableSystemIds={[]} candidates={candidates} prepared={[]} canManageMembers canCurate />);
+    render(<BoundaryView statement={EMPTY_STATEMENT} boundary={boundary} compliance={[]} linkableSystemIds={[]} candidates={candidates} prepared={[]} canManageMembers canCurate />);
     const button = screen.getByRole("button", { name: "Add System" });
     expect(button).toBeDisabled();
     await userEvent.selectOptions(screen.getByLabelText("Add a System"), "s3");
@@ -303,7 +306,7 @@ describe("the Boundary view", () => {
 
   it("says nothing new applies for a prepared System, and that an Onboarded one starts a Change Review", async () => {
     vi.mocked(fetch).mockResolvedValueOnce(json({ preview: preview({ newControls: [] }) })).mockResolvedValueOnce(json({ preview: preview({ onboarded: true, startsChangeReview: true }) }));
-    render(<BoundaryView boundary={boundary} compliance={[]} linkableSystemIds={[]} candidates={candidates} prepared={[]} canManageMembers canCurate />);
+    render(<BoundaryView statement={EMPTY_STATEMENT} boundary={boundary} compliance={[]} linkableSystemIds={[]} candidates={candidates} prepared={[]} canManageMembers canCurate />);
     await userEvent.selectOptions(screen.getByLabelText("Add a System"), "s3");
     expect(await screen.findByText("Nothing new applies.")).toBeInTheDocument();
     await userEvent.selectOptions(screen.getByLabelText("Add a System"), "");
@@ -319,7 +322,7 @@ describe("the Boundary view", () => {
   it("lists the candidates with the Frameworks they are prepared for, and previews one from its button", async () => {
     vi.mocked(fetch).mockResolvedValueOnce(json({ preview: preview() }));
     const prepared = [{ id: "s3", name: "Planned ERP", state: "NOT_YET_OPERATING" as const, preparedFor: [{ id: "f1", name: "CMMC", version: "L1" }] }];
-    render(<BoundaryView boundary={boundary} compliance={[]} linkableSystemIds={[]} candidates={candidates} prepared={prepared} canManageMembers canCurate />);
+    render(<BoundaryView statement={EMPTY_STATEMENT} boundary={boundary} compliance={[]} linkableSystemIds={[]} candidates={candidates} prepared={prepared} canManageMembers canCurate />);
     expect(screen.getByText(/Prepared for CMMC/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Preview adding Planned ERP" }));
     expect(await screen.findByRole("region", { name: "Preview of adding Planned ERP" })).toBeInTheDocument();
@@ -328,14 +331,14 @@ describe("the Boundary view", () => {
 
   it("shows the server's refusal of a preview", async () => {
     vi.mocked(fetch).mockResolvedValueOnce(json({ error: "Only the Boundary Owner, a Compliance Manager or an Admin can preview adding a System." }, 403));
-    render(<BoundaryView boundary={boundary} compliance={[]} linkableSystemIds={[]} candidates={candidates} prepared={[]} canManageMembers canCurate />);
+    render(<BoundaryView statement={EMPTY_STATEMENT} boundary={boundary} compliance={[]} linkableSystemIds={[]} candidates={candidates} prepared={[]} canManageMembers canCurate />);
     await userEvent.selectOptions(screen.getByLabelText("Add a System"), "s3");
     expect(await screen.findByRole("alert")).toHaveTextContent("can preview adding a System");
   });
 
   it("removes a member with a DELETE, and shows the server's refusal without refreshing", async () => {
     vi.mocked(fetch).mockResolvedValueOnce(new Response(JSON.stringify({ error: "Only the Boundary Owner can." }), { status: 403 }));
-    render(<BoundaryView boundary={boundary} compliance={[]} linkableSystemIds={[]} candidates={[]} prepared={[]} canManageMembers canCurate={false} />);
+    render(<BoundaryView statement={EMPTY_STATEMENT} boundary={boundary} compliance={[]} linkableSystemIds={[]} candidates={[]} prepared={[]} canManageMembers canCurate={false} />);
     await userEvent.click(screen.getByRole("button", { name: "Remove Payroll" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Only the Boundary Owner can.");
     expect(calls()[0][0]).toBe("/api/compliance-boundaries/b1/systems/s1");
@@ -344,7 +347,7 @@ describe("the Boundary view", () => {
   });
 
   it("shows no add or remove controls and no Edit link to a reader", () => {
-    render(<BoundaryView boundary={boundary} compliance={[]} linkableSystemIds={["s1"]} candidates={[]} prepared={[]} canManageMembers={false} canCurate={false} />);
+    render(<BoundaryView statement={EMPTY_STATEMENT} boundary={boundary} compliance={[]} linkableSystemIds={["s1"]} candidates={[]} prepared={[]} canManageMembers={false} canCurate={false} />);
     expect(screen.queryByRole("button", { name: /Remove|Add System|Preview/ })).toBeNull();
     expect(screen.queryByText("Candidates")).toBeNull();
     expect(screen.queryByRole("link", { name: "Edit" })).toBeNull();

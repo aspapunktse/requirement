@@ -49,19 +49,19 @@ export async function loadStatementOfApplicability(): Promise<
 export async function readStatementInputs(
   tx: Prisma.TransactionClient,
 ): Promise<StatementInputs> {
-  const controls = await tx.control.findMany({
+  const controlRows = await tx.control.findMany({
     select: {
       id: true,
       code: true,
       title: true,
       applicability: true,
-      soaExclusionJustification: true,
       minSensitivityLevel: true,
       minIntegrityImpactLevel: true,
       minAvailabilityImpactLevel: true,
       deploymentFacets: { select: { id: true } },
       mappings: {
         select: {
+          requirementId: true,
           requirement: {
             select: {
               code: true,
@@ -79,6 +79,22 @@ export async function readStatementInputs(
         },
       },
     },
+  });
+  // Each Control's exclusion justification, read from the Boundaries' (#420): the distinct texts written on the base-Framework
+  // Requirements it maps to, combined. The Statement of Applicability is per Compliance Boundary now; this organization-wide
+  // view (the old CSV export and print page, until the per-Boundary export of #421 replaces them) reads the same texts.
+  const justifications = await tx.boundaryExclusionJustification.findMany({
+    where: { boundary: { retiredAt: null }, requirement: { framework: { isBase: true } } },
+    select: { requirementId: true, text: true },
+  });
+  const textsByRequirementId = new Map<string, Set<string>>();
+  for (const { requirementId, text } of justifications) {
+    textsByRequirementId.set(requirementId, (textsByRequirementId.get(requirementId) ?? new Set()).add(text.trim()));
+  }
+  const controls = controlRows.map((control) => {
+    const texts = new Set<string>();
+    for (const { requirementId } of control.mappings) for (const text of textsByRequirementId.get(requirementId) ?? []) texts.add(text);
+    return { ...control, soaExclusionJustification: texts.size > 0 ? [...texts].sort().join("\n\n") : null };
   });
   const systems = (await tx.system.findMany({
     select: {
