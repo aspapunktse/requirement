@@ -49,7 +49,7 @@ export default async function ComplianceBoundariesPage({ searchParams }: PagePro
         )}
       </section>
 
-      <BoundaryList boundaries={boundaries} showRetired={showRetired} hiddenRetired={hiddenRetired} initialFramework={typeof framework === "string" ? framework : null} />
+      <BoundaryList key={`${showRetired}:${typeof framework === "string" ? framework : ""}`} boundaries={boundaries} showRetired={showRetired} hiddenRetired={hiddenRetired} initialFramework={typeof framework === "string" ? framework : null} />
     </div>
   );
 }

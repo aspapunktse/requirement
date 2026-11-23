@@ -66,7 +66,7 @@ export function PerimeterDiagram({ perimeter, name }: { perimeter: BoundaryPerim
               if (!target) return [];
               const y1 = y + NH / 2;
               const y2 = target.y + NH / 2;
-              return [<path key={`${provider.key}-${id}`} className="arr" d={`M${8 + PROVIDER_W} ${y1} C ${BX - 10} ${y1}, ${BX - 10} ${y2}, ${NX - 2} ${y2}`} markerEnd={`url(#ah-${markerId})`} />];
+              return [<path key={`${provider.key}-${id}`} className={provider.pending ? "arr pending" : "arr"} d={`M${8 + PROVIDER_W} ${y1} C ${BX - 10} ${y1}, ${BX - 10} ${y2}, ${NX - 2} ${y2}`} markerEnd={`url(#ah-${markerId})`} />];
             }),
           )}
           {inherits.map((row) => {
@@ -77,14 +77,14 @@ export function PerimeterDiagram({ perimeter, name }: { perimeter: BoundaryPerim
             const y1 = from.y + NH / 2;
             const y2 = to.y + NH / 2;
             const bulge = Math.min(34, 10 + Math.abs(y2 - y1) / 12);
-            return <path key={`${row.from}-${row.to}`} className="arr" d={`M${x} ${y1} C ${x + bulge} ${y1}, ${x + bulge} ${y2}, ${x + 2} ${y2}`} markerEnd={`url(#ah-${markerId})`} />;
+            return <path key={`${row.from}-${row.to}`} className={row.pending ? "arr pending" : "arr"} d={`M${x} ${y1} C ${x + bulge} ${y1}, ${x + bulge} ${y2}, ${x + 2} ${y2}`} markerEnd={`url(#ah-${markerId})`} />;
           })}
           {placed.map(({ provider, y }) => (
             <g key={provider.key}>
               <rect className={provider.name === null ? "n-ghost" : "n-prov"} x="8" y={y} width={PROVIDER_W} height={NH} rx="10" />
               <text className="nm" x="20" y={y + 17}>{provider.name === null ? "Provider" : short(provider.name, 21)}</text>
               <text className="sb" x="20" y={y + 31}>
-                {provider.name === null ? "Not visible to you" : "Provider"} · {plural(provider.dependentIds.length, "dependent", "dependents")}
+                {provider.name === null ? "Not visible to you" : "Provider"} · {plural(provider.dependentIds.length, "dependent", "dependents")}{provider.pending ? " · pending" : ""}
               </text>
               <title>{provider.name ?? HIDDEN_PROVIDER_LABEL}</title>
             </g>
@@ -118,6 +118,7 @@ export function PerimeterDiagram({ perimeter, name }: { perimeter: BoundaryPerim
           <span><i className="k-edge" />Not yet operating</span>
           <span><i className="k-prov" />Provider</span>
           <span><i className="k-arrow" />Inherits Controls from</span>
+          <span><i className="k-arrow dashed" />Pending: Provider not Onboarded, no credit yet</span>
           <span><i className="k-ghost" />Closed, or a Provider you can&apos;t open</span>
         </div>
       </div>

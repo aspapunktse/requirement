@@ -30,6 +30,15 @@ export function BoundaryList({ boundaries, showRetired, hiddenRetired, initialFr
     window.history.replaceState(window.history.state, "", url);
   }
 
+  // The retired toggle keeps the chosen Framework, so the filter survives it. The page re-keys this component on the URL's
+  // `retired` and `framework`, so a navigation that changes them starts from the URL, never from a stale choice.
+  const toggleHref = (retiredOn: boolean) => {
+    const query = new URLSearchParams();
+    if (retiredOn) query.set("retired", "1");
+    if (framework) query.set("framework", framework);
+    return `/compliance-boundaries${query.size > 0 ? `?${query}` : ""}`;
+  };
+
   return (
     <>
       {counts.length > 0 && (
@@ -60,9 +69,9 @@ export function BoundaryList({ boundaries, showRetired, hiddenRetired, initialFr
         </div>
         <p className="cb-filter">
           {showRetired ? (
-            <Link href="/compliance-boundaries">Hide retired Compliance Boundaries</Link>
+            <Link href={toggleHref(false)}>Hide retired Compliance Boundaries</Link>
           ) : (
-            <Link href="/compliance-boundaries?retired=1">Show retired Compliance Boundaries</Link>
+            <Link href={toggleHref(true)}>Show retired Compliance Boundaries</Link>
           )}
           {counts.length > 0 && <span className="cb-fine"> The cards count active Compliance Boundaries only.</span>}
         </p>

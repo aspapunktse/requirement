@@ -13,7 +13,8 @@ const byName = (a: { name: string; id: string }, b: { name: string; id: string }
  * either). Visibility (ADR 0004, `visibleSystemsWhere`): member names are read by every role, as on the rest of the page, and
  * `linkable` says whether the acting user may open one. A Provider outside the perimeter that the acting user may not see is
  * returned without its id, name or Onboarded state (`name: null`), keyed by its position, so nothing about it reaches the page.
- * Null when there is no such Boundary.
+ * Offerings count only once the Provider is Onboarded (ADR 0008), so a dependency on one that is not is `pending`; for a hidden Provider
+ * that flag is all that is revealed. Null when there is no such Boundary.
  */
 export async function readBoundaryPerimeter(boundaryId: string, user: { id: string; role: UserRole }, tx: Prisma.TransactionClient): Promise<BoundaryPerimeter | null> {
   const boundary = await tx.complianceBoundary.findUnique({
@@ -41,18 +42,18 @@ export async function readBoundaryPerimeter(boundaryId: string, user: { id: stri
   const visibleProviders: PerimeterProvider[] = providerRows
     .filter((row) => visibleIds.has(row.id))
     .sort(byName)
-    .map((row) => ({ key: row.id, id: row.id, name: row.name, onboarded: row.status === "ONBOARDED", dependentIds: dependentsOf(row.id) }));
+    .map((row) => ({ key: row.id, id: row.id, name: row.name, onboarded: row.status === "ONBOARDED", pending: row.status !== "ONBOARDED", dependentIds: dependentsOf(row.id) }));
   // Hidden ones are ordered by id (not by name, which would order by something the user may not read) and keyed by position.
   const hiddenProviders: PerimeterProvider[] = providerRows
     .filter((row) => !visibleIds.has(row.id))
     .sort((a, b) => (a.id < b.id ? -1 : 1))
-    .map((row, index) => ({ key: `hidden-${index + 1}`, id: null, name: null, onboarded: null, dependentIds: dependentsOf(row.id) }));
+    .map((row, index) => ({ key: `hidden-${index + 1}`, id: null, name: null, onboarded: null, pending: row.status !== "ONBOARDED", dependentIds: dependentsOf(row.id) }));
 
   return {
     inside: members.filter((member) => member.state === "OPERATING").map(toMember).sort(byName),
     edge: members.filter((member) => member.state === "NOT_YET_OPERATING").map(toMember).sort(byName),
     closed: members.filter((member) => member.state === "CLOSED").map(toMember).sort(byName),
     providers: [...visibleProviders, ...hiddenProviders],
-    inherits: dependencies.filter((dependency) => drawnIds.has(dependency.providerId)).map((dependency) => ({ from: dependency.providerId, to: dependency.dependentId })),
+    inherits: dependencies.filter((dependency) => drawnIds.has(dependency.providerId)).map((dependency) => ({ from: dependency.providerId, to: dependency.dependentId, pending: members.find((member) => member.id === dependency.providerId)?.status !== "ONBOARDED" })),
   };
 }

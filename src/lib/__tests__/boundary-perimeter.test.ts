@@ -100,17 +100,33 @@ describe("Compliance Boundary counters and perimeter (#433)", { timeout: 60_000 
       expect(perimeter.edge.map((m) => m.id)).toEqual([sys.draft]);
       expect(perimeter.closed.map((m) => m.id).sort()).toEqual([sys.closed, sys.closedDependent].sort());
       const outside = perimeter.providers.find((p) => p.id === sys.outside)!;
-      expect(outside).toMatchObject({ name: N("outside Provider"), onboarded: true });
+      expect(outside).toMatchObject({ name: N("outside Provider"), onboarded: true, pending: false });
       // Both counted and the not-yet-operating member inherit from it; the closed dependent's arrow isn't drawn.
       expect(outside.dependentIds.sort()).toEqual([sys.counted, sys.draft].sort());
-      expect(perimeter.providers.find((p) => p.id === sys.hidden)).toMatchObject({ name: N("hidden Provider"), onboarded: false });
+      expect(perimeter.providers.find((p) => p.id === sys.hidden)).toMatchObject({ name: N("hidden Provider"), onboarded: false, pending: true });
     });
 
     it("draws a Provider that is itself a member inside, once, with an inherits arrow", async () => {
       const perimeter = (await read("cm"))!;
       expect(perimeter.providers.some((p) => p.id === sys.memberProvider)).toBe(false); // no duplicate outside node
       expect(perimeter.inside.filter((m) => m.id === sys.memberProvider)).toHaveLength(1);
-      expect(perimeter.inherits).toEqual([{ from: sys.memberProvider, to: sys.counted }]);
+      expect(perimeter.inherits).toEqual([{ from: sys.memberProvider, to: sys.counted, pending: false }]);
+    });
+
+    it("marks a dependency pending while its Provider is not Onboarded, outside and inside, and the text list says so", async () => {
+      await prisma.system.update({ where: { id: sys.memberProvider }, data: { status: "DRAFT" } });
+      try {
+        const perimeter = (await read("cm"))!;
+        expect(perimeter.inherits).toEqual([{ from: sys.memberProvider, to: sys.counted, pending: true }]);
+        expect(perimeter.providers.find((p) => p.id === sys.outside)?.pending).toBe(false);
+        expect(perimeter.providers.find((p) => p.id === sys.hidden)?.pending).toBe(true);
+        const text = perimeterLines(perimeter).flatMap((g) => g.items).join("|");
+        expect(text).toMatch(new RegExp(`will inherit from [^|]*${N("member Provider")}[^|]* once it is Onboarded`));
+        expect(text).toContain(`inherits Controls from ${N("outside Provider")}; will inherit`);
+        expect(text).toContain(`${N("hidden Provider")} (pending: Provider not Onboarded), provides to`);
+      } finally {
+        await prisma.system.update({ where: { id: sys.memberProvider }, data: { status: "ONBOARDED" } });
+      }
     });
 
     it("never names or identifies a Provider the acting user may not see, and links only visible members", async () => {
@@ -121,7 +137,7 @@ describe("Compliance Boundary counters and perimeter (#433)", { timeout: 60_000 
         expect(json, key).not.toContain(sys.hidden);
         const hidden = perimeter.providers.filter((p) => p.name === null);
         expect(hidden, key).toHaveLength(1);
-        expect(hidden[0], key).toMatchObject({ id: null, onboarded: null, dependentIds: [sys.counted] });
+        expect(hidden[0], key).toMatchObject({ id: null, onboarded: null, pending: true, dependentIds: [sys.counted] }); // only the flag on the arrow is revealed
         expect(hidden[0].key, key).toBe("hidden-1");
         // The visible Provider is still named, the Draft member is named (member names are public) but not linkable.
         expect(perimeter.providers.find((p) => p.id === sys.outside)?.name, key).toBe(N("outside Provider"));

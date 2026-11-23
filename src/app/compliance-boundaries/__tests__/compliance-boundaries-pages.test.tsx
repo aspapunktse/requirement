@@ -397,7 +397,7 @@ describe("the Boundary view", () => {
       inside: [{ id: "s1", name: "Payroll", state: "OPERATING" as const, status: "ONBOARDED", linkable: true }],
       edge: [],
       closed: [],
-      providers: [{ key: "p1", id: "p1", name: "Landing Zone", onboarded: true, dependentIds: ["s1"] }],
+      providers: [{ key: "p1", id: "p1", name: "Landing Zone", onboarded: true, pending: false, dependentIds: ["s1"] }],
       inherits: [],
     };
     render(<BoundaryView statement={EMPTY_STATEMENT} boundary={boundary} compliance={[]} linkableSystemIds={[]} candidates={[]} prepared={[]} perimeter={perimeter} canManageMembers={false} canCurate={false} />);
@@ -405,6 +405,26 @@ describe("the Boundary view", () => {
     expect(within(section).getByRole("img")).toHaveAccessibleName(/1 counted System inside, 0 not yet operating on the edge, 1 Provider outside/);
     expect(section).toHaveTextContent("Payroll, inherits Controls from Landing Zone");
     expect(section).toHaveTextContent("Landing Zone, provides to Payroll");
+  });
+
+  it("draws a dependency on a Provider that is not Onboarded as pending, in the diagram and the list (#433)", () => {
+    const perimeter = {
+      inside: [{ id: "s1", name: "Payroll", state: "OPERATING" as const, status: "ONBOARDED", linkable: true }],
+      edge: [],
+      closed: [],
+      providers: [
+        { key: "p1", id: "p1", name: "Landing Zone", onboarded: false, pending: true, dependentIds: ["s1"] },
+        { key: "hidden-1", id: null, name: null, onboarded: null, pending: true, dependentIds: ["s1"] },
+      ],
+      inherits: [],
+    };
+    const { container } = render(<BoundaryView statement={EMPTY_STATEMENT} boundary={boundary} compliance={[]} linkableSystemIds={[]} candidates={[]} prepared={[]} perimeter={perimeter} canManageMembers={false} canCurate={false} />);
+    const section = screen.getByRole("region", { name: /Perimeter/ });
+    expect(container.querySelectorAll("path.arr.pending")).toHaveLength(2);
+    expect(section).toHaveTextContent("Pending: Provider not Onboarded, no credit yet");
+    expect(section).toHaveTextContent("Payroll, will inherit from Landing Zone, A Provider you can't open once it is Onboarded");
+    expect(section).toHaveTextContent("Landing Zone (pending: Provider not Onboarded), provides to Payroll");
+    expect(section).not.toHaveTextContent("Payroll, inherits Controls from");
   });
 
   it("shows no add or remove controls and no Edit link to a reader", () => {

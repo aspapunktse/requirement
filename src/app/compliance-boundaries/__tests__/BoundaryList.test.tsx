@@ -81,6 +81,17 @@ describe("the Compliance Boundary list's Framework counters (#433)", () => {
     expect(screen.getByText("No Compliance Boundaries yet.")).toBeInTheDocument();
   });
 
+  it("keeps the chosen Framework in the retired toggle links, and follows the URL when it changes", async () => {
+    const { rerender } = render(<BoundaryList key="a" boundaries={rows} showRetired={false} hiddenRetired={1} initialFramework={null} />);
+    await userEvent.click(stat(/^ISO 27001/));
+    expect(screen.getByRole("link", { name: "Show retired Compliance Boundaries" })).toHaveAttribute("href", "/compliance-boundaries?retired=1&framework=f-iso");
+    // The page re-keys the list on the URL, so the navigation the link makes starts from `framework` in it.
+    rerender(<BoundaryList key="b" boundaries={rows} showRetired hiddenRetired={0} initialFramework="f-iso" />);
+    expect(stat(/^ISO 27001/)).toHaveAttribute("aria-pressed", "true");
+    expect(listed()).toHaveLength(2);
+    expect(screen.getByRole("link", { name: "Hide retired Compliance Boundaries" })).toHaveAttribute("href", "/compliance-boundaries?framework=f-iso");
+  });
+
   it("counts nothing when only retired Boundaries exist, and says so", () => {
     render(<BoundaryList boundaries={[rows[3]]} showRetired hiddenRetired={0} initialFramework={null} />);
     expect(screen.queryByRole("button")).toBeNull();

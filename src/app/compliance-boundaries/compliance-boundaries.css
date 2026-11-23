@@ -123,6 +123,7 @@
 .cb-peri .n-prov { fill: var(--rg-surface); stroke: var(--rg-line); stroke-width: 1.5; }
 .cb-peri .n-ghost { fill: none; stroke: var(--rg-line); stroke-width: 1.3; stroke-dasharray: 3 3; }
 .cb-peri .arr { fill: none; stroke: var(--rg-muted); stroke-width: 1.4; }
+.cb-peri .arr.pending { stroke-dasharray: 5 4; }
 .cb-peri .ahead { fill: var(--rg-muted); }
 .cb-pkey { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 0.78rem; color: var(--rg-muted); padding: 8px 8px 4px; }
 .cb-pkey span { display: inline-flex; gap: 7px; align-items: center; }
@@ -132,6 +133,7 @@
 .cb-pkey .k-prov { background: var(--rg-surface); }
 .cb-pkey .k-ghost { border-style: dashed; }
 .cb-pkey .k-arrow { border: 0; border-top: 1.5px solid var(--rg-muted); height: 0; margin-top: 1px; border-radius: 0; }
+.cb-pkey .k-arrow.dashed { border-top-style: dashed; }
 .cb-peri-list { font-size: 0.88rem; }
 .cb-peri-list summary { cursor: pointer; font-weight: 650; color: var(--rg-accent); }
 .cb-peri-list b { font-weight: 680; display: block; margin-top: 8px; }
