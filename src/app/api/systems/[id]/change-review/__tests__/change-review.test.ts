@@ -311,6 +311,16 @@ describe("Change Review (#334)", { timeout: 90_000 }, () => {
       expect((await stateOf(system.id)).status).toBe("ONBOARDED");
     });
 
+    it("refuses onboarding a System whose ATO a Change Review just revoked, and changes nothing (#437)", async () => {
+      const { system } = await reviewedSystem({ status: "APPROVED", staged: false });
+      expect((await decideAs("bso", system.id, { decision: "REVOKE", comment: "Redo" })).status).toBe(200);
+      const before = await snapshot(system.id);
+      const response = await onboard(requestAs(users.owner.id, `/api/systems/${system.id}/onboard`, { method: "POST" }), ctxFor(system.id));
+      expect(response.status).toBe(400);
+      expect(await snapshot(system.id)).toBe(before);
+      expect((await stateOf(system.id)).status).toBe("DRAFT");
+    });
+
     it("refuses anyone but the BSO or an Admin who isn't the owner, and changes nothing", async () => {
       const { system, review } = await reviewedSystem();
       const before = await snapshot(system.id);
