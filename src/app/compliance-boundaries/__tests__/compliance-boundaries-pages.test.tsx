@@ -257,6 +257,11 @@ describe("the Boundary view", () => {
     await userEvent.selectOptions(screen.getByLabelText("Add a System"), "");
     await userEvent.selectOptions(screen.getByLabelText("Add a System"), "s3");
     expect(await screen.findByText(/adding it starts a Change Review/)).toBeInTheDocument();
+    await userEvent.selectOptions(screen.getByLabelText("Add a System"), "");
+    vi.mocked(fetch).mockResolvedValueOnce(json({ preview: preview({ newControls: [], onboarded: true, startsChangeReview: true }) }));
+    await userEvent.selectOptions(screen.getByLabelText("Add a System"), "s3");
+    expect(await screen.findByText("Nothing new applies.")).toBeInTheDocument();
+    expect(screen.getByText(/adding it starts a Change Review/)).toBeInTheDocument();
   });
 
   it("lists the candidates with the Frameworks they are prepared for, and previews one from its button", async () => {

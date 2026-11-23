@@ -211,6 +211,26 @@ describe("Boundary candidates and the join preview (#423)", { timeout: 90_000 },
       }
     });
 
+    it("flags a Change Review with no new Controls when the join grows another group's remit", async () => {
+      const group2 = await prisma.reviewGroup.create({ data: { name: NAME("Group 2"), members: { connect: [{ id: memberId }] } } });
+      const f3 = (await createFixtureFramework("423 three")).id; // maps C1 too, reviewed by another group
+      await prisma.framework.update({ where: { id: f3 }, data: { reviewGroupId: group2.id } });
+      await mapControlsToFramework(f3, [c1]);
+      try {
+        const boundary = await makeBoundary("remit only", [f3]);
+        const system = await makeSystem("remit only", "ONBOARDED", [fw1]); // C1 already applies, in Framework 1's group
+        const { preview: body } = await (await preview(cmId, boundary, system)).json();
+        expect(body.newControls).toEqual([]);
+        expect(body).toMatchObject({ onboarded: true, startsChangeReview: true });
+
+        expect((await join(boundary, system)).status).toBe(201);
+        expect(await prisma.changeReview.count({ where: { systemId: system } })).toBe(1);
+      } finally {
+        await prisma.framework.update({ where: { id: f3 }, data: { reviewGroupId: null } });
+        await prisma.reviewGroup.delete({ where: { id: group2.id } }).catch(() => undefined);
+      }
+    });
+
     it("writes nothing", async () => {
       const boundary = await makeBoundary("read only", [fw1]);
       const onboarded = await makeSystem("ro onboarded", "ONBOARDED");

@@ -253,6 +253,9 @@ export function BoundaryView({
 
 const SHOWN_CONTROLS = 10;
 
+const changeReviewSentence = (data: JoinPreview) =>
+  data.startsChangeReview ? "The System is Onboarded: adding it starts a Change Review." : data.onboarded ? "The System is Onboarded, but no Change Review starts." : "No Change Review starts: the System is not Onboarded.";
+
 /** What adding the chosen System would do (#423): the Controls that would newly apply, how many are already Fulfilled, and any Change Review. */
 function JoinPreviewPanel({ preview }: { preview: { status: "loading" | "ready" | "error"; data?: JoinPreview; message?: string } }) {
   if (preview.status === "loading") return <p className="cb-empty" role="status">Checking what adding this System would bring...</p>;
@@ -269,7 +272,10 @@ function JoinPreviewPanel({ preview }: { preview: { status: "loading" | "ready" 
     <div className="cb-preview" role="region" aria-label={`Preview of adding ${data.systemName}`}>
       <h3>If you add {data.systemName}</h3>
       {data.newControls.length === 0 ? (
-        <p>Nothing new applies.{data.onboarded && " No Change Review starts."}</p>
+        <>
+          <p>Nothing new applies.</p>
+          <p>{changeReviewSentence(data)}</p>
+        </>
       ) : (
         <>
           <p>
@@ -286,7 +292,7 @@ function JoinPreviewPanel({ preview }: { preview: { status: "loading" | "ready" 
             ))}
           </ul>
           {data.newControls.length > SHOWN_CONTROLS && <p className="cb-empty">and {data.newControls.length - SHOWN_CONTROLS} more</p>}
-          <p>{data.startsChangeReview ? "The System is Onboarded: adding it starts a Change Review." : data.onboarded ? "The System is Onboarded, but no Change Review starts." : "No Change Review starts: the System is not Onboarded."}</p>
+          <p>{changeReviewSentence(data)}</p>
         </>
       )}
     </div>

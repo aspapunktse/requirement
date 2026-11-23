@@ -190,7 +190,7 @@ export async function previewJoin(boundaryId: string, systemId: string, db: Pris
     systemName: system.name,
     state: memberState(system),
     onboarded,
-    startsChangeReview: onboarded && newControls.length > 0 && (await remitPairsAdded(db, before.classification, afterClassification)).length > 0,
+    startsChangeReview: onboarded && (await remitPairsAdded(db, before.classification, afterClassification)).length > 0,
     newControls,
   };
 }
