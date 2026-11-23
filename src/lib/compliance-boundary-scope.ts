@@ -6,7 +6,7 @@ import { beginScopeChange, finishScopeChange, type ScopeBefore } from "@/lib/fra
  * A Compliance Boundary's changes to its member Systems' effective Framework Scope (#419, ADR 0016). Each one is a scope change
  * like a declared one: it recomputes applicability (Control Assessments are added Not Started; untouched ones of Controls that
  * stop applying are removed, touched ones are kept and show as stale), logs a Change Event on each System whose applicable
- * Controls changed, and starts or widens a Change Review on an Onboarded System when Controls are added. It all runs on the
+ * Controls changed, and starts or widens a Change Review on a System with an ATO or Onboarded when Controls are added. It all runs on the
  * caller's transaction `tx` (the change and its recompute commit together), through the same `beginScopeChange` and
  * `finishScopeChange` a declared change uses. The caller reconciles Review Steps after the commit (the returned ids) and wraps
  * the transaction in `recordProviderChanges` for member Systems that are Providers.
@@ -67,7 +67,7 @@ const names = (frameworks: { name: string; version: string }[]) => frameworks.ma
 /**
  * Makes `frameworkIds` the Boundary's whole Framework list (the caller has validated them), and fans the change out to every
  * member System, closed ones included (a recompute keeps their Assessments true to their scope, like the catalog recompute does):
- * one Change Event on each System whose applicable Controls changed, and a Change Review where an Onboarded System gains
+ * one Change Event on each System whose applicable Controls changed, and a Change Review where a System with an ATO or Onboarded gains
  * Controls. Systems are locked in id order, so two overlapping fan-outs can't deadlock. A System that is in another Boundary
  * holding the same Framework, or declares it, keeps it in scope and so changes nothing. Returns the ids of the member Systems whose
  * Review Steps to reconcile after the commit (all members when a Framework was added or dropped, else none).

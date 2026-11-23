@@ -164,11 +164,26 @@ describe("Boundary candidates and the join preview (#423)", { timeout: 90_000 },
       const draftBody = await (await preview(cmId, boundary, draft)).json();
       expect(draftBody.preview.newControls.map((control: { id: string }) => control.id).sort()).toEqual([c1, c2].sort());
       expect(Object.fromEntries(draftBody.preview.newControls.map((control: { id: string; fulfilled: boolean }) => [control.id, control.fulfilled]))).toEqual({ [c1]: false, [c2]: true });
-      expect(draftBody.preview).toMatchObject({ onboarded: false, startsChangeReview: false, state: "NOT_YET_OPERATING" });
+      expect(draftBody.preview).toMatchObject({ hasAto: false, startsChangeReview: false, state: "NOT_YET_OPERATING" });
 
       const onboardedBody = await (await preview(cmId, boundary, onboarded)).json();
-      expect(onboardedBody.preview).toMatchObject({ onboarded: true, startsChangeReview: true, state: "OPERATING" });
+      expect(onboardedBody.preview).toMatchObject({ hasAto: true, startsChangeReview: true, state: "OPERATING" });
       expect(onboardedBody.preview.newControls).toHaveLength(2);
+    });
+
+    it("predicts a Change Review for an Approved System (an ATO, not Onboarded), and none for a closed one (#437)", async () => {
+      const boundary = await makeBoundary("preview approved", [fw1]);
+      const approved = await makeSystem("prev approved", "APPROVED");
+      const closed = await makeSystem("prev closed", "APPROVED", [], true);
+      const body = (await (await preview(cmId, boundary, approved)).json()).preview;
+      expect(body).toMatchObject({ hasAto: true, startsChangeReview: true, state: "OPERATING" });
+      expect(await snapshot(approved, boundary)).toBeTruthy();
+      // The prediction is what the join does.
+      expect((await join(boundary, approved)).status).toBe(201);
+      const [review] = await prisma.changeReview.findMany({ where: { systemId: approved } });
+      expect(review.status).toBe("OPEN");
+      expect((await prisma.system.findUniqueOrThrow({ where: { id: approved } })).status).toBe("APPROVED");
+      expect((await preview(cmId, boundary, closed)).status).toBe(409); // a closed System is refused, so no review is predicted
     });
 
     it("says nothing new applies for a prepared System, with no Change Review even when Onboarded", async () => {
@@ -176,7 +191,7 @@ describe("Boundary candidates and the join preview (#423)", { timeout: 90_000 },
       const prepared = await makeSystem("prev prepared", "ONBOARDED", [fw1]);
       const { preview: body } = await (await preview(cmId, boundary, prepared)).json();
       expect(body.newControls).toEqual([]);
-      expect(body).toMatchObject({ onboarded: true, startsChangeReview: false });
+      expect(body).toMatchObject({ hasAto: true, startsChangeReview: false });
     });
 
     it("a person-set Assessment kept from before decides the status, so inheritance does not make it Fulfilled", async () => {
@@ -221,7 +236,7 @@ describe("Boundary candidates and the join preview (#423)", { timeout: 90_000 },
         const system = await makeSystem("remit only", "ONBOARDED", [fw1]); // C1 already applies, in Framework 1's group
         const { preview: body } = await (await preview(cmId, boundary, system)).json();
         expect(body.newControls).toEqual([]);
-        expect(body).toMatchObject({ onboarded: true, startsChangeReview: true });
+        expect(body).toMatchObject({ hasAto: true, startsChangeReview: true });
 
         expect((await join(boundary, system)).status).toBe(201);
         expect(await prisma.changeReview.count({ where: { systemId: system } })).toBe(1);

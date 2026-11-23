@@ -19,9 +19,11 @@ The groups of ADR 0010 stay as they are, now called the **Onboarding Advisory Gr
 
 The gates are decided by the **Business System Owner (BSO)**, a new per-System assignment of any User. The BSO can't be the System's owner. The BSO decides Qualification, OG2 and OG3 whatever the Recommendations say, but deciding against an Advise-against needs a written justification. At each of these gates the BSO can **Reject**, which is final (the System is closed and kept read-only), or **Send back** to an earlier stage. Sending back to the first round re-runs OG1, so the Track can change.
 
-The gap ADR 0010 accepted, that a Framework added to an Onboarded System gets no review, is closed by a **Change Review**. It starts when a change to scope or classification adds Controls to a group's remit on an Onboarded System. Only those groups give Recommendations. The System stays Onboarded, and the BSO accepts the change or revokes the ATO, which sends the System back to a stage the BSO picks.
+The gap ADR 0010 accepted, that a Framework added to an Onboarded System gets no review, is closed by a **Change Review**. It starts when a change to scope or classification adds Controls to a group's remit on a System that has an ATO or is Onboarded (amended, see the note below). Only those groups give Recommendations. The System keeps its status, and the BSO accepts the change or revokes the ATO, which sends the System back to a stage the BSO picks.
 
 Systems already in evaluation when this ships stay on today's flow until a separate track that grants an **Interim ATO (IATO)** exists. Approved Systems count as ATO, and Onboarded Systems stay Onboarded.
+
+**Note, 2026-11-23 (issue #437, product owner):** a Change Review also starts for a System with an ATO that is not yet Onboarded (status Approved), not only for an Onboarded one, for every change that adds Controls to a group's remit. Without it an Approved System that joined a Compliance Boundary got the new Controls as work for its owner while no group recommended and the BSO never reconsidered the ATO. The System stays Approved during the review. Marking an Approved System Onboarded while a review is open is allowed and leaves the review open: a review belongs to the System, and refusing would add a blocker to a System the BSO has already let operate.
 
 ## Consequences
 

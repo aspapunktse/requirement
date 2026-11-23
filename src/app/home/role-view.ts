@@ -283,7 +283,7 @@ async function roleDraftView(user: { id: string; name: string; role: UserRole })
       href: `/systems/${system.id}#evaluation`,
     }),
   );
-  // A group's open Recommendation on a Change Review of an Onboarded System (#334).
+  // A group's open Recommendation on a Change Review of a System with an ATO or Onboarded (#334, #437).
   const changeReviewRecommendationRows = openChangeReviewRecommendations.map(
     ({ system, participant }): TaskRow => ({
       id: `${system.id}:change-review:${participant.reviewGroupId ?? "base"}`,

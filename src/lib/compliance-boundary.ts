@@ -131,14 +131,14 @@ export type PreparedCandidate = { id: string; name: string; state: MemberState; 
 /**
  * What adding a System to a Boundary would do (#423), read-only. `newControls` are the Controls that would newly apply, each with
  * whether it is already effectively Fulfilled for the System (its own Assessment or inheritance counts); empty means "nothing new
- * applies". `onboarded` is whether the System is Onboarded, and `startsChangeReview` whether joining would start (or widen) a Change
- * Review: Onboarded, open, and the new Controls add to some participant's remit.
+ * applies". `hasAto` is whether the System has an ATO (Approved) or is Onboarded, and open, and `startsChangeReview` whether joining would start (or widen) a Change
+ * Review: it has an ATO or is Onboarded, open, and the new Controls add to some participant's remit.
  */
 export type JoinPreview = {
   systemId: string;
   systemName: string;
   state: MemberState;
-  onboarded: boolean;
+  hasAto: boolean;
   startsChangeReview: boolean;
   newControls: { id: string; code: string; title: string; fulfilled: boolean }[];
 };

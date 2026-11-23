@@ -199,7 +199,7 @@ export type ScopeChangeResult = { added: number; removed: number; changed: boole
  * Second half of a scope change, after the change itself was written on `tx`: reads the effective scope again, syncs the
  * Assessment rows the way a classification change does (`diffApplicabilityOps`: untouched ones of Controls that stopped
  * applying are removed, touched ones are kept and show as stale; new ones start Not Started), logs the Change Event
- * and starts or widens a Change Review on an Onboarded System (#334), all on `tx`. `describe` words the Change Event; with
+ * and starts or widens a Change Review on a System with an ATO or Onboarded (#334, #437), all on `tx`. `describe` words the Change Event; with
  * `logUnchanged` false nothing is logged when the applicable Controls did not change (a Boundary change that moved nothing here).
  * The caller reconciles Review Steps after the commit (`reconcileReviewSteps`).
  */

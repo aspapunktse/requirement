@@ -169,7 +169,7 @@ export default async function SystemDetailPage({ params }: PageProps<"/systems/[
 
   // Keyed on the System and the acting user, so switching either starts from a clean state.
   const hasOpenChangeReview = (await prisma.changeReview.count({ where: { systemId: system.id, status: "OPEN" } })) > 0;
-  // An open Change Review on an Onboarded System (#334) sits below the header card, above the tabs, until the Business System Owner decides.
+  // An open Change Review on a System with an ATO or Onboarded (#334, #437) sits below the header card, above the tabs, until the Business System Owner decides.
   // The newest Change Event is the panel's revision: a classification, Assessment or Business System Owner change, or a
   // Recommendation, adds one, so the panel reads again after each `router.refresh()` instead of showing a stale view.
   const latestEvent = hasOpenChangeReview

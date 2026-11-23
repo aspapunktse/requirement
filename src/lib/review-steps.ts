@@ -341,7 +341,7 @@ export async function reopenStepsForEdit(
   const reopenedVerdicts = [
     ...(await reopenVerdictsForEdit(tx, systemId, control, actorId)),
     ...(await reopenRecommendationsForEdit(tx, systemId, control, actorId)),
-    // An open Change Review on an Onboarded System (#334): the same for its Recommendations.
+    // An open Change Review on a System with an ATO or Onboarded (#334, #437): the same for its Recommendations.
     ...(await reopenChangeReviewRecommendationsForEdit(tx, systemId, control, actorId)),
   ];
   const current = await readCurrentSteps(tx, systemId);

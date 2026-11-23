@@ -529,7 +529,7 @@ function MembershipDrawer({
 const SHOWN_CONTROLS = 10;
 
 const changeReviewSentence = (data: JoinPreview) =>
-  data.startsChangeReview ? "The System is Onboarded: adding it starts a Change Review." : data.onboarded ? "The System is Onboarded, but no Change Review starts." : "No Change Review starts: the System is not Onboarded.";
+  data.startsChangeReview ? "The System has an ATO or is Onboarded: adding it starts a Change Review." : data.hasAto ? "The System has an ATO or is Onboarded, but no Change Review starts." : "No Change Review starts: the System has no ATO and is not Onboarded.";
 
 /** What adding the chosen System would do (#423): the Controls that would newly apply, how many are already Fulfilled, and any Change Review. */
 function JoinPreviewPanel({ preview }: { preview: { status: "loading" | "ready" | "error"; data?: JoinPreview; message?: string } }) {

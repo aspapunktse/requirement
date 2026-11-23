@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { READ_SNAPSHOT } from "@/lib/read-transaction";
 import { countedMembersWhere, memberState, type BoundaryDetail, type BoundaryFrameworkCompliance, type BoundaryListRow, type JoinPreview, type PreparedCandidate } from "@/lib/compliance-boundary";
 import { previewScopeAddition } from "@/lib/framework-scope";
-import { remitPairsAdded } from "@/lib/change-review";
+import { CHANGE_REVIEW_STATUSES, remitPairsAdded } from "@/lib/change-review";
 import { loadOrganizationStatuses, loadProviderSources, toOwnAssessment } from "@/lib/effective-status-data";
 import { inheritanceSourcesFor, resolveEffectiveStatus } from "@/lib/effective-status";
 import { getComplianceForSystems } from "@/lib/compliance";
@@ -193,13 +193,13 @@ export async function previewJoin(boundaryId: string, systemId: string, db: Pris
       resolveEffectiveStatus(own.get(control.id) ?? null, inheritanceSourcesFor(control, organizationStatuses.get(control.id), providerSources.get(systemId)?.get(control.id))).status === "FULFILLED",
   }));
   const open = system.evaluationClosedAt === null;
-  const onboarded = system.status === "ONBOARDED" && open;
+  const hasAto = CHANGE_REVIEW_STATUSES.includes(system.status) && open;
   return {
     systemId: system.id,
     systemName: system.name,
     state: memberState(system),
-    onboarded,
-    startsChangeReview: onboarded && (await remitPairsAdded(db, before.classification, afterClassification)).length > 0,
+    hasAto,
+    startsChangeReview: hasAto && (await remitPairsAdded(db, before.classification, afterClassification)).length > 0,
     newControls,
   };
 }

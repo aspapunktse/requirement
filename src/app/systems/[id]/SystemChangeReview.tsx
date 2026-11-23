@@ -144,7 +144,7 @@ function DecisionForm({ systemId, review, onDone }: { systemId: string; review: 
 }
 
 /**
- * The open Change Review of an Onboarded System (#334, PRD 0002 F-CR): the groups whose remit a change widened, each with the Controls
+ * The open Change Review of a System with an ATO or Onboarded (#334, PRD 0002 F-CR): the groups whose remit a change widened, each with the Controls
  * added to it and its Recommendation; the Business System Owner then accepts or revokes the ATO. Rendered by the System page only
  * while a review is open. Reads `GET /api/systems/[id]/change-review`; after an action it reads again and refreshes the page.
  */
@@ -181,7 +181,7 @@ export function SystemChangeReview({ systemId, revision = "" }: { systemId: stri
       </div>
       <div className="hc-card-b">
         <p className="sc-callout warn">
-          A change added Controls to the remit of the groups below. The System stays Onboarded while they recommend on just those Controls and the Business System Owner decides.
+          A change added Controls to the remit of the groups below. The System keeps its status (ATO or Onboarded) while they recommend on just those Controls and the Business System Owner decides.
         </p>
         <ul className="ev-verdicts" aria-label="Change Review Recommendations">
           {review.participants.map((participant) => (
