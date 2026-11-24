@@ -181,6 +181,17 @@ describe("header (#243)", () => {
     expect(screen.getByText("Provider")).toBeInTheDocument();
   });
 
+  it("offers the OSCAL Package download on an open System, and not on a Rejected or Not selected one (#442)", () => {
+    renderCockpit();
+    expect(screen.getByRole("link", { name: "Download OSCAL Package" })).toHaveAttribute("href", "/api/systems/s1/oscal-package");
+    cleanup();
+    renderCockpit({ system: { ...view().system, status: "REJECTED" }, nextStep: { kind: "none" } });
+    expect(screen.queryByRole("link", { name: "Download OSCAL Package" })).not.toBeInTheDocument();
+    cleanup();
+    renderCockpit({ system: { ...view().system, status: "NOT_SELECTED" }, nextStep: { kind: "none" } });
+    expect(screen.queryByRole("link", { name: "Download OSCAL Package" })).not.toBeInTheDocument();
+  });
+
   const notSelected = (over: Partial<SystemPageView> = {}) => ({ system: { ...view().system, status: "NOT_SELECTED" as const }, nextStep: { kind: "none" as const }, ...over });
 
   it("shows a Not selected System as Not selected on the stepper, with a notice, and no Reopen for anyone but an Admin (#376)", () => {

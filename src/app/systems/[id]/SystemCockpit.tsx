@@ -288,6 +288,12 @@ export function SystemCockpit({
             {system.description && <p className="sc-desc">{system.description}</p>}
           </div>
           <div className="sc-actions">
+            {/* The OSCAL Package (#442): anyone who sees the System may download it, except for a Rejected or Not selected one (the route refuses those with 409). */}
+            {system.status !== "REJECTED" && system.status !== "NOT_SELECTED" && !system.evaluation?.closed && (
+              <a className="hc-btn" href={`/api/systems/${system.id}/oscal-package`} download>
+                Download OSCAL Package
+              </a>
+            )}
             {next.kind === "submit" && (
               <>
                 <button
