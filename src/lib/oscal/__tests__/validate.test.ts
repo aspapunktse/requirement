@@ -81,6 +81,24 @@ describe("validateOscalPackage", () => {
     expect(errors[0].path).toBe("/catalog/controls/0/id");
   });
 
+  it("fails the schema layer for a malformed document-level $schema", () => {
+    for (const bad of [123, "not a uri ::"]) {
+      const pkg = goodPackage();
+      Object.assign(pkg.catalog, { $schema: bad });
+      const errors = validateOscalPackage(pkg);
+      expect(errors.length).toBeGreaterThan(0);
+      expect(errors.every((e) => e.layer === "schema" && e.document === "catalog" && e.path === "/$schema")).toBe(true);
+    }
+  });
+
+  it("accepts a valid URI as $schema", () => {
+    const pkg = goodPackage();
+    Object.assign(pkg.catalog, {
+      $schema: "http://csrc.nist.gov/ns/oscal/1.0/1.2.3/oscal-complete-schema.json",
+    });
+    expect(validateOscalPackage(pkg)).toEqual([]);
+  });
+
   it("does not run the reference layer when a schema error exists", () => {
     const pkg = goodPackage();
     pkg.catalog.catalog.controls[0].id = "5.1 Policy";

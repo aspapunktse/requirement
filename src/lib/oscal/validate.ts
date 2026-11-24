@@ -43,7 +43,7 @@ type Json = Record<string, unknown>;
 const isObject = (v: unknown): v is Json => typeof v === "object" && v !== null && !Array.isArray(v);
 const asArray = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
 
-let validators: Record<OscalDocumentName, ValidateFunction> | undefined;
+let validators: (Record<OscalDocumentName, ValidateFunction> & { directive: ValidateFunction }) | undefined;
 function getValidators() {
   if (!validators) {
     const ajv = new Ajv({ strict: false, allErrors: true });
@@ -55,7 +55,9 @@ function getValidators() {
       if (!fn) throw new Error(`OSCAL schema definition ${MODEL_DEFINITION[name]} not found`);
       return fn;
     };
-    validators = { catalog: get("catalog"), profile: get("profile"), ssp: get("ssp") };
+    const directive = ajv.getSchema(`${id}#/definitions/json-schema-directive`);
+    if (!directive) throw new Error("OSCAL schema definition json-schema-directive not found");
+    validators = { catalog: get("catalog"), profile: get("profile"), ssp: get("ssp"), directive };
   }
   return validators;
 }
@@ -72,7 +74,13 @@ export function schemaErrors(document: OscalDocumentName, doc: unknown): OscalVa
     path: `/${k}`,
     message: `must not have the property "${k}"`,
   }));
-  const validate = getValidators()[document];
+  const { directive, ...models } = getValidators();
+  if ("$schema" in doc && !directive(doc.$schema)) {
+    for (const e of directive.errors ?? []) {
+      errors.push({ layer: "schema", document, path: "/$schema", message: e.message ?? "is invalid" });
+    }
+  }
+  const validate = models[document];
   if (!validate(doc[root])) {
     for (const e of validate.errors ?? []) {
       const extraProperty = e.keyword === "additionalProperties" ? ` (${JSON.stringify(e.params.additionalProperty)})` : "";
