@@ -228,7 +228,7 @@ describe("GET OSCAL Package (#442)", { timeout: 90_000 }, () => {
     expect(declared).toHaveLength(1);
     expect(declared[0].title).toBe(N("Payroll"));
     expect(declared[0].description).toBe("Salary data.");
-    expect(declared[0]["confidentiality-impact"].base).toBe("sensitivity-level-2");
+    expect(declared[0]["confidentiality-impact"].base).toBe("Internal");
     const none = (await unzip(await download(users.owner, system.onboarded))).ssp["system-security-plan"]["system-characteristics"]["system-information"]["information-types"];
     expect(none[0].title).toBe("No Information Type declared");
   });
@@ -239,6 +239,10 @@ describe("GET OSCAL Package (#442)", { timeout: 90_000 }, () => {
       expect(doc.metadata["oscal-version"]).toBe("1.2.3");
       expect(doc.metadata.version).toMatch(/^\d+\.\d+\.\d+/);
       expect(Date.parse(doc.metadata["last-modified"])).not.toBeNaN();
+      const props = Object.fromEntries(doc.metadata.props.map((p: Doc) => [p.name, p.value]));
+      expect(props["app-commit"]).toEqual(expect.any(String));
+      expect(props["exporter-version"]).toBe(doc.metadata.version);
+      expect(doc.metadata.parties.map((p: Doc) => p.name)).toContain(N("owner"));
     }
     expect(JSON.stringify(pkg)).not.toContain("@example.com");
   });
@@ -262,7 +266,8 @@ describe("buildOscalPackage", () => {
   it("gives a Control with no Assessment row the Not Started status, and a System with no Information Type a placeholder one", () => {
     const pkg = buildOscalPackage(
       {
-        system: { id: "sys1", name: "S", description: null, status: "DRAFT", informationTypes: [] },
+        system: { id: "sys1", name: "S", description: null, status: "DRAFT", informationTypes: [], deploymentFacets: [], dataLocation: null, integrityImpactLevel: null, availabilityImpactLevel: null, owner: { id: "u1", name: "Owner Name" }, businessSystemOwner: null },
+    exportedBy: { id: "u1", name: "Owner Name" },
         controls: [{ id: "c1", code: "A.1", title: "T", description: "D", applicability: "PER_SYSTEM" }],
         applicableControlIds: ["c1"],
         assessments: [],
@@ -278,5 +283,119 @@ describe("buildOscalPackage", () => {
     expect(pkg.ssp["system-security-plan"]["system-characteristics"]["system-information"]["information-types"][0].title).toBe("No Information Type declared");
     expect(pkg.ssp["system-security-plan"]["control-implementation"]["implemented-requirements"][0]["by-components"][0].props[0].value).toBe("NOT_STARTED");
     expect(pkg.profile.profile.metadata["last-modified"]).toBe("2026-11-24T10:00:00.000Z");
+  });
+});
+
+describe("OSCAL Package: system characteristics and provenance (#444)", { timeout: 90_000 }, () => {
+  const sfx = `${process.pid}-${Date.now()}-444`;
+  const T = (label: string) => `Test #444 ${label} ${sfx}`;
+  const userIds: string[] = [];
+  const systemIds: string[] = [];
+  const typeIds: string[] = [];
+  const controlIds444: string[] = [];
+  let facetIds: string[] = [];
+  let owner: { id: string; name: string };
+  let bso: { id: string; name: string };
+  let admin: { id: string; name: string };
+  let providerName = "";
+  let pkg: { catalog: Doc; profile: Doc; ssp: Doc };
+
+  beforeAll(async () => {
+    const mk = async (key: string, role: UserRole) => {
+      const u = await prisma.user.create({ data: { email: `test-444-${key}-${sfx}@example.com`, name: T(key), role } });
+      userIds.push(u.id);
+      return { id: u.id, name: u.name };
+    };
+    owner = await mk("owner", "SYSTEM_OWNER");
+    bso = await mk("bso", "SYSTEM_OWNER");
+    admin = await mk("admin", "ADMIN");
+    facetIds = [(await prisma.deploymentFacet.create({ data: { name: T("Facet Cloud") } })).id, (await prisma.deploymentFacet.create({ data: { name: T("Facet Mobile") } })).id];
+    const control = await prisma.control.create({
+      data: { code: `T444-${sfx}`, title: T("Control"), description: "Fixture", category: "Test", applicability: "PER_SYSTEM", deploymentFacets: { connect: [{ id: facetIds[0] }] } },
+    });
+    controlIds444.push(control.id);
+    await mapControlsToBase([control.id]);
+    providerName = T("Provider");
+    const provider = await prisma.system.create({ data: { name: providerName, ownerId: owner.id, status: "ONBOARDED" } });
+    const system = await prisma.system.create({
+      data: {
+        name: T("System"),
+        ownerId: owner.id,
+        businessSystemOwnerId: bso.id,
+        status: "DRAFT",
+        dataLocation: "EU_EEA",
+        integrityImpactLevel: "MODERATE",
+        availabilityImpactLevel: "HIGH",
+        deploymentFacets: { connect: facetIds.map((id) => ({ id })) },
+      },
+    });
+    systemIds.push(provider.id, system.id);
+    await prisma.providerDependency.create({ data: { dependentId: system.id, providerId: provider.id } });
+    for (const [label, level] of [["Payroll", 2], ["Health", 4]] as const) {
+      const t = await prisma.informationType.create({ data: { name: T(label), sensitivityLevel: level } });
+      typeIds.push(t.id);
+      await prisma.system.update({ where: { id: system.id }, data: { informationTypes: { connect: [{ id: t.id }] } } });
+    }
+    pkg = await unzip(await download(admin.id, system.id));
+  }, 60_000);
+
+  afterAll(async () => {
+    await cleanupFixtureRequirements();
+    await prisma.providerDependency.deleteMany({ where: { dependentId: { in: systemIds } } });
+    await prisma.system.deleteMany({ where: { id: { in: systemIds } } });
+    await prisma.control.deleteMany({ where: { id: { in: controlIds444 } } });
+    await prisma.informationType.deleteMany({ where: { id: { in: typeIds } } });
+    await prisma.deploymentFacet.deleteMany({ where: { id: { in: facetIds } } });
+    await prisma.user.deleteMany({ where: { id: { in: userIds } } });
+  }, 60_000);
+
+  it("generates the boundary text from Deployment Facets, Data Location and Provider dependencies, and says it is generated", () => {
+    const text = pkg.ssp["system-security-plan"]["system-characteristics"]["authorization-boundary"].description as string;
+    expect(text).toMatch(/^Generated from the System's record/);
+    expect(text).toContain(T("Facet Cloud"));
+    expect(text).toContain(T("Facet Mobile"));
+    expect(text).toContain("EU/EEA");
+    expect(text).toContain(providerName);
+  });
+
+  it("gives each Information Type the three app-named impacts and no fips-199 value", () => {
+    const types = pkg.ssp["system-security-plan"]["system-characteristics"]["system-information"]["information-types"] as Doc[];
+    expect(types).toHaveLength(2);
+    const byTitle = Object.fromEntries(types.map((t) => [t.title, t]));
+    expect(byTitle[T("Payroll")]["confidentiality-impact"].base).toBe("Internal");
+    expect(byTitle[T("Health")]["confidentiality-impact"].base).toBe("Highly Sensitive");
+    for (const t of types) {
+      expect(t["integrity-impact"].base).toBe("Moderate");
+      expect(t["availability-impact"].base).toBe("High");
+    }
+    expect(JSON.stringify(pkg)).not.toContain("fips-199");
+  });
+
+  it("names the owner, Business System Owner and exporting user by name and role, with no email anywhere", () => {
+    const meta = pkg.ssp["system-security-plan"].metadata;
+    const party = (id: string) => meta.parties.find((p: Doc) => p.uuid === oscalUuid("User", id));
+    expect(party(owner.id)).toEqual({ uuid: oscalUuid("User", owner.id), type: "person", name: owner.name });
+    expect(party(bso.id).name).toBe(bso.name);
+    expect(party(admin.id).name).toBe(admin.name);
+    const holders = (role: string) => meta["responsible-parties"].find((r: Doc) => r["role-id"] === role)["party-uuids"];
+    expect(holders("system-owner")).toEqual([oscalUuid("User", owner.id)]);
+    expect(holders("business-system-owner")).toEqual([oscalUuid("User", bso.id)]);
+    expect(holders("exporting-user")).toEqual([oscalUuid("User", admin.id)]);
+    expect(meta.roles.map((r: Doc) => r.title)).toEqual(expect.arrayContaining(["System Owner", "Business System Owner"]));
+    expect(JSON.stringify(pkg)).not.toMatch(/[\w.+-]+@[\w-]+\.[\w.-]+/);
+  });
+
+  it("stamps every document with generation time, commit, exporter version and the exporting user's name", () => {
+    for (const doc of [pkg.catalog.catalog, pkg.profile.profile, pkg.ssp["system-security-plan"]]) {
+      const props = Object.fromEntries(doc.metadata.props.map((p: Doc) => [p.name, p.value]));
+      expect(Date.parse(doc.metadata["last-modified"])).not.toBeNaN();
+      expect(props["app-commit"]).toMatch(/\S/);
+      expect(props["exporter-version"]).toMatch(/^\d+\.\d+\.\d+/);
+      expect(doc.metadata.parties.map((p: Doc) => p.name)).toContain(admin.name);
+    }
+  });
+
+  it("validates with zero errors", () => {
+    expect(validateOscalPackage(pkg)).toEqual([]);
   });
 });

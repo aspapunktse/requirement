@@ -8,7 +8,8 @@
  *
  * Each requirement carries the Control's EFFECTIVE status (#443): the same `inheritanceSourcesFor` + `resolveEffectiveStatus`
  * the System page runs, over inputs read inside the same snapshot, so the SSP can never disagree with the page.
- * People do not appear yet (#444); when they do, by name and role only, never by email.
+ * People (#444) appear by name and role only, never by email: the System's owner and Business System Owner, and the user who
+ * exported. Their party UUIDs derive from the User's id (`oscalUuid("User", id)`, one party per User whatever the roles).
  *
  * Components (UUIDs derive from stable record ids, ADR 0017):
  * - `this-system`: `oscalUuid("System", systemId)`;
@@ -17,7 +18,7 @@
  *   record keeps one identity whichever package it appears in. A Provider is shown by name only (all a dependent may know).
  */
 import { randomUUID } from "node:crypto";
-import type { ControlApplicability, ControlAssessmentStatus, OnboardingStatus, UserRole } from "@prisma/client";
+import type { ControlApplicability, ControlAssessmentStatus, DataLocation, ImpactLevel, OnboardingStatus, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { READ_SNAPSHOT } from "@/lib/read-transaction";
 import { visibleSystemsWhere } from "@/lib/system-visibility";
@@ -32,6 +33,7 @@ import {
   type ResolvedSource,
 } from "@/lib/effective-status";
 import { loadOrganizationStatuses, loadProviderSources, toOwnAssessment } from "@/lib/effective-status-data";
+import { DATA_LOCATION_LABELS } from "@/lib/vendor-detail-labels";
 import { controlId, oscalUuid } from "@/lib/oscal/ids";
 import appPackage from "../../../package.json";
 
@@ -44,8 +46,30 @@ export const PACKAGE_FILES = { catalog: "catalog.json", profile: "profile.json",
 /** The URI the app's own props and its system identifier type live under. Chosen once; never change it. */
 export const OSCAL_APP_NS = "https://requirement.example/ns/oscal";
 export const NO_DESCRIPTION_TEXT = "No implementation description recorded.";
-const PLACEHOLDER_BOUNDARY =
-  "Placeholder: this boundary is not described yet. A later version generates it from the System's Deployment Facets, Data Locations and Provider dependencies.";
+/** What the commit prop says when the build does not know its commit (a local run, a test). One place, so it is never invented elsewhere. */
+export const UNKNOWN_COMMIT = "unknown";
+/** Responsible-party role ids and titles (the app's own role names). */
+const ROLE = {
+  owner: { id: "system-owner", title: "System Owner" },
+  businessOwner: { id: "business-system-owner", title: "Business System Owner" },
+  exporter: { id: "exporting-user", title: "Exporting user" },
+} as const;
+const IMPACT_NAMES: Record<ImpactLevel, string> = { LOW: "Low", MODERATE: "Moderate", HIGH: "High", CRITICAL: "Critical" };
+
+/**
+ * The authorization boundary text, generated from the System's record and saying so. Deployment Facets, Data Location and
+ * Provider dependencies only; there is no stored boundary text.
+ */
+export function boundaryDescription(system: OscalSnapshot["system"], providers: { name: string }[]): string {
+  const list = (items: string[], none: string) => (items.length > 0 ? items.join(", ") : none);
+  const names = (xs: string[]) => [...xs].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+  return [
+    "Generated from the System's record, not written by hand:",
+    `Deployment Facets: ${list(names(system.deploymentFacets), "none declared")}.`,
+    `Data Location: ${system.dataLocation ? DATA_LOCATION_LABELS[system.dataLocation] : "not declared"}.`,
+    `Provider dependencies: ${list(names(providers.map((p) => p.name)), "none")}.`,
+  ].join(" ");
+}
 
 
 /** The rows the package is built from. */
@@ -56,7 +80,17 @@ export type OscalSnapshot = {
     description: string | null;
     status: OnboardingStatus;
     informationTypes: { id: string; name: string; description: string | null; sensitivityLevel: number; sensitivityLabel: string }[];
+    /** The names of the Deployment Facets the System declares. */
+    deploymentFacets: string[];
+    dataLocation: DataLocation | null;
+    integrityImpactLevel: ImpactLevel | null;
+    availabilityImpactLevel: ImpactLevel | null;
+    /** By id and name only; never an email. */
+    owner: { id: string; name: string };
+    businessSystemOwner: { id: string; name: string } | null;
   };
+  /** The user who exports, by id and name only; null if the user row is gone. */
+  exportedBy: { id: string; name: string } | null;
   /** Every Control in the Control Library. */
   controls: { id: string; code: string; title: string; description: string; applicability: ControlApplicability }[];
   /** The ids of the Controls applicable to the System (a subset of `controls`). */
@@ -105,14 +139,31 @@ export function systemState(status: OnboardingStatus): "operational" | "under-de
 
 const prop = (name: string, value: string) => ({ name, ns: OSCAL_APP_NS, value });
 
-function metadata(title: string, now: Date) {
-  const commit = process.env.VERCEL_GIT_COMMIT_SHA;
+type Person = { id: string; name: string; roles: (typeof ROLE)[keyof typeof ROLE][] };
+
+/** Parties, roles and responsible parties for `people`: one party per User (UUID from the User's id), name only. Empty when nobody. */
+function peopleMetadata(people: Person[]) {
+  if (people.length === 0) return {};
+  const roles = [...new Map(people.flatMap((p) => p.roles).map((r) => [r.id, r])).values()];
+  return {
+    roles: roles.map((r) => ({ id: r.id, title: r.title })),
+    parties: people.map((p) => ({ uuid: oscalUuid("User", p.id), type: "person", name: p.name })),
+    "responsible-parties": roles.map((r) => ({
+      "role-id": r.id,
+      "party-uuids": people.filter((p) => p.roles.some((x) => x.id === r.id)).map((p) => oscalUuid("User", p.id)),
+    })),
+  };
+}
+
+function metadata(title: string, now: Date, people: Person[]) {
+  const commit = process.env.VERCEL_GIT_COMMIT_SHA || UNKNOWN_COMMIT;
   return {
     title,
     "last-modified": now.toISOString(),
     version: appPackage.version,
     "oscal-version": OSCAL_VERSION,
-    props: [prop("exporter", "requirement"), prop("exporter-version", appPackage.version), ...(commit ? [prop("app-commit", commit)] : [])],
+    props: [prop("exporter", "requirement"), prop("exporter-version", appPackage.version), prop("app-commit", commit)],
+    ...peopleMetadata(people),
   };
 }
 
@@ -145,6 +196,19 @@ export function buildOscalPackage(snapshot: OscalSnapshot, now: Date, newUuid: (
   const byId = new Map(snapshot.controls.map((c) => [c.id, c]));
   const assessmentByControl = new Map(snapshot.assessments.map((a) => [a.controlId, a]));
   const applicable = snapshot.applicableControlIds.map((id) => byId.get(id)).filter((c): c is OscalSnapshot["controls"][number] => c !== undefined);
+
+  /** Merge a person into the list: the same User in two roles is one party with both. */
+  const people: Person[] = [];
+  const addPerson = (who: { id: string; name: string } | null, role: Person["roles"][number]) => {
+    if (!who) return;
+    const existing = people.find((p) => p.id === who.id);
+    if (existing) existing.roles.push(role);
+    else people.push({ id: who.id, name: who.name, roles: [role] });
+  };
+  addPerson(system.owner, ROLE.owner);
+  addPerson(system.businessSystemOwner, ROLE.businessOwner);
+  const exporter: Person[] = snapshot.exportedBy ? [{ ...snapshot.exportedBy, roles: [ROLE.exporter] }] : [];
+  addPerson(snapshot.exportedBy, ROLE.exporter);
 
   const organizationUuid = oscalUuid("Organization", "organization");
   const organizationByControl = new Map(snapshot.organizationImplementations.map((o) => [o.controlId, o]));
@@ -254,7 +318,7 @@ export function buildOscalPackage(snapshot: OscalSnapshot, now: Date, newUuid: (
   const catalog = {
     catalog: {
       uuid: newUuid(),
-      metadata: metadata("Control Library", now),
+      metadata: metadata("Control Library", now, exporter),
       controls: snapshot.controls.map((c) => ({
         id: controlId(c.code),
         title: c.title,
@@ -267,7 +331,7 @@ export function buildOscalPackage(snapshot: OscalSnapshot, now: Date, newUuid: (
   const profile = {
     profile: {
       uuid: newUuid(),
-      metadata: metadata(`OSCAL Profile of ${system.name}`, now),
+      metadata: metadata(`OSCAL Profile of ${system.name}`, now, exporter),
       imports: [{ href: PACKAGE_FILES.catalog, "include-controls": [{ "with-ids": applicable.map((c) => controlId(c.code)) }] }],
     },
   };
@@ -278,10 +342,14 @@ export function buildOscalPackage(snapshot: OscalSnapshot, now: Date, newUuid: (
           uuid: oscalUuid("InformationType", t.id),
           title: t.name,
           description: t.description?.trim() || t.name,
+          // App naming throughout, never `fips-199-*`. Integrity and Availability are the System's own levels (the app records
+          // them on the System, not per type), so every type carries the same; left out when the System has not set one.
           "confidentiality-impact": {
-            props: [prop("sensitivity-label", t.sensitivityLabel)],
-            base: `sensitivity-level-${t.sensitivityLevel}`,
+            props: [prop("sensitivity-level", String(t.sensitivityLevel))],
+            base: t.sensitivityLabel,
           },
+          ...(system.integrityImpactLevel && { "integrity-impact": { base: IMPACT_NAMES[system.integrityImpactLevel] } }),
+          ...(system.availabilityImpactLevel && { "availability-impact": { base: IMPACT_NAMES[system.availabilityImpactLevel] } }),
         }))
       : [
           {
@@ -295,7 +363,7 @@ export function buildOscalPackage(snapshot: OscalSnapshot, now: Date, newUuid: (
   const ssp = {
     "system-security-plan": {
       uuid: newUuid(),
-      metadata: metadata(`System Security Plan of ${system.name}`, now),
+      metadata: metadata(`System Security Plan of ${system.name}`, now, people),
       "import-profile": { href: PACKAGE_FILES.profile },
       "system-characteristics": {
         "system-ids": [{ "identifier-type": OSCAL_APP_NS, id: systemUuid }],
@@ -304,7 +372,11 @@ export function buildOscalPackage(snapshot: OscalSnapshot, now: Date, newUuid: (
         props: [prop("onboarding-status", system.status)],
         "system-information": { "information-types": informationTypes },
         status: { state },
-        "authorization-boundary": { description: PLACEHOLDER_BOUNDARY },
+        "authorization-boundary": { description: boundaryDescription(system, providers) },
+        "responsible-parties": [ROLE.owner, ROLE.businessOwner].flatMap((r) => {
+          const uuids = people.filter((p) => p.roles.some((x) => x.id === r.id)).map((p) => oscalUuid("User", p.id));
+          return uuids.length > 0 ? [{ "role-id": r.id, "party-uuids": uuids }] : [];
+        }),
       },
       "system-implementation": { components },
       "control-implementation": {
@@ -327,7 +399,9 @@ export async function loadOscalPackage(systemId: string, user: { id: string; rol
     const row = await tx.system.findFirst({
       where: { id: systemId, ...where },
       include: {
-        deploymentFacets: { select: { id: true } },
+        deploymentFacets: { select: { id: true, name: true } },
+        owner: { select: { id: true, name: true } },
+        businessSystemOwner: { select: { id: true, name: true } },
         ...EFFECTIVE_SCOPE_SELECT,
         informationTypes: { select: { id: true, name: true, description: true, sensitivityLevel: true, sensitivity: { select: { label: true } } }, orderBy: { name: "asc" } },
       },
@@ -356,13 +430,21 @@ export async function loadOscalPackage(systemId: string, user: { id: string; rol
       select: { id: true, controlAssessmentId: true, createdAt: true },
       orderBy: [{ createdAt: "asc" }, { id: "asc" }],
     });
+    const exportedBy = await tx.user.findUnique({ where: { id: user.id }, select: { id: true, name: true } });
     return {
+      exportedBy,
       system: {
         id: row.id,
         name: row.name,
         description: row.description,
         status: row.status,
         informationTypes: row.informationTypes.map((t) => ({ id: t.id, name: t.name, description: t.description, sensitivityLevel: t.sensitivityLevel, sensitivityLabel: t.sensitivity.label })),
+        deploymentFacets: row.deploymentFacets.map((f) => f.name),
+        dataLocation: row.dataLocation,
+        integrityImpactLevel: row.integrityImpactLevel,
+        availabilityImpactLevel: row.availabilityImpactLevel,
+        owner: row.owner,
+        businessSystemOwner: row.businessSystemOwner,
       },
       controls,
       applicableControlIds: applicable.map((c) => c.id),

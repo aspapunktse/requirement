@@ -178,7 +178,8 @@ describe("OSCAL Package: inheritance (DB)", () => {
 
 describe("buildOscalPackage: inheritance (pure)", () => {
   const base = (over: Partial<OscalSnapshot>): OscalSnapshot => ({
-    system: { id: "sys", name: "S", description: null, status: "ONBOARDED", informationTypes: [] },
+    system: { id: "sys", name: "S", description: null, status: "ONBOARDED", informationTypes: [], deploymentFacets: [], dataLocation: null, integrityImpactLevel: null, availabilityImpactLevel: null, owner: { id: "u1", name: "Owner Name" }, businessSystemOwner: null },
+    exportedBy: { id: "u1", name: "Owner Name" },
     controls: [{ id: "c1", code: "A.1", title: "T", description: "D", applicability: "PER_SYSTEM" }],
     applicableControlIds: ["c1"],
     assessments: [],
