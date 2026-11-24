@@ -260,9 +260,13 @@ describe("buildOscalPackage", () => {
     const pkg = buildOscalPackage(
       {
         system: { id: "sys1", name: "S", description: null, status: "DRAFT", informationTypes: [] },
-        controls: [{ id: "c1", code: "A.1", title: "T", description: "D" }],
+        controls: [{ id: "c1", code: "A.1", title: "T", description: "D", applicability: "PER_SYSTEM" }],
         applicableControlIds: ["c1"],
         assessments: [],
+        organizationImplementations: [],
+        providers: [],
+        providerSources: [],
+        assessmentRisks: [],
       },
       new Date("2026-11-24T10:00:00Z"),
       () => "00000000-0000-4000-8000-000000000000",
