@@ -3,6 +3,8 @@ import type { OscalPackage } from "@/lib/oscal/package-builder";
 /** The app's own prop that carries the Control Assessment status, and the Control's code on its Catalog control (#442). */
 export const APP_STATUS_PROP = "control-assessment-status";
 export const CODE_PROP = "label";
+/** The status props a by-component may carry, by who does the work: the System itself, the Organization, a Provider (#443). */
+export const ENTRY_STATUS_PROPS = ["control-assessment-status", "organization-status", "provider-status"] as const;
 
 type Prop = { name: string; ns?: string; value: string };
 type ByComponent = {
@@ -22,6 +24,10 @@ export type ReviewEntry = {
   implementationStatus: string | null;
   /** The app's Control Assessment status (an app prop), or null when absent. */
   appStatus: string | null;
+  /** The System's customer half of a Shared Offering: "open" or "done"; null when the entry is not one. */
+  customerHalf: string | null;
+  /** The UUID of the Risk a Waived Control points at; null when none. */
+  risk: string | null;
   description: string;
   remarks: string | null;
 };
@@ -35,6 +41,10 @@ export type ReviewRow = {
   /** Statuses on the implemented requirement itself, if the package carries any. */
   implementationStatus: string | null;
   appStatus: string | null;
+  /** The effective status (after inheritance), where it comes from, and whether the System's own status overrides an inherited one. */
+  effectiveStatus: string | null;
+  effectiveSource: string | null;
+  overridesInherited: boolean;
   entries: ReviewEntry[];
 };
 
@@ -74,11 +84,16 @@ export function buildReviewModel(pkg: OscalPackage, appNs: string): ReviewModel 
       title: control?.title ?? "",
       implementationStatus: req["implementation-status"]?.state ?? null,
       appStatus: appProp(req.props, appNs, APP_STATUS_PROP),
+      effectiveStatus: appProp(req.props, appNs, "effective-status"),
+      effectiveSource: appProp(req.props, appNs, "effective-source"),
+      overridesInherited: appProp(req.props, appNs, "overrides-inherited") === "true",
       entries: (req["by-components"] ?? []).map((b) => ({
         componentTitle: components.get(b["component-uuid"]) ?? b["component-uuid"],
         componentUuid: b["component-uuid"],
         implementationStatus: b["implementation-status"]?.state ?? null,
-        appStatus: appProp(b.props, appNs, APP_STATUS_PROP),
+        appStatus: ENTRY_STATUS_PROPS.map((name) => appProp(b.props, appNs, name)).find((v) => v !== null) ?? null,
+        customerHalf: appProp(b.props, appNs, "customer-half"),
+        risk: appProp(b.props, appNs, "risk"),
         description: b.description ?? "",
         remarks: b.remarks ?? null,
       })),

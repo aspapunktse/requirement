@@ -6,16 +6,32 @@
  * - `buildOscalPackage(snapshot, now)` turns plain rows into the three documents (Catalog, OSCAL Profile, System Security Plan)
  *   as plain objects. Pure apart from `randomUUID` for the document UUIDs, which a caller can replace.
  *
- * This first slice has no inheritance (#443): each requirement carries the System's OWN Control Assessment status.
+ * Each requirement carries the Control's EFFECTIVE status (#443): the same `inheritanceSourcesFor` + `resolveEffectiveStatus`
+ * the System page runs, over inputs read inside the same snapshot, so the SSP can never disagree with the page.
  * People do not appear yet (#444); when they do, by name and role only, never by email.
+ *
+ * Components (UUIDs derive from stable record ids, ADR 0017):
+ * - `this-system`: `oscalUuid("System", systemId)`;
+ * - the Organization (one, always present): `oscalUuid("Organization", "organization")`;
+ * - one per Provider the System depends on: `oscalUuid("System", providerId)`, the Provider's own System UUID, so the same
+ *   record keeps one identity whichever package it appears in. A Provider is shown by name only (all a dependent may know).
  */
 import { randomUUID } from "node:crypto";
-import type { ControlAssessmentStatus, OnboardingStatus, UserRole } from "@prisma/client";
+import type { ControlApplicability, ControlAssessmentStatus, OnboardingStatus, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { READ_SNAPSHOT } from "@/lib/read-transaction";
 import { visibleSystemsWhere } from "@/lib/system-visibility";
 import { EFFECTIVE_SCOPE_SELECT, withEffectiveScope } from "@/lib/effective-framework-scope";
 import { getApplicableControls } from "@/lib/control-assessments";
+import {
+  inheritanceSourcesFor,
+  isSharedSource,
+  resolveEffectiveStatus,
+  sourceHalfMissing,
+  type ProviderSource,
+  type ResolvedSource,
+} from "@/lib/effective-status";
+import { loadOrganizationStatuses, loadProviderSources, toOwnAssessment } from "@/lib/effective-status-data";
 import { controlId, oscalUuid } from "@/lib/oscal/ids";
 import appPackage from "../../../package.json";
 
@@ -42,11 +58,27 @@ export type OscalSnapshot = {
     informationTypes: { id: string; name: string; description: string | null; sensitivityLevel: number; sensitivityLabel: string }[];
   };
   /** Every Control in the Control Library. */
-  controls: { id: string; code: string; title: string; description: string }[];
+  controls: { id: string; code: string; title: string; description: string; applicability: ControlApplicability }[];
   /** The ids of the Controls applicable to the System (a subset of `controls`). */
   applicableControlIds: string[];
   /** The System's own Control Assessments. A Control without one reads as untouched Not Started. */
-  assessments: { controlId: string; status: ControlAssessmentStatus; notes: string | null; evidence: string | null }[];
+  assessments: {
+    id: string;
+    controlId: string;
+    status: ControlAssessmentStatus;
+    notes: string | null;
+    evidence: string | null;
+    /** A person set it (`assessedById` is not null); decides whether an inherited status is overridden. */
+    personSet: boolean;
+  }[];
+  /** The Organization's implementation of each Control it has recorded one for (a Control with no row reads as Not Started). */
+  organizationImplementations: { controlId: string; status: ControlAssessmentStatus; description: string | null }[];
+  /** The Providers the System depends on, by name only. */
+  providers: { id: string; name: string; onboarded: boolean }[];
+  /** The Offerings that reach the System, as `loadProviderSources` gives them. */
+  providerSources: { controlId: string; source: ProviderSource }[];
+  /** The Risks auto-opened from a Control Assessment of the System (`Risk.controlAssessmentId` set). */
+  assessmentRisks: { id: string; controlAssessmentId: string; createdAt: Date }[];
 };
 
 /** The three documents, as plain objects. */
@@ -84,11 +116,25 @@ function metadata(title: string, now: Date) {
   };
 }
 
-function implementationText(a: OscalSnapshot["assessments"][number] | undefined): string {
-  if (!a) return NO_DESCRIPTION_TEXT;
-  // A Not Applicable Control's notes are its rationale: they go in remarks, not in the description.
+/** What a Control Assessment says about the work: notes and evidence; null when it says nothing. A Not Applicable Control's notes are its rationale (remarks), not a description. */
+function ownText(a: OscalSnapshot["assessments"][number] | undefined): string | null {
+  if (!a) return null;
   const parts = [a.status === "NOT_APPLICABLE" ? null : a.notes?.trim(), a.evidence?.trim() ? `Evidence: ${a.evidence.trim()}` : null].filter(Boolean);
-  return parts.length > 0 ? parts.join("\n\n") : NO_DESCRIPTION_TEXT;
+  return parts.length > 0 ? parts.join("\n\n") : null;
+}
+
+/** The Provider's half of an Offering as an OSCAL state: satisfied is implemented; a Fulfilled half that is pending (Provider not Onboarded, Control no longer applies) is only planned. */
+function providerHalfState(source: ProviderSource): string | null {
+  if (sourceHalfMissing(source) === null) return "implemented";
+  const state = IMPLEMENTATION_STATE[source.status];
+  return state === "implemented" ? "planned" : state;
+}
+
+/** The Risk of a Waived Control: of those linked to its Assessment the oldest (`createdAt`, then id), whatever its status. */
+export function riskOfAssessment(risks: OscalSnapshot["assessmentRisks"], assessmentId: string): string | undefined {
+  return risks
+    .filter((r) => r.controlAssessmentId === assessmentId)
+    .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime() || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))[0]?.id;
 }
 
 /** Row data to the three documents. */
@@ -99,6 +145,111 @@ export function buildOscalPackage(snapshot: OscalSnapshot, now: Date, newUuid: (
   const byId = new Map(snapshot.controls.map((c) => [c.id, c]));
   const assessmentByControl = new Map(snapshot.assessments.map((a) => [a.controlId, a]));
   const applicable = snapshot.applicableControlIds.map((id) => byId.get(id)).filter((c): c is OscalSnapshot["controls"][number] => c !== undefined);
+
+  const organizationUuid = oscalUuid("Organization", "organization");
+  const organizationByControl = new Map(snapshot.organizationImplementations.map((o) => [o.controlId, o]));
+  const providerSourcesByControl = new Map<string, ProviderSource[]>();
+  for (const { controlId: id, source } of snapshot.providerSources) providerSourcesByControl.set(id, [...(providerSourcesByControl.get(id) ?? []), source]);
+  const providers = [...snapshot.providers].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  const components = [
+    { uuid: systemUuid, type: "this-system", title: system.name, description: system.description?.trim() || system.name, status: { state } },
+    {
+      uuid: organizationUuid,
+      type: "policy",
+      title: "Organization",
+      description: "The Organization's own implementation of Controls, inherited by every System the Control applies to.",
+      status: { state: "operational" },
+    },
+    ...providers.map((p) => ({
+      uuid: oscalUuid("System", p.id),
+      type: "service",
+      title: p.name,
+      description: `Provider "${p.name}", a System this System depends on.`,
+      status: { state: p.onboarded ? "operational" : "under-development" },
+    })),
+  ];
+
+  /** One by-component entry; `key` keeps its UUID stable per (System, Control, component). */
+  const entry = (c: { id: string }, componentUuid: string, key: string | null, description: string, state: string | null, props: ReturnType<typeof prop>[], remarks?: string) => ({
+    "component-uuid": componentUuid,
+    uuid: oscalUuid("ImplementedBy", ...(key === null ? [system.id, c.id] : [system.id, c.id, key])),
+    description,
+    props,
+    ...(state && { "implementation-status": { state } }),
+    ...(remarks && { remarks }),
+  });
+
+  function implementedRequirement(c: OscalSnapshot["controls"][number]) {
+    const assessment = assessmentByControl.get(c.id);
+    const organization = organizationByControl.get(c.id);
+    const effective = resolveEffectiveStatus(
+      assessment ? toOwnAssessment({ status: assessment.status, assessedById: assessment.personSet ? "person" : null }) : null,
+      inheritanceSourcesFor(c, organization?.status, providerSourcesByControl.get(c.id)),
+    );
+    const ownStatus: ControlAssessmentStatus = assessment?.status ?? "NOT_STARTED";
+    const byComponents: ReturnType<typeof entry>[] = [];
+
+    /** The System's own work: its Assessment's notes and evidence, else (a Shared half) what the Offering leaves to the customer. */
+    const ownPart = (shared: (ResolvedSource & ProviderSource)[]) => {
+      const responsibilities = shared.map((s) => s.customerResponsibility?.trim()).filter(Boolean);
+      const fallback = responsibilities.length > 0 ? `Customer responsibility: ${responsibilities.join(" ")}` : null;
+      const risk = effective.status === "WAIVED" && assessment ? riskOfAssessment(snapshot.assessmentRisks, assessment.id) : undefined;
+      const remarks = ownStatus === "NOT_APPLICABLE" && assessment?.notes?.trim() ? assessment.notes.trim() : undefined;
+      return entry(
+        c,
+        systemUuid,
+        null,
+        ownText(assessment) ?? fallback ?? NO_DESCRIPTION_TEXT,
+        IMPLEMENTATION_STATE[ownStatus],
+        [
+          prop("control-assessment-status", ownStatus),
+          ...(shared.length > 0 ? [prop("customer-half", ownStatus === "FULFILLED" ? "done" : "open")] : []),
+          ...(risk ? [prop("risk", oscalUuid("Risk", risk))] : []),
+        ],
+        remarks,
+      );
+    };
+    const providerPart = (s: ResolvedSource & ProviderSource) => {
+      const reason = sourceHalfMissing(s);
+      return entry(
+        c,
+        oscalUuid("System", s.provider.id),
+        `provider:${s.provider.id}`,
+        NO_DESCRIPTION_TEXT,
+        providerHalfState(s),
+        [prop("offering-type", s.type), prop("provider-status", s.status), ...(reason ? [prop("provider-half-missing", reason)] : [])],
+      );
+    };
+
+    const decided = effective.source;
+    const shared = effective.sources.filter(isSharedSource);
+    if (decided.kind === "ORGANIZATION") {
+      byComponents.push(
+        entry(c, organizationUuid, "organization", organization?.description?.trim() || NO_DESCRIPTION_TEXT, IMPLEMENTATION_STATE[organization?.status ?? "NOT_STARTED"], [
+          prop("organization-status", organization?.status ?? "NOT_STARTED"),
+        ]),
+      );
+    } else if (decided.kind === "PROVIDER" && decided.type === "FULL") {
+      byComponents.push(providerPart(decided as ResolvedSource & ProviderSource));
+    } else if (shared.length > 0) {
+      // A Shared Offering: the Provider's half and the System's own (customer) half, both visible; an open customer half stays owed.
+      for (const s of shared) byComponents.push(providerPart(s));
+      byComponents.push(ownPart(shared));
+    } else {
+      byComponents.push(ownPart([]));
+    }
+
+    return {
+      uuid: oscalUuid("ImplementedRequirement", system.id, c.id),
+      "control-id": controlId(c.code),
+      props: [
+        prop("effective-status", effective.status),
+        prop("effective-source", decided.kind === "ORGANIZATION_DIRECT" ? "ORGANIZATION" : decided.kind),
+        ...(effective.overridesInherited ? [prop("overrides-inherited", "true")] : []),
+      ],
+      "by-components": byComponents,
+    };
+  }
 
   const catalog = {
     catalog: {
@@ -155,31 +306,10 @@ export function buildOscalPackage(snapshot: OscalSnapshot, now: Date, newUuid: (
         status: { state },
         "authorization-boundary": { description: PLACEHOLDER_BOUNDARY },
       },
-      "system-implementation": {
-        components: [{ uuid: systemUuid, type: "this-system", title: system.name, description: system.description?.trim() || system.name, status: { state } }],
-      },
+      "system-implementation": { components },
       "control-implementation": {
-        description: `Controls of the System's OSCAL Profile, with the System's own status for each.`,
-        "implemented-requirements": applicable.map((c) => {
-          const assessment = assessmentByControl.get(c.id);
-          const status: ControlAssessmentStatus = assessment?.status ?? "NOT_STARTED";
-          const implementation = IMPLEMENTATION_STATE[status];
-          const remarks = status === "NOT_APPLICABLE" && assessment?.notes?.trim() ? assessment.notes.trim() : undefined;
-          return {
-            uuid: oscalUuid("ImplementedRequirement", system.id, c.id),
-            "control-id": controlId(c.code),
-            "by-components": [
-              {
-                "component-uuid": systemUuid,
-                uuid: oscalUuid("ImplementedBy", system.id, c.id),
-                description: implementationText(assessment),
-                props: [prop("control-assessment-status", status)],
-                ...(implementation && { "implementation-status": { state: implementation } }),
-                ...(remarks && { remarks }),
-              },
-            ],
-          };
-        }),
+        description: `Controls of the System's OSCAL Profile, with the effective status of each (after inheritance from the Organization and Providers).`,
+        "implemented-requirements": applicable.map((c) => implementedRequirement(c)),
       },
     },
   };
@@ -206,9 +336,26 @@ export async function loadOscalPackage(systemId: string, user: { id: string; rol
     if (row.status === "REJECTED" || row.status === "NOT_SELECTED" || row.evaluationClosedAt) return { closed: row.status };
 
     const classification = withEffectiveScope(row);
-    const controls = await tx.control.findMany({ select: { id: true, code: true, title: true, description: true }, orderBy: { code: "asc" } });
+    const controls = await tx.control.findMany({ select: { id: true, code: true, title: true, description: true, applicability: true }, orderBy: { code: "asc" } });
     const applicable = await getApplicableControls(classification, {}, tx);
-    const assessments = await tx.controlAssessment.findMany({ where: { systemId: row.id }, select: { controlId: true, status: true, notes: true, evidence: true } });
+    const assessmentRows = await tx.controlAssessment.findMany({ where: { systemId: row.id }, select: { id: true, controlId: true, status: true, notes: true, evidence: true, assessedById: true } });
+
+    // The inheritance inputs, read the way the System page reads them (same loaders, same `tx`); sequential, a transaction has one connection.
+    const bothIds = applicable.filter((c) => c.applicability === "BOTH").map((c) => c.id);
+    const organizationStatuses = await loadOrganizationStatuses(bothIds, tx);
+    const organizationRows = bothIds.length === 0 ? [] : await tx.organizationControlImplementation.findMany({ where: { controlId: { in: bothIds } }, select: { controlId: true, description: true } });
+    const organizationDescriptions = new Map(organizationRows.map((o) => [o.controlId, o.description]));
+    const providerSources = (await loadProviderSources([row.id], applicable.map((c) => c.id), tx)).get(row.id);
+    const dependencies = await tx.providerDependency.findMany({
+      where: { dependentId: row.id },
+      select: { provider: { select: { id: true, name: true, status: true } } },
+      orderBy: { id: "asc" },
+    });
+    const risks = await tx.risk.findMany({
+      where: { systemId: row.id, controlAssessmentId: { not: null } },
+      select: { id: true, controlAssessmentId: true, createdAt: true },
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    });
     return {
       system: {
         id: row.id,
@@ -219,7 +366,11 @@ export async function loadOscalPackage(systemId: string, user: { id: string; rol
       },
       controls,
       applicableControlIds: applicable.map((c) => c.id),
-      assessments,
+      assessments: assessmentRows.map(({ assessedById, ...a }) => ({ ...a, personSet: assessedById !== null })),
+      organizationImplementations: [...organizationStatuses].map(([id, status]) => ({ controlId: id, status, description: organizationDescriptions.get(id) ?? null })),
+      providers: dependencies.map((d) => ({ id: d.provider.id, name: d.provider.name, onboarded: d.provider.status === "ONBOARDED" })),
+      providerSources: [...(providerSources ?? [])].flatMap(([id, sources]) => sources.map((source) => ({ controlId: id, source }))),
+      assessmentRisks: risks.flatMap((r) => (r.controlAssessmentId === null ? [] : [{ id: r.id, controlAssessmentId: r.controlAssessmentId, createdAt: r.createdAt }])),
     };
   }, READ_SNAPSHOT);
 
