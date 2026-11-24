@@ -184,9 +184,11 @@ describe("header (#243)", () => {
   it("offers the OSCAL Package download on an open System, and not on a Rejected or Not selected one (#442)", () => {
     renderCockpit();
     expect(screen.getByRole("link", { name: "Download OSCAL Package" })).toHaveAttribute("href", "/api/systems/s1/oscal-package");
+    expect(screen.getByRole("link", { name: "Review OSCAL Package" })).toHaveAttribute("href", "/systems/s1/oscal-package");
     cleanup();
     renderCockpit({ system: { ...view().system, status: "REJECTED" }, nextStep: { kind: "none" } });
     expect(screen.queryByRole("link", { name: "Download OSCAL Package" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Review OSCAL Package" })).not.toBeInTheDocument();
     cleanup();
     renderCockpit({ system: { ...view().system, status: "NOT_SELECTED" }, nextStep: { kind: "none" } });
     expect(screen.queryByRole("link", { name: "Download OSCAL Package" })).not.toBeInTheDocument();

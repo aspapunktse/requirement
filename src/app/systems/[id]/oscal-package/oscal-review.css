@@ -1,0 +1,42 @@
+/* The OSCAL Package review page (#445): a plain A4 document, same look as the Statement of Applicability print page. */
+
+.oscal-print { max-width: 210mm; margin: 0 auto; padding: 24px; color: var(--rg-ink); font-size: 13px; line-height: 1.4; }
+.oscal-print h1 { font-size: 24px; margin: 0 0 2px; }
+.oscal-faint { color: var(--rg-muted); }
+.oscal-cover { margin-bottom: 20px; padding-bottom: 14px; border-bottom: 2px solid var(--rg-ink); }
+.oscal-cover dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; margin: 14px 0; }
+.oscal-cover dt { font-weight: 700; }
+.oscal-cover dd { margin: 0; }
+.oscal-note { margin: 0; font-size: 12px; color: var(--rg-muted); }
+.oscal-link { text-decoration: underline; }
+
+.oscal-table { width: 100%; border-collapse: collapse; }
+.oscal-table th, .oscal-table td { border: 1px solid var(--rg-line); padding: 5px 7px; text-align: left; vertical-align: top; }
+.oscal-table th { background: var(--rg-accent-soft); font-size: 12px; }
+.oscal-table td:nth-child(1) { width: 22%; }
+.oscal-table td:nth-child(2) { width: 30%; }
+.oscal-table tr { break-inside: avoid; }
+.oscal-ids code { font-size: 11px; overflow-wrap: anywhere; }
+.oscal-entry + .oscal-entry { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--rg-line); }
+.oscal-entry p { margin: 2px 0 0; white-space: pre-wrap; }
+
+.oscal-screen-only { margin: 6px 0 10px; }
+.oscal-print-button { border: 1px solid var(--rg-line); border-radius: 10px; background: var(--rg-accent); color: var(--rg-on-accent); font: inherit; font-weight: 600; padding: 7px 14px; cursor: pointer; }
+
+@page {
+  size: A4;
+  margin: 16mm 14mm 18mm;
+  @bottom-center { content: "Page " counter(page) " of " counter(pages); font-size: 9pt; color: #444; }
+}
+
+@media print {
+  /* The app's navigation bar (the root layout's header) and the on-screen controls are not part of the document. */
+  body:has(.oscal-print) header:not(.oscal-cover), .oscal-screen-only { display: none !important; }
+  html:has(.oscal-print), body:has(.oscal-print) { background: #fff !important; color: #000 !important; }
+  .oscal-print { max-width: none; margin: 0; padding: 0; color: #000; font-size: 9.5pt; }
+  .oscal-faint, .oscal-note { color: #333; }
+  .oscal-table { color: #000; }
+  .oscal-table th, .oscal-table td { border-color: #666; }
+  .oscal-table th { background: #eee; }
+  .oscal-table thead { display: table-header-group; }
+}

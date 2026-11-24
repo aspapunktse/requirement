@@ -294,6 +294,11 @@ export function SystemCockpit({
                 Download OSCAL Package
               </a>
             )}
+            {system.status !== "REJECTED" && system.status !== "NOT_SELECTED" && !system.evaluation?.closed && (
+              <a className="hc-btn ghost" href={`/systems/${system.id}/oscal-package`}>
+                Review OSCAL Package
+              </a>
+            )}
             {next.kind === "submit" && (
               <>
                 <button
