@@ -32,6 +32,8 @@
 @media print {
   /* The app's navigation bar (the root layout's header) and the on-screen controls are not part of the document. */
   body:has(.oscal-print) header:not(.oscal-cover), .oscal-screen-only { display: none !important; }
+  /* Fixed-position overlays from the root layout (the AI assistant panel and its button) must not print over the document. */
+  body:has(.oscal-print) .fixed { display: none !important; }
   html:has(.oscal-print), body:has(.oscal-print) { background: #fff !important; color: #000 !important; }
   .oscal-print { max-width: none; margin: 0; padding: 0; color: #000; font-size: 9.5pt; }
   .oscal-faint, .oscal-note { color: #333; }
