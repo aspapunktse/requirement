@@ -11,6 +11,7 @@ afterEach(cleanup);
 const NS = "https://requirement.example/ns/oscal";
 const GAP = "No implementation description recorded.";
 const prop = (value: string) => ({ name: "control-assessment-status", ns: NS, value });
+const app = (name: string, value: string) => ({ name, ns: NS, value });
 
 const pkg = {
   catalog: {
@@ -18,6 +19,8 @@ const pkg = {
       controls: [
         { id: "a-5-15", title: "Access control", props: [{ name: "label", value: "A.5.15" }] },
         { id: "a-8-2", title: "Privileged access", props: [{ name: "label", value: "A.8.2" }] },
+        { id: "a-8-9", title: "Configuration management", props: [{ name: "label", value: "A.8.9" }] },
+        { id: "a-5-1", title: "Policies", props: [{ name: "label", value: "A.5.1" }] },
       ],
     },
   },
@@ -30,6 +33,7 @@ const pkg = {
         components: [
           { uuid: "c-system", title: "Test Payroll" },
           { uuid: "c-provider", title: "Test Hosting Provider" },
+          { uuid: "c-shared", title: "Test Shared Provider" },
         ],
       },
       "control-implementation": {
@@ -41,6 +45,21 @@ const pkg = {
               { "component-uuid": "c-system", description: "Roles are reviewed quarterly.", props: [prop("FULFILLED")], "implementation-status": { state: "implemented" } },
               { "component-uuid": "c-provider", description: "Hosting access is managed by the Provider.", props: [prop("IN_PROGRESS")], "implementation-status": { state: "partial" } },
             ],
+          },
+          {
+            uuid: "req-3",
+            "control-id": "a-8-9",
+            props: [app("effective-status", "IN_PROGRESS"), app("effective-source", "SYSTEM")],
+            "by-components": [
+              { "component-uuid": "c-shared", description: GAP, props: [app("offering-type", "SHARED"), app("provider-status", "FULFILLED")], "implementation-status": { state: "implemented" } },
+              { "component-uuid": "c-system", description: "Customer responsibility: configure the tenant.", props: [prop("IN_PROGRESS"), app("customer-half", "open")], "implementation-status": { state: "partial" } },
+            ],
+          },
+          {
+            uuid: "req-4",
+            "control-id": "a-5-1",
+            props: [app("effective-status", "WAIVED"), app("effective-source", "SYSTEM"), app("overrides-inherited", "true")],
+            "by-components": [{ "component-uuid": "c-system", description: GAP, props: [prop("WAIVED"), app("risk", "risk-uuid-1")] }],
           },
           { uuid: "req-2", "control-id": "a-8-2", "by-components": [{ "component-uuid": "c-system", description: GAP, props: [prop("NOT_STARTED")] }] },
         ],
@@ -79,5 +98,19 @@ describe("the OSCAL Package review page (#445)", () => {
     expect(within(row).getByText(GAP)).toBeInTheDocument();
     expect(within(row).getByText("OSCAL status: None; app status: NOT_STARTED")).toBeInTheDocument();
     expect(within(row).getByText("req-2")).toBeInTheDocument();
+  });
+
+  it("shows the effective status and source, each part's own status, the open customer half and the Risk", () => {
+    render(<OscalPackageReview pkg={pkg} systemId="s1" appNs={NS} />);
+    const shared = screen.getByText("A.8.9").closest("tr") as HTMLElement;
+    expect(within(shared).getByText("Effective status: IN_PROGRESS; source: SYSTEM")).toBeInTheDocument();
+    expect(within(shared).getByText("OSCAL status: implemented; app status: FULFILLED")).toBeInTheDocument();
+    expect(within(shared).getByText("OSCAL status: partial; app status: IN_PROGRESS")).toBeInTheDocument();
+    expect(within(shared).getByText("Test Shared Provider")).toBeInTheDocument();
+    expect(within(shared).getByText("Customer half: open")).toBeInTheDocument();
+
+    const waived = screen.getByText("A.5.1").closest("tr") as HTMLElement;
+    expect(within(waived).getByText("Effective status: WAIVED; source: SYSTEM; overrides an inherited status")).toBeInTheDocument();
+    expect(within(waived).getByText("risk-uuid-1")).toBeInTheDocument();
   });
 });

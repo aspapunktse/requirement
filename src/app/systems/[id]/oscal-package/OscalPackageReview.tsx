@@ -72,6 +72,12 @@ export function OscalPackageReview({ pkg, systemId, appNs }: { pkg: OscalPackage
                     OSCAL status: {row.implementationStatus ?? dash}; app status: {row.appStatus ?? dash}
                   </div>
                 )}
+                {row.effectiveStatus && (
+                  <div>
+                    Effective status: {row.effectiveStatus}; source: {row.effectiveSource ?? dash}
+                    {row.overridesInherited && "; overrides an inherited status"}
+                  </div>
+                )}
               </td>
               <td>
                 {row.entries.length === 0 && <p className="oscal-faint">No component entry.</p>}
@@ -83,6 +89,12 @@ export function OscalPackageReview({ pkg, systemId, appNs }: { pkg: OscalPackage
                     <div>
                       OSCAL status: {entry.implementationStatus ?? dash}; app status: {entry.appStatus ?? dash}
                     </div>
+                    {entry.customerHalf && <div>Customer half: {entry.customerHalf}</div>}
+                    {entry.risk && (
+                      <div>
+                        Risk: <code>{entry.risk}</code>
+                      </div>
+                    )}
                     <p>{entry.description}</p>
                     {entry.remarks && <p className="oscal-faint">{entry.remarks}</p>}
                   </div>

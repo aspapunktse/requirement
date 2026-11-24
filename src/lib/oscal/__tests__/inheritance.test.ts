@@ -22,6 +22,16 @@ describe("OSCAL Package: inheritance (DB)", () => {
   const ids = { system: "", provider: "", riskId: "" };
   let ssp: Doc;
   let pkg: Awaited<ReturnType<typeof loadOscalPackage>>;
+  let pageRows: Awaited<ReturnType<typeof getSystemAssessments>>;
+
+  // The fixtures live only while the package and the page's rows are read (the Systems are Onboarded, so other files'
+  // counts of visible Systems would otherwise move while this file runs); the tests then read what was captured.
+  async function removeFixtures() {
+    await cleanupFixtureRequirements();
+    await prisma.risk.deleteMany({ where: { systemId: ids.system } });
+    await prisma.system.deleteMany({ where: { id: { in: [ids.system, ids.provider] } } });
+    await prisma.control.deleteMany({ where: { id: { in: Object.values(extra).map((c) => c.id) } } });
+  }
 
   const requirementOf = (code: string) => {
     const r = ssp["control-implementation"]["implemented-requirements"].find((x: Doc) => x["control-id"] === controlId(code));
@@ -76,21 +86,21 @@ describe("OSCAL Package: inheritance (DB)", () => {
     ).id;
     // Not Started: no row at all.
 
-    pkg = await loadOscalPackage(ids.system, { id: fx.users.owner, role: "SYSTEM_OWNER" });
-    if (pkg.kind !== "ok") throw new Error(`package: ${pkg.kind}`);
-    ssp = pkg.pkg.ssp["system-security-plan"];
+    try {
+      pkg = await loadOscalPackage(ids.system, { id: fx.users.owner, role: "SYSTEM_OWNER" });
+      if (pkg.kind !== "ok") throw new Error(`package: ${pkg.kind}`);
+      ssp = pkg.pkg.ssp["system-security-plan"];
+      const row = await prisma.system.findUniqueOrThrow({ where: { id: ids.system }, include: { deploymentFacets: true, ...EFFECTIVE_SCOPE_SELECT } });
+      pageRows = await getSystemAssessments(withEffectiveScope(row));
+    } finally {
+      await removeFixtures();
+    }
   });
 
-  afterAll(async () => {
-    await cleanupFixtureRequirements();
-    await prisma.risk.deleteMany({ where: { systemId: ids.system } });
-    await prisma.system.deleteMany({ where: { id: { in: [ids.system, ids.provider] } } });
-    await prisma.control.deleteMany({ where: { id: { in: Object.values(extra).map((c) => c.id) } } });
-  });
+  afterAll(removeFixtures);
 
   it("has the same effective status as the System page for every applicable Control", async () => {
-    const row = await prisma.system.findUniqueOrThrow({ where: { id: ids.system }, include: { deploymentFacets: true, ...EFFECTIVE_SCOPE_SELECT } });
-    const rows = await getSystemAssessments(withEffectiveScope(row));
+    const rows = pageRows;
     expect(rows.length).toBeGreaterThanOrEqual(6);
     const requirements = ssp["control-implementation"]["implemented-requirements"] as Doc[];
     expect(requirements).toHaveLength(rows.length);
