@@ -465,7 +465,6 @@ export function buildOscalPackage(snapshot: OscalSnapshot, now: Date, newUuid: (
     audit: snapshot.audit,
     system: { id: system.id, name: system.name, owner: system.owner },
     controls: byId,
-    applicableControlIds: new Set(snapshot.applicableControlIds),
     referencedRiskIds,
     exporter: exporter as AuditPerson[],
     newUuid,

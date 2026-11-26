@@ -90,7 +90,6 @@ export type AssessmentContext = {
   audit: OscalAuditSnapshot;
   system: { id: string; name: string; owner: Who };
   controls: Map<string, { id: string; code: string; title: string }>;
-  applicableControlIds: Set<string>;
   /** The Risks the SSP cites for Waived Controls (record ids): each must resolve to a risk in the results. */
   referencedRiskIds: Set<string>;
   exporter: AuditPerson[];
@@ -296,7 +295,7 @@ export function buildAssessmentDocuments(ctx: AssessmentContext) {
   };
 
   const selfAnswers = audit.selfAssessments
-    .filter((a) => ctx.controls.has(a.controlId) && ctx.applicableControlIds.has(a.controlId))
+    .filter((a) => ctx.controls.has(a.controlId))
     .sort((a, b) => byText(ctx.controls.get(a.controlId)!.code, ctx.controls.get(b.controlId)!.code));
   const selfControls = [...new Map(selfAnswers.map((a) => [a.controlId, ctx.controls.get(a.controlId)!])).values()];
   const selfResult =
