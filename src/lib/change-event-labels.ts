@@ -54,6 +54,7 @@ export const CHANGE_EVENT_ACTION_LABEL: Record<ChangeEventAction, string> = {
   COMPARISON_REOPENED: "reopened a Comparison this System is a Candidate in",
   SYSTEM_NOT_SELECTED: "closed a System as Not selected",
   SYSTEM_REOPENED: "reopened a Not selected System",
+  OSCAL_RELEASE_MADE: "made an OSCAL Release",
 };
 
 export type ChangeEventTone = "ok" | "warn" | "danger" | "accent";
@@ -96,6 +97,7 @@ export const CHANGE_EVENT_ACTION_TONE: Record<ChangeEventAction, ChangeEventTone
   COMPARISON_REOPENED: "accent",
   SYSTEM_NOT_SELECTED: "warn",
   SYSTEM_REOPENED: "accent",
+  OSCAL_RELEASE_MADE: "ok",
   EVALUATION_STAGE_CHANGED: "accent",
   TRACK_VERDICT_GIVEN: "accent",
   TRACK_VERDICT_REOPENED: "warn",

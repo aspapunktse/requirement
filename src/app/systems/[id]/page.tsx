@@ -22,6 +22,7 @@ import { SystemCockpit } from "./SystemCockpit";
 import { SystemActivity } from "./SystemActivity";
 import { SystemControls } from "./SystemControls";
 import { SystemDocumentation } from "./SystemDocumentation";
+import { SystemOscalReleases } from "./SystemOscalReleases";
 import { SystemEvaluation } from "./SystemEvaluation";
 import { SystemBoundaries } from "./SystemBoundaries";
 import { SystemProfile } from "./SystemProfile";
@@ -135,7 +136,12 @@ export default async function SystemDetailPage({ params }: PageProps<"/systems/[
         controlTotals={{ total: view.controls.total, organization: view.controls.bySource.organization, system: view.controls.bySource.system, byProvider: view.controls.byProvider }}
       />
     ),
-    documentation: <SystemDocumentation systemId={system.id} />,
+    documentation: (
+      <>
+        <SystemDocumentation systemId={system.id} />
+        <SystemOscalReleases systemId={system.id} />
+      </>
+    ),
     profile: (
       <>
       <SystemProfile

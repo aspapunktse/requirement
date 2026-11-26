@@ -384,3 +384,8 @@ fieldset.sc-field { border: 0; padding: 0; margin: 0; min-width: 0; }
 .sc-evmain { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; overflow-wrap: anywhere; }
 .sc-evitem .hc-btn { justify-self: start; }
 .sc-stalebadge { display: inline-flex; margin-left: 8px; font-size: 0.74rem; font-weight: 700; color: var(--rg-gold-ink, var(--rg-ink)); background: var(--rg-gold-soft, var(--hc-raised)); padding: 1px 7px; border-radius: 99px; white-space: nowrap; }
+
+/* OSCAL Release page (#453): a plain label/value list */
+.sc-dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 18px; margin: 0; font-size: 0.9rem; }
+.sc-dl dt { color: var(--rg-muted); }
+.sc-dl dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }

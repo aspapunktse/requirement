@@ -18,7 +18,7 @@
  *   record keeps one identity whichever package it appears in. A Provider is shown by name only (all a dependent may know).
  */
 import { randomUUID } from "node:crypto";
-import type { ControlApplicability, ControlAssessmentStatus, DataLocation, ImpactLevel, OnboardingStatus, UserRole } from "@prisma/client";
+import type { Prisma, ControlApplicability, ControlAssessmentStatus, DataLocation, ImpactLevel, OnboardingStatus, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { READ_SNAPSHOT } from "@/lib/read-transaction";
 import { visibleSystemsWhere } from "@/lib/system-visibility";
@@ -460,8 +460,21 @@ export function buildOscalPackage(snapshot: OscalSnapshot, now: Date, newUuid: (
  * not see it (the same answer, so nothing reveals it); `closed` for a Rejected or Not selected System.
  */
 export async function loadOscalPackage(systemId: string, user: { id: string; role: UserRole }, now: Date = new Date()): Promise<OscalPackageResult> {
-  const snapshot = await prisma.$transaction(async (tx): Promise<OscalSnapshot | { closed: OnboardingStatus } | null> => {
-    const where = await visibleSystemsWhere(user, tx);
+  const snapshot = await prisma.$transaction((tx) => loadOscalSnapshot(tx, systemId, user), READ_SNAPSHOT);
+
+  if (snapshot === null) return { kind: "not-found" };
+  if ("closed" in snapshot) return { kind: "closed", status: snapshot.closed };
+  return { kind: "ok", system: { id: snapshot.system.id, name: snapshot.system.name }, pkg: buildOscalPackage(snapshot, now) };
+}
+
+/**
+ * The snapshot of one System's package rows, read on `tx` (the caller owns the transaction, and should make it RepeatableRead so
+ * the reads agree). `null` when the System doesn't exist or `user` may not see it; `{ closed }` for a Rejected or Not selected
+ * one. `skipVisibility` is for a caller that has already decided who may act (a release, #453). Shared by the live download and by `createOscalRelease` (#453), so a release is built from exactly what the page shows.
+ */
+export async function loadOscalSnapshot(tx: Prisma.TransactionClient, systemId: string, user: { id: string; role: UserRole }, options: { skipVisibility?: boolean } = {}): Promise<OscalSnapshot | { closed: OnboardingStatus } | null> {
+  {
+    const where = options.skipVisibility ? {} : await visibleSystemsWhere(user, tx);
     const row = await tx.system.findFirst({
       where: { id: systemId, ...where },
       include: {
@@ -541,9 +554,5 @@ export async function loadOscalPackage(systemId: string, user: { id: string; rol
       providerSources: [...(providerSources ?? [])].flatMap(([id, sources]) => sources.map((source) => ({ controlId: id, source }))),
       assessmentRisks: risks.flatMap((r) => (r.controlAssessmentId === null ? [] : [{ id: r.id, controlAssessmentId: r.controlAssessmentId, createdAt: r.createdAt }])),
     };
-  }, READ_SNAPSHOT);
-
-  if (snapshot === null) return { kind: "not-found" };
-  if ("closed" in snapshot) return { kind: "closed", status: snapshot.closed };
-  return { kind: "ok", system: { id: snapshot.system.id, name: snapshot.system.name }, pkg: buildOscalPackage(snapshot, now) };
+  }
 }
