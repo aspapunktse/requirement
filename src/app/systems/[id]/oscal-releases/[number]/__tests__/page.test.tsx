@@ -51,6 +51,7 @@ describe("the OSCAL Release page (#453)", () => {
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("OSCAL Release 2 of Payroll");
     expect(screen.getByText("20 Nov 2026")).toBeInTheDocument();
     expect(screen.getByText("Elena Voss")).toBeInTheDocument();
+    expect(screen.getByText("By hand")).toBeInTheDocument();
     expect(screen.getByText(HASH)).toBeInTheDocument();
     expect(screen.getByText("ssp.json")).toBeInTheDocument();
     expect(screen.getByText("d".repeat(64))).toBeInTheDocument();

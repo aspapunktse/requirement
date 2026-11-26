@@ -4,7 +4,7 @@ import { getActingUser } from "@/lib/acting-user";
 import { getVisibleSystem } from "@/lib/system-visibility";
 import { prisma } from "@/lib/prisma";
 import type { OscalReleaseManifest } from "@/lib/oscal/releases";
-import { TRIGGER_LABEL } from "../../SystemOscalReleases";
+import { TRIGGER_LABEL } from "@/lib/oscal/release-labels";
 import { formatDay } from "../../system-page-logic";
 import "@/app/home/home.css";
 import "../../system-cockpit.css";

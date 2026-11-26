@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useState } from "react";
+import { TRIGGER_LABEL } from "@/lib/oscal/release-labels";
 import { formatDay } from "./system-page-logic";
 import { useRemote } from "./use-remote";
 
@@ -14,8 +15,6 @@ export type OscalReleaseRow = {
   sha256: string;
 };
 type Releases = { releases: OscalReleaseRow[]; canCreate: boolean };
-
-export const TRIGGER_LABEL: Record<OscalReleaseRow["trigger"], string> = { MANUAL: "By hand", INTERNAL_AUDIT_CLOSE: "Internal Audit closed" };
 
 /**
  * The System's OSCAL Releases (#453), newest first: number, date, how it was made, who made it, the start of the zip's SHA-256
