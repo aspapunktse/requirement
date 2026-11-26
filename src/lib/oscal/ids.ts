@@ -33,13 +33,13 @@ export function oscalUuid(model: string, ...ids: string[]): string {
 export const OSCAL_APP_NS = "https://github.com/aspapunktse/requirement/ns/oscal";
 
 /** The kinds of OSCAL document a package holds. */
-export type DocumentKind = "catalog" | "profile" | "ssp" | "assessment-plan" | "assessment-results";
+export type DocumentKind = "catalog" | "profile" | "ssp" | "assessment-plan" | "assessment-results" | "poam";
 
 /**
  * The identifier of a document across its exports (`metadata.document-ids`): the same Control Library, or the same System's
  * Profile or SSP, has the same identifier in every export, while the root `uuid` is new each time. The Catalog is the one Control
  * Library (a fixed subject); a Profile and an SSP are per System (`subjectId` is the System's id, never written to the package); an
- * Assessment Plan and Assessment Results are per System and Internal Audit (`subjectId` is both ids, "<systemId>:<auditId>").
+ * Assessment Plan and Assessment Results are per System and Internal Audit (`subjectId` is both ids, "<systemId>:<auditId>"); a POA&M is per System.
  */
 export function documentId(kind: DocumentKind, subjectId?: string): string {
   return oscalUuid("Document", kind, kind === "catalog" ? "control-library" : (subjectId ?? ""));

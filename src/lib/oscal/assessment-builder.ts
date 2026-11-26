@@ -187,6 +187,8 @@ export function buildAssessmentDocuments(ctx: AssessmentContext) {
     if (r) risksOf.set(id, r);
   }
   const observationsOfCheckUp = new Map<string, string[]>();
+  /** The finding of each evaluated Check-up (#456): the POA&M reuses it, with the same uuids, for a Risk that came from one. */
+  const findingOfCheckUp = new Map<string, Json>();
 
   for (const c of checkUps) {
     const code = control(c).code;
@@ -248,7 +250,7 @@ export function buildAssessmentDocuments(ctx: AssessmentContext) {
       }
       const notSatisfied = ev.outcome === "NONCONFORMITY";
       const risk = [...risksOf.values()].find((r) => r.checkUpId === c.id);
-      findings.push({
+      const finding = {
         uuid: oscalUuid("Finding", c.id),
         title: `${code}: ${OUTCOME_LABEL[ev.outcome]}`,
         description: ev.comment.trim() || `The Internal Auditor evaluated the Check-up on ${code} as ${OUTCOME_LABEL[ev.outcome]}.`,
@@ -261,7 +263,9 @@ export function buildAssessmentDocuments(ctx: AssessmentContext) {
         },
         ...(related.length > 0 && { "related-observations": related.map((u) => ({ "observation-uuid": u })) }),
         ...(risk && { "related-risks": [{ "risk-uuid": oscalUuid("Risk", risk.id) }] }),
-      });
+      };
+      findings.push(finding);
+      findingOfCheckUp.set(c.id, finding);
     }
     observationsOfCheckUp.set(c.id, mine);
   }
@@ -333,5 +337,18 @@ export function buildAssessmentDocuments(ctx: AssessmentContext) {
     },
   };
 
-  return { assessmentPlan, assessmentResults };
+  /** The audit's findings and observations by Check-up, and the people they name, for the POA&M (#456). */
+  const observationByUuid = new Map(observations.map((o) => [o.uuid as string, o]));
+  const forPoam = new Map(
+    [...findingOfCheckUp].map(([checkUpId, finding]) => [
+      checkUpId,
+      {
+        finding,
+        observations: (observationsOfCheckUp.get(checkUpId) ?? [])
+          .concat(observationByUuid.has(oscalUuid("Observation", "weakness", checkUpId)) ? [oscalUuid("Observation", "weakness", checkUpId)] : [])
+          .flatMap((u) => observationByUuid.get(u) ?? []),
+      },
+    ]),
+  );
+  return { assessmentPlan, assessmentResults, forPoam, people: [...people.values()] };
 }

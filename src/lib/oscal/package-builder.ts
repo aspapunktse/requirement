@@ -37,6 +37,7 @@ import { DATA_LOCATION_LABELS } from "@/lib/vendor-detail-labels";
 import { controlId, documentId, OSCAL_APP_NS, oscalUuid, type DocumentKind } from "@/lib/oscal/ids";
 import { effectiveExpiry, noteHasTextBeyondUrls } from "@/lib/evidence";
 import { buildAssessmentDocuments, type AuditPerson, type OscalAuditSnapshot, type OscalRisk } from "@/lib/oscal/assessment-builder";
+import { buildPoam, POAM_STATUSES, type OscalPoamRisk } from "@/lib/oscal/poam-builder";
 import { safeHttpUrl } from "@/lib/check-up-response-rules";
 import appPackage from "../../../package.json";
 
@@ -47,7 +48,7 @@ export const OSCAL_VERSION = "1.2.3";
  * Where the documents sit in the zip, and what they call each other (relative, no `./`). The validator's in-package href
  * convention (`PACKAGE_FILES` in validate.ts) is the same; it is not imported here because it pulls in ajv, a dev dependency.
  */
-export const PACKAGE_FILES = { catalog: "catalog.json", profile: "profile.json", ssp: "ssp.json", assessmentPlan: "assessment-plan.json", assessmentResults: "assessment-results.json" } as const;
+export const PACKAGE_FILES = { catalog: "catalog.json", profile: "profile.json", ssp: "ssp.json", assessmentPlan: "assessment-plan.json", assessmentResults: "assessment-results.json", poam: "poam.json" } as const;
 export { OSCAL_APP_NS };
 /** The `scheme` of the app's `metadata.document-ids`: a URI under the app namespace. */
 export const DOCUMENT_ID_SCHEME = `${OSCAL_APP_NS}/document-id`;
@@ -144,9 +145,11 @@ export type OscalSnapshot = {
   assessmentRisks: { id: string; controlAssessmentId: string; createdAt: Date }[];
   /** The System's most recent closed Internal Audit (or the one a release names) with its Check-ups (#454); absent when it has none, and then the package has no Assessment Plan or Assessment Results. */
   audit?: OscalAuditSnapshot;
+  /** The System's OPEN and ACCEPTED Risks with deadline, milestones and status history (#456); the POA&M is made from them, and absent when there are none. */
+  poamRisks?: OscalPoamRisk[];
 };
 
-/** The documents, as plain objects: the Catalog, Profile and SSP, plus an Assessment Plan and Assessment Results when the snapshot has a closed Internal Audit (#454). */
+/** The documents, as plain objects: the Catalog, Profile and SSP, plus an Assessment Plan and Assessment Results when the snapshot has a closed Internal Audit (#454) and a POA&M when it has an OPEN or ACCEPTED Risk (#456). */
 export type OscalPackage = ReturnType<typeof buildOscalPackage>;
 
 export type OscalPackageResult =
@@ -460,19 +463,40 @@ export function buildOscalPackage(snapshot: OscalSnapshot, now: Date, newUuid: (
     },
   };
 
-  if (!snapshot.audit) return { catalog, profile, ssp };
-  const documents = buildAssessmentDocuments({
-    audit: snapshot.audit,
-    system: { id: system.id, name: system.name, owner: system.owner },
-    controls: byId,
-    referencedRiskIds,
+  const base = { catalog, profile, ssp };
+  const documentMetadata = (release: OscalRelease | undefined) => (title: string, kind: DocumentKind, subjectId: string, people: AuditPerson[]) =>
+    metadata(title, now, people as Person[], kind, subjectId, release && { ...release, previous: [] });
+  // These documents are new with this audit (or this plan), so they list no earlier release as a revision.
+  const documents = snapshot.audit
+    ? buildAssessmentDocuments({
+        audit: snapshot.audit,
+        system: { id: system.id, name: system.name, owner: system.owner },
+        controls: byId,
+        referencedRiskIds,
+        exporter: exporter as AuditPerson[],
+        newUuid,
+        now,
+        metadata: documentMetadata(release),
+      })
+    : null;
+  const poam = buildPoam({
+    system: { id: system.id, name: system.name },
+    risks: (snapshot.poamRisks ?? []).filter((r) => POAM_STATUSES.includes(r.status)),
+    linked: documents?.forPoam ?? new Map(),
+    linkedPeople: documents ? documents.people : [],
     exporter: exporter as AuditPerson[],
     newUuid,
-    now,
-    // These documents are new with this audit, so they list no earlier release as a revision.
-    metadata: (title, kind, subjectId, people) => metadata(title, now, people as Person[], kind, subjectId, release && { ...release, previous: [] }),
+    metadata: documentMetadata(release),
   });
-  return { catalog, profile, ssp, ...documents };
+  const optional: {
+    assessmentPlan?: NonNullable<typeof documents>["assessmentPlan"];
+    assessmentResults?: NonNullable<typeof documents>["assessmentResults"];
+    poam?: NonNullable<typeof poam>;
+  } = {
+    ...(documents && { assessmentPlan: documents.assessmentPlan, assessmentResults: documents.assessmentResults }),
+    ...(poam && { poam }),
+  };
+  return { ...base, ...optional };
 }
 
 /**
@@ -552,8 +576,10 @@ export async function loadOscalSnapshot(tx: Prisma.TransactionClient, systemId: 
     });
     const exportedBy = await tx.user.findUnique({ where: { id: user.id }, select: { id: true, name: true } });
     const audit = await loadAuditSnapshot(tx, row.id, options.internalAuditId ?? undefined);
+    const poamRisks = await loadPoamRisks(tx, row.id);
     return {
       ...(audit && { audit }),
+      ...(poamRisks.length > 0 && { poamRisks }),
       exportedBy,
       system: {
         id: row.id,
@@ -646,4 +672,33 @@ async function loadAuditSnapshot(tx: Prisma.TransactionClient, systemId: string,
       a.selfAssessmentAnswer === null ? [] : [{ assessmentId: a.id, controlId: a.controlId, answer: a.selfAssessmentAnswer, question: a.control.question }],
     ),
   };
+}
+
+
+/** The System's OPEN and ACCEPTED Risks with deadline, milestones and status history (#456), read on `tx` in the caller's snapshot. */
+async function loadPoamRisks(tx: Prisma.TransactionClient, systemId: string): Promise<OscalPoamRisk[]> {
+  const risks = await tx.risk.findMany({
+    where: { systemId, status: { in: POAM_STATUSES } },
+    select: {
+      id: true,
+      title: true,
+      description: true,
+      severity: true,
+      likelihood: true,
+      status: true,
+      source: true,
+      mitigationPlan: true,
+      checkUpId: true,
+      deadline: true,
+      milestones: { select: { id: true, title: true, plannedDate: true, completedDate: true }, orderBy: [{ plannedDate: "asc" }, { id: "asc" }] },
+    },
+    orderBy: { id: "asc" },
+  });
+  if (risks.length === 0) return [];
+  const history = await tx.statusChange.findMany({
+    where: { subjectType: "RISK", subjectId: { in: risks.map((r) => r.id) } },
+    select: { id: true, subjectId: true, changedAt: true, fromStatus: true, toStatus: true, actor: { select: { id: true, name: true } } },
+    orderBy: [{ changedAt: "asc" }, { id: "asc" }],
+  });
+  return risks.map((r) => ({ ...r, history: history.filter((h) => h.subjectId === r.id) }));
 }

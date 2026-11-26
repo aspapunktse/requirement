@@ -58,6 +58,8 @@ export type ReviewModel = {
   rows: ReviewRow[];
   /** The Assessment Plan and Assessment Results (#454); null when the package has neither. */
   assessment: AssessmentReview | null;
+  /** The Plan of Action and Milestones (#456); null when the package has none (no open or accepted Risk). */
+  poam: PoamReview | null;
 };
 
 const appProp = (props: Prop[] | undefined, appNs: string, name: string): string | null => props?.find((p) => p.name === name && p.ns === appNs)?.value ?? null;
@@ -113,6 +115,7 @@ export function buildReviewModel(pkg: OscalPackage, appNs: string): ReviewModel 
     documentId: ssp.metadata["document-ids"]?.[0]?.identifier ?? null,
     rows,
     assessment: buildAssessmentReview(pkg, appNs),
+    poam: buildPoamReview(pkg, appNs),
   };
 }
 
@@ -261,4 +264,61 @@ export function buildAssessmentReview(pkg: OscalPackage, appNs: string): Assessm
     };
   }
   return { plan, results };
+}
+
+export type PoamReviewItem = {
+  uuid: string;
+  title: string;
+  description: string;
+  /** OSCAL status of the item's Risk, and the app's own status (an app prop). */
+  state: string;
+  appStatus: string | null;
+  /** The Risk's deadline as a calendar date, or null. */
+  deadline: string | null;
+  lifecycle: string | null;
+  milestones: { title: string; planned: string; completed: string | null }[];
+  log: { start: string; title: string; state: string; by: string | null }[];
+  findings: string[];
+};
+export type PoamReview = { title: string; version: string; importSsp: string; items: PoamReviewItem[] };
+
+/** The POA&M of the package (#456), read only from the package object: nothing when the package has none. */
+export function buildPoamReview(pkg: OscalPackage, appNs: string): PoamReview | null {
+  const doc = "poam" in pkg ? obj(obj(pkg.poam)["plan-of-action-and-milestones"]) : null;
+  if (!doc) return null;
+  const parties = new Map(list(obj(doc.metadata).parties).map((p) => [text(p.uuid), text(p.name)]));
+  const risks = new Map(list(doc.risks).map((r): [string, Obj] => [text(r.uuid), r]));
+  const findings = new Map(list(doc.findings).map((f): [string, string] => [text(f.uuid), text(f.title)]));
+  const prop = (props: unknown, name: string) => list(props).find((p) => p.name === name && p.ns === appNs)?.value as string | undefined;
+  const day = (v: unknown) => text(v).slice(0, 10);
+  return {
+    title: text(obj(doc.metadata).title),
+    version: text(obj(doc.metadata).version),
+    importSsp: text(obj(doc["import-ssp"]).href),
+    items: list(doc["poam-items"]).map((item): PoamReviewItem => {
+      const risk = risks.get(text(list(item["related-risks"])[0]?.["risk-uuid"])) ?? {};
+      const remediation = list(risk.remediations)[0] ?? {};
+      return {
+        uuid: text(item.uuid),
+        title: text(item.title),
+        description: text(item.description),
+        state: text(risk.status),
+        appStatus: prop(risk.props, "risk-status") ?? null,
+        deadline: day(risk.deadline) || null,
+        lifecycle: text(remediation.lifecycle) || null,
+        milestones: list(remediation.tasks).map((t) => ({
+          title: text(t.title),
+          planned: day(obj(obj(t.timing)["on-date"]).date),
+          completed: prop(t.props, "completed-date") ?? null,
+        })),
+        log: list(obj(risk["risk-log"]).entries).map((e) => ({
+          start: text(e.start),
+          title: text(e.title),
+          state: text(e["status-change"]),
+          by: list(e["logged-by"]).map((b) => parties.get(text(b["party-uuid"])) ?? text(b["party-uuid"])).join(", ") || null,
+        })),
+        findings: list(item["related-findings"]).map((f) => findings.get(text(f["finding-uuid"])) ?? text(f["finding-uuid"])),
+      };
+    }),
+  };
 }

@@ -18,7 +18,7 @@ import addFormats from "ajv-formats";
 import oscalSchema from "./schema/oscal_complete_schema.json";
 import { OSCAL_APP_NS } from "./ids";
 
-export type OscalDocumentName = "catalog" | "profile" | "ssp" | "assessment-plan" | "assessment-results";
+export type OscalDocumentName = "catalog" | "profile" | "ssp" | "assessment-plan" | "assessment-results" | "poam";
 export type OscalValidationError = {
   layer: "schema" | "reference";
   document: OscalDocumentName;
@@ -26,7 +26,7 @@ export type OscalValidationError = {
   path: string;
   message: string;
 };
-export type OscalPackage = { catalog: unknown; profile: unknown; ssp: unknown; assessmentPlan?: unknown; assessmentResults?: unknown };
+export type OscalPackage = { catalog: unknown; profile: unknown; ssp: unknown; assessmentPlan?: unknown; assessmentResults?: unknown; poam?: unknown };
 
 const ROOT_KEY: Record<OscalDocumentName, string> = {
   catalog: "catalog",
@@ -34,6 +34,7 @@ const ROOT_KEY: Record<OscalDocumentName, string> = {
   ssp: "system-security-plan",
   "assessment-plan": "assessment-plan",
   "assessment-results": "assessment-results",
+  poam: "plan-of-action-and-milestones",
 };
 const MODEL_DEFINITION: Record<OscalDocumentName, string> = {
   catalog: "oscal-complete-oscal-catalog:catalog",
@@ -41,9 +42,10 @@ const MODEL_DEFINITION: Record<OscalDocumentName, string> = {
   ssp: "oscal-complete-oscal-ssp:system-security-plan",
   "assessment-plan": "oscal-complete-oscal-ap:assessment-plan",
   "assessment-results": "oscal-complete-oscal-ar:assessment-results",
+  poam: "oscal-complete-oscal-poam:plan-of-action-and-milestones",
 };
 /** Package file name (without `./`) of each in-package document. */
-export const PACKAGE_FILES = { catalog: "catalog.json", profile: "profile.json", ssp: "ssp.json", "assessment-plan": "assessment-plan.json" } as const;
+export const PACKAGE_FILES = { catalog: "catalog.json", profile: "profile.json", ssp: "ssp.json", "assessment-plan": "assessment-plan.json", poam: "poam.json" } as const;
 
 type Json = Record<string, unknown>;
 const isObject = (v: unknown): v is Json => typeof v === "object" && v !== null && !Array.isArray(v);
@@ -69,6 +71,7 @@ function getValidators() {
       ssp: get("ssp"),
       "assessment-plan": get("assessment-plan"),
       "assessment-results": get("assessment-results"),
+      poam: get("poam"),
       directive,
     };
   }
@@ -279,6 +282,7 @@ export function referenceErrors(pkg: OscalPackage): OscalValidationError[] {
   };
   walk(sspDoc, "/system-security-plan");
   errors.push(...assessmentReferenceErrors(pkg, defs.components));
+  errors.push(...poamReferenceErrors(pkg));
   return errors;
 }
 
@@ -461,12 +465,118 @@ function assessmentReferenceErrors(pkg: OscalPackage, components: Set<string>): 
   return errors;
 }
 
+const poamRoot = (pkg: OscalPackage): Json | undefined =>
+  pkg.poam !== undefined && isObject(pkg.poam) && isObject(pkg.poam[ROOT_KEY.poam]) ? (pkg.poam[ROOT_KEY.poam] as Json) : undefined;
+
+/**
+ * Reference checks of the POA&M (#456), run when the package holds one: `import-ssp` is the package's `ssp.json`; `system-id` is the
+ * SSP's system id; every item relates to risks, findings and observations the POA&M defines; parties named in `origins` and
+ * `logged-by` and roles named in `logged-by` are defined in its metadata; a risk whose uuid is also a risk of the Assessment Results
+ * says the same status there (the same Risk can't be both open and closed in one package); no two entries share a uuid.
+ */
+function poamReferenceErrors(pkg: OscalPackage): OscalValidationError[] {
+  const root = poamRoot(pkg);
+  if (!root) return [];
+  const errors: OscalValidationError[] = [];
+  const add = (path: string, message: string) => errors.push({ layer: "reference", document: "poam", path, message });
+  const base = "/plan-of-action-and-milestones";
+  const e = hrefError(true, "poam", `${base}/import-ssp/href`, (root["import-ssp"] as Json | undefined)?.href, "ssp");
+  if (e) errors.push(e);
+
+  const sspRoot = (pkg.ssp as Json)[ROOT_KEY.ssp] as Json;
+  const sspIds = asArray(isObject(sspRoot["system-characteristics"]) ? sspRoot["system-characteristics"]["system-ids"] : undefined).flatMap((x) =>
+    isObject(x) && typeof x.id === "string" ? [x.id] : [],
+  );
+  const systemId = isObject(root["system-id"]) ? root["system-id"].id : undefined;
+  if (typeof systemId === "string" && !sspIds.includes(systemId)) add(`${base}/system-id/id`, `system id "${systemId}" is not a system id of the SSP`);
+
+  const metadata = isObject(root.metadata) ? root.metadata : {};
+  const parties = new Set(asArray(metadata.parties).flatMap((p) => (isObject(p) && typeof p.uuid === "string" ? [p.uuid] : [])));
+  const roles = new Set(asArray(metadata.roles).flatMap((r) => (isObject(r) && typeof r.id === "string" ? [r.id] : [])));
+  const uuidsOf = (list: unknown) => new Set(asArray(list).flatMap((x) => (isObject(x) && typeof x.uuid === "string" ? [x.uuid] : [])));
+  const risks = uuidsOf(root.risks);
+  const findings = uuidsOf(root.findings);
+  const observations = uuidsOf(root.observations);
+
+  const seen = new Set<string>();
+  const unique = (path: string, uuid: unknown) => {
+    if (typeof uuid !== "string") return;
+    if (seen.has(uuid)) add(path, `uuid "${uuid}" is used more than once in the POA&M`);
+    seen.add(uuid);
+  };
+  const checkOrigins = (origins: unknown, path: string) =>
+    asArray(origins).forEach((origin, a) =>
+      asArray(isObject(origin) ? origin.actors : undefined).forEach((actor, b) => {
+        if (isObject(actor) && actor.type === "party" && typeof actor["actor-uuid"] === "string" && !parties.has(actor["actor-uuid"])) {
+          add(`${path}/${a}/actors/${b}/actor-uuid`, `party "${actor["actor-uuid"]}" is not defined in the POA&M's metadata`);
+        }
+      }),
+    );
+  const checkRefs = (list: unknown, key: string, defined: Set<string>, path: string, what: string) =>
+    asArray(list).forEach((ref, i) => {
+      if (isObject(ref) && typeof ref[key] === "string" && !defined.has(ref[key] as string)) add(`${path}/${i}/${key}`, `${what} "${ref[key]}" is not defined in the POA&M`);
+    });
+
+  const arRisks = new Map<string, unknown>();
+  const results = pkg.assessmentResults !== undefined && isObject(pkg.assessmentResults) && isObject(pkg.assessmentResults["assessment-results"]) ? (pkg.assessmentResults["assessment-results"] as Json) : undefined;
+  for (const result of asArray(results?.results)) for (const r of asArray(isObject(result) ? result.risks : undefined)) if (isObject(r) && typeof r.uuid === "string") arRisks.set(r.uuid, r.status);
+
+  asArray(root.observations).forEach((o, i) => {
+    if (!isObject(o)) return;
+    unique(`${base}/observations/${i}/uuid`, o.uuid);
+    checkOrigins(o.origins, `${base}/observations/${i}/origins`);
+  });
+  asArray(root.findings).forEach((f, i) => {
+    if (!isObject(f)) return;
+    unique(`${base}/findings/${i}/uuid`, f.uuid);
+    checkOrigins(f.origins, `${base}/findings/${i}/origins`);
+    checkRefs(f["related-observations"], "observation-uuid", observations, `${base}/findings/${i}/related-observations`, "observation");
+    checkRefs(f["related-risks"], "risk-uuid", risks, `${base}/findings/${i}/related-risks`, "risk");
+  });
+  asArray(root.risks).forEach((r, i) => {
+    if (!isObject(r)) return;
+    const rp = `${base}/risks/${i}`;
+    unique(`${rp}/uuid`, r.uuid);
+    checkOrigins(r.origins, `${rp}/origins`);
+    checkRefs(r["related-observations"], "observation-uuid", observations, `${rp}/related-observations`, "observation");
+    if (typeof r.uuid === "string" && arRisks.has(r.uuid) && arRisks.get(r.uuid) !== r.status) {
+      add(`${rp}/status`, `risk "${r.uuid}" is "${String(r.status)}" here but "${String(arRisks.get(r.uuid))}" in the Assessment Results`);
+    }
+    asArray(r.remediations).forEach((rem, j) => {
+      if (!isObject(rem)) return;
+      unique(`${rp}/remediations/${j}/uuid`, rem.uuid);
+      asArray(rem.tasks).forEach((t, k) => isObject(t) && unique(`${rp}/remediations/${j}/tasks/${k}/uuid`, t.uuid));
+    });
+    const log = isObject(r["risk-log"]) ? r["risk-log"] : {};
+    asArray(log.entries).forEach((entry, j) => {
+      if (!isObject(entry)) return;
+      const ep = `${rp}/risk-log/entries/${j}`;
+      unique(`${ep}/uuid`, entry.uuid);
+      asArray(entry["logged-by"]).forEach((by, k) => {
+        if (!isObject(by)) return;
+        if (typeof by["party-uuid"] === "string" && !parties.has(by["party-uuid"])) add(`${ep}/logged-by/${k}/party-uuid`, `party "${by["party-uuid"]}" is not defined in the POA&M's metadata`);
+        if (typeof by["role-id"] === "string" && !roles.has(by["role-id"])) add(`${ep}/logged-by/${k}/role-id`, `role "${by["role-id"]}" is not defined in the POA&M's metadata`);
+      });
+    });
+  });
+  asArray(root["poam-items"]).forEach((item, i) => {
+    if (!isObject(item)) return;
+    const ip = `${base}/poam-items/${i}`;
+    unique(`${ip}/uuid`, item.uuid);
+    checkRefs(item["related-risks"], "risk-uuid", risks, `${ip}/related-risks`, "risk");
+    checkRefs(item["related-findings"], "finding-uuid", findings, `${ip}/related-findings`, "finding");
+    checkRefs(item["related-observations"], "observation-uuid", observations, `${ip}/related-observations`, "observation");
+  });
+  return errors;
+}
+
 /** Validates a package. Reference checks run only if every document passes the schema. */
 export function validateOscalPackage(pkg: OscalPackage): OscalValidationError[] {
   const schema = [
     ...(["catalog", "profile", "ssp"] as const).flatMap((name) => schemaErrors(name, pkg[name])),
     ...(pkg.assessmentPlan === undefined ? [] : schemaErrors("assessment-plan", pkg.assessmentPlan)),
     ...(pkg.assessmentResults === undefined ? [] : schemaErrors("assessment-results", pkg.assessmentResults)),
+    ...(pkg.poam === undefined ? [] : schemaErrors("poam", pkg.poam)),
   ];
   return schema.length > 0 ? schema : referenceErrors(pkg);
 }

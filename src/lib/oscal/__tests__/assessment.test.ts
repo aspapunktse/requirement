@@ -95,7 +95,7 @@ describe("OSCAL Assessment Plan and Assessment Results (#454)", { timeout: 120_0
     expect("assessmentPlan" in result.pkg).toBe(false);
     expect("assessmentResults" in result.pkg).toBe(false);
     const response = await downloadRoute(requestAs(`/api/systems/${s.systemId}/oscal-package`, admin.id, "GET"), idCtx(s.systemId));
-    expect(Object.keys(unzipSync(new Uint8Array(await response.arrayBuffer()))).sort()).toEqual(["catalog.json", "profile.json", "ssp.json"]);
+    expect(Object.keys(unzipSync(new Uint8Array(await response.arrayBuffer()))).sort()).toEqual(["catalog.json", "poam.json", "profile.json", "ssp.json"]);
   });
 
   describe("after the audit closes", () => {
@@ -225,13 +225,13 @@ describe("OSCAL Assessment Plan and Assessment Results (#454)", { timeout: 120_0
       expect(release.internalAuditId).toBe(s.auditId);
       expect(release.createdById).toBe(s.roleUser.INTERNAL_AUDITOR);
       const files = unzipSync(new Uint8Array(release.data));
-      expect(Object.keys(files).sort()).toEqual(["assessment-plan.json", "assessment-results.json", "catalog.json", "manifest.json", "profile.json", "ssp.json"]);
+      expect(Object.keys(files).sort()).toEqual(["assessment-plan.json", "assessment-results.json", "catalog.json", "manifest.json", "poam.json", "profile.json", "ssp.json"]);
       const doc = (name: string) => JSON.parse(strFromU8(files[name])) as Doc;
       const manifest = doc("manifest.json") as OscalReleaseManifest;
-      expect(manifest.files.map((f) => f.name).sort()).toEqual(["assessment-plan.json", "assessment-results.json", "catalog.json", "profile.json", "ssp.json"]);
+      expect(manifest.files.map((f) => f.name).sort()).toEqual(["assessment-plan.json", "assessment-results.json", "catalog.json", "poam.json", "profile.json", "ssp.json"]);
       expect(doc("assessment-plan.json")["assessment-plan"]["import-ssp"].href).toBe("ssp.json");
       expect(doc("assessment-plan.json")["assessment-plan"].metadata.version).toBe("1");
-      expect(validateOscalPackage({ catalog: doc("catalog.json"), profile: doc("profile.json"), ssp: doc("ssp.json"), assessmentPlan: doc("assessment-plan.json"), assessmentResults: doc("assessment-results.json") })).toEqual([]);
+      expect(validateOscalPackage({ catalog: doc("catalog.json"), profile: doc("profile.json"), ssp: doc("ssp.json"), assessmentPlan: doc("assessment-plan.json"), assessmentResults: doc("assessment-results.json"), poam: doc("poam.json") })).toEqual([]);
     });
 
     it("a manual release afterwards includes the most recent closed audit too", async () => {
@@ -241,9 +241,9 @@ describe("OSCAL Assessment Plan and Assessment Results (#454)", { timeout: 120_0
       expect(Object.keys(unzipSync(new Uint8Array(stored.data)))).toContain("assessment-results.json");
     });
 
-    it("the download of a System with a closed audit holds the five documents", async () => {
+    it("the download of a System with a closed audit holds the six documents", async () => {
       const response = await downloadRoute(requestAs(`/api/systems/${s.systemId}/oscal-package`, admin.id, "GET"), idCtx(s.systemId));
-      expect(Object.keys(unzipSync(new Uint8Array(await response.arrayBuffer()))).sort()).toEqual(["assessment-plan.json", "assessment-results.json", "catalog.json", "profile.json", "ssp.json"]);
+      expect(Object.keys(unzipSync(new Uint8Array(await response.arrayBuffer()))).sort()).toEqual(["assessment-plan.json", "assessment-results.json", "catalog.json", "poam.json", "profile.json", "ssp.json"]);
     });
 
     describe("the validator's reference checks", () => {

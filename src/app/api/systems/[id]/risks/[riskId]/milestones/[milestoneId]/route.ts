@@ -7,7 +7,9 @@ import { completedDateInFuture, deleteMilestone, updateMilestone, updateMileston
 
 type Ctx = RouteContext<"/api/systems/[id]/risks/[riskId]/milestones/[milestoneId]">;
 
-async function resolve(request: NextRequest, ctx: Ctx) {
+type Resolved = { response: Response; scope?: undefined; milestoneId?: undefined } | { response?: undefined; scope: { riskId: string; systemId: string }; milestoneId: string };
+
+async function resolve(request: NextRequest, ctx: Ctx): Promise<Resolved> {
   const auth = await authorize(request, [...ROLES_ALLOWED_TO_MANAGE_RISK_STATUS]);
   if ("response" in auth) return { response: auth.response };
   const { id, riskId, milestoneId } = await ctx.params;
@@ -21,7 +23,7 @@ async function resolve(request: NextRequest, ctx: Ctx) {
 /** `PATCH`: edits a milestone, or marks it completed on a date (`completedDate`; null reopens it). Same people as changing the Risk's status (#456). */
 export async function PATCH(request: NextRequest, ctx: Ctx) {
   const resolved = await resolve(request, ctx);
-  if ("response" in resolved) return resolved.response;
+  if (resolved.response) return resolved.response;
   const parsed = updateMilestoneSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid milestone" }, { status: 400 });
   if (parsed.data.completedDate && completedDateInFuture(parsed.data.completedDate)) {
@@ -35,7 +37,7 @@ export async function PATCH(request: NextRequest, ctx: Ctx) {
 /** `DELETE`: removes a milestone that is not completed; a completed one is a record and stays (409). */
 export async function DELETE(request: NextRequest, ctx: Ctx) {
   const resolved = await resolve(request, ctx);
-  if ("response" in resolved) return resolved.response;
+  if (resolved.response) return resolved.response;
   const result = await deleteMilestone(resolved.scope, resolved.milestoneId);
   if (result.kind === "not-found") return NextResponse.json({ error: "Milestone not found" }, { status: 404 });
   if (result.kind === "completed") return NextResponse.json({ error: "A completed milestone can't be deleted" }, { status: 409 });

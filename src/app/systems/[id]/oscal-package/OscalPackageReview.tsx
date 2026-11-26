@@ -151,6 +151,8 @@ export function OscalPackageReview({ pkg, systemId, appNs }: { pkg: OscalPackage
           <dd>{model.rows.length}</dd>
           <dt>Internal Audit</dt>
           <dd>{model.assessment ? "Assessment Plan and Assessment Results included" : "No closed Internal Audit: no Assessment Plan or Assessment Results"}</dd>
+          <dt>Plan of Action and Milestones</dt>
+          <dd>{model.poam ? `${model.poam.items.length} item${model.poam.items.length === 1 ? "" : "s"} (open and accepted Risks)` : "No open or accepted Risk: no Plan of Action and Milestones"}</dd>
         </dl>
         <p className="oscal-screen-only">
           <a className="oscal-link" href={`/api/systems/${systemId}/oscal-package`} download>
@@ -268,6 +270,48 @@ export function OscalPackageReview({ pkg, systemId, appNs }: { pkg: OscalPackage
           </p>
           {model.assessment.results.results.map((r) => (
             <ResultSection key={r.uuid} r={r} />
+          ))}
+        </section>
+      )}
+
+      {model.poam && (
+        <section className="oscal-assessment" aria-labelledby="oscal-poam-heading">
+          <h2 id="oscal-poam-heading">Plan of Action and Milestones</h2>
+          <p className="oscal-faint">
+            {model.poam.title}. Imports the System Security Plan <code>{model.poam.importSsp}</code> of this package; version {model.poam.version}. Items are the System&apos;s open and accepted Risks.
+          </p>
+          {model.poam.items.map((item) => (
+            <div key={item.uuid} className="oscal-entry">
+              <div>
+                <strong>{item.title}</strong>{" "}
+                <span className="oscal-faint">
+                  ({item.appStatus ?? item.state}; deadline {item.deadline ?? "not set"}
+                  {item.lifecycle ? `; remediation ${item.lifecycle}` : ""})
+                </span>
+              </div>
+              <p>{item.description}</p>
+              {item.findings.length > 0 && <div className="oscal-ids">Check-up findings: {item.findings.join(", ")}</div>}
+              {item.milestones.length > 0 && (
+                <ul>
+                  {item.milestones.map((m, i) => (
+                    <li key={i}>
+                      {m.title}: planned {m.planned}
+                      {m.completed ? `, completed ${m.completed}` : ", not completed"}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {item.log.length > 0 && (
+                <ol aria-label={`Status history of ${item.title}`}>
+                  {item.log.map((e, i) => (
+                    <li key={i}>
+                      <time dateTime={e.start}>{e.start}</time>: {e.title}
+                      {e.by ? ` (by ${e.by})` : ""}
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </div>
           ))}
         </section>
       )}
