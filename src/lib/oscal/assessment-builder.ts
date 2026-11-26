@@ -13,9 +13,10 @@
  *   observation. `risks[]` holds the Risks the audit raised plus every Risk the SSP cites for a Waived Control, so each of those
  *   resolves (the SSP and these results are one package).
  * - Assessment Results, result 2 ("System Owner self-assessment", only when there is something to say): the System's recorded
- *   Self-Assessment answers as of the close date, as observations only. No finding is made from them: nobody judged them, and
- *   they are never merged with the audit's findings. The app keeps only the latest answer (no history), so an answer last
- *   changed after the close is left out rather than shown as if it were the answer at the close.
+ *   current Self-Assessment answers, as observations only. No finding is made from them: nobody judged them, and they are never
+ *   merged with the audit's findings. The app keeps only the latest answer (no history) and overwrites the Assessment's author
+ *   and time on every edit, so the answers are as recorded when the document was made (not when they were given), they are
+ *   credited to the System's owner by role, and `collected` is the time of the export.
  */
 import type { CheckUpAnswer, CheckUpOutcome, RiskSeverity, RiskSource, RiskStatus } from "@prisma/client";
 import { controlId, OSCAL_APP_NS, oscalUuid, type DocumentKind } from "@/lib/oscal/ids";
@@ -68,8 +69,8 @@ export type OscalAuditSnapshot = {
   checkUps: OscalAuditCheckUp[];
   /** The Risks the audit's Check-ups opened, and every Risk linked to one of the System's Control Assessments (the Waived Control's candidates). */
   risks: OscalRisk[];
-  /** The System's Self-Assessment answers last recorded at or before `closedAt`. */
-  selfAssessments: { assessmentId: string; controlId: string; answer: CheckUpAnswer; assessedAt: Date; assessedBy: Who | null; question: string | null }[];
+  /** The System's current Self-Assessment answers (the app keeps no history and no trustworthy author or time of an answer). */
+  selfAssessments: { assessmentId: string; controlId: string; answer: CheckUpAnswer; question: string | null }[];
 };
 
 export const AUDIT_ROLE = {
@@ -94,6 +95,8 @@ export type AssessmentContext = {
   referencedRiskIds: Set<string>;
   exporter: AuditPerson[];
   newUuid: () => string;
+  /** When the document is made. */
+  now: Date;
   /** The package's document metadata, with `people` as its parties. */
   metadata: (title: string, kind: DocumentKind, subjectId: string, people: AuditPerson[]) => Json;
 };
@@ -304,10 +307,10 @@ export function buildAssessmentDocuments(ctx: AssessmentContext) {
       : {
           uuid: oscalUuid("AssessmentResult", "self-assessment", audit.id, system.id),
           title: "System Owner self-assessment",
-          description: `The Self-Assessment answers recorded for ${system.name} as of the close of "${audit.title}". Self-reported: no Internal Auditor evaluated them, so no finding is made from them.`,
-          start: audit.closedAt.toISOString(),
-          end: audit.closedAt.toISOString(),
-          props: [prop("result-kind", "self-assessment")],
+          description: `The Self-Assessment answers recorded for ${system.name} as recorded when this document was made (after the close of "${audit.title}"), not necessarily as given at the close. Self-reported by the System's owner: no Internal Auditor evaluated them, so no finding is made from them.`,
+          start: ctx.now.toISOString(),
+          end: ctx.now.toISOString(),
+          props: [prop("result-kind", "self-assessment"), prop("answers-as-of", "document-made")],
           "reviewed-controls": reviewedControls(selfControls, `The Controls of ${system.name} with a recorded Self-Assessment answer.`),
           observations: selfAnswers.map((a) => ({
             uuid: oscalUuid("Observation", "self-assessment", a.assessmentId),
@@ -315,9 +318,9 @@ export function buildAssessmentDocuments(ctx: AssessmentContext) {
             description: `${a.question?.trim() ? `${a.question.trim()}\n\n` : ""}Answer: ${ANSWER_LABEL[a.answer]}.`,
             props: [prop("observation-kind", "self-assessment-answer")],
             methods: ["INTERVIEW"],
-            origins: origins(a.assessedBy ?? system.owner, AUDIT_ROLE.selfAssessor),
+            origins: origins(system.owner, AUDIT_ROLE.selfAssessor),
             subjects: [subjectRef],
-            collected: a.assessedAt.toISOString(),
+            collected: ctx.now.toISOString(),
           })),
         };
 

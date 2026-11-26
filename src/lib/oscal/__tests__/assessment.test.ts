@@ -187,14 +187,27 @@ describe("OSCAL Assessment Plan and Assessment Results (#454)", { timeout: 120_0
       expect(waivedProps.map((p: Doc) => p.value)).toEqual([oscalUuid("Risk", riskId)]);
     });
 
-    it("the Self-Assessment is a separate result, observations only, and leaves out an answer changed after the close", () => {
+    it("the Self-Assessment is a separate result, observations only, credited to the System owner, and survives a later edit by another user", async () => {
+      const uuids = () => selfResult().observations.map((o: Doc) => o.uuid).sort();
       expect(results().results).toHaveLength(2);
       expect(selfResult().title).toBe("System Owner self-assessment");
+      expect(selfResult().description).toContain("as recorded when this document was made");
       expect(selfResult().findings).toBeUndefined();
-      expect(selfResult().observations.map((o: Doc) => o.uuid)).toEqual([oscalUuid("Observation", "self-assessment", selfAssessmentIds[0])]);
-      expect(selfResult().start).toBe(closedAt.toISOString());
+      expect(uuids()).toEqual(selfAssessmentIds.map((id) => oscalUuid("Observation", "self-assessment", id)).sort());
       const auditUuids = new Set((auditResult().observations as Doc[]).map((o) => o.uuid));
-      expect(auditUuids.has(selfResult().observations[0].uuid)).toBe(false);
+      expect(uuids().some((u: string) => auditUuids.has(u))).toBe(false);
+      const author = (o: Doc) => o.origins[0].actors[0]["actor-uuid"];
+      expect(selfResult().observations.map(author)).toEqual([oscalUuid("User", s.systemOwner), oscalUuid("User", s.systemOwner)]);
+
+      // A later edit of the Assessment (author and time overwritten by someone else, after the close) changes neither.
+      await prisma.controlAssessment.update({ where: { id: selfAssessmentIds[0] }, data: { assessedById: s.roleUser.RISK_OWNER, assessedAt: new Date(Date.now() + 60_000) } });
+      const again = await loadOscalPackage(s.systemId, admin);
+      if (again.kind !== "ok" || !("assessmentResults" in again.pkg)) throw new Error("expected a package");
+      expect(validateOscalPackage(again.pkg)).toEqual([]);
+      const self = (again.pkg.assessmentResults as Doc)["assessment-results"].results[1] as Doc;
+      expect(self.observations.map((o: Doc) => o.uuid).sort()).toEqual(uuids());
+      expect(self.observations.map(author)).toEqual([oscalUuid("User", s.systemOwner), oscalUuid("User", s.systemOwner)]);
+      expect(JSON.stringify(self)).not.toContain(oscalUuid("User", s.roleUser.RISK_OWNER));
     });
 
     it("the same audit gives the same identifiers on every export", async () => {

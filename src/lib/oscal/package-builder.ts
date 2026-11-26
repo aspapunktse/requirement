@@ -468,6 +468,7 @@ export function buildOscalPackage(snapshot: OscalSnapshot, now: Date, newUuid: (
     referencedRiskIds,
     exporter: exporter as AuditPerson[],
     newUuid,
+    now,
     // These documents are new with this audit, so they list no earlier release as a revision.
     metadata: (title, kind, subjectId, people) => metadata(title, now, people as Person[], kind, subjectId, release && { ...release, previous: [] }),
   });
@@ -625,8 +626,8 @@ async function loadAuditSnapshot(tx: Prisma.TransactionClient, systemId: string,
     orderBy: { id: "asc" },
   });
   const answers = await tx.controlAssessment.findMany({
-    where: { systemId, selfAssessmentAnswer: { not: null }, assessedAt: { lte: closedAt } },
-    select: { id: true, controlId: true, selfAssessmentAnswer: true, assessedAt: true, assessedBy: { select: { id: true, name: true } }, control: { select: { question: true } } },
+    where: { systemId, selfAssessmentAnswer: { not: null } },
+    select: { id: true, controlId: true, selfAssessmentAnswer: true, control: { select: { question: true } } },
     orderBy: { id: "asc" },
   });
   return {
@@ -642,9 +643,7 @@ async function loadAuditSnapshot(tx: Prisma.TransactionClient, systemId: string,
     })),
     risks,
     selfAssessments: answers.flatMap((a) =>
-      a.selfAssessmentAnswer === null || a.assessedAt === null
-        ? []
-        : [{ assessmentId: a.id, controlId: a.controlId, answer: a.selfAssessmentAnswer, assessedAt: a.assessedAt, assessedBy: a.assessedBy, question: a.control.question }],
+      a.selfAssessmentAnswer === null ? [] : [{ assessmentId: a.id, controlId: a.controlId, answer: a.selfAssessmentAnswer, question: a.control.question }],
     ),
   };
 }
