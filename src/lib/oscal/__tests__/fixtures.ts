@@ -84,7 +84,7 @@ export function goodSsp() {
       },
       "import-profile": { href: "profile.json" },
       "system-characteristics": {
-        "system-ids": [{ "identifier-type": "https://requirement.example/ns/oscal", id: UUID.thisSystem }],
+        "system-ids": [{ "identifier-type": "https://github.com/aspapunktse/requirement/ns/oscal", id: UUID.thisSystem }],
         "system-name": "Test Payroll",
         description: "Payroll batch system (fixture).",
         "system-information": {

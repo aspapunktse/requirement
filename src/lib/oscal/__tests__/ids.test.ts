@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { controlId, oscalUuid, OSCAL_NAMESPACE_UUID } from "../ids";
+import { controlId, documentId, oscalUuid, OSCAL_NAMESPACE_UUID } from "../ids";
 
 const UUID_V5 = /^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
@@ -53,5 +53,19 @@ describe("oscalUuid", () => {
     expect(OSCAL_NAMESPACE_UUID).toBe("4912ea13-2c3d-4b59-849e-d13c7efec5ba");
     // Computed independently (Python's uuid.uuid5 under the same namespace). If this changes, every exported identity changed.
     expect(oscalUuid("System", "pinned")).toBe("eb82439e-8fb5-5614-b1e2-45a43e756486");
+  });
+});
+
+describe("documentId", () => {
+  it("is a stable UUIDv5 per kind and subject", () => {
+    expect(documentId("ssp", "sys1")).toBe(documentId("ssp", "sys1"));
+    expect(documentId("ssp", "sys1")).toMatch(UUID_V5);
+  });
+
+  it("differs per kind and per System, and the Catalog's does not depend on a subject", () => {
+    expect(documentId("ssp", "sys1")).not.toBe(documentId("profile", "sys1"));
+    expect(documentId("ssp", "sys1")).not.toBe(documentId("ssp", "sys2"));
+    expect(documentId("catalog")).toBe(documentId("catalog", "sys1"));
+    expect(documentId("catalog")).not.toBe(documentId("profile", ""));
   });
 });

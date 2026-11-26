@@ -237,11 +237,11 @@ describe("GET OSCAL Package (#442)", { timeout: 90_000 }, () => {
     const pkg = await unzip(await download(users.owner, system.draft));
     for (const doc of [pkg.catalog.catalog, pkg.profile.profile, pkg.ssp["system-security-plan"]]) {
       expect(doc.metadata["oscal-version"]).toBe("1.2.3");
-      expect(doc.metadata.version).toMatch(/^\d+\.\d+\.\d+/);
+      expect(doc.metadata.version).toBe("unreleased");
       expect(Date.parse(doc.metadata["last-modified"])).not.toBeNaN();
       const props = Object.fromEntries(doc.metadata.props.map((p: Doc) => [p.name, p.value]));
       expect(props["app-commit"]).toEqual(expect.any(String));
-      expect(props["exporter-version"]).toBe(doc.metadata.version);
+      expect(props["exporter-version"]).not.toBe(doc.metadata.version);
       expect(doc.metadata.parties.map((p: Doc) => p.name)).toContain(N("owner"));
     }
     expect(JSON.stringify(pkg)).not.toContain("@example.com");

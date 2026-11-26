@@ -29,6 +29,18 @@ export function oscalUuid(model: string, ...ids: string[]): string {
   return uuidV5(`${model}:${ids.join(":")}`, NAMESPACE_BYTES);
 }
 
+/** The kinds of OSCAL document a package holds. */
+export type DocumentKind = "catalog" | "profile" | "ssp";
+
+/**
+ * The identifier of a document across its exports (`metadata.document-ids`): the same Control Library, or the same System's
+ * Profile or SSP, has the same identifier in every export, while the root `uuid` is new each time. The Catalog is the one Control
+ * Library (a fixed subject); a Profile and an SSP are per System (`subjectId` is the System's id, never written to the package).
+ */
+export function documentId(kind: DocumentKind, subjectId?: string): string {
+  return oscalUuid("Document", kind, kind === "catalog" ? "control-library" : (subjectId ?? ""));
+}
+
 /** OSCAL's token datatype (NIST schema `TokenDatatype`). */
 const TOKEN = /^(\p{L}|_)(\p{L}|\p{N}|[.\-_])*$/u;
 
