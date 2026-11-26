@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { logChangeEvent } from "@/lib/change-events";
 import { riskLoggedDetail } from "@/lib/risk-logged-event";
+import { recordRiskStatusChange } from "@/lib/status-history";
 import type { CreateRiskAnalysisInput } from "@/lib/risk-analysis";
 
 /**
@@ -71,6 +72,7 @@ export async function raiseRisks(
     const created = await tx.risk.create({
       data: { ...risk, ownerId: risk.ownerId ?? null, systemId, source: "AD_HOC", raisedInAnalysisId: analysisId },
     });
+    await recordRiskStatusChange(tx, { riskId: created.id, systemId, from: null, to: created.status, actorId });
     await logChangeEvent(
       systemId,
       "RISK_LOGGED",

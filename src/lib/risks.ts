@@ -1,4 +1,4 @@
-import type { UserRole } from "@prisma/client";
+import type { Prisma, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { isSystemOwnerOrAdmin } from "@/lib/system-permissions";
 
@@ -49,6 +49,8 @@ const RISK_INCLUDE = {
   controlAssessment: { include: { control: true } },
   // The Check-up that opened it (#157), for the link back to the finding.
   checkUp: { select: { id: true, control: { select: { code: true } }, internalAudit: { select: { title: true } } } },
+  // The planned steps of its remediation (#456), in planned-date order.
+  milestones: { orderBy: [{ plannedDate: "asc" }, { createdAt: "asc" }, { id: "asc" }] as Prisma.RiskMilestoneOrderByWithRelationInput[] },
 } as const;
 
 /** Every Risk with no System (opened by an Organization-level Nonconformity), newest first. */

@@ -28,7 +28,23 @@ export type Risk = {
   } | null;
   /** The Check-up whose Nonconformity opened this Risk (#157), if one did. */
   checkUp?: { id: string } | null;
+  /** The date the Risk is to be dealt with by (#456): a calendar date, as a `Date` from a page or an ISO string from the API. */
+  deadline?: string | Date | null;
+  /** The planned steps of its remediation (#456), in planned-date order. */
+  milestones?: Milestone[];
 };
+
+export type Milestone = {
+  id: string;
+  title: string;
+  plannedDate: string | Date;
+  completedDate: string | Date | null;
+};
+
+/** `YYYY-MM-DD` of a calendar date (the columns are dates, so the UTC day is the date). */
+function dayOf(value: string | Date | null | undefined): string {
+  return value ? new Date(value).toISOString().slice(0, 10) : "";
+}
 
 const STATUSES: RiskStatus[] = ["OPEN", "MITIGATED", "ACCEPTED", "TRANSFERRED", "CLOSED"];
 
@@ -62,11 +78,13 @@ export function RiskRow({
   const [saving, setSaving] = useState(false);
   const [ownerError, setOwnerError] = useState<string | null>(null);
   const [savingOwner, setSavingOwner] = useState(false);
+  const [deadline, setDeadline] = useState(dayOf(risk.deadline));
 
   useEffect(() => {
     setStatus(risk.status);
     setMitigationPlan(risk.mitigationPlan ?? "");
     setOwnerId(risk.ownerId ?? risk.owner?.id ?? "");
+    setDeadline(dayOf(risk.deadline));
   }, [risk]);
 
   async function handleSave() {
@@ -76,7 +94,11 @@ export function RiskRow({
       const response = await fetch(patchUrl, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status, mitigationPlan: mitigationPlan || null }),
+        body: JSON.stringify({
+          status,
+          mitigationPlan: mitigationPlan || null,
+          ...(deadline !== dayOf(risk.deadline) ? { deadline: deadline || null } : {}),
+        }),
       });
 
       if (!response.ok) {
@@ -148,6 +170,8 @@ export function RiskRow({
       {risk.mitigationPlan && (
         <p className="text-xs text-rg-muted">Mitigation plan: {risk.mitigationPlan}</p>
       )}
+      {risk.deadline && <p className="text-xs text-rg-muted">Deadline: {dayOf(risk.deadline)}</p>}
+      <RemediationMilestones risk={risk} patchUrl={patchUrl} canManage={canManageStatus} onUpdated={onUpdated} />
 
       {owners && (
         <div role="group" aria-label={`Owner of ${risk.title}`} className="mt-2 flex flex-col gap-2 border-t border-rg-line pt-2">
@@ -204,10 +228,206 @@ export function RiskRow({
             />
           </label>
 
+          <label className="flex flex-col gap-1 text-sm">
+            Deadline (optional)
+            <input
+              type="date"
+              aria-label={`Deadline for ${risk.title}`}
+              className="rounded border border-rg-control p-2"
+              value={deadline}
+              onChange={(event) => setDeadline(event.target.value)}
+            />
+          </label>
+
           <Button variant="secondary" onClick={handleSave} disabled={saving}>
             Save
           </Button>
         </div>
+      )}
+    </li>
+  );
+}
+
+/**
+ * A Risk's remediation milestones (#456): what is planned, by when, and what is done. Everyone who sees the Risk reads them;
+ * who may manage the Risk can add one, edit it, mark it completed on a date, and delete one that is not completed. Each change
+ * saves at once against `${patchUrl}/milestones` and gives back the whole Risk.
+ */
+function RemediationMilestones({
+  risk,
+  patchUrl,
+  canManage,
+  onUpdated,
+}: {
+  risk: Risk;
+  patchUrl: string;
+  canManage: boolean;
+  onUpdated: (risk: Risk) => void;
+}) {
+  const milestones = risk.milestones ?? [];
+  const [title, setTitle] = useState("");
+  const [plannedDate, setPlannedDate] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const today = new Date().toISOString().slice(0, 10);
+  const [completedOn, setCompletedOn] = useState(today);
+
+  async function send(url: string, method: "POST" | "PATCH" | "DELETE", body?: unknown): Promise<boolean> {
+    setError(null);
+    setBusy(true);
+    try {
+      const response = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        ...(body !== undefined && { body: JSON.stringify(body) }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setError(data.error ?? "Failed to save the milestone");
+        return false;
+      }
+      onUpdated(data.risk);
+      return true;
+    } catch {
+      setError("Failed to save the milestone");
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleAdd() {
+    if (await send(`${patchUrl}/milestones`, "POST", { title: title.trim(), plannedDate })) {
+      setTitle("");
+      setPlannedDate("");
+    }
+  }
+
+  if (milestones.length === 0 && !canManage) return null;
+  return (
+    <div role="group" aria-label={`Remediation milestones of ${risk.title}`} className="mt-2 flex flex-col gap-1 border-t border-rg-line pt-2">
+      <p className="text-xs font-medium text-rg-muted">Remediation milestones</p>
+      {error && <p className="text-sm text-rg-danger">{error}</p>}
+      {milestones.length === 0 && <p className="text-xs text-rg-muted">None planned.</p>}
+      {canManage && milestones.some((m) => !m.completedDate) && (
+        <label className="flex items-center gap-2 text-xs text-rg-muted">
+          Completed on
+          <input
+            type="date"
+            aria-label={`Completion date for ${risk.title}`}
+            className="rounded border border-rg-control p-1"
+            value={completedOn}
+            max={today}
+            onChange={(event) => setCompletedOn(event.target.value)}
+          />
+        </label>
+      )}
+      <ul className="flex flex-col gap-1">
+        {milestones.map((milestone) => (
+          <MilestoneItem
+            key={milestone.id}
+            milestone={milestone}
+            canManage={canManage}
+            busy={busy}
+            completedOn={completedOn}
+            onSend={(method, body) => send(`${patchUrl}/milestones/${milestone.id}`, method, body)}
+          />
+        ))}
+      </ul>
+      {canManage && (
+        <div className="flex flex-wrap items-end gap-2">
+          <label className="flex flex-col gap-1 text-sm">
+            New milestone
+            <input
+              aria-label={`New milestone for ${risk.title}`}
+              className="rounded border border-rg-control p-2"
+              value={title}
+              maxLength={300}
+              onChange={(event) => setTitle(event.target.value)}
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-sm">
+            Planned date
+            <input
+              type="date"
+              aria-label={`Planned date of the new milestone for ${risk.title}`}
+              className="rounded border border-rg-control p-2"
+              value={plannedDate}
+              onChange={(event) => setPlannedDate(event.target.value)}
+            />
+          </label>
+          <Button variant="secondary" disabled={busy || !title.trim() || !plannedDate} onClick={handleAdd}>
+            Add milestone
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MilestoneItem({
+  milestone,
+  canManage,
+  busy,
+  completedOn,
+  onSend,
+}: {
+  milestone: Milestone;
+  canManage: boolean;
+  busy: boolean;
+  completedOn: string;
+  onSend: (method: "PATCH" | "DELETE", body?: unknown) => Promise<boolean>;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [title, setTitle] = useState(milestone.title);
+  const [plannedDate, setPlannedDate] = useState(dayOf(milestone.plannedDate));
+
+  if (editing) {
+    return (
+      <li className="flex flex-wrap items-end gap-2 text-sm">
+        <input aria-label={`Title of milestone ${milestone.title}`} className="rounded border border-rg-control p-1" value={title} maxLength={300} onChange={(event) => setTitle(event.target.value)} />
+        <input
+          type="date"
+          aria-label={`Planned date of milestone ${milestone.title}`}
+          className="rounded border border-rg-control p-1"
+          value={plannedDate}
+          onChange={(event) => setPlannedDate(event.target.value)}
+        />
+        <Button
+          variant="secondary"
+          disabled={busy || !title.trim() || !plannedDate}
+          onClick={async () => {
+            if (await onSend("PATCH", { title: title.trim(), plannedDate })) setEditing(false);
+          }}
+        >
+          Save milestone
+        </Button>
+        <Button variant="secondary" disabled={busy} onClick={() => setEditing(false)}>
+          Cancel
+        </Button>
+      </li>
+    );
+  }
+  return (
+    <li className="flex flex-wrap items-center gap-2 text-sm">
+      <span>{milestone.title}</span>
+      <span className="text-xs text-rg-muted">planned {dayOf(milestone.plannedDate)}</span>
+      {milestone.completedDate ? (
+        <span className="text-xs text-rg-muted">completed {dayOf(milestone.completedDate)}</span>
+      ) : (
+        canManage && (
+          <>
+            <Button variant="secondary" disabled={busy || !completedOn} aria-label={`Mark ${milestone.title} completed`} onClick={() => onSend("PATCH", { completedDate: completedOn })}>
+              Mark completed
+            </Button>
+            <Button variant="secondary" disabled={busy} aria-label={`Edit milestone ${milestone.title}`} onClick={() => setEditing(true)}>
+              Edit
+            </Button>
+            <Button variant="secondary" disabled={busy} aria-label={`Delete milestone ${milestone.title}`} onClick={() => onSend("DELETE")}>
+              Delete
+            </Button>
+          </>
+        )
       )}
     </li>
   );

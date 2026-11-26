@@ -4,6 +4,7 @@ import { getApplicableControls, UNTOUCHED_ASSESSMENT_WHERE, type SystemClassific
 import { SYSTEM_ACTOR } from "@/lib/change-events";
 import { systemsInScopeOf } from "@/lib/framework-scope";
 import { reconcileAllReviewSteps } from "@/lib/review-steps";
+import { recordAssessmentsCreated } from "@/lib/status-history";
 import { EFFECTIVE_SCOPE_SELECT, systemsWithFrameworkInScope, withEffectiveScope } from "@/lib/effective-framework-scope";
 
 /**
@@ -207,22 +208,22 @@ async function recomputeApplicability(pending: PendingRecompute, trigger: string
   await inChunks(batches, async (batch) => {
     const deletes = batch.filter((p) => p.toDelete.length > 0);
     const creates = batch.flatMap((p) => p.toCreate.map((controlId) => ({ systemId: p.systemId, controlId })));
-    await prisma.$transaction([
-      ...(deletes.length > 0
-        ? [
-            prisma.controlAssessment.deleteMany({
-              where: {
-                OR: deletes.map((p) => ({ systemId: p.systemId, controlId: { in: p.toDelete } })),
-                ...UNTOUCHED_ASSESSMENT_WHERE,
-                evidenceItems: { none: {} }, // a row holding Evidence records (#455) is kept as stale, never cascaded away
-              },
-            }),
-          ]
-        : []),
-      ...(creates.length > 0
-        ? [prisma.controlAssessment.createMany({ data: creates, skipDuplicates: true })]
-        : []),
-      prisma.changeEvent.createMany({
+    await prisma.$transaction(async (tx) => {
+      if (deletes.length > 0) {
+        await tx.controlAssessment.deleteMany({
+          where: {
+            OR: deletes.map((p) => ({ systemId: p.systemId, controlId: { in: p.toDelete } })),
+            ...UNTOUCHED_ASSESSMENT_WHERE,
+            evidenceItems: { none: {} }, // a row holding Evidence records (#455) is kept as stale, never cascaded away
+          },
+        });
+      }
+      if (creates.length > 0) {
+        // The rows really created (skipDuplicates leaves out one a concurrent write made first) get their creation record (#456).
+        const created = await tx.controlAssessment.createManyAndReturn({ data: creates, skipDuplicates: true, select: { id: true, systemId: true, controlId: true, status: true } });
+        await recordAssessmentsCreated(tx, created, SYSTEM_ACTOR);
+      }
+      await tx.changeEvent.createMany({
         data: batch.map((p) => ({
           systemId: p.systemId,
           action: "APPLICABILITY_RECOMPUTED" as const,
@@ -231,8 +232,8 @@ async function recomputeApplicability(pending: PendingRecompute, trigger: string
             `${p.stale > 0 ? `, ${p.stale} kept as stale` : ""})`,
           actorId: SYSTEM_ACTOR,
         })),
-      }),
-    ]);
+      });
+    });
   });
   for (const p of plans) {
     summary.changed += 1;

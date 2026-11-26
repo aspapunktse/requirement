@@ -14,6 +14,7 @@ import {
 import { loadOrganizationStatuses, loadProviderSources, toOwnAssessment } from "@/lib/effective-status-data";
 import { lockProvider, withProviderInheritanceEvents } from "@/lib/provider-inheritance";
 import { logChangeEvent } from "@/lib/change-events";
+import { recordAssessmentsCreated, recordAssessmentStatusChange } from "@/lib/status-history";
 import { toEvidenceView } from "@/lib/evidence";
 import { EVIDENCE_INCLUDE } from "@/lib/evidence-data";
 import { editReopensSteps, lockSystem, reopenStepsForEdit } from "@/lib/review-steps";
@@ -70,7 +71,9 @@ export function diffApplicabilityOps(
   oldApplicable: { id: string }[],
   newApplicable: { id: string }[],
   // Pass a transaction client to build the ops on it (they run when awaited, on that connection).
-  db: Pick<Prisma.TransactionClient, "controlAssessment"> = prisma,
+  db: Pick<Prisma.TransactionClient, "controlAssessment" | "statusChange"> = prisma,
+  // Whose action created the rows, for their creation record in the status history (#456); null or SYSTEM_ACTOR for the system.
+  actorId: string | null = null,
 ) {
   const { newlyApplicableIds, noLongerApplicableIds } = diffApplicability(oldApplicable, newApplicable);
 
@@ -85,10 +88,23 @@ export function diffApplicabilityOps(
         evidenceItems: { none: {} },
       },
     }),
-    createOp: db.controlAssessment.createMany({
-      data: newlyApplicableIds.map((controlId) => ({ systemId, controlId })),
-      skipDuplicates: true,
-    }),
+    // Lazy like `deleteOp`: it runs when awaited. The rows really created also get their creation record (#456), on the same `db`.
+    createOp: {
+      then<R1 = { count: number }, R2 = never>(
+        onfulfilled?: ((value: { count: number }) => R1 | PromiseLike<R1>) | null,
+        onrejected?: ((reason: unknown) => R2 | PromiseLike<R2>) | null,
+      ) {
+        return (async () => {
+          const created = await db.controlAssessment.createManyAndReturn({
+            data: newlyApplicableIds.map((controlId) => ({ systemId, controlId })),
+            skipDuplicates: true,
+            select: { id: true, systemId: true, controlId: true, status: true },
+          });
+          await recordAssessmentsCreated(db, created, actorId);
+          return { count: created.length };
+        })().then(onfulfilled, onrejected);
+      },
+    } as PromiseLike<{ count: number }>,
   };
 }
 
@@ -562,6 +578,7 @@ export async function resetAssessmentToInherited(
       ? await withProviderInheritanceEvents(tx, { providerId: system.id, controlIds: [controlId] }, clear)
       : await clear();
     if (count === 0) return refused("NOT_PERSON_SET");
+    await recordAssessmentStatusChange(tx, { assessmentId: assessment.id, systemId: system.id, controlId, from: assessment.status, to: UNTOUCHED_ASSESSMENT_DATA.status, actorId: actor.id });
 
     const now = resolveEffectiveStatus({ status: UNTOUCHED_ASSESSMENT_DATA.status, personSet: false }, sources);
     await logChangeEvent(

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import type { Prisma } from "@prisma/client";
 import { authenticate } from "@/lib/api-authz";
 import { getVisibleSystem } from "@/lib/system-visibility";
 import { assessmentEditAccess } from "@/lib/system-permissions";
@@ -7,6 +8,7 @@ import { getControlForAssessmentEdit } from "@/lib/control-assessments";
 import { runAssessmentEdit, reopenStepsAfterEdit } from "@/lib/assessment-edit";
 import { refuseIfSystemClosed } from "@/lib/system-closed";
 import { listEvidence } from "@/lib/evidence-data";
+import { ensureAssessment } from "@/lib/status-history";
 
 type Ctx = RouteContext<"/api/systems/[id]/assessments/[controlId]/evidence">;
 
@@ -89,12 +91,8 @@ export async function POST(request: NextRequest, ctx: Ctx) {
       systemDocumentId = document.id;
       title = title ?? document.documentRequirement.name;
     }
-    const assessment = await db.controlAssessment.upsert({
-      where: { systemId_controlId: { systemId: system.id, controlId } },
-      create: { systemId: system.id, controlId },
-      update: {},
-      select: { id: true },
-    });
+    // `db` is the transaction `runAssessmentEdit` opened, so the row and its creation record commit together.
+    const assessment = await ensureAssessment(db as Prisma.TransactionClient, { systemId: system.id, controlId }, auth.user.id);
     await db.evidenceItem.create({
       data: {
         controlAssessmentId: assessment.id,

@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { authorize } from "@/lib/api-authz";
 import { logChangeEvent } from "@/lib/change-events";
 import { ROLES_ALLOWED_TO_MANAGE_RISK_STATUS, RISK_INCLUDE } from "@/lib/risks";
+import { recordRiskStatusChange } from "@/lib/status-history";
+import { calendarDate, toCalendarDate } from "@/lib/risk-remediation";
 
 const updateRiskSchema = z.object({
   /** Absent in an owner-only change (#360). */
@@ -12,6 +14,8 @@ const updateRiskSchema = z.object({
   mitigationPlan: z.string().nullable().optional(),
   /** Who acts on the Risk; absent leaves it, null unassigns. */
   ownerId: z.string().min(1).nullable().optional(),
+  /** The date the Risk is to be dealt with by (#456), `YYYY-MM-DD`; null clears it. */
+  deadline: calendarDate.nullable().optional(),
 });
 
 /**
@@ -31,8 +35,8 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/risks/
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid update" }, { status: 400 });
   }
-  const { status, mitigationPlan, ownerId } = parsed.data;
-  if (status === undefined && (ownerId === undefined || mitigationPlan !== undefined)) {
+  const { status, mitigationPlan, ownerId, deadline } = parsed.data;
+  if (status === undefined && ((ownerId === undefined && deadline === undefined) || mitigationPlan !== undefined)) {
     return NextResponse.json({ error: "Invalid update" }, { status: 400 });
   }
 
@@ -40,33 +44,36 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/risks/
     return NextResponse.json({ error: "A mitigation plan is required to mark a Risk Mitigated" }, { status: 400 });
   }
 
-  const existing = await prisma.risk.findFirst({ where: { id, systemId: null } });
-  if (!existing) {
-    return NextResponse.json({ error: "Risk not found" }, { status: 404 });
-  }
+  const result = await prisma.$transaction(async (tx) => {
+    const existing = await tx.risk.findFirst({ where: { id, systemId: null } });
+    if (!existing) return { kind: "not-found" as const };
+    if (ownerId && !(await tx.user.findFirst({ where: { id: ownerId }, select: { id: true } }))) return { kind: "bad-owner" as const };
 
-  if (ownerId) {
-    const owner = await prisma.user.findFirst({
-      where: { id: ownerId },
-      select: { id: true },
+    const risk = await tx.risk.update({
+      where: { id },
+      data: {
+        ...(status !== undefined && { status, mitigationPlan }),
+        ...(ownerId !== undefined && { ownerId }),
+        ...(deadline !== undefined && { deadline: deadline === null ? null : toCalendarDate(deadline) }),
+      },
+      include: RISK_INCLUDE,
     });
-    if (!owner) {
-      return NextResponse.json({ error: "The owner must be an existing User" }, { status: 400 });
+    if (status !== undefined) {
+      // The change, its status history and its Change Event commit together (#456).
+      await recordRiskStatusChange(tx, { riskId: id, systemId: null, from: existing.status, to: status, actorId: auth.user.id });
+      if (existing.status !== status) {
+        await logChangeEvent(
+          null,
+          "RISK_STATUS_CHANGED",
+          `Organization Risk "${existing.title}" status changed from ${existing.status} to ${status}`,
+          auth.user.id,
+          tx,
+        );
+      }
     }
-  }
-
-  const risk = await prisma.risk.update({
-    where: { id },
-    data: { ...(status !== undefined && { status, mitigationPlan }), ...(ownerId !== undefined && { ownerId }) },
-    include: RISK_INCLUDE,
+    return { kind: "ok" as const, risk };
   });
-  if (status !== undefined && existing.status !== status) {
-    await logChangeEvent(
-      null,
-      "RISK_STATUS_CHANGED",
-      `Organization Risk "${existing.title}" status changed from ${existing.status} to ${status}`,
-      auth.user.id,
-    );
-  }
-  return NextResponse.json({ risk });
+  if (result.kind === "not-found") return NextResponse.json({ error: "Risk not found" }, { status: 404 });
+  if (result.kind === "bad-owner") return NextResponse.json({ error: "The owner must be an existing User" }, { status: 400 });
+  return NextResponse.json({ risk: result.risk });
 }

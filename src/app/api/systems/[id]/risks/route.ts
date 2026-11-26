@@ -8,6 +8,7 @@ import { canAssignRiskOwner, canLogRisk, getSystemRisks, RISK_INCLUDE } from "@/
 import { logChangeEvent } from "@/lib/change-events";
 import { riskLoggedDetail } from "@/lib/risk-logged-event";
 import { refuseIfSystemClosed } from "@/lib/system-closed";
+import { recordRiskStatusChange } from "@/lib/status-history";
 
 export async function GET(request: NextRequest, ctx: RouteContext<"/api/systems/[id]/risks">) {
   const auth = await authenticate(request);
@@ -71,6 +72,7 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/systems
       data: { ...riskFields, ...(ownerId ? { ownerId } : {}), systemId: system.id, source: "AD_HOC" },
       include: RISK_INCLUDE,
     });
+    await recordRiskStatusChange(tx, { riskId: created.id, systemId: system.id, from: null, to: created.status, actorId: auth.user.id });
     await logChangeEvent(
       system.id,
       "RISK_LOGGED",

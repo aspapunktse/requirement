@@ -7,6 +7,7 @@ import { saveOrganizationImplementationIn } from "@/lib/organization-inheritance
 import { runProviderAssessmentWriteIn } from "@/lib/provider-inheritance";
 import { checkUpFindingPath, nonconformityRiskText, overrideNote, setBackNote, type SetBackOutcome } from "@/lib/check-up-nonconformity-rules";
 import { logAutoOpenedRisk } from "@/lib/risk-logged-event";
+import { recordAssessmentStatusChange, recordRiskStatusChange } from "@/lib/status-history";
 
 /**
  * What a Nonconformity does (PRD 0001 F-IA.7, F-CE.2, #157), inside the evaluation's transaction and
@@ -87,7 +88,7 @@ export async function applyNonconformity({ tx, checkUpId, comment, actorId }: No
     outcome,
     finding,
   });
-  await tx.risk.create({
+  const risk = await tx.risk.create({
     data: {
       systemId: checkUp.system?.id ?? null,
       checkUpId,
@@ -100,6 +101,8 @@ export async function applyNonconformity({ tx, checkUpId, comment, actorId }: No
       likelihood: "MEDIUM",
     },
   });
+  // History records the auditor whose evaluation opened it (the Change Event is the system's).
+  await recordRiskStatusChange(tx, { riskId: risk.id, systemId: risk.systemId, from: null, to: risk.status, actorId });
   await logAutoOpenedRisk(tx, {
     systemId: checkUp.system?.id ?? null,
     title: text.title,
@@ -129,7 +132,7 @@ async function setBackSystemAssessment(
         // row nobody set, or no row, can be here: a person-set non-Fulfilled status always wins over a source.
         const source = effectiveSourceLabel(effective);
         const now = new Date();
-        await db.controlAssessment.upsert({
+        const overridden = await db.controlAssessment.upsert({
           where: { systemId_controlId: { systemId: system.id, controlId: control.id } },
           create: {
             systemId: system.id,
@@ -145,6 +148,7 @@ async function setBackSystemAssessment(
             ...(row?.assessedById == null && { assessedById: actorId, assessedAt: now }),
           },
         });
+        await recordAssessmentStatusChange(db, { assessmentId: overridden.id, systemId: system.id, controlId: control.id, from: row?.status ?? null, to: overridden.status, actorId });
         await logChangeEvent(
           system.id,
           "ASSESSMENT_STATUS_CHANGED",
@@ -166,6 +170,7 @@ async function setBackSystemAssessment(
         ...(row.assessedById === null && { assessedById: actorId, assessedAt: new Date() }),
       },
     });
+    await recordAssessmentStatusChange(db, { assessmentId: saved.id, systemId: system.id, controlId: control.id, from: row.status, to: saved.status, actorId });
     const effect = describeOwnEditEffect("IN_PROGRESS", await loadEffectiveStatus(system.id, control, toOwnAssessment(saved), db));
     await logChangeEvent(
       system.id,
