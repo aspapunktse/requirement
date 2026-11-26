@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { authenticate } from "@/lib/api-authz";
@@ -92,7 +93,7 @@ export async function POST(request: NextRequest, ctx: Ctx): Promise<NextResponse
         update: { updatedById: user.id },
         select: { id: true },
       });
-      const stored = { fileName: file.name, contentType: checked.contentType, size: data.length, data, uploadedAt: new Date(), uploadedById: user.id };
+      const stored = { fileName: file.name, contentType: checked.contentType, size: data.length, data, sha256: createHash("sha256").update(data).digest("hex"), uploadedAt: new Date(), uploadedById: user.id };
       await tx.systemDocumentFile.upsert({ where: { systemDocumentId: document.id }, create: { systemDocumentId: document.id, ...stored }, update: stored });
       return (await listSystemDocuments(tx, system.id)).find((item) => item.id === requirement.id) ?? null;
       // A 4 MB write over a remote connection can outlast Prisma's default 5 s interactive-transaction timeout.

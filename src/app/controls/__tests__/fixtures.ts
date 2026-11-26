@@ -19,6 +19,7 @@ export function libraryRow(code: string, over: Partial<LibraryRow> = {}): Librar
     minSensitivityLabel: null,
     minIntegrityImpactLevel: null,
     minAvailabilityImpactLevel: null,
+    evidenceValidityMonths: null,
     ownerId: null,
     ownerName: null,
     source: { key: "base", label: "Base · ISO/IEC 27001:2022", kind: "base", draft: false },

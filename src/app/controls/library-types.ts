@@ -45,6 +45,8 @@ export type LibraryRow = {
   minSensitivityLabel: string | null;
   minIntegrityImpactLevel: ImpactLevel | null;
   minAvailabilityImpactLevel: ImpactLevel | null;
+  /** Months evidence on this Control stays valid (#455); null = it doesn't expire. */
+  evidenceValidityMonths: number | null;
   ownerId: string | null;
   ownerName: string | null;
   source: LibrarySource;

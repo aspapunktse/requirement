@@ -130,6 +130,8 @@ function ScopeBody({ row }: { row: LibraryRow }) {
       <dd>{row.minIntegrityImpactLevel ? impactLabel(row.minIntegrityImpactLevel) : <span className="cp-muted">None</span>}</dd>
       <dt>Minimum Availability</dt>
       <dd>{row.minAvailabilityImpactLevel ? impactLabel(row.minAvailabilityImpactLevel) : <span className="cp-muted">None</span>}</dd>
+      <dt>Evidence validity</dt>
+      <dd>{row.evidenceValidityMonths === null ? <span className="cp-muted">Evidence doesn&apos;t expire</span> : plural(row.evidenceValidityMonths, "month")}</dd>
     </dl>
   );
 }

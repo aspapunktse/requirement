@@ -14,6 +14,8 @@ import {
 import { loadOrganizationStatuses, loadProviderSources, toOwnAssessment } from "@/lib/effective-status-data";
 import { lockProvider, withProviderInheritanceEvents } from "@/lib/provider-inheritance";
 import { logChangeEvent } from "@/lib/change-events";
+import { toEvidenceView } from "@/lib/evidence";
+import { EVIDENCE_INCLUDE } from "@/lib/evidence-data";
 import { editReopensSteps, lockSystem, reopenStepsForEdit } from "@/lib/review-steps";
 import {
   APPLICABLE_APPLICABILITIES,
@@ -231,10 +233,14 @@ async function assessmentRowsFor(
 ) {
   const assessments = await prisma.controlAssessment.findMany({
     where: { systemId, ...(onlyControlId !== undefined && { controlId: onlyControlId }) },
-    include: { assessedBy: true, queries: { include: QUERY_INCLUDE, orderBy: { createdAt: "asc" } } },
+    include: { assessedBy: true, queries: { include: QUERY_INCLUDE, orderBy: { createdAt: "asc" } }, evidenceItems: EVIDENCE_INCLUDE },
   });
-
-  const assessmentByControlId = new Map(assessments.map((a) => [a.controlId, a]));
+  const now = new Date();
+  const validityOf = new Map(controls.map((control) => [control.id, control.evidenceValidityMonths]));
+  // Each Evidence record with its effective expiry and whether it is stale (#455).
+  const assessmentByControlId = new Map(
+    assessments.map((a) => [a.controlId, { ...a, evidenceItems: a.evidenceItems.map((item) => toEvidenceView(item, validityOf.get(a.controlId) ?? null, now)) }]),
+  );
   const [organizationStatuses, providerSources] = await Promise.all([
     loadOrganizationStatuses(controls.filter((control) => control.applicability === "BOTH").map((control) => control.id)),
     loadProviderSources([systemId], controls.map((control) => control.id)),
@@ -309,14 +315,17 @@ export async function getStaleAssessments(system: SystemClassification & { id: s
   const applicable = await getApplicableControls(system);
   const applicableIds = applicable.map((r) => r.id);
 
-  return prisma.controlAssessment.findMany({
+  const rows = await prisma.controlAssessment.findMany({
     where: { systemId: system.id, controlId: { notIn: applicableIds } },
     include: {
       control: true,
       assessedBy: true,
       queries: { include: QUERY_INCLUDE, orderBy: { createdAt: "asc" } },
+      evidenceItems: EVIDENCE_INCLUDE,
     },
   });
+  const now = new Date();
+  return rows.map((row) => ({ ...row, evidenceItems: row.evidenceItems.map((item) => toEvidenceView(item, row.control.evidenceValidityMonths, now)) }));
 }
 
 /**

@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { createHash } from "node:crypto";
 import { NextRequest } from "next/server";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { UserRole } from "@prisma/client";
@@ -83,6 +84,8 @@ describe("uploading, replacing and removing a file (#324)", { timeout: 30_000 },
       expect(files).toHaveLength(1);
       expect(Buffer.from(files[0].data).toString()).toBe("%PDF-1.4 hello");
       expect(files[0].uploadedById).toBe(users.owner);
+      // The SHA-256 of the bytes is stored with the file (#455).
+      expect(files[0].sha256).toBe(createHash("sha256").update("%PDF-1.4 hello").digest("hex"));
 
       const listed = await (await listDocuments(requestAs(`/api/systems/${id}/documents`, users.owner, "GET"), { params: Promise.resolve({ id }) })).json();
       const row = listed.documents.find((item: { id: string }) => item.id === requirementId);

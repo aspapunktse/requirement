@@ -155,6 +155,7 @@ model User {
   organizationImplementationsUpdated OrganizationControlImplementation[] @relation("OrganizationImplementationUpdatedBy")
   systemDocumentsUpdated             SystemDocument[]                    @relation("SystemDocumentUpdatedBy")
   systemDocumentFilesUploaded        SystemDocumentFile[]                @relation("SystemDocumentFileUploadedBy")
+  evidenceItemsCreated               EvidenceItem[]                      @relation("EvidenceItemCreatedBy")
   riskAnalysesRecorded               RiskAnalysis[]                      @relation("RiskAnalysisRecordedBy")
   riskAnalysesCompleted              RiskAnalysis[]                      @relation("RiskAnalysisCompletedBy")
   riskAnalysesAttended               RiskAnalysis[]                      @relation("RiskAnalysisParticipants")
@@ -580,17 +581,19 @@ enum ControlApplicability {
 
 // A reusable control definition (security, legal, compliance, operational, etc.)
 model Control {
-  id            String               @id @default(cuid())
-  code          String               @unique // e.g. SEC-001
-  title         String
-  description   String
-  category      String // e.g. Security, Privacy, Legal, Operational
-  mandatory     Boolean              @default(true)
-  applicability ControlApplicability
-  question      String? // self-assessment question; null for ORGANIZATIONAL-only controls
-  intent        String? // why the question matters, shown alongside it
-  examples      String[] // example ways to satisfy the control
-  createdAt     DateTime             @default(now())
+  id                     String               @id @default(cuid())
+  code                   String               @unique // e.g. SEC-001
+  title                  String
+  description            String
+  category               String // e.g. Security, Privacy, Legal, Operational
+  mandatory              Boolean              @default(true)
+  applicability          ControlApplicability
+  question               String? // self-assessment question; null for ORGANIZATIONAL-only controls
+  intent                 String? // why the question matters, shown alongside it
+  examples               String[] // example ways to satisfy the control
+  createdAt              DateTime             @default(now())
+  // How many months evidence on this Control stays valid after it was collected (#455); null = evidence on it doesn't expire.
+  evidenceValidityMonths Int?
 
   assessments          ControlAssessment[]
   // Where a Change Review added this Control to a group's remit (#334). Cascade: deleting a Control never blocks on it.
@@ -749,8 +752,39 @@ model ControlAssessment {
   // #56) — a lightweight, non-blocking question/reply thread, distinct from
   // both the Self-Assessment Question above and Approval.comment.
   queries              AssessmentQuery[]
+  // The Evidence records attached to this Assessment (#455). Cascade: they go with it. `evidence` above stays as the free-text Evidence note.
+  evidenceItems        EvidenceItem[]
 
   @@unique([systemId, controlId])
+}
+
+enum EvidenceKind {
+  LINK
+  DOCUMENT
+}
+
+// One piece of Evidence for a System's work on a Control (#455): a link, or one of the System's documents (SystemDocument).
+// `expiresAt` is the person's own override; otherwise the Control's `evidenceValidityMonths` after `collectedAt` decides
+// (`src/lib/evidence.ts`). A DOCUMENT whose SystemDocument is deleted keeps its row (SetNull, `title` holds the name it had),
+// so the record that evidence was once given is never silently lost.
+model EvidenceItem {
+  id                  String            @id @default(cuid())
+  controlAssessmentId String
+  controlAssessment   ControlAssessment @relation(fields: [controlAssessmentId], references: [id], onDelete: Cascade)
+  kind                EvidenceKind
+  url                 String? // LINK
+  systemDocumentId    String? // DOCUMENT
+  systemDocument      SystemDocument?   @relation(fields: [systemDocumentId], references: [id], onDelete: SetNull)
+  title               String?
+  description         String?
+  collectedAt         DateTime          @default(now())
+  expiresAt           DateTime?
+  createdAt           DateTime          @default(now())
+  createdById         String?
+  createdBy           User?             @relation("EvidenceItemCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([controlAssessmentId])
+  @@index([systemDocumentId])
 }
 
 // A lightweight, non-blocking question/reply thread scoped to one specific
@@ -1592,6 +1626,7 @@ model SystemDocument {
   updatedById           String?
   updatedBy             User?               @relation("SystemDocumentUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   file                  SystemDocumentFile?
+  evidenceItems         EvidenceItem[]
 
   @@unique([systemId, documentRequirementId])
   @@index([documentRequirementId])
@@ -1608,6 +1643,8 @@ model SystemDocumentFile {
   contentType      String
   size             Int
   data             Bytes
+  // Hex SHA-256 of `data`, set on upload (#455); the OSCAL SSP gives it as the evidence resource's hash.
+  sha256           String?
   uploadedAt       DateTime       @default(now())
   uploadedById     String?
   uploadedBy       User?          @relation("SystemDocumentFileUploadedBy", fields: [uploadedById], references: [id], onDelete: SetNull)
