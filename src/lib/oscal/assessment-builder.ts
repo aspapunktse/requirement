@@ -19,6 +19,7 @@
  */
 import type { CheckUpAnswer, CheckUpOutcome, RiskSeverity, RiskSource, RiskStatus } from "@prisma/client";
 import { controlId, OSCAL_APP_NS, oscalUuid, type DocumentKind } from "@/lib/oscal/ids";
+import { oscalRiskStatus } from "@/lib/oscal/risk-status";
 
 type Json = Record<string, unknown>;
 export type AuditPerson = { id: string; name: string; roles: { id: string; title: string }[] };
@@ -83,19 +84,6 @@ export const ASSESSMENT_FILES = { plan: "assessment-plan.json", results: "assess
 const prop = (name: string, value: string) => ({ name, ns: OSCAL_APP_NS, value });
 const OUTCOME_LABEL: Record<CheckUpOutcome, string> = { CONFORMING: "Conforming", OBSERVATION: "Observation", NONCONFORMITY: "Nonconformity" };
 const ANSWER_LABEL: Record<CheckUpAnswer, string> = { YES: "Yes", NO: "No", NA: "N/A" };
-/**
- * Risk status to OSCAL `risk-status`. Product-owner decision still open (research doc, section 5): OPEN is open and CLOSED is
- * closed; Mitigated is not closed, so it is remediating; Accepted and Transferred are decisions to carry the risk, so
- * deviation-approved. The app's own status always travels as the `risk-status` prop.
- */
-export const RISK_STATE: Record<RiskStatus, string> = {
-  OPEN: "open",
-  MITIGATED: "remediating",
-  ACCEPTED: "deviation-approved",
-  TRANSFERRED: "deviation-approved",
-  CLOSED: "closed",
-};
-
 const byText = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 
 export type AssessmentContext = {
@@ -285,8 +273,8 @@ export function buildAssessmentDocuments(ctx: AssessmentContext) {
       title: r.title,
       description: r.description,
       statement: r.description,
-      props: [prop("risk-status", r.status), prop("risk-source", r.source), prop("severity", r.severity), prop("likelihood", r.likelihood)],
-      status: RISK_STATE[r.status],
+      props: [prop("risk-status", r.status), prop("risk-source", r.source), prop("severity", r.severity), prop("likelihood", r.likelihood), ...oscalRiskStatus(r.status).props],
+      status: oscalRiskStatus(r.status).state,
       ...(related.length > 0 && { "related-observations": related.map((u) => ({ "observation-uuid": u })) }),
       ...(r.mitigationPlan?.trim() && {
         remediations: [{ uuid: oscalUuid("Remediation", r.id), lifecycle: "planned", title: "Mitigation plan", description: r.mitigationPlan.trim() }],
