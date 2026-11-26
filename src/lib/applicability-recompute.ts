@@ -233,7 +233,7 @@ async function recomputeApplicability(pending: PendingRecompute, trigger: string
           actorId: SYSTEM_ACTOR,
         })),
       });
-    });
+    }, { timeout: 60_000, maxWait: 30_000 });
   });
   for (const p of plans) {
     summary.changed += 1;

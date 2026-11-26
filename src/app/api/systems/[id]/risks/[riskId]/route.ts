@@ -94,7 +94,7 @@ export async function PATCH(
       }
     }
     return { kind: "ok" as const, risk };
-  });
+  }, { timeout: 30_000, maxWait: 30_000 });
   if (result.kind === "not-found") return NextResponse.json({ error: "Risk not found" }, { status: 404 });
   if (result.kind === "bad-owner") return NextResponse.json({ error: "The owner must be an existing User" }, { status: 400 });
   return NextResponse.json({ risk: result.risk });

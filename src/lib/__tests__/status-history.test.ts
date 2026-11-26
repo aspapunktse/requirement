@@ -8,6 +8,7 @@ import { PATCH as patchAssessment } from "@/app/api/systems/[id]/assessments/[co
 import { PATCH as patchAnswer } from "@/app/api/systems/[id]/assessments/[controlId]/answer/route";
 import { PATCH as patchRisk } from "@/app/api/systems/[id]/risks/[riskId]/route";
 import { POST as postRisk } from "@/app/api/systems/[id]/risks/route";
+import { evaluateCheckUp } from "@/lib/check-up-evaluations";
 import { PATCH as patchOrganizationRisk } from "@/app/api/risks/[id]/route";
 
 /**
@@ -154,5 +155,30 @@ describe("status history (#456)", { timeout: 60_000 }, () => {
     expect(rows).toBeGreaterThan(0);
     await prisma.controlAssessment.delete({ where: { id: assessment.id } });
     expect((await history("CONTROL_ASSESSMENT", assessment.id)).length).toBe(rows);
+  });
+  it("a Nonconformity records the set-back of a Fulfilled assessment and the new Risk, attributed to the auditor", async () => {
+    const control = s.systemControls[1];
+    if (!control) throw new Error("fixture control missing");
+    const checkUp = s.find(control.code, false);
+    await prisma.controlAssessment.upsert({
+      where: { systemId_controlId: { systemId: s.systemId, controlId: control.id } },
+      create: { systemId: s.systemId, controlId: control.id, status: "FULFILLED", assessedById: s.systemOwner },
+      update: { status: "FULFILLED", assessedById: s.systemOwner },
+    });
+    await s.answer(checkUp.id, s.systemOwner);
+    const auditor = s.roleUser.INTERNAL_AUDITOR;
+    await evaluateCheckUp(checkUp.id, { id: auditor, role: "INTERNAL_AUDITOR" as const }, { outcome: "NONCONFORMITY", comment: "The control does not work" });
+
+    const risk = await prisma.risk.findUniqueOrThrow({ where: { checkUpId: checkUp.id } });
+    riskIds.push(risk.id);
+    const riskRows = await history("RISK", risk.id);
+    expect(riskRows.map((r) => [r.fromStatus, r.toStatus, r.actorId, r.systemId])).toEqual([[null, "OPEN", auditor, s.systemId]]);
+
+    const assessment = await prisma.controlAssessment.findUniqueOrThrow({ where: { systemId_controlId: { systemId: s.systemId, controlId: control.id } } });
+    expect(assessment.status).toBe("IN_PROGRESS");
+    const assessmentRows = await history("CONTROL_ASSESSMENT", assessment.id);
+    // The answer route wrote earlier rows; the set-back is the last one.
+    const last = assessmentRows.at(-1);
+    expect([last?.fromStatus, last?.toStatus, last?.actorId, last?.controlId]).toEqual(["FULFILLED", "IN_PROGRESS", auditor, control.id]);
   });
 });

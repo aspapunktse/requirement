@@ -277,7 +277,7 @@ export async function raiseQuery(
   attribution: QueryAttribution,
 ) {
   // The row (if this first touch creates it) and its creation record commit together (#456).
-  const assessment = await prisma.$transaction((tx) => ensureAssessment(tx, { systemId: system.id, controlId }, raisedById));
+  const assessment = await prisma.$transaction((tx) => ensureAssessment(tx, { systemId: system.id, controlId }, raisedById), { timeout: 30_000, maxWait: 30_000 });
 
   const query = await prisma.assessmentQuery.create({
     data: {
