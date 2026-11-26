@@ -34,7 +34,7 @@ import {
 } from "@/lib/effective-status";
 import { loadOrganizationStatuses, loadProviderSources, toOwnAssessment } from "@/lib/effective-status-data";
 import { DATA_LOCATION_LABELS } from "@/lib/vendor-detail-labels";
-import { controlId, oscalUuid } from "@/lib/oscal/ids";
+import { controlId, documentId, oscalUuid, type DocumentKind } from "@/lib/oscal/ids";
 import appPackage from "../../../package.json";
 
 export const OSCAL_VERSION = "1.2.3";
@@ -43,8 +43,18 @@ export const OSCAL_VERSION = "1.2.3";
  * convention (`PACKAGE_FILES` in validate.ts) is the same; it is not imported here because it pulls in ajv, a dev dependency.
  */
 export const PACKAGE_FILES = { catalog: "catalog.json", profile: "profile.json", ssp: "ssp.json" } as const;
-/** The URI the app's own props and its system identifier type live under. Chosen once; never change it. */
-export const OSCAL_APP_NS = "https://requirement.example/ns/oscal";
+/** The URI the app's own props and its system identifier type live under. Chosen by the product owner (#452); never change it. */
+export const OSCAL_APP_NS = "https://github.com/aspapunktse/requirement/ns/oscal";
+/** The `scheme` of the app's `metadata.document-ids`: a URI under the app namespace. */
+export const DOCUMENT_ID_SCHEME = `${OSCAL_APP_NS}/document-id`;
+/** `metadata.version` of a document that is not a stored release (an on-demand download). The app's own version is the `exporter-version` prop, never this. */
+export const UNRELEASED_DOCUMENT_VERSION = "unreleased";
+/** A stored release of the package, for the releases of #453: its version and when it was published, and the releases before it (oldest first). */
+export type OscalRelease = {
+  version: string;
+  published: Date;
+  previous: Array<{ version: string; published: Date; lastModified: Date }>;
+};
 export const NO_DESCRIPTION_TEXT = "No implementation description recorded.";
 /** What the commit prop says when the build does not know its commit (a local run, a test). One place, so it is never invented elsewhere. */
 export const UNKNOWN_COMMIT = "unknown";
@@ -155,14 +165,19 @@ function peopleMetadata(people: Person[]) {
   };
 }
 
-function metadata(title: string, now: Date, people: Person[]) {
+function metadata(title: string, now: Date, people: Person[], kind: DocumentKind, subjectId: string, release?: OscalRelease) {
   const commit = process.env.VERCEL_GIT_COMMIT_SHA || UNKNOWN_COMMIT;
   return {
     title,
+    ...(release && { published: release.published.toISOString() }),
     "last-modified": now.toISOString(),
-    version: appPackage.version,
+    version: release?.version ?? UNRELEASED_DOCUMENT_VERSION,
+    ...(release && release.previous.length > 0 && {
+      revisions: release.previous.map((r) => ({ published: r.published.toISOString(), "last-modified": r.lastModified.toISOString(), version: r.version })),
+    }),
     "oscal-version": OSCAL_VERSION,
     props: [prop("exporter", "requirement"), prop("exporter-version", appPackage.version), prop("app-commit", commit)],
+    "document-ids": [{ scheme: DOCUMENT_ID_SCHEME, identifier: documentId(kind, subjectId) }],
     ...peopleMetadata(people),
   };
 }
@@ -189,7 +204,7 @@ export function riskOfAssessment(risks: OscalSnapshot["assessmentRisks"], assess
 }
 
 /** Row data to the three documents. */
-export function buildOscalPackage(snapshot: OscalSnapshot, now: Date, newUuid: () => string = randomUUID) {
+export function buildOscalPackage(snapshot: OscalSnapshot, now: Date, newUuid: () => string = randomUUID, release?: OscalRelease) {
   const { system } = snapshot;
   const systemUuid = oscalUuid("System", system.id);
   const state = systemState(system.status);
@@ -318,7 +333,7 @@ export function buildOscalPackage(snapshot: OscalSnapshot, now: Date, newUuid: (
   const catalog = {
     catalog: {
       uuid: newUuid(),
-      metadata: metadata("Control Library", now, exporter),
+      metadata: metadata("Control Library", now, exporter, "catalog", "", release),
       controls: snapshot.controls.map((c) => ({
         id: controlId(c.code),
         title: c.title,
@@ -331,7 +346,7 @@ export function buildOscalPackage(snapshot: OscalSnapshot, now: Date, newUuid: (
   const profile = {
     profile: {
       uuid: newUuid(),
-      metadata: metadata(`OSCAL Profile of ${system.name}`, now, exporter),
+      metadata: metadata(`OSCAL Profile of ${system.name}`, now, exporter, "profile", system.id, release),
       imports: [{ href: PACKAGE_FILES.catalog, "include-controls": [{ "with-ids": applicable.map((c) => controlId(c.code)) }] }],
     },
   };
@@ -363,7 +378,7 @@ export function buildOscalPackage(snapshot: OscalSnapshot, now: Date, newUuid: (
   const ssp = {
     "system-security-plan": {
       uuid: newUuid(),
-      metadata: metadata(`System Security Plan of ${system.name}`, now, people),
+      metadata: metadata(`System Security Plan of ${system.name}`, now, people, "ssp", system.id, release),
       "import-profile": { href: PACKAGE_FILES.profile },
       "system-characteristics": {
         "system-ids": [{ "identifier-type": OSCAL_APP_NS, id: systemUuid }],

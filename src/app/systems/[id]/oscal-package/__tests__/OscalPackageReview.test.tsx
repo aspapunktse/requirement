@@ -8,7 +8,7 @@ import { OscalPackageReview } from "../OscalPackageReview";
 
 afterEach(cleanup);
 
-const NS = "https://requirement.example/ns/oscal";
+const NS = "https://github.com/aspapunktse/requirement/ns/oscal";
 const GAP = "No implementation description recorded.";
 const prop = (value: string) => ({ name: "control-assessment-status", ns: NS, value });
 const app = (name: string, value: string) => ({ name, ns: NS, value });
@@ -27,7 +27,7 @@ const pkg = {
   profile: {},
   ssp: {
     "system-security-plan": {
-      metadata: { "last-modified": "2026-11-24T10:00:00.000Z" },
+      metadata: { "last-modified": "2026-11-24T10:00:00.000Z", version: "unreleased", "document-ids": [{ scheme: `${NS}/document-id`, identifier: "11111111-1111-5111-8111-111111111111" }] },
       "system-characteristics": { "system-name": "Test Payroll", status: { state: "operational" } },
       "system-implementation": {
         components: [
@@ -73,6 +73,8 @@ describe("the OSCAL Package review page (#445)", () => {
     render(<OscalPackageReview pkg={pkg} systemId="s1" appNs={NS} />);
     expect(screen.getByText("operational")).toBeInTheDocument();
     expect(screen.getByText("2026-11-24T10:00:00.000Z")).toBeInTheDocument();
+    expect(screen.getByText("unreleased")).toBeInTheDocument();
+    expect(screen.getByText("11111111-1111-5111-8111-111111111111")).toBeInTheDocument();
     expect(screen.getAllByText("Test Payroll").length).toBeGreaterThan(0);
     expect(screen.getByRole("link", { name: "Download this OSCAL Package" })).toHaveAttribute("href", "/api/systems/s1/oscal-package");
     expect(screen.getByRole("link", { name: "System's Requirements" })).toHaveAttribute("href", "/systems/s1#requirements");
