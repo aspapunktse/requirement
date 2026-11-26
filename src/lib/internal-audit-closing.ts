@@ -1,5 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { createOscalRelease } from "@/lib/oscal/releases";
 import { InternalAuditError } from "@/lib/internal-audits";
 import {
   closeBlockedMessage,
@@ -74,4 +75,34 @@ export async function closeInternalAudit(internalAuditId: string, closedById: st
     });
     if (closed.count === 0) throw new InternalAuditError(409, "Only a launched Internal Audit can be closed");
   });
+}
+
+/** What `makeReleasesAfterClose` did for each System of the audit: made, skipped (a closed System) or failed (logged, not thrown). */
+export type AuditCloseReleaseOutcome = { systemId: string; result: "made" | "skipped" | "failed" };
+
+/**
+ * After an Internal Audit has closed (#454): makes one OSCAL Release for each System in it, trigger `INTERNAL_AUDIT_CLOSE`,
+ * `internalAuditId` set and the closing user as the actor. Called after `closeInternalAudit` has committed, and each release runs
+ * in its own transaction (`createOscalRelease` without `tx`), so a slow or failing build can never block or undo the close. A
+ * System whose release fails is logged and left without one (its owner or an Admin can still make one by hand); a closed System
+ * (Rejected or Not selected) is skipped. Never throws. Systems are done one after another, in id order.
+ */
+export async function makeReleasesAfterClose(internalAuditId: string, actorId: string): Promise<AuditCloseReleaseOutcome[]> {
+  const systems = await prisma.internalAuditSystem
+    .findMany({ where: { internalAuditId }, select: { systemId: true }, orderBy: { systemId: "asc" } })
+    .catch((error) => {
+      console.error(`Listing the Systems of Internal Audit ${internalAuditId} for its OSCAL Releases failed`, error);
+      return [];
+    });
+  const outcomes: AuditCloseReleaseOutcome[] = [];
+  for (const { systemId } of systems) {
+    try {
+      const made = await createOscalRelease({ systemId, actorId, trigger: "INTERNAL_AUDIT_CLOSE", internalAuditId });
+      outcomes.push({ systemId, result: made.kind === "ok" ? "made" : "skipped" });
+    } catch (error) {
+      console.error(`OSCAL Release for System ${systemId} after closing Internal Audit ${internalAuditId} failed`, error);
+      outcomes.push({ systemId, result: "failed" });
+    }
+  }
+  return outcomes;
 }

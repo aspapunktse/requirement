@@ -1,7 +1,8 @@
 /**
  * OSCAL package validator (#441, PRD #440). Used by tests and CI, not on the request path.
  *
- * A package is three documents: a Catalog, an OSCAL Profile and a System Security Plan.
+ * A package is three documents: a Catalog, an OSCAL Profile and a System Security Plan; when the System has a closed Internal
+ * Audit (#454) it also holds an Assessment Plan and Assessment Results, which are checked the same way.
  * Two layers, because the JSON schema does not catch broken links:
  *   1. schema: each document against NIST's pinned OSCAL v1.2.3 schema, using the per-model
  *      definition rather than the schema root (a `oneOf` over every model).
@@ -15,8 +16,9 @@
 import Ajv, { type ValidateFunction } from "ajv";
 import addFormats from "ajv-formats";
 import oscalSchema from "./schema/oscal_complete_schema.json";
+import { OSCAL_APP_NS } from "./ids";
 
-export type OscalDocumentName = "catalog" | "profile" | "ssp";
+export type OscalDocumentName = "catalog" | "profile" | "ssp" | "assessment-plan" | "assessment-results";
 export type OscalValidationError = {
   layer: "schema" | "reference";
   document: OscalDocumentName;
@@ -24,20 +26,24 @@ export type OscalValidationError = {
   path: string;
   message: string;
 };
-export type OscalPackage = { catalog: unknown; profile: unknown; ssp: unknown };
+export type OscalPackage = { catalog: unknown; profile: unknown; ssp: unknown; assessmentPlan?: unknown; assessmentResults?: unknown };
 
 const ROOT_KEY: Record<OscalDocumentName, string> = {
   catalog: "catalog",
   profile: "profile",
   ssp: "system-security-plan",
+  "assessment-plan": "assessment-plan",
+  "assessment-results": "assessment-results",
 };
 const MODEL_DEFINITION: Record<OscalDocumentName, string> = {
   catalog: "oscal-complete-oscal-catalog:catalog",
   profile: "oscal-complete-oscal-profile:profile",
   ssp: "oscal-complete-oscal-ssp:system-security-plan",
+  "assessment-plan": "oscal-complete-oscal-ap:assessment-plan",
+  "assessment-results": "oscal-complete-oscal-ar:assessment-results",
 };
 /** Package file name (without `./`) of each in-package document. */
-export const PACKAGE_FILES = { catalog: "catalog.json", profile: "profile.json" } as const;
+export const PACKAGE_FILES = { catalog: "catalog.json", profile: "profile.json", ssp: "ssp.json", "assessment-plan": "assessment-plan.json" } as const;
 
 type Json = Record<string, unknown>;
 const isObject = (v: unknown): v is Json => typeof v === "object" && v !== null && !Array.isArray(v);
@@ -57,7 +63,14 @@ function getValidators() {
     };
     const directive = ajv.getSchema(`${id}#/definitions/json-schema-directive`);
     if (!directive) throw new Error("OSCAL schema definition json-schema-directive not found");
-    validators = { catalog: get("catalog"), profile: get("profile"), ssp: get("ssp"), directive };
+    validators = {
+      catalog: get("catalog"),
+      profile: get("profile"),
+      ssp: get("ssp"),
+      "assessment-plan": get("assessment-plan"),
+      "assessment-results": get("assessment-results"),
+      directive,
+    };
   }
   return validators;
 }
@@ -96,10 +109,12 @@ export function schemaErrors(document: OscalDocumentName, doc: unknown): OscalVa
 }
 
 /** Strips one leading `./` and returns the in-package document an href names, if any. */
-export function packageDocumentForHref(href: string): "catalog" | "profile" | undefined {
+export function packageDocumentForHref(href: string): "catalog" | "profile" | "ssp" | "assessment-plan" | undefined {
   const name = href.startsWith("./") ? href.slice(2) : href;
   if (name === PACKAGE_FILES.catalog) return "catalog";
   if (name === PACKAGE_FILES.profile) return "profile";
+  if (name === PACKAGE_FILES.ssp) return "ssp";
+  if (name === PACKAGE_FILES["assessment-plan"]) return "assessment-plan";
   return undefined;
 }
 
@@ -169,18 +184,19 @@ export function resolveProfile(
 }
 
 function hrefError(
+  hasTarget: boolean,
   document: OscalDocumentName,
   path: string,
   href: unknown,
-  expected: "catalog" | "profile",
+  expected: "catalog" | "profile" | "ssp" | "assessment-plan",
 ): OscalValidationError | undefined {
   const target = typeof href === "string" ? packageDocumentForHref(href) : undefined;
-  if (target === expected) return undefined;
+  if (target === expected && hasTarget) return undefined;
   return {
     layer: "reference",
     document,
     path,
-    message: `href ${JSON.stringify(href)} does not resolve to ${PACKAGE_FILES[expected]} inside the package`,
+    message: `href ${JSON.stringify(href)} does not resolve to ${PACKAGE_FILES[expected]} inside the package${hasTarget ? "" : ` (the package has no ${expected})`}`,
   };
 }
 
@@ -208,10 +224,11 @@ export function referenceErrors(pkg: OscalPackage): OscalValidationError[] {
   // Links between the documents.
   const profileRoot = profileDoc.profile as Json;
   asArray(profileRoot.imports).forEach((imp, i) => {
-    const e = hrefError("profile", `/profile/imports/${i}/href`, (imp as Json).href, "catalog");
+    const e = hrefError(true, "profile", `/profile/imports/${i}/href`, (imp as Json).href, "catalog");
     if (e) errors.push(e);
   });
   const sspImportError = hrefError(
+    true,
     "ssp",
     "/system-security-plan/import-profile/href",
     (sspDoc["import-profile"] as Json | undefined)?.href,
@@ -261,11 +278,195 @@ export function referenceErrors(pkg: OscalPackage): OscalValidationError[] {
     }
   };
   walk(sspDoc, "/system-security-plan");
+  errors.push(...assessmentReferenceErrors(pkg, defs.components));
   return errors;
 }
 
-/** Validates a package. Reference checks run only if all three documents pass the schema. */
+/** The statement ids of a Catalog (every part named `statement`), and the control each belongs to. */
+function catalogStatements(catalog: unknown): Map<string, string> {
+  const statements = new Map<string, string>();
+  const walkParts = (parts: unknown, owner: string) =>
+    asArray(parts).forEach((part) => {
+      if (!isObject(part)) return;
+      if (part.name === "statement" && typeof part.id === "string") statements.set(part.id, owner);
+      walkParts(part.parts, owner);
+    });
+  const walkControl = (c: unknown) => {
+    if (!isObject(c)) return;
+    if (typeof c.id === "string") walkParts(c.parts, c.id);
+    asArray(c.controls).forEach(walkControl);
+  };
+  const walkGroup = (g: unknown) => {
+    if (!isObject(g)) return;
+    asArray(g.controls).forEach(walkControl);
+    asArray(g.groups).forEach(walkGroup);
+  };
+  const root = isObject(catalog) && isObject(catalog.catalog) ? catalog.catalog : {};
+  asArray(root.controls).forEach(walkControl);
+  asArray(root.groups).forEach(walkGroup);
+  return statements;
+}
+
+/** Control ids a `reviewed-controls` block includes (only `include-controls` is supported, as for Profiles). */
+function reviewedControlIds(reviewed: unknown, path: string, add: (path: string, message: string) => void) {
+  const controls = new Set<string>();
+  const selections = isObject(reviewed) ? asArray(reviewed["control-selections"]) : [];
+  selections.forEach((sel, i) => {
+    if (!isObject(sel)) return;
+    if (sel["include-all"] !== undefined) add(`${path}/control-selections/${i}/include-all`, "unsupported: include-all (only include-controls is supported)");
+    asArray(sel["include-controls"]).forEach((inc) => {
+      if (isObject(inc) && typeof inc["control-id"] === "string") controls.add(inc["control-id"]);
+    });
+  });
+  return controls;
+}
+
+/**
+ * Reference checks of the Assessment Plan and Assessment Results (#454), run when the package holds them:
+ * `import-ssp` is the package's `ssp.json` and `import-ap` its `assessment-plan.json`; every reviewed control and finding target
+ * exists in the Catalog (a finding's statement belongs to a control the result reviewed); subjects name an SSP component; activities,
+ * observations, risks and parties that are referred to are defined where they are referred to; and every Risk the SSP cites for
+ * a Waived Control resolves to a risk of the Assessment Results.
+ */
+function assessmentReferenceErrors(pkg: OscalPackage, components: Set<string>): OscalValidationError[] {
+  const errors: OscalValidationError[] = [];
+  const hasPlan = pkg.assessmentPlan !== undefined;
+  const hasResults = pkg.assessmentResults !== undefined;
+  if (!hasPlan && !hasResults) return errors;
+  const add = (document: OscalDocumentName, path: string, message: string) => errors.push({ layer: "reference", document, path, message });
+  const catalogIds = catalogControlIds(pkg.catalog);
+  const statements = catalogStatements(pkg.catalog);
+  const resolvedControls = (document: OscalDocumentName, reviewed: unknown, path: string): Set<string> => {
+    const ids = reviewedControlIds(reviewed, path, (p, m) => add(document, p, m));
+    asArray(isObject(reviewed) ? reviewed["control-selections"] : undefined).forEach((sel, i) =>
+      asArray(isObject(sel) ? sel["include-controls"] : undefined).forEach((inc, j) => {
+        if (!isObject(inc)) return;
+        const base = `${path}/control-selections/${i}/include-controls/${j}`;
+        if (typeof inc["control-id"] === "string" && !catalogIds.has(inc["control-id"])) add(document, `${base}/control-id`, `control "${inc["control-id"]}" is not in the Catalog`);
+        asArray(inc["statement-ids"]).forEach((sid, k) => {
+          if (typeof sid !== "string") return;
+          if (!statements.has(sid)) add(document, `${base}/statement-ids/${k}`, `statement "${sid}" is not in the Catalog`);
+          else if (statements.get(sid) !== inc["control-id"]) add(document, `${base}/statement-ids/${k}`, `statement "${sid}" does not belong to control "${String(inc["control-id"])}"`);
+        });
+      }),
+    );
+    return ids;
+  };
+  const checkSubjects = (document: OscalDocumentName, subjects: unknown, path: string) =>
+    asArray(subjects).forEach((subject, i) =>
+      asArray(isObject(subject) ? subject["include-subjects"] : undefined).forEach((ref, j) => {
+        if (isObject(ref) && ref.type === "component" && typeof ref["subject-uuid"] === "string" && !components.has(ref["subject-uuid"])) {
+          add(document, `${path}/${i}/include-subjects/${j}/subject-uuid`, `component "${ref["subject-uuid"]}" is not defined in the SSP`);
+        }
+      }),
+    );
+
+  if (hasPlan) {
+    const plan = (pkg.assessmentPlan as Json)["assessment-plan"] as Json;
+    const e = hrefError(true, "assessment-plan", "/assessment-plan/import-ssp/href", (plan["import-ssp"] as Json | undefined)?.href, "ssp");
+    if (e) errors.push(e);
+    resolvedControls("assessment-plan", plan["reviewed-controls"], "/assessment-plan/reviewed-controls");
+    checkSubjects("assessment-plan", plan["assessment-subjects"], "/assessment-plan/assessment-subjects");
+    const activities = new Set(
+      asArray(isObject(plan["local-definitions"]) ? plan["local-definitions"].activities : undefined).flatMap((a) => (isObject(a) && typeof a.uuid === "string" ? [a.uuid] : [])),
+    );
+    const walkTasks = (tasks: unknown, path: string) =>
+      asArray(tasks).forEach((task, i) => {
+        if (!isObject(task)) return;
+        const tp = `${path}/${i}`;
+        asArray(task["associated-activities"]).forEach((assoc, j) => {
+          if (!isObject(assoc)) return;
+          if (typeof assoc["activity-uuid"] === "string" && !activities.has(assoc["activity-uuid"])) {
+            add("assessment-plan", `${tp}/associated-activities/${j}/activity-uuid`, `activity "${assoc["activity-uuid"]}" is not defined in the plan`);
+          }
+          checkSubjects("assessment-plan", assoc.subjects, `${tp}/associated-activities/${j}/subjects`);
+        });
+        checkSubjects("assessment-plan", task.subjects, `${tp}/subjects`);
+        walkTasks(task.tasks, `${tp}/tasks`);
+      });
+    walkTasks(plan.tasks, "/assessment-plan/tasks");
+  }
+
+  if (hasResults) {
+    const results = (pkg.assessmentResults as Json)["assessment-results"] as Json;
+    const e = hrefError(hasPlan, "assessment-results", "/assessment-results/import-ap/href", (results["import-ap"] as Json | undefined)?.href, "assessment-plan");
+    if (e) errors.push(e);
+    const metadata = isObject(results.metadata) ? results.metadata : {};
+    const parties = new Set(asArray(metadata.parties).flatMap((p) => (isObject(p) && typeof p.uuid === "string" ? [p.uuid] : [])));
+    const riskUuids = new Set<string>();
+    asArray(results.results).forEach((result, i) => {
+      if (!isObject(result)) return;
+      const rp = `/assessment-results/results/${i}`;
+      const reviewed = resolvedControls("assessment-results", result["reviewed-controls"], `${rp}/reviewed-controls`);
+      const observations = new Set(asArray(result.observations).flatMap((o) => (isObject(o) && typeof o.uuid === "string" ? [o.uuid] : [])));
+      const risks = new Set(asArray(result.risks).flatMap((r) => (isObject(r) && typeof r.uuid === "string" ? [r.uuid] : [])));
+      risks.forEach((u) => riskUuids.add(u));
+      const checkOrigins = (origins: unknown, path: string) =>
+        asArray(origins).forEach((origin, a) =>
+          asArray(isObject(origin) ? origin.actors : undefined).forEach((actor, b) => {
+            if (isObject(actor) && actor.type === "party" && typeof actor["actor-uuid"] === "string" && !parties.has(actor["actor-uuid"])) {
+              add("assessment-results", `${path}/${a}/actors/${b}/actor-uuid`, `party "${actor["actor-uuid"]}" is not defined in the results' metadata`);
+            }
+          }),
+        );
+      const checkObservationRefs = (refs: unknown, path: string) =>
+        asArray(refs).forEach((ref, j) => {
+          if (isObject(ref) && typeof ref["observation-uuid"] === "string" && !observations.has(ref["observation-uuid"])) {
+            add("assessment-results", `${path}/${j}/observation-uuid`, `observation "${ref["observation-uuid"]}" is not in this result`);
+          }
+        });
+      asArray(result.observations).forEach((o, j) => {
+        if (!isObject(o)) return;
+        checkOrigins(o.origins, `${rp}/observations/${j}/origins`);
+        asArray(o.subjects).forEach((s, k) => {
+          if (isObject(s) && s.type === "component" && typeof s["subject-uuid"] === "string" && !components.has(s["subject-uuid"])) {
+            add("assessment-results", `${rp}/observations/${j}/subjects/${k}/subject-uuid`, `component "${s["subject-uuid"]}" is not defined in the SSP`);
+          }
+        });
+      });
+      asArray(result.risks).forEach((r, j) => {
+        if (!isObject(r)) return;
+        checkOrigins(r.origins, `${rp}/risks/${j}/origins`);
+        checkObservationRefs(r["related-observations"], `${rp}/risks/${j}/related-observations`);
+      });
+      asArray(result.findings).forEach((f, j) => {
+        if (!isObject(f)) return;
+        const fp = `${rp}/findings/${j}`;
+        checkOrigins(f.origins, `${fp}/origins`);
+        checkObservationRefs(f["related-observations"], `${fp}/related-observations`);
+        asArray(f["related-risks"]).forEach((ref, k) => {
+          if (isObject(ref) && typeof ref["risk-uuid"] === "string" && !risks.has(ref["risk-uuid"])) add("assessment-results", `${fp}/related-risks/${k}/risk-uuid`, `risk "${ref["risk-uuid"]}" is not in this result`);
+        });
+        const target = isObject(f.target) ? f.target : {};
+        const id = target["target-id"];
+        if (target.type === "statement-id" && typeof id === "string") {
+          if (!statements.has(id)) add("assessment-results", `${fp}/target/target-id`, `statement "${id}" is not in the Catalog`);
+          else if (!reviewed.has(statements.get(id)!)) add("assessment-results", `${fp}/target/target-id`, `statement "${id}" belongs to a control this result did not review`);
+        }
+      });
+    });
+
+    // Every Risk the SSP cites for a Waived Control must be one of the results' risks.
+    const sspRoot = (pkg.ssp as Json)[ROOT_KEY.ssp] as Json;
+    asArray((sspRoot["control-implementation"] as Json | undefined)?.["implemented-requirements"]).forEach((ir, i) =>
+      asArray(isObject(ir) ? ir["by-components"] : undefined).forEach((bc, j) =>
+        asArray(isObject(bc) ? bc.props : undefined).forEach((p, k) => {
+          if (isObject(p) && p.name === "risk" && p.ns === OSCAL_APP_NS && typeof p.value === "string" && !riskUuids.has(p.value)) {
+            add("ssp", `/system-security-plan/control-implementation/implemented-requirements/${i}/by-components/${j}/props/${k}/value`, `risk "${p.value}" (a Waived Control's Risk) is not a risk of the Assessment Results`);
+          }
+        }),
+      ),
+    );
+  }
+  return errors;
+}
+
+/** Validates a package. Reference checks run only if every document passes the schema. */
 export function validateOscalPackage(pkg: OscalPackage): OscalValidationError[] {
-  const schema = (["catalog", "profile", "ssp"] as const).flatMap((name) => schemaErrors(name, pkg[name]));
+  const schema = [
+    ...(["catalog", "profile", "ssp"] as const).flatMap((name) => schemaErrors(name, pkg[name])),
+    ...(pkg.assessmentPlan === undefined ? [] : schemaErrors("assessment-plan", pkg.assessmentPlan)),
+    ...(pkg.assessmentResults === undefined ? [] : schemaErrors("assessment-results", pkg.assessmentResults)),
+  ];
   return schema.length > 0 ? schema : referenceErrors(pkg);
 }

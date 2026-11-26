@@ -1,6 +1,6 @@
 /**
  * OSCAL Releases (#453, ADR 0018): a System's OSCAL Package as of one moment, stored and never changed. `createOscalRelease` is
- * the one way to make one; the manual route calls it, and the audit-close trigger of #454 will too. There is no update or delete.
+ * the one way to make one; the manual route calls it, and the audit-close trigger of #454 too. There is no update or delete.
  *
  * A release is the live package built with `metadata.version` = its number (1, 2, 3 ... per System) and every earlier release in
  * `metadata.revisions`, zipped together with `manifest.json`: the SHA-256 of each document in the zip, and the SHA-256 of each
@@ -72,7 +72,7 @@ async function createIn(tx: Prisma.TransactionClient, input: CreateOscalReleaseI
   const actor = await tx.user.findUnique({ where: { id: input.actorId }, select: { id: true, role: true } });
   if (!actor) throw new Error("createOscalRelease: unknown actor");
   // The caller decided who may make a release; the actor is recorded as the exporter and the creator.
-  const snapshot = await loadOscalSnapshot(tx, input.systemId, actor, { skipVisibility: true });
+  const snapshot = await loadOscalSnapshot(tx, input.systemId, actor, { skipVisibility: true, internalAuditId: input.internalAuditId });
   if (snapshot === null) return { kind: "not-found" };
   if ("closed" in snapshot) return { kind: "closed", status: snapshot.closed };
 
@@ -121,7 +121,7 @@ export type CreateOscalReleaseInput = {
   systemId: string;
   actorId: string;
   trigger: OscalReleaseTrigger;
-  /** The Internal Audit whose closing made the release (#454). */
+  /** The Internal Audit whose closing made the release (#454): its Assessment Plan and Assessment Results go in the zip. Without it the System's most recent closed audit is used, if any. */
   internalAuditId?: string | null;
 };
 

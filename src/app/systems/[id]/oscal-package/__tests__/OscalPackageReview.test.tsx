@@ -115,4 +115,67 @@ describe("the OSCAL Package review page (#445)", () => {
     expect(within(waived).getByText("Effective status: WAIVED; source: SYSTEM; overrides an inherited status")).toBeInTheDocument();
     expect(within(waived).getByText("risk-uuid-1")).toBeInTheDocument();
   });
+
+  it("has no Assessment Plan or Assessment Results sections when the package has neither (#454)", () => {
+    render(<OscalPackageReview pkg={pkg} systemId="s1" appNs={NS} />);
+    expect(screen.queryByRole("heading", { name: "Assessment Plan" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Assessment Results" })).not.toBeInTheDocument();
+    expect(screen.getByText("No closed Internal Audit: no Assessment Plan or Assessment Results")).toBeInTheDocument();
+  });
+
+  it("shows the plan, the findings with their state, the observations, the risks and the separate self-assessment (#454)", () => {
+    const withAudit = {
+      ...pkg,
+      assessmentPlan: {
+        "assessment-plan": {
+          "import-ssp": { href: "ssp.json" },
+          "reviewed-controls": { "control-selections": [{ "include-controls": [{ "control-id": "a-5-15", "statement-ids": ["a-5-15_smt"] }] }] },
+          tasks: [{ uuid: "t1", type: "action", title: "Internal Audit 2026", timing: { "within-date-range": { start: "2026-11-01T00:00:00.000Z", end: "2026-11-30T23:59:59.000Z" } } }],
+        },
+      },
+      assessmentResults: {
+        "assessment-results": {
+          metadata: { parties: [{ uuid: "p1", type: "person", name: "Test Owner" }] },
+          "import-ap": { href: "assessment-plan.json" },
+          results: [
+            {
+              uuid: "r1",
+              title: "Internal Audit 2026",
+              description: "Check-ups of the audit.",
+              start: "2026-11-01T00:00:00.000Z",
+              end: "2026-11-20T00:00:00.000Z",
+              props: [app("result-kind", "internal-audit")],
+              "reviewed-controls": { "control-selections": [{ "include-controls": [{ "control-id": "a-5-15", "statement-ids": ["a-5-15_smt"] }] }] },
+              observations: [{ uuid: "o1", title: "Response", description: "Roles reviewed.", methods: ["INTERVIEW"], collected: "2026-11-10T00:00:00.000Z", origins: [{ actors: [{ type: "party", "actor-uuid": "p1" }] }] }],
+              findings: [
+                {
+                  uuid: "f1",
+                  title: "Access control",
+                  description: "Conforming.",
+                  target: { type: "statement-id", "target-id": "a-5-15_smt", status: { state: "not-satisfied", reason: "fail" } },
+                  "related-observations": [{ "observation-uuid": "o1" }],
+                },
+              ],
+            },
+            {
+              uuid: "r2",
+              title: "System Owner self-assessment",
+              description: "Answers.",
+              start: "2026-11-20T00:00:00.000Z",
+              props: [app("result-kind", "self-assessment")],
+              "reviewed-controls": { "control-selections": [{ "include-controls": [{ "control-id": "a-5-15" }] }] },
+              observations: [{ uuid: "o2", title: "Self-assessment answer", description: "YES", methods: ["INTERVIEW"], collected: "2026-11-10T00:00:00.000Z" }],
+            },
+          ],
+        },
+      },
+    } as unknown as OscalPackage;
+    render(<OscalPackageReview pkg={withAudit} systemId="s1" appNs={NS} />);
+    expect(screen.getByRole("heading", { name: "Assessment Plan" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Assessment Results" })).toBeInTheDocument();
+    expect(screen.getByText("Assessment Plan and Assessment Results included")).toBeInTheDocument();
+    expect(screen.getAllByText("System Owner self-assessment").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Not satisfied").length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Roles reviewed\./).length).toBeGreaterThan(0);
+  });
 });

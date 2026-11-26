@@ -20,6 +20,16 @@
 .oscal-entry + .oscal-entry { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--rg-line); }
 .oscal-entry p { margin: 2px 0 0; white-space: pre-wrap; }
 
+.oscal-assessment { margin-top: 28px; }
+.oscal-assessment h2 { font-size: 18px; margin: 0 0 4px; }
+.oscal-assessment h3 { font-size: 15px; margin: 16px 0 2px; }
+.oscal-assessment h4 { font-size: 13px; margin: 10px 0 2px; }
+.oscal-assessment p { margin: 4px 0; white-space: pre-wrap; }
+.oscal-assessment-result { break-inside: auto; }
+.oscal-findings td:nth-child(1) { width: 18%; }
+.oscal-findings td:nth-child(2) { width: 42%; }
+.oscal-findings td:nth-child(3) { width: 40%; }
+
 .oscal-screen-only { margin: 6px 0 10px; }
 .oscal-print-button { border: 1px solid var(--rg-line); border-radius: 10px; background: var(--rg-accent); color: var(--rg-on-accent); font: inherit; font-weight: 600; padding: 7px 14px; cursor: pointer; }
 

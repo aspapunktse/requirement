@@ -255,10 +255,12 @@ describe("GET OSCAL Package (#442)", { timeout: 90_000 }, () => {
   });
 
   it("writes no Change Event", async () => {
-    const before = await prisma.changeEvent.count();
+    // Scoped to these Systems: other test files write Change Events in parallel.
+    const where = { systemId: { in: [system.draft, system.rejected] } };
+    const before = await prisma.changeEvent.count({ where });
     expect((await download(users.owner, system.draft)).status).toBe(200);
     expect((await download(users.owner, system.rejected)).status).toBe(409);
-    expect(await prisma.changeEvent.count()).toBe(before);
+    expect(await prisma.changeEvent.count({ where })).toBe(before);
   });
 });
 
