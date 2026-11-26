@@ -139,8 +139,12 @@ export function EvidenceSection({
                   <a className="sc-link" href={item.url} target="_blank" rel="noopener noreferrer">
                     {item.title || item.url}
                   </a>
-                ) : item.documentRequirementId ? (
+                ) : item.documentRequirementId && item.documentHasFile ? (
                   <a className="sc-link" href={`/api/systems/${systemId}/documents/${item.documentRequirementId}/file`}>
+                    {item.title || "Document"}
+                  </a>
+                ) : item.documentLink ? (
+                  <a className="sc-link" href={item.documentLink} target="_blank" rel="noopener noreferrer">
                     {item.title || "Document"}
                   </a>
                 ) : (

@@ -81,6 +81,8 @@ export function diffApplicabilityOps(
         systemId,
         controlId: { in: noLongerApplicableIds },
         ...UNTOUCHED_ASSESSMENT_WHERE,
+        // Evidence records (#455) are somebody's work even on a row with no status yet: deleting the row would cascade them away.
+        evidenceItems: { none: {} },
       },
     }),
     createOp: db.controlAssessment.createMany({

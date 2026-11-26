@@ -2,9 +2,9 @@ import type { Prisma } from "@prisma/client";
 import type { prisma } from "@/lib/prisma";
 import { toEvidenceView } from "@/lib/evidence";
 
-/** The include that reads an Assessment's Evidence records, oldest collected first, with what the download link needs. */
+/** The include that reads an Assessment's Evidence records, oldest collected first, with what the link to the document needs. */
 export const EVIDENCE_INCLUDE = {
-  include: { systemDocument: { select: { documentRequirementId: true } } },
+  include: { systemDocument: { select: { documentRequirementId: true, link: true, file: { select: { id: true } } } } },
   orderBy: [{ collectedAt: "asc" }, { id: "asc" }],
 } satisfies Prisma.ControlAssessment$evidenceItemsArgs;
 

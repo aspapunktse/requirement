@@ -367,7 +367,8 @@ export function ControlDrawer({
   // Reset the form when the Assessment changes (a save, a reload). Done during render, not in an effect: an
   // effect also ran once after mount and could overwrite a status the user had already picked.
   // Keyed by the values the form shows, so adding or removing Evidence (which replaces the Assessment object) doesn't wipe an unsaved edit.
-  const formKey = JSON.stringify([assessment?.status, assessment?.evidence, assessment?.notes]);
+  const formKey = JSON.stringify([assessment?.status ?? "NOT_STARTED", assessment?.evidence ?? "", assessment?.notes ?? ""]);
+  // (With the form's own defaults, so the stub Assessment the first Evidence record creates looks the same as none at all.)
   const [syncedAssessment, setSyncedAssessment] = useState(formKey);
   if (formKey !== syncedAssessment) {
     setSyncedAssessment(formKey);

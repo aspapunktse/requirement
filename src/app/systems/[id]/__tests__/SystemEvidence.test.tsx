@@ -15,6 +15,8 @@ const item = (id: string, over: Record<string, unknown> = {}) => ({
   title: null,
   systemDocumentId: null,
   documentRequirementId: null,
+  documentLink: null,
+  documentHasFile: false,
   collectedAt: "2026-01-10T00:00:00.000Z",
   expiresAt: null,
   effectiveExpiresAt: null,
@@ -84,7 +86,7 @@ describe("Evidence in the Control drawer (#455)", () => {
       handle: (call) => {
         if (call.method === "GET" && call.url === "/api/systems/s1/documents")
           return json({ documents: [{ id: "dr1", name: "Policy", link: null, file: { fileName: "policy.pdf" } }, { id: "dr2", name: "Empty", link: null, file: null }] });
-        if (call.method === "POST") return json({ assessmentId: "a1", evidence: [item("d1", { kind: "DOCUMENT", url: null, title: "Policy", documentRequirementId: "dr1", systemDocumentId: "sd1" })] }, 201);
+        if (call.method === "POST") return json({ assessmentId: "a1", evidence: [item("d1", { kind: "DOCUMENT", url: null, title: "Policy", documentRequirementId: "dr1", systemDocumentId: "sd1", documentHasFile: true })] }, 201);
         return undefined;
       },
     });
@@ -97,6 +99,27 @@ describe("Evidence in the Control drawer (#455)", () => {
     await userEvent.click(drawer.getByRole("button", { name: "Add evidence" }));
     expect(await drawer.findByRole("link", { name: "Policy" })).toHaveAttribute("href", "/api/systems/s1/documents/dr1/file");
     expect(calls.find((call) => call.method === "POST")!.body).toMatchObject({ kind: "DOCUMENT", documentRequirementId: "dr1" });
+  });
+
+  it("links a link-only document to its external link, not to the file download, and a file document to the download", async () => {
+    const linkOnly = item("d2", { kind: "DOCUMENT", url: null, title: "Wiki policy", documentRequirementId: "dr2", systemDocumentId: "sd2", documentLink: "https://wiki.example.com/policy" });
+    const stored = item("d3", { kind: "DOCUMENT", url: null, title: "PDF policy", documentRequirementId: "dr3", systemDocumentId: "sd3", documentHasFile: true, documentLink: "https://wiki.example.com/ignored" });
+    stubApi([withEvidence("A.1", [linkOnly, stored])]);
+    const { drawer } = await renderDrawer("A.1");
+    expect(drawer.getByRole("link", { name: "Wiki policy" })).toHaveAttribute("href", "https://wiki.example.com/policy");
+    expect(drawer.getByRole("link", { name: "PDF policy" })).toHaveAttribute("href", "/api/systems/s1/documents/dr3/file");
+  });
+
+  it("keeps an unsaved status and note when the first Evidence record creates the Assessment (#455)", async () => {
+    stubApi([rowOf(control("A.1"), null)], {
+      handle: (call) => (call.method === "POST" ? json({ assessmentId: "a-new", evidence: [item("n1", { title: "Backup log" })] }, 201) : undefined),
+    });
+    const { drawer } = await renderDrawer("A.1");
+    await userEvent.type(drawer.getByLabelText("Notes for A.1"), "Half-written note");
+    await userEvent.type(drawer.getByLabelText("Evidence link for A.1"), "https://wiki.example.com/backup");
+    await userEvent.click(drawer.getByRole("button", { name: "Add evidence" }));
+    expect(await drawer.findByRole("link", { name: "Backup log" })).toBeInTheDocument();
+    expect(drawer.getByLabelText("Notes for A.1")).toHaveValue("Half-written note");
   });
 
   it("shows a refusal in place and keeps what was typed", async () => {

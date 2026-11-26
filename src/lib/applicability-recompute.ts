@@ -169,7 +169,7 @@ async function recomputeApplicability(pending: PendingRecompute, trigger: string
     applicableAmong(systems, scope.controlIds),
     prisma.controlAssessment.findMany({
       where: { systemId: { in: systems.map((s) => s.id) }, controlId: { in: scope.controlIds } },
-      select: { systemId: true, controlId: true, status: true, assessedById: true },
+      select: { systemId: true, controlId: true, status: true, assessedById: true, _count: { select: { evidenceItems: true } } },
     }),
   ]);
   const rowsBySystem = new Map<string, typeof rows>();
@@ -186,7 +186,7 @@ async function recomputeApplicability(pending: PendingRecompute, trigger: string
     const toCreate = [...now].filter((controlId) => !rowControlIds.has(controlId));
     const notApplicableRows = systemRows.filter((r) => !now.has(r.controlId));
     const untouched = (r: (typeof systemRows)[number]) =>
-      r.status === UNTOUCHED_ASSESSMENT_WHERE.status && r.assessedById === UNTOUCHED_ASSESSMENT_WHERE.assessedById;
+      r.status === UNTOUCHED_ASSESSMENT_WHERE.status && r.assessedById === UNTOUCHED_ASSESSMENT_WHERE.assessedById && r._count.evidenceItems === 0;
     const toDelete = notApplicableRows.filter(untouched).map((r) => r.controlId);
     // Touched rows kept in place: with a snapshot, only those whose Control *just* stopped applying.
     const stale = notApplicableRows.filter((r) => !untouched(r) && (was ? was.has(r.controlId) : true)).length;
@@ -214,6 +214,7 @@ async function recomputeApplicability(pending: PendingRecompute, trigger: string
               where: {
                 OR: deletes.map((p) => ({ systemId: p.systemId, controlId: { in: p.toDelete } })),
                 ...UNTOUCHED_ASSESSMENT_WHERE,
+                evidenceItems: { none: {} }, // a row holding Evidence records (#455) is kept as stale, never cascaded away
               },
             }),
           ]

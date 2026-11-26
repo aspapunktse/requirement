@@ -57,6 +57,10 @@ export type EvidenceItemView = {
   systemDocumentId: string | null;
   /** DOCUMENT: the Document Requirement the file belongs to, for the download link. */
   documentRequirementId: string | null;
+  /** DOCUMENT: the document's external link, for one with no stored file. */
+  documentLink: string | null;
+  /** DOCUMENT: whether a file is stored, i.e. the download endpoint has something to serve. */
+  documentHasFile: boolean;
   collectedAt: string;
   /** The person's own override, if any. */
   expiresAt: string | null;
@@ -66,7 +70,7 @@ export type EvidenceItemView = {
 };
 
 export function toEvidenceView(
-  item: { id: string; kind: "LINK" | "DOCUMENT"; url: string | null; title: string | null; systemDocumentId: string | null; collectedAt: Date; expiresAt: Date | null; systemDocument?: { documentRequirementId: string } | null },
+  item: { id: string; kind: "LINK" | "DOCUMENT"; url: string | null; title: string | null; systemDocumentId: string | null; collectedAt: Date; expiresAt: Date | null; systemDocument?: { documentRequirementId: string; link: string | null; file: { id: string } | null } | null },
   validityMonths: number | null,
   now: Date,
 ): EvidenceItemView {
@@ -78,6 +82,8 @@ export function toEvidenceView(
     title: item.title,
     systemDocumentId: item.systemDocumentId,
     documentRequirementId: item.systemDocument?.documentRequirementId ?? null,
+    documentLink: item.systemDocument?.link ?? null,
+    documentHasFile: item.systemDocument?.file != null,
     collectedAt: item.collectedAt.toISOString(),
     expiresAt: item.expiresAt?.toISOString() ?? null,
     effectiveExpiresAt: expiry?.toISOString() ?? null,
