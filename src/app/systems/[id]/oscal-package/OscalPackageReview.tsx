@@ -27,6 +27,14 @@ export function OscalPackageReview({ pkg, systemId, appNs }: { pkg: OscalPackage
           <dd>
             <time dateTime={model.generatedAt}>{model.generatedAt}</time>
           </dd>
+          <dt>Document version</dt>
+          <dd>{model.documentVersion}</dd>
+          {model.documentId && (
+            <>
+              <dt>Document id</dt>
+              <dd>{model.documentId}</dd>
+            </>
+          )}
           <dt>Implemented requirements</dt>
           <dd>{model.rows.length}</dd>
         </dl>

@@ -52,6 +52,9 @@ export type ReviewModel = {
   systemName: string;
   state: string;
   generatedAt: string;
+  /** The SSP's `metadata.version` ("unreleased" for a download) and its document id (same in every export of this System). */
+  documentVersion: string;
+  documentId: string | null;
   rows: ReviewRow[];
 };
 
@@ -104,6 +107,8 @@ export function buildReviewModel(pkg: OscalPackage, appNs: string): ReviewModel 
     systemName: ssp["system-characteristics"]["system-name"],
     state: ssp["system-characteristics"].status.state,
     generatedAt: ssp.metadata["last-modified"],
+    documentVersion: ssp.metadata.version ?? "",
+    documentId: ssp.metadata["document-ids"]?.[0]?.identifier ?? null,
     rows,
   };
 }
