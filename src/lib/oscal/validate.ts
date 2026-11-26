@@ -194,6 +194,7 @@ function sspDefinitions(ssp: Json) {
     components: pick(impl.components, "uuid"),
     roles: pick(metadata.roles, "id"),
     parties: pick(metadata.parties, "uuid"),
+    resources: pick((isObject(ssp["back-matter"]) ? ssp["back-matter"] : {}).resources, "uuid"),
   };
 }
 
@@ -247,6 +248,12 @@ export function referenceErrors(pkg: OscalPackage): OscalValidationError[] {
       if (key === "component-uuid") check(p, value, defs.components, "component");
       else if (key === "role-id") check(p, value, defs.roles, "role");
       else if (key === "role-ids") asArray(value).forEach((v, i) => check(`${p}/${i}`, v, defs.roles, "role"));
+      else if (key === "links")
+        asArray(value).forEach((link, i) => {
+          const href = isObject(link) ? link.href : undefined;
+          // A `#<uuid>` link points at a back-matter resource of this SSP.
+          if (typeof href === "string" && href.startsWith("#")) check(`${p}/${i}/href`, href.slice(1), defs.resources, "resource");
+        });
       else if (key === "party-uuid") check(p, value, defs.parties, "party");
       else if (key === "party-uuids" || key === "member-of-organizations")
         asArray(value).forEach((v, i) => check(`${p}/${i}`, v, defs.parties, "party"));

@@ -1,5 +1,6 @@
 import type { ControlAssessmentStatus, UserRole } from "@prisma/client";
 import { resolveEffectiveStatus, type EffectiveStatus } from "@/lib/effective-status";
+import type { EvidenceItemView } from "@/lib/evidence";
 import { controlIsDone, sourceKeyOf } from "./system-page-logic";
 import type { SourceKey } from "./system-page-types";
 
@@ -26,6 +27,8 @@ export type Control = {
   intent?: string | null;
   /** Example ways to satisfy the Control. */
   examples?: string[];
+  /** Months Evidence on this Control stays valid (#455); null or absent: it doesn't expire. */
+  evidenceValidityMonths?: number | null;
 };
 
 export type Assessment = {
@@ -38,6 +41,8 @@ export type Assessment = {
   evidence: string | null;
   notes: string | null;
   selfAssessmentAnswer: SelfAssessmentAnswer | null;
+  /** The Evidence records (#455), with their effective expiry; absent where the API didn't send them. */
+  evidenceItems?: EvidenceItemView[];
 } | null;
 
 export type QueryMessage = {
@@ -107,10 +112,14 @@ export function toStaleRow(assessment: StaleAssessmentApi): AssessmentRow {
 export function withSavedAssessment(row: AssessmentRow, assessment: NonNullable<Assessment>): AssessmentRow {
   return {
     ...row,
-    assessment,
+    // The save's response carries no Evidence records; the ones the row already has stay.
+    assessment: { ...assessment, evidenceItems: assessment.evidenceItems ?? row.assessment?.evidenceItems },
     effective: row.effective ? resolveEffectiveStatus({ status: assessment.status, personSet: true }, row.effective.sources) : null,
   };
 }
+
+/** Whether any of the row's Evidence is past its effective expiry (#455). */
+export const hasStaleEvidence = (row: AssessmentRow): boolean => (row.assessment?.evidenceItems ?? []).some((item) => item.stale);
 
 /** The status the System is judged by: the effective one, else its own, else Not started. */
 export function rowStatus(row: AssessmentRow): ControlAssessmentStatus {

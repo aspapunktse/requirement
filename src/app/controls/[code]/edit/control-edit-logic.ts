@@ -24,6 +24,8 @@ export type EditDraft = {
   minAvailabilityImpactLevel: ImpactLevel | null;
   /** "" is no Control Owner. */
   ownerId: string;
+  /** Months as typed; "" = evidence doesn't expire. */
+  evidenceValidityMonths: string;
 };
 
 /** The body `PATCH /api/controls/[id]` takes: only the fields that changed. */
@@ -40,6 +42,7 @@ export type EditBody = {
   minIntegrityImpactLevel?: ImpactLevel | null;
   minAvailabilityImpactLevel?: ImpactLevel | null;
   ownerId?: string | null;
+  evidenceValidityMonths?: number | null;
 };
 
 export const draftOf = (control: EditableControl): EditDraft => ({
@@ -55,7 +58,16 @@ export const draftOf = (control: EditableControl): EditDraft => ({
   minIntegrityImpactLevel: control.minIntegrityImpactLevel,
   minAvailabilityImpactLevel: control.minAvailabilityImpactLevel,
   ownerId: control.ownerId ?? "",
+  evidenceValidityMonths: control.evidenceValidityMonths === null ? "" : String(control.evidenceValidityMonths),
 });
+
+/** The validity period typed: null for empty, the whole number of months, or NaN when it isn't one in 1..600. */
+export function parseValidityMonths(text: string): number | null {
+  const trimmed = text.trim();
+  if (trimmed === "") return null;
+  const value = /^\d+$/.test(trimmed) ? Number(trimmed) : Number.NaN;
+  return value >= 1 && value <= 600 ? value : Number.NaN;
+}
 
 /** The lines of the examples box: trimmed, empty lines dropped. */
 export const exampleLines = (text: string): string[] =>
@@ -80,6 +92,8 @@ export function editBody(control: EditableControl, draft: EditDraft): EditBody {
   if (draft.mandatory !== control.mandatory) body.mandatory = draft.mandatory;
   if (draft.ownerId !== (control.ownerId ?? "")) body.ownerId = draft.ownerId === "" ? null : draft.ownerId;
   if (control.applicability === "ORGANIZATIONAL") return body;
+  const months = parseValidityMonths(draft.evidenceValidityMonths);
+  if (!Number.isNaN(months) && months !== control.evidenceValidityMonths) body.evidenceValidityMonths = months;
 
   if (draft.question.trim() !== (control.question ?? "")) body.question = draft.question.trim() === "" ? null : draft.question.trim();
   if (draft.intent.trim() !== (control.intent ?? "")) body.intent = draft.intent.trim() === "" ? null : draft.intent.trim();
@@ -104,6 +118,7 @@ export function draftProblems(control: EditableControl, draft: EditDraft): strin
   if (draft.title.trim() === "") problems.push("Title is required.");
   if (draft.description.trim() === "") problems.push("Description is required.");
   if (draft.category.trim() === "") problems.push("Category is required.");
+  if (control.applicability !== "ORGANIZATIONAL" && Number.isNaN(parseValidityMonths(draft.evidenceValidityMonths))) problems.push("Evidence validity must be a whole number of months from 1 to 600, or empty.");
   // Only when it had one: a Control that never got a question can still have its other fields saved.
   if (control.applicability !== "ORGANIZATIONAL" && control.question && draft.question.trim() === "") problems.push("A Per-System or Both Control needs a Self-Assessment Question.");
   return problems;

@@ -10,6 +10,7 @@ import {
   CONTROL_FILTERS,
   FILTER_LABEL,
   groupByCategory,
+  hasStaleEvidence,
   openQueryCount,
   rowMatches,
   rowSourceKey,
@@ -46,6 +47,12 @@ function ControlRowButton({ row, onOpen }: { row: AssessmentRow; onOpen: () => v
         <span className="ttl">
           {row.control.title}
           {showsMandatoryFlag(row) && <span className="flag">Mandatory</span>}
+          {hasStaleEvidence(row) && (
+            <span className="sc-stalebadge" title="Some evidence on this Control has expired">
+              <span aria-hidden="true">Stale evidence</span>
+              <span className="sc-sr">Some evidence has expired</span>
+            </span>
+          )}
           {openQueries > 0 && (
             <span className="sc-qbadge" title={`${openQueries} open ${openQueries === 1 ? "question" : "questions"}`}>
               <span aria-hidden="true">? {openQueries}</span>
@@ -229,6 +236,18 @@ export function SystemControls({
       onSaved={(assessment) => {
         updateRow(openRow.row.control.id, (row) => (openRow.stale ? { ...row, assessment } : withSavedAssessment(row, assessment)), openRow.stale);
         changed();
+      }}
+      onEvidenceChanged={(evidenceItems, assessmentId) => {
+        updateRow(
+          openRow.row.control.id,
+          (row) => ({
+            ...row,
+            assessment: row.assessment
+              ? { ...row.assessment, evidenceItems }
+              : { id: assessmentId ?? "", status: "NOT_STARTED", evidence: null, notes: null, selfAssessmentAnswer: null, evidenceItems },
+          }),
+          openRow.stale,
+        );
       }}
       onQueriesChanged={(queries) => {
         updateRow(openRow.row.control.id, (row) => ({ ...row, queries }), openRow.stale);

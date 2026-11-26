@@ -98,6 +98,7 @@ export function libraryRowOf(
     minSensitivityLabel: control.minSensitivity?.label ?? null,
     minIntegrityImpactLevel: control.minIntegrityImpactLevel,
     minAvailabilityImpactLevel: control.minAvailabilityImpactLevel,
+    evidenceValidityMonths: control.evidenceValidityMonths,
     ownerId: control.owner?.id ?? null,
     ownerName: control.owner?.name ?? null,
     source: librarySourceOf(control, parts.frameworkById, parts.baseFramework),

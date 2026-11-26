@@ -35,6 +35,7 @@ import {
 import { loadOrganizationStatuses, loadProviderSources, toOwnAssessment } from "@/lib/effective-status-data";
 import { DATA_LOCATION_LABELS } from "@/lib/vendor-detail-labels";
 import { controlId, documentId, oscalUuid, type DocumentKind } from "@/lib/oscal/ids";
+import { effectiveExpiry, noteHasTextBeyondUrls } from "@/lib/evidence";
 import appPackage from "../../../package.json";
 
 export const OSCAL_VERSION = "1.2.3";
@@ -82,6 +83,19 @@ export function boundaryDescription(system: OscalSnapshot["system"], providers: 
 }
 
 
+/** One Evidence record and, for a DOCUMENT, what the System's document holds (never its bytes). */
+export type OscalEvidence = {
+  id: string;
+  kind: "LINK" | "DOCUMENT";
+  url: string | null;
+  title: string | null;
+  description: string | null;
+  collectedAt: Date;
+  expiresAt: Date | null;
+  /** DOCUMENT: null when the document was deleted since. */
+  document: { documentRequirementId: string; link: string | null; file: { fileName: string; contentType: string; sha256: string | null } | null } | null;
+};
+
 /** The rows the package is built from. */
 export type OscalSnapshot = {
   system: {
@@ -102,7 +116,7 @@ export type OscalSnapshot = {
   /** The user who exports, by id and name only; null if the user row is gone. */
   exportedBy: { id: string; name: string } | null;
   /** Every Control in the Control Library. */
-  controls: { id: string; code: string; title: string; description: string; applicability: ControlApplicability }[];
+  controls: { id: string; code: string; title: string; description: string; applicability: ControlApplicability; /** Months Evidence on it stays valid (#455); null = never expires. */ evidenceValidityMonths?: number | null }[];
   /** The ids of the Controls applicable to the System (a subset of `controls`). */
   applicableControlIds: string[];
   /** The System's own Control Assessments. A Control without one reads as untouched Not Started. */
@@ -112,6 +126,8 @@ export type OscalSnapshot = {
     status: ControlAssessmentStatus;
     notes: string | null;
     evidence: string | null;
+    /** The Assessment's Evidence records (#455). */
+    evidenceItems?: OscalEvidence[];
     /** A person set it (`assessedById` is not null); decides whether an inherited status is overridden. */
     personSet: boolean;
   }[];
@@ -185,8 +201,35 @@ function metadata(title: string, now: Date, people: Person[], kind: DocumentKind
 /** What a Control Assessment says about the work: notes and evidence; null when it says nothing. A Not Applicable Control's notes are its rationale (remarks), not a description. */
 function ownText(a: OscalSnapshot["assessments"][number] | undefined): string | null {
   if (!a) return null;
-  const parts = [a.status === "NOT_APPLICABLE" ? null : a.notes?.trim(), a.evidence?.trim() ? `Evidence: ${a.evidence.trim()}` : null].filter(Boolean);
+  // The Evidence note is printed only when it says something beyond URLs that are already Evidence records (those become
+  // back-matter resources), so a backfilled link isn't printed twice.
+  const note = a.evidence?.trim();
+  const printsNote = note && noteHasTextBeyondUrls(note, (a.evidenceItems ?? []).flatMap((e) => (e.url ? [e.url] : [])));
+  const parts = [a.status === "NOT_APPLICABLE" ? null : a.notes?.trim(), printsNote ? `Evidence: ${note}` : null].filter(Boolean);
   return parts.length > 0 ? parts.join("\n\n") : null;
+}
+
+/** The back-matter resource of one Evidence record: stable UUID, title, collected and expiry props, and its link (with media type and SHA-256 for a stored file). */
+function evidenceResource(systemId: string, e: OscalEvidence, validityMonths: number | null) {
+  const expiry = effectiveExpiry(e, validityMonths);
+  const file = e.document?.file;
+  const href =
+    e.kind === "LINK" ? e.url : file ? `/api/systems/${systemId}/documents/${e.document!.documentRequirementId}/file` : (e.document?.link ?? null);
+  return {
+    uuid: oscalUuid("Evidence", e.id),
+    title: e.title?.trim() || e.url || "Evidence",
+    ...(e.description?.trim() && { description: e.description.trim() }),
+    props: [prop("evidence-kind", e.kind), prop("collected", e.collectedAt.toISOString()), ...(expiry ? [prop("expires", expiry.toISOString())] : [])],
+    ...(href && {
+      rlinks: [
+        {
+          href,
+          ...(file && { "media-type": file.contentType }),
+          ...(file?.sha256 && { hashes: [{ algorithm: "SHA-256", value: file.sha256 }] }),
+        },
+      ],
+    }),
+  };
 }
 
 /** The Provider's half of an Offering as an OSCAL state: satisfied is implemented; a Fulfilled half that is pending (Provider not Onboarded, Control no longer applies) is only planned. */
@@ -318,6 +361,7 @@ export function buildOscalPackage(snapshot: OscalSnapshot, now: Date, newUuid: (
       byComponents.push(ownPart([]));
     }
 
+    const evidence = assessment?.evidenceItems ?? [];
     return {
       uuid: oscalUuid("ImplementedRequirement", system.id, c.id),
       "control-id": controlId(c.code),
@@ -326,6 +370,7 @@ export function buildOscalPackage(snapshot: OscalSnapshot, now: Date, newUuid: (
         prop("effective-source", decided.kind === "ORGANIZATION_DIRECT" ? "ORGANIZATION" : decided.kind),
         ...(effective.overridesInherited ? [prop("overrides-inherited", "true")] : []),
       ],
+      ...(evidence.length > 0 && { links: evidence.map((e) => ({ href: `#${oscalUuid("Evidence", e.id)}`, rel: "evidence" })) }),
       "by-components": byComponents,
     };
   }
@@ -375,6 +420,11 @@ export function buildOscalPackage(snapshot: OscalSnapshot, now: Date, newUuid: (
           },
         ];
 
+  // One resource per Evidence record of an applicable Control's Assessment, in Control order then collected date (a stable order).
+  const evidenceResources = applicable.flatMap((c) =>
+    (assessmentByControl.get(c.id)?.evidenceItems ?? []).map((e) => evidenceResource(system.id, e, c.evidenceValidityMonths ?? null)),
+  );
+
   const ssp = {
     "system-security-plan": {
       uuid: newUuid(),
@@ -398,6 +448,7 @@ export function buildOscalPackage(snapshot: OscalSnapshot, now: Date, newUuid: (
         description: `Controls of the System's OSCAL Profile, with the effective status of each (after inheritance from the Organization and Providers).`,
         "implemented-requirements": applicable.map((c) => implementedRequirement(c)),
       },
+      ...(evidenceResources.length > 0 && { "back-matter": { resources: evidenceResources } }),
     },
   };
 
@@ -425,9 +476,30 @@ export async function loadOscalPackage(systemId: string, user: { id: string; rol
     if (row.status === "REJECTED" || row.status === "NOT_SELECTED" || row.evaluationClosedAt) return { closed: row.status };
 
     const classification = withEffectiveScope(row);
-    const controls = await tx.control.findMany({ select: { id: true, code: true, title: true, description: true, applicability: true }, orderBy: { code: "asc" } });
+    const controls = await tx.control.findMany({ select: { id: true, code: true, title: true, description: true, applicability: true, evidenceValidityMonths: true }, orderBy: { code: "asc" } });
     const applicable = await getApplicableControls(classification, {}, tx);
-    const assessmentRows = await tx.controlAssessment.findMany({ where: { systemId: row.id }, select: { id: true, controlId: true, status: true, notes: true, evidence: true, assessedById: true } });
+    const assessmentRows = await tx.controlAssessment.findMany({ where: { systemId: row.id }, select: {
+        id: true,
+        controlId: true,
+        status: true,
+        notes: true,
+        evidence: true,
+        assessedById: true,
+        evidenceItems: {
+          select: {
+            id: true,
+            kind: true,
+            url: true,
+            title: true,
+            description: true,
+            collectedAt: true,
+            expiresAt: true,
+            systemDocument: { select: { documentRequirementId: true, link: true, file: { select: { fileName: true, contentType: true, sha256: true } } } },
+          },
+          orderBy: [{ collectedAt: "asc" }, { id: "asc" }],
+        },
+      },
+    });
 
     // The inheritance inputs, read the way the System page reads them (same loaders, same `tx`); sequential, a transaction has one connection.
     const bothIds = applicable.filter((c) => c.applicability === "BOTH").map((c) => c.id);
@@ -463,7 +535,7 @@ export async function loadOscalPackage(systemId: string, user: { id: string; rol
       },
       controls,
       applicableControlIds: applicable.map((c) => c.id),
-      assessments: assessmentRows.map(({ assessedById, ...a }) => ({ ...a, personSet: assessedById !== null })),
+      assessments: assessmentRows.map(({ assessedById, evidenceItems, ...a }) => ({ ...a, evidenceItems: evidenceItems.map(({ systemDocument, ...e }) => ({ ...e, document: systemDocument })), personSet: assessedById !== null })),
       organizationImplementations: [...organizationStatuses].map(([id, status]) => ({ controlId: id, status, description: organizationDescriptions.get(id) ?? null })),
       providers: dependencies.map((d) => ({ id: d.provider.id, name: d.provider.name, onboarded: d.provider.status === "ONBOARDED" })),
       providerSources: [...(providerSources ?? [])].flatMap(([id, sources]) => sources.map((source) => ({ controlId: id, source }))),

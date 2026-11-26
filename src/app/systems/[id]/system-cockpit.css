@@ -377,3 +377,10 @@
 .sc-risk-owner .sc-field { margin-left: 24px; }
 fieldset.sc-field { border: 0; padding: 0; margin: 0; min-width: 0; }
 .sc-risks > .hc-empty { grid-column: 1 / -1; }
+
+/* Evidence records in the Control drawer, and the stale-evidence badge on a Control row (#455). */
+.sc-evlist { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.sc-evitem { display: grid; gap: 2px; border: 1px solid var(--hc-line-soft); border-radius: 10px; padding: 8px 10px; }
+.sc-evmain { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; overflow-wrap: anywhere; }
+.sc-evitem .hc-btn { justify-self: start; }
+.sc-stalebadge { display: inline-flex; margin-left: 8px; font-size: 0.74rem; font-weight: 700; color: var(--rg-gold-ink, var(--rg-ink)); background: var(--rg-gold-soft, var(--hc-raised)); padding: 1px 7px; border-radius: 99px; white-space: nowrap; }

@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const reply = (ok: boolean, status: number, body: unknown) => ({ ok, status, json: async () => body });
 import { ControlEditor } from "../ControlEditor";
 import type { ControlEditView } from "../control-edit-data";
-import { draftOf, draftProblems, editBody, exampleLines } from "../control-edit-logic";
+import { draftOf, draftProblems, editBody, exampleLines, parseValidityMonths } from "../control-edit-logic";
 
 const router = vi.hoisted(() => ({ push: vi.fn(), refresh: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
@@ -27,6 +27,7 @@ function view(over: Partial<ControlEditView["control"]> = {}): ControlEditView {
       minIntegrityImpactLevel: null,
       minAvailabilityImpactLevel: "HIGH",
       ownerId: "u9",
+      evidenceValidityMonths: null,
       ownerName: "Gone Owner",
       ...over,
     },
@@ -61,6 +62,25 @@ describe("control-edit-logic (#314)", () => {
     const none = view({ question: null }).control;
     expect(draftProblems(none, draftOf(none))).toEqual([]);
     expect(exampleLines("a\n\n b ")).toEqual(["a", "b"]);
+  });
+
+  it("parses the evidence validity period: empty is none, 1..600 whole months, anything else is invalid (#455)", () => {
+    expect(parseValidityMonths("")).toBeNull();
+    expect(parseValidityMonths(" 12 ")).toBe(12);
+    expect(parseValidityMonths("600")).toBe(600);
+    for (const bad of ["0", "601", "-1", "1.5", "abc", "12 months"]) expect(parseValidityMonths(bad)).toBeNaN();
+  });
+
+  it("sends the validity period only when it changed, null to clear it, and never for an invalid or Organizational one (#455)", () => {
+    const v = view().control;
+    expect(editBody(v, { ...draftOf(v), evidenceValidityMonths: "12" })).toEqual({ evidenceValidityMonths: 12 });
+    const has = view({ evidenceValidityMonths: 12 }).control;
+    expect(editBody(has, draftOf(has))).toEqual({});
+    expect(editBody(has, { ...draftOf(has), evidenceValidityMonths: "" })).toEqual({ evidenceValidityMonths: null });
+    expect(editBody(v, { ...draftOf(v), evidenceValidityMonths: "0" })).toEqual({});
+    expect(draftProblems(v, { ...draftOf(v), evidenceValidityMonths: "0" })).toEqual(["Evidence validity must be a whole number of months from 1 to 600, or empty."]);
+    const org = view({ applicability: "ORGANIZATIONAL", question: null }).control;
+    expect(editBody(org, { ...draftOf(org), evidenceValidityMonths: "6" })).toEqual({});
   });
 });
 
@@ -119,6 +139,19 @@ describe("ControlEditor (#314)", () => {
     expect(screen.queryByRole("group", { name: /Deployment Facets/ })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "ISO/IEC 27001:2022" })).toHaveAttribute("href", "/frameworks/fw1/edit");
     expect(screen.getByRole("link", { name: "Cancel" })).toHaveAttribute("href", "/controls/A.5.3");
+  });
+
+  it("sends the evidence validity period typed, and offers it for a Per-System Control only (#455)", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(reply(true, 200, { control: {} }));
+    vi.stubGlobal("fetch", fetchMock);
+    const { unmount } = render(<ControlEditor view={view()} returnTab={null} />);
+    fireEvent.change(screen.getByLabelText("Evidence validity (months)"), { target: { value: "18" } });
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ evidenceValidityMonths: 18 });
+    unmount();
+    render(<ControlEditor view={view({ applicability: "ORGANIZATIONAL", question: null })} returnTab={null} />);
+    expect(screen.queryByLabelText("Evidence validity (months)")).not.toBeInTheDocument();
   });
 
   it("blocks a Save with an empty title and says why", async () => {

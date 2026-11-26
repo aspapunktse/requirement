@@ -24,6 +24,7 @@ export type ControlEditView = {
     minSensitivityLevel: number | null;
     minIntegrityImpactLevel: ImpactLevel | null;
     minAvailabilityImpactLevel: ImpactLevel | null;
+    evidenceValidityMonths: number | null;
     ownerId: string | null;
     ownerName: string | null;
   };
@@ -61,6 +62,7 @@ export async function loadControlEditView(code: string): Promise<ControlEditView
           minSensitivityLevel: true,
           minIntegrityImpactLevel: true,
           minAvailabilityImpactLevel: true,
+          evidenceValidityMonths: true,
           owner: { select: { id: true, name: true } },
         },
       });
@@ -91,6 +93,7 @@ export async function loadControlEditView(code: string): Promise<ControlEditView
           minSensitivityLevel: control.minSensitivityLevel,
           minIntegrityImpactLevel: control.minIntegrityImpactLevel,
           minAvailabilityImpactLevel: control.minAvailabilityImpactLevel,
+          evidenceValidityMonths: control.evidenceValidityMonths,
           ownerId: control.owner?.id ?? null,
           ownerName: control.owner?.name ?? null,
         },

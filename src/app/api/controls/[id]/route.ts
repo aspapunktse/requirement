@@ -9,6 +9,7 @@ import { redactDraftOrigin } from "@/lib/frameworks";
 import { loadControlFor } from "@/lib/control-library";
 import { isScopedOrganizationalControl, ORGANIZATIONAL_SCOPING_ERROR } from "@/lib/control-schema";
 import { sensitivityLevelSchema } from "@/lib/sensitivity-level";
+import { MAX_EVIDENCE_VALIDITY_MONTHS } from "@/lib/evidence";
 import { finishRecompute, prepareRecompute, scopeForControl } from "@/lib/applicability-recompute";
 
 const impactLevelSchema = z.nativeEnum(ImpactLevel).nullable();
@@ -40,6 +41,8 @@ const updateControlSchema = z
     minAvailabilityImpactLevel: impactLevelSchema.optional(),
     // The Control Owner: a User id, or null to clear it. Any User qualifies, whatever their role.
     ownerId: z.string().min(1).nullable().optional(),
+    // Months evidence on the Control stays valid after it is collected; null = it doesn't expire (#455).
+    evidenceValidityMonths: z.number().int().min(1).max(MAX_EVIDENCE_VALIDITY_MONTHS).nullable().optional(),
   })
   .refine((data) => Object.values(data).some((value) => value !== undefined), {
     message: "Provide at least one field to update",
@@ -54,7 +57,7 @@ const sameIds = (a: string[], b: string[]) => new Set(a).size === new Set(b).siz
  * present in the body) every System that has in scope a Published Framework the Control is mapped
  * to is recomputed for this Control (F-AP.3, #87): Not Started Assessments appear where it now
  * applies, untouched ones go where it no longer does, touched ones are kept as stale.
- * `mandatory`, the Control Owner and text edits don't change applicability, so they
+ * `mandatory`, the evidence validity period (#455; it moves when existing evidence reads as stale, never any stored row), the Control Owner and text edits don't change applicability, so they
  * recompute nothing. Assigning or clearing the Control Owner (F-CL.3, #119) is catalog curation, so
  * it writes no Change Event (F-CE.1); an unknown User id is a 400 and changes nothing.
  */
@@ -89,6 +92,7 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/contro
     minIntegrityImpactLevel,
     minAvailabilityImpactLevel,
     ownerId,
+    evidenceValidityMonths,
   } = parsed.data;
   if (ownerId) {
     const owner = await prisma.user.findUnique({ where: { id: ownerId }, select: { id: true, role: true } });
@@ -138,6 +142,7 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/contro
         ...(minIntegrityImpactLevel !== undefined && { minIntegrityImpactLevel }),
         ...(minAvailabilityImpactLevel !== undefined && { minAvailabilityImpactLevel }),
         ...(ownerId !== undefined && { ownerId }),
+        ...(evidenceValidityMonths !== undefined && { evidenceValidityMonths }),
       },
       select: { id: true },
     });

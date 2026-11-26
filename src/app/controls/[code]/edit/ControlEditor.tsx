@@ -160,6 +160,18 @@ export function ControlEditor({ view, returnTab }: { view: ControlEditView; retu
               <small>Ways to satisfy the Control, one per line (optional).</small>
             </div>
 
+            <div className="cp-field">
+              <label htmlFor={`${id}-validity`}>Evidence validity (months)</label>
+              <input
+                id={`${id}-validity`}
+                className="cp-input"
+                inputMode="numeric"
+                value={draft.evidenceValidityMonths}
+                onChange={(event) => change({ evidenceValidityMonths: event.target.value })}
+              />
+              <small>How long evidence on this Control stays valid after it is collected, for example 12. Empty means evidence doesn&apos;t expire.</small>
+            </div>
+
             <fieldset className="cp-fieldset">
               <legend>Deployment Facets (none selected = all)</legend>
               <div className="cp-checks">

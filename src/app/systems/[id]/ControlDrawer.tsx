@@ -17,6 +17,8 @@ import {
 import { SensitivityChip } from "@/components/SensitivityChip";
 import type { SensitivityLevelInfo } from "@/lib/sensitivity-level";
 import { ControlQueries } from "./ControlQueries";
+import { EvidenceSection } from "./EvidenceSection";
+import type { EvidenceItemView } from "@/lib/evidence";
 import {
   rowSourceKey,
   rowSourceLabel,
@@ -318,6 +320,7 @@ export function ControlDrawer({
   sensitivityLevels,
   onClose,
   onSaved,
+  onEvidenceChanged,
   onQueriesChanged,
   onReset,
   onRemoved,
@@ -335,6 +338,8 @@ export function ControlDrawer({
   sensitivityLevels: SensitivityLevelInfo[];
   onClose: () => void;
   onSaved: (assessment: NonNullable<Assessment>) => void;
+  /** Called with the Assessment's Evidence records after one was added or removed (and the Assessment's id when adding created it). */
+  onEvidenceChanged: (items: EvidenceItemView[], assessmentId: string | null) => void;
   onQueriesChanged: (queries: AssessmentQuery[]) => void;
   /** Called with the server's row once the Assessment was reset to inherited (applicable rows only). */
   onReset: (row: AssessmentRowApi) => void;
@@ -361,9 +366,12 @@ export function ControlDrawer({
 
   // Reset the form when the Assessment changes (a save, a reload). Done during render, not in an effect: an
   // effect also ran once after mount and could overwrite a status the user had already picked.
-  const [syncedAssessment, setSyncedAssessment] = useState(assessment);
-  if (assessment !== syncedAssessment) {
-    setSyncedAssessment(assessment);
+  // Keyed by the values the form shows, so adding or removing Evidence (which replaces the Assessment object) doesn't wipe an unsaved edit.
+  const formKey = JSON.stringify([assessment?.status ?? "NOT_STARTED", assessment?.evidence ?? "", assessment?.notes ?? ""]);
+  // (With the form's own defaults, so the stub Assessment the first Evidence record creates looks the same as none at all.)
+  const [syncedAssessment, setSyncedAssessment] = useState(formKey);
+  if (formKey !== syncedAssessment) {
+    setSyncedAssessment(formKey);
     setStatus(assessment?.status ?? "NOT_STARTED");
     setEvidence(assessment?.evidence ?? "");
     setNotes(assessment?.notes ?? "");
@@ -531,7 +539,7 @@ export function ControlDrawer({
               <dl className="sc-readonly">
                 {assessment?.evidence && (
                   <div>
-                    <dt>Evidence</dt>
+                    <dt>Evidence note</dt>
                     <dd>{assessment.evidence}</dd>
                   </div>
                 )}
@@ -581,7 +589,7 @@ export function ControlDrawer({
 
               {!waiveOnly && (
                 <label className="sc-field">
-                  <span>Evidence (optional)</span>
+                  <span>Evidence note (optional)</span>
                   <input
                     aria-label={`Evidence for ${control.code}`}
                     value={evidence}
@@ -624,6 +632,16 @@ export function ControlDrawer({
             </form>
           )}
           {!canEdit && lastSetBy && <p className="sc-faint">{lastSetBy}</p>}
+
+          <EvidenceSection
+            systemId={systemId}
+            controlId={control.id}
+            controlCode={control.code}
+            validityMonths={control.evidenceValidityMonths ?? null}
+            items={assessment?.evidenceItems ?? []}
+            canEdit={!readOnly && editAccess === "full"}
+            onChange={onEvidenceChanged}
+          />
 
           {!stale && canEdit && (
             <SelfAssessmentQuestion
