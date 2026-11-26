@@ -132,6 +132,8 @@ export async function createCheckUpScenario(
       await prisma.risk.deleteMany({ where: { OR: [{ checkUp: { internalAuditId: { in: ids } } }, { system: { name: { endsWith: suffix } } }] } });
       await prisma.checkUp.deleteMany({ where: { internalAuditId: { in: ids } } });
       await prisma.internalAudit.deleteMany({ where: { id: { in: ids } } });
+      // Closing the audit through its route makes OSCAL Releases (#454); their System foreign key is Restrict.
+      await prisma.oscalRelease.deleteMany({ where: { system: { name: { endsWith: suffix } } } });
       await prisma.system.deleteMany({ where: { name: { endsWith: suffix } } });
       await prisma.control.deleteMany({ where: { code: { endsWith: suffix } } });
       await prisma.user.deleteMany({ where: { email: { startsWith: `test-${tag}-`, endsWith: `${suffix}@example.com` } } });

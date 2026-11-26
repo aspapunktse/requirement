@@ -34,18 +34,21 @@ import {
 } from "@/lib/effective-status";
 import { loadOrganizationStatuses, loadProviderSources, toOwnAssessment } from "@/lib/effective-status-data";
 import { DATA_LOCATION_LABELS } from "@/lib/vendor-detail-labels";
-import { controlId, documentId, oscalUuid, type DocumentKind } from "@/lib/oscal/ids";
+import { controlId, documentId, OSCAL_APP_NS, oscalUuid, type DocumentKind } from "@/lib/oscal/ids";
 import { effectiveExpiry, noteHasTextBeyondUrls } from "@/lib/evidence";
+import { buildAssessmentDocuments, type AuditPerson, type OscalAuditSnapshot, type OscalRisk } from "@/lib/oscal/assessment-builder";
+import { safeHttpUrl } from "@/lib/check-up-response-rules";
 import appPackage from "../../../package.json";
+
+export type { OscalAuditSnapshot } from "@/lib/oscal/assessment-builder";
 
 export const OSCAL_VERSION = "1.2.3";
 /**
  * Where the documents sit in the zip, and what they call each other (relative, no `./`). The validator's in-package href
  * convention (`PACKAGE_FILES` in validate.ts) is the same; it is not imported here because it pulls in ajv, a dev dependency.
  */
-export const PACKAGE_FILES = { catalog: "catalog.json", profile: "profile.json", ssp: "ssp.json" } as const;
-/** The URI the app's own props and its system identifier type live under. Chosen by the product owner (#452); never change it. */
-export const OSCAL_APP_NS = "https://github.com/aspapunktse/requirement/ns/oscal";
+export const PACKAGE_FILES = { catalog: "catalog.json", profile: "profile.json", ssp: "ssp.json", assessmentPlan: "assessment-plan.json", assessmentResults: "assessment-results.json" } as const;
+export { OSCAL_APP_NS };
 /** The `scheme` of the app's `metadata.document-ids`: a URI under the app namespace. */
 export const DOCUMENT_ID_SCHEME = `${OSCAL_APP_NS}/document-id`;
 /** `metadata.version` of a document that is not a stored release (an on-demand download). The app's own version is the `exporter-version` prop, never this. */
@@ -139,9 +142,11 @@ export type OscalSnapshot = {
   providerSources: { controlId: string; source: ProviderSource }[];
   /** The Risks auto-opened from a Control Assessment of the System (`Risk.controlAssessmentId` set). */
   assessmentRisks: { id: string; controlAssessmentId: string; createdAt: Date }[];
+  /** The System's most recent closed Internal Audit (or the one a release names) with its Check-ups (#454); absent when it has none, and then the package has no Assessment Plan or Assessment Results. */
+  audit?: OscalAuditSnapshot;
 };
 
-/** The three documents, as plain objects. */
+/** The documents, as plain objects: the Catalog, Profile and SSP, plus an Assessment Plan and Assessment Results when the snapshot has a closed Internal Audit (#454). */
 export type OscalPackage = ReturnType<typeof buildOscalPackage>;
 
 export type OscalPackageResult =
@@ -273,6 +278,8 @@ export function buildOscalPackage(snapshot: OscalSnapshot, now: Date, newUuid: (
   const providerSourcesByControl = new Map<string, ProviderSource[]>();
   for (const { controlId: id, source } of snapshot.providerSources) providerSourcesByControl.set(id, [...(providerSourcesByControl.get(id) ?? []), source]);
   const providers = [...snapshot.providers].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  /** The Risks the SSP cites for Waived Controls: the Assessment Results must be able to resolve each (#454). */
+  const referencedRiskIds = new Set<string>();
   const components = [
     { uuid: systemUuid, type: "this-system", title: system.name, description: system.description?.trim() || system.name, status: { state } },
     {
@@ -316,6 +323,7 @@ export function buildOscalPackage(snapshot: OscalSnapshot, now: Date, newUuid: (
       const responsibilities = shared.map((s) => s.customerResponsibility?.trim()).filter(Boolean);
       const fallback = responsibilities.length > 0 ? `Customer responsibility: ${responsibilities.join(" ")}` : null;
       const risk = effective.status === "WAIVED" && assessment ? riskOfAssessment(snapshot.assessmentRisks, assessment.id) : undefined;
+      if (risk) referencedRiskIds.add(risk);
       const remarks = ownStatus === "NOT_APPLICABLE" && assessment?.notes?.trim() ? assessment.notes.trim() : undefined;
       return entry(
         c,
@@ -452,7 +460,19 @@ export function buildOscalPackage(snapshot: OscalSnapshot, now: Date, newUuid: (
     },
   };
 
-  return { catalog, profile, ssp };
+  if (!snapshot.audit) return { catalog, profile, ssp };
+  const documents = buildAssessmentDocuments({
+    audit: snapshot.audit,
+    system: { id: system.id, name: system.name, owner: system.owner },
+    controls: byId,
+    applicableControlIds: new Set(snapshot.applicableControlIds),
+    referencedRiskIds,
+    exporter: exporter as AuditPerson[],
+    newUuid,
+    // These documents are new with this audit, so they list no earlier release as a revision.
+    metadata: (title, kind, subjectId, people) => metadata(title, now, people as Person[], kind, subjectId, release && { ...release, previous: [] }),
+  });
+  return { catalog, profile, ssp, ...documents };
 }
 
 /**
@@ -472,7 +492,7 @@ export async function loadOscalPackage(systemId: string, user: { id: string; rol
  * the reads agree). `null` when the System doesn't exist or `user` may not see it; `{ closed }` for a Rejected or Not selected
  * one. `skipVisibility` is for a caller that has already decided who may act (a release, #453). Shared by the live download and by `createOscalRelease` (#453), so a release is built from exactly what the page shows.
  */
-export async function loadOscalSnapshot(tx: Prisma.TransactionClient, systemId: string, user: { id: string; role: UserRole }, options: { skipVisibility?: boolean } = {}): Promise<OscalSnapshot | { closed: OnboardingStatus } | null> {
+export async function loadOscalSnapshot(tx: Prisma.TransactionClient, systemId: string, user: { id: string; role: UserRole }, options: { skipVisibility?: boolean; internalAuditId?: string | null } = {}): Promise<OscalSnapshot | { closed: OnboardingStatus } | null> {
   {
     const where = options.skipVisibility ? {} : await visibleSystemsWhere(user, tx);
     const row = await tx.system.findFirst({
@@ -531,7 +551,9 @@ export async function loadOscalSnapshot(tx: Prisma.TransactionClient, systemId: 
       orderBy: [{ createdAt: "asc" }, { id: "asc" }],
     });
     const exportedBy = await tx.user.findUnique({ where: { id: user.id }, select: { id: true, name: true } });
+    const audit = await loadAuditSnapshot(tx, row.id, options.internalAuditId ?? undefined);
     return {
+      ...(audit && { audit }),
       exportedBy,
       system: {
         id: row.id,
@@ -555,4 +577,75 @@ export async function loadOscalSnapshot(tx: Prisma.TransactionClient, systemId: 
       assessmentRisks: risks.flatMap((r) => (r.controlAssessmentId === null ? [] : [{ id: r.id, controlAssessmentId: r.controlAssessmentId, createdAt: r.createdAt }])),
     };
   }
+}
+
+
+/**
+ * The System's closed Internal Audit for the assessment documents (#454): the one named by `internalAuditId` (an audit-close release),
+ * else the most recently closed one that has a Check-up on the System. `undefined` when there is none, or when the named audit
+ * is not closed or has no Check-up on the System. Read on `tx`, in the caller's snapshot.
+ */
+async function loadAuditSnapshot(tx: Prisma.TransactionClient, systemId: string, internalAuditId?: string): Promise<OscalAuditSnapshot | undefined> {
+  const audit = await tx.internalAudit.findFirst({
+    where: { status: "CLOSED", closedAt: { not: null }, checkUps: { some: { systemId } }, ...(internalAuditId && { id: internalAuditId }) },
+    orderBy: [{ closedAt: "desc" }, { id: "desc" }],
+    select: {
+      id: true,
+      title: true,
+      scopeDescription: true,
+      dueDate: true,
+      launchedAt: true,
+      closedAt: true,
+      checkUps: {
+        where: { systemId },
+        orderBy: { id: "asc" },
+        select: {
+          id: true,
+          controlId: true,
+          questions: { select: { id: true, position: true, text: true, guidance: true }, orderBy: { position: "asc" } },
+          response: {
+            select: {
+              respondedAt: true,
+              evidenceLinks: true,
+              respondedBy: { select: { id: true, name: true } },
+              answers: { select: { questionId: true, answer: true, description: true } },
+            },
+          },
+          evaluation: { select: { outcome: true, comment: true, evaluatedAt: true, evaluatedBy: { select: { id: true, name: true } } } },
+          withdrawal: { select: { reason: true, withdrawnAt: true, withdrawnBy: { select: { id: true, name: true } } } },
+        },
+      },
+    },
+  });
+  if (!audit || !audit.closedAt) return undefined;
+  const closedAt = audit.closedAt;
+  const checkUpIds = audit.checkUps.map((c) => c.id);
+  const risks: OscalRisk[] = await tx.risk.findMany({
+    where: { systemId, OR: [{ checkUpId: { in: checkUpIds } }, { controlAssessmentId: { not: null } }] },
+    select: { id: true, title: true, description: true, severity: true, likelihood: true, status: true, source: true, mitigationPlan: true, checkUpId: true },
+    orderBy: { id: "asc" },
+  });
+  const answers = await tx.controlAssessment.findMany({
+    where: { systemId, selfAssessmentAnswer: { not: null }, assessedAt: { lte: closedAt } },
+    select: { id: true, controlId: true, selfAssessmentAnswer: true, assessedAt: true, assessedBy: { select: { id: true, name: true } }, control: { select: { question: true } } },
+    orderBy: { id: "asc" },
+  });
+  return {
+    id: audit.id,
+    title: audit.title,
+    scopeDescription: audit.scopeDescription,
+    dueDate: audit.dueDate,
+    launchedAt: audit.launchedAt ?? closedAt,
+    closedAt,
+    checkUps: audit.checkUps.map((c) => ({
+      ...c,
+      response: c.response && { ...c.response, evidenceLinks: c.response.evidenceLinks.flatMap((link) => safeHttpUrl(link) ?? []) },
+    })),
+    risks,
+    selfAssessments: answers.flatMap((a) =>
+      a.selfAssessmentAnswer === null || a.assessedAt === null
+        ? []
+        : [{ assessmentId: a.id, controlId: a.controlId, answer: a.selfAssessmentAnswer, assessedAt: a.assessedAt, assessedBy: a.assessedBy, question: a.control.question }],
+    ),
+  };
 }

@@ -4,16 +4,17 @@ import { PACKAGE_FILES, type OscalPackage } from "@/lib/oscal/package-builder";
 /** A JSON document as the bytes the package carries: two-space indent and a trailing newline. */
 export const jsonBytes = (doc: unknown): Uint8Array => strToU8(JSON.stringify(doc, null, 2) + "\n");
 
-/** The three documents of a package as files by name, in the order the zip lists them. */
+/** The documents of a package as files by name, in the order the zip lists them: the three always, then the Assessment Plan and Assessment Results when the System has a closed Internal Audit (#454). */
 export function packageFileBytes(pkg: OscalPackage): Record<string, Uint8Array> {
   return {
     [PACKAGE_FILES.catalog]: jsonBytes(pkg.catalog),
     [PACKAGE_FILES.profile]: jsonBytes(pkg.profile),
     [PACKAGE_FILES.ssp]: jsonBytes(pkg.ssp),
+    ...("assessmentPlan" in pkg && { [PACKAGE_FILES.assessmentPlan]: jsonBytes(pkg.assessmentPlan), [PACKAGE_FILES.assessmentResults]: jsonBytes(pkg.assessmentResults) }),
   };
 }
 
-/** A zip of `files`. A release adds `manifest.json` to the three documents, so the live download and a release share this. */
+/** A zip of `files`. A release adds `manifest.json` to the documents, so the live download and a release share this. */
 export function zipFiles(files: Record<string, Uint8Array>): Uint8Array {
   return zipSync(files);
 }
