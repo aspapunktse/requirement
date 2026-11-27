@@ -181,4 +181,30 @@ describe("status history (#456)", { timeout: 60_000 }, () => {
     const last = assessmentRows.at(-1);
     expect([last?.fromStatus, last?.toStatus, last?.actorId, last?.controlId]).toEqual(["FULFILLED", "IN_PROGRESS", auditor, control.id]);
   });
+  it("concurrent PATCHes of one Risk leave a history that ends at its final status, with no consecutive duplicate", async () => {
+    for (const make of [
+      async () => {
+        const r = await postRisk(
+          requestAs(`/api/systems/${s.systemId}/risks`, s.roleUser.RISK_OWNER, "POST", { title: `Test 456b race ${s.suffix}`, description: "d", severity: "LOW", likelihood: "LOW" }),
+          sysCtx(),
+        );
+        return (await r.json()).risk.id as string;
+      },
+    ]) {
+      for (let round = 0; round < 5; round++) {
+        const riskId = await make();
+        riskIds.push(riskId);
+        const patch = (body: unknown) => patchRisk(requestAs(`/api/systems/${s.systemId}/risks/${riskId}`, s.roleUser.RISK_OWNER, "PATCH", body), sysCtx({ riskId }));
+        const responses = await Promise.all([patch({ status: "ACCEPTED", mitigationPlan: "Accepted." }), patch({ status: "OPEN" })]);
+        expect(responses.map((r) => r.status)).toEqual([200, 200]);
+        const finalStatus = (await prisma.risk.findUniqueOrThrow({ where: { id: riskId } })).status;
+        const rows = await history("RISK", riskId);
+        expect(rows.at(-1)?.toStatus).toBe(finalStatus);
+        for (let i = 1; i < rows.length; i++) {
+          expect(rows[i]?.fromStatus).toBe(rows[i - 1]?.toStatus);
+          expect(rows[i]?.toStatus).not.toBe(rows[i]?.fromStatus);
+        }
+      }
+    }
+  });
 });

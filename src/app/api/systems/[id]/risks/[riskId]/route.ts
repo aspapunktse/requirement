@@ -68,6 +68,8 @@ export async function PATCH(
 
   // The change, its status history and its Change Event commit together (#456); the status it changes from is read inside.
   const result = await prisma.$transaction(async (tx) => {
+    // Serialise with a concurrent edit of this Risk: the status read below is the one this write changes from (ADR 0019).
+    await tx.$queryRaw`SELECT "id" FROM "Risk" WHERE "id" = ${riskId} FOR UPDATE`;
     const existing = await tx.risk.findFirst({ where: { id: riskId, systemId: system.id } });
     if (!existing) return { kind: "not-found" as const };
     if (ownerId && !(await tx.user.findUnique({ where: { id: ownerId }, select: { id: true } }))) return { kind: "bad-owner" as const };

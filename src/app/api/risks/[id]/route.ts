@@ -45,6 +45,8 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/risks/
   }
 
   const result = await prisma.$transaction(async (tx) => {
+    // Serialise with a concurrent edit of this Risk: the status read below is the one this write changes from (ADR 0019).
+    await tx.$queryRaw`SELECT "id" FROM "Risk" WHERE "id" = ${id} FOR UPDATE`;
     const existing = await tx.risk.findFirst({ where: { id, systemId: null } });
     if (!existing) return { kind: "not-found" as const };
     if (ownerId && !(await tx.user.findFirst({ where: { id: ownerId }, select: { id: true } }))) return { kind: "bad-owner" as const };
