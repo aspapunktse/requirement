@@ -178,4 +178,54 @@ describe("the OSCAL Package review page (#445)", () => {
     expect(screen.getAllByText("Not satisfied").length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Roles reviewed\./).length).toBeGreaterThan(0);
   });
+
+  it("has no POA&M section when the package has none, and lists items, deadline, milestones and the risk log when it has one (#456)", () => {
+    const { unmount } = render(<OscalPackageReview pkg={pkg} systemId="s1" appNs={NS} />);
+    expect(screen.queryByRole("heading", { name: "Plan of Action and Milestones" })).not.toBeInTheDocument();
+    expect(screen.getByText("No open or accepted Risk: no Plan of Action and Milestones")).toBeInTheDocument();
+    unmount();
+
+    const withPoam = {
+      ...pkg,
+      poam: {
+        "plan-of-action-and-milestones": {
+          metadata: { title: "Plan of Action and Milestones of Test Payroll", version: "unreleased", parties: [{ uuid: "p1", name: "Rita Risk" }] },
+          "import-ssp": { href: "ssp.json" },
+          risks: [
+            {
+              uuid: "k1",
+              status: "open",
+              props: [app("risk-status", "OPEN")],
+              deadline: "2027-03-31T23:59:59Z",
+              remediations: [
+                {
+                  lifecycle: "planned",
+                  tasks: [
+                    { title: "Order the patch", props: [app("milestone-status", "planned")], timing: { "on-date": { date: "2027-01-15T23:59:59Z" } } },
+                    { title: "Test the patch", props: [app("completed-date", "2027-02-10")], timing: { "on-date": { date: "2027-02-15T23:59:59Z" } } },
+                  ],
+                },
+              ],
+              "risk-log": {
+                entries: [
+                  { start: "2026-11-01T10:00:00.000Z", title: "Risk created as Open", "status-change": "open", "logged-by": [{ "party-uuid": "p1" }] },
+                  { start: "2026-11-02T10:00:00.000Z", title: "Status changed from Open to Accepted", "status-change": "deviation-approved" },
+                ],
+              },
+            },
+          ],
+          "poam-items": [{ uuid: "i1", title: "Unpatched server", description: "Found wanting", "related-risks": [{ "risk-uuid": "k1" }] }],
+        },
+      },
+    } as unknown as OscalPackage;
+    render(<OscalPackageReview pkg={withPoam} systemId="s1" appNs={NS} />);
+    expect(screen.getByRole("heading", { name: "Plan of Action and Milestones" })).toBeInTheDocument();
+    expect(screen.getByText("1 item (open and accepted Risks)")).toBeInTheDocument();
+    expect(screen.getByText(/deadline 2027-03-31/)).toBeInTheDocument();
+    expect(screen.getByText(/Order the patch: planned 2027-01-15, not completed/)).toBeInTheDocument();
+    expect(screen.getByText(/Test the patch: planned 2027-02-15, completed 2027-02-10/)).toBeInTheDocument();
+    const log = screen.getByRole("list", { name: "Status history of Unpatched server" });
+    expect(within(log).getAllByRole("listitem")).toHaveLength(2);
+    expect(within(log).getByText(/Risk created as Open \(by Rita Risk\)/)).toBeInTheDocument();
+  });
 });

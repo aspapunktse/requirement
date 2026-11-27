@@ -7,6 +7,8 @@ import { getVisibleSystem } from "@/lib/system-visibility";
 import { canAssignRiskOwner, ROLES_ALLOWED_TO_ASSIGN_RISK_OWNER, ROLES_ALLOWED_TO_MANAGE_RISK_STATUS, RISK_INCLUDE } from "@/lib/risks";
 import { logChangeEvent } from "@/lib/change-events";
 import { refuseIfSystemClosed } from "@/lib/system-closed";
+import { recordRiskStatusChange } from "@/lib/status-history";
+import { calendarDate, toCalendarDate } from "@/lib/risk-remediation";
 
 const updateRiskSchema = z.object({
   /** Absent in an owner-only change (#360). Present: the combined status form, for the roles that manage status. */
@@ -14,6 +16,8 @@ const updateRiskSchema = z.object({
   mitigationPlan: z.string().nullable().optional(),
   /** Who acts on the Risk: any User, whatever their role (#322). Absent leaves it, null unassigns. */
   ownerId: z.string().min(1).nullable().optional(),
+  /** The date the Risk is to be dealt with by (#456), `YYYY-MM-DD`; null clears it. Needs the right to manage Risk status. */
+  deadline: calendarDate.nullable().optional(),
 });
 
 export async function PATCH(
@@ -38,7 +42,7 @@ export async function PATCH(
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid update" }, { status: 400 });
   }
-  const { status, mitigationPlan, ownerId } = parsed.data;
+  const { status, mitigationPlan, ownerId, deadline } = parsed.data;
 
   // Anything beyond the owner (any other field) needs the right to manage Risk status: a Risk Facilitator gets 403, nothing changed.
   const changesMoreThanOwner = typeof body === "object" && body !== null && Object.keys(body).some((key) => key !== "ownerId");
@@ -48,7 +52,7 @@ export async function PATCH(
   if (ownerId !== undefined && !canAssignRiskOwner(auth.user, system)) {
     return NextResponse.json({ error: "A Risk Facilitator can't assign a Risk's owner on a System they own" }, { status: 403 });
   }
-  if (status === undefined && ownerId === undefined) {
+  if (status === undefined && ownerId === undefined && deadline === undefined) {
     return NextResponse.json({ error: "Nothing to change" }, { status: 400 });
   }
   if (status === undefined && mitigationPlan !== undefined) {
@@ -62,30 +66,38 @@ export async function PATCH(
     );
   }
 
-  const existing = await prisma.risk.findFirst({ where: { id: riskId, systemId: system.id } });
-  if (!existing) {
-    return NextResponse.json({ error: "Risk not found" }, { status: 404 });
-  }
+  // The change, its status history and its Change Event commit together (#456); the status it changes from is read inside.
+  const result = await prisma.$transaction(async (tx) => {
+    // Serialise with a concurrent edit of this Risk: the status read below is the one this write changes from (ADR 0019).
+    await tx.$queryRaw`SELECT "id" FROM "Risk" WHERE "id" = ${riskId} FOR UPDATE`;
+    const existing = await tx.risk.findFirst({ where: { id: riskId, systemId: system.id } });
+    if (!existing) return { kind: "not-found" as const };
+    if (ownerId && !(await tx.user.findUnique({ where: { id: ownerId }, select: { id: true } }))) return { kind: "bad-owner" as const };
 
-  if (ownerId) {
-    const owner = await prisma.user.findUnique({ where: { id: ownerId }, select: { id: true } });
-    if (!owner) {
-      return NextResponse.json({ error: "The owner must be an existing User" }, { status: 400 });
+    const risk = await tx.risk.update({
+      where: { id: riskId },
+      data: {
+        ...(status !== undefined && { status, mitigationPlan }),
+        ...(ownerId !== undefined && { ownerId }),
+        ...(deadline !== undefined && { deadline: deadline === null ? null : toCalendarDate(deadline) }),
+      },
+      include: RISK_INCLUDE,
+    });
+    if (status !== undefined) {
+      await recordRiskStatusChange(tx, { riskId, systemId: system.id, from: existing.status, to: status, actorId: auth.user.id });
+      if (existing.status !== status) {
+        await logChangeEvent(
+          system.id,
+          "RISK_STATUS_CHANGED",
+          `Risk "${existing.title}" status changed from ${existing.status} to ${status}`,
+          auth.user.id,
+          tx,
+        );
+      }
     }
-  }
-
-  const risk = await prisma.risk.update({
-    where: { id: riskId },
-    data: { ...(status !== undefined && { status, mitigationPlan }), ...(ownerId !== undefined && { ownerId }) },
-    include: RISK_INCLUDE,
-  });
-  if (status !== undefined && existing.status !== status) {
-    await logChangeEvent(
-      system.id,
-      "RISK_STATUS_CHANGED",
-      `Risk "${existing.title}" status changed from ${existing.status} to ${status}`,
-      auth.user.id,
-    );
-  }
-  return NextResponse.json({ risk });
+    return { kind: "ok" as const, risk };
+  }, { timeout: 30_000, maxWait: 30_000 });
+  if (result.kind === "not-found") return NextResponse.json({ error: "Risk not found" }, { status: 404 });
+  if (result.kind === "bad-owner") return NextResponse.json({ error: "The owner must be an existing User" }, { status: 400 });
+  return NextResponse.json({ risk: result.risk });
 }

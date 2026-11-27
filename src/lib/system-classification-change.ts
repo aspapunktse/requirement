@@ -142,7 +142,7 @@ async function applyClassificationChange(
       changes.integrityImpactLevel === undefined &&
       changes.availabilityImpactLevel === undefined;
 
-    const { added, deleteOp, createOp } = diffApplicabilityOps(system.id, oldApplicable, newApplicable, tx);
+    const { added, deleteOp, createOp } = diffApplicabilityOps(system.id, oldApplicable, newApplicable, tx, actorId);
     await tx.system.update({
       where: { id: system.id },
       data: {

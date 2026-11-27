@@ -1,6 +1,7 @@
 import type { Prisma, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { logChangeEvent } from "@/lib/change-events";
+import { ensureAssessment } from "@/lib/status-history";
 import { isReadOnlySystemRole } from "@/lib/system-permissions";
 import { deciderVisibilityFor, memberGroupIds } from "@/lib/approvals";
 import {
@@ -275,11 +276,8 @@ export async function raiseQuery(
   body: string,
   attribution: QueryAttribution,
 ) {
-  const assessment = await prisma.controlAssessment.upsert({
-    where: { systemId_controlId: { systemId: system.id, controlId } },
-    create: { systemId: system.id, controlId },
-    update: {},
-  });
+  // The row (if this first touch creates it) and its creation record commit together (#456).
+  const assessment = await prisma.$transaction((tx) => ensureAssessment(tx, { systemId: system.id, controlId }, raisedById), { timeout: 30_000, maxWait: 30_000 });
 
   const query = await prisma.assessmentQuery.create({
     data: {

@@ -4,13 +4,14 @@ import { PACKAGE_FILES, type OscalPackage } from "@/lib/oscal/package-builder";
 /** A JSON document as the bytes the package carries: two-space indent and a trailing newline. */
 export const jsonBytes = (doc: unknown): Uint8Array => strToU8(JSON.stringify(doc, null, 2) + "\n");
 
-/** The documents of a package as files by name, in the order the zip lists them: the three always, then the Assessment Plan and Assessment Results when the System has a closed Internal Audit (#454). */
+/** The documents of a package as files by name, in the order the zip lists them: the three always, then the Assessment Plan and Assessment Results when the System has a closed Internal Audit (#454), then the POA&M when it has an open or accepted Risk (#456). */
 export function packageFileBytes(pkg: OscalPackage): Record<string, Uint8Array> {
   return {
     [PACKAGE_FILES.catalog]: jsonBytes(pkg.catalog),
     [PACKAGE_FILES.profile]: jsonBytes(pkg.profile),
     [PACKAGE_FILES.ssp]: jsonBytes(pkg.ssp),
-    ...("assessmentPlan" in pkg && { [PACKAGE_FILES.assessmentPlan]: jsonBytes(pkg.assessmentPlan), [PACKAGE_FILES.assessmentResults]: jsonBytes(pkg.assessmentResults) }),
+    ...(pkg.assessmentPlan !== undefined && { [PACKAGE_FILES.assessmentPlan]: jsonBytes(pkg.assessmentPlan), [PACKAGE_FILES.assessmentResults]: jsonBytes(pkg.assessmentResults) }),
+    ...(pkg.poam !== undefined && { [PACKAGE_FILES.poam]: jsonBytes(pkg.poam) }),
   };
 }
 

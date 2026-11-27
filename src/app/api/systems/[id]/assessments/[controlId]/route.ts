@@ -12,6 +12,7 @@ import { assessmentValuesChanged } from "@/lib/review-steps";
 import { loadEffectiveStatus, toOwnAssessment } from "@/lib/effective-status-data";
 import { describeOwnEditEffect } from "@/lib/effective-status";
 import { refuseIfSystemClosed } from "@/lib/system-closed";
+import { recordAssessmentStatusChange } from "@/lib/status-history";
 
 const updateAssessmentSchema = z.object({
   status: z.enum(ControlAssessmentStatus),
@@ -117,6 +118,7 @@ export async function PATCH(
       },
       include: { assessedBy: true },
     });
+    await recordAssessmentStatusChange(db, { assessmentId: saved.id, systemId: system.id, controlId, from: previous?.status ?? null, to: saved.status, actorId: auth.user.id });
     await reopenStepsAfterEdit(db, locked, system, control, auth.user, assessmentValuesChanged(previous, { status, evidence, notes }));
 
     if ((previous?.status ?? "NOT_STARTED") !== status) {

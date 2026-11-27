@@ -216,7 +216,7 @@ export async function finishScopeChange(
     return { added: 0, removed: 0, changed: false };
   }
   const newApplicable = await getApplicableControls(classification, {}, tx);
-  const { added, deleteOp, createOp } = diffApplicabilityOps(systemId, before.applicable, newApplicable, tx);
+  const { added, deleteOp, createOp } = diffApplicabilityOps(systemId, before.applicable, newApplicable, tx, actorId);
   const removed = (await deleteOp).count;
   await createOp;
   const changed = added > 0 || diffApplicability(before.applicable, newApplicable).noLongerApplicableIds.length > 0;

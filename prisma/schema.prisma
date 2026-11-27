@@ -156,6 +156,7 @@ model User {
   systemDocumentsUpdated             SystemDocument[]                    @relation("SystemDocumentUpdatedBy")
   systemDocumentFilesUploaded        SystemDocumentFile[]                @relation("SystemDocumentFileUploadedBy")
   oscalReleasesCreated               OscalRelease[]                      @relation("OscalReleaseCreatedBy")
+  statusChanges                      StatusChange[]                      @relation("StatusChangeActor")
   evidenceItemsCreated               EvidenceItem[]                      @relation("EvidenceItemCreatedBy")
   riskAnalysesRecorded               RiskAnalysis[]                      @relation("RiskAnalysisRecordedBy")
   riskAnalysesCompleted              RiskAnalysis[]                      @relation("RiskAnalysisCompletedBy")
@@ -343,6 +344,7 @@ model System {
   changeEvents         ChangeEvent[]
   // OSCAL Releases (#453). Restrict: a release is kept forever, so a System that has one can't be deleted.
   oscalReleases        OscalRelease[]
+  statusChanges        StatusChange[]
 
   @@index([businessSystemOwnerId])
   @@index([riskAnalysisLeadId])
@@ -858,23 +860,27 @@ enum RiskSource {
 // a Risk has a System or a Check-up, never neither (Prisma's schema language can't express it, and
 // `migrate diff` ignores check constraints).
 model Risk {
-  id             String       @id @default(cuid())
+  id             String          @id @default(cuid())
   // Where it came from (#322, PRD 0002 F-RA.1). Always set server-side by whatever creates the Risk,
   // never by the client. The default is the ad hoc case, so a creation path that forgets to say
   // lands as ad hoc rather than failing; every path in `src` sets it explicitly.
-  source         RiskSource   @default(AD_HOC)
+  source         RiskSource      @default(AD_HOC)
   systemId       String?
-  system         System?      @relation(fields: [systemId], references: [id], onDelete: Cascade)
+  system         System?         @relation(fields: [systemId], references: [id], onDelete: Cascade)
   title          String
   description    String
   severity       RiskSeverity
   likelihood     RiskSeverity
-  status         RiskStatus   @default(OPEN)
+  status         RiskStatus      @default(OPEN)
   mitigationPlan String?
+  // The date the Risk is to be dealt with by (#456); a calendar date, optional. It is the OSCAL POA&M's `deadline`.
+  deadline       DateTime?       @db.Date
+  // The planned steps of its remediation, each with a planned and, once done, a completed date (#456).
+  milestones     RiskMilestone[]
   ownerId        String?
-  owner          User?        @relation("RiskOwner", fields: [ownerId], references: [id])
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  owner          User?           @relation("RiskOwner", fields: [ownerId], references: [id])
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
 
   // Set when this Risk was auto-opened by a "No" answer to a Control's
   // Self-Assessment Question, rather than logged ad-hoc. Null for ad-hoc Risks.
@@ -896,6 +902,53 @@ model Risk {
   reviewedInAnalyses RiskAnalysis[] @relation("RiskAnalysisReviewed")
 
   @@index([raisedInAnalysisId])
+}
+
+// One planned step of a Risk's remediation (#456): what is to be done, the date it is planned for and, once done, the date it
+// was. Goes with its Risk. A completed milestone is a record that something was done, so the app refuses to delete it. It is
+// a `task` of type `milestone` in the OSCAL POA&M. Listed in planned-date order (then creation order).
+model RiskMilestone {
+  id            String    @id @default(cuid())
+  riskId        String
+  risk          Risk      @relation(fields: [riskId], references: [id], onDelete: Cascade)
+  title         String
+  plannedDate   DateTime  @db.Date
+  completedDate DateTime? @db.Date
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([riskId])
+}
+
+enum StatusChangeSubject {
+  RISK
+  CONTROL_ASSESSMENT
+}
+
+// The append-only history of status changes (#456, ADR 0019): one row each time a Risk's status or a Control Assessment's
+// stored status changes, written in the same transaction as the change (`src/lib/status-history.ts`). `fromStatus` is null for
+// the row that records the subject's creation; `toStatus` is the status after. Statuses are kept as text (the enum values at
+// that time), so history never depends on the enums. Nothing in the app updates or deletes a row, and there is no route for it.
+// The subject is a soft reference (`subjectId` is a Risk or Control Assessment id, with no foreign key) so that history
+// outlives the row it describes: recomputing applicability or removing a stale Assessment deletes the ControlAssessment,
+// and its history must stay. A Control Assessment's `controlId` is kept as well, because a recreated Assessment gets a new
+// id. `systemId` is null for an Organization Risk (which belongs to no System). `actorId` is null when the system made the
+// change, or when the User has since been removed (SetNull). Rows are removed only when their System is deleted (Cascade).
+model StatusChange {
+  id          String              @id @default(cuid())
+  systemId    String?
+  system      System?             @relation(fields: [systemId], references: [id], onDelete: Cascade)
+  subjectType StatusChangeSubject
+  subjectId   String
+  controlId   String?
+  fromStatus  String?
+  toStatus    String
+  actorId     String?
+  actor       User?               @relation("StatusChangeActor", fields: [actorId], references: [id], onDelete: SetNull)
+  changedAt   DateTime            @default(now())
+
+  @@index([subjectType, subjectId, changedAt])
+  @@index([systemId, subjectType])
 }
 
 // A Risk Analysis meeting on a System (#325, PRD 0002 F-RA.2-3; CONTEXT.md "Risk Analysis"). Recorded by a Risk Owner or an

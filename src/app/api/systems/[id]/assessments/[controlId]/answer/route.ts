@@ -13,6 +13,7 @@ import { assessmentValuesChanged } from "@/lib/review-steps";
 import { loadEffectiveStatus, toOwnAssessment } from "@/lib/effective-status-data";
 import { describeOwnEditEffect } from "@/lib/effective-status";
 import { refuseIfSystemClosed } from "@/lib/system-closed";
+import { recordAssessmentStatusChange, recordRiskStatusChange } from "@/lib/status-history";
 
 const answerSchema = z.object({
   answer: z.enum(SelfAssessmentAnswer),
@@ -117,6 +118,7 @@ export async function PATCH(
       },
       include: { assessedBy: true },
     });
+    await recordAssessmentStatusChange(db, { assessmentId: saved.id, systemId: system.id, controlId, from: previous?.status ?? null, to: saved.status, actorId: auth.user.id });
     await reopenStepsAfterEdit(
       db,
       locked,
@@ -143,7 +145,7 @@ export async function PATCH(
       const existingRisk = await db.risk.findFirst({ where: { controlAssessmentId: saved.id } });
       if (!existingRisk) {
         const title = `${control.code}: ${control.title}`;
-        await db.risk.create({
+        const openedRisk = await db.risk.create({
           data: {
             systemId: system.id,
             title,
@@ -154,6 +156,7 @@ export async function PATCH(
             source: "REQUIREMENT_NONCONFORMANCE",
           },
         });
+        await recordRiskStatusChange(db, { riskId: openedRisk.id, systemId: system.id, from: null, to: openedRisk.status, actorId: auth.user.id });
         await logAutoOpenedRisk(db, {
           systemId: system.id,
           title,

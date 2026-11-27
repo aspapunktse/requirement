@@ -30,7 +30,7 @@ async function reconcileSystem(tx: Prisma.TransactionClient, systemId: string, n
   });
   const classification = await readClassification(tx, systemId);
   const applicable = await getApplicableControls(classification, {}, tx);
-  const { deleteOp, createOp } = diffApplicabilityOps(systemId, before.applicable, applicable, tx);
+  const { deleteOp, createOp } = diffApplicabilityOps(systemId, before.applicable, applicable, tx, SYSTEM_ACTOR);
   const removed = (await deleteOp).count;
   const added = (await createOp).count;
   if (added === 0 && removed === 0) return { systemId, name, added, removed, changeReview: "none" };
